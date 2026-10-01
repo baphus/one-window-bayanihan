@@ -669,8 +669,17 @@ function ServiceAddDropdown({ referralId, selectedIds, serviceRequirements }) {
     );
 }
 
+const REJECTION_REASONS = [
+    { value: 'INCOMPLETE_REQUIREMENTS', label: 'Incomplete requirements' },
+    { value: 'OUTSIDE_MANDATE', label: 'Outside agency mandate' },
+    { value: 'DUPLICATE_REFERRAL', label: 'Duplicate referral' },
+    { value: 'CLIENT_WITHDREW', label: 'Client withdrew' },
+    { value: 'NO_SERVICE_CAPACITY', label: 'No service capacity' },
+    { value: 'OTHER', label: 'Other' },
+];
+
 export default function ReferralShow({ referral, serviceRequirements = [], overdueDays = 7, timeline = [], clientRequestHistory = [], clientRequestPermissions = {}, relatedReferrals = [] }) {
-    const { auth } = usePage().props;
+    const { auth, errors } = usePage().props;
     const isAgency = auth.user.role === 'AGENCY';
     const isCaseManager = auth.user.role === 'CASE_MANAGER';
     const isAdmin = auth.user.role === 'ADMIN';
@@ -805,10 +814,12 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
 
     const [pendingDecision, setPendingDecision] = useState(null);
     const [decisionRemark, setDecisionRemark] = useState('');
+    const [decisionReason, setDecisionReason] = useState('');
     const [decisionSubmitting, setDecisionSubmitting] = useState(false);
     const [showUpdateStatus, setShowUpdateStatus] = useState(false);
     const [updateStatusValue, setUpdateStatusValue] = useState('PROCESSING');
     const [updateStatusRemark, setUpdateStatusRemark] = useState('');
+    const [updateStatusReason, setUpdateStatusReason] = useState('');
     const [updateStatusSubmitting, setUpdateStatusSubmitting] = useState(false);
 
     const [commentDraft, setCommentDraft] = useState('');
@@ -930,8 +941,8 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                         </>
                     )}
                     {canUpdateStatus && !['PENDING', 'COMPLETED', 'REJECTED'].includes(referral.status) && (
-                        <button
-                            onClick={() => { setShowUpdateStatus(true); setUpdateStatusValue(referral.status); setUpdateStatusRemark(''); }}
+                            <button
+                                onClick={() => { setShowUpdateStatus(true); setUpdateStatusValue(referral.status); setUpdateStatusRemark(''); setUpdateStatusReason(''); }}
                             className="px-3 min-h-[34px] bg-slate-100 text-[12px] font-bold text-slate-700 border border-slate-300 rounded-md hover:bg-slate-200 transition-colors inline-flex items-center"
                         >
                             Update Status
@@ -1597,7 +1608,7 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
             </div>
 
             {pendingDecision && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setPendingDecision(null)}>
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => { setPendingDecision(null); setDecisionReason(''); }}>
                     <div className="w-full max-w-lg rounded-lg border border-slate-200 bg-white shadow-lg owb-modal-animate" onClick={(e) => e.stopPropagation()}>
                         <div className="border-b border-slate-200 px-5 py-4">
                             <h2 className="text-base font-bold text-slate-900">
@@ -1623,6 +1634,22 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                                     </select>
                                 </div>
                             )}
+                            {pendingDecision.mode === 'REJECT' && (
+                                <div>
+                                    <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-600">Reason *</label>
+                                    <select
+                                        value={decisionReason}
+                                        onChange={(e) => setDecisionReason(e.target.value)}
+                                        className="h-10 w-full rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-700 focus:ring-1 focus:ring-blue-700"
+                                    >
+                                        <option value="">Select a reason</option>
+                                        {REJECTION_REASONS.map((reason) => (
+                                            <option key={reason.value} value={reason.value}>{reason.label}</option>
+                                        ))}
+                                    </select>
+                                    <InputError message={errors?.rejection_reason} className="mt-1" />
+                                </div>
+                            )}
                             <div>
                                 <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-600">Remark</label>
                                 <textarea
@@ -1632,26 +1659,32 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                                     placeholder="Enter your decision remark..."
                                     className="w-full rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-700 focus:ring-1 focus:ring-blue-700"
                                 />
+                                {pendingDecision.mode === 'REJECT' && decisionReason === 'OTHER' && (
+                                    <p className="mt-1 text-[11px] text-slate-500">Please explain in at least 10 characters.</p>
+                                )}
+                                <InputError message={errors?.decision_comment} className="mt-1" />
                             </div>
                         </div>
                         <div className="flex justify-end gap-2 border-t border-slate-200 px-5 py-3">
-                            <button onClick={() => { setPendingDecision(null); setDecisionRemark(''); }}
+                            <button onClick={() => { setPendingDecision(null); setDecisionRemark(''); setDecisionReason(''); }}
                                 className="h-9 rounded border border-slate-300 bg-white px-4 text-xs font-bold text-slate-700 hover:bg-slate-50">Cancel</button>
                             <button onClick={() => {
                                 if (decisionSubmitting) return;
                                 const trimmed = decisionRemark.trim();
                                 if (!trimmed) return;
+                                if (pendingDecision.mode === 'REJECT' && (!decisionReason || (decisionReason === 'OTHER' && trimmed.length < 10))) return;
                                 setDecisionSubmitting(true);
                                 router.patch(route('referrals.update-status', pendingDecision.id), {
                                     status: pendingDecision.status,
                                     decision: pendingDecision.mode,
                                     decision_comment: trimmed,
+                                    rejection_reason: pendingDecision.mode === 'REJECT' ? (decisionReason || undefined) : undefined,
                                 }, {
                                     preserveScroll: true,
-                                    onSuccess: () => { setPendingDecision(null); setDecisionRemark(''); },
+                                    onSuccess: () => { setPendingDecision(null); setDecisionRemark(''); setDecisionReason(''); },
                                     onFinish: () => setDecisionSubmitting(false),
                                 });
-                            }} disabled={!decisionRemark.trim() || decisionSubmitting}
+                            }} disabled={!decisionRemark.trim() || decisionSubmitting || (pendingDecision.mode === 'REJECT' && (!decisionReason || (decisionReason === 'OTHER' && decisionRemark.trim().length < 10)))}
                                 className="h-9 rounded bg-blue-900 px-4 text-xs font-bold text-white hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed">
                                 {decisionSubmitting ? 'Saving…' : pendingDecision.mode === 'ACCEPT'
                                     ? `Confirm ${pendingDecision.status === 'FOR_COMPLIANCE' ? 'For Compliance' : 'Accept'}`
@@ -1663,7 +1696,7 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
             )}
 
             {showUpdateStatus && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => { setShowUpdateStatus(false); setUpdateStatusRemark(''); }}>
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => { setShowUpdateStatus(false); setUpdateStatusRemark(''); setUpdateStatusReason(''); }}>
                     <div className="w-full max-w-lg rounded-lg border border-slate-200 bg-white shadow-lg owb-modal-animate" onClick={(e) => e.stopPropagation()}>
                         <div className="border-b border-slate-200 px-5 py-4">
                             <h2 className="text-base font-bold text-slate-900">Update Status</h2>
@@ -1683,6 +1716,22 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                                     <option value="REJECTED">Rejected</option>
                                 </select>
                             </div>
+                            {updateStatusValue === 'REJECTED' && (
+                                <div>
+                                    <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-600">Reason *</label>
+                                    <select
+                                        value={updateStatusReason}
+                                        onChange={(e) => setUpdateStatusReason(e.target.value)}
+                                        className="h-10 w-full rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-700 focus:ring-1 focus:ring-blue-700"
+                                    >
+                                        <option value="">Select a reason</option>
+                                        {REJECTION_REASONS.map((reason) => (
+                                            <option key={reason.value} value={reason.value}>{reason.label}</option>
+                                        ))}
+                                    </select>
+                                    <InputError message={errors?.rejection_reason} className="mt-1" />
+                                </div>
+                            )}
                             <div>
                                 <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-600">Remark</label>
                                 <textarea
@@ -1692,26 +1741,32 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                                     placeholder="Enter a remark for this status update..."
                                     className="w-full rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-700 focus:ring-1 focus:ring-blue-700"
                                 />
+                                {updateStatusValue === 'REJECTED' && updateStatusReason === 'OTHER' && (
+                                    <p className="mt-1 text-[11px] text-slate-500">Please explain in at least 10 characters.</p>
+                                )}
+                                <InputError message={errors?.decision_comment} className="mt-1" />
                             </div>
                         </div>
                         <div className="flex justify-end gap-2 border-t border-slate-200 px-5 py-3">
-                            <button onClick={() => { setShowUpdateStatus(false); setUpdateStatusRemark(''); }}
+                            <button onClick={() => { setShowUpdateStatus(false); setUpdateStatusRemark(''); setUpdateStatusReason(''); }}
                                 className="h-9 rounded border border-slate-300 bg-white px-4 text-xs font-bold text-slate-700 hover:bg-slate-50">Cancel</button>
                             <button onClick={() => {
                                 if (updateStatusSubmitting) return;
                                 const trimmed = updateStatusRemark.trim();
                                 if (!trimmed) return;
+                                if (updateStatusValue === 'REJECTED' && (!updateStatusReason || (updateStatusReason === 'OTHER' && trimmed.length < 10))) return;
                                 setUpdateStatusSubmitting(true);
                                 router.patch(route('referrals.update-status', referral.id), {
                                     status: updateStatusValue,
                                     decision: updateStatusValue === 'REJECTED' ? 'REJECT' : undefined,
                                     decision_comment: trimmed,
+                                    rejection_reason: updateStatusValue === 'REJECTED' ? (updateStatusReason || undefined) : undefined,
                                 }, {
                                     preserveScroll: true,
-                                    onSuccess: () => { setShowUpdateStatus(false); setUpdateStatusRemark(''); },
+                                    onSuccess: () => { setShowUpdateStatus(false); setUpdateStatusRemark(''); setUpdateStatusReason(''); },
                                     onFinish: () => setUpdateStatusSubmitting(false),
                                 });
-                            }} disabled={!updateStatusRemark.trim() || updateStatusSubmitting}
+                            }} disabled={!updateStatusRemark.trim() || updateStatusSubmitting || (updateStatusValue === 'REJECTED' && (!updateStatusReason || (updateStatusReason === 'OTHER' && updateStatusRemark.trim().length < 10)))}
                                 className="h-9 rounded bg-blue-900 px-4 text-xs font-bold text-white hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed">
                                 Update Status
                             </button>

@@ -4,7 +4,6 @@ import NavLink from '@/Components/NavLink';
 import ResponsiveNavLink from '@/Components/ResponsiveNavLink';
 import { Link, usePage } from '@inertiajs/react';
 import { useState } from 'react';
-import ChatBot from '@/Components/ChatBot';
 import { FlashMessageWatcher } from '@/Components/ToastProvider';
 
 export default function AuthenticatedLayout({ header, children }) {
@@ -214,7 +213,6 @@ export default function AuthenticatedLayout({ header, children }) {
             )}
 
             <main>{children}</main>
-            <ChatBot />
         </div>
     );
 }

@@ -6,6 +6,7 @@ import { ArcElement, Chart as ChartJS, Filler, Legend, LineElement, PointElement
 import GettingStartedChecklist from '@/Components/GettingStartedChecklist';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import { formatDisplayDate, getCaseAgeInDays } from '@/lib/utils';
+import { humanizeStatus } from '@/lib/statusLabels';
 import { formatRelativeTime } from '@/lib/relativeTime';
 import { getSeverityConfig, normalizeNotification, timeAgo } from '@/lib/notifications';
 import {
@@ -248,7 +249,7 @@ function NumbersBlock({ dashboard }) {
                     <div key={status} className="rounded-lg bg-slate-50 px-3 py-2.5">
                         <p className="text-lg font-black text-slate-900">{formatCount(caseCounts[status])}</p>
                         <div className="mt-1">
-                            <StatusBadge status={status} />
+                            <StatusBadge status={status} label={humanizeStatus(status)} />
                         </div>
                     </div>
                 ))}
@@ -260,7 +261,7 @@ function NumbersBlock({ dashboard }) {
                     <div key={status} className="rounded-lg bg-slate-50 px-3 py-2.5">
                         <p className="text-lg font-black text-slate-900">{formatCount(referralCounts[status])}</p>
                         <div className="mt-1">
-                            <StatusBadge status={status} />
+                            <StatusBadge status={status} label={humanizeStatus(status)} />
                         </div>
                     </div>
                 ))}
@@ -356,7 +357,7 @@ function PiesRow({ dashboard }) {
                 dataTour="dashboard-pie-cases"
                 slices={CASE_STATUSES.map((status) => ({
                     key: status,
-                    label: status,
+                    label: humanizeStatus(status),
                     count: caseCounts[status],
                     hex: toneHex(STATUS_TONE[status]),
                 }))}
@@ -378,7 +379,7 @@ function PiesRow({ dashboard }) {
                 dataTour="dashboard-pie-status"
                 slices={REFERRAL_STATUSES.map((status) => ({
                     key: status,
-                    label: status,
+                    label: humanizeStatus(status),
                     count: referralCounts[status],
                     hex: toneHex(STATUS_TONE[status]),
                 }))}
@@ -533,12 +534,13 @@ function buildNeedsYou(dashboard) {
     const cases = safeArray(dashboard?.priorityCases).map((item) => {
         const age = toAgeDays(pick(item.ageDays, item.age_days, getCaseAgeInDays(createdAtOf(item) ?? '')), 0);
         const status = pick(item.status, 'OPEN');
+        const referralNote = pick(item.latestReferralStatus, item.latest_referral_status);
         return {
             key: `case-${item.id}`,
             href: pick(item.href, safeRoute('cases.show', item.id, `/cases/${item.id}`)),
             pill: pick(item.trackerNumber, item.tracker_number, item.caseNo, item.case_number),
             title: pick(item.clientName, item.client_name, 'Unnamed'),
-            note: pick(item.reason, item.latestReferralStatus),
+            note: pick(item.reason, referralNote ? humanizeStatus(referralNote) : undefined),
             status,
             age,
             score: (URGENCY[status] ?? 2) + (age >= OVERDUE_DAYS ? 0.5 : 0) + Math.min(age / 30, 1) - 0.1,
@@ -564,7 +566,7 @@ function NeedsYouBlock({ dashboard }) {
                         title={row.title}
                         note={row.note}
                         age={<AgeFlag days={row.age} />}
-                        right={<StatusBadge status={row.status} />}
+                        right={<StatusBadge status={row.status} label={humanizeStatus(row.status)} />}
                     />
                 ))}
             </EntityList>
@@ -618,7 +620,7 @@ function IntakeQueueBlock({ dashboard }) {
                                 </p>
                             </div>
                             <div className="flex shrink-0 items-center gap-2">
-                                <StatusBadge status={pick(item.status, 'DRAFT')} />
+                                <StatusBadge status={pick(item.status, 'DRAFT')} label={humanizeStatus(pick(item.status, 'DRAFT'))} />
                                 <Link
                                     href={safeRoute('cases.review-intake', id, `/cases/${id}/review-intake`)}
                                     className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-primary px-3 py-1.5 text-xs font-bold text-primary transition-colors hover:bg-primary hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
@@ -704,9 +706,9 @@ function ReferralNewsBlock({ dashboard }) {
                                     </p>
                                 ) : (
                                     <p className="flex flex-wrap items-center gap-1.5">
-                                        <StatusBadge status={item.from ?? 'PENDING'} />
+                                        <StatusBadge status={item.from ?? 'PENDING'} label={humanizeStatus(item.from ?? 'PENDING')} />
                                         <MaterialSymbol name="arrow_forward" className="text-[14px] text-slate-400" />
-                                        <StatusBadge status={item.to ?? 'PROCESSING'} />
+                                        <StatusBadge status={item.to ?? 'PROCESSING'} label={humanizeStatus(item.to ?? 'PROCESSING')} />
                                     </p>
                                 )}
                                 <p className="mt-0.5 truncate text-xs text-slate-500">

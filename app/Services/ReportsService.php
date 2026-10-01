@@ -5,12 +5,14 @@ namespace App\Services;
 use App\Helpers\CacheHelper;
 use App\Models\Agency;
 use App\Models\CaseCategory;
+use App\Models\CaseEvent;
 use App\Models\CaseFile;
 use App\Models\CaseIssue;
 use App\Models\CaseStatus;
 use App\Models\Client;
 use App\Models\ClientEmployment;
 use App\Models\Referral;
+use App\Models\ReferralClientRequest;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -84,6 +86,7 @@ class ReportsService
         return [
             'kpis' => $this->getReferralKpis($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city, $agencyId),
             'referralStatusDistribution' => $this->getReferralStatusDistribution($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city, $agencyId),
+            'rejectionReasonDistribution' => $this->getRejectionReasonDistribution($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city, $agencyId),
             'referralAgencyDistribution' => $this->getReferralAgencyDistribution($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city, $agencyId),
             'referralTrends' => $this->getReferralTrends($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city, $agencyId),
             'casesOverTime' => $this->getCasesOverTime($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city, $agencyId),
@@ -104,6 +107,12 @@ class ReportsService
             'overdueReferrals' => $this->getOverdueReferrals($userId, 'CASE_MANAGER', $province, $city, $agencyId),
             'cityDistribution' => $this->getCityDistribution($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city, $agencyId),
             'vulnerabilityDistribution' => $this->getVulnerabilityDistribution($userId, 'CASE_MANAGER', $agencyId, $from, $to, $province, $city),
+            'caseSourceDistribution' => $this->getCaseSourceDistribution($userId, 'CASE_MANAGER', $agencyId, $from, $to, $province, $city),
+            'closedCasesOverTime' => $this->getClosedCasesOverTime($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city, $agencyId),
+            'reopenedStats' => $this->getReopenedStats($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city, $agencyId),
+            'caseEventActorDistribution' => $this->getCaseEventActorDistribution($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city, $agencyId),
+            'agencyFirstResponse' => $this->getAgencyFirstResponse($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city, $agencyId),
+            'clientRequestTypeDistribution' => $this->getClientRequestTypeDistribution($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city, $agencyId),
         ];
     }
 
@@ -122,6 +131,7 @@ class ReportsService
         return [
             'kpis' => $this->getReferralKpis(null, 'AGENCY', $from, $to, $dateScope, $province, $city, $agencyId),
             'referralStatusDistribution' => $this->getReferralStatusDistribution(null, 'AGENCY', $from, $to, $dateScope, $province, $city, $agencyId),
+            'rejectionReasonDistribution' => $this->getRejectionReasonDistribution(null, 'AGENCY', $from, $to, $dateScope, $province, $city, $agencyId),
             'referralTrends' => $this->getReferralTrends(null, 'AGENCY', $from, $to, $dateScope, $province, $city, $agencyId),
             'avgReferralCompletion' => $this->getAvgReferralCompletionDays(role: 'AGENCY', agencyId: $agencyId),
             'cycleTimeDistribution' => $this->getReferralCycleTimeDistribution(null, 'AGENCY', $from, $to, $dateScope, $province, $city, $agencyId),
@@ -132,6 +142,12 @@ class ReportsService
             'ageGroupDistribution' => $this->getAgeGroupDistribution(null, 'AGENCY', $from, $to, $dateScope, $province, $city, $agencyId),
             'clientTypeDistribution' => $this->getClientTypeDistribution(null, 'AGENCY', $agencyId, $from, $to, $province, $city),
             'geographicMapData' => $this->getGeographicMapData(null, 'AGENCY', $from, $to, $dateScope, $province, $city, $agencyId),
+            'caseSourceDistribution' => $this->getCaseSourceDistribution(null, 'AGENCY', $agencyId, $from, $to, $province, $city),
+            'closedCasesOverTime' => $this->getClosedCasesOverTime(null, 'AGENCY', $from, $to, $dateScope, $province, $city, $agencyId),
+            'reopenedStats' => $this->getReopenedStats(null, 'AGENCY', $from, $to, $dateScope, $province, $city, $agencyId),
+            'caseEventActorDistribution' => $this->getCaseEventActorDistribution(null, 'AGENCY', $from, $to, $dateScope, $province, $city, $agencyId),
+            'agencyFirstResponse' => $this->getAgencyFirstResponse(null, 'AGENCY', $from, $to, $dateScope, $province, $city, $agencyId),
+            'clientRequestTypeDistribution' => $this->getClientRequestTypeDistribution(null, 'AGENCY', $from, $to, $dateScope, $province, $city, $agencyId),
         ];
     }
 
@@ -145,6 +161,7 @@ class ReportsService
             'overview' => $this->getOverview($from, $to, $agencyId),
             'caseTrends' => $this->getCaseTrends(agencyId: $agencyId),
             'referralStatusDistribution' => $this->getReferralStatusDistribution(null, null, $from, $to, $dateScope, $province, $city, $agencyId),
+            'rejectionReasonDistribution' => $this->getRejectionReasonDistribution(null, null, $from, $to, $dateScope, $province, $city, $agencyId),
             'referralTrends' => $this->getReferralTrends(null, null, $from, $to, $dateScope, $province, $city, $agencyId),
             'agencyWorkload' => $this->getAgencyWorkload($from, $to, $agencyId),
             'clientTypeDistribution' => $this->getClientTypeDistribution(null, null, $agencyId, $from, $to, $province, $city),
@@ -162,6 +179,12 @@ class ReportsService
             'genderDistribution' => $this->getGenderDistribution(null, null, $from, $to, $dateScope, $province, $city, $agencyId),
             'ageGroupDistribution' => $this->getAgeGroupDistribution(null, null, $from, $to, $dateScope, $province, $city, $agencyId),
             'referralAgencyDistribution' => $this->getReferralAgencyDistribution(null, null, $from, $to, $dateScope, $province, $city, $agencyId),
+            'caseSourceDistribution' => $this->getCaseSourceDistribution(null, null, $agencyId, $from, $to, $province, $city),
+            'closedCasesOverTime' => $this->getClosedCasesOverTime(null, null, $from, $to, $dateScope, $province, $city, $agencyId),
+            'reopenedStats' => $this->getReopenedStats(null, null, $from, $to, $dateScope, $province, $city, $agencyId),
+            'caseEventActorDistribution' => $this->getCaseEventActorDistribution(null, null, $from, $to, $dateScope, $province, $city, $agencyId),
+            'agencyFirstResponse' => $this->getAgencyFirstResponse(null, null, $from, $to, $dateScope, $province, $city, $agencyId),
+            'clientRequestTypeDistribution' => $this->getClientRequestTypeDistribution(null, null, $from, $to, $dateScope, $province, $city, $agencyId),
         ];
     }
 
@@ -647,6 +670,211 @@ class ReportsService
         ];
     }
 
+    public function getCaseSourceDistribution(?string $userId = null, ?string $role = null, ?string $agencyId = null, ?string $fromDate = null, ?string $toDate = null, ?string $province = null, ?string $city = null): array
+    {
+        $query = $this->caseQuery($userId, $role, $agencyId);
+        $this->applyCaseWindow($query, $fromDate, $toDate, $province, $city);
+
+        $sources = (clone $query)
+            ->select(DB::raw("COALESCE(cases.source, 'internal') as source"), DB::raw('count(*) as total'))
+            ->groupBy('source')
+            ->pluck('total', 'source');
+
+        return [
+            'labels' => ['Internal', 'Self-filed'],
+            'data' => [(int) ($sources['internal'] ?? 0), (int) ($sources['self_filed'] ?? 0)],
+            'colors' => ['#0b5a8c', '#0891b2'],
+        ];
+    }
+
+    public function getClosedCasesOverTime(?string $userId = null, ?string $role = null, ?string $fromDate = null, ?string $toDate = null, string $dateScope = 'case_created_at', ?string $province = null, ?string $city = null, ?string $agencyId = null): array
+    {
+        $cases = $this->caseQuery($userId, $role, $agencyId, $dateScope);
+        $this->applyGeoFilter($cases, $province, $city, 'cases');
+
+        // Closures are bucketed by close month — falling back to last update
+        // for legacy CLOSED rows without a close timestamp — not by filing
+        // month, so the series pairs with casesOverTime as filings vs closures.
+        $result = $cases
+            ->select(
+                DB::raw("to_char(COALESCE(cases.closed_at, cases.updated_at), 'YYYY-MM') as month"),
+                DB::raw('count(*) as total')
+            )
+            ->where('cases.status', 'CLOSED')
+            ->whereRaw('COALESCE(cases.closed_at, cases.updated_at) >= ?', [$fromDate ?: now()->subMonths(12)])
+            ->whereRaw('COALESCE(cases.closed_at, cases.updated_at) <= ?', [$toDate ?: now()])
+            ->groupBy('month')
+            ->orderBy('month')
+            ->get();
+
+        return [
+            'labels' => $result->pluck('month')->toArray(),
+            'datasets' => [
+                [
+                    'label' => 'Cases Closed',
+                    'data' => $result->pluck('total')->toArray(),
+                    'borderColor' => '#10b981',
+                    'backgroundColor' => 'rgba(16, 185, 129, 0.1)',
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * Case scope for event-based metrics (reopens, actor split).
+     *
+     * Carries role/agency/geo only — no case-date window. Event metrics
+     * window the events themselves, so activity on older cases still counts
+     * when it falls inside the reporting window.
+     */
+    private function eventScopedCases(?string $userId = null, ?string $role = null, ?string $agencyId = null, ?string $province = null, ?string $city = null)
+    {
+        $cases = $this->caseQuery($userId, $role, $agencyId);
+        $this->applyCaseWindow($cases, null, null, $province, $city);
+
+        return $cases;
+    }
+
+    public function getReopenedStats(?string $userId = null, ?string $role = null, ?string $fromDate = null, ?string $toDate = null, string $dateScope = 'case_created_at', ?string $province = null, ?string $city = null, ?string $agencyId = null): array
+    {
+        $scoped = $this->eventScopedCases($userId, $role, $agencyId, $province, $city);
+        $from = $fromDate ?: now()->subYear()->toDateString();
+        $to = $toDate ?: now()->toDateString();
+
+        $reopenedCount = CaseEvent::where('type', CaseEvent::TYPE_CASE_REOPENED)
+            ->whereIn('case_id', (clone $scoped)->select('cases.id'))
+            ->whereDate('occurred_at', '>=', $from)
+            ->whereDate('occurred_at', '<=', $to)
+            ->count();
+
+        // Repeat-client rate is atemporal: clients with 2+ live cases over
+        // all scoped clients. Deleted, draft, and archived cases never count.
+        $perClient = (clone $scoped)->whereNotNull('cases.client_id')
+            ->select('cases.client_id', DB::raw('count(*) as total'))
+            ->groupBy('cases.client_id')
+            ->pluck('total');
+        $totalClients = $perClient->count();
+        $repeatClients = $perClient->filter(fn ($total) => (int) $total > 1)->count();
+
+        return [
+            'reopenedCount' => (int) $reopenedCount,
+            'repeatClients' => (int) $repeatClients,
+            'totalClients' => (int) $totalClients,
+            'repeatClientRate' => $totalClients > 0 ? round(($repeatClients / $totalClients) * 100, 1) : 0,
+        ];
+    }
+
+    public function getCaseEventActorDistribution(?string $userId = null, ?string $role = null, ?string $fromDate = null, ?string $toDate = null, string $dateScope = 'case_created_at', ?string $province = null, ?string $city = null, ?string $agencyId = null): array
+    {
+        $caseIds = (clone $this->eventScopedCases($userId, $role, $agencyId, $province, $city))->select('cases.id');
+        $from = $fromDate ?: now()->subYear()->toDateString();
+        $to = $toDate ?: now()->toDateString();
+
+        $actors = CaseEvent::whereIn('case_id', $caseIds)
+            ->whereDate('occurred_at', '>=', $from)
+            ->whereDate('occurred_at', '<=', $to)
+            ->select('actor_type', DB::raw('count(*) as total'))
+            ->groupBy('actor_type')
+            ->pluck('total', 'actor_type');
+
+        $allActors = ['agency', 'case_manager', 'system'];
+
+        return [
+            'labels' => ['Agency', 'Case manager', 'System'],
+            'data' => array_map(fn ($actor) => (int) ($actors[$actor] ?? 0), $allActors),
+            'colors' => ['#0b5a8c', '#6366f1', '#94a3b8'],
+        ];
+    }
+
+    public function getAgencyFirstResponse(?string $userId = null, ?string $role = null, ?string $fromDate = null, ?string $toDate = null, string $dateScope = 'case_created_at', ?string $province = null, ?string $city = null, ?string $agencyId = null): array
+    {
+        $query = $this->referralQuery($userId, $role, $agencyId, $fromDate, $toDate, $dateScope);
+        $this->applyGeoFilter($query, $province, $city);
+
+        // Only referrals that have left PENDING could have been accepted.
+        $referrals = (clone $query)
+            ->where('referrals.status', '!=', 'PENDING')
+            ->select('referrals.id', 'referrals.agcy_id', 'referrals.created_at')
+            ->get();
+
+        if ($referrals->isEmpty()) {
+            return [];
+        }
+
+        // First PENDING→PROCESSING transition per referral, read from the
+        // append-only event log: referral timestamps cannot show it because
+        // updated_at moves on every later edit.
+        $firstAccepts = CaseEvent::where('type', CaseEvent::TYPE_REFERRAL_STATUS_CHANGED)
+            ->whereIn('referral_id', $referrals->pluck('id'))
+            ->where('meta->to', 'PROCESSING')
+            ->orderBy('occurred_at')
+            ->orderBy('sequence')
+            ->get()
+            ->groupBy('referral_id')
+            ->map(fn ($events) => $events->first());
+
+        $daysByAgency = [];
+        foreach ($referrals as $referral) {
+            $accept = $firstAccepts->get($referral->id);
+            if (! $accept || ! $accept->occurred_at || ! $referral->created_at) {
+                continue;
+            }
+            $hours = $referral->created_at->diffInHours($accept->occurred_at, false);
+            if ($hours < 0) {
+                continue;
+            }
+            $daysByAgency[$referral->agcy_id][] = round($hours / 24, 1);
+        }
+
+        if (empty($daysByAgency)) {
+            return [];
+        }
+
+        $agencyNames = Agency::whereIn('id', array_keys($daysByAgency))->pluck('name', 'id');
+
+        $result = [];
+        foreach ($daysByAgency as $agcyId => $days) {
+            sort($days);
+            $count = count($days);
+            $median = $count % 2 === 1
+                ? $days[intdiv($count, 2)]
+                : round(($days[$count / 2 - 1] + $days[$count / 2]) / 2, 1);
+            $result[] = [
+                'agency' => $agencyNames[$agcyId] ?? 'Unknown',
+                'medianDays' => $median,
+                'samples' => $count,
+            ];
+        }
+
+        usort($result, fn ($a, $b) => $a['medianDays'] <=> $b['medianDays']);
+
+        return $result;
+    }
+
+    public function getClientRequestTypeDistribution(?string $userId = null, ?string $role = null, ?string $fromDate = null, ?string $toDate = null, string $dateScope = 'case_created_at', ?string $province = null, ?string $city = null, ?string $agencyId = null): array
+    {
+        $query = $this->referralQuery($userId, $role, $agencyId, $fromDate, $toDate, $dateScope);
+        $this->applyGeoFilter($query, $province, $city);
+
+        $types = ReferralClientRequest::whereIn('referral_id', (clone $query)->select('referrals.id'))
+            ->where('referral_client_requests.is_deleted', false)
+            ->select('type', DB::raw('count(*) as total'))
+            ->groupBy('type')
+            ->pluck('total', 'type');
+
+        $allTypes = [
+            ReferralClientRequest::TYPE_DOCUMENT_REQUEST,
+            ReferralClientRequest::TYPE_QUESTION,
+            ReferralClientRequest::TYPE_INFORMATION_UPDATE,
+        ];
+
+        return [
+            'labels' => ['Document request', 'Question', 'Information update'],
+            'data' => array_map(fn ($type) => (int) ($types[$type] ?? 0), $allTypes),
+            'colors' => ['#0b5a8c', '#0891b2', '#059669'],
+        ];
+    }
+
     /**
      * Subquery of client IDs whose cases match the active date/role/geo filters.
      * Lets client-level distributions (gender/age) respect the same filters as
@@ -766,6 +994,34 @@ class ReportsService
             'labels' => $allStatuses,
             'data' => array_map(fn ($s) => (int) ($statuses[$s] ?? 0), $allStatuses),
             'colors' => array_map(fn ($s) => $colorMap[$s], $allStatuses),
+        ];
+    }
+
+    public function getRejectionReasonDistribution(?string $userId = null, ?string $role = null, ?string $fromDate = null, ?string $toDate = null, string $dateScope = 'case_created_at', ?string $province = null, ?string $city = null, ?string $agencyId = null): array
+    {
+        $query = $this->referralQuery($userId, $role, $agencyId, $fromDate, $toDate, $dateScope);
+        $this->applyGeoFilter($query, $province, $city);
+
+        $reasons = (clone $query)
+            ->where('referrals.status', 'REJECTED')
+            ->select('referrals.rejection_reason', DB::raw('count(*) as total'))
+            ->groupBy('referrals.rejection_reason')
+            ->pluck('total', 'rejection_reason');
+
+        $allReasons = Referral::REJECTION_REASONS;
+        $colorMap = [
+            'INCOMPLETE_REQUIREMENTS' => '#f59e0b',
+            'OUTSIDE_MANDATE' => '#8b5cf6',
+            'DUPLICATE_REFERRAL' => '#6b7280',
+            'CLIENT_WITHDREW' => '#3b82f6',
+            'NO_SERVICE_CAPACITY' => '#ef4444',
+            'OTHER' => '#94a3b8',
+        ];
+
+        return [
+            'labels' => $allReasons,
+            'data' => array_map(fn ($r) => (int) ($reasons[$r] ?? 0), $allReasons),
+            'colors' => array_map(fn ($r) => $colorMap[$r], $allReasons),
         ];
     }
 
@@ -902,7 +1158,7 @@ class ReportsService
         $this->applyGeoFilter($query, $province, $city);
 
         $referrals = (clone $query)
-            ->select('agcy_id', 'status', DB::raw('EXTRACT(EPOCH FROM (updated_at - created_at)) / 86400 as days'))
+            ->select('agcy_id', 'status', 'created_at', DB::raw('EXTRACT(EPOCH FROM (updated_at - created_at)) / 86400 as days'))
             ->get()
             ->groupBy('agcy_id');
 
@@ -919,12 +1175,17 @@ class ReportsService
             $completed = $rows->where('status', 'COMPLETED')->count();
             $pending = $rows->where('status', 'PENDING')->count();
             $avgDays = $rows->where('status', 'COMPLETED')->avg('days');
+            // Same >14d active-referral rule as getOverdueReferrals().
+            // Absolute is explicit: Carbon 3 diffs are signed by default.
+            $overdue = $rows->filter(fn ($row) => in_array($row->status, ['PENDING', 'PROCESSING', 'FOR_COMPLIANCE'], true)
+                && $row->created_at && now()->diffInDays($row->created_at, true) > 14)->count();
 
             $result[] = [
                 'agency' => $agencyNames[$agcyId] ?? 'Unknown',
                 'total' => $total,
                 'completed' => $completed,
                 'pending' => $pending,
+                'overdue' => $overdue,
                 'completionRate' => $total > 0 ? round(($completed / $total) * 100) : 0,
                 'avgDays' => round((float) ($avgDays ?? 0), 1),
             ];
@@ -1220,20 +1481,28 @@ class ReportsService
             return [
                 'kpis' => $zeroKpis,
                 'referralStatusDistribution' => ['labels' => ['PENDING', 'PROCESSING', 'FOR_COMPLIANCE', 'COMPLETED', 'REJECTED'], 'data' => [0, 0, 0, 0, 0], 'colors' => []],
+                'rejectionReasonDistribution' => ['labels' => Referral::REJECTION_REASONS, 'data' => [0, 0, 0, 0, 0, 0], 'colors' => []],
                 'referralTrends' => ['labels' => [], 'datasets' => [['label' => 'Referrals Created', 'data' => [], 'borderColor' => '#0b5a8c', 'backgroundColor' => 'rgba(11, 90, 140, 0.1)']]],
                 'avgReferralCompletion' => 0,
                 'cycleTimeDistribution' => ['labels' => [], 'data' => [], 'colors' => []],
                 'agencyScorecard' => [], 'categoryDistribution' => [],
-                'caseStatusDistribution' => ['labels' => ['OPEN', 'CLOSED'], 'data' => [0, 0], 'colors' => []],
+                'caseStatusDistribution' => ['labels' => ['OPEN', 'CLOSED', 'DRAFT'], 'data' => [0, 0, 0], 'colors' => []],
                 'genderDistribution' => ['labels' => ['Male', 'Female', 'Unknown'], 'data' => [0, 0, 0], 'colors' => []],
                 'ageGroupDistribution' => ['labels' => ['0-17', '18-25', '26-40', '41-60', '60+'], 'data' => [0, 0, 0, 0, 0], 'colors' => []],
                 'clientTypeDistribution' => ['labels' => [], 'data' => [], 'colors' => []],
                 'geographicMapData' => ['provinces' => []],
+                'caseSourceDistribution' => ['labels' => ['Internal', 'Self-filed'], 'data' => [0, 0], 'colors' => []],
+                'closedCasesOverTime' => [],
+                'reopenedStats' => ['reopenedCount' => 0, 'repeatClients' => 0, 'totalClients' => 0, 'repeatClientRate' => 0],
+                'caseEventActorDistribution' => ['labels' => ['Agency', 'Case manager', 'System'], 'data' => [0, 0, 0], 'colors' => []],
+                'agencyFirstResponse' => [],
+                'clientRequestTypeDistribution' => ['labels' => ['Document request', 'Question', 'Information update'], 'data' => [0, 0, 0], 'colors' => []],
             ];
         }
 
         return [
             'kpis' => $zeroKpis, 'referralStatusDistribution' => [],
+            'rejectionReasonDistribution' => ['labels' => Referral::REJECTION_REASONS, 'data' => [0, 0, 0, 0, 0, 0], 'colors' => []],
             'referralAgencyDistribution' => [], 'referralTrends' => [],
             'casesOverTime' => [], 'genderDistribution' => [],
             'clientTypeDistribution' => [], 'ageGroupDistribution' => [],
@@ -1245,6 +1514,12 @@ class ReportsService
             'caseStatusDistribution' => [], 'caseIssueDistribution' => [],
             'overdueReferrals' => ['count' => 0, 'referrals' => []],
             'cityDistribution' => [], 'vulnerabilityDistribution' => [],
+            'caseSourceDistribution' => ['labels' => ['Internal', 'Self-filed'], 'data' => [0, 0], 'colors' => []],
+            'closedCasesOverTime' => [],
+            'reopenedStats' => ['reopenedCount' => 0, 'repeatClients' => 0, 'totalClients' => 0, 'repeatClientRate' => 0],
+            'caseEventActorDistribution' => ['labels' => ['Agency', 'Case manager', 'System'], 'data' => [0, 0, 0], 'colors' => []],
+            'agencyFirstResponse' => [],
+            'clientRequestTypeDistribution' => ['labels' => ['Document request', 'Question', 'Information update'], 'data' => [0, 0, 0], 'colors' => []],
         ];
     }
 
@@ -1258,7 +1533,7 @@ class ReportsService
         ?string $city = null,
     ): array {
         $query = CaseFile::select('status', DB::raw('count(*) as total'))
-            ->whereIn('status', ['OPEN', 'CLOSED']);
+            ->whereIn('status', ['OPEN', 'CLOSED', 'DRAFT']);
 
         if ($agencyId) {
             $query->whereIn('cases.id', function ($q) use ($agencyId) {
@@ -1273,8 +1548,8 @@ class ReportsService
         $results = $query->groupBy('status')
             ->pluck('total', 'status');
 
-        $allStatuses = ['OPEN', 'CLOSED'];
-        $colors = ['#1e3a8a', '#10b981'];
+        $allStatuses = ['OPEN', 'CLOSED', 'DRAFT'];
+        $colors = ['#1e3a8a', '#10b981', '#f59e0b'];
 
         return [
             'labels' => $allStatuses,

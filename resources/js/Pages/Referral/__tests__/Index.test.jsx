@@ -1,13 +1,13 @@
 import '@testing-library/jest-dom/vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import ReferralIndex from '../Index.jsx';
 
-const { routerGet } = vi.hoisted(() => ({ routerGet: vi.fn() }));
+const { routerGet, routerPatch } = vi.hoisted(() => ({ routerGet: vi.fn(), routerPatch: vi.fn() }));
 
 vi.mock('@inertiajs/react', () => ({
     Head: () => null,
-    router: { get: routerGet, on: () => () => {} },
+    router: { get: routerGet, patch: routerPatch, visit: vi.fn(), on: () => () => {} },
     usePage: () => ({ props: { auth: { user: { role: 'AGENCY', agcy_id: 'agency-a' } } } }),
 }));
 vi.mock('@/Layouts/AppLayout', () => ({ default: ({ children }) => <main>{children}</main> }));
@@ -60,5 +60,69 @@ describe('Referral Index agency filtering', () => {
         fireEvent.click(caseNumberHeader);
 
         expect(routerGet).toHaveBeenCalledWith('/referrals', { sort: 'case_number', direction: 'asc' }, expect.objectContaining({ replace: true }));
+    });
+});
+
+describe('Referral Index reject reason', () => {
+    function renderPendingRow() {
+        globalThis.route = vi.fn(() => '/referrals');
+        routerPatch.mockClear();
+        render(<ReferralIndex
+            referrals={{ data: [{ id: 'ref-a', required_services: 'Service', status: 'PENDING', agency: { name: 'Agency A' }, case_file: { case_number: 'CASE-1' } }], total: 1, from: 1, to: 1, current_page: 1, last_page: 1, per_page: 15 }}
+            filters={{}}
+            stats={{}}
+            agencies={[]}
+            categories={[]}
+            caseIssues={[]}
+        />);
+    }
+
+    it('requires a reason on reject and sends it with the decision', () => {
+        renderPendingRow();
+        fireEvent.click(screen.getByRole('button', { name: 'Reject' }));
+
+        const modal = within(document.querySelector('.fixed.inset-0.z-50'));
+        const reasonSelect = modal.getByRole('combobox');
+        expect(within(reasonSelect).getAllByRole('option')).toHaveLength(7);
+
+        const confirm = modal.getByRole('button', { name: 'Confirm Reject' });
+        expect(confirm).toBeDisabled();
+
+        fireEvent.change(reasonSelect, { target: { value: 'DUPLICATE_REFERRAL' } });
+        fireEvent.change(modal.getByPlaceholderText('Enter your decision remark...'), { target: { value: 'Already referred last week' } });
+        expect(confirm).not.toBeDisabled();
+
+        fireEvent.click(confirm);
+        expect(routerPatch).toHaveBeenCalledWith(
+            '/referrals',
+            expect.objectContaining({
+                status: 'REJECTED',
+                decision: 'REJECT',
+                decision_comment: 'Already referred last week',
+                rejection_reason: 'DUPLICATE_REFERRAL',
+            }),
+            expect.anything(),
+        );
+    });
+
+    it('requires a longer comment when Other is selected', () => {
+        renderPendingRow();
+        fireEvent.click(screen.getByRole('button', { name: 'Reject' }));
+
+        const modal = within(document.querySelector('.fixed.inset-0.z-50'));
+        fireEvent.change(modal.getByRole('combobox'), { target: { value: 'OTHER' } });
+        expect(modal.getByText('Please explain in at least 10 characters.')).toBeInTheDocument();
+
+        const confirm = modal.getByRole('button', { name: 'Confirm Reject' });
+        fireEvent.change(modal.getByPlaceholderText('Enter your decision remark...'), { target: { value: 'short' } });
+        expect(confirm).toBeDisabled();
+
+        fireEvent.change(modal.getByPlaceholderText('Enter your decision remark...'), { target: { value: 'Program paused for now' } });
+        fireEvent.click(confirm);
+        expect(routerPatch).toHaveBeenCalledWith(
+            '/referrals',
+            expect.objectContaining({ rejection_reason: 'OTHER', decision_comment: 'Program paused for now' }),
+            expect.anything(),
+        );
     });
 });

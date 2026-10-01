@@ -8,6 +8,7 @@ import { formatResolvedAddress } from '@/lib/addressResolver';
 import { ArrowRightLeft, Clock, Loader, ClipboardCheck, CheckCircle2, XCircle } from 'lucide-react';
 import ExportDialog from '@/Components/ExportDialog';
 import ExportExcelButton from '@/Components/ExportExcelButton';
+import InputError from '@/Components/InputError';
 import usePersistedColumns from '@/Hooks/usePersistedColumns';
 import { usePersistedViewMode, usePersistedFilters } from '@/Hooks/usePersistedViewState';
 
@@ -38,8 +39,17 @@ function getCategoryFilterIds(filters) {
     return (Array.isArray(value) ? value : (value ? [value] : [])).map(String);
 }
 
+const REJECTION_REASONS = [
+    { value: 'INCOMPLETE_REQUIREMENTS', label: 'Incomplete requirements' },
+    { value: 'OUTSIDE_MANDATE', label: 'Outside agency mandate' },
+    { value: 'DUPLICATE_REFERRAL', label: 'Duplicate referral' },
+    { value: 'CLIENT_WITHDREW', label: 'Client withdrew' },
+    { value: 'NO_SERVICE_CAPACITY', label: 'No service capacity' },
+    { value: 'OTHER', label: 'Other' },
+];
+
 export default function ReferralIndex({ referrals, filters: rawFilters, stats, agencies = [], categories = [], caseIssues = [] }) {
-    const { auth } = usePage().props;
+    const { auth, errors } = usePage().props;
     const isAgency = auth.user.role === 'AGENCY';
     const canCreate = auth.user.role === 'CASE_MANAGER' || auth.user.role === 'ADMIN';
     const filters = rawFilters && !Array.isArray(rawFilters) ? rawFilters : {};
@@ -59,6 +69,7 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
 
     const [pendingDecision, setPendingDecision] = useState(null);
     const [decisionRemark, setDecisionRemark] = useState('');
+    const [decisionReason, setDecisionReason] = useState('');
     const [decisionSubmitting, setDecisionSubmitting] = useState(false);
 
     const [exportDialogOpen, setExportDialogOpen] = useState(false);
@@ -536,17 +547,21 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
         if (decisionSubmitting || !pendingDecision) return;
         const trimmed = decisionRemark.trim();
         if (!trimmed) return;
+        const isReject = pendingDecision.action === 'REJECT';
+        if (isReject && (!decisionReason || (decisionReason === 'OTHER' && trimmed.length < 10))) return;
         const nextStatus = pendingDecision.action === 'ACCEPT' ? 'PROCESSING' : 'REJECTED';
         setDecisionSubmitting(true);
         router.patch(route('referrals.update-status', pendingDecision.id), {
             status: nextStatus,
             decision: pendingDecision.action,
             decision_comment: trimmed,
+            rejection_reason: isReject ? (decisionReason || undefined) : undefined,
         }, {
             preserveScroll: true,
             onSuccess: () => {
                 setPendingDecision(null);
                 setDecisionRemark('');
+                setDecisionReason('');
             },
             onFinish: () => setDecisionSubmitting(false),
         });
@@ -682,7 +697,7 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
             </div>
 
             {pendingDecision && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => { setPendingDecision(null); setDecisionRemark(''); }}>
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => { setPendingDecision(null); setDecisionRemark(''); setDecisionReason(''); }}>
                     <div className="w-full max-w-lg rounded-lg border border-slate-200 bg-white shadow-xl owb-modal-animate" onClick={(e) => e.stopPropagation()}>
                         <div className="border-b border-slate-200 px-5 py-4">
                             <h2 className="text-base font-bold text-slate-900">
@@ -692,20 +707,42 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
                                 A remark is required before you can continue.
                             </p>
                         </div>
-                        <div className="px-5 py-4">
-                            <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-600">Remark</label>
-                            <textarea
-                                value={decisionRemark}
-                                onChange={(e) => setDecisionRemark(e.target.value)}
-                                rows={4}
-                                placeholder="Enter your decision remark..."
-                                className="w-full rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-700 focus:ring-1 focus:ring-blue-700"
-                            />
+                        <div className="px-5 py-4 space-y-4">
+                            {pendingDecision.action === 'REJECT' && (
+                                <div>
+                                    <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-600">Reason *</label>
+                                    <select
+                                        value={decisionReason}
+                                        onChange={(e) => setDecisionReason(e.target.value)}
+                                        className="h-10 w-full rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-700 focus:ring-1 focus:ring-blue-700"
+                                    >
+                                        <option value="">Select a reason</option>
+                                        {REJECTION_REASONS.map((reason) => (
+                                            <option key={reason.value} value={reason.value}>{reason.label}</option>
+                                        ))}
+                                    </select>
+                                    <InputError message={errors?.rejection_reason} className="mt-1" />
+                                </div>
+                            )}
+                            <div>
+                                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-600">Remark</label>
+                                <textarea
+                                    value={decisionRemark}
+                                    onChange={(e) => setDecisionRemark(e.target.value)}
+                                    rows={4}
+                                    placeholder="Enter your decision remark..."
+                                    className="w-full rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-700 focus:ring-1 focus:ring-blue-700"
+                                />
+                                {pendingDecision.action === 'REJECT' && decisionReason === 'OTHER' && (
+                                    <p className="mt-1 text-[11px] text-slate-500">Please explain in at least 10 characters.</p>
+                                )}
+                                <InputError message={errors?.decision_comment} className="mt-1" />
+                            </div>
                         </div>
                         <div className="flex justify-end gap-2 border-t border-slate-200 px-5 py-3">
-                            <button onClick={() => { setPendingDecision(null); setDecisionRemark(''); }}
+                            <button onClick={() => { setPendingDecision(null); setDecisionRemark(''); setDecisionReason(''); }}
                                 className="h-9 rounded border border-slate-300 bg-white px-4 text-xs font-bold text-slate-700 hover:bg-slate-50">Cancel</button>
-                            <button onClick={submitDecision} disabled={!decisionRemark.trim() || decisionSubmitting}
+                            <button onClick={submitDecision} disabled={!decisionRemark.trim() || decisionSubmitting || (pendingDecision.action === 'REJECT' && (!decisionReason || (decisionReason === 'OTHER' && decisionRemark.trim().length < 10)))}
                                 className="h-9 rounded bg-blue-900 px-4 text-xs font-bold text-white hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed">
                                 {decisionSubmitting ? 'Saving…' : `Confirm ${pendingDecision.action === 'ACCEPT' ? 'Accept' : 'Reject'}`}
                             </button>

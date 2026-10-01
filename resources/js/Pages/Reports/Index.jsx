@@ -3,41 +3,24 @@ import { Head } from '@inertiajs/react';
 import { useState, useMemo } from 'react';
 import { Users, Target, Clock, GitFork, CheckCircle2, Hourglass, ClipboardCheck } from 'lucide-react';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, PointElement, LineElement, Title, Tooltip, Legend, Filler } from 'chart.js';
-import { pageHeadingStyles, COLORS } from '@/Components/Reports/pageHeadingStyles';
+import { COLORS } from '@/Components/Reports/pageHeadingStyles';
 import MetricCard from '@/Components/Reports/MetricCard';
 import TopServiceRequestedCard from '@/Components/Reports/TopServiceRequestedCard';
-import OverviewBanner from '@/Components/Reports/OverviewBanner';
-import AttentionSection from '@/Components/Reports/AttentionSection';
-import ClientSnapshotCard from '@/Components/Reports/ClientSnapshotCard';
-import AgencyWorkloadChart from '@/Components/Reports/AgencyWorkloadChart';
-import AvgCompletionCard from '@/Components/Reports/AvgCompletionCard';
-import OverdueReferralsCard from '@/Components/Reports/OverdueReferralsCard';
 import TrendIndicator from '@/Components/Reports/TrendIndicator';
 import Sparkline from '@/Components/Reports/Sparkline';
 import DateRangePicker from '@/Components/Reports/DateRangePicker';
-import CaseStatusPieChart from '@/Components/Reports/CaseStatusPieChart';
-import DateScopeSelect from '@/Components/Reports/DateScopeSelect';
 import AgencyFilter from '@/Components/Reports/AgencyFilter';
-import ReportTabBar from '@/Components/Reports/ReportTabBar';
 import ProvinceCityFilter from '@/Components/Reports/ProvinceCityFilter';
 import ExportButtons from '@/Components/Reports/ExportButtons';
 import { useReportFilters } from '@/Hooks/useReportFilters';
 import { useLazyProp } from '@/Hooks/useLazyProp';
 import { philippineAddressData, getCitiesByProvince } from '@/data/philippine-addresses';
-import AgencyScorecardSection from '@/Pages/Reports/sections/AgencyScorecardSection';
-import StatusDistributionSection from '@/Pages/Reports/sections/StatusDistributionSection';
-import CycleTimeSection from '@/Pages/Reports/sections/CycleTimeSection';
-import GeographicMapSection from '@/Pages/Reports/sections/GeographicMapSection';
-import CategorySection from '@/Pages/Reports/sections/CategorySection';
-import EmploymentSection from '@/Pages/Reports/sections/EmploymentSection';
-import LazyTrendChart from '@/Pages/Reports/sections/LazyTrendChart';
-import LazyChartArticle from '@/Pages/Reports/sections/LazyChartArticle';
-import ReferralFunnelSection from '@/Pages/Reports/sections/ReferralFunnelSection';
-import ReferralTrendsSection from '@/Pages/Reports/sections/ReferralTrendsSection';
+import CasesTab from '@/Pages/Reports/sections/CasesTab';
+import ReferralsTab from '@/Pages/Reports/sections/ReferralsTab';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, PointElement, LineElement, Title, Tooltip, Legend, Filler);
 
-// Province name→PSGC code lookup built from PSGC master data
+// Province name → PSGC code lookup built from PSGC master data
 const provinceNameToPsgcCode = Object.values(philippineAddressData.provincesByRegion)
   .flat()
   .reduce((acc, p) => { acc[p.name.toLowerCase()] = p.code; return acc; }, {});
@@ -45,24 +28,21 @@ const provinceNameToPsgcCode = Object.values(philippineAddressData.provincesByRe
 function ReportsDashboard({
   // Eager props
   kpis,
-  dateScope: initialDateScope, province: initialProvince, city: initialCity,
+  province: initialProvince, city: initialCity,
   agencyId: initialAgencyId, agencyOptions,
   provinceOptions, cityOptions,
   from: initialFrom, to: initialTo,
-  role, referenceData,
+  role,
 }) {
-  const [activeTab, setActiveTab] = useState('overview');
-  const [dateScope, setDateScope] = useState(initialDateScope || 'case_created_at');
+  const [activeTab, setActiveTab] = useState('cases');
   const [province, setProvince] = useState(initialProvince || null);
   const [city, setCity] = useState(initialCity || null);
   const [agencyId, setAgencyId] = useState(initialAgencyId || null);
-  const [caseStatusDist, caseStatusLoading] = useLazyProp('caseStatusDistribution');
   const [casesSeries] = useLazyProp('casesOverTime');
   const [referralSeries] = useLazyProp('referralTrends');
 
   const caseSparkline = casesSeries?.datasets?.[0]?.data;
   const referralSparkline = referralSeries?.datasets?.[0]?.data;
-  const referralStatuses = referenceData?.referralStatuses || [];
   const localCityOptions = useMemo(() => {
     if (!province) return cityOptions || [];
     const selected = provinceOptions.find((p) => p.value === province);
@@ -76,14 +56,14 @@ function ReportsDashboard({
     return cityOptions || [];
   }, [province, cityOptions, provinceOptions]);
 
+  // Everything on this page uses the case filed date. The server defaults
+  // date_scope to case_created_at when it is absent, so no scope selector.
   const extraDeps = {
-    ...(role === 'CASE_MANAGER' ? { date_scope: dateScope } : {}),
     province,
     city,
     agency_id: agencyId,
   };
   const appliedExtraDeps = {
-    ...(role === 'CASE_MANAGER' ? { date_scope: initialDateScope || 'case_created_at' } : {}),
     province: initialProvince || null,
     city: initialCity || null,
     agency_id: initialAgencyId || null,
@@ -101,8 +81,10 @@ function ReportsDashboard({
     ? 'Agency performance overview.'
     : role === 'ADMIN'
       ? 'System-wide performance metrics and trends.'
-      : 'Your caseload, referral throughput, and where cases need attention.';
+      : 'Numbers for the whole organization, on one page.';
   const heroCols = role === 'CASE_MANAGER' ? 'xl:grid-cols-5' : 'xl:grid-cols-4';
+
+  const mapProps = { province, setProvince, setCity, provinceOptions: provinceOptions || [] };
 
   return (
     <div className="mx-auto max-w-7xl space-y-5 pb-4">
@@ -118,7 +100,7 @@ function ReportsDashboard({
             <ExportButtons
               fromDateISO={fromDateISO}
               toDateISO={toDateISO}
-              dateScope={role === 'CASE_MANAGER' ? dateScope : undefined}
+              dateScope="case_created_at"
               province={province}
               city={city}
               agencyId={agencyId}
@@ -126,45 +108,27 @@ function ReportsDashboard({
             />
           </div>
         </div>
-        <div
-          className={
-            role === 'AGENCY'
-              ? 'flex flex-col gap-3 md:flex-row md:items-center md:justify-between'
-              : 'flex flex-col gap-4'
-          }
-        >
-          {/* Tab bar row — sits on the LEFT for agency, right for other roles */}
-          <div
-            data-tour="reports-tabs"
-            className={
-              role === 'AGENCY'
-                ? ''
-                : 'order-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'
-            }
-          >
-            {role !== 'AGENCY' && (
-              <div className="flex flex-wrap items-center gap-3">
-                <AgencyFilter
-                  agencyOptions={agencyOptions || []}
-                  agencyId={agencyId}
-                  onChange={setAgencyId}
+        <div data-tour="reports-filters" className="flex flex-col gap-4">
+          {role !== 'AGENCY' && (
+            <div className="flex flex-wrap items-center gap-3">
+              <AgencyFilter
+                agencyOptions={agencyOptions || []}
+                agencyId={agencyId}
+                onChange={setAgencyId}
+              />
+              {role === 'CASE_MANAGER' && (
+                <ProvinceCityFilter
+                  provinceOptions={provinceOptions || []}
+                  cityOptions={localCityOptions}
+                  province={province}
+                  city={city}
+                  onProvinceChange={setProvince}
+                  onCityChange={setCity}
                 />
-                {role === 'CASE_MANAGER' && (
-                  <ProvinceCityFilter
-                    provinceOptions={provinceOptions || []}
-                    cityOptions={localCityOptions}
-                    province={province}
-                    city={city}
-                    onProvinceChange={setProvince}
-                    onCityChange={setCity}
-                  />
-                )}
-              </div>
-            )}
-            <ReportTabBar value={activeTab} onChange={setActiveTab} role={role} />
-          </div>
-          {/* Date filters row — takes the tabs position on the RIGHT for agency */}
-          <div data-tour="reports-filters" className="order-1 flex flex-wrap items-center justify-end gap-3">
+              )}
+            </div>
+          )}
+          <div className="flex flex-wrap items-center gap-3">
             <DateRangePicker
               fromDateISO={fromDateISO}
               toDateISO={toDateISO}
@@ -174,7 +138,6 @@ function ReportsDashboard({
               onQuickRangeSelect={handleQuickRange}
               onReset={resetDateRange}
             />
-            {role === 'CASE_MANAGER' && <DateScopeSelect value={dateScope} onChange={setDateScope} />}
             <button
               type="button"
               onClick={applyFilters}
@@ -185,13 +148,44 @@ function ReportsDashboard({
                   : 'cursor-not-allowed border border-slate-200 bg-slate-100 text-slate-400'
               }`}
             >
-              Apply filters
+              Show
             </button>
           </div>
         </div>
       </header>
 
-      {/* ── KPI hero: primary "am I on track" tier ── */}
+      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+        <p className="text-sm text-slate-500 dark:text-slate-400">
+          <strong className="text-slate-700 dark:text-slate-300">How to read this page:</strong>{' '}
+          All numbers cover cases filed in the chosen period. Percentages use only clients with
+          that detail recorded. Some clients appear in more than one row. Small groups may be
+          hidden in the PDF or Excel export to protect privacy.
+        </p>
+      </div>
+
+      <div data-tour="reports-tabs" role="tablist" aria-label="Report parts" className="grid grid-cols-2 gap-0 overflow-hidden rounded-xl border-2 border-primary">
+        {[
+          { key: 'cases', label: 'Cases' },
+          { key: 'referrals', label: 'Referrals' },
+        ].map((tab) => (
+          <button
+            key={tab.key}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`px-4 py-3 text-base font-extrabold transition-colors focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary ${
+              activeTab === tab.key
+                ? 'bg-primary text-white'
+                : 'bg-white text-primary hover:bg-slate-50 dark:bg-slate-900'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── KPI hero ── */}
       <section data-tour="reports-kpis" className={`grid grid-cols-1 gap-3 sm:grid-cols-2 ${heroCols}`}>
         <MetricCard label="Active Caseload" value={`${kpis?.openCases ?? 0}`}
           icon={<Users className="w-4 h-4 text-primary" />}
@@ -221,95 +215,14 @@ function ReportsDashboard({
           icon={<ClipboardCheck className="w-4 h-4 text-[#d9663b]" />} />
       </section>
 
-      {activeTab === 'overview' && <OverviewBanner />}
-      {activeTab === 'overview' && <AttentionSection />}
-
-      {/* ── OVERVIEW ── */}
-      {activeTab === 'overview' && (
-        <>
-          <section data-tour="reports-charts" className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-            <div className="xl:col-span-2">
-              <ReferralFunnelSection referralStatuses={referralStatuses} />
-            </div>
-            <StatusDistributionSection />
-          </section>
-
-          <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-            <LazyTrendChart lazyKey="casesOverTime" title="Cases Over Time" />
-            <ReferralTrendsSection />
-          </section>
-
-          <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-            <AgencyScorecardSection role={role} />
-          </section>
-        </>
-      )}
-
-      {/* ── PERFORMANCE ── */}
-      {activeTab === 'performance' && (
-        <>
-          <section className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-            <StatusDistributionSection />
-            <LazyChartArticle lazyKey="referralAging" title="Referral Aging" desc="How long active referrals have been waiting" emptyText="No active referrals pending." />
-            <CycleTimeSection />
-          </section>
-
-          <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            <AvgCompletionCard role={role} />
-            <OverdueReferralsCard role={role} />
-          </section>
-
-          <ReferralFunnelSection referralStatuses={referralStatuses} />
-
-          <section className="mb-2">
-            <LazyTrendChart lazyKey="caseTrends" title="Case Trends (12 Months)" />
-          </section>
-
-          <ReferralTrendsSection role={role} />
-        </>
-      )}
-
-      {/* ── AGENCIES & SERVICES ── */}
-      {activeTab === 'agencies' && (
-        <>
-          <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-            <AgencyScorecardSection role={role} />
-            <CategorySection />
-          </section>
-
-          <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-            <AgencyWorkloadChart role={role} />
-            <LazyChartArticle lazyKey="referralAgencyDistribution" title="Referrals by Agency" emptyText="No agency referral data available." />
-          </section>
-
-          <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-            <LazyChartArticle lazyKey="caseIssueDistribution" title="Case Issue Distribution" emptyText="No issue data available." />
-          </section>
-        </>
-      )}
-
-      {/* ── CASELOAD & CLIENTS ── */}
-      {activeTab === 'clients' && (
-        <>
-          <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-            <CaseStatusPieChart data={caseStatusDist} loading={caseStatusLoading} />
-            <CategorySection />
-          </section>
-
-          <ClientSnapshotCard />
-
-          <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-            <LazyChartArticle lazyKey="vulnerabilityDistribution" title="Vulnerability Indicators" emptyText="No vulnerability data available." />
-            <LazyChartArticle lazyKey="clientTypeDistribution" title="Client Type" emptyText="No client type data available." />
-          </section>
-
-          <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-            <GeographicMapSection province={province} setProvince={setProvince} setCity={setCity} provinceOptions={provinceOptions || []} />
-            <LazyChartArticle lazyKey="cityDistribution" title="City/Municipality Distribution" emptyText="No city-level data available." />
-          </section>
-
-          <EmploymentSection />
-        </>
+      {activeTab === 'cases' ? (
+        <div role="tabpanel" aria-label="Cases">
+          <CasesTab mapProps={mapProps} />
+        </div>
+      ) : (
+        <div role="tabpanel" aria-label="Referrals">
+          <ReferralsTab />
+        </div>
       )}
     </div>
   );

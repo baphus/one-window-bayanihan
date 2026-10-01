@@ -3,11 +3,12 @@ import { describe, expect, it, vi } from 'vitest';
 import ReferralShow from '../Show';
 
 const state = vi.hoisted(() => ({ role: 'AGENCY', agencyId: 'agency-1' }));
+const routerSpy = vi.hoisted(() => ({ post: vi.fn(), patch: vi.fn(), delete: vi.fn(), reload: vi.fn() }));
 
 vi.mock('@inertiajs/react', () => ({
   Head: () => null,
   Link: ({ children, ...props }) => <a {...props}>{children}</a>,
-  router: { post: vi.fn(), patch: vi.fn(), delete: vi.fn(), reload: vi.fn() },
+  router: routerSpy,
   usePage: () => ({ props: { auth: { user: { role: state.role, agcy_id: state.agencyId } } } }),
   useForm: (initial = {}) => ({
     data: initial,
@@ -215,5 +216,107 @@ describe('Referral/Show client request permissions', () => {
     expect(activePane).not.toBeNull();
     expect(within(activePane).getByText('Second question')).toBeInTheDocument();
     expect(within(activePane).queryByText('Client question')).not.toBeInTheDocument();
+  });
+});
+
+describe('Referral/Show reject reason', () => {
+  function renderPendingReferral() {
+    state.role = 'AGENCY';
+    routerSpy.patch.mockClear();
+    return render(
+      <ReferralShow
+        referral={{ ...referral, status: 'PENDING' }}
+        clientRequestHistory={[]}
+        clientRequestPermissions={{}}
+        timeline={[]}
+      />,
+    );
+  }
+
+  it('requires a reason on reject and sends it with the decision', () => {
+    renderPendingReferral();
+    fireEvent.click(within(document.querySelector('[data-tour="referral-actions"]')).getByRole('button', { name: 'Reject' }));
+
+    const modal = within(document.querySelector('.fixed.inset-0.z-50'));
+    const reasonSelect = modal.getByRole('combobox');
+    expect(within(reasonSelect).getAllByRole('option')).toHaveLength(7);
+    const confirm = screen.getByRole('button', { name: 'Confirm Reject' });
+    expect(confirm).toBeDisabled();
+
+    fireEvent.change(reasonSelect, { target: { value: 'INCOMPLETE_REQUIREMENTS' } });
+    expect(confirm).toBeDisabled();
+
+    fireEvent.change(screen.getByPlaceholderText('Enter your decision remark...'), { target: { value: 'Missing birth certificate' } });
+    expect(confirm).not.toBeDisabled();
+
+    fireEvent.click(confirm);
+    expect(routerSpy.patch).toHaveBeenCalledWith(
+      '/referrals.update-status/referral-1',
+      expect.objectContaining({
+        status: 'REJECTED',
+        decision: 'REJECT',
+        decision_comment: 'Missing birth certificate',
+        rejection_reason: 'INCOMPLETE_REQUIREMENTS',
+      }),
+      expect.anything(),
+    );
+  });
+
+  it('requires a longer comment when Other is selected', () => {
+    renderPendingReferral();
+    fireEvent.click(within(document.querySelector('[data-tour="referral-actions"]')).getByRole('button', { name: 'Reject' }));
+
+    const modal = within(document.querySelector('.fixed.inset-0.z-50'));
+    fireEvent.change(modal.getByRole('combobox'), { target: { value: 'OTHER' } });
+    expect(screen.getByText('Please explain in at least 10 characters.')).toBeInTheDocument();
+
+    const confirm = screen.getByRole('button', { name: 'Confirm Reject' });
+    fireEvent.change(screen.getByPlaceholderText('Enter your decision remark...'), { target: { value: 'short' } });
+    expect(confirm).toBeDisabled();
+
+    fireEvent.change(screen.getByPlaceholderText('Enter your decision remark...'), { target: { value: 'Agency closed this program' } });
+    expect(confirm).not.toBeDisabled();
+
+    fireEvent.click(confirm);
+    expect(routerSpy.patch).toHaveBeenCalledWith(
+      '/referrals.update-status/referral-1',
+      expect.objectContaining({ rejection_reason: 'OTHER', decision_comment: 'Agency closed this program' }),
+      expect.anything(),
+    );
+  });
+
+  it('sends the reason through the Update Status REJECTED path', () => {
+    state.role = 'AGENCY';
+    routerSpy.patch.mockClear();
+    render(
+      <ReferralShow
+        referral={{ ...referral, status: 'PROCESSING' }}
+        clientRequestHistory={[]}
+        clientRequestPermissions={{}}
+        timeline={[]}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Update Status' }));
+
+    const modal = within(screen.getByText('New Status').closest('.fixed'));
+    const statusSelect = modal.getAllByRole('combobox').find((select) => within(select).queryByText('Processing'));
+    fireEvent.change(statusSelect, { target: { value: 'REJECTED' } });
+
+    const reasonSelect = modal.getAllByRole('combobox').find((select) => within(select).queryByText('Incomplete requirements'));
+    expect(reasonSelect).toBeDefined();
+    fireEvent.change(reasonSelect, { target: { value: 'OUTSIDE_MANDATE' } });
+    fireEvent.change(modal.getByPlaceholderText('Enter a remark for this status update...'), { target: { value: 'Not our mandate' } });
+    fireEvent.click(modal.getByRole('button', { name: 'Update Status' }));
+
+    expect(routerSpy.patch).toHaveBeenCalledWith(
+      '/referrals.update-status/referral-1',
+      expect.objectContaining({
+        status: 'REJECTED',
+        decision: 'REJECT',
+        rejection_reason: 'OUTSIDE_MANDATE',
+        decision_comment: 'Not our mandate',
+      }),
+      expect.anything(),
+    );
   });
 });

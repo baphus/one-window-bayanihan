@@ -581,12 +581,12 @@ class ReferralService
         $requirement->delete();
     }
 
-    public function updateStatus(string $id, string $status, ?string $decision, ?string $decisionComment, string $userId): Referral
+    public function updateStatus(string $id, string $status, ?string $decision, ?string $decisionComment, string $userId, ?string $rejectionReason = null): Referral
     {
         $changed = false;
         $caseId = null;
 
-        $referral = DB::transaction(function () use ($id, $status, $decision, $decisionComment, $userId, &$changed, &$caseId) {
+        $referral = DB::transaction(function () use ($id, $status, $decision, $decisionComment, $userId, $rejectionReason, &$changed, &$caseId) {
             // Row lock serializes concurrent updates so a second duplicate
             // request observes the new status and short-circuits below.
             $referral = Referral::whereKey($id)->lockForUpdate()->firstOrFail();
@@ -594,10 +594,32 @@ class ReferralService
 
             $this->assertAllowedTransition($oldStatus, $status);
 
+            // New rejections must carry a reason (mirrors the request rule so
+            // direct service callers cannot bypass it); idempotent
+            // REJECTED→REJECTED no-ops keep whatever reason is stored.
+            if ($status === 'REJECTED' && $oldStatus !== 'REJECTED') {
+                $effectiveReason = $rejectionReason ?? $referral->rejection_reason;
+
+                if ($effectiveReason === null) {
+                    throw new \InvalidArgumentException('A rejection reason is required to reject a referral.');
+                }
+
+                $effectiveComment = $decisionComment ?? $referral->decision_comment;
+
+                if ($effectiveReason === 'OTHER' && mb_strlen(trim((string) $effectiveComment)) < 10) {
+                    throw new \InvalidArgumentException('A decision comment of at least 10 characters is required when the rejection reason is Other.');
+                }
+            }
+
             $referral->update([
                 'status' => $status,
                 'decision' => $decision ?? $referral->decision,
                 'decision_comment' => $decisionComment ?? $referral->decision_comment,
+                // Preserve the stored reason when the caller sends none; a
+                // stale reason must never survive a move out of REJECTED.
+                'rejection_reason' => $status === 'REJECTED'
+                    ? ($rejectionReason ?? $referral->rejection_reason)
+                    : null,
             ]);
             // Audit logging is handled by AuditObserver::updated() — no manual log needed.
 

@@ -211,7 +211,7 @@
             <td class="accent-teal"><div class="kpi-value">{{ $kpis['completionRate'] ?? 0 }}%</div><div class="kpi-label">Completion Rate</div></td>
             <td class="accent-purple"><div class="kpi-value">{{ $kpis['avgResolutionDays'] ?? 0 }}d</div><div class="kpi-label">Avg Resolution</div></td>
             <td class="accent-amber"><div class="kpi-value">{{ $fmt($kpis['pendingReferrals'] ?? 0) }}</div><div class="kpi-label">Pending</div></td>
-            <td class="accent-red"><div class="kpi-value">{{ $fmt($overdueReferrals['count'] ?? 0) }}</div><div class="kpi-label">Overdue &gt;{{ $overdueReferrals['threshold_days'] ?? 14 }}d</div></td>
+            <td class="accent-red"><div class="kpi-value">{{ $fmt($overdueReferrals['count'] ?? 0) }}</div><div class="kpi-label">Overdue referrals (due within selected period, &gt;{{ $overdueReferrals['threshold_days'] ?? 14 }}d)</div></td>
         </tr>
     </table>
 
@@ -244,6 +244,42 @@
             </td>
         </tr>
     </table>
+    @endif
+
+    @php
+        $rejTop = null;
+        foreach (($rejectionReasonDistribution['labels'] ?? []) as $i => $label) {
+            $value = (int) ($rejectionReasonDistribution['data'][$i] ?? 0);
+            if ($rejTop === null || $value > $rejTop[1]) {
+                $rejTop = [$label, $value];
+            }
+        }
+    @endphp
+    @if(!empty($rejectionReasonDistribution['labels']))
+    <table class="chart-row">
+        <tr>
+            <td class="chart-cell">
+                <div class="chart-container">
+                    <div class="chart-title">Rejection Reasons</div>
+                    <div class="chart-subtitle">Rejected referrals in range by recorded reason</div>
+                    {!! $chartRenderer->pieChart($rejectionReasonDistribution['labels'], $rejectionReasonDistribution['data'], ['size' => 210]) !!}
+                </div>
+            </td>
+            <td class="table-cell">
+                <table class="data">
+                    <thead><tr><th>Reason</th><th class="num">Referrals</th></tr></thead>
+                    <tbody>
+                        @foreach($rejectionReasonDistribution['labels'] as $i => $label)
+                            <tr><td>{{ $label }}</td><td class="num">{{ $fmt($rejectionReasonDistribution['data'][$i] ?? 0) }}</td></tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </td>
+        </tr>
+    </table>
+    @if($rejTop !== null && $rejTop[1] > 0)
+        <div class="note-box"><strong>Top reason:</strong> {{ $rejTop[0] }} ({{ $fmt($rejTop[1]) }})</div>
+    @endif
     @endif
 
     @if(!empty($referralFunnel['stages']))
@@ -285,12 +321,21 @@
             'labels' => $casesOverTime['labels'] ?? [],
             'data' => $casesOverTime['datasets'][0]['data'] ?? [],
         ];
+        $closedSeries = [
+            'labels' => $closedCasesOverTime['labels'] ?? [],
+            'data' => $closedCasesOverTime['datasets'][0]['data'] ?? [],
+        ];
     @endphp
+
+    @if(($avgReferralCompletion ?? null) !== null)
+        <div class="note-box"><strong>Average finish time:</strong> {{ $avgReferralCompletion }} days</div>
+    @endif
 
     @foreach([
         ['Monthly Case Volume', 'Cases created per month', $caseTrends ?? [], '#005288', 'Cases'],
         ['Monthly Referral Volume', 'Referrals created per month', $referralTrends ?? [], '#3f915f', 'Referrals'],
         ['Cases Over Time', 'Case intake trend across the selected window', $casesSeries, '#9b51b0', 'Cases'],
+        ['Cases Closed per Month', 'Cases closed per month across the selected window', $closedSeries, '#3f915f', 'Cases'],
     ] as [$title, $desc, $series, $colour, $unit])
         @continue(empty($series['labels']))
         <table class="chart-row">
@@ -366,15 +411,34 @@
 
         <h3>Agency Scorecard</h3>
         <table class="data">
-            <thead><tr><th>Agency</th><th class="num">Total</th><th class="num">Completed</th><th class="num">Pending</th><th class="num">Avg Days</th></tr></thead>
+            <thead><tr><th>Agency</th><th class="num">Total</th><th class="num">Completed</th><th class="num">Active</th><th class="num">Pending</th><th class="num">Avg Days</th></tr></thead>
             <tbody>
                 @foreach($agencyScorecard as $row)
                     <tr>
                         <td>{{ $row['agency'] ?? '' }}</td>
                         <td class="num">{{ $fmt($row['total'] ?? 0) }}</td>
                         <td class="num">{{ $fmt($row['completed'] ?? 0) }}</td>
+                        <td class="num">{{ $fmt($row['active'] ?? 0) }}</td>
                         <td class="num">{{ $fmt($row['pending'] ?? 0) }}</td>
                         <td class="num">{{ $row['avg_days'] ?? '—' }}</td>
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
+        <p class="small">Active means total minus completed, matching the on-screen agency table.</p>
+    @endif
+
+    @if(!empty($agencyFirstResponse))
+        <h3>First Response per Agency</h3>
+        <p class="section-desc">Median days from referral creation to first acceptance (PENDING to PROCESSING).</p>
+        <table class="data">
+            <thead><tr><th>Agency</th><th class="num">Median Days</th><th class="num">Referrals</th></tr></thead>
+            <tbody>
+                @foreach($agencyFirstResponse as $row)
+                    <tr>
+                        <td>{{ $row['agency'] ?? '' }}</td>
+                        <td class="num">{{ $row['medianDays'] ?? '—' }}</td>
+                        <td class="num">{{ $fmt($row['samples'] ?? 0) }}</td>
                     </tr>
                 @endforeach
             </tbody>
@@ -415,6 +479,63 @@
                     <tbody>
                         @foreach($caseStatusDistribution['labels'] as $i => $label)
                             <tr><td>{{ $label }}</td><td class="num">{{ $fmt($caseStatusDistribution['data'][$i] ?? 0) }}</td></tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </td>
+        </tr>
+    </table>
+    @endif
+
+    @if(!empty($caseSourceDistribution['labels']))
+    <table class="chart-row">
+        <tr>
+            <td class="chart-cell">
+                <div class="chart-container">
+                    <div class="chart-title">How Cases Arrive</div>
+                    <div class="chart-subtitle">Cases in range by intake source</div>
+                    {!! $chartRenderer->pieChart($caseSourceDistribution['labels'], $caseSourceDistribution['data'], ['size' => 200]) !!}
+                </div>
+            </td>
+            <td class="table-cell">
+                <table class="data">
+                    <thead><tr><th>Source</th><th class="num">Cases</th></tr></thead>
+                    <tbody>
+                        @foreach($caseSourceDistribution['labels'] as $i => $label)
+                            <tr><td>{{ $label }}</td><td class="num">{{ $fmt($caseSourceDistribution['data'][$i] ?? 0) }}</td></tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </td>
+        </tr>
+    </table>
+    @endif
+
+    @if(!empty($reopenedStats) && ((($reopenedStats['reopenedCount'] ?? 0) > 0) || (($reopenedStats['totalClients'] ?? 0) > 0)))
+        <div class="note-box">
+            <strong>Reopened and returning clients:</strong>
+            {{ $fmt($reopenedStats['reopenedCount'] ?? 0) }} reopens in range;
+            {{ $fmt($reopenedStats['repeatClients'] ?? 0) }} of {{ $fmt($reopenedStats['totalClients'] ?? 0) }} clients
+            have more than one case ({{ $reopenedStats['repeatClientRate'] ?? 0 }}%).
+        </div>
+    @endif
+
+    @if(!empty($caseEventActorDistribution['labels']))
+    <table class="chart-row">
+        <tr>
+            <td class="chart-cell">
+                <div class="chart-container">
+                    <div class="chart-title">Who Acts on Cases</div>
+                    <div class="chart-subtitle">Case activity in range by actor type</div>
+                    {!! $chartRenderer->pieChart($caseEventActorDistribution['labels'], $caseEventActorDistribution['data'], ['size' => 200]) !!}
+                </div>
+            </td>
+            <td class="table-cell">
+                <table class="data">
+                    <thead><tr><th>Actor</th><th class="num">Events</th></tr></thead>
+                    <tbody>
+                        @foreach($caseEventActorDistribution['labels'] as $i => $label)
+                            <tr><td>{{ $label }}</td><td class="num">{{ $fmt($caseEventActorDistribution['data'][$i] ?? 0) }}</td></tr>
                         @endforeach
                     </tbody>
                 </table>
@@ -485,10 +606,23 @@
             </tr>
         </table>
     @endforeach
+
+    @if(!empty($geographicMapData['provinces']))
+        <h3>Cases by Province (Map Data)</h3>
+        <p class="section-desc">Province counts backing the on-screen map. The map image itself cannot print in this format.</p>
+        <table class="data">
+            <thead><tr><th>Province</th><th class="num">Cases</th></tr></thead>
+            <tbody>
+                @foreach($geographicMapData['provinces'] as $province)
+                    <tr><td>{{ $province['name'] ?? '' }}</td><td class="num">{{ $fmt($province['cases'] ?? 0) }}</td></tr>
+                @endforeach
+            </tbody>
+        </table>
+    @endif
     @endif
 
     {{-- ═══════════════ CLIENT PROFILE ═══════════════ --}}
-    @if(!empty($genderDistribution['labels']) || !empty($ageGroupDistribution['labels']) || !empty($vulnerabilityDistribution['labels']) || !empty($clientTypeDistribution['labels']) || !empty($employmentDistribution['labels']) || !empty($employmentOccupationBreakdown['labels']))
+    @if(!empty($genderDistribution['labels']) || !empty($ageGroupDistribution['labels']) || !empty($vulnerabilityDistribution['labels']) || !empty($clientTypeDistribution['labels']) || !empty($employmentDistribution['labels']) || !empty($employmentOccupationBreakdown['labels']) || !empty($clientRequestTypeDistribution['labels']))
     <h2 class="page-break">Client Profile</h2>
     <p class="section-desc">
         Aggregated demographic data. Figures are counts of cases, not individuals, and
@@ -500,6 +634,7 @@
         ['Gender', 'Recorded client gender', $genderDistribution ?? [], 'Gender', 'pie'],
         ['Age Groups', 'Client age at time of intake', $ageGroupDistribution ?? [], 'Age Band', 'bar'],
         ['Vulnerability Indicators', 'Cases flagged with a vulnerability marker', $vulnerabilityDistribution ?? [], 'Indicator', 'bar'],
+        ['Client Request Types', 'Client requests in range by request type', $clientRequestTypeDistribution ?? [], 'Type', 'bar'],
     ] as [$title, $desc, $dist, $header, $kind])
         @continue(empty($dist['labels']))
         <table class="chart-row">
