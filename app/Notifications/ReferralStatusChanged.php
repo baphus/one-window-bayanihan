@@ -16,6 +16,8 @@ class ReferralStatusChanged extends Notification implements ShouldQueue
         public readonly Referral $referral,
         public readonly string $oldStatus,
         public readonly string $newStatus,
+        public readonly ?string $actorName = null,
+        public readonly ?string $reason = null,
     ) {}
 
     public function via(object $notifiable): array
@@ -48,17 +50,54 @@ class ReferralStatusChanged extends Notification implements ShouldQueue
             ]);
     }
 
+    /**
+     * Staff inbox payload with case reference, actor, and deep link.
+     *
+     * @return array<string, mixed>
+     */
     public function toDatabase(object $notifiable): array
     {
+        $referral = $this->referral;
+        // Never lazy-load on a non-persisted model: fall back to raw identifiers.
+        if ($referral->relationLoaded('caseFile') || $referral->exists) {
+            $referral->loadMissing('caseFile');
+        }
+        $caseNumber = $referral->relationLoaded('caseFile')
+            ? ($referral->caseFile?->case_number ?? $referral->case_id)
+            : $referral->case_id;
+        $old = $this->humanizeStatus($this->oldStatus);
+        $new = $this->humanizeStatus($this->newStatus);
+
+        $message = "Case {$caseNumber}: referral status changed from {$old} to {$new}";
+        if ($this->actorName !== null && $this->actorName !== '') {
+            $message .= " by {$this->actorName}";
+        }
+        if ($this->reason !== null && $this->reason !== '') {
+            $message .= " — {$this->reason}";
+        }
+
         return [
             'type' => 'referral_status_changed',
-            'referral_id' => $this->referral->id,
-            'case_id' => $this->referral->case_id,
+            'title' => "Referral for case {$caseNumber} is now {$new}",
+            'message' => $message,
+            'case_number' => $caseNumber,
+            'actor_name' => $this->actorName,
+            'url' => "/referrals/{$referral->id}",
+            'referral_id' => $referral->id,
+            'case_id' => $referral->case_id,
             'old_status' => $this->oldStatus,
             'new_status' => $this->newStatus,
-            'message' => "Referral status changed from {$this->humanizeStatus($this->oldStatus)} to {$this->humanizeStatus($this->newStatus)}",
-            'url' => "/referrals/{$this->referral->id}",
         ];
+    }
+
+    /**
+     * Keep array/broadcast serialization identical to the database payload.
+     *
+     * @return array<string, mixed>
+     */
+    public function toArray(object $notifiable): array
+    {
+        return $this->toDatabase($notifiable);
     }
 
     private function humanizeStatus(string $status): string

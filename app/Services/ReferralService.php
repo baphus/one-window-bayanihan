@@ -87,11 +87,13 @@ class ReferralService
 
             // Audit logging is handled by AuditObserver::created() — no manual log needed.
 
+            $actorName = User::whereKey($userId)->value('name');
+
             // Notify agency users about the new referral
             $agencyUsers = User::where('agcy_id', $referral->agcy_id)
                 ->where('is_active', true)
                 ->get();
-            Notification::send($agencyUsers, new ReferralCreated($referral));
+            Notification::send($agencyUsers, new ReferralCreated($referral, $actorName));
 
             // Notify peer agencies already involved in this case
             $peerReferrals = Referral::where('case_id', $referral->case_id)
@@ -108,18 +110,24 @@ class ReferralService
                     ->get();
 
                 if ($peerUsers->isNotEmpty()) {
-                    Notification::send($peerUsers, new PeerReferralCreated($referral, $peerReferrals->first()));
+                    Notification::send($peerUsers, new PeerReferralCreated($referral, $peerReferrals->first(), $actorName));
                 }
             }
 
-            // Also create OFW notification for the case client
+            // Also create OFW notification for the case client (plain language, no status codes)
             if ($referral->caseFile && $referral->caseFile->client && $referral->caseFile->client->email) {
+                $referral->loadMissing(['agency', 'services']);
+                $agencyName = $referral->agency?->name ?? 'a partner agency';
+                $services = $referral->relationLoaded('services') && $referral->services->isNotEmpty()
+                    ? $referral->services->pluck('name')->implode(', ')
+                    : 'the help you requested';
+
                 $this->notificationService->notifyOfw(
                     $referral->caseFile,
                     $referral->caseFile->client->email,
                     'referral_created',
-                    'New Referral',
-                    'A new referral has been created for your case.',
+                    "Your case was sent to {$agencyName}",
+                    "Good news — your case {$referral->caseFile->case_number} was sent to {$agencyName} for: {$services}. They will post updates here as they work on it.",
                     ['referral_id' => $referral->id, 'status' => $referral->status],
                     route('track.show', $referral->caseFile->tracker_number ?? $referral->case_id),
                 );
@@ -634,24 +642,36 @@ class ReferralService
 
             $this->eventRecorder->referralStatusChanged($referral, $oldStatus, $status, $userId);
 
-            // Notify case manager about the status change
+            // Notify the case manager and the owning agency about the status change
             if ($referral->caseFile) {
+                $actorName = User::whereKey($userId)->value('name');
+                $reason = $status === 'REJECTED'
+                    ? ($rejectionReason ?? $referral->rejection_reason)
+                    : null;
+                $statusNotification = new ReferralStatusChanged($referral, $oldStatus, $status, $actorName, $reason);
+
                 $caseManager = User::find($referral->caseFile->user_id);
                 if ($caseManager) {
-                    Notification::send(
-                        [$caseManager],
-                        new ReferralStatusChanged($referral, $oldStatus, $status),
-                    );
+                    Notification::send([$caseManager], $statusNotification);
                 }
 
-                // Also create OFW notification
+                $agencyUsers = User::where('agcy_id', $referral->agcy_id)
+                    ->where('is_active', true)
+                    ->when($caseManager, fn ($query) => $query->where('id', '!=', $caseManager->id))
+                    ->get();
+                if ($agencyUsers->isNotEmpty()) {
+                    Notification::send($agencyUsers, $statusNotification);
+                }
+
+                // Also create OFW notification (plain language, no status codes)
                 if ($referral->caseFile->client && $referral->caseFile->client->email) {
+                    $referral->loadMissing('agency');
                     $this->notificationService->notifyOfw(
                         $referral->caseFile,
                         $referral->caseFile->client->email,
                         'referral_status_changed',
-                        'Referral Status Updated',
-                        "Referral status changed from {$oldStatus} to {$status}.",
+                        $this->ofwReferralStatusTitle($referral, $status),
+                        $this->ofwReferralStatusMessage($referral, $status),
                         [
                             'referral_id' => $referral->id,
                             'old_status' => $oldStatus,
@@ -691,6 +711,41 @@ class ReferralService
                 "Cannot change referral status from {$from} to {$to}."
             );
         }
+    }
+
+    /**
+     * Client-facing headline for a referral status change.
+     * Plain language only — internal status codes never reach the client.
+     */
+    private function ofwReferralStatusTitle(Referral $referral, string $status): string
+    {
+        $agencyName = $referral->agency?->name ?? 'the agency';
+
+        return match ($status) {
+            'PROCESSING' => "{$agencyName} is now working on your case",
+            'FOR_COMPLIANCE' => "Action needed: {$agencyName} needs something from you",
+            'COMPLETED' => "{$agencyName} finished their part of your case",
+            'REJECTED' => "Update on your referral with {$agencyName}",
+            default => "{$agencyName} received your referral",
+        };
+    }
+
+    /**
+     * Client-facing body for a referral status change.
+     * Plain language only — internal status codes never reach the client.
+     */
+    private function ofwReferralStatusMessage(Referral $referral, string $status): string
+    {
+        $agencyName = $referral->agency?->name ?? 'the agency';
+        $caseNumber = $referral->caseFile?->case_number ?? '';
+
+        return match ($status) {
+            'PROCESSING' => "Good news — {$agencyName} has started working on your case {$caseNumber}. They will post updates here as they progress.",
+            'FOR_COMPLIANCE' => "{$agencyName} needs additional information for your case {$caseNumber}. Please watch for their message and respond as soon as you can.",
+            'COMPLETED' => "{$agencyName} has finished their part of your case {$caseNumber}. Thank you for your patience.",
+            'REJECTED' => "{$agencyName} could not take on this part of your case {$caseNumber}. Your case manager will tell you what happens next.",
+            default => "{$agencyName} received the referral for your case {$caseNumber} and will start on it shortly.",
+        };
     }
 
     public function addMilestone(string $referralId, string $title, ?string $description, string $userId, ?array $requirements = null): Milestone
@@ -734,15 +789,18 @@ class ReferralService
                 }
 
                 $clientEmail = $referral->caseFile->client?->email ?? '';
+                $actorName = User::whereKey($userId)->value('name');
+                $agencyName = $referral->agency?->name ?? 'the agency';
+                $caseNumber = $referral->caseFile?->case_number ?? '';
 
                 $this->notificationService->notifyAll(
                     $referral->caseFile,
                     $notifyUsers->unique('id')->all(),
                     $clientEmail,
-                    new MilestoneAdded($milestone, $referral),
+                    new MilestoneAdded($milestone, $referral, $actorName),
                     'milestone_added',
-                    'New Milestone Added',
-                    "New milestone '{$title}' added to referral.",
+                    "New update on your case from {$agencyName}",
+                    "{$agencyName} posted an update on your case {$caseNumber}: '{$title}'. Open your case to read the details.",
                     ['referral_id' => $referralId, 'milestone_id' => $milestone->id, 'milestone_title' => $title],
                     route('referrals.show', $referral->id),
                 );

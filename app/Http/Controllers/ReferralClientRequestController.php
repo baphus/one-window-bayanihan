@@ -74,7 +74,7 @@ class ReferralClientRequestController extends Controller
         }
 
         $delivery = $this->issueForClient($clientRequest, $request->user());
-        $this->notifyCaseManager($clientRequest, 'created');
+        $this->notifyCaseManager($clientRequest, 'created', $request->user());
 
         return redirect()->route('referrals.show', $referral)->with('client_access_delivery', $delivery);
     }
@@ -83,6 +83,7 @@ class ReferralClientRequestController extends Controller
     {
         $message = $this->requestService->sendAgencyMessage($clientRequest, $request->user(), $request->validated('body'));
         $clientRequest->loadMissing('referral');
+        $this->notifyCaseManager($clientRequest, 'agency_message', $request->user());
 
         return redirect()->back()->with('success', 'Message sent.');
     }
@@ -90,6 +91,7 @@ class ReferralClientRequestController extends Controller
     public function complete(Request $request, ReferralClientRequest $clientRequest): RedirectResponse
     {
         $this->requestService->complete($clientRequest, $request->user());
+        $this->notifyCaseManager($clientRequest, 'completed', $request->user());
 
         return redirect()->back()->with('success', 'Client request completed.');
     }
@@ -97,6 +99,7 @@ class ReferralClientRequestController extends Controller
     public function cancel(Request $request, ReferralClientRequest $clientRequest): RedirectResponse
     {
         $this->requestService->cancel($clientRequest, $request->user());
+        $this->notifyCaseManager($clientRequest, 'cancelled', $request->user());
 
         return redirect()->back()->with('success', 'Client request cancelled.');
     }
@@ -105,6 +108,7 @@ class ReferralClientRequestController extends Controller
     {
         $clientRequest = $this->requestService->reopen($clientRequest, $request->user());
         $delivery = $this->issueForClient($clientRequest, $request->user());
+        $this->notifyCaseManager($clientRequest, 'reopened', $request->user());
 
         return redirect()->back()->with('client_access_delivery', $delivery);
     }
@@ -128,6 +132,10 @@ class ReferralClientRequestController extends Controller
     public function revoke(Request $request, ReferralClientAccessLink $accessLink): RedirectResponse
     {
         $this->requestService->revokeAccessLink($accessLink, $request->user());
+        $accessLink->loadMissing('request');
+        if ($accessLink->request instanceof ReferralClientRequest) {
+            $this->notifyCaseManager($accessLink->request, 'access_revoked', $request->user());
+        }
 
         return redirect()->back()->with('success', 'Client access revoked.');
     }
@@ -282,7 +290,7 @@ class ReferralClientRequestController extends Controller
     {
         $clientRequest = $this->sessionRequest($request);
         if ($clientRequest) {
-            $this->notifyAgency($clientRequest, 'replacement_requested');
+            $this->notifyAgency($clientRequest, 'replacement_requested', 'Client');
         }
 
         return $this->capabilityResponse(
@@ -314,7 +322,7 @@ class ReferralClientRequestController extends Controller
 
     private function recordDelivery(ReferralClientRequest $clientRequest, ?string $clientEmail, string $status): void
     {
-        $clientRequest->loadMissing('referral');
+        $clientRequest->loadMissing('referral.agency', 'referral.caseFile');
 
         // CaseNotification requires a recipient email. For a no-email client,
         // retain the delivery outcome in the owning case manager's safe
@@ -325,18 +333,23 @@ class ReferralClientRequestController extends Controller
             return;
         }
 
+        // Client-facing copy in plain language. The secure access link
+        // travels by email; related_url stays null so the portal never
+        // renders a staff-only link to the client.
+        $agencyName = $clientRequest->referral?->agency?->name ?? 'the agency';
+
         CaseNotification::create([
             'case_id' => $clientRequest->referral?->case_id,
             'client_email' => $clientEmail,
             'type' => 'client_request_delivery',
-            'title' => 'Client request access delivery',
-            'message' => 'Client request access delivery status: '.$status.'.',
+            'title' => "You have a new request from {$agencyName}",
+            'message' => "{$agencyName} sent you a request, '{$clientRequest->title}'. Please check your email for the secure link and respond as soon as you can.",
             'data' => [
                 'request_id' => $clientRequest->id,
                 'referral_id' => $clientRequest->referral_id,
                 'status' => $status,
             ],
-            'related_url' => '/referrals/'.$clientRequest->referral_id.'/client-requests',
+            'related_url' => null,
         ]);
     }
 
@@ -361,29 +374,45 @@ class ReferralClientRequestController extends Controller
         return $link->request;
     }
 
-    private function notifyCaseManager(ReferralClientRequest $clientRequest, string $activity): void
+    private function notifyCaseManager(ReferralClientRequest $clientRequest, string $activity, ?User $actor = null): void
     {
         $clientRequest->loadMissing('referral.caseFile');
         $owner = $clientRequest->referral?->caseFile?->user;
         if ($owner) {
-            $owner->notify(new ReferralClientRequestActivity($activity, $clientRequest->id, $clientRequest->referral_id, $clientRequest->title, $clientRequest->status));
+            $owner->notify(new ReferralClientRequestActivity(
+                $activity,
+                $clientRequest->id,
+                $clientRequest->referral_id,
+                $clientRequest->title,
+                $clientRequest->status,
+                $clientRequest->referral?->caseFile?->case_number,
+                $actor?->name,
+            ));
         }
     }
 
-    private function notifyAgency(ReferralClientRequest $clientRequest, string $activity): void
+    private function notifyAgency(ReferralClientRequest $clientRequest, string $activity, ?string $actorName = null): void
     {
-        $clientRequest->loadMissing('referral');
+        $clientRequest->loadMissing('referral.caseFile');
         $users = User::query()
             ->where('role', 'AGENCY')
             ->where('is_active', true)
             ->where('agcy_id', $clientRequest->referral?->agcy_id)
             ->get();
-        Notification::send($users, new ReferralClientRequestActivity($activity, $clientRequest->id, $clientRequest->referral_id, $clientRequest->title, $clientRequest->status));
+        Notification::send($users, new ReferralClientRequestActivity(
+            $activity,
+            $clientRequest->id,
+            $clientRequest->referral_id,
+            $clientRequest->title,
+            $clientRequest->status,
+            $clientRequest->referral?->caseFile?->case_number,
+            $actorName,
+        ));
     }
 
     private function notifyClientReply(ReferralClientRequest $clientRequest): void
     {
-        $this->notifyAgency($clientRequest, 'client_reply');
+        $this->notifyAgency($clientRequest, 'client_reply', 'Client');
         $this->notifyCaseManager($clientRequest, 'client_reply');
     }
 

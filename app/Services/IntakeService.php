@@ -212,6 +212,9 @@ class IntakeService
     private function notifyCaseManagers(CaseFile $case, array $data): void
     {
         $ofwName = trim(($data['client']['first_name'] ?? '').' '.($data['client']['last_name'] ?? ''));
+        if ($ofwName === '') {
+            $ofwName = 'An OFW client';
+        }
 
         $caseManagers = User::where('role', 'CASE_MANAGER')
             ->where('is_active', true)

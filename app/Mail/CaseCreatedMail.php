@@ -21,7 +21,7 @@ class CaseCreatedMail extends Mailable implements ShouldQueue
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: "A Case Has Been Created for You ({$this->case->case_number})",
+            subject: "A Case Has Been Created for You ({$this->case->tracker_number})",
         );
     }
 

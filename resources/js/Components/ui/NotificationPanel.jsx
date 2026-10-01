@@ -1,4 +1,4 @@
-import { router } from '@inertiajs/react';
+import { Link, router } from '@inertiajs/react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Bell, CheckCircle2, Download, ExternalLink, Loader2 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
@@ -198,12 +198,28 @@ export default function NotificationPanel() {
                           </span>
                         </div>
                         <p className="mt-0.5 text-[12px] font-semibold text-slate-800 leading-snug line-clamp-2">
-                          {item.title || 'Notification'}
+                          {item.title || 'Update'}
                         </p>
-                        {item.message && (
+                        {item.message ? (
                           <p className="mt-0.5 text-[11px] text-slate-500 leading-relaxed line-clamp-2">
                             {item.message}
                           </p>
+                        ) : null}
+                        {(item.case_number || item.actor_name) && (
+                          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                            {item.case_number && (
+                              <span className="inline-flex items-center gap-0.5 rounded-full bg-slate-100 px-1.5 py-px font-mono text-[10px] font-bold text-slate-600">
+                                <span className="material-symbols-outlined text-[11px] leading-none">folder</span>
+                                {item.case_number}
+                              </span>
+                            )}
+                            {item.actor_name && (
+                              <span className="inline-flex items-center gap-0.5 text-[10px] text-slate-500">
+                                <span className="material-symbols-outlined text-[11px] leading-none">person</span>
+                                {item.actor_name}
+                              </span>
+                            )}
+                          </div>
                         )}
                         {/* Download button for download-ready notifications */}
                         {item.action_url && item.action_url.startsWith('/documents/') && (
@@ -218,7 +234,7 @@ export default function NotificationPanel() {
                         )}
                         <div className="mt-1.5 flex items-center justify-between">
                           <span className="text-[10px] text-slate-400">
-                            {formatDetailedTimestamp(item.created_at)}
+                            {formatDetailedTimestamp(item.created_at) || 'Recently'}
                           </span>
                           <div className="flex items-center gap-2">
                             {isUnread && (
@@ -247,14 +263,14 @@ export default function NotificationPanel() {
           </div>
 
           {/* Footer */}
-          <a
+          <Link
             href="/notifications/page"
             onClick={() => setOpen(false)}
             className="flex items-center justify-center gap-1.5 px-4 py-3 border-t border-slate-100 text-[11px] font-bold text-blue-900 hover:bg-blue-50/50 transition-colors"
           >
             <ExternalLink className="w-3.5 h-3.5" />
             View all
-          </a>
+          </Link>
         </div>
       )}
     </div>

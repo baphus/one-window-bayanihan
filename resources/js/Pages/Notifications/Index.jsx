@@ -101,7 +101,7 @@ function NotificationsTab({ data, isLoading, error, page, onPageChange, queryCli
               key={item.id}
               onClick={() => {
                 if (item.action_url) {
-                  window.location.href = item.action_url;
+                  router.visit(item.action_url);
                 }
               }}
               className={`px-5 py-4 border-b border-slate-100 last:border-b-0 ${isUnread ? 'bg-blue-50/30' : ''} ${item.action_url ? 'cursor-pointer hover:bg-slate-50/50' : ''} transition-colors`}
@@ -117,13 +117,29 @@ function NotificationsTab({ data, isLoading, error, page, onPageChange, queryCli
                       {config.label}
                     </span>
                   </div>
-                  <p className="mt-1 text-[13px] font-semibold text-slate-800">{item.title}</p>
-                  {item.message && (
+                  <p className="mt-1 text-[13px] font-semibold text-slate-800">{item.title || 'Update'}</p>
+                  {item.message ? (
                     <p className="mt-1 text-[12px] text-slate-500 leading-relaxed">{item.message}</p>
+                  ) : null}
+                  {(item.case_number || item.actor_name) && (
+                    <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                      {item.case_number && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 font-mono text-[11px] font-bold text-slate-600">
+                          <span className="material-symbols-outlined text-[12px] leading-none">folder</span>
+                          {item.case_number}
+                        </span>
+                      )}
+                      {item.actor_name && (
+                        <span className="inline-flex items-center gap-1 text-[11px] text-slate-500">
+                          <span className="material-symbols-outlined text-[12px] leading-none">person</span>
+                          {item.actor_name}
+                        </span>
+                      )}
+                    </div>
                   )}
                   <div className="mt-2 flex items-center justify-between">
                     <span className="text-[11px] text-slate-400">
-                      {formatDetailedTimestamp(item.created_at)}
+                      {formatDetailedTimestamp(item.created_at) || 'Recently'}
                     </span>
                     <div className="flex items-center gap-2">
                       {item.action_url && (

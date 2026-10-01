@@ -47,12 +47,15 @@ class MilestoneAddedTest extends TestCase
 
         $this->assertSame([
             'type' => 'milestone_added',
+            'title' => 'New milestone added to case case-1',
+            'message' => "New milestone 'First Milestone' added to case case-1 (the assigned agency)",
+            'case_number' => 'case-1',
+            'actor_name' => null,
+            'url' => route('referrals.show', $referral),
             'referral_id' => 'ref-1',
             'case_id' => 'case-1',
             'milestone_id' => 'milestone-1',
             'milestone_title' => 'First Milestone',
-            'message' => "New milestone 'First Milestone' added to referral",
-            'url' => route('referrals.show', $referral),
         ], $notification->toDatabase((object) []));
     }
 

@@ -18,6 +18,7 @@ class PeerReferralCreated extends Notification implements ShouldQueue
     public function __construct(
         public readonly Referral $newReferral,
         public readonly Referral $peerReferral,
+        public readonly ?string $actorName = null,
     ) {}
 
     public function via(object $notifiable): array
@@ -32,31 +33,64 @@ class PeerReferralCreated extends Notification implements ShouldQueue
         ];
     }
 
+    /**
+     * Staff inbox payload with actor and deep link.
+     *
+     * @return array<string, mixed>
+     */
     public function toDatabase(object $notifiable): array
     {
         $newReferral = $this->newReferral;
         $peerReferral = $this->peerReferral;
 
-        $newReferral->loadMissing(['agency', 'services']);
-        $peerReferral->loadMissing(['agency']);
+        // Never lazy-load on a non-persisted model: fall back to raw identifiers.
+        if ($newReferral->relationLoaded('agency') || $newReferral->exists) {
+            $newReferral->loadMissing(['agency', 'services']);
+        }
+        if ($peerReferral->relationLoaded('agency') || $peerReferral->exists) {
+            $peerReferral->loadMissing(['agency']);
+        }
+        if ($newReferral->relationLoaded('caseFile') || $newReferral->exists) {
+            $newReferral->loadMissing('caseFile');
+        }
 
-        $caseNumber = $newReferral->caseFile?->case_number ?? $newReferral->case_id;
-        $newAgencyName = $newReferral->agency?->name ?? 'another agency';
+        $caseNumber = $newReferral->relationLoaded('caseFile')
+            ? ($newReferral->caseFile?->case_number ?? $newReferral->case_id)
+            : $newReferral->case_id;
+        $newAgencyName = $newReferral->relationLoaded('agency')
+            ? ($newReferral->agency?->name ?? 'another agency')
+            : 'another agency';
         $services = $newReferral->relationLoaded('services')
             ? $newReferral->services->pluck('name')->implode(', ')
             : $newReferral->required_services;
         $servicesDisplay = $services !== '' ? $services : 'Services pending agency assignment';
 
+        $message = "Case {$caseNumber} was referred to {$newAgencyName} — {$servicesDisplay}";
+        if ($this->actorName !== null && $this->actorName !== '') {
+            $message .= " by {$this->actorName}";
+        }
+
         return [
             'type' => 'peer_referral_created',
             'title' => "New referral added to case {$caseNumber}",
+            'message' => $message,
+            'case_number' => $caseNumber,
+            'actor_name' => $this->actorName,
+            'url' => "/referrals/{$peerReferral->id}",
             'referral_id' => $peerReferral->id,
             'case_id' => $newReferral->case_id,
-            'case_number' => $caseNumber,
             'new_agency' => $newAgencyName,
             'required_services' => $servicesDisplay,
-            'message' => "Case {$caseNumber} was referred to {$newAgencyName} — {$servicesDisplay}",
-            'url' => "/referrals/{$peerReferral->id}",
         ];
+    }
+
+    /**
+     * Keep array/broadcast serialization identical to the database payload.
+     *
+     * @return array<string, mixed>
+     */
+    public function toArray(object $notifiable): array
+    {
+        return $this->toDatabase($notifiable);
     }
 }
