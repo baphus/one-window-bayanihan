@@ -62,7 +62,7 @@ class OverdueReferralController extends Controller
         $sentCount = 0;
         foreach ($referrals as $referral) {
             $handlers = $referral->agency?->users ?? collect();
-            $notification = new OverdueReferralNotification($referral, $overdueDays);
+            $notification = new OverdueReferralNotification($referral, $overdueDays, $user->name);
             foreach ($handlers as $handler) {
                 Mail::to($handler->email, $handler->name)
                     ->queue(new ReferralOverdueMail($referral, $overdueDays));

@@ -40,13 +40,40 @@ class SystemAlertNotification extends Notification implements ShouldQueue
             ]);
     }
 
+    /**
+     * Admin digest payload. Uses the same inbox keys as every other
+     * notification; there is no case or actor for system alerts.
+     *
+     * @return array<string, mixed>
+     */
     public function toDatabase(object $notifiable): array
     {
         return [
             'type' => 'system_alert',
+            'title' => $this->title(),
+            'message' => $this->message,
+            'case_number' => null,
+            'actor_name' => 'System',
+            'url' => null,
             'alert_type' => $this->type,
             'severity' => $this->severity,
-            'message' => $this->message,
         ];
+    }
+
+    /**
+     * Keep array/broadcast serialization identical to the database payload.
+     *
+     * @return array<string, mixed>
+     */
+    public function toArray(object $notifiable): array
+    {
+        return $this->toDatabase($notifiable);
+    }
+
+    private function title(): string
+    {
+        $label = ucwords(strtolower(str_replace('_', ' ', $this->type)));
+
+        return "System alert: {$label} ({$this->severity})";
     }
 }

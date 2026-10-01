@@ -14,6 +14,7 @@ class ReferralCreated extends Notification implements ShouldQueue
 
     public function __construct(
         public readonly Referral $referral,
+        public readonly ?string $actorName = null,
     ) {}
 
     public function via(object $notifiable): array
@@ -44,28 +45,56 @@ class ReferralCreated extends Notification implements ShouldQueue
             ]);
     }
 
+    /**
+     * Staff inbox payload with actor and deep link.
+     *
+     * @return array<string, mixed>
+     */
     public function toDatabase(object $notifiable): array
     {
         $referral = $this->referral;
-        $referral->loadMissing(['caseFile.client', 'agency']);
+        // Never lazy-load on a non-persisted model: fall back to raw identifiers.
+        if ($referral->relationLoaded('caseFile') || $referral->exists) {
+            $referral->loadMissing(['caseFile.client', 'agency']);
+        }
 
-        $caseNumber = $referral->caseFile?->case_number ?? $referral->case_id;
-        $agencyName = $referral->agency?->name ?? 'agency';
+        $caseNumber = $referral->relationLoaded('caseFile')
+            ? ($referral->caseFile?->case_number ?? $referral->case_id)
+            : $referral->case_id;
+        $agencyName = $referral->relationLoaded('agency')
+            ? ($referral->agency?->name ?? 'agency')
+            : 'agency';
         $services = $referral->relationLoaded('services')
             ? $referral->services->pluck('name')->implode(', ')
             : $referral->required_services;
         $servicesDisplay = $services !== '' ? $services : 'Services pending agency assignment';
 
+        $message = "Case {$caseNumber} referred to {$agencyName} — {$servicesDisplay}";
+        if ($this->actorName !== null && $this->actorName !== '') {
+            $message .= " by {$this->actorName}";
+        }
+
         return [
             'type' => 'referral_created',
             'title' => "New referral assigned to {$agencyName}",
+            'message' => $message,
+            'case_number' => $caseNumber,
+            'actor_name' => $this->actorName,
+            'url' => "/referrals/{$referral->id}",
             'referral_id' => $referral->id,
             'case_id' => $referral->case_id,
-            'case_number' => $caseNumber,
             'agency' => $agencyName,
             'required_services' => $servicesDisplay,
-            'message' => "Case {$caseNumber} referred to {$agencyName} — {$servicesDisplay}",
-            'url' => "/referrals/{$referral->id}",
         ];
+    }
+
+    /**
+     * Keep array/broadcast serialization identical to the database payload.
+     *
+     * @return array<string, mixed>
+     */
+    public function toArray(object $notifiable): array
+    {
+        return $this->toDatabase($notifiable);
     }
 }

@@ -308,7 +308,10 @@ class ReferralStatusChangedMailTest extends TestCase
         $referralService->updateStatus($referral->id, 'PROCESSING', 'ACCEPT', null, $caseManager->id);
 
         Mail::assertQueued(ClientUpdateMail::class, function (ClientUpdateMail $mail) {
-            return str_contains($mail->message, 'Referral status changed from PENDING to PROCESSING');
+            // Client copy is plain language: no internal status codes.
+            return str_contains($mail->message, 'has started working on your case')
+                && ! str_contains($mail->message, 'PENDING')
+                && ! str_contains($mail->message, 'PROCESSING');
         });
     }
 

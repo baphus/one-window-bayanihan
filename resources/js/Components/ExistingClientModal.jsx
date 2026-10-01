@@ -162,9 +162,8 @@ export default function ExistingClientModal({ show, onClose, onSelect }) {
 
     return (
         <Modal show={show} onClose={onClose} maxWidth="2xl">
-            <div className="flex flex-col">
-                {/* ── Header ── */}
-                <div className="flex items-center justify-between px-6 pt-6 pb-0">
+            <div className="flex max-h-[85vh] min-h-0 flex-col overflow-hidden">
+                <div className="flex shrink-0 items-center justify-between px-6 pt-6">
                     <div>
                         <h2 className="text-[15px] font-bold text-slate-900 tracking-tight">
                             Select Existing Client
@@ -183,8 +182,7 @@ export default function ExistingClientModal({ show, onClose, onSelect }) {
                     </button>
                 </div>
 
-                {/* ── Search ── */}
-                <div className="relative px-6 pt-4 pb-3">
+                <div className="relative shrink-0 px-6 pt-4 pb-3">
                     <span className="absolute left-[2.25rem] top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
                         <span className="material-symbols-outlined text-[18px]">search</span>
                     </span>
@@ -209,11 +207,10 @@ export default function ExistingClientModal({ show, onClose, onSelect }) {
                     )}
                 </div>
 
-                {/* ── Divider ── */}
-                <div className="border-t border-slate-100 mx-6" />
+                <div className="mx-6 shrink-0 border-t border-slate-100" />
 
-                {/* ── Results ── */}
-                <div className="px-6 pb-5 pt-3">
+                {/* Results — sole scroll region */}
+                <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-5 pt-3 owb-scroll-wide">
                     {loading ? (
                         <div className="flex items-center justify-center py-14">
                             <div className="flex items-center gap-2.5 text-slate-400">
@@ -236,8 +233,7 @@ export default function ExistingClientModal({ show, onClose, onSelect }) {
                                 {clients.length} client{clients.length !== 1 ? 's' : ''}
                             </p>
 
-                            {/* Card grid */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[400px] overflow-y-auto pr-1 owb-scroll-wide">
+                            <div className="grid gap-2 pr-1 sm:grid-cols-2">
                                 {clients.map((client) => (
                                     <ClientCard
                                         key={client.id}

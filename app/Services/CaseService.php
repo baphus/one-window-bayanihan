@@ -1591,13 +1591,43 @@ class CaseService
             $case,
             $notifyUsers,
             $clientEmail,
-            new CaseStatusUpdated($case, $oldStatus, $newStatus),
+            new CaseStatusUpdated($case, $oldStatus, $newStatus, $updatedBy),
             'case_status_updated',
-            'Case Status Updated',
-            "Case #{$case->case_number} status changed from {$oldStatus} to {$newStatus}",
+            "Your case is now {$this->ofwCaseStatusLabel($newStatus)}",
+            $this->ofwCaseStatusMessage($case, $newStatus),
             ['old_status' => $oldStatus, 'new_status' => $newStatus],
             route('cases.show', $case->id),
         );
+    }
+
+    /**
+     * Client-facing label for a case status. Plain language only —
+     * internal status codes never reach the client.
+     */
+    private function ofwCaseStatusLabel(string $status): string
+    {
+        return match (strtoupper($status)) {
+            'OPEN' => 'in progress',
+            'CLOSED' => 'resolved',
+            'ARCHIVED' => 'archived',
+            default => 'updated',
+        };
+    }
+
+    /**
+     * Client-facing body for a case status change. Plain language only —
+     * internal status codes never reach the client.
+     */
+    private function ofwCaseStatusMessage(CaseFile $case, string $status): string
+    {
+        $caseNumber = $case->case_number ?? '';
+
+        return match (strtoupper($status)) {
+            'OPEN' => "Your case {$caseNumber} is now in progress. Your case manager is coordinating the help you need.",
+            'CLOSED' => "Your case {$caseNumber} has been resolved. Thank you for trusting the Bayanihan team.",
+            'ARCHIVED' => "Your case {$caseNumber} has been filed for safekeeping. Contact us if you need help again.",
+            default => "There is an update on your case {$caseNumber}. Open your case to read the details.",
+        };
     }
 
     private function resolveAddressNames(array $address): array
