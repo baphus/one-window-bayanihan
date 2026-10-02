@@ -244,7 +244,7 @@ export default function PublicForm({ invitation, surveyForm, questions, token })
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    post(route('survey.public.submit', token));
+    post(typeof route === 'function' ? route('survey.public.submit', token) : window.location.pathname);
   };
 
   return (
