@@ -1173,6 +1173,7 @@ class CaseService
         }
 
         // Role-based scoping — restrict which cases the current user can see
+        /** @var User|null $user */
         $user = auth()->user();
         if ($user && $user->role !== 'ADMIN' && $user->role !== 'CASE_MANAGER') {
             $query->where(function ($q) use ($user) {
