@@ -1,3 +1,6 @@
+> **SUPERSEDED - see `AUDIT_STRATEGY_v2.2.0.md`.**
+> Retained as history. Do not use for new work; it does not reflect the current system.
+
 # Audit Strategy
 
 > **Version:** 2.1.0 | **Updated:** 2026-07-12 | **Source:** `audit_logs` migrations, `AuditObserver`, `AuditLogController`, `AuditArchiveService`, `audit:*` commands

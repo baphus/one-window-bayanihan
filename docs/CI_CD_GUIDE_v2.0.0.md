@@ -1,3 +1,6 @@
+> **SUPERSEDED - see `CI_CD_GUIDE_v2.1.0.md`.**
+> Retained as history. Do not use for new work; it does not reflect the current system.
+
 # CI/CD Pipeline Guide
 
 > **Version:** 2.0.0 | **Updated:** 2026-07-27 | **Supersedes:** `CI_CD_GUIDE.md` (v1.0.0)

@@ -1,8 +1,8 @@
 # One Window Bayanihan
 
-Laravel 13 + Inertia/React 18 case-management system for DMW Region VII. PostgreSQL 17, Redis 7, S3-compatible object storage, Tailwind CSS 3, Vite 8, PHP 8.4 (Docker) / 8.3+ (local).
+Laravel 13 + Inertia/React 18 case-management system for DMW Region VII. PostgreSQL 17, Redis 7, S3-compatible object storage, Tailwind CSS 3, Vite 8, PHP 8.4 (`>=8.4.1 <9.0`).
 
-Documentation is platform-neutral: describe infrastructure by technology and capability, not by hosting or managed-service vendor. See `docs/DEPLOYMENT_GUIDE_v3.0.0.md` §1 (what a target must provide) and §12 (the only places a provider may be named).
+Documentation is platform-neutral: describe infrastructure by technology and capability, not by hosting or managed-service vendor. See `docs/DEPLOYMENT_GUIDE_v3.1.0.md` §1 (what a target must provide) and §12 (the only places a provider may be named).
 
 ## Commands
 
@@ -35,15 +35,14 @@ Documentation is platform-neutral: describe infrastructure by technology and cap
 
 | Workflow | Trigger | What it does |
 |---|---|---|
-| `ci.yml` | PR to `main` | Pint lint, Composer audit, NPM audit, build, backend tests (PG 17), frontend tests |
-| `deploy-staging.yml` | Push to `main` + manual | Tests, `npx tsc --noEmit` (continue-on-error), staging rollout, health gate, chat notify |
-| `deploy-production.yml` | Manual (must type "deploy-production") | Tests, production rollout, health gate, chat notify |
-| `reset-staging-data.yml` | Daily 2AM UTC + manual | Trigger a staging rollout with cache clear to reseed the staging DB |
+| `ci.yml` | PR to `main`, and push to `main` | `lint-and-audit`, `backend-tests`, `frontend-tests` (PHP 8.4, Node 24, Postgres 17 service container). Push-to-main runs too, because a direct push or merge queue can land a combination no PR tested |
+| `build-image.yml` | Manual (`workflow_dispatch`) | Builds the deployable OCI image and pushes it to the registry tagged with the commit SHA. Deliberately manual: an automatic build on every push charged storage per image |
+| `deploy.yml` | `workflow_call` (reusable) | The actual rollout: deploys a built image to the container service, runs schema migrations ahead of the image that depends on them, and waits for the health probe before reporting success. Contains the platform-specific deploy REST call |
+| `deploy-production.yml` | Manual — must type `PRODUCTION` | Thin gated caller: checks the confirmation phrase against the `production` GitHub Environment, then invokes `deploy.yml`. Pair the Environment with required reviewers |
 
-- CI uses PHP 8.4, Node 24, Postgres 17 service container.
-- Staging deploy includes TypeScript check (`npx tsc --noEmit`) but failures don't block.
-- Production requires explicit `workflow_dispatch` with confirmation string.
-- The deploy step calls the hosting platform's deploy REST API with credentials from repository secrets, then health-gates `/up`. This API call is the **only** platform-specific step in the pipeline — the provider-named secrets in the workflow files are the last remaining vendor binding in the repo (`docs/CI_CD_GUIDE_v2.0.0.md` §4). Read the workflow file for the current endpoint; do not re-introduce provider names into docs.
+- There is no `deploy-staging.yml` and no `reset-staging-data.yml`; staging rollouts are `deploy.yml` invoked with different inputs.
+- Production requires explicit `workflow_dispatch` with the confirmation phrase `PRODUCTION` (uppercase).
+- The deploy step calls the hosting platform's deploy REST API with credentials from repository secrets, then health-gates `/up`. This API call is the **only** platform-specific step in the pipeline — the provider-named secrets in the workflow files are the last remaining vendor binding in the repo (`docs/CI_CD_GUIDE_v2.1.0.md` §4). Read the workflow file for the current endpoint; do not re-introduce provider names into docs.
 
 ## Backend conventions
 
@@ -77,13 +76,13 @@ Documentation is platform-neutral: describe infrastructure by technology and cap
 ## Docs worth checking
 
 - `docs/PROJECT_RULES_v2.1.0.md` for domain/business constraints, role rules, and the platform-neutrality rule.
-- `docs/ARCHITECTURE_v2.1.0.md` for system flow and deployment topology.
-- `docs/TESTING_STRATEGY_v2.0.1.md` for focused test commands and coverage expectations.
-- `docs/API_CONTRACTS.md` for all ~164 routes with middleware.
-- `docs/DATA_MODEL.md` for complete database schema (31 tables).
-- `docs/SECURITY_REQUIREMENTS_v2.1.0.md` for auth, RBAC, MFA, encryption details.
-- `docs/DEPLOYMENT_GUIDE_v3.0.0.md` for the platform capability contract, env contract, scaling, and migration policy.
-- `docs/CI_CD_GUIDE_v2.0.0.md` for CI stages and the deploy-trigger contract.
+- `docs/ARCHITECTURE_v2.2.0.md` for system flow and deployment topology.
+- `docs/TESTING_STRATEGY_v2.1.0.md` for focused test commands and coverage expectations.
+- `docs/API_CONTRACTS.md` for all ~243 routes with middleware.
+- `docs/DATA_MODEL.md` for the complete database schema (42 live domain tables — 57 `Schema::create` calls minus 8 Laravel framework tables and 7 later retired by migration).
+- `docs/SECURITY_REQUIREMENTS_v2.2.0.md` for auth, RBAC, MFA, encryption details.
+- `docs/DEPLOYMENT_GUIDE_v3.1.0.md` for the platform capability contract, env contract, scaling, and migration policy.
+- `docs/CI_CD_GUIDE_v2.1.0.md` for CI stages and the deploy-trigger contract.
 - Superseded unversioned copies of the docs above are kept as history; always read the highest version.
 - `instructions.md` is stale Copilot-era guidance; prefer executable config and current `docs/` files.
 
@@ -99,7 +98,7 @@ Default five-role vocabulary (`needs-triage`, `needs-info`, `ready-for-agent`, `
 
 ### Domain docs
 
-Single-context — one `CONTEXT.md` at repo root, ADRs in `docs/adr/`. See `docs/agents/domain.md`.
+Single-context domain docs are intended but **not yet present** — `CONTEXT.md` (repo root) and `docs/adr/` do not currently exist, even though `docs/agents/domain.md` refers to them. Do not assume a domain glossary is available; until one exists, derive domain vocabulary from `docs/PROJECT_RULES_v2.1.0.md` and `docs/README.md`.
 
 ===
 

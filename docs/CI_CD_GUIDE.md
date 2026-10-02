@@ -1,3 +1,6 @@
+> **SUPERSEDED - see `CI_CD_GUIDE_v2.1.0.md`.**
+> Retained as history. Do not use for new work; it does not reflect the current system.
+
 # CI/CD Pipeline Guide
 
 This document covers the full GitHub Actions CI/CD setup for Bayanihan One Window.

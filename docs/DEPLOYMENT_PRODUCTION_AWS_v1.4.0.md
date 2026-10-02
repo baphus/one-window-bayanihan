@@ -1,3 +1,6 @@
+> **SUPERSEDED - see `DEPLOYMENT_PRODUCTION_AWS_v1.6.0.md`.**
+> Retained as history. Do not use for new work; it does not reflect the current system.
+
 # AWS Production Deployment Runbook
 
 > **Version:** 1.4.0 | **Updated:** 2026-07-27

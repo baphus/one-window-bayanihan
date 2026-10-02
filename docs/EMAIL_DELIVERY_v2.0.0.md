@@ -1,3 +1,6 @@
+> **SUPERSEDED - see `EMAIL_DELIVERY_v2.1.0.md`.**
+> Retained as history. Do not use for new work; it does not reflect the current system.
+
 # Transactional Email Delivery Requirements
 
 > **Version:** 2.0.0 | **Updated:** 2026-07-27 | **Supersedes:** `EMAIL_DOMAIN_RESEND.md` (v1.0.0)

@@ -1,3 +1,6 @@
+> **SUPERSEDED - see `REDIS_INTEGRATION_v2.1.0.md`.**
+> Retained as history. Do not use for new work; it does not reflect the current system.
+
 # Redis Integration Plan
 
 > **Version:** 2.0.0 | **Created:** 2026-07-13 | **Updated:** 2026-07-27 | **Status:** Planning

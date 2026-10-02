@@ -1,3 +1,6 @@
+> **SUPERSEDED - see `DEPLOYMENT_STAGING_AWS_v1.3.0.md`.**
+> Retained as history. Do not use for new work; it does not reflect the current system.
+
 # AWS Deployment Runbook
 
 > **Version:** 1.2.0 | **Updated:** 2026-07-27 | **Supersedes:** `DEPLOYMENT_STAGING_AWS_v1.1.0.md`

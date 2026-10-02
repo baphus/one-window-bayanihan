@@ -1,3 +1,6 @@
+> **SUPERSEDED - see `ARCHITECTURE_v2.2.0.md`.**
+> Retained as history. Do not use for new work; it does not reflect the current system.
+
 # Architecture
 
 > **Version:** 2.1.0 | **Updated:** 2026-07-27 | **Status:** Verified against source code

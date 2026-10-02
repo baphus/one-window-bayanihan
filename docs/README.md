@@ -67,7 +67,7 @@ Bayanihan One Window is a centralized inter-agency case management system for di
 | Build Tool | Vite | 8.0 |
 | Database | PostgreSQL | 17 (production) / 15 (Docker local) |
 | File Storage | S3-compatible object storage |
-| Auth | Custom OTP + TOTP MFA (email OTP, RFC 6238 authenticator app) |
+| Auth | Email + password login, then TOTP MFA (RFC 6238 authenticator app). OTP is used for email-change verification and public intake/tracking email verification — **not** for login |
 | RBAC | Custom `CheckRole` middleware (`users.role` column) |
 | CAPTCHA | Bot-protection verify API (`TURNSTILE_*` keys) |
 | Cache / Queue | Redis 7 (database driver as degraded fallback) |
