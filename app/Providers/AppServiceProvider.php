@@ -170,10 +170,6 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(5)->by($request->ip());
         });
 
-        RateLimiter::for('address-lookup', function (Request $request) {
-            return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
-        });
-
         RateLimiter::for('chatbot', function (Request $request) {
             return Limit::perMinute(30)->by($request->ip());
         });

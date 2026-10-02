@@ -365,8 +365,8 @@ Route::get('/terms', function () {
 // Public OFW self-filing intake
 Route::get('/intake', [IntakeController::class, 'index'])->name('intake.index');
 // Each step gets its own named limiter. With inline limits these three shared a
-// single per-visitor counter with each other AND with the address lookups the
-// wizard calls, so submission was rejected at 429 before it was ever attempted.
+// single per-visitor counter, so submission was rejected at 429 before it was
+// ever attempted.
 Route::post('/intake/verify-email', [IntakeController::class, 'verifyEmail'])
     ->name('intake.verify-email')
     ->middleware(['turnstile', 'throttle:intake-otp']);

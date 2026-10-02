@@ -114,7 +114,7 @@ Extensive OFW PII, regulated under RA 10173:
 
 ## 9. Data flows and trust boundaries
 
-**Internet-facing, unauthenticated entry points:** `/`, `/partners`, `/contact`, `/privacy`, `/terms`, `/helpdesk/*`; public feedback `GET|POST /feedback/{token}` (throttled); public tracking `/track*` (OTP-gated); public chatbot `POST /chatbot/message` (throttled, ≤1000 chars, forwards to OpenAI); public address API `/api/address/*`; auth endpoints (Turnstile + throttle).
+**Internet-facing, unauthenticated entry points:** `/`, `/partners`, `/contact`, `/privacy`, `/terms`, `/helpdesk/*`; public feedback `GET|POST /feedback/{token}` (throttled); public tracking `/track*` (OTP-gated); public chatbot `POST /chatbot/message` (throttled, ≤1000 chars, forwards to OpenAI); auth endpoints (Turnstile + throttle).
 
 **Authenticated boundary:** everything under `auth` + `verified` (`routes/web.php:63`); session-authenticated internal API under `/api/clients*`.
 
@@ -160,8 +160,7 @@ Extensive OFW PII, regulated under RA 10173:
    /track (OTP)                           -> email OTP
    /feedback/{token}                      -> TOTP (if enabled)
    /chatbot -> OpenAI                     Turnstile CAPTCHA
-   /api/address -> PSGC                          |
-        |                                        v
+         |                                        |
         +------------> Nginx (rate-limit, headers) ------> PHP-FPM (Laravel)
                                                    |
              Global MW: SetPostgresSession, LogContext, SecurityHeaders, CSP

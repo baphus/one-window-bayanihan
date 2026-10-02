@@ -1,28 +1,18 @@
 # PSGC Addresses
 
-> **Version:** 1.0.0 | **Updated:** 2026-09-15 | **Source:** `routes/api.php`, `app/Http/Controllers/Api/PhilippineAddressController.php`, `app/Services/PhilippineAddressService.php`, `app/Services/AddressNameResolver.php`, `scripts/sync-philippine-addresses.cjs`, `package.json`
+> **Version:** 1.1.0 | **Updated:** 2026-10-02 | **Source:** `app/Services/PhilippineAddressService.php`, `app/Services/AddressNameResolver.php`, `resources/js/data/philippine-addresses.ts`, `scripts/sync-philippine-addresses.cjs`, `package.json`
 
 ## Overview
 
-Philippine Standard Geographic Code (PSGC) address data is **stateless**: no address table exists in PostgreSQL (the `philippine_addresses` table was dropped in `2026_07_08_000001`). The reference dataset lives in a generated TypeScript file, is served through five unauthenticated lookup endpoints, and is persisted on client/case records as resolved display **names** (codes are converted to names on write).
+Philippine Standard Geographic Code (PSGC) address data is **stateless**: no address table exists in PostgreSQL (the `philippine_addresses` table was dropped in `2026_07_08_000001`). The reference dataset lives in a generated TypeScript file, is read directly by the frontend, and is persisted on client/case records as resolved display **names** (codes are converted to names on write).
 
 ## Endpoints
 
-Public address lookups in `routes/api.php` (no auth required — PSGC government data). All five share the named `address-lookup` limiter (see Throttle).
-
-| Method | Path | Query | Returns |
-|--------|------|-------|---------|
-| GET | `/api/address/regions` | — | `[{code, name}]` regions |
-| GET | `/api/address/provinces` | `?region=<regionCode>` | Provinces of the region (`[]` when omitted) |
-| GET | `/api/address/cities` | `?province=<provinceCode>` | Cities/municipalities of the province (`[]` when omitted) |
-| GET | `/api/address/barangays` | `?city=<cityCode>` | Barangays of the city/municipality (`[]` when omitted) |
-| GET | `/api/address/resolve` | `?codes[]=<code>` (array) | `{code: name}` map for known codes (`[]`/`{}` when empty or not an array) |
-
-Handled by `PhilippineAddressController`, which delegates to `PhilippineAddressService`. The OFW intake wizard cascades through regions → provinces → cities → barangays using these endpoints.
+None. The former five public lookup endpoints (`GET /api/address/regions|provinces|cities|barangays|resolve`, served by `PhilippineAddressController` under the `address-lookup` limiter) were removed on 2026-10-02: no frontend code called them — the OFW intake wizard and all dropdowns read the generated file directly. Server-side code resolution still runs through `PhilippineAddressService` (see Resolver Services), which parses the same file.
 
 ## Throttle
 
-`address-lookup`: **60 requests/minute**, keyed by authenticated user id or IP (`AppServiceProvider`). The limiter must stay named and separate: an inline/shared limit would share one counter with `/intake/submit` and reject the filer's submission (see the route-group comment in `routes/api.php`).
+No address limiter remains. The retired `address-lookup` limiter (**60 requests/minute**, keyed by authenticated user id or IP) was removed with the endpoints.
 
 ## Sync Command
 
@@ -34,7 +24,7 @@ Runs `scripts/sync-philippine-addresses.cjs`, which fetches the full hierarchy f
 
 ## Resolver Services
 
-- **`App\Services\PhilippineAddressService`** — server-side reader of the generated file. `getRegions/getProvinces/getCities/getBarangays` back the API endpoints; `resolveNames(codes)` maps codes to names; `resolveAddressToCodes(address)` walks region → province → city → barangay by case-insensitive name match (region names normalized to their parenthesized label, e.g. `Region VII (Central Visayas)` ≡ `Central Visayas`) and returns PSGC codes, stopping at the first unmatched level.
+- **`App\Services\PhilippineAddressService`** — server-side reader of the generated file. `getRegions/getProvinces/getCities/getBarangays` serve internal callers (e.g. `CaseService`); `resolveNames(codes)` maps codes to names; `resolveAddressToCodes(address)` walks region → province → city → barangay by case-insensitive name match (region names normalized to their parenthesized label, e.g. `Region VII (Central Visayas)` ≡ `Central Visayas`) and returns PSGC codes, stopping at the first unmatched level.
 - **`App\Services\AddressNameResolver`** — lightweight code→name helper. `resolve(code)` returns the display name (passthrough for unknown values, `''` for null/empty); `format(street, barangay, municipality, province, region)` joins the resolved parts. Used by exports, reports, tracking, and case display.
 
 ## Stateless Design
