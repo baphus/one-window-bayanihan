@@ -170,11 +170,11 @@ Browser → HTTPS → Laravel (Middleware) → Controller → Service → Model 
 ```
 
 - **Middleware stack:** Session → Auth → CSRF → Role → IP Whitelist (admin)
-- **RBAC:** `CASE_MANAGER`, `AGENCY`, `ADMIN` roles via `users.role` + `CheckRole` middleware
+- **RBAC:** `CASE_MANAGER`, `AGENCY`, `ADMIN`, `OFW` roles via `users.role` + `CheckRole` middleware
 - **Lane isolation:** Agencies see only their referrals (application + RLS enforcement)
 - **Audit:** Immutable append-only log with SHA-256 hash chain
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full system design.
+See [docs/ARCHITECTURE_v2.2.0.md](docs/ARCHITECTURE_v2.2.0.md) for the full system design.
 
 ## Key Conventions
 
@@ -194,21 +194,21 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full system design.
 
 | Document | Description |
 |---|---|
-| [Architecture](docs/ARCHITECTURE_v2.1.0.md) | System design, middleware, deployment topology |
+| [Architecture](docs/ARCHITECTURE_v2.2.0.md) | System design, middleware, deployment topology |
 | [Project Rules](docs/PROJECT_RULES_v2.1.0.md) | Business rules, conventions, decisions |
 | [Data Model](docs/DATA_MODEL.md) | Database schema — 31 tables, all columns |
 | [API Contracts](docs/API_CONTRACTS.md) | All ~164 routes with middleware |
-| [Testing Strategy](docs/TESTING_STRATEGY_v2.0.1.md) | Test approach, patterns, coverage |
-| [Security](docs/SECURITY_REQUIREMENTS_v2.1.0.md) | Auth, RBAC, MFA, encryption, rate limiting |
-| [Deployment Guide](docs/DEPLOYMENT_GUIDE_v3.0.0.md) | Platform capability contract, container/orchestrator/VM deployment, scaling, rollback |
-| [CI/CD Guide](docs/CI_CD_GUIDE_v2.0.0.md) | Pipeline stages, deploy-trigger contract, branch protection |
-| [Email Delivery](docs/EMAIL_DELIVERY_v2.0.0.md) | Domain, SPF/DKIM/DMARC, SMTP vs HTTPS-API transport |
-| [Redis Integration](docs/REDIS_INTEGRATION_v2.0.0.md) | Redis setup, performance gains, architecture |
+| [Testing Strategy](docs/TESTING_STRATEGY_v2.1.0.md) | Test approach, patterns, coverage |
+| [Security](docs/SECURITY_REQUIREMENTS_v2.2.0.md) | Auth, RBAC, MFA, encryption, rate limiting |
+| [Deployment Guide](docs/DEPLOYMENT_GUIDE_v3.1.0.md) | Platform capability contract, container/orchestrator/VM deployment, scaling, rollback |
+| [CI/CD Guide](docs/CI_CD_GUIDE_v2.1.0.md) | Pipeline stages, deploy-trigger contract, branch protection |
+| [Email Delivery](docs/EMAIL_DELIVERY_v2.1.0.md) | Domain, SPF/DKIM/DMARC, SMTP vs HTTPS-API transport |
+| [Redis Integration](docs/REDIS_INTEGRATION_v2.1.0.md) | Redis setup, performance gains, architecture |
 | [Audit Strategy](docs/AUDIT_STRATEGY_v2.2.0.md) | Audit log design and retention |
 
 > Infrastructure is documented by **technology and capability**, not by hosting
 > vendor. What a deployment target must provide is specified in
-> [Deployment Guide §1](docs/DEPLOYMENT_GUIDE_v3.0.0.md); provider-specific
+> [Deployment Guide §1](docs/DEPLOYMENT_GUIDE_v3.1.0.md); provider-specific
 > values live only in environment variables and pipeline settings (§12).
 
 ## License

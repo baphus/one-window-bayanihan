@@ -1,7 +1,8 @@
 # Manual QA Test Cases — Case Manager & Agency Focal
 
-> **Version:** 1.0.0
+> **Version:** 1.0.1
 > **Date:** 2026-07-29
+> **Last updated:** 2026-10-02 — §1 authentication, §2 dashboard, and the six data-export expectations corrected against current code
 > **Scope:** One Window Bayanihan case management system — manual QA for Case Manager and Agency Focal roles
 
 ---
@@ -35,20 +36,20 @@
 
 | ID | Test Case | Steps | Expected Result | Role |
 |---|---|---|---|---|
-| AUTH-001 | Successful login with email + password | 1. Navigate to `/login` 2. Enter valid email and password 3. Click "Log in" | Redirected to OTP verification step | Both |
-| AUTH-002 | Failed login with wrong password | 1. Enter valid email + wrong password 2. Click "Log in" | Error message displayed; no OTP step shown | Both |
-| AUTH-003 | OTP verification — valid code | 1. Complete login step 2. Enter 6-digit OTP from email | Redirected to dashboard | Both |
-| AUTH-004 | OTP verification — invalid code | 1. Enter wrong OTP code | Error message; retry allowed | Both |
-| AUTH-005 | OTP resend | 1. Request OTP resend 2. Wait for new email | New OTP sent; old code invalidated | Both |
-| AUTH-006 | TOTP verification (if enrolled) | 1. Complete OTP step 2. Enter TOTP code from authenticator app | Redirected to dashboard | Both |
-| AUTH-007 | TOTP verification — invalid code | 1. Enter wrong TOTP code | Error message; retry allowed | Both |
+| AUTH-001 | Successful login with email + password | 1. Navigate to `/login` 2. Enter valid email and password 3. Click "Log in" | Redirected to the TOTP MFA challenge at `/login/mfa`; a user without MFA enrolled skips the challenge and lands on `/dashboard` | Both |
+| AUTH-002 | Failed login with wrong password | 1. Enter valid email + wrong password 2. Click "Log in" | Generic "email or password is incorrect" validation error; no MFA challenge step shown | Both |
+| AUTH-003 | MFA challenge — valid TOTP code | 1. Complete the email + password step 2. On `/login/mfa` enter the 6-digit TOTP code from the authenticator app 3. Submit | Session authenticated; redirected to the intended URL (default `/dashboard`) | Both |
+| AUTH-004 | MFA challenge — invalid code | 1. Enter a wrong TOTP code | Error "The MFA code is invalid."; retry allowed | Both |
+| AUTH-005 | Login OTP resend — OBSOLETE | n/a | Retired feature: login never issues an OTP and no `/login/verify-otp` or `/login/resend-otp` routes exist (`routes/auth.php:20-38`); TOTP codes come from the enrolled authenticator app. No runnable steps | n/a |
+| AUTH-006 | MFA challenge — cancel ("Back to Sign In") | 1. On `/login/mfa` click "Back to Sign In" | Pending MFA state cleared; redirected to `/login`; credentials must be re-entered | Both |
+| AUTH-007 | MFA challenge — attempt cap | 1. Enter a wrong TOTP code 5 times (`mfa.max_attempts`) | Error "Too many MFA attempts. Please sign in again."; pending state cleared; must restart the login flow | Both |
 | AUTH-008 | Recovery code usage | 1. Enter recovery code instead of TOTP | Login succeeds; recovery code marked used | Both |
 | AUTH-009 | Recovery code — already used | 1. Enter a recovery code that was already used | Error message; code rejected | Both |
-| AUTH-010 | CAPTCHA enforcement | 1. Attempt login without completing CAPTCHA | Request blocked by VerifyTurnstile middleware | Both |
-| AUTH-011 | Rate limiting — login attempts | 1. Submit 5+ failed login attempts within 1 minute | Rate limit triggered; temporary lockout | Both |
-| AUTH-012 | Rate limiting — OTP attempts | 1. Submit 3+ wrong OTP codes within a session | Rate limit triggered; temp lockout | Both |
+| AUTH-010 | CAPTCHA enforcement | 1. Attempt login without completing CAPTCHA | With `turnstile.enabled` the `turnstile` middleware (VerifyTurnstile) rejects the POST with "Please complete the security check to continue."; when disabled the request passes | Both |
+| AUTH-011 | Rate limiting — login attempts | 1. Submit 5+ failed login attempts | Lockout after 5 failures per email + IP with a retry-after message; the route also carries `throttle:login` (10 requests/minute per email + IP) | Both |
+| AUTH-012 | Rate limiting — MFA challenge attempts | 1. Submit wrong TOTP codes faster than the limit | `throttle:totp-challenge` allows 3 attempts/minute per pending user + IP; the 5-attempt session cap is covered by AUTH-007 | Both |
 | AUTH-013 | Session timeout | 1. Log in 2. Idle for 120+ minutes 3. Attempt action | Redirected to login; session expired | Both |
-| AUTH-014 | Logout | 1. Click logout | Session destroyed; audit log entry created; redirected to login | Both |
+| AUTH-014 | Logout | 1. Click logout | LOGOUT audit row written; session invalidated; redirected to the public Welcome page (`/`) | Both |
 | AUTH-015 | Password reset flow | 1. Click "Forgot password" 2. Enter email 3. Click reset link 4. Enter new password | Password updated; can login with new password | Both |
 
 ---
@@ -59,27 +60,27 @@
 
 | ID | Test Case | Steps | Expected Result |
 |---|---|---|---|
-| DASH-CM-001 | Dashboard loads with stats | 1. Log in as CASE_MANAGER 2. Navigate to `/dashboard` | Dashboard displays: active cases, clients served (OFW/NOK split), pending referrals, completed referrals |
-| DASH-CM-002 | Work queue triage strip | 1. View dashboard | Triage strip shows: aging open cases, pending referrals, returned referrals, draft cases, cases without referrals |
-| DASH-CM-003 | Quick action links work | 1. Click "New case" → navigates to `/cases/create` 2. Click "Cases" → navigates to `/cases` 3. Click "Referrals" → navigates to `/referrals` | Each link navigates to correct page |
-| DASH-CM-004 | Recent case activity section | 1. View dashboard | Recent case activity feed displays with timestamps |
-| DASH-CM-005 | Referral status donut chart | 1. View dashboard | Donut chart renders with correct status distribution |
-| DASH-CM-006 | Cases per month bar chart | 1. View dashboard | Bar chart displays case counts by month |
-| DASH-CM-007 | Agency load bars | 1. View dashboard | Horizontal bars show agency workload distribution |
-| DASH-CM-008 | Intake queue count badge | 1. Log in as CASE_MANAGER 2. Check sidebar/nav | `intake_queue_count` badge visible with correct count |
+| DASH-CM-001 | Dashboard loads with stats | 1. Log in as CASE_MANAGER 2. Navigate to `/dashboard` | "Numbers" block shows case counts (Draft, Open, Closed) and referral counts (Pending, Processing, For compliance, Completed, Rejected). There is no "clients served" widget — OFW/NOK client totals are in the deferred payload but not rendered |
+| DASH-CM-002 | Work-queue triage (replaced by blocks) | 1. View dashboard | No triage strip renders on this dashboard. Equivalent triage: "Numbers" counts, "Needs You" (top 8 urgency-ranked referrals/cases) and "Intake Queue". The backend still computes `workQueue` but only the agency dashboard renders it |
+| DASH-CM-003 | Quick action links work | 1. Click "New case" → navigates to `/cases/create` 2. Click "Cases" → navigates to `/cases` 3. Click "Referrals" → navigates to `/referrals` | Each link navigates to correct page (PageHeader QuickActions) |
+| DASH-CM-004 | Case Activity Log section | 1. View dashboard | "Case Activity Log" block lists up to 8 case events (case opened, referral sent/status change, milestone, case closed/reopened) with relative timestamps; falls back to filtered data-category audit entries |
+| DASH-CM-005 | Status pie charts | 1. View dashboard | Three pie charts render: "Cases by status", "Referrals by agency", "Referrals by status" (Chart.js Pie — there is no donut chart) |
+| DASH-CM-006 | Case trend chart | 1. View dashboard | Trend chart inside the "Numbers" block: line by default with a Line/Bar toggle and a "30 days" window toggle; series comes from `casesOverTime` (falls back to case/referral trends) |
+| DASH-CM-007 | Agencies Handling list | 1. View dashboard | "Agencies Handling" shows the top 5 agencies with active and overdue counts (no horizontal load bars); the agency split also renders as the "Referrals by agency" pie |
+| DASH-CM-008 | Intake queue count badge | 1. Log in as CASE_MANAGER 2. Check sidebar nav | "Intake Queue" sidebar item shows the `intake_queue_count` badge only when the count is > 0, capped at "99+"; count is 0 for roles other than CASE_MANAGER/ADMIN |
 
 ### 2.2 Agency Focal Dashboard
 
 | ID | Test Case | Steps | Expected Result |
 |---|---|---|---|
-| DASH-AG-001 | Dashboard loads with stats | 1. Log in as AGENCY 2. Navigate to `/dashboard` | Dashboard displays: pending, processing, for compliance, completed counts |
-| DASH-AG-002 | Work queue triage strip | 1. View dashboard | Triage strip shows: new referrals (<2 days), pending, for compliance, processing, overdue (>5 days), returned |
-| DASH-AG-003 | Priority referrals list | 1. View dashboard | Top 8 priority referrals shown, sorted by severity score |
-| DASH-AG-004 | Recent activity feed | 1. View dashboard | Last 10 audit logs scoped to agency's referrals |
-| DASH-AG-005 | Referral aging bands | 1. View dashboard | Aging bands displayed: 0-2d, 3-5d, 6-10d, 11+ |
-| DASH-AG-006 | Service demand section | 1. View dashboard | Top 6 services by active count with completion rate |
-| DASH-AG-007 | Client feedback pulse | 1. View dashboard | Response rate, rating, SERVQUAL metrics shown |
-| DASH-AG-008 | Data scoping — no other agency data | 1. Log in as Agency A 2. View dashboard | Only Agency A referrals/data shown; no Agency B data visible | 
+| DASH-AG-001 | Dashboard loads with stats | 1. Log in as AGENCY 2. Navigate to `/dashboard` | Merged "My referrals" block shows six linked counts: New referrals (last 2 days), Pending, Processing, For compliance, Overdue (active ≥5 days), Rejected. No completed count is displayed |
+| DASH-AG-002 | Merged referrals block (replaces the old triage strip) | 1. View dashboard | Single "My referrals" block of six stat cells in order New, Pending, Processing, For compliance, Overdue, Rejected; each cell links to the matching filtered `/referrals` list |
+| DASH-AG-003 | Pending and overdue lists | 1. View dashboard | "Pending referrals" (top 5) and "Overdue referrals" (top 5) panels with age flags — there is no top-8 priority list (that "Needs You" block exists only on the case-manager dashboard) |
+| DASH-AG-004 | Recent activity feed | 1. View dashboard | "Recent activity": the backend fetches the 10 newest referral-module audit rows scoped to the agency's referrals; the panel displays up to 6 |
+| DASH-AG-005 | Referral aging bands — not on this dashboard | 1. View dashboard | No aging-band panel renders here. Bands (0-2d, 3-5d, 6-10d, 11+) are computed as `referralAgingBands` but rendered only on the ADMIN dashboard |
+| DASH-AG-006 | "Services applied" section | 1. View dashboard | Top 6 services by active count, each row showing "N active · M% completion" |
+| DASH-AG-007 | Client feedback panel | 1. View dashboard | "Client feedback" shows response rate and submitted/total invitations; the Rating tile shows "—" because `avgRating` is always null. SERVQUAL metrics were retired with the Gen-1 feedback stack and no longer exist |
+| DASH-AG-008 | Data scoping — no other agency data | 1. Log in as Agency A 2. View dashboard | Only Agency A referrals/data shown; no Agency B data visible — every agency dashboard query filters on the user's `agcy_id` | 
 
 ---
 
@@ -116,7 +117,7 @@
 | CASE-020 | Search by tracker number | 1. Enter tracker number | Matching case displayed |
 | CASE-021 | Sort by columns | 1. Click column headers (case number, client, status, date) | List sorts by selected column |
 | CASE-022 | Pagination | 1. Navigate through pages | Correct page displayed; total count accurate |
-| CASE-023 | Export to Excel | 1. Click "Export Excel" | Background job triggered; download link provided |
+| CASE-023 | Export to Excel | 1. Click "Export Excel" 2. Pick a date range in the export dialog (default last 90 days, max 365 days) 3. Confirm | Row-count preview loads, then the browser downloads an `.xlsx` immediately — a synchronous streamed download, not a background job, and there is no download link |
 
 ### 3.3 Case Detail (Show)
 
@@ -196,7 +197,7 @@
 | REF-014 | Filter by category | 1. Select category filter | List filters to matching category |
 | REF-015 | Search referrals | 1. Enter search term (case#, client name, agency) | Matching referrals displayed |
 | REF-016 | Sort by columns | 1. Click column headers | List sorts correctly |
-| REF-017 | Export referrals to Excel | 1. Click "Export Excel" | Background job triggered |
+| REF-017 | Export referrals to Excel | 1. Click "Export Excel" 2. Pick a date range (default last 90 days, max 365 days) 3. Confirm | Row-count preview loads, then a synchronous `.xlsx` download starts — no background job |
 
 ### 5.3 Referral Detail
 
@@ -213,7 +214,7 @@
 | REF-026 | Replace attachment | 1. Click "Replace" on an attachment 2. Upload new file | New version created; version history preserved |
 | REF-027 | Download attachment | 1. Click "Download" on attachment | Temporary download URL generated (24h expiry) |
 | REF-028 | View attachment versions | 1. Click "Version History" on attachment | Version list displayed with timestamps |
-| REF-029 | Export referral to Excel | 1. Click export option | Background job triggered |
+| REF-029 | Export from referral detail — no such control | 1. Open a referral detail page and look for an export option | No export control exists on referral detail; Excel export lives on the `/referrals` list (date-range dialog → row-count preview → synchronous `.xlsx` download). Superseded expectation, kept for traceability |
 
 ---
 
@@ -338,7 +339,7 @@
 | CLI-004 | Upload client avatar | 1. Click "Upload Avatar" on client profile 2. Select image | Avatar uploaded and displayed |
 | CLI-005 | Delete client avatar | 1. Click "Remove Avatar" | Avatar removed; default shown |
 | CLI-006 | Client audit trail | 1. View client profile 2. Open audit/timeline | Timeline of all client-related events displayed |
-| CLI-007 | Export clients to Excel | 1. Click "Export" on client list | Background job triggered |
+| CLI-007 | Export clients to Excel | 1. Click "Export Excel" on the client list 2. Pick a date range (default last 90 days, max 365 days) 3. Confirm | Row-count preview loads, then a synchronous `.xlsx` download starts — no background job |
 
 ---
 
@@ -385,8 +386,8 @@
 | RPT-006 | Age group distribution chart | 1. View reports | Age group breakdown displayed |
 | RPT-007 | Agency scorecard | 1. View reports | Agency performance metrics shown |
 | RPT-008 | Geographic distribution | 1. View reports | Map or table with geographic data |
-| RPT-009 | Export report — PDF | 1. Click "Export PDF" | Background job triggered |
-| RPT-010 | Export report — Excel | 1. Click "Export Excel" | Background job triggered |
+| RPT-009 | Export report — PDF | 1. Click "Export PDF" with filters applied | PDF renders synchronously (DomPDF) and downloads as an attachment; the button stays disabled while the download completes; export audit row recorded (a pre-flight row-cap guard can block it) |
+| RPT-010 | Export report — Excel | 1. Click "Export Excel" with filters applied | Multi-sheet `.xlsx` workbook streams synchronously as a download; the button stays disabled while it runs; export outcome recorded in the audit trail (pre-flight row-cap guard applies) |
 | RPT-011 | Agency scoping | 1. Log in as AGENCY 2. View reports | All charts scoped to own agency data only |
 
 ---
@@ -444,7 +445,7 @@
 | PROF-004 | MFA enrollment | 1. Navigate to MFA setup 2. Scan QR code 3. Enter TOTP code 4. Save recovery codes | MFA enrolled; TOTP required on next login |
 | PROF-005 | MFA disable | 1. Navigate to MFA settings 2. Disable MFA | MFA removed; no TOTP required on login |
 | PROF-006 | Recovery codes — view | 1. Navigate to MFA recovery codes | 8 recovery codes displayed (only shown once on enrollment) |
-| PROF-007 | Email change flow | 1. Request email change 2. Verify OTP to old email 3. Verify OTP to new email | Email updated after both verifications |
+| PROF-007 | Email change flow | 1. Request email change 2. Enter the 6-digit OTP sent to the NEW email 3. Submit | Email updated and marked verified; the old address receives an EmailChangedNotification notice (not an OTP); a SECURITY audit row is written |
 | PROF-008 | Delete account | 1. Click "Delete Account" 2. Enter password 3. Confirm | Account soft-deleted; audit log created |
 
 ---

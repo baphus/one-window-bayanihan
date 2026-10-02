@@ -13,17 +13,17 @@
 | SRS ID | Requirement | Implementation | Verification | Status |
 |---|---|---|---|---|
 | FR-AUTH-001 | Require authentication for admin users | `auth` and `verified` middleware on all protected route groups | Route list, middleware coverage | ✅ |
-| FR-AUTH-002 | OTP MFA for admin access | `LoginOtpController` + `OtpService` (6-digit, 5-min TTL) | Integration test, manual flow | ✅ |
+| FR-AUTH-002 | OTP MFA for admin access | TOTP MFA challenge after password login — `MfaChallengeController` (`POST /login/mfa/totp`, `/login/mfa/recovery`, `routes/auth.php:31-37`); `OtpService` (6-digit, 5-min TTL) is used only for email-change verification, public case intake, and tracking OTP, not for login | `AuthenticationTest` (mfa.challenge routes), `MfaControllerTest` | ✅ |
 | FR-AUTH-003 | Tracker + OTP for OFW tracking | `TrackController` — `/track/send-otp`, `/track/verify-otp` | Integration test, manual | ✅ |
-| FR-AUTH-004 | Role-based feature restriction | Spatie `laravel-permission`, `role:` middleware | Route permissions test | ✅ |
+| FR-AUTH-004 | Role-based feature restriction | `users.role` string(50) column checked by `role:` middleware (`app/Http/Middleware/CheckRole.php`) — no RBAC package | Route permissions test | ✅ |
 | FR-AUTH-005 | Lane-based access for agencies | Service layer filtered by `agcy_id` | Feature test | ✅ |
 | FR-AUTH-006 | IP whitelist for admin backend | `IpWhitelist` middleware on `/admin/*` routes | `IpWhitelistMiddlewareTest` | ✅ |
 | FR-AUTH-007 | Session timeout | `session.lifetime` config (120 min default) | Manual check | ✅ |
-| FR-AUTH-008 | Rate-limit failed auth | `throttle:login` (6/min), `throttle:otp` (3/min) | Route middleware test | ✅ |
+| FR-AUTH-008 | Rate-limit failed auth | `throttle:login` (10/min), `throttle:otp` (5/min), `throttle:totp-challenge` (3/min) — limiters defined in `AppServiceProvider.php:112-129` | Route middleware test | ✅ |
 | FR-AUTH-009 | Reject invalid credentials | Laravel authentication validation | Auth test | ✅ |
-| FR-AUTH-010 | Reject expired/invalid OTP | `OtpService::validate()` checks expiry + single-use | Test | ✅ |
+| FR-AUTH-010 | Reject expired/invalid OTP | `OtpService::verify()` checks expiry + single-use | Test | ✅ |
 | FR-AUTH-011 | Deny unauthorized function access | Role middleware + authorization gates | Auth test | ✅ |
-| FR-AUTH-012 | Auth events in audit log | `AuditLog` model event listener on auth attempts | `AuditEventViewTest` | ✅ |
+| FR-AUTH-012 | Auth events in audit log | Auth event listeners on `Login`/`Logout`/`Failed` (`AppServiceProvider.php:287-289`) | `LogSuccessfulLoginTest`, `AuditSecurityEventsTest` | ✅ |
 
 ### 1.2 Administrative & User Management (SRS §4.2)
 

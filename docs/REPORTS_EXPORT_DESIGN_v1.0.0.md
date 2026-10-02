@@ -1,5 +1,9 @@
 # Reports Export — Design and Measurement Record
 
+> **SUPERSEDED - see `docs/REPORTS_EXPORT_v1.1.0.md`.**
+> Historical design record (v1.0.0) retained for provenance - not current guidance; do not follow it as a procedure or spec.
+> See `docs/README.md` for current documentation.
+
 **Version:** 1.0.0
 **Status:** Implemented, pending QA sign-off
 **Scope:** `GET /reports/export-pdf`, `GET /reports/export-excel` (Case Manager, Admin, Agency)

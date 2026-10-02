@@ -1,5 +1,9 @@
 # One Window Bayanihan — DICT Region VII Presentation Plan
 
+> **HISTORICAL - archived artifact retained for provenance; written 2026-09-01.**
+> Not current guidance - do not follow it as a procedure or spec.
+> See `docs/README.md` for current documentation.
+
 | Field | Draft value |
 |---|---|
 | Status | Approved for slideshow production |

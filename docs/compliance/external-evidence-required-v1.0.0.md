@@ -11,6 +11,7 @@
 |---|---|---|---|
 | v1.0.0 | 2026-07-08 | Alignment assessment | Initial external-evidence request list. |
 | v1.1.0 | 2026-07-08 | Remediation sprint | Marked E-38 (trustProxies CIDR), E-39 (APP_DEBUG/debug_otp/production config) as code-verifiable post-Phase 1 and Phase 2 remediation. Removed from external evidence waitlist. |
+| v1.2.0 | 2026-10-02 | Factual corrections | Re-verified every code citation against the working tree: corrected the E-39 `debug_otp_enabled` gate location (no `LoginOtpController` exists), E-29 deploy-gating wording, E-37 queue/scheduler status, E-40 secret names, E-25/E-35 evidence, and stale provider naming in E-19/E-21. |
 
 > A "Not verifiable from repository" status in the assessments is **not** a finding of non-compliance. Items below may already exist organizationally; they simply are not in the codebase. Please supply or confirm their absence.
 
@@ -43,17 +44,17 @@
 ## C. Physical (ISO 27002 7.x)
 | # | Evidence | Standard | Why needed |
 |---|---|---|---|
-| E-19 | Hosting-provider physical-security certifications (Render, Supabase, Cloudinary) | 27002 7.1-7.14 | PaaS → physical controls delegated to providers; obtain their SOC 2 / ISO 27001 certs. |
+| E-19 | Hosting-provider physical-security certifications (container platform, managed database, Cloudinary) | 27002 7.1-7.14 | PaaS → physical controls delegated to providers; obtain their SOC 2 / ISO 27001 certs. |
 | E-20 | Office/clear-desk/clear-screen & equipment-disposal policy (if staff handle PII locally) | 27002 7.7-7.10 | — |
 
 ## D. Supplier & privacy (ISO 27002 5.19-5.23, 5.31, 5.34)
 | # | Evidence | Standard | Why needed |
 |---|---|---|---|
-| E-21 | Data-Processing Agreements with Supabase, Cloudinary, OpenAI, mail provider, Render | 27002 5.19-5.23, 5.34; RA 10173 | Cross-border PII processing (see profile §5). |
+| E-21 | Data-Processing Agreements with the cloud providers actually in use (database/object storage, Cloudinary, the configured AI provider, mail provider, hosting provider) | 27002 5.19-5.23, 5.34; RA 10173 | Cross-border PII processing (see profile §5). |
 | E-22 | Supplier security-evaluation & performance-monitoring records | 27002 5.19-5.22; 20000-1 8.3.4 | Supplier management. |
 | E-23 | Privacy Impact Assessment (PIA) | 27002 5.34; RA 10173 (LEGAL-023) | Explicitly required by SRS; marked "Not Done". |
 | E-24 | Privacy notice, consent records, data-subject-rights (access/correction/erasure) procedure | 27002 5.34; RA 10173 | Consent field exists; no notice/DSR process. |
-| E-25 | Data retention & disposal policy/schedule | 27002 8.10; RA 10173 (LEGAL-006) | Retention "proposed", prune broken (TECH-015). |
+| E-25 | Data retention & disposal policy/schedule | 27002 8.10; RA 10173 (LEGAL-006) | Retention "proposed"; audit prune is now archive-gated and chain-preserving (`PruneAuditLogs.php:34-123`, TECH-015 remediated) but the retention tiers themselves remain unformalized. |
 | E-26 | NPC registration / DPO appointment evidence | RA 10173 | Regulatory. |
 
 ## E. Operations & service management (ISO 20000-1, 27002 5.24-5.30)
@@ -61,13 +62,13 @@
 |---|---|---|---|
 | E-27 | Incident-response plan & incident records | 27002 5.24-5.28; 20000-1 8.6.1 | No process in repo. |
 | E-28 | Problem-management / known-error records | 20000-1 8.6.3 | — |
-| E-29 | Change-management procedure & change/approval records | 27002 8.32; 20000-1 8.5.1; 9001 8.5.6 | Direct-to-main deploy; no approval gate. |
+| E-29 | Change-management procedure & change/approval records | 27002 8.32; 20000-1 8.5.1; 9001 8.5.6 | Deploys are manual and gated (`deploy-production.yml:36-42` confirmation phrase; environment approvals live on the deploy environment), but the repo holds no per-change approval record. |
 | E-30 | Release records & deployment approvals | 20000-1 8.5.1; 9001 8.6 | — |
 | E-31 | Service catalogue & SLAs/OLAs | 20000-1 8.2.3/8.3.3 | None. |
 | E-32 | Service reports & availability/capacity metrics | 20000-1 9.1; 27002 8.6 | 99% target unmeasured; 144-user target unmeasured. |
 | E-33 | Business-continuity & disaster-recovery plan; RPO/RTO; BIA | 27001 5.29/5.30; 20000-1 8.7.2 | None (TECH-019). |
 | E-34 | Backup configuration + tested restore evidence | 27002 8.13 | Provider-only, untested (TECH-008). |
-| E-35 | Monitoring/alerting configuration | 27002 8.16 | No app monitoring (TECH-016). |
+| E-35 | Monitoring/alerting configuration | 27002 8.16 | Error tracking is wired in code (`config/sentry.php`; `bootstrap/app.php:191`); alert channels/routing and on-call records remain external (TECH-016). |
 
 ## F. Development & infrastructure (verify with admins)
 | # | Evidence | Standard | Why needed |
@@ -75,7 +76,7 @@
 | E-36 | GitHub branch-protection settings (required reviews/checks) | 27002 8.28; 9001 8.6 | Cannot verify from repo (TECH-009). |
 | E-37 | Render production service configuration (queue worker + scheduler/cron services) | 20000-1 8.6; availability | PaaS image lacks workers (TECH-035). |
 | E-38 | Deployed `trustProxies` / LB CIDR & real-IP configuration | 27002 8.20 | ✅ Now code-verifiable: `TRUSTED_PROXIES` restricted to LB CIDR in `bootstrap/app.php` (Phase 1 I-4). |
-| E-39 | Production `APP_DEBUG`, `debug_otp_enabled`, ClamAV enablement values | 27002 8.5/8.7/8.9 | ✅ Now code-verifiable: `debug_otp_enabled` gated by environment checks in `LoginOtpController` and System Settings UI; `APP_DEBUG=false` confirmed by env config (Phase 1 I-5). |
+| E-39 | Production `APP_DEBUG`, `debug_otp_enabled`, ClamAV enablement values | 27002 8.5/8.7/8.9 | ✅ Now code-verifiable: `debug_otp_enabled` is read by `SystemSettingsController.php:16,26,31-32` (admin System Settings UI) and consumed by `EmailChangeController.php:65` and `AdminUserController.php:201`; no `LoginOtpController` exists in the codebase. `APP_DEBUG=false` confirmed by env config (Phase 1 I-5). |
 | E-40 | Secrets inventory & rotation records (RENDER_API_KEY, SLACK_WEBHOOK, mail, AI keys) | 27002 5.10/8.24 | Rotation evidence. |
 | E-41 | Customer-feedback analysis & satisfaction records | 9001 9.1.2 | SERVQUAL captured; analysis process not documented. |
 

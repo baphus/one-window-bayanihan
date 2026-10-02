@@ -1,5 +1,9 @@
 # Claude Design Prompt: One Window Bayanihan for DICT Region VII
 
+> **HISTORICAL - archived artifact retained for provenance.**
+> Not current guidance - do not follow it as a procedure or spec.
+> See `docs/README.md` for current documentation.
+
 Copy everything below the horizontal rule into Claude Design or another Claude environment capable of creating PowerPoint presentations.
 
 ---

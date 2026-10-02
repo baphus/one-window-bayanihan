@@ -1,5 +1,9 @@
 # Agency Focal Owns Service Assignment — Implementation Plan
 
+> **HISTORICAL - archived artifact retained for provenance; written 2026-09-21.**
+> Not current guidance - do not follow it as a procedure or spec.
+> See `docs/README.md` for current documentation.
+
 **Goal:** Remove the redundant service/requirement sections from the referral flow and make the agency focal the sole owner of assigning which services apply to a case referral.
 
 **Problem:** A referral is created with services pre-selected by the case manager (`Create.jsx` Step 3). `createReferral()` then writes the legacy `required_services` text, syncs the `referral_services` pivot, and snapshots global requirements into `referral_service_requirements`. On the Show page, the "Required Services" section renders one expandable `ServiceCard` per attached service — the "EDSP (Emergency Shelter Assistance) (2 requirements)" and "Calamity Assistance (2 requirements)" blocks the user sees. The agency focal already has full add/remove/edit CRUD on that section (`ServiceAddDropdown` + `ServiceCard`), so the creation-time pre-assignment is redundant work that belongs to the focal.

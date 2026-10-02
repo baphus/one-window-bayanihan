@@ -1,16 +1,16 @@
 # Data Model
 
-> **Version:** 2.2.0 | **Updated:** 2026-09-15 | **Source:** `database/migrations/` (59 files), `app/Models/*.php` (40 models + 4 concerns), `config/audit.php`, `config/filesystems.php`, `phpunit.xml`
+> **Version:** 2.2.0 | **Updated:** 2026-09-15 | **Source:** `database/migrations/` (61 files), `app/Models/*.php` (40 models + 4 concerns), `config/audit.php`, `config/filesystems.php`, `phpunit.xml`
 
 ## Overview
 
 - **Database:** PostgreSQL 17 (production) / 15 (local container)
-- **Primary Keys:** UUID v4 (via `UsesUuid` trait)
+- **Primary Keys:** UUID v4 via `UsesUuid` on 37 of 40 models — exceptions are `SystemSetting` (natural string key `key`), `AgencyThreadRead` (composite PK), and `Notification`; Laravel framework tables keep their own keys
 - **Soft Deletes:** Flag-based (`is_deleted`, `deleted_at`, `deleted_by`) — NOT vanilla `SoftDeletes` usage (see Conventions)
 - **Timestamps:** `created_at`, `updated_at` (Laravel standard; append-only tables vary — see notes)
 - **Extensions:** `pg_trgm` (trigram search), `pgcrypto` (UUID generation)
 - **Row-Level Security:** Enabled on core tables via migrations (`app.user_role` / `app.current_user_id` session context)
-- **Migration convention:** New tables use UUID primary keys (`$table->uuid('id')->primary()`), foreign keys are declared on uuid-typed columns with `foreignUuid()->constrained()`, and migrations never contain seed data — reference rows belong in `database/seeders/` (see `ReferenceDataSeeder`). Guarded by `tests/Feature/Database/MigrationConventionTest.php`.
+- **Migration convention:** New tables use UUID primary keys (`$table->uuid('id')->primary()`), foreign keys are declared on uuid-typed columns with `foreignUuid()->constrained()`, and **new** migrations must not contain seed data — reference rows belong in `database/seeders/` (see `ReferenceDataSeeder`). Enforced by `tests/Feature/Database/MigrationConventionTest.php`, which grandfather-lists three legacy files whose inserts/backfills must not be moved retroactively; older migrations also carry raw `INSERT` backfills (e.g. `case_category` in `2026_07_17_000001`) that the guard's pattern does not flag.
 - **Test database:** PostgreSQL database `bayanihan_test` (`phpunit.xml`); `DB_SSLMODE=disable` in test config. Queue/cache/session/storage are overridden to sync/array/local, with fake S3-compatible credentials; storage fakes in tests use the `object-storage` disk.
 - **File storage:** S3-compatible object storage (`object-storage` disk, default for uploads; canonical `STORAGE_*` env vars with legacy `SUPABASE_S3_*` fallbacks). A second S3-compatible disk exists for alternate object-storage targets (see `config/filesystems.php`). Audit bundles use the `audit-archives` disk, which inherits the active object-storage credentials unless overridden via `AUDIT_ARCHIVE_*`.
 
@@ -18,7 +18,7 @@
 
 ### UUID Primary Keys
 
-All business tables use UUID v4 primary keys via `App\Models\Concerns\UsesUuid`: the `creating` hook fills an empty key with `(string) Str::uuid()`, `getIncrementing()` returns `false`, and `getKeyType()` returns `'string'`. Route model binding therefore expects string UUIDs. Pivot-style tables use composite keys instead (`referral_services` on `(referral_id, service_id)`; `agency_thread_reads` on `(user_id, case_id, peer_agency_id)`).
+Business tables use UUID v4 primary keys via `App\Models\Concerns\UsesUuid`: the `creating` hook fills an empty key with `(string) Str::uuid()`, `getIncrementing()` returns `false`, and `getKeyType()` returns `'string'`. Route model binding therefore expects string UUIDs. The trait is present on 37 of 40 models; among business tables the exception is `system_settings`, keyed by its natural string `key` (`SystemSetting` declares `$primaryKey = 'key'` and does not use the trait), while `AgencyThreadRead` and `Notification` are the other two trait-less models. Pivot-style tables use composite keys instead (`referral_services` on `(referral_id, service_id)`; `agency_thread_reads` on `(user_id, case_id, peer_agency_id)`).
 
 ### Soft Delete (Flag-based)
 
@@ -112,9 +112,9 @@ Reports, dashboard, and referral code leans on PostgreSQL functions — not port
 | 50 | `case_number_counters` | **NEW** Monthly (`YYYYMM`) case-number allocation | `2026_07_27_000001` → monthly `2026_07_28_000001` |
 | 51 | `generated_documents` | **NEW** Async export/report job records | `2026_07_24_051214` |
 | 52 | `user_invites` | **NEW** Staff invitation tokens | `2026_07_20_000001` |
-| 53 | ~~`chatbot_embeddings`~~ | **DROPPED** `2026_09_16_000001` (retired vector corpus; no Eloquent model was ever used — chatbot uses the file-based helpdesk corpus) | — |
+| 53 | ~~`chatbot_embeddings`~~ | **NEVER CREATED** — no `up()` in any migration creates it (the create migrations are no-op stubs); `2026_09_16_000001` only defensively drops it from databases that still carry it. No Eloquent model was ever used; chatbot uses the file-based helpdesk corpus | — |
 
-Dropped before v2.1.0 (noted for migration archaeology, no sections below): `case_comments` (`2026_07_02`), `philippine_addresses` (`2026_07_08_000001` — addresses are stateless files now, see `docs/PSGC_ADDRESSES_v1.0.0.md`), `referrals.type` column (`2026_07_03`), `cases.escalated_at` (`2026_07_08_000002`).
+Dropped before v2.1.0 (noted for migration archaeology, no sections below): `case_comments` (`2026_07_02`), `philippine_addresses` (`2026_07_08_000001` — no PSGC table has existed since; PSGC data lives in the frontend data file `resources/js/data/philippine-addresses.ts`, refreshed by `npm run addresses:sync` (`scripts/sync-philippine-addresses.cjs`) and parsed at runtime by `PhilippineAddressService` / `AddressNameResolver` in `app/Services/`, see `docs/PSGC_ADDRESSES_v1.0.0.md`), `referrals.type` column (`2026_07_03`), `cases.escalated_at` (`2026_07_08_000002`).
 
 ---
 
@@ -128,7 +128,7 @@ Dropped before v2.1.0 (noted for migration archaeology, no sections below): `cas
 | `name` | string | NOT NULL | |
 | `email` | string | UNIQUE, NOT NULL | |
 | `password` | string | NOT NULL | Hashed |
-| `role` | string(50) | NOT NULL | CASE_MANAGER, AGENCY, ADMIN |
+| `role` | string(50) | NOT NULL | Plain string, not an enum: CASE_MANAGER, AGENCY, ADMIN, OFW |
 | `agcy_id` | uuid | FK → agencies.id, nullable | Agency assignment |
 | `client_id` | uuid | FK → clients.id, nullable | Added `2026_07_25_000002` |
 | `is_active` | boolean | default: true | |
@@ -181,7 +181,7 @@ Relations: `belongsTo` agency (`agcy_id`), client (`client_id`); `hasMany` cases
 | `deleted_by` | uuid | FK → users.id | |
 | `created_at` / `updated_at` | timestamp | | |
 
-Relations: `hasMany` users (`agcy_id`), referrals (`agcy_id`), services, survey forms, survey invitations, feedback, legacy servqual configs/feedback invitations.
+Relations: `hasMany` users (`agcy_id`), referrals (`agcy_id`), services (`app/Models/Agency.php:76-89`). The model also still declares `feedback()` (`app/Models/Agency.php:91`) against the retired `feedback` table — it references a `Feedback` model class that no longer exists, so it is a leftover of the retired Gen 1 feedback stack, not a live relation. `survey_forms` / `survey_invitations` carry their own `agency_id` FKs; there is no corresponding relation method on `Agency`.
 
 ### services
 
@@ -270,14 +270,14 @@ No `SoftDeleteFlag` (deletion semantics unverified).
 | Column | Type | Constraints | Notes |
 |--------|------|-------------|-------|
 | `id` | uuid | PK | |
-| `first_name` | string | NOT NULL | Encrypted (EncryptedString cast) |
-| `last_name` | string | NOT NULL | Encrypted |
+| `first_name` | string | NOT NULL | **Plaintext** — no cast (see Design Patterns → PII Encryption) |
+| `last_name` | string | NOT NULL | **Plaintext** — no cast |
 | `middle_name` | string | nullable | Renamed back from `middle_initial` (`2026_08_13_000001`; was `middle_name` → `middle_initial` on 07-03) |
 | `suffix` | string | nullable | |
 | `date_of_birth` | date | nullable | Encrypted (EncryptedDate cast) |
 | `sex` | string(10) | CHECK('MALE','FEMALE'), nullable | |
-| `email` | string | nullable | Encrypted |
-| `contact_number` | string | nullable | Encrypted |
+| `email` | string | nullable | **Plaintext** — no cast |
+| `contact_number` | string | nullable | **Plaintext** — no cast |
 | `avatar_url` | string | nullable | |
 | `is_deleted` / `deleted_at` / `deleted_by` | — | standard | |
 | `created_at` / `updated_at` | timestamp | | |
@@ -857,9 +857,9 @@ Async export/report job records (case PDFs, system reports, CSV exports, admin f
 
 No `SoftDeleteFlag` (deletion semantics unverified).
 
-### chatbot_embeddings — DROPPED (2026-09-16)
+### chatbot_embeddings — never created; drop-only migration (2026-09-16)
 
-Retired vector corpus table, dropped by `2026_09_16_000001`. It had no Eloquent model and was already retired from the query path; the chatbot uses an in-memory weighted token match over the cached parsed helpdesk corpus — pre-warm via `php artisan chatbot:index`. The original create migrations (`2026_07_26_120000`, `2026_07_26_134507`) are stubbed no-ops kept for migration identity.
+Retired vector-corpus table. No `up()` method in any migration creates it: the original create migrations (`2026_07_26_120000`, `2026_07_26_134507`) are stubbed no-ops kept for migration identity, and `2026_09_16_000001` contains only `Schema::dropIfExists('chatbot_embeddings')`, to clear databases that still carry the table from the earlier implementation. A fresh database therefore has no such table. It had no Eloquent model and was already retired from the query path; the chatbot uses an in-memory weighted token match over the cached parsed helpdesk corpus — pre-warm via `php artisan chatbot:index`.
 
 ---
 
@@ -930,7 +930,7 @@ audit_archives / audit_chain_checkpoints ──── audit_logs (by period/prun
 
 ### PII Encryption
 
-Client PII fields (`first_name`, `last_name`, `email`, `contact_number`, `date_of_birth`) use Laravel's `encrypted` cast for at-rest encryption. Migration `2026_07_09_000001_encrypt_pii_fields.php` converts existing plaintext to encrypted format.
+At-rest encryption is applied selectively through casts: `clients.date_of_birth` (`EncryptedDate`), `client_addresses.street`, `client_employments.{employer_name,position,last_position,country,last_country}`, and `next_of_kin.{phone_number,email,full_address}` (all `EncryptedString`, `app/Casts/`). `clients.first_name`, `last_name`, `email`, and `contact_number` carry no cast and are stored in plaintext — they are **not** encrypted. Migration `2026_07_09_000001_encrypt_pii_fields.php` only widens the affected columns to `text` so ciphertext fits; it performs no plaintext→ciphertext conversion. Exports read such values through `DataExportQueries::decryptField()` (`app/Services/Export/DataExportQueries.php:65`), which decrypts ciphertext and passes plaintext through unchanged.
 
 ### Audit Hash Chain
 

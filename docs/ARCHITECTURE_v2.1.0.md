@@ -1,5 +1,24 @@
 > **SUPERSEDED - see `ARCHITECTURE_v2.2.0.md`.**
 > Retained as history. Do not use for new work; it does not reflect the current system.
+>
+> **Anachronisms kept deliberately (annotated 2026-10-03; body left unchanged as history):**
+>
+> - §5 and §10 describe an email-OTP login driven by `LoginOtpController`. That controller has
+>   never existed in this codebase — there is no email-OTP step at login. Login is email + password
+>   via `AuthenticatedSessionController` (`routes/auth.php:21-29`), then the TOTP MFA challenge via
+>   `MfaChallengeController` (`routes/auth.php:31-38`). Email OTP (`App\Services\OtpService`) is used
+>   only for email-change verification, public case intake, and citizen tracking-number verification.
+>   `ARCHITECTURE_v2.2.0.md` §4 records this correction against this document.
+> - §6 lists three roles; the fourth is `OFW`. `users.role` is a plain `string(50)`, not an enum
+>   (`database/migrations/0001_01_01_000000_create_framework_tables.php:16`); `app/Enums/` holds only
+>   `AuditAction` and `AuditModule`.
+> - §4 rate-limiter budgets are superseded (27 limiters now, `app/Providers/AppServiceProvider.php`).
+>   §9 topology details are stale: the compose stack now runs separate `queue` and `scheduler`
+>   services plus a `migrate` profile service (`docker-compose.yml:109,166,223`) instead of one
+>   combined `app` service, and the in-image scheduler runs `schedule:work`
+>   (`docker/supervisord.conf:56-57`) rather than `schedule:run` every minute.
+> - §12-§13 carry the database queue/cache drift already flagged at the end of this document
+>   (closed by `ARCHITECTURE_v2.2.0.md` §6: the canonical broker/cache is Redis).
 
 # Architecture
 
@@ -133,6 +152,11 @@ Controller (thin) → Service (business logic) → Model (data access) → Postg
 Alternative: POST /login/verify-recovery-code (recovery_code)
    → Consumes one recovery code, authenticates
 ```
+
+> **Erratum (2026-10-03):** the flow above never shipped — kept verbatim as history, see the
+> top banner. `LoginOtpController` does not exist; there is no email-OTP step at login. Login is
+> `AuthenticatedSessionController` (`routes/auth.php:21-29`), then the TOTP challenge
+> `MfaChallengeController` (`routes/auth.php:31-38`).
 
 ### MFA (TOTP) Enrollment
 
@@ -274,6 +298,9 @@ at a mail-catcher container of your choice.
 | Admin | `AdminUserController`, `AdminAgencyController`, `AdminServiceController`, `AdminCaseCategoryController`, `AdminCaseStatusController`, `AdminCaseIssueController` | Admin CRUD |
 | Admin System | `LogViewerController`, `MaintenanceController`, `SecuritySettingsController`, `ActiveSessionsController`, `EmailLogController`, `DataExportController`, `OverdueReferralController` | System administration |
 | Other | `DashboardController`, `ProfileController`, `NotificationController`, `StakeholderController`, `OnboardingController`, `SystemSettingsController`, `AuditLogController`, `AgencyServiceController` | Supporting features |
+
+> **Erratum (2026-10-03):** the `LoginOtpController` entry in the Auth row above never existed —
+> see the top banner and the note under §5.
 
 ## 11. Event System
 

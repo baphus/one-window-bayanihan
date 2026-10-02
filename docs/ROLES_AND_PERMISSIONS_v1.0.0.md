@@ -1,16 +1,20 @@
 # Roles and Permissions
 
-> **Version:** 1.0.0 | **Updated:** 2026-09-15 | **Status:** Verified against source code
+> **Version:** 1.1.0 | **Updated:** 2026-10-03 | **Status:** Verified against source code
 > **Source:** `app/Models/User.php:98-115`, `app/Http/Middleware/CheckRole.php`,
 > `app/Http/Middleware/IpWhitelist.php`, `config/auth.php:64-77`,
-> `config/mfa.php`, `routes/web.php`, `routes/auth.php`,
+> `config/mfa.php`, `routes/web.php`, `routes/auth.php`, `routes/api.php`,
 > `app/Http/Controllers/Auth/MfaChallengeController.php`,
-> `app/Services/OtpService.php`, `bootstrap/app.php:63-80,120-133`
+> `app/Services/OtpService.php`, `bootstrap/app.php:63-80,120-133`,
+> `database/migrations/0001_01_01_000000_create_framework_tables.php`
 
 ## 1. Role Vocabulary (exact, closed)
 
-Roles are plain strings in the `users.role` column. There are exactly four —
-no more, no fewer — with predicate helpers on the model (`User.php:98-115`):
+Roles are plain strings in the `users.role` column — a `string(50)`, **not** a
+database or PHP enum (`database/migrations/0001_01_01_000000_create_framework_tables.php:16`;
+`app/Enums/` contains only `AuditAction` and `AuditModule`, so there is no role enum to
+discover). There are exactly four — no more, no fewer — with predicate helpers on the model
+(`User.php:98-115`):
 
 | Slug | Helper | Who |
 |------|--------|-----|
@@ -46,6 +50,10 @@ group, after `CheckUserActive`, `EnsureMfaSession`, `CheckMfaEnrolled`, and
 Every group below inherits `auth` (+ `verified` where noted). Line references
 are to `routes/web.php`.
 
+`role:` allow-list occurrences in `routes/web.php` (455 lines), counted on
+2026-10-03: `role:CASE_MANAGER` ×8, `role:ADMIN` ×3, `role:AGENCY` ×2,
+`role:OFW` ×1.
+
 | Lines | Group | Allowed roles | What it exposes |
 |-------|-------|---------------|-----------------|
 | 62-316 | `auth` + `verified` mega-group | any authenticated, verified user | dashboard, profile + MFA self-service (69-73), referrals (76-106), reports (109-111), notifications (113-119), onboarding (235-243) |
@@ -68,15 +76,20 @@ are to `routes/web.php`.
 Public (no auth): survey token submit (53-58), home (60), partners (323-347),
 contact + legal (349-363), intake wizard (366-381), tracking portal (383-413),
 help center (415-429), chatbot message (440-442, `turnstile.session` +
-`throttle:chatbot`). Unauthenticated API (`routes/api.php`, 8 routes):
-`readyz` probe, 5 address lookups, `csp/report`, `webhooks/resend`
-(Svix-verified in-controller, deliberately outside session/CSRF/MFA).
+`throttle:chatbot`). Unauthenticated API (`routes/api.php`, **3 routes**:
+`readyz` probe at `routes/api.php:12-14`, `csp/report` at `:17-18`,
+`webhooks/resend` at `:24-26` — Svix-verified in-controller, deliberately
+outside session/CSRF/MFA). The five former `/api/address/*` PSGC lookups no
+longer exist: the address dataset is a generated file read directly by the
+frontend (`resources/js/data/philippine-addresses.ts`, regenerate with
+`npm run addresses:sync`).
 
-Auth routes (`routes/auth.php`, 118 lines, ~19 routes): guest login
+Auth routes (`routes/auth.php`, 118 lines, **23 routes** — 13 guest + 10
+authenticated): guest login
 (`turnstile` + `throttle:login`), MFA challenge — `show`/`totp`/`recovery`/
-`cancel` behind `mfa.pending` (`MfaChallengeController`; there is no
-`LoginOtpController` — do not reference one), invite registration, password
-reset/confirm, email verification, authenticated email-change OTP
+`cancel` behind `mfa.pending` (`MfaChallengeController`, `routes/auth.php:31-38`;
+there is no `LoginOtpController` — do not reference one), invite registration,
+password reset/confirm, email verification, authenticated email-change OTP
 (`throttle:otp`), logout (writes a `LOGOUT` audit row, clears MFA pending
 state, invalidates the session).
 
@@ -99,13 +112,27 @@ decides *which rows* it may see:
 
 `OFW` accounts are confined to the `my-cases` prefix (`web.php:445-453`,
 middleware `auth` + `role:OFW`, names `ofw.*`): dashboard, notifications,
-agency milestones for their own cases, profile, case show. They cannot reach
-the `auth`+`verified` mega-group (line 62) at all — no `/cases`, `/referrals`,
-`/reports`, `/clients`, or `/admin/*` — because none of those groups list
-`OFW` in their `role:` allow-list, and `CheckRole` aborts 403 otherwise (§2).
+agency milestones for their own cases, profile, case show.
+
+Role-gated paths reject them: `/cases`, `/clients`, and `/admin/*` each carry a
+`role:` allow-list that omits `OFW`, so `CheckRole` aborts 403 (A2). But `/referrals`
+and `/reports` are **not** role-gated 
+—
+ they sit in the `auth`+`verified` group
+(line 62) with no `role:` middleware, so `CheckRole` never runs and any authenticated
+verified user reaches them, OFW included. That matches 
+§
+3. OFW accounts are created
+with `email_verified_at` already set (`IntakeRegistrationController.php:70`), so `verified`
+does not block them either. `ReferralService::getReferrals` scopes rows for `AGENCY` only
+(`app/Services/ReferralService.php:270-277`) and has no OFW branch, so what OFW sees at
+`/referrals` is unscoped.
 Conversely, staff roles never match `role:OFW` and cannot enter the portal.
-OFW is excluded from MFA enrollment enforcement (`config/mfa.php:22-25` lists
-only `ADMIN,CASE_MANAGER,AGENCY`).
+Outside production, OFW is excluded from MFA enrollment enforcement (the
+`enrollment_enforced_roles` default is `ADMIN,CASE_MANAGER,AGENCY`,
+`config/mfa.php:30-33`). **In production that exclusion does not apply** —
+`User::isInMfaEnforcedRole()` (`app/Models/User.php:118-131`) enforces MFA for
+every non-empty role, OFW included.
 
 ## 6. Admin IP Whitelist
 
@@ -128,7 +155,7 @@ via the `ip.whitelist` alias (`bootstrap/app.php:76` →
 
 | Mechanism | Where configured | Policy | Applies to |
 |-----------|-----------------|--------|------------|
-| TOTP MFA challenge (authenticator app + recovery codes) | `config/mfa.php:4-8`; `MfaChallengeController`; `mfa.pending` alias (`bootstrap/app.php:79`) | `pending_ttl` 300 s, `max_attempts` 5, `replay_ttl` 120 s; self-service enroll/verify/disable/regenerate at `profile/mfa/*` (`web.php:69-73`) | login for enforced roles `ADMIN,CASE_MANAGER,AGENCY` (`config/mfa.php:22-25`); enforced pre-access by `EnsureMfaSession` + `CheckMfaEnrolled` (`bootstrap/app.php:67-68`) |
+| TOTP MFA challenge (authenticator app + recovery codes) | `config/mfa.php:4-7`; `MfaChallengeController`; `mfa.pending` alias (`bootstrap/app.php:79`) | `pending_ttl` 300 s, `max_attempts` 5, `replay_ttl` 120 s; self-service enroll/verify/disable/regenerate at `profile/mfa/*` (`web.php:69-73`) | login for roles in `config('mfa.enrollment_enforced_roles')` — default `ADMIN,CASE_MANAGER,AGENCY` (`config/mfa.php:30-33`) — and for **all** roles incl. `OFW` when `APP_ENV=production` (`User::isInMfaEnforcedRole()`, `app/Models/User.php:118-131`); enforced pre-access by `EnsureMfaSession` + `CheckMfaEnrolled` (`bootstrap/app.php:67-68`) |
 | Email OTP (6-digit) | `App\Services\OtpService:11-13` | `TTL_MINUTES` 5, `MAX_ATTEMPTS` 5, cache-backed with per-purpose attempt counters | email-change (`auth.php:88-93`, `throttle:otp`), public intake verification, tracking-portal OTP — never login |
 
 Admins can reset a user's MFA (`admin.users.reset-mfa`, `web.php:269`).
@@ -144,3 +171,12 @@ Admins can reset a user's MFA (`admin.users.reset-mfa`, `web.php:269`).
 
 Deactivated users are rejected earlier by `CheckUserActive`
 (`bootstrap/app.php:66`) before any role check runs.
+
+---
+
+## 9. Changelog
+
+| Version | Date | Change |
+|---|---|---|
+| 1.1.0 | 2026-10-03 | Re-verified against source. §1: recorded that `users.role` is `string(50)` (`0001_01_01_000000_create_framework_tables.php:16`) and that `app/Enums/` holds only `AuditAction`/`AuditModule` — there is no role enum. §3: added the `role:` occurrence counts (CASE_MANAGER ×8, ADMIN ×3, AGENCY ×2, OFW ×1); corrected `routes/api.php` from "8 routes … 5 address lookups" to the 3 routes that exist (`readyz`, `csp/report`, `webhooks/resend`) and noted the removed `/api/address/*` endpoints; corrected `routes/auth.php` from "~19 routes" to 23 (13 guest + 10 authenticated, `routes/auth.php` is 118 lines) and cited the MFA challenge block at `:31-38`. §5/§7: corrected MFA enrollment enforcement — roles come from `config/mfa.php:30-33`, not the comment at `:22-25`, and production enforces MFA for every role including `OFW` (`app/Models/User.php:118-131`). |
+| 1.0.0 | 2026-09-15 | Initial verified release: closed four-slug role vocabulary, `CheckRole` primitive, route-group matrix, lane isolation, OFW isolation, admin IP whitelist, MFA vs email-OTP split, denied-access rendering. |

@@ -1,5 +1,9 @@
 # Audit Logging Coverage Gap Closure — Implementation Plan
 
+> **HISTORICAL - archived artifact retained for provenance; written 2026-09-08.**
+> Not current guidance - do not follow it as a procedure or spec.
+> See `docs/README.md` for current documentation.
+
 **Goal:** Close the audit-trail coverage gaps identified in the audit coverage scan so every meaningful business action — model CRUD and service-level/security operations — produces an audit row, without breaking the existing tamper-evident hash chain.
 
 **Architecture:** Extend the existing dual-path audit system. (1) Add the missing business-entity models to `config/audit.php` `observed_models` so the existing `AuditObserver` automatically records their create/update/delete/restore events. (2) Add explicit manual audit writes (via `SecurityAuditLogger` or `AuditLog::create`) for service-level and security operations that have no model to observe. (3) Add `$auditExclude` / `getAuditModuleName()` wiring to the newly-observed models so sensitive columns are dropped and modules are labelled correctly.
