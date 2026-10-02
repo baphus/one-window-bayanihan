@@ -60,7 +60,6 @@ class ScannerHardeningTest extends TestCase
 
     public function test_browser_reporting_api_batches_are_recorded(): void
     {
-        $this->withoutExceptionHandling();
         Log::shouldReceive('withContext')->andReturnSelf();
         Log::shouldReceive('debug')->once()->withArgs(fn ($message, $context) => $message === 'CSP violation reported'
             && $context['blocked_uri'] === 'inline'
@@ -74,7 +73,6 @@ class ScannerHardeningTest extends TestCase
 
     public function test_legacy_browser_reports_are_still_recorded(): void
     {
-        $this->withoutExceptionHandling();
         Log::shouldReceive('withContext')->andReturnSelf();
         Log::shouldReceive('debug')->once()->withArgs(fn ($message, $context) => $context['blocked_uri'] === 'inline');
         $this->call('POST', '/api/csp/report', [], [], [], ['CONTENT_TYPE' => 'application/csp-report'], json_encode([

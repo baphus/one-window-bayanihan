@@ -46,7 +46,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(MalwareScannerInterface::class, function ($app) {
-            return env('MALWARE_SCANNER', 'null') === 'clamav'
+            return config('services.malware.scanner', 'null') === 'clamav'
                 ? new ClamAvScanner
                 : new NullScanner;
         });

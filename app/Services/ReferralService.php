@@ -5,9 +5,11 @@ namespace App\Services;
 use App\Enums\AuditAction;
 use App\Enums\AuditModule;
 use App\Events\ReferralCompleted;
+use App\Exceptions\ReferralDocumentUploadException;
 use App\Helpers\CacheHelper;
 use App\Models\Agency;
 use App\Models\AuditLog;
+use App\Models\CaseDocument;
 use App\Models\CaseFile;
 use App\Models\Milestone;
 use App\Models\Referral;
@@ -24,6 +26,7 @@ use App\Notifications\ReferralCreated;
 use App\Notifications\ReferralStatusChanged;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -136,9 +139,65 @@ class ReferralService
             return $referral->load(['agency', 'caseFile', 'milestones']);
         });
 
-        TrackingService::invalidateTrackingCache($data['case_id']);
-
         return $referral;
+    }
+
+    /**
+     * Create a referral plus its uploaded case documents atomically.
+     *
+     * The referral row, the stored files, and the case-document rows share one
+     * database transaction (nested service transactions join it via savepoints),
+     * so a failed upload rolls everything back. Already-stored files are
+     * deleted from object storage so no orphans remain.
+     *
+     * @param  array<string, mixed>  $data  Validated referral attributes.
+     * @param  array<int, UploadedFile>|UploadedFile|null  $files  Uploaded documents.
+     *
+     * @throws ReferralDocumentUploadException
+     */
+    public function createReferralWithDocuments(array $data, string $userId, array|UploadedFile|null $files, StorageService $storage): Referral
+    {
+        $files = is_array($files) ? $files : ($files instanceof UploadedFile ? [$files] : []);
+        $storedPaths = [];
+
+        try {
+            return DB::transaction(function () use ($data, $userId, $files, $storage, &$storedPaths) {
+                $referral = $this->createReferral($data, $userId);
+
+                foreach ($files as $file) {
+                    $result = $storage->store($file, 'case-documents/'.$referral->case_id);
+
+                    if (! $result->success) {
+                        throw new ReferralDocumentUploadException(
+                            $result->error ?? 'Failed to store file.',
+                        );
+                    }
+
+                    $storedPaths[] = $result->path;
+
+                    CaseDocument::create([
+                        'file_name' => $result->originalName,
+                        'file_path' => $result->path,
+                        'file_type' => $result->type,
+                        'size' => $result->size,
+                        'case_id' => $referral->case_id,
+                        'referral_id' => $referral->id,
+                        'user_id' => $userId,
+                        'category' => 'referral',
+                    ]);
+                }
+
+                return $referral;
+            });
+        } catch (ReferralDocumentUploadException $e) {
+            // Roll back the object-storage side; the DB transaction is rolled
+            // back automatically.
+            foreach ($storedPaths as $path) {
+                $storage->delete($path);
+            }
+
+            throw $e;
+        }
     }
 
     public function getReferralStats(?string $userAgencyId = null, ?string $userRole = null, ?string $userId = null): array
@@ -683,11 +742,6 @@ class ReferralService
                 // Also create OFW notification (plain language, no status codes)
                 if ($referral->caseFile->client && $referral->caseFile->client->email) {
                     $referral->loadMissing('agency');
-                    // The track.show fallback used to receive the raw case UUID
-                    // when the tracker number was missing, producing a dead
-                    // link (findCaseByTracker matches tracker numbers only).
-                    // Omit the URL in that anomalous case instead.
-                    $trackerNumber = $referral->caseFile->tracker_number ?? null;
                     $this->notificationService->notifyOfw(
                         $referral->caseFile,
                         $referral->caseFile->client->email,
@@ -699,7 +753,7 @@ class ReferralService
                             'old_status' => $oldStatus,
                             'new_status' => $status,
                         ],
-                        $trackerNumber ? route('track.show', $trackerNumber) : null,
+                        route('track.show', $referral->caseFile->tracker_number ?? $referral->case_id),
                     );
                 }
             }
@@ -713,7 +767,7 @@ class ReferralService
         });
 
         if ($changed && $caseId !== null) {
-            TrackingService::invalidateTrackingCache($caseId, $id);
+            Cache::forget(TrackingService::trackingMilestonesCacheKey($caseId, $id));
         }
 
         return $referral;
@@ -832,7 +886,7 @@ class ReferralService
         });
 
         if ($caseId !== null) {
-            TrackingService::invalidateTrackingCache($caseId, $referralId);
+            Cache::forget(TrackingService::trackingMilestonesCacheKey($caseId, $referralId));
         }
 
         return $milestone;

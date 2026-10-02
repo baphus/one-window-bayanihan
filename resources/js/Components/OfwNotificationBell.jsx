@@ -39,7 +39,7 @@ export default function OfwNotificationBell() {
     const queryClient = useQueryClient();
 
     // One query — the list endpoint also reports the unread count in meta.
-    const { data: listData, isLoading, error, refetch } = useQuery({
+    const { data: listData, isLoading, error } = useQuery({
         queryKey: NOTIFICATIONS_KEYS,
         queryFn: () => fetchJson('/my-cases/notifications'),
         refetchInterval: 60000,
@@ -147,27 +147,6 @@ export default function OfwNotificationBell() {
                                     progress_activity
                                 </span>
                                 <p className="mt-2 text-xs text-slate-400">Loading notifications...</p>
-                            </div>
-                        ) : error && notifications.length === 0 ? (
-                            <div className="px-4 py-8 text-center">
-                                <span
-                                    className="material-symbols-outlined text-3xl text-slate-300"
-                                    aria-hidden="true"
-                                >
-                                    cloud_off
-                                </span>
-                                <p className="mt-2 text-sm font-semibold text-slate-600">Couldn&apos;t load notifications</p>
-                                <p className="mt-1 text-xs text-slate-400">
-                                    Check your connection and try again.
-                                </p>
-                                <button
-                                    type="button"
-                                    onClick={() => refetch()}
-                                    className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition-colors hover:border-primary/40 hover:text-primary"
-                                >
-                                    <span className="material-symbols-outlined text-[15px]" aria-hidden="true">refresh</span>
-                                    Retry
-                                </button>
                             </div>
                         ) : notifications.length === 0 ? (
                             <div className="px-4 py-8 text-center">

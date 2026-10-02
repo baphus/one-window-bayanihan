@@ -1,12 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from '@inertiajs/react';
 import OfwLayout from '@/Layouts/OfwLayout';
-import UnifiedTimeline, { TimelineEmptyState } from '@/Components/Timeline';
-import ReferralStamp from '@/Components/ReferralStamp';
-import ClientStepBar from '@/Components/ClientStepBar';
-import OfficeChecklist from '@/Components/CaseProgressChecklist';
-import ActionNeededBanner from '@/Components/ActionNeededBanner';
-import { formatClientLongDate as formatLongDate } from '@/Components/clientDates';
+import UnifiedTimeline from '@/Components/Timeline';
 
 /**
  * My Cases — case record detail.
@@ -17,17 +12,91 @@ import { formatClientLongDate as formatLongDate } from '@/Components/clientDates
  * chronological record sits in a sticky sidebar on wide screens.
  */
 
+const REFERRAL_STAMP = {
+    PENDING: { label: 'Awaiting receipt', border: 'border-slate-300', text: 'text-slate-500' },
+    PROCESSING: { label: 'In process', border: 'border-primary', text: 'text-primary' },
+    FOR_COMPLIANCE: { label: 'Needs documents', border: 'border-amber-500', text: 'text-amber-600' },
+    COMPLETED: { label: 'Completed', border: 'border-emerald-500', text: 'text-emerald-600' },
+    REJECTED: { label: 'Unable to assist', border: 'border-red-400', text: 'text-red-500' },
+};
+
+function formatLongDate(dateStr) {
+    if (!dateStr) return '—';
+    return new Date(dateStr).toLocaleDateString('en-PH', {
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric',
+    });
+}
+
+function StepBar({ steps }) {
+    const activeIndex = steps.findIndex((s) => s.state === 'active');
+    const activeLabel = steps[activeIndex]?.label
+        ?? (steps.length && steps.every((s) => s.state === 'complete') ? steps[steps.length - 1].label : null);
+    const completedCount = steps.filter((s) => s.state === 'complete').length;
+    const progressPercent = steps.length <= 1
+        ? 0
+        : activeIndex !== -1
+            ? (activeIndex / (steps.length - 1)) * 100
+            : (completedCount / steps.length) * 100;
+
+    return (
+        <div className="relative px-1">
+            <div className="absolute left-0 right-0 top-[9px] h-px bg-slate-200" />
+            <div
+                className="absolute left-0 top-[9px] h-px bg-primary transition-all duration-500 ease-out"
+                style={{ width: `${progressPercent}%` }}
+            />
+            <ol
+                className="relative z-10 grid"
+                style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))` }}
+            >
+                {steps.map((step) => {
+                    const isComplete = step.state === 'complete';
+                    const isActive = step.state === 'active';
+
+                    return (
+                        <li key={step.label} className="flex flex-col items-center">
+                            <span
+                                className={`flex h-[18px] w-[18px] items-center justify-center rounded-full ring-4 ring-white ${
+                                    isComplete ? 'bg-primary text-white' :
+                                    isActive ? 'border-2 border-primary bg-white' :
+                                    'bg-slate-200'
+                                }`}
+                            >
+                                {isComplete && <span aria-hidden="true" className="material-symbols-outlined text-[11px] font-bold">check</span>}
+                                {isActive && <span className="h-1.5 w-1.5 rounded-full bg-primary motion-safe:animate-pulse" />}
+                            </span>
+                            <span
+                                className={`mt-1.5 hidden max-w-[90px] px-1 text-center text-[10px] font-semibold leading-tight tracking-tight sm:line-clamp-2 ${
+                                    isActive ? 'text-primary' : isComplete ? 'text-slate-800' : 'text-slate-400'
+                                }`}
+                                title={step.label}
+                            >
+                                {step.label}
+                            </span>
+                        </li>
+                    );
+                })}
+            </ol>
+            {activeLabel && (
+                <p className="mt-2 text-center text-[11px] font-semibold text-primary sm:hidden">
+                    Current step: {activeLabel}
+                </p>
+            )}
+        </div>
+    );
+}
+
 /** One chapter per partner office — accordion: header always visible, body collapsible. */
 function AgencyChapter({ agency, events, defaultOpen = false }) {
     const [open, setOpen] = useState(defaultOpen);
+    const stamp = REFERRAL_STAMP[agency.status] ?? REFERRAL_STAMP.PENDING;
     const isRejected = agency.status === 'REJECTED';
     const services = agency.services ?? [];
 
     return (
-        <section
-            id={agency.referralId ? `agency-${agency.referralId}` : undefined}
-            className="scroll-mt-24 rounded-md border border-slate-300 bg-white shadow-sm"
-        >
+        <section className="rounded-md border border-slate-300 bg-white shadow-sm">
             <button
                 type="button"
                 onClick={() => setOpen((v) => !v)}
@@ -43,13 +112,15 @@ function AgencyChapter({ agency, events, defaultOpen = false }) {
                     </span>
                     <h3 className="truncate font-headline text-sm font-extrabold tracking-tight text-slate-800">{agency.name}</h3>
                 </div>
-                <ReferralStamp status={agency.status} />
+                <span className={`shrink-0 border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] ${stamp.border} ${stamp.text}`}>
+                    {stamp.label}
+                </span>
             </button>
 
             <div className={`grid transition-[grid-template-rows] duration-200 ease-out ${open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
                 <div className="overflow-hidden">
                     <div className="border-t border-slate-200 px-5 py-5">
-                        <ClientStepBar steps={agency.steps ?? []} />
+                        <StepBar steps={agency.steps ?? []} />
                         {isRejected && (
                             <p className="mt-4 text-[13px] leading-relaxed text-slate-600">
                                 This office was unable to process the referral. Your case manager will advise you on the next steps.
@@ -176,7 +247,6 @@ export default function CaseDetail({
     completionPercentage = 0,
     trackingAgencies = [],
     rejectedCount = 0,
-    clientSwimlaneTimeline = null,
 }) {
     const totalAgencies = trackingAgencies.length;
     const completedAgencies = trackingAgencies.filter((a) => a.status === 'COMPLETED').length;
@@ -228,7 +298,7 @@ export default function CaseDetail({
             {/* Case record header */}
             <header className="mt-4 rounded-lg bg-primary px-6 py-8 text-white shadow-2xl sm:px-8">
                 <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-primary-fixed-dim">Case record</p>
-                <h1 className="mt-2 font-headline text-2xl font-extrabold tracking-tight sm:text-3xl">
+                <h1 className="mt-2 font-headline font-mono text-2xl font-extrabold tracking-tight sm:text-3xl">
                     {trackingId ?? 'Case details'}
                 </h1>
                 <p className="mt-1.5 text-sm text-primary-fixed/90">
@@ -249,13 +319,28 @@ export default function CaseDetail({
                 </p>
 
                 {totalAgencies > 0 && (
-                    <OfficeChecklist
-                        agencies={trackingAgencies}
-                        milestoneTimeline={milestoneTimeline}
-                        clientSwimlaneTimeline={clientSwimlaneTimeline}
-                        caption={`Last updated ${formatLongDate(trackedCase?.updatedAt)} · ${completionPercentage}% of processing complete`}
-                        formatDate={formatLongDate}
-                    />
+                    <div className="mt-5">
+                        <div className="flex h-1.5 gap-1" role="img" aria-label={`${completionPercentage}% of processing complete`}>
+                            {trackingAgencies.map((a) => (
+                                <span
+                                    key={a.referralId ?? a.name}
+                                    title={`${a.name} — ${(REFERRAL_STAMP[a.status] ?? REFERRAL_STAMP.PENDING).label}`}
+                                    className={`flex-1 rounded-sm ${
+                                        a.status === 'COMPLETED' ? 'bg-emerald-300' :
+                                        a.status === 'REJECTED' ? 'bg-white/20' :
+                                        a.status === 'FOR_COMPLIANCE' ? 'bg-amber-300/60' :
+                                        a.status === 'PROCESSING' ? 'bg-blue-300/70' :
+                                        'bg-white/30'
+                                    }`}
+                                >
+                                    <span className="sr-only">{`${a.name} — ${(REFERRAL_STAMP[a.status] ?? REFERRAL_STAMP.PENDING).label}`}</span>
+                                </span>
+                            ))}
+                        </div>
+                        <p className="mt-2 text-[11px] text-primary-fixed-dim/80">
+                            Last updated {formatLongDate(trackedCase?.updatedAt)} · {completionPercentage}% of processing complete
+                        </p>
+                    </div>
                 )}
             </header>
 
@@ -270,7 +355,7 @@ export default function CaseDetail({
                         </section>
                     )}
 
-                    <ActionNeededBanner agencies={trackingAgencies} />
+                    <OfwProfile ofw={ofw} workHistory={workHistory} nextOfKin={nextOfKin} />
 
                     <section className="mt-8">
                         <h2 className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
@@ -289,21 +374,15 @@ export default function CaseDetail({
                                 ))}
                             </div>
                         ) : (
-                            <div className="mt-3">
-                                <TimelineEmptyState
-                                    icon="hourglass_empty"
-                                    title="No partner offices assigned yet"
-                                    action={
-                                        <p className="mx-auto mt-1 max-w-xs text-[13px] text-slate-500">
-                                            Your case manager is reviewing the case. Referrals will appear here once they are sent.
-                                        </p>
-                                    }
-                                />
+                            <div className="mt-3 rounded-md border border-dashed border-slate-300 bg-slate-50/50 px-5 py-8 text-center">
+                                <span className="material-symbols-outlined text-3xl text-slate-300">hourglass_empty</span>
+                                <p className="mt-2 text-sm font-semibold text-slate-700">No partner offices assigned yet</p>
+                                <p className="mx-auto mt-1 max-w-xs text-[13px] text-slate-500">
+                                    Your case manager is reviewing the case. Referrals will appear here once they are sent.
+                                </p>
                             </div>
                         )}
                     </section>
-
-                    <OfwProfile ofw={ofw} workHistory={workHistory} nextOfKin={nextOfKin} />
                 </div>
 
                 {/* Right column — complete case history (sticky on desktop) */}

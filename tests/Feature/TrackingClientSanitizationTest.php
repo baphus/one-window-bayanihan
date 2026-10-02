@@ -7,20 +7,18 @@ use App\Models\CaseNotification;
 use App\Models\Client;
 use App\Models\Referral;
 use App\Services\CaseEventRecorder;
-use App\Services\CaseSwimlaneService;
 use App\Services\TrackingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Cache;
 use Tests\TestCase;
 
 /**
- * Client-payload leak fixes in TrackingService::buildTrackingData().
+ * Client-payload sanitization in TrackingService::buildTrackingData().
  *
- * The $forOfwPortal flag used to rewrite a single URL. It now also drops
- * staff free-text notes, strips raw status codes from notification data,
- * and rewrites staff deep-links to OFW-safe destinations. The staff
- * (flag-false) branch must stay byte-identical, and the two variants must
- * never share a cache entry.
+ * Staff free-text notes, raw status codes in notification data, and staff
+ * deep-links never reach any browser: the only server-side consumers are the
+ * public page, the OFW portal (both client surfaces), and the staff page,
+ * which forwards only milestoneTimeline. Sanitization is therefore
+ * unconditional — no flag, no key split.
  */
 class TrackingClientSanitizationTest extends TestCase
 {
@@ -89,106 +87,66 @@ class TrackingClientSanitizationTest extends TestCase
         return [$case, $referral];
     }
 
-    public function test_portal_payload_drops_staff_notes(): void
+    public function test_agency_cards_carry_no_staff_notes(): void
     {
         [$case] = $this->makeCase();
+        $service = app(TrackingService::class);
 
-        $portal = app(TrackingService::class)->buildTrackingData($case, forOfwPortal: true);
+        foreach ([false, true] as $flag) {
+            $cards = $service->buildTrackingData($case, $flag)['trackingAgencies'];
 
-        $this->assertNotEmpty($portal['trackingAgencies']);
-        $this->assertArrayNotHasKey('note', $portal['trackingAgencies'][0]);
+            $this->assertNotEmpty($cards);
+            $this->assertArrayNotHasKey('note', $cards[0]);
+        }
     }
 
-    public function test_public_branch_shares_the_sanitized_cards(): void
-    {
-        // Choice (i): the shared `false` branch carries no `note` key at
-        // all. The staff CaseController consumer provably cannot miss it —
-        // it forwards only milestoneTimeline — and the public page never
-        // rendered it. Only milestonesUrl still differs per flag.
-        [$case] = $this->makeCase();
-
-        $public = app(TrackingService::class)->buildTrackingData($case);
-
-        $this->assertArrayNotHasKey('note', $public['trackingAgencies'][0]);
-        $this->assertStringContainsString(
-            '/track/case/',
-            $public['trackingAgencies'][0]['milestonesUrl']
-        );
-    }
-
-    public function test_portal_payload_strips_codes_from_notification_data(): void
+    public function test_notification_data_codes_are_stripped(): void
     {
         [$case] = $this->makeCase();
+        $service = app(TrackingService::class);
 
-        $items = app(TrackingService::class)->buildTrackingData($case, forOfwPortal: true)['caseNotifications']['items'];
-        $statusItem = collect($items)->firstWhere('type', 'referral_status_changed');
+        foreach ([false, true] as $flag) {
+            $items = $service->buildTrackingData($case, $flag)['caseNotifications']['items'];
+            $statusItem = collect($items)->firstWhere('type', 'referral_status_changed');
 
-        $this->assertNotNull($statusItem);
-        $this->assertArrayNotHasKey('status', $statusItem['data']);
-        $this->assertArrayNotHasKey('old_status', $statusItem['data']);
-        $this->assertArrayNotHasKey('new_status', $statusItem['data']);
-        // Client-safe keys survive for the fallback renderers.
-        $this->assertArrayHasKey('referral_id', $statusItem['data']);
-        $this->assertArrayHasKey('case_number', $statusItem['data']);
+            $this->assertNotNull($statusItem);
+            $this->assertArrayNotHasKey('status', $statusItem['data']);
+            $this->assertArrayNotHasKey('old_status', $statusItem['data']);
+            $this->assertArrayNotHasKey('new_status', $statusItem['data']);
+            // Client-safe keys survive for the fallback renderers.
+            $this->assertArrayHasKey('referral_id', $statusItem['data']);
+            $this->assertArrayHasKey('case_number', $statusItem['data']);
+        }
     }
 
-    public function test_public_branch_strips_codes_from_notification_data(): void
-    {
-        [$case] = $this->makeCase();
-
-        $items = app(TrackingService::class)->buildTrackingData($case)['caseNotifications']['items'];
-        $statusItem = collect($items)->firstWhere('type', 'referral_status_changed');
-
-        $this->assertNotNull($statusItem);
-        $this->assertArrayNotHasKey('status', $statusItem['data']);
-        $this->assertArrayNotHasKey('old_status', $statusItem['data']);
-        $this->assertArrayNotHasKey('new_status', $statusItem['data']);
-        $this->assertArrayHasKey('referral_id', $statusItem['data']);
-    }
-
-    public function test_portal_payload_rewrites_staff_deep_links(): void
+    public function test_staff_deep_links_are_rewritten(): void
     {
         [$case, $referral] = $this->makeCase();
+        $service = app(TrackingService::class);
 
-        $items = app(TrackingService::class)->buildTrackingData($case, forOfwPortal: true)['caseNotifications']['items'];
-        $byType = collect($items)->keyBy('type');
+        foreach ([false, true] as $flag) {
+            $items = $service->buildTrackingData($case, $flag)['caseNotifications']['items'];
+            $byType = collect($items)->keyBy('type');
 
-        // Staff /cases/{id} becomes the OFW case page — click-through kept.
-        $this->assertSame(
-            route('ofw.case.show', $case->id),
-            $byType['referral_status_changed']['related_url']
-        );
-        // Staff /referrals/{id} becomes the OFW milestones page.
-        $this->assertSame(
-            route('ofw.case.milestones', ['case' => $case->id, 'referral' => $referral->id]),
-            $byType['milestone_added']['related_url']
-        );
-        // Public tracking links pass through untouched.
-        $this->assertSame(
-            route('track.show', $case->tracker_number),
-            $byType['case_updated']['related_url']
-        );
+            // Staff /cases/{id} becomes the OFW case page — click-through kept.
+            $this->assertSame(
+                route('ofw.case.show', $case->id),
+                $byType['referral_status_changed']['related_url']
+            );
+            // Staff /referrals/{id} becomes the OFW milestones page.
+            $this->assertSame(
+                route('ofw.case.milestones', ['case' => $case->id, 'referral' => $referral->id]),
+                $byType['milestone_added']['related_url']
+            );
+            // Public tracking links pass through untouched.
+            $this->assertSame(
+                route('track.show', $case->tracker_number),
+                $byType['case_updated']['related_url']
+            );
+        }
     }
 
-    public function test_public_branch_rewrites_staff_deep_links(): void
-    {
-        [$case, $referral] = $this->makeCase();
-
-        $items = app(TrackingService::class)->buildTrackingData($case)['caseNotifications']['items'];
-        $byType = collect($items)->keyBy('type');
-
-        $this->assertSame(route('ofw.case.show', $case->id), $byType['referral_status_changed']['related_url']);
-        $this->assertSame(
-            route('ofw.case.milestones', ['case' => $case->id, 'referral' => $referral->id]),
-            $byType['milestone_added']['related_url']
-        );
-        $this->assertSame(
-            route('track.show', $case->tracker_number),
-            $byType['case_updated']['related_url']
-        );
-    }
-
-    public function test_cache_keys_differ_per_flag(): void
+    public function test_public_milestones_url_behavior_preserved(): void
     {
         [$case] = $this->makeCase();
         $service = app(TrackingService::class);
@@ -196,34 +154,35 @@ class TrackingClientSanitizationTest extends TestCase
         $public = $service->buildTrackingData($case);
         $portal = $service->buildTrackingData($case, forOfwPortal: true);
 
-        $this->assertTrue(Cache::has(TrackingService::trackingDataCacheKeyFor($case->id, false)));
-        $this->assertTrue(Cache::has(TrackingService::trackingDataCacheKeyFor($case->id, true)));
-        // Both variants are sanitized now; only the milestone family of URLs
-        // still differs per flag — the public branch keeps the public route.
+        // Sanitized identically; only the milestone family of URLs differs.
         $this->assertArrayNotHasKey('note', $public['trackingAgencies'][0]);
         $this->assertArrayNotHasKey('note', $portal['trackingAgencies'][0]);
-        $this->assertNotSame($public['trackingAgencies'][0]['milestonesUrl'], $portal['trackingAgencies'][0]['milestonesUrl']);
         $this->assertStringContainsString('/track/case/', $public['trackingAgencies'][0]['milestonesUrl']);
         $this->assertStringContainsString('/my-cases/', $portal['trackingAgencies'][0]['milestonesUrl']);
     }
 
-    public function test_invalidation_clears_both_variants_and_client_swimlane(): void
+    public function test_staff_milestone_timeline_unaffected(): void
+    {
+        [$case] = $this->makeCase();
+
+        $timeline = app(TrackingService::class)->buildTrackingData($case)['milestoneTimeline'];
+
+        $this->assertSame('case_opened', $timeline[0]['type']);
+        $this->assertSame('referral_sent', $timeline[1]['type']);
+        $this->assertNotEmpty($timeline[0]['title']);
+    }
+
+    public function test_reads_are_always_fresh_without_invalidation(): void
     {
         [$case] = $this->makeCase();
         $service = app(TrackingService::class);
 
-        $service->buildTrackingData($case);
-        $service->buildTrackingData($case, forOfwPortal: true);
-        app(CaseSwimlaneService::class)->buildClientSwimlaneTimeline($case);
+        // No read-model cache exists for this payload, so a mutation is
+        // visible on the very next read with no invalidation step.
+        $this->assertSame('PENDING', $service->buildTrackingData($case)['trackingAgencies'][0]['status']);
 
-        $this->assertTrue(Cache::has(TrackingService::trackingDataCacheKeyFor($case->id, false)));
-        $this->assertTrue(Cache::has(TrackingService::trackingDataCacheKeyFor($case->id, true)));
-        $this->assertTrue(Cache::has(CaseSwimlaneService::clientCacheKey($case->id)));
+        $case->referrals()->first()->update(['status' => 'PROCESSING']);
 
-        TrackingService::invalidateTrackingCache($case->id);
-
-        $this->assertFalse(Cache::has(TrackingService::trackingDataCacheKeyFor($case->id, false)));
-        $this->assertFalse(Cache::has(TrackingService::trackingDataCacheKeyFor($case->id, true)));
-        $this->assertFalse(Cache::has(CaseSwimlaneService::clientCacheKey($case->id)));
+        $this->assertSame('PROCESSING', $service->buildTrackingData($case->load('referrals'))['trackingAgencies'][0]['status']);
     }
 }

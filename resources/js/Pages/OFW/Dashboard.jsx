@@ -1,22 +1,36 @@
 import { Link, usePage } from '@inertiajs/react';
+import { Hourglass } from 'lucide-react';
 import OfwLayout from '@/Layouts/OfwLayout';
 import StatusBadge from '@/Components/ui/StatusBadge';
-import { TimelineEmptyState } from '@/Components/Timeline';
-import { getOfwCaseGroup, getOfwCaseStatusLabel } from '@/Components/ofwCaseStatus';
-import { formatClientShortDate as formatDate } from '@/Components/clientDates';
+
+// Laravel paginator labels are server-escaped strings limited to page
+// numbers plus &laquo; / &raquo; / &hellip; entities — decode them as text
+// instead of injecting them with dangerouslySetInnerHTML.
+function paginationLabel(label) {
+    return String(label ?? '')
+        .replace(/&laquo;/g, '«')
+        .replace(/&raquo;/g, '»')
+        .replace(/&hellip;/g, '…')
+        .replace(/<[^>]*>/g, '');
+}
+
+function formatDate(dateStr) {
+    if (!dateStr) return '—';
+    return new Date(dateStr).toLocaleDateString('en-PH', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+    });
+}
 
 function CaseCard({ caseItem }) {
-    // Client-safe grouping: the badge speaks the same vocabulary as the case
-    // detail header ("Under Review" / "In Progress" / "Resolved"), never raw
-    // internal lifecycle codes.
-    const group = getOfwCaseGroup(caseItem.status, caseItem.source);
-    const isUnderReview = group === 'review';
-    const completed = group === 'done';
-    const inProgress = group === 'progress';
+    const isUnderReview = caseItem.status === 'DRAFT' && caseItem.source === 'self_filed';
+    const agency = caseItem.referrals?.[0]?.agency;
 
-    const referrals = caseItem.referrals ?? [];
-    const agency = referrals[0]?.agency;
-    const extraReferralCount = Math.max(0, referrals.length - 1);
+    const inProgress = ['OPEN', 'PENDING', 'PROCESSING', 'FOR_COMPLIANCE', 'IN_PROGRESS', 'BEING_PREPARED'].includes(
+        caseItem.status,
+    );
+    const completed = ['CLOSED', 'COMPLETED', 'RESOLVED'].includes(caseItem.status);
 
     const tile = isUnderReview
         ? { icon: 'hourglass_top', className: 'bg-amber-100 text-amber-700' }
@@ -29,7 +43,7 @@ function CaseCard({ caseItem }) {
     return (
         <Link
             href={route('ofw.case.show', caseItem.id)}
-            className="group block rounded-md border border-slate-200 bg-white p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+            className="group block rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
         >
             <div className="flex items-start gap-4">
                 {/* Status icon tile */}
@@ -55,7 +69,8 @@ function CaseCard({ caseItem }) {
                             variant="pill"
                             status={caseItem.status}
                             showIcon={isUnderReview}
-                            label={getOfwCaseStatusLabel(caseItem.status, caseItem.source)}
+                            label={isUnderReview ? 'Under Review' : undefined}
+                            icon={isUnderReview ? Hourglass : undefined}
                         />
                     </div>
 
@@ -69,9 +84,6 @@ function CaseCard({ caseItem }) {
                             <span className="inline-flex items-center gap-1">
                                 <span className="material-symbols-outlined text-[14px]" aria-hidden="true">apartment</span>
                                 {agency.name}
-                                {extraReferralCount > 0 && (
-                                    <span className="font-semibold text-slate-600">+{extraReferralCount} more</span>
-                                )}
                             </span>
                         )}
                         <span className="inline-flex items-center gap-1">
@@ -125,25 +137,19 @@ function StatCard({ icon, label, value, iconClass }) {
 
 function EmptyState() {
     return (
-        <div className="mt-3">
-            <TimelineEmptyState
-                icon="folder_off"
-                title="No cases yet"
-                action={
-                    <>
-                        <p className="mx-auto mt-1 max-w-sm text-sm text-slate-500">
-                            You haven&apos;t filed any cases yet. Start by filing a new case and a Case Manager will review it.
-                        </p>
-                        <Link
-                            href="/intake"
-                            className="mt-6 inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-container"
-                        >
-                            <span className="material-symbols-outlined text-[18px]">add_circle</span>
-                            File a New Case
-                        </Link>
-                    </>
-                }
-            />
+        <div className="mt-3 rounded-md border border-dashed border-slate-300 bg-slate-50/50 px-6 py-16 text-center">
+            <span className="material-symbols-outlined text-3xl text-slate-300">folder_off</span>
+            <h2 className="mt-3 font-headline text-lg font-bold text-slate-900">No cases yet</h2>
+            <p className="mx-auto mt-2 max-w-sm text-sm text-slate-500">
+                You haven't filed any cases yet. Start by filing a new case and a Case Manager will review it.
+            </p>
+            <Link
+                href="/intake"
+                className="mt-6 inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-container"
+            >
+                <span className="material-symbols-outlined text-[18px]">add_circle</span>
+                File a New Case
+            </Link>
         </div>
     );
 }
@@ -222,21 +228,28 @@ export default function Dashboard({ cases, caseStats }) {
             {/* Pagination links */}
             {cases?.links && cases.links.length > 3 && (
                 <nav className="mt-8 flex items-center justify-center gap-1" aria-label="Pagination">
-                    {cases.links.map((link, index) => (
-                        <Link
-                            key={index}
-                            href={link.url ?? '#'}
-                            className={`rounded px-3 py-1.5 text-sm ${
-                                link.active
-                                    ? 'bg-primary font-semibold text-white'
-                                    : link.url
-                                      ? 'text-slate-600 hover:bg-slate-100'
-                                      : 'cursor-not-allowed text-slate-300'
-                            }`}
-                            preserveScroll
-                            dangerouslySetInnerHTML={{ __html: link.label }}
-                        />
-                    ))}
+                    {cases.links.map((link) => {
+                        // Paginator labels are unique per control (Previous /
+                        // page numbers / Next), so the decoded text is a
+                        // stable key — unlike the array index.
+                        const label = paginationLabel(link.label);
+                        return (
+                            <Link
+                                key={label}
+                                href={link.url ?? '#'}
+                                className={`rounded px-3 py-1.5 text-sm ${
+                                    link.active
+                                        ? 'bg-primary font-semibold text-white'
+                                        : link.url
+                                          ? 'text-slate-600 hover:bg-slate-100'
+                                          : 'cursor-not-allowed text-slate-300'
+                                }`}
+                                preserveScroll
+                            >
+                                {label}
+                            </Link>
+                        );
+                    })}
                 </nav>
             )}
         </OfwLayout>

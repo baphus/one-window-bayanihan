@@ -3,7 +3,6 @@
 namespace App\Mail;
 
 use App\Models\CaseFile;
-use App\Services\CaseSwimlaneService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
@@ -30,7 +29,7 @@ class ClientUpdateMail extends Mailable implements ShouldQueue
 
     public function content(): Content
     {
-        $this->case->loadMissing('client', 'caseEvents', 'referrals.agency', 'referrals.milestones');
+        $this->case->loadMissing('client', 'caseEvents');
 
         return new Content(
             markdown: 'emails.client-update',
@@ -38,7 +37,6 @@ class ClientUpdateMail extends Mailable implements ShouldQueue
                 'case' => $this->case,
                 'message' => $this->message,
                 'updatedBy' => $this->updatedBy,
-                'clientSwimlane' => app(CaseSwimlaneService::class)->buildClientSwimlaneTimeline($this->case),
             ],
         );
     }

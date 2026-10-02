@@ -1,5 +1,4 @@
 import { usePage } from '@inertiajs/react';
-import { useMemo } from 'react';
 import { route } from 'ziggy-js';
 import { useOnboardingOptional } from '@/Onboarding/OnboardingProvider';
 import { getPageGuide } from '@/Onboarding/registry';
@@ -10,21 +9,21 @@ import { getPageGuide } from '@/Onboarding/registry';
  * first visit (guide not yet seen) — never auto-opens.
  */
 export default function PageGuideButton() {
-    const { url, props } = usePage();
+    const { props } = usePage();
     const onboarding = useOnboardingOptional();
     const isGuest = !props?.auth?.user;
     const role = props?.auth?.user?.role;
 
-    // Resolve the current Ziggy route name; url is a dependency so the
-    // lookup re-runs on every Inertia navigation.
-    const currentRoute = useMemo(() => {
-        try {
-            return route().current() ?? null;
-        } catch {
-            return null;
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [url]);
+    // Resolve the current Ziggy route name. This reads module-global router
+    // state, not React state, so no memo/effect is needed: usePage()
+    // re-renders this component on every Inertia navigation, and the lookup
+    // itself is trivially cheap.
+    let currentRoute = null;
+    try {
+        currentRoute = route().current() ?? null;
+    } catch {
+        currentRoute = null;
+    }
 
     const guide = currentRoute ? getPageGuide(currentRoute) : null;
     if (!guide || !onboarding) return null;

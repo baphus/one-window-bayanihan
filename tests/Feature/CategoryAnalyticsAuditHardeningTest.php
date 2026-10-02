@@ -195,7 +195,6 @@ class CategoryAnalyticsAuditHardeningTest extends TestCase
         $tracking->buildTrackingData($case->fresh());
         $this->assertTrue(Cache::has('stats:cases'));
         $this->assertTrue(Cache::has('dashboard:cm_cases_by_category'));
-        $this->assertTrue(Cache::has('tracking:data:'.$case->id));
 
         $beforeAdd = $case->fresh();
         $unchanged = [
@@ -215,7 +214,6 @@ class CategoryAnalyticsAuditHardeningTest extends TestCase
         $this->assertSame($beforeAdd->updated_at?->toISOString(), $afterAdd->updated_at?->toISOString());
         $this->assertFalse(Cache::has('stats:cases'));
         $this->assertFalse(Cache::has('dashboard:cm_cases_by_category'));
-        $this->assertFalse(Cache::has('tracking:data:'.$case->id));
 
         $statsCounts = collect(app(CaseService::class)->getCaseStats()['category_breakdown'])
             ->pluck('count', 'name')->all();
@@ -246,7 +244,6 @@ class CategoryAnalyticsAuditHardeningTest extends TestCase
         $this->assertSame($originalUpdatedAt, $afterRemove->updated_at?->toISOString());
         $this->assertFalse(Cache::has('stats:cases'));
         $this->assertFalse(Cache::has('dashboard:cm_cases_by_category'));
-        $this->assertFalse(Cache::has('tracking:data:'.$case->id));
 
     }
 

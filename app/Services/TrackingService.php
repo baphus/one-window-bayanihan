@@ -10,7 +10,6 @@ use App\Models\Milestone;
 use App\Models\Referral;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Cache;
 
 class TrackingService
 {
@@ -18,51 +17,16 @@ class TrackingService
 
     /**
      * Raw internal code fields stored in CaseNotification.data by the
-     * writers (ReferralService referral_created / referral_status_changed,
-     * CaseService case_status_updated). Stripped from client payloads.
+     * writers (referral_created / referral_status_changed /
+     * case_status_updated). Stripped from the client-facing payload.
      *
      * @var list<string>
      */
     private const CLIENT_STRIPPED_DATA_KEYS = ['status', 'old_status', 'new_status'];
 
-    public static function trackingDataCacheKey(string $caseId): string
-    {
-        return 'tracking:data:'.$caseId;
-    }
-
-    /**
-     * Flag-aware tracking-data cache key. The OFW payload differs from the
-     * public one (its milestonesUrl points at the authenticated portal
-     * family), so it gets its own `:ofw` entry — whichever surface primed a
-     * shared key would otherwise serve its variant to the other until the
-     * TTL expires.
-     *
-     * The public variant deliberately keeps the bare legacy key:
-     * CacheInvalidationObserver::invalidateCase() and CaseService forget the
-     * literal 'tracking:data:{id}' string, so the bare key must stay the
-     * public one.
-     */
-    public static function trackingDataCacheKeyFor(string $caseId, bool $forOfwPortal): string
-    {
-        return $forOfwPortal
-            ? self::trackingDataCacheKey($caseId).':ofw'
-            : self::trackingDataCacheKey($caseId);
-    }
-
     public static function trackingMilestonesCacheKey(string $caseId, string $referralId): string
     {
         return 'tracking:milestones:'.$caseId.':'.$referralId;
-    }
-
-    public static function invalidateTrackingCache(string $caseId, ?string $referralId = null): void
-    {
-        Cache::forget(self::trackingDataCacheKey($caseId));
-        Cache::forget(self::trackingDataCacheKeyFor($caseId, true));
-        Cache::forget(CaseSwimlaneService::clientCacheKey($caseId));
-
-        if ($referralId !== null) {
-            Cache::forget(self::trackingMilestonesCacheKey($caseId, $referralId));
-        }
     }
 
     public function __construct(
@@ -121,12 +85,6 @@ class TrackingService
     /**
      * Client-facing tracking payload for the given case.
      *
-     * Notes, notification code fields, and staff deep-links are sanitized on
-     * every branch (none of the three server-side consumers render them —
-     * see the inline verifications below — and the staff consumer,
-     * CaseController, forwards only milestoneTimeline). The flag therefore
-     * controls only the milestone family of URLs below.
-     *
      * @param  bool  $forOfwPortal  True when rendered inside the authenticated
      *                              OFW portal: "View all updates" then links to
      *                              an authenticated milestone route instead of
@@ -136,161 +94,170 @@ class TrackingService
      */
     public function buildTrackingData(CaseFile $case, bool $forOfwPortal = false): array
     {
-        return CacheHelper::safeRemember(self::trackingDataCacheKeyFor($case->id, $forOfwPortal), 90, function () use ($case, $forOfwPortal) {
-            $client = $case->client;
-            $referrals = $case->referrals;
-            $caseNotifications = [];
-            $unreadCount = 0;
+        $client = $case->client;
+        $referrals = $case->referrals;
+        $caseNotifications = [];
+        $unreadCount = 0;
 
-            $primaryNok = $client && $client->nextOfKin->isNotEmpty()
-                ? ($client->nextOfKin->where('is_primary', true)->first() ?? $client->nextOfKin->first())
-                : null;
+        $primaryNok = $client && $client->nextOfKin->isNotEmpty()
+            ? ($client->nextOfKin->where('is_primary', true)->first() ?? $client->nextOfKin->first())
+            : null;
 
-            $caseOverview = [
-                'narrative' => $case->summary ?? '',
-                'ofw' => $client ? [
-                    'fullName' => trim("{$client->first_name} {$client->middle_name} {$client->last_name} {$client->suffix}"),
-                    'dateOfBirth' => $client->date_of_birth?->toDateString() ?? '',
-                    'gender' => $client->sex ?? '',
-                    'homeAddress' => $client->addresses->first()
-                        ? $this->addressResolver->format(
-                            $client->addresses->first()->street,
-                            $client->addresses->first()->barangay,
-                            $client->addresses->first()->city_municipality,
-                            $client->addresses->first()->province,
-                            $client->addresses->first()->region,
-                        )
-                        : '',
-                    'homeAddressParts' => $this->formatAddressParts($client->addresses->first()),
-                    'specialCategories' => [],
-                ] : null,
-                'nextOfKin' => $primaryNok ? [
-                    'fullName' => $primaryNok->first_name.' '.$primaryNok->last_name,
-                    'relationship' => $primaryNok->relationship,
-                    'contact' => $primaryNok->phone_number ?? $primaryNok->email,
-                ] : null,
-                'workHistory' => $client && $client->employments->isNotEmpty() ? [
-                    'lastCountry' => $client->employments->first()->last_country ?? $client->employments->first()->country ?? '',
-                    'lastPosition' => $client->employments->first()->last_position ?? $client->employments->first()->position ?? '',
-                    'arrivalDate' => $client->employments->first()->date_of_arrival?->toDateString() ?? $client->employments->first()->end_date?->toDateString() ?? '',
-                ] : null,
-            ];
+        $caseOverview = [
+            'narrative' => $case->summary ?? '',
+            'ofw' => $client ? [
+                'fullName' => trim("{$client->first_name} {$client->middle_name} {$client->last_name} {$client->suffix}"),
+                'dateOfBirth' => $client->date_of_birth?->toDateString() ?? '',
+                'gender' => $client->sex ?? '',
+                'homeAddress' => $client->addresses->first()
+                    ? $this->addressResolver->format(
+                        $client->addresses->first()->street,
+                        $client->addresses->first()->barangay,
+                        $client->addresses->first()->city_municipality,
+                        $client->addresses->first()->province,
+                        $client->addresses->first()->region,
+                    )
+                    : '',
+                'homeAddressParts' => $this->formatAddressParts($client->addresses->first()),
+                'specialCategories' => [],
+            ] : null,
+            'nextOfKin' => $primaryNok ? [
+                'fullName' => $primaryNok->first_name.' '.$primaryNok->last_name,
+                'relationship' => $primaryNok->relationship,
+                'contact' => $primaryNok->phone_number ?? $primaryNok->email,
+            ] : null,
+            'workHistory' => $client && $client->employments->isNotEmpty() ? [
+                'lastCountry' => $client->employments->first()->last_country ?? $client->employments->first()->country ?? '',
+                'lastPosition' => $client->employments->first()->last_position ?? $client->employments->first()->position ?? '',
+                'arrivalDate' => $client->employments->first()->date_of_arrival?->toDateString() ?? $client->employments->first()->end_date?->toDateString() ?? '',
+            ] : null,
+        ];
 
-            // Single read of the append-only client-facing event log. Everything the
-            // timeline and step machines need derives from this one query.
-            $events = CaseEvent::where('case_id', $case->id)
-                ->orderBy('occurred_at')
-                ->orderBy('sequence')
-                ->get();
+        // Single read of the append-only client-facing event log. Everything the
+        // timeline and step machines need derives from this one query.
+        $events = CaseEvent::where('case_id', $case->id)
+            ->orderBy('occurred_at')
+            ->orderBy('sequence')
+            ->get();
 
-            // Agency cards with dynamic step progress.
-            // There is deliberately no `note` key: staff free-text referral
-            // notes are never client-safe, and no consumer page renders one
-            // (verified: zero `.note` references in Tracking/Show and
-            // OFW/CaseDetail, and Case/Show never receives agency cards —
-            // CaseController forwards only milestoneTimeline).
-            $agencyCards = $referrals->map(function ($ref) use ($case, $forOfwPortal) {
-                $latestMilestone = $ref->milestones->sortByDesc('created_at')->first();
-                $hasCompliance = $ref->status === 'FOR_COMPLIANCE';
-
-                return [
-                    'referralId' => $ref->id,
-                    'name' => $ref->agency?->name ?? 'Unknown',
-                    'status' => $ref->status,
-                    'milestoneCount' => $ref->milestones->count(),
-                    'steps' => $this->buildAgencySteps($ref),
-                    'latestMilestoneLabel' => $latestMilestone?->title,
-                    'milestonesUrl' => $forOfwPortal
-                        ? route('ofw.case.milestones', ['case' => $case->id, 'referral' => $ref->id])
-                        : route('track.milestones', [
-                            'tracker_number' => $case->tracker_number,
-                            'referral' => $ref->id,
-                        ]),
-                    'services' => $ref->services->pluck('name')->toArray(),
-                ];
-            })->toArray();
-
-            // Overall completion percentage. Weights resolve through the
-            // canonical presentation (rejection is an outcome, not progress —
-            // REJECTED weighs 0 and is surfaced separately via rejectedCount).
-            $totalWeight = 0;
-            $maxWeight = 0;
-            foreach ($referrals as $ref) {
-                $maxWeight += 100;
-                $totalWeight += ReferralStatusPresentation::weight($ref->status);
-            }
-            $completionPercentage = $maxWeight > 0 ? (int) round(($totalWeight / $maxWeight) * 100) : 0;
-            $rejectedCount = $referrals->where('status', 'REJECTED')->count();
-
-            $unreadCount = 0;
-            $caseNotifications = [];
-
-            if ($case->client && $case->client->email) {
-                $notifications = CaseNotification::where('case_id', $case->id)
-                    ->where('client_email', $case->client->email)
-                    ->orderBy('created_at', 'desc')
-                    ->get();
-
-                $unreadCount = $notifications->whereNull('read_at')->count();
-
-                $caseNotifications = $notifications->map(function ($notification) use ($case) {
-                    // Writers store raw internal codes in the payload
-                    // (status / old_status / new_status). No consumer page
-                    // reads them (verified: Tracking/Show only matches on
-                    // `type`; OFW renderers read title/message/created_at
-                    // plus the bell endpoint's own action_url; Case/Show
-                    // never receives notifications — CaseController forwards
-                    // only milestoneTimeline), so strip them here for every
-                    // branch. All other data keys (referral_id, case_number,
-                    // tracker_number, milestone_*) are client-safe and stay.
-                    $data = is_array($notification->data) ? $notification->data : [];
-                    $data = array_diff_key($data, array_flip(self::CLIENT_STRIPPED_DATA_KEYS));
-
-                    // Staff deep-links (/cases/*, /referrals/*) are rewritten
-                    // to OFW-safe destinations on every branch for the same
-                    // reason: the only server-side consumers are the public
-                    // page, the OFW portal, and the staff page that discards
-                    // notifications entirely.
-                    $relatedUrl = $this->ofwSafeRelatedUrl($notification->related_url, $data, $case->id);
-
-                    return [
-                        'id' => $notification->id,
-                        'type' => $notification->type,
-                        'title' => $notification->title,
-                        'message' => $notification->message,
-                        'data' => $data,
-                        'related_url' => $relatedUrl,
-                        'created_at' => $notification->created_at->toISOString(),
-                        'read' => $notification->read_at !== null,
-                    ];
-                })->values()->toArray();
-            }
+        // Agency cards with dynamic step progress.
+        // There is deliberately no `note` key: staff free-text referral
+        // notes are never client-safe, and no consumer page renders one
+        // (verified: zero `.note` references in Tracking/Show and
+        // OFW/CaseDetail, and Case/Show never receives agency cards —
+        // CaseController forwards only milestoneTimeline).
+        $agencyCards = $referrals->map(function ($ref) use ($case, $forOfwPortal) {
+            $latestMilestone = $ref->milestones->sortByDesc('created_at')->first();
+            $hasCompliance = $ref->status === 'FOR_COMPLIANCE';
 
             return [
-                'trackingId' => $case->tracker_number,
-                'trackedCase' => [
-                    'id' => $case->id,
-                    'caseNo' => $case->case_number,
-                    'clientName' => $client ? "{$client->first_name} {$client->last_name}" : 'Unknown',
-                    'clientType' => $case->client_type === 'OFW' ? 'Overseas Filipino Worker' : 'Next of Kin',
-                    'categories' => $this->categoryPresentation($case),
-                    'service' => $referrals->first()?->services->pluck('name')->implode(', ') ?? '',
-                    'milestone' => '',
-                    'status' => ReferralStatusPresentation::caseStatus($case->status),
-                    'createdAt' => $case->created_at->toISOString(),
-                    'updatedAt' => $case->updated_at->toISOString(),
-                ],
-                'caseOverview' => $caseOverview,
-                'milestoneTimeline' => $this->buildMilestoneTimeline($case, $events),
-                'completionPercentage' => $completionPercentage,
-                'rejectedCount' => $rejectedCount,
-                'trackingAgencies' => $agencyCards,
-                'caseNotifications' => [
-                    'unread_count' => $unreadCount,
-                    'items' => $caseNotifications,
-                ],
+                'referralId' => $ref->id,
+                'name' => $ref->agency?->name ?? 'Unknown',
+                'status' => $ref->status,
+                'milestoneCount' => $ref->milestones->count(),
+                'steps' => $this->buildAgencySteps($ref),
+                'latestMilestoneLabel' => $latestMilestone?->title,
+                'milestonesUrl' => $forOfwPortal
+                    ? route('ofw.case.milestones', ['case' => $case->id, 'referral' => $ref->id])
+                    : route('track.milestones', [
+                        'tracker_number' => $case->tracker_number,
+                        'referral' => $ref->id,
+                    ]),
+                'services' => $ref->services->pluck('name')->toArray(),
             ];
-        });
+        })->toArray();
+
+        // Overall completion percentage. Rejection is an outcome, not progress —
+        // REJECTED weighs 0 and is surfaced separately via rejectedCount.
+        $totalWeight = 0;
+        $maxWeight = 0;
+        foreach ($referrals as $ref) {
+            $maxWeight += 100;
+            $totalWeight += match ($ref->status) {
+                'COMPLETED' => 100,
+                'PROCESSING' => 66,
+                'FOR_COMPLIANCE' => 33,
+                'PENDING' => 10,
+                default => 0,
+            };
+        }
+        $completionPercentage = $maxWeight > 0 ? (int) round(($totalWeight / $maxWeight) * 100) : 0;
+        $rejectedCount = $referrals->where('status', 'REJECTED')->count();
+
+        $unreadCount = 0;
+        $caseNotifications = [];
+
+        if ($case->client && $case->client->email) {
+            $notifications = CaseNotification::where('case_id', $case->id)
+                ->where('client_email', $case->client->email)
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            $unreadCount = $notifications->whereNull('read_at')->count();
+
+            $caseNotifications = $notifications->map(function ($notification) use ($case) {
+                // Writers store raw internal codes in the payload
+                // (status / old_status / new_status). No consumer page
+                // reads them (verified: Tracking/Show only matches on
+                // `type`; OFW renderers read title/message/created_at
+                // plus the bell endpoint's own action_url; Case/Show
+                // never receives notifications — CaseController forwards
+                // only milestoneTimeline), so strip them here. All other
+                // data keys (referral_id, case_number, tracker_number,
+                // milestone_*) are client-safe and stay.
+                $data = is_array($notification->data) ? $notification->data : [];
+                $data = array_diff_key($data, array_flip(self::CLIENT_STRIPPED_DATA_KEYS));
+
+                // Staff deep-links (/cases/*, /referrals/*) are rewritten
+                // to OFW-safe destinations for the same reason: the only
+                // server-side consumers are the public page, the OFW
+                // portal, and the staff page that discards notifications
+                // entirely.
+                $relatedUrl = $this->ofwSafeRelatedUrl($notification->related_url, $data, $case->id);
+
+                return [
+                    'id' => $notification->id,
+                    'type' => $notification->type,
+                    'title' => $notification->title,
+                    'message' => $notification->message,
+                    'data' => $data,
+                    'related_url' => $relatedUrl,
+                    'created_at' => $notification->created_at->toISOString(),
+                    'read' => $notification->read_at !== null,
+                ];
+            })->values()->toArray();
+        }
+
+        return [
+            'trackingId' => $case->tracker_number,
+            'trackedCase' => [
+                'id' => $case->id,
+                'caseNo' => $case->case_number,
+                'clientName' => $client ? "{$client->first_name} {$client->last_name}" : 'Unknown',
+                'clientType' => $case->client_type === 'OFW' ? 'Overseas Filipino Worker' : 'Next of Kin',
+                'categories' => $this->categoryPresentation($case),
+                'service' => $referrals->first()?->services->pluck('name')->implode(', ') ?? '',
+                'milestone' => '',
+                'status' => match ($case->status) {
+                    'OPEN' => 'IN_PROGRESS',
+                    'CLOSED' => 'RESOLVED',
+                    'ARCHIVED' => 'ARCHIVED',
+                    'DRAFT' => 'BEING_PREPARED',
+                    default => 'UNKNOWN',
+                },
+                'createdAt' => $case->created_at->toISOString(),
+                'updatedAt' => $case->updated_at->toISOString(),
+            ],
+            'caseOverview' => $caseOverview,
+            'milestoneTimeline' => $this->buildMilestoneTimeline($case, $events),
+            'completionPercentage' => $completionPercentage,
+            'rejectedCount' => $rejectedCount,
+            'trackingAgencies' => $agencyCards,
+            'caseNotifications' => [
+                'unread_count' => $unreadCount,
+                'items' => $caseNotifications,
+            ],
+        ];
     }
 
     /**
@@ -348,7 +315,7 @@ class TrackingService
     {
         return CacheHelper::safeRemember(self::trackingMilestonesCacheKey($case->id, $referral->id), 120, function () use ($case, $referral) {
             $case->loadMissing(['client.addresses', 'client.employments']);
-            $referral->loadMissing(['agency', 'milestones.user']);
+            $referral->loadMissing(['agency', 'milestones.user', 'services']);
 
             $agencyName = $referral->agency?->name ?? 'Unknown agency';
             $latestMilestone = $referral->milestones->sortByDesc('created_at')->first();
@@ -386,7 +353,13 @@ class TrackingService
                     'caseNo' => $case->case_number,
                     'clientName' => $case->client ? trim("{$case->client->first_name} {$case->client->last_name}") : 'Unknown',
                     'clientType' => $case->client_type === 'OFW' ? 'Overseas Filipino Worker' : 'Next of Kin',
-                    'status' => ReferralStatusPresentation::caseStatus($case->status),
+                    'status' => match ($case->status) {
+                        'OPEN' => 'IN_PROGRESS',
+                        'CLOSED' => 'RESOLVED',
+                        'ARCHIVED' => 'ARCHIVED',
+                        'DRAFT' => 'BEING_PREPARED',
+                        default => 'UNKNOWN',
+                    },
                 ],
                 'agencyMilestones' => [
                     'referralId' => $referral->id,
@@ -447,16 +420,44 @@ class TrackingService
      * Build dynamic agency progress steps based on the referral's current status
      * and compliance history (derived from recorded status-change events).
      * Returns 3–6 steps with label and state keys.
-     *
-     * Thin delegate: the step table itself lives in the canonical
-     * ReferralStatusPresentation so the wording has one home.
      */
     private function buildAgencySteps(Referral $referral): array
     {
-        return ReferralStatusPresentation::agencySteps(
-            $referral->status,
-            $referral->agency?->name ?? 'Agency'
-        );
+        $agencyName = $referral->agency?->name ?? 'Agency';
+        $status = $referral->status;
+
+        $steps = [];
+
+        // Step 1: Created — always complete
+        $steps[] = ['label' => 'Created', 'state' => 'complete'];
+
+        // Step 2: Referred to {agency} — always complete
+        $steps[] = ['label' => "Referred to {$agencyName}", 'state' => 'complete'];
+
+        // Step 3: Received by {agency}
+        if ($status === 'PENDING') {
+            $steps[] = ['label' => "Received by {$agencyName}", 'state' => 'active'];
+
+            return $steps;
+        }
+        $steps[] = ['label' => "Received by {$agencyName}", 'state' => 'complete'];
+
+        if ($status === 'REJECTED') {
+            return $steps;
+        }
+
+        if ($status === 'PROCESSING') {
+            $steps[] = ['label' => 'Processing', 'state' => 'active'];
+            $steps[] = ['label' => 'Completed', 'state' => 'pending'];
+        } elseif ($status === 'COMPLETED') {
+            $steps[] = ['label' => 'Processing', 'state' => 'complete'];
+            $steps[] = ['label' => 'Completed', 'state' => 'active'];
+        } else {
+            $steps[] = ['label' => 'Processing', 'state' => 'pending'];
+            $steps[] = ['label' => 'Completed', 'state' => 'pending'];
+        }
+
+        return $steps;
     }
 
     private function formatAddressParts($address): array

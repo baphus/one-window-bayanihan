@@ -13,11 +13,6 @@
     {{ $message }}
 </p>
 
-@if(!empty($clientSwimlane['referrals'] ?? []))
-<p style="font-size: 14px; font-weight: 600; color: #18181b; margin: 0 0 8px 0;">Your Progress</p>
-<x-mail::swimlane :referrals="$clientSwimlane['referrals'] ?? []" />
-@endif
-
 @if($case->caseEvents && $case->caseEvents->count() > 0)
 <p style="font-size: 14px; font-weight: 600; color: #18181b; margin: 0 0 8px 0;">Timeline</p>
 <x-mail::timeline :events="$case->caseEvents" />

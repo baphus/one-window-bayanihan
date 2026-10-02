@@ -93,6 +93,30 @@ class DashboardService
         return trim(($client->first_name ?? '').' '.($client->last_name ?? '')) ?: 'N/A';
     }
 
+    private function statusLabel(string $status): string
+    {
+        return match ($status) {
+            'PENDING' => 'Pending',
+            'PROCESSING' => 'Processing',
+            'FOR_COMPLIANCE' => 'For compliance',
+            'COMPLETED' => 'Completed',
+            'REJECTED' => 'Rejected',
+            default => str($status)->replace('_', ' ')->title()->toString(),
+        };
+    }
+
+    private function statusTone(string $status): string
+    {
+        return match ($status) {
+            'PENDING' => 'amber',
+            'PROCESSING' => 'blue',
+            'FOR_COMPLIANCE' => 'orange',
+            'COMPLETED' => 'emerald',
+            'REJECTED' => 'rose',
+            default => 'slate',
+        };
+    }
+
     private function buildStatusDistributionFromCounts(array $statusCounts, int $total): array
     {
         $total = max($total, 1);
@@ -100,10 +124,10 @@ class DashboardService
         return collect($statusCounts)
             ->map(fn (int $count, string $status) => [
                 'status' => $status,
-                'label' => ReferralStatusPresentation::dashboardLabel($status),
+                'label' => $this->statusLabel($status),
                 'count' => $count,
                 'percent' => (int) round(($count / $total) * 100),
-                'tone' => ReferralStatusPresentation::tone($status),
+                'tone' => $this->statusTone($status),
             ])
             ->filter(fn (array $item) => $item['count'] > 0)
             ->values()
@@ -663,6 +687,7 @@ class DashboardService
                     try {
                         $display = $formatter->formatForAuditResponse($log);
                     } catch (\Throwable $e) {
+                        report($e, ['context' => 'DashboardService: audit display formatting failed', 'log_id' => $log->getKey()]);
                         $display = [
                             'id' => (string) $log->getKey(),
                             'message' => 'Activity recorded',
@@ -965,6 +990,7 @@ class DashboardService
                     try {
                         $display = $formatter->formatForAuditResponse($log);
                     } catch (\Throwable $e) {
+                        report($e, ['context' => 'DashboardService: audit display formatting failed', 'log_id' => $log->getKey()]);
                         $display = [
                             'id' => (string) $log->getKey(),
                             'message' => 'Activity recorded',
@@ -1255,6 +1281,7 @@ class DashboardService
                     try {
                         $display = $formatter->formatForAuditResponse($log);
                     } catch (\Throwable $e) {
+                        report($e, ['context' => 'DashboardService: audit display formatting failed', 'log_id' => $log->getKey()]);
                         $display = [
                             'id' => (string) $log->getKey(),
                             'message' => 'Activity recorded',

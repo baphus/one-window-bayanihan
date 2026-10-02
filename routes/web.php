@@ -431,9 +431,9 @@ Route::prefix('help')->name('helpdesk.')->group(function () {
 // API routes (authenticated via web session) — in web.php for session middleware support
 Route::middleware(['auth', 'verified', 'throttle:api-global'])->prefix('api')->group(function () {
     // Client selection for case creation form
-    Route::get('/clients', [ClientSelectController::class, 'search']);
+    Route::get('/clients', [ClientSelectController::class, 'search'])->name('api.clients.index');
     Route::get('/clients/email-check', [ClientSelectController::class, 'checkEmail'])->name('api.clients.email-check');
-    Route::get('/clients/{client}', [ClientSelectController::class, 'show']);
+    Route::get('/clients/{client}', [ClientSelectController::class, 'show'])->name('api.clients.show');
 
 });
 

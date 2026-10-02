@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\RejectIntakeRequest;
 use App\Http\Requests\StoreCaseRequest;
 use App\Http\Requests\UpdateCaseRequest;
 use App\Http\Requests\UpdateDraftRequest;
@@ -10,7 +11,6 @@ use App\Models\Client;
 use App\Models\SystemSetting;
 use App\Services\AddressNameResolver;
 use App\Services\CaseService;
-use App\Services\CaseSwimlaneService;
 use App\Services\Export\DataExportQueries;
 use App\Services\Export\DataExportService;
 use App\Services\OnboardingService;
@@ -28,9 +28,10 @@ class CaseController extends Controller
         private readonly CaseService $caseService,
         private readonly PhilippineAddressService $addressService,
         private readonly TrackingService $trackingService,
-        private readonly CaseSwimlaneService $swimlaneService,
         private readonly ReferenceDataService $referenceData,
         private readonly AddressNameResolver $addressNames,
+        private readonly DataExportQueries $exportQueries,
+        private readonly DataExportService $exportService,
     ) {}
 
     public function index(Request $request)
@@ -233,7 +234,6 @@ class CaseController extends Controller
             'case' => $case,
             'overdueDays' => $overdueDays,
             'milestoneTimeline' => $trackingData['milestoneTimeline'],
-            'swimlaneTimeline' => $this->swimlaneService->buildSwimlaneTimeline($case),
             'categories' => $categories,
             'caseIssues' => $caseIssues,
         ]);
@@ -345,15 +345,11 @@ class CaseController extends Controller
         ]);
     }
 
-    public function rejectIntake(Request $request, string $id)
+    public function rejectIntake(RejectIntakeRequest $request, string $id)
     {
-        $request->validate([
-            'deletion_reason' => ['required', 'string', 'min:10'],
-        ]);
-
         $this->caseService->rejectIntake(
             $id,
-            $request->input('deletion_reason'),
+            $request->validated()['deletion_reason'],
             $request->user()->id,
         );
 
@@ -381,8 +377,8 @@ class CaseController extends Controller
             'age_min_days', 'referral_state', 'date_from', 'date_to',
         ]), CategoryFilter::fromRequest($request)->toArray()));
 
-        $queries = new DataExportQueries;
-        $exportService = new DataExportService;
+        $queries = $this->exportQueries;
+        $exportService = $this->exportService;
 
         $data = $queries->getCasesExport($user, $filters);
 
@@ -418,7 +414,7 @@ class CaseController extends Controller
             'age_min_days', 'referral_state', 'date_from', 'date_to',
         ]), CategoryFilter::fromRequest($request)->toArray()));
 
-        $count = (new DataExportQueries)->countCasesExport($user, $filters);
+        $count = $this->exportQueries->countCasesExport($user, $filters);
 
         return response()->json(['count' => $count]);
     }

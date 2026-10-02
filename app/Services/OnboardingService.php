@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\User;
+use Illuminate\Support\Facades\Log;
 
 class OnboardingService
 {
@@ -156,8 +157,14 @@ class OnboardingService
 
         try {
             $this->markChecklistItem($user, $itemId);
-        } catch (\Throwable) {
-            // Swallow — checklist marking is non-critical UX state.
+        } catch (\Throwable $e) {
+            // Checklist marking is non-critical UX state — never break the
+            // primary action, but keep a debug trail for diagnosis.
+            Log::debug('OnboardingService: checklist marking failed', [
+                'user_id' => $user->getKey(),
+                'item' => $itemId,
+                'exception' => $e->getMessage(),
+            ]);
         }
     }
 

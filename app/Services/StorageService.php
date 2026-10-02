@@ -5,6 +5,7 @@ namespace App\Services;
 use App\DTOs\FileStoreResult;
 use App\Services\Contracts\MalwareScannerInterface;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -115,6 +116,12 @@ class StorageService
         try {
             return Storage::disk($this->disk)->delete($path);
         } catch (\Throwable $e) {
+            Log::warning('StorageService: failed to delete file', [
+                'disk' => $this->disk,
+                'path' => $path,
+                'exception' => $e->getMessage(),
+            ]);
+
             return false;
         }
     }
@@ -134,6 +141,12 @@ class StorageService
                 now()->addHours($ttlHours)
             );
         } catch (\Throwable $e) {
+            Log::warning('StorageService: failed to generate temporary URL', [
+                'disk' => $this->disk,
+                'path' => $path,
+                'exception' => $e->getMessage(),
+            ]);
+
             return null;
         }
     }

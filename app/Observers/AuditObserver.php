@@ -45,6 +45,12 @@ class AuditObserver
 
     private function log(string $action, $model, ?array $old, ?array $new): void
     {
+        // AuditLog itself is not in config('audit.observed_models'), but guard
+        // anyway so a future registration cannot recurse infinitely.
+        if ($model instanceof AuditLog) {
+            return;
+        }
+
         $request = request();
 
         // Get request ID from LogContext middleware or generate one
@@ -89,8 +95,9 @@ class AuditObserver
 
     private function filterKeys(array $attributes, $model): array
     {
-        if (property_exists($model, 'auditExclude')) {
-            return array_diff_key($attributes, array_flip($model::$auditExclude));
+        $excluded = $model::$auditExclude ?? null;
+        if (is_array($excluded)) {
+            return array_diff_key($attributes, array_flip($excluded));
         }
 
         return $attributes;

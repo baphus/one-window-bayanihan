@@ -53,4 +53,8 @@ return [
         'url' => env('CLOUDINARY_URL'),
     ],
 
+    'malware' => [
+        'scanner' => env('MALWARE_SCANNER', 'null'),
+    ],
+
 ];

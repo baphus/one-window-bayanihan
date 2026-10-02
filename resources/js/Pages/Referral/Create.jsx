@@ -667,7 +667,7 @@ export default function ReferralCreate({ case_id, agencies, cases: paginatedCase
                                             {data.documents.length > 0 && (
                                                 <div className="mt-4 space-y-2">
                                                     {data.documents.map((file, idx) => (
-                                                        <div key={idx} className="flex items-center gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
+                                                        <div key={`${file.name}-${file.size}-${file.lastModified}`} className="flex items-center gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
                                                             <span className="material-symbols-outlined text-[16px] text-slate-400 shrink-0">description</span>
                                                             <div className="min-w-0 flex-1">
                                                                 <p className="text-[12px] font-medium text-slate-700 truncate">{file.name}</p>

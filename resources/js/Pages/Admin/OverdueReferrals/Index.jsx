@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 import StatusBadge from '@/Components/ui/StatusBadge';
@@ -65,7 +65,7 @@ export default function OverdueReferralsIndex({ stats = {}, referrals, userRole 
 
   const { sort_by: currentSort, status_filter: currentFilter } = currentParamsFromUrl();
 
-  const updateTable = (overrides) => {
+  const updateTable = useCallback((overrides) => {
     const params = new URLSearchParams(window.location.search);
     const merged = {
       sort_by: params.get('sort_by') ?? undefined,
@@ -83,15 +83,15 @@ export default function OverdueReferralsIndex({ stats = {}, referrals, userRole 
       only: ['referrals'],
       showProgress: false,
     }));
-  };
+  }, [withLoading]);
 
   const handleSortChange = (columnKey) => {
     updateTable({ sort_by: SORT_COLUMN_TO_BACKEND[columnKey] ?? 'most_stale', page: undefined });
   };
 
-  const handleStatusFilter = (value) => {
+  const handleStatusFilter = useCallback((value) => {
     updateTable({ status_filter: value === 'all' ? undefined : value, page: undefined });
-  };
+  }, [updateTable]);
 
   const handleRemoveFilter = () => {
     updateTable({ status_filter: undefined, page: undefined });
@@ -166,8 +166,7 @@ export default function OverdueReferralsIndex({ stats = {}, referrals, userRole 
         })}
       </div>
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentFilter, stats]);
+  }, [currentFilter, stats, handleStatusFilter]);
 
   const columns = useMemo(() => [
     {

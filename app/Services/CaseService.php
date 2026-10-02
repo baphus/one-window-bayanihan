@@ -1084,7 +1084,6 @@ class CaseService
         Cache::forget('stats:cases');
         Cache::forget('dashboard:cm_cases_by_category');
         Cache::forget('dashboard:admin_cases_by_category');
-        Cache::forget('tracking:data:'.$case->id);
         ReportsService::invalidateAll();
     }
 
@@ -1277,7 +1276,6 @@ class CaseService
             'referrals.milestones',
             'referrals.agency',
             'referrals.attachments.user',
-            'caseEvents',
             'user',
             'category',
             'categories',
@@ -1364,8 +1362,8 @@ class CaseService
                     if ($updateStatusChanged && $updateOldStatus === 'DRAFT') {
                         $this->notificationService->markIntakeNotificationsAsRead($updateCase);
                     }
-                } catch (\Throwable) {
-                    report('Failed to send case update notification');
+                } catch (\Throwable $e) {
+                    report($e, ['context' => 'Failed to send case update notification']);
                 }
             });
 
@@ -1512,8 +1510,8 @@ class CaseService
             DB::afterCommit(function () use ($case, $oldStatus, $userId) {
                 try {
                     $this->dispatchStatusChangeNotification($case, $oldStatus, $case->status, $userId);
-                } catch (\Throwable) {
-                    report('Failed to send status change notification');
+                } catch (\Throwable $e) {
+                    report($e, ['context' => 'Failed to send status change notification']);
                 }
             });
 

@@ -402,9 +402,12 @@ class AuditLogFormatter
 
     private function resolveCaseNumber(string $caseId): ?string
     {
+        // Case numbers are assigned once at creation, but invalidate on any
+        // CaseFile write (see CacheInvalidationObserver::invalidateCase) so a
+        // correction can never linger behind this cache.
         $number = cache()->remember(
             "audit_case_number:{$caseId}",
-            now()->addHour(),
+            now()->addMinutes(10),
             fn () => CaseFile::query()->whereKey($caseId)->value('case_number'),
         );
 

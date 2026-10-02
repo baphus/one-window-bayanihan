@@ -16,12 +16,6 @@ export default function OfwLayout({ children, title }) {
         router.post(route('logout'));
     }
 
-    const navLinks = [
-        { href: route('ofw.dashboard'), label: 'My Cases', active: url === '/my-cases' || url.startsWith('/my-cases/') && !url.startsWith('/my-cases/notifications') && !url.startsWith('/my-cases/profile') },
-        { href: route('ofw.notifications'), label: 'Notifications', active: url.startsWith('/my-cases/notifications') },
-        { href: route('ofw.profile.edit'), label: 'Profile', active: url.startsWith('/my-cases/profile') },
-    ];
-
     return (
         <div className="min-h-screen bg-slate-50">
             <FlashMessageWatcher />
@@ -51,24 +45,6 @@ export default function OfwLayout({ children, title }) {
 
                     {/* Right-side actions */}
                     <div className="flex items-center gap-2 self-center">
-                        {/* Desktop section links */}
-                        <div className="mr-1 hidden items-center gap-1 md:flex" aria-label="Primary">
-                            {navLinks.map((link) => (
-                                <Link
-                                    key={link.label}
-                                    href={link.href}
-                                    aria-current={link.active ? 'page' : undefined}
-                                    className={`rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${
-                                        link.active
-                                            ? 'bg-primary/10 text-primary'
-                                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                                    }`}
-                                >
-                                    {link.label}
-                                </Link>
-                            ))}
-                        </div>
-
                         {/* Notification bell — visible at all breakpoints */}
                         <OfwNotificationBell />
 
@@ -162,22 +138,7 @@ export default function OfwLayout({ children, title }) {
                             </div>
 
                             <div className="flex-1 overflow-y-auto px-4 py-4">
-                                <div className="grid gap-2" aria-label="Primary">
-                                    {navLinks.map((link) => (
-                                        <Link
-                                            key={link.label}
-                                            href={link.href}
-                                            aria-current={link.active ? 'page' : undefined}
-                                            onClick={() => setMobileMenuOpen(false)}
-                                            className={`rounded-md border px-4 py-3 text-left text-sm font-medium transition ${
-                                                link.active
-                                                    ? 'border-primary/30 bg-primary/5 text-primary'
-                                                    : 'border-gray-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                                            }`}
-                                        >
-                                            {link.label}
-                                        </Link>
-                                    ))}
+                                <div className="grid gap-2">
                                     <button
                                         type="button"
                                         onClick={() => {

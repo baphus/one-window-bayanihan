@@ -42,7 +42,12 @@ export default function useAutoSave({ formData, draftId, options = {}, onSaveSuc
         delete payload.has_next_of_kin;
 
         try {
-            const response = await fetch(`/cases/${effectiveDraftId}/save-draft`, {
+            // Ziggy named route (cases.save-draft) — the only hardcoded part
+            // is the fallback for non-Ziggy contexts (e.g. isolated tests).
+            const saveUrl = typeof route === 'function'
+                ? route('cases.save-draft', effectiveDraftId)
+                : `/cases/${effectiveDraftId}/save-draft`;
+            const response = await fetch(saveUrl, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',

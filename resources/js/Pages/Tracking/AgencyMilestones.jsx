@@ -3,7 +3,6 @@ import AppHeader from '@/Components/landing/AppHeader';
 import AppFooter from '@/Components/landing/AppFooter';
 import ChatBot from '@/Components/ChatBot';
 import UnifiedTimeline from '@/Components/Timeline';
-import { REFERRAL_STATUS_LABELS } from '@/Components/ReferralStamp';
 
 const MILESTONE_EVENT_CONFIG = {
   milestone_added: { dot: 'bg-emerald-50 border-emerald-200 text-emerald-600', icon: 'flag_circle' },
@@ -18,11 +17,11 @@ const STATUS_CONFIG = {
 };
 
 const REFERRAL_STATUS_CONFIG = {
-  PENDING:        { label: REFERRAL_STATUS_LABELS.PENDING,        icon: 'schedule',              bg: 'bg-slate-100 text-slate-600 border-slate-200' },
-  PROCESSING:     { label: REFERRAL_STATUS_LABELS.PROCESSING,     icon: 'radio_button_checked',  bg: 'bg-blue-50 text-blue-700 border-blue-200' },
-  FOR_COMPLIANCE: { label: REFERRAL_STATUS_LABELS.FOR_COMPLIANCE, icon: 'description',           bg: 'bg-amber-50 text-amber-700 border-amber-200' },
-  COMPLETED:      { label: REFERRAL_STATUS_LABELS.COMPLETED,      icon: 'check_circle',          bg: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-  REJECTED:       { label: REFERRAL_STATUS_LABELS.REJECTED,       icon: 'cancel',                bg: 'bg-red-50 text-red-600 border-red-200' },
+  PENDING:        { label: 'Awaiting receipt',    icon: 'schedule',              bg: 'bg-slate-100 text-slate-600 border-slate-200' },
+  PROCESSING:     { label: 'In process',          icon: 'radio_button_checked',  bg: 'bg-blue-50 text-blue-700 border-blue-200' },
+  FOR_COMPLIANCE: { label: 'Needs documents',     icon: 'description',           bg: 'bg-amber-50 text-amber-700 border-amber-200' },
+  COMPLETED:      { label: 'Completed',           icon: 'check_circle',          bg: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  REJECTED:       { label: 'Unable to assist',    icon: 'cancel',                bg: 'bg-red-50 text-red-600 border-red-200' },
 };
 
 function formatHumanDate(dateStr) {
@@ -37,6 +36,15 @@ function formatHumanDate(dateStr) {
     minute: '2-digit',
     hour12: true,
   })}`;
+}
+
+function formatStatusLabel(status) {
+  if (!status) return 'Unavailable';
+
+  return status
+    .replace(/_/g, ' ')
+    .toLowerCase()
+    .replace(/(^|\s)\S/g, (letter) => letter.toUpperCase());
 }
 
 function InfoCard({ icon, label, value, tone = 'slate' }) {
@@ -110,7 +118,7 @@ export default function AgencyMilestones({ trackingId, trackedCase, agencyMilest
               const refConfig = REFERRAL_STATUS_CONFIG[agencyMilestones.status] ?? REFERRAL_STATUS_CONFIG.PENDING;
               return (
                 <p className="shrink-0 text-sm text-primary-fixed/70">
-                  Referral status: <span className={`ml-1.5 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-bold ${refConfig.bg}`}><span className="material-symbols-outlined text-[14px]">{refConfig.icon}</span>{refConfig.label}</span>
+                  Referral status: <span className={`ml-1.5 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-bold ${refConfig.bg}`}><span className="material-symbols-outlined text-[14px]">{refConfig.icon}</span>{formatStatusLabel(agencyMilestones.status)}</span>
                 </p>
               );
             })()}

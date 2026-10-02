@@ -2,6 +2,7 @@ import AppLayout from '@/Layouts/AppLayout';
 import { Head, router } from '@inertiajs/react';
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { useToast } from '@/Hooks/useToast';
+import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import { formatDisplayDate } from '@/lib/utils';
 import ConfirmDialog from '@/Components/ui/ConfirmDialog';
 import AddressDropdowns from '@/Components/AddressDropdowns';
@@ -237,7 +238,11 @@ export default function ReviewIntake({ case: caseFile, categories = [], caseIssu
     return unique.map((p) => ({ value: p, label: p }));
   }, [occupationOptions]);
 
-  const draft = caseFile.draft_client_data || {};
+  // Local mirror of the server draft, patched on each successful section
+  // save. Inertia props are read-only — mutating `caseFile` (e.g. via
+  // Object.assign) skips React state and breaks re-renders, so edits go here.
+  const [draftPatch, setDraftPatch] = useState({});
+  const draft = { ...(caseFile.draft_client_data || {}), ...draftPatch };
   const address = draft.address || {};
   const employment = draft.employment || {};
   const nokRaw = draft.next_of_kin;
@@ -298,6 +303,12 @@ export default function ReviewIntake({ case: caseFile, categories = [], caseIssu
   // Loading states
   const [savingSection, setSavingSection] = useState(false);
   const [publishing, setPublishing] = useState(false);
+
+  // An open edit section holds un-saved input — guard navigation the same
+  // way every other form page does. Section saves/publish use router
+  // PUT/POST (never blocked — only GET visits trigger the modal), and
+  // publish/reject call bypassNext() before navigating on success.
+  const { UnsavedModal, bypassNext } = useUnsavedChanges(editingSection !== null, { onDiscard: cancelEdit });
 
   /* ── Edit actions ──────────────────────────────────────────── */
 
@@ -377,90 +388,114 @@ export default function ReviewIntake({ case: caseFile, categories = [], caseIssu
 
   /* ── Save a section ────────────────────────────────────────── */
 
-  async function saveSection() {
+  function saveSection() {
+    if (savingSection) return;
     setSavingSection(true);
-    try {
-      let payload = {};
 
-      if (editingSection === 'personal' && editPersonal) {
-        // UpdateDraftRequest validates these as client.* — sending them flat
-        // means validated() strips every one of them and the save silently
-        // succeeds with 200 while persisting nothing. That left clients.sex
-        // NULL on self-filed intakes, which publish then rejects.
-        const client = {
-          first_name: editPersonal.first_name,
-          last_name: editPersonal.last_name,
-          middle_name: editPersonal.middle_name,
-          suffix: editPersonal.suffix,
-          date_of_birth: editPersonal.date_of_birth,
-          sex: editPersonal.sex,
-          email: editPersonal.email,
-          contact_number: editPersonal.contact_number,
-        };
-        payload = { client };
-        await window.axios.put(route('cases.save-draft', caseFile.id), payload);
-        // Update local draft data
-        Object.assign(draft, client);
-      } else if (editingSection === 'address' && editAddress) {
-        payload = { address: editAddress };
-        await window.axios.put(route('cases.save-draft', caseFile.id), payload);
-        Object.assign(address, editAddress);
-      } else if (editingSection === 'employment' && editEmployment) {
-        payload = { employment: editEmployment };
-        await window.axios.put(route('cases.save-draft', caseFile.id), payload);
-        Object.assign(employment, editEmployment);
-      } else if (editingSection === 'nok' && editNokData && editNokIndex !== null) {
-        payload = { next_of_kin: nextOfKin.map((nok, i) => {
-          if (i !== editNokIndex) return nok;
-          return { ...nok, ...editNokData, contact_number: editNokData.contact_number, phone_number: editNokData.contact_number };
-        }) };
-        await window.axios.put(route('cases.save-draft', caseFile.id), payload);
-        // Update the local nextOfKin mirror
-        nextOfKin[editNokIndex] = { ...nextOfKin[editNokIndex], ...editNokData, contact_number: editNokData.contact_number, phone_number: editNokData.contact_number };
-      } else if (editingSection === 'summary' && editSummary !== null) {
-        payload = { summary: editSummary };
-        await window.axios.put(route('cases.save-draft', caseFile.id), payload);
-        draft.summary = editSummary;
-      }
+    let payload = {};
+    let applyPatch = null;
 
-      cancelEdit();
-      toast.success('Changes saved.');
-    } catch (err) {
-      const msg = Object.values(err.response?.data?.errors || {})[0]?.[0] || 'Failed to save changes.';
-      toast.error(msg);
-    } finally {
-      setSavingSection(false);
+    if (editingSection === 'personal' && editPersonal) {
+      // UpdateDraftRequest validates these as client.* — sending them flat
+      // means validated() strips every one of them and the save silently
+      // succeeds with 200 while persisting nothing. That left clients.sex
+      // NULL on self-filed intakes, which publish then rejects.
+      const client = {
+        first_name: editPersonal.first_name,
+        last_name: editPersonal.last_name,
+        middle_name: editPersonal.middle_name,
+        suffix: editPersonal.suffix,
+        date_of_birth: editPersonal.date_of_birth,
+        sex: editPersonal.sex,
+        email: editPersonal.email,
+        contact_number: editPersonal.contact_number,
+      };
+      payload = { client };
+      applyPatch = (prev) => ({ ...prev, ...client });
+    } else if (editingSection === 'address' && editAddress) {
+      payload = { address: editAddress };
+      applyPatch = (prev) => ({ ...prev, address: { ...address, ...editAddress } });
+    } else if (editingSection === 'employment' && editEmployment) {
+      payload = { employment: editEmployment };
+      applyPatch = (prev) => ({ ...prev, employment: { ...employment, ...editEmployment } });
+    } else if (editingSection === 'nok' && editNokData && editNokIndex !== null) {
+      const nextOfKinPayload = nextOfKin.map((nok, i) => {
+        if (i !== editNokIndex) return nok;
+        return { ...nok, ...editNokData, contact_number: editNokData.contact_number, phone_number: editNokData.contact_number };
+      });
+      payload = { next_of_kin: nextOfKinPayload };
+      applyPatch = (prev) => ({ ...prev, next_of_kin: nextOfKinPayload });
+    } else if (editingSection === 'summary' && editSummary !== null) {
+      payload = { summary: editSummary };
+      applyPatch = (prev) => ({ ...prev, summary: editSummary });
     }
+
+    if (Object.keys(payload).length === 0) {
+      setSavingSection(false);
+      cancelEdit();
+      return;
+    }
+
+    // Partial draft payloads go through the Inertia router (not useForm,
+    // which owns a whole-form payload, and not raw axios, which skips
+    // Inertia error handling and visit state).
+    router.put(route('cases.save-draft', caseFile.id), payload, {
+      preserveScroll: true,
+      onSuccess: () => {
+        if (applyPatch) setDraftPatch(applyPatch);
+        cancelEdit();
+        toast.success('Changes saved.');
+      },
+      onError: (errors) => {
+        const msg = Object.values(errors || {})[0]?.[0] || 'Failed to save changes.';
+        toast.error(msg);
+      },
+      onFinish: () => setSavingSection(false),
+    });
   }
 
   /* ── Publish ───────────────────────────────────────────────── */
 
-  async function handlePublish() {
+  function handlePublish() {
+    if (publishing) return;
+    bypassNext();
     setPublishing(true);
-    try {
-      // 1. Save classification data first
-      await window.axios.put(route('cases.save-draft', caseFile.id), {
-        category_ids: categoryIds,
-        case_issue_id: caseIssueId || null,
-      });
 
-      // 2. Publish
-      await window.axios.post(route('cases.publish', caseFile.id));
-
-      toast.success('Case published successfully');
-      router.visit(route('cases.show', caseFile.id));
-    } catch (err) {
-      const msg = Object.values(err.response?.data?.errors || {})[0]?.[0] || 'Failed to publish case.';
-      toast.error(msg);
-    } finally {
-      setPublishing(false);
-    }
+    // 1. Save classification data first, then 2. publish — chained through
+    // the Inertia router so validation errors surface via onError and the
+    // final redirect stays an SPA visit.
+    router.put(route('cases.save-draft', caseFile.id), {
+      category_ids: categoryIds,
+      case_issue_id: caseIssueId || null,
+    }, {
+      preserveScroll: true,
+      onSuccess: () => {
+        router.post(route('cases.publish', caseFile.id), {}, {
+          preserveScroll: true,
+          onSuccess: () => {
+            toast.success('Case published successfully');
+            router.visit(route('cases.show', caseFile.id));
+          },
+          onError: (errors) => {
+            const msg = Object.values(errors || {})[0]?.[0] || 'Failed to publish case.';
+            toast.error(msg);
+            setPublishing(false);
+          },
+        });
+      },
+      onError: (errors) => {
+        const msg = Object.values(errors || {})[0]?.[0] || 'Failed to publish case.';
+        toast.error(msg);
+        setPublishing(false);
+      },
+    });
   }
 
   /* ── Reject ────────────────────────────────────────────────── */
 
   function handleReject() {
     if (!rejectReason || rejectReason.length < 10) return;
+    bypassNext();
     setRejecting(true);
     router.post(route('cases.reject-intake', caseFile.id), {
       deletion_reason: rejectReason,
@@ -1021,6 +1056,7 @@ export default function ReviewIntake({ case: caseFile, categories = [], caseIssu
           <p className="text-xs text-red-500 mt-1">Reason must be at least 10 characters.</p>
         )}
       </ConfirmDialog>
+      {UnsavedModal}
     </AppLayout>
   );
 }

@@ -46,6 +46,7 @@ class GenerateSystemReport implements ShouldQueue
     public function handle(
         ReportsExportService $reportsExportService,
         DataExportService $dataExportService,
+        DataExportQueries $queries,
     ): void {
         $document = GeneratedDocument::find($this->documentId);
 
@@ -60,7 +61,7 @@ class GenerateSystemReport implements ShouldQueue
 
             match ($this->type) {
                 'system_report_pdf' => $this->generatePdf($reportsExportService, $tempPath),
-                'admin_full_export' => $this->generateAdminExport($dataExportService, $tempPath),
+                'admin_full_export' => $this->generateAdminExport($dataExportService, $queries, $tempPath),
                 default => throw new \InvalidArgumentException("Unknown report type: {$this->type}"),
             };
 
@@ -99,12 +100,10 @@ class GenerateSystemReport implements ShouldQueue
         $pdf->save($tempPath);
     }
 
-    private function generateAdminExport(DataExportService $dataExportService, string $tempPath): void
+    private function generateAdminExport(DataExportService $dataExportService, DataExportQueries $queries, string $tempPath): void
     {
         // Rebuild the user from criteria so queries are scoped correctly.
         $user = User::findOrFail($this->criteria['user_id']);
-
-        $queries = new DataExportQueries;
 
         $tableQueryMap = [
             'cases' => fn () => $queries->getCases($user),
