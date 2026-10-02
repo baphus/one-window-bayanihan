@@ -214,10 +214,12 @@ class CaseService
 
                 // If the client is orphaned (no other cases reference it via client_id), delete it fully
                 if ($client && ! $client->caseFiles()->exists()) {
-                    // Must delete child records first (FK onDelete restrict on all)
-                    $client->addresses()->each(fn ($a) => $a->forceDelete());
-                    $client->employments()->each(fn ($e) => $e->forceDelete());
-                    $client->nextOfKin()->each(fn ($n) => $n->forceDelete());
+                    // Must delete child records first (FK onDelete restrict on all).
+                    // Single-statement deletes: model events are already suppressed
+                    // by the surrounding withoutEvents block.
+                    $client->addresses()->forceDelete();
+                    $client->employments()->forceDelete();
+                    $client->nextOfKin()->forceDelete();
 
                     $client->forceDelete();
                 }
@@ -456,7 +458,7 @@ class CaseService
             $query->orderBy($sortColumn, $direction);
         }
 
-        return $query->paginate($perPage);
+        return $query->paginate(min(max($perPage, 1), 100));
     }
 
     public function rejectIntake(string $id, string $reason, string $userId): CaseFile
@@ -565,7 +567,7 @@ class CaseService
         }
 
         return $query->orderBy('updated_at', 'desc')
-            ->paginate($perPage);
+            ->paginate(min(max($perPage, 1), 100));
     }
 
     /**

@@ -26,8 +26,6 @@ class SecuritySettingsController extends Controller
             'session_lifetime_minutes' => 'int|min:15|max:1440',
             'max_login_attempts' => 'int|min:1|max:50',
             'lockout_duration_minutes' => 'int|min:1|max:1440',
-            'ip_whitelist_enabled' => 'boolean',
-            'ip_whitelist_ips' => 'nullable|string',
             'two_factor_required' => 'boolean',
         ]);
 

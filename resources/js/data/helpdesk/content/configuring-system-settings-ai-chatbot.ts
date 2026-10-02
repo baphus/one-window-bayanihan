@@ -37,6 +37,6 @@ Practical guidance for administrators:
 
 ## Related security pages
 
-Password policy, lockouts, mandatory MFA, the admin IP whitelist, and session termination live on separate pages — see *System security: settings, IP whitelist, and active sessions*.
+Password policy, lockouts, mandatory MFA, and session termination live on separate pages — see *System security: settings and active sessions*.
 `;
 export default content;

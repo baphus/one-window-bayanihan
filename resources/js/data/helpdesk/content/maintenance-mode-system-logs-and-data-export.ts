@@ -1,6 +1,6 @@
 const content = `# Maintenance Mode, System Logs, and Data Export
 
-Three admin tools keep the platform operable and accountable: **Maintenance** for planned downtime, **Logs** for diagnosing problems, and **Data Export** for a full offline copy of operational data. All live under the admin **System** menu (behind \`ip.whitelist\`).
+Three admin tools keep the platform operable and accountable: **Maintenance** for planned downtime, **Logs** for diagnosing problems, and **Data Export** for a full offline copy of operational data. All live under the admin **System** menu.
 
 ![Maintenance page](/assets/helpdesk/maintenance.png)
 

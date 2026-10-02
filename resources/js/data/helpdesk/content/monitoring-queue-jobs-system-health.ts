@@ -6,7 +6,7 @@ Administrators use the maintenance and log pages to monitor background work and 
 
 ## Where to look
 
-The relevant admin pages live under the **System** menu: **Maintenance**, **Email Logs**, **Logs** (the log viewer), and **Active Sessions**, plus the **Overdue Referrals** page. The dashboard also shows operational summaries for cases, referrals, and workload. Deep-dives: *Maintenance mode, system logs, and data export*, *Email logs and resending failed emails*, and *System security: settings, IP whitelist, and active sessions*.
+The relevant admin pages live under the **System** menu: **Maintenance**, **Email Logs**, **Logs** (the log viewer), and **Active Sessions**, plus the **Overdue Referrals** page. The dashboard also shows operational summaries for cases, referrals, and workload. Deep-dives: *Maintenance mode, system logs, and data export*, *Email logs and resending failed emails*, and *System security: settings and active sessions*.
 
 ![Admin dashboard](/assets/helpdesk/dashboard-admin.png)
 

@@ -17,8 +17,6 @@ class SecuritySettingsService
             'session_lifetime_minutes' => SystemSetting::getValue('session_lifetime_minutes', 120),
             'max_login_attempts' => SystemSetting::getValue('max_login_attempts', 5),
             'lockout_duration_minutes' => SystemSetting::getValue('lockout_duration_minutes', 15),
-            'ip_whitelist_enabled' => SystemSetting::getValue('ip_whitelist_enabled', false),
-            'ip_whitelist_ips' => SystemSetting::getValue('ip_whitelist_ips', ''),
             'two_factor_required' => SystemSetting::getValue('two_factor_required', false),
         ];
     }
@@ -33,8 +31,6 @@ class SecuritySettingsService
             'session_lifetime_minutes' => 'int',
             'max_login_attempts' => 'int',
             'lockout_duration_minutes' => 'int',
-            'ip_whitelist_enabled' => 'bool',
-            'ip_whitelist_ips' => 'string',
             'two_factor_required' => 'bool',
         ];
 

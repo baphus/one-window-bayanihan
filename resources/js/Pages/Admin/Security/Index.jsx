@@ -28,8 +28,6 @@ export default function Index({ settings }) {
     session_lifetime_minutes: settings.session_lifetime_minutes ?? 120,
     max_login_attempts: settings.max_login_attempts ?? 5,
     lockout_duration_minutes: settings.lockout_duration_minutes ?? 15,
-    ip_whitelist_enabled: !!settings.ip_whitelist_enabled,
-    ip_whitelist_ips: settings.ip_whitelist_ips ?? '',
     two_factor_required: !!settings.two_factor_required,
   });
 
@@ -41,8 +39,6 @@ export default function Index({ settings }) {
     session_lifetime_minutes: settings.session_lifetime_minutes ?? 120,
     max_login_attempts: settings.max_login_attempts ?? 5,
     lockout_duration_minutes: settings.lockout_duration_minutes ?? 15,
-    ip_whitelist_enabled: !!settings.ip_whitelist_enabled,
-    ip_whitelist_ips: settings.ip_whitelist_ips ?? '',
     two_factor_required: !!settings.two_factor_required,
   });
 
@@ -55,7 +51,6 @@ export default function Index({ settings }) {
     session_lifetime_minutes: z.number().min(15, 'Minimum 15 minutes').max(1440, 'Maximum 1440 minutes'),
     max_login_attempts: z.number().min(1, 'Minimum 1 attempt').max(50, 'Maximum 50 attempts'),
     lockout_duration_minutes: z.number().min(1, 'Minimum 1 minute').max(1440, 'Maximum 1440 minutes'),
-    ip_whitelist_ips: z.string().optional(),
   });
 
   const { validate } = useClientValidation(localSchema, data, setError);
@@ -137,25 +132,7 @@ export default function Index({ settings }) {
           </div>
         </Section>
 
-        <Section tour="security-access-control" title="Access Control" description="Restrict access with IP whitelisting and two-factor authentication.">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="text-sm font-medium text-slate-700">Enable IP whitelist</p>
-              <p className="text-sm text-slate-500">Only allow requests from approved IPs or CIDRs.</p>
-            </div>
-            <button type="button" role="switch" aria-checked={data.ip_whitelist_enabled} onClick={() => setData('ip_whitelist_enabled', !data.ip_whitelist_enabled)} className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${data.ip_whitelist_enabled ? 'bg-indigo-600' : 'bg-slate-300'}`}>
-              <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${data.ip_whitelist_enabled ? 'translate-x-5' : 'translate-x-0'}`} />
-            </button>
-            <InputError message={errors.ip_whitelist_enabled} className="mt-1" />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-slate-700">Allowed IPs / CIDRs</label>
-            <textarea value={data.ip_whitelist_ips} onChange={(e) => setData('ip_whitelist_ips', e.target.value)} rows={5} placeholder="127.0.0.1\n192.168.1.0/24" className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
-            <p className="mt-1 text-xs text-slate-500">One IP or CIDR per line.</p>
-            <InputError message={errors.ip_whitelist_ips} className="mt-1" />
-          </div>
-
+        <Section tour="security-access-control" title="Access Control" description="Manage two-factor authentication enforcement.">
           <div className="flex items-center justify-between gap-4">
             <div>
               <p className="text-sm font-medium text-slate-700">Require two-factor authentication</p>

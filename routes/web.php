@@ -226,7 +226,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     });
 
     // Agency detail — accessible by ADMIN and CASE_MANAGER (read-only for non-ADMIN)
-    Route::middleware(['role:ADMIN,CASE_MANAGER', 'ip.whitelist'])
+    Route::middleware('role:ADMIN,CASE_MANAGER')
         ->prefix('admin')->name('admin.')
         ->get('/agencies/{agency}', [AdminAgencyController::class, 'show'])
         ->name('agencies.show');
@@ -242,7 +242,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/onboarding/checklist/dismiss', [OnboardingController::class, 'dismissChecklist'])->name('onboarding.checklist.dismiss');
     Route::post('/onboarding/skip-profile', [OnboardingController::class, 'skipProfile'])->name('onboarding.skip-profile');
 
-    Route::prefix('admin')->name('admin.')->middleware(['role:ADMIN', 'ip.whitelist'])->group(function () {
+    Route::prefix('admin')->name('admin.')->middleware('role:ADMIN')->group(function () {
         Route::get('/agencies', [AdminAgencyController::class, 'index'])->name('agencies.index');
         Route::post('/agencies', [AdminAgencyController::class, 'store'])->name('agencies.store');
         Route::patch('/agencies/{agency}', [AdminAgencyController::class, 'update'])->name('agencies.update');

@@ -1,6 +1,6 @@
-const content = `# System Security: Settings, IP Whitelist, and Active Sessions
+const content = `# System Security: Settings and Active Sessions
 
-Administrators control platform-wide security posture from **System → Security** and **System → Active Sessions**. Like all admin pages, these sit behind the admin IP whitelist once it is enabled.
+Administrators control platform-wide security posture from **System → Security** and **System → Active Sessions**.
 
 ![Security settings](/assets/helpdesk/security-settings.png)
 
@@ -21,11 +21,6 @@ New staff passwords require a minimum of 8 characters with mixed case, numbers, 
 - **Require two-factor authentication** — makes authenticator (TOTP) MFA mandatory instead of optional (see *Securing your account: password and MFA*).
 
 Sign-in is password plus optional authenticator — there is no login email-OTP.
-
-**Admin IP whitelist**
-- **Enable IP whitelist** plus the list of allowed IPs. When enabled, \`ip.whitelist\` gates every \`/admin/*\` page so they are reachable only from those addresses.
-
-> **Lock-out warning:** before enabling the IP whitelist, confirm your own current IP is on the list — the setting takes effect immediately for admin pages, including this one. Keep at least one known-good address (e.g., the office network) whitelisted.
 
 Select save to apply; you'll see **"Security settings updated."**
 

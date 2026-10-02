@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Http\Middleware\HandleInertiaRequests;
-use App\Http\Middleware\IpWhitelist;
 use App\Models\EmailLog;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -11,7 +10,6 @@ use Illuminate\Mail\Events\MessageSent;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\SendQueuedMailable;
 use Illuminate\Mail\SentMessage;
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
@@ -45,8 +43,6 @@ class EmailLoggingTest extends TestCase
         parent::setUp();
 
         $this->withoutMiddleware(HandleInertiaRequests::class);
-        $this->withoutMiddleware(IpWhitelist::class);
-        Config::set('auth.ip_whitelist.enabled', false);
 
         // Create the admin user for tests that need auth
         $this->adminUser = User::factory()->create(['role' => 'ADMIN']);

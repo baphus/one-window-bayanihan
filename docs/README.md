@@ -21,7 +21,7 @@ Bayanihan One Window is a centralized inter-agency case management system for di
 |----------|-------------|
 | [ARCHITECTURE_v2.2.0.md](ARCHITECTURE_v2.2.0.md) | System design, middleware stack, deployment topology, data flow |
 | [FRONTEND_ARCHITECTURE_v1.0.0.md](FRONTEND_ARCHITECTURE_v1.0.0.md) | React/Inertia frontend architecture, app shell, providers, pages |
-| [ROLES_AND_PERMISSIONS_v1.0.0.md](ROLES_AND_PERMISSIONS_v1.0.0.md) | Role model, `CheckRole`/`IpWhitelist`/MFA gates, route matrix |
+| [ROLES_AND_PERMISSIONS_v1.0.0.md](ROLES_AND_PERMISSIONS_v1.0.0.md) | Role model, `CheckRole`/MFA gates, route matrix |
 | [DATA_MODEL.md](DATA_MODEL.md) (v2.2.0) | Complete database schema — all tables, columns, relationships, indexes |
 | [PSGC_ADDRESSES_v1.0.0.md](PSGC_ADDRESSES_v1.0.0.md) | Stateless PSGC address dataset, lookup endpoints, name-resolution on write |
 | [API_CONTRACTS.md](API_CONTRACTS.md) (v2.1.0) | All HTTP routes, methods, middleware, request/response shapes, named-throttle table |

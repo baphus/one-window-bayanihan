@@ -338,7 +338,7 @@ export const pageGuides: Record<string, PageGuide> = {
             { element: '[data-tour="security-header"]', title: 'Security Policies', description: 'Set the password, session, and access-control rules that apply to every account in the system.', side: 'bottom' },
             { element: '[data-tour="security-password-policy"]', title: 'Password Policy', description: 'Define minimum length, required character types, and expiry. Stricter rules apply to new passwords only — existing ones rotate at their next expiry.', side: 'top' },
             { element: '[data-tour="security-session"]', title: 'Sessions & Lockout', description: 'Control how long sessions last and when repeated failed logins lock an account. Shorter lifetimes are safer for shared workstations.', side: 'top' },
-            { element: '[data-tour="security-access-control"]', title: 'Access Control', description: 'Optionally restrict access to whitelisted IPs or CIDRs and require two-factor authentication for all users. Verify your own IP is listed before enabling the whitelist.', side: 'top' },
+            { element: '[data-tour="security-access-control"]', title: 'Access Control', description: 'Require two-factor authentication for all users.', side: 'top' },
             { element: '[data-tour="security-save"]', title: 'Apply Changes', description: 'Nothing takes effect until you click Save Changes. Review each section, save, then test a login to confirm you have not locked yourself out.', side: 'left' },
         ],
     },

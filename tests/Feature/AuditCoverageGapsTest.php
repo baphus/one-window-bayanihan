@@ -40,7 +40,7 @@ class AuditCoverageGapsTest extends TestCase
 
         (new SecuritySettingsService)->update([
             'password_min_length' => 12,
-            'ip_whitelist_ips' => '10.99.88.77',
+            'session_lifetime_minutes' => 187,
         ]);
 
         $this->assertDatabaseHas('audit_logs', [
@@ -55,11 +55,10 @@ class AuditCoverageGapsTest extends TestCase
             ->firstOrFail();
 
         // Only the changed key NAMES are logged — never the values. The
-        // whitelist IPs are secret-adjacent, so their absence is asserted
-        // with a distinctive address that cannot collide with other output.
+        // absence of the distinctive value below proves values are excluded.
         $this->assertStringContainsString('password_min_length', $entry->description);
-        $this->assertStringContainsString('ip_whitelist_ips', $entry->description);
-        $this->assertStringNotContainsString('10.99.88.77', $entry->description);
+        $this->assertStringContainsString('session_lifetime_minutes', $entry->description);
+        $this->assertStringNotContainsString('187', $entry->description);
         $this->assertNull($entry->old_value);
         $this->assertNull($entry->new_value);
     }
