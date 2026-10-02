@@ -48,13 +48,6 @@ function CategoryBadges({ caseFile }) {
   );
 }
 
-function getCaseAgeDays(createdAt, status, updatedAt) {
-  const created = new Date(createdAt).getTime();
-  const end = status === 'CLOSED' ? new Date(updatedAt).getTime() : Date.now();
-  const days = Math.max(1, Math.round((end - created) / (1000 * 60 * 60 * 24)));
-  return `${days} day${days > 1 ? 's' : ''}`;
-}
-
 function getClientAge(dob) {
   if (!dob) return '\u2014';
   const birth = new Date(dob);
@@ -502,34 +495,6 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
         <main className="xl:col-span-8 space-y-4">
-          {/* Key Stats Ribbon */}
-          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 rounded-md border border-slate-200 bg-white px-4 py-2.5 shadow-sm">
-            <StatusBadge status={caseFile.status} size="sm" />
-            <span className="text-[11px] text-slate-300 select-none">|</span>
-            <span className="text-[11px] text-slate-600">
-              <span className="font-semibold text-slate-800">{getCaseAgeDays(caseFile.created_at, caseFile.status, caseFile.updated_at)}</span>
-              <span className="text-slate-400 ml-1">since created</span>
-            </span>
-            <span className="text-[11px] text-slate-300 select-none">|</span>
-            <span className="text-[11px] text-slate-600">
-              <span className="font-semibold text-slate-800">{(caseFile.referrals || []).length}</span>
-              <span className="text-slate-400 ml-1">referral{(caseFile.referrals || []).length !== 1 ? 's' : ''}</span>
-            </span>
-            {hasOverdueReferrals && (
-              <>
-                <span className="text-[11px] text-slate-300 select-none">|</span>
-                <span className="inline-flex items-center gap-1 text-[11px] text-red-600 font-semibold">
-                  <span className="material-symbols-outlined text-[14px]">warning</span>
-                  {referralRows.filter(r => r.isOverdue).length} overdue
-                </span>
-              </>
-            )}
-            <span className="text-[11px] text-slate-300 select-none">|</span>
-            <span className="text-[11px] text-slate-600">
-              <span className="font-semibold text-slate-800">{clientTypeLabel}</span>
-            </span>
-          </div>
-
           <CardSection title="Case Information" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
             <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
               <MetaTile label="Case No." value={caseFile.case_number} />

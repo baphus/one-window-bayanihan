@@ -33,6 +33,14 @@ export function usePersistedViewMode(storageKey) {
  */
 export function usePersistedFilters(storageKey, filters, applyFilters) {
   const restoredRef = useRef(false);
+  // Latest-callback refs: the restore below must run exactly once on mount
+  // (it reads pre-persist storage before the persist effect overwrites it),
+  // so it can't list the per-render `filters`/`applyFilters` values as deps.
+  // The refs preserve that mount-once behavior without a lint suppression.
+  const filtersRef = useRef(filters);
+  filtersRef.current = filters;
+  const applyFiltersRef = useRef(applyFilters);
+  applyFiltersRef.current = applyFilters;
 
   // Restore first: read the old saved value before the persist effect below
   // overwrites it with the current (usually empty) filter state.
@@ -52,11 +60,10 @@ export function usePersistedFilters(storageKey, filters, applyFilters) {
     const cleaned = Object.fromEntries(
       Object.entries(rest).filter(([, v]) => v != null && v !== ''),
     );
-    if (JSON.stringify(cleaned) !== JSON.stringify(filters ?? {})) {
-      applyFilters(cleaned);
+    if (JSON.stringify(cleaned) !== JSON.stringify(filtersRef.current ?? {})) {
+      applyFiltersRef.current(cleaned);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [storageKey]);
 
   useEffect(() => {
     if (filters === undefined) return;

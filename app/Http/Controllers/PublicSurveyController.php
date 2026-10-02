@@ -29,6 +29,7 @@ class PublicSurveyController extends Controller
             'questions' => $invitation->surveyForm->questions->map(fn ($question) => $question->only([
                 'id', 'type', 'label', 'options', 'is_required', 'order',
             ]))->values(),
+            'token' => $token,
         ]);
     }
 

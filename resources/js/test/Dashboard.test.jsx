@@ -98,7 +98,8 @@ describe('Dashboard role insights', () => {
             dashboard: {
                 totalReferrals: 2,
                 completedReferrals: 1,
-                pendingReferrals: 1,
+                pendingReferrals: [{ id: 'r1', case_id: 'c1', case_number: 'C-001', client_name: 'Jane Doe', service: 'Legal aid', agency_name: null, status: 'PENDING', age_days: 3, href: '/referrals/r1' }],
+                overdueReferrals: [],
                 processingReferrals: 0,
                 rejectedReferrals: 0,
                 workQueue: [{ key: 'pendingReferrals', label: 'Pending', count: 1, note: 'Needs action.', tone: 'amber', href: '/referrals' }],
@@ -114,10 +115,11 @@ describe('Dashboard role insights', () => {
         );
 
         expect(screen.getByText('Agency focal')).toBeInTheDocument();
-        expect(screen.getByText('Referral status')).toBeInTheDocument();
+        expect(screen.getByText('My referrals')).toBeInTheDocument();
         expect(screen.getAllByText('Pending').length).toBeGreaterThan(0);
         expect(screen.getByText('Feedback signals appear once clients respond to invitations.')).toBeInTheDocument();
-        expect(screen.getByText('Priority referrals')).toBeInTheDocument();
+        expect(screen.getByText('Pending referrals')).toBeInTheDocument();
+        expect(screen.getByText('Overdue referrals')).toBeInTheDocument();
     });
 
     it('renders case manager 7-block sections and newest cases', () => {

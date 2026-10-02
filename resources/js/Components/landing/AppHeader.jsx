@@ -56,7 +56,7 @@ export default function AppHeader({ minimal }) {
           </div>
 
           <div className="flex flex-col">
-            <span className="text-[18px] font-bold tracking-tight text-blue-950 leading-tight" style={{ fontFamily: "'Outfit', sans-serif" }}>One Window Bayanihan</span>
+            <span className="text-[18px] font-bold tracking-tight text-blue-950 leading-tight" style={{ fontFamily: "'Outfit', sans-serif" }}>One Window Bayanihan <span className="ml-1 align-middle text-xs font-semibold tracking-normal text-on-surface-variant">Region VII</span></span>
             <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-500">Assistance Program</span>
           </div>
         </Link>

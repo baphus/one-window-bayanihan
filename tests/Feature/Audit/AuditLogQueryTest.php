@@ -121,6 +121,6 @@ class AuditLogQueryTest extends TestCase
         $timeline = app(ReferralService::class)->getReferralTimeline($referral);
         $statusEvents = collect($timeline)->where('type', 'referral_status')->values();
         $this->assertCount(1, $statusEvents);
-        $this->assertSame('Referral status updated', $statusEvents->first()['title']);
+        $this->assertSame('Referral status updated to Processing', $statusEvents->first()['title']);
     }
 }

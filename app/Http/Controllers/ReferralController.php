@@ -4,10 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Exceptions\ReferralDocumentUploadException;
 use App\Http\Requests\StoreMilestoneRequest;
+use App\Http\Requests\StoreReferralCommentRequest;
 use App\Http\Requests\StoreReferralRequest;
 use App\Http\Requests\UpdateReferralStatusRequest;
 use App\Models\Agency;
-use App\Models\CaseDocument;
 use App\Models\CaseFile;
 use App\Models\Referral;
 use App\Models\ReferralAttachment;
@@ -21,7 +21,6 @@ use App\Services\ReferralService;
 use App\Services\StorageService;
 use App\Support\CategoryFilter;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class ReferralController extends Controller
@@ -29,6 +28,8 @@ class ReferralController extends Controller
     public function __construct(
         private readonly ReferralService $referralService,
         private readonly ReferenceDataService $referenceData,
+        private readonly DataExportQueries $exportQueries,
+        private readonly DataExportService $exportService,
     ) {}
 
     public function index(Request $request)
@@ -105,52 +106,16 @@ class ReferralController extends Controller
         ]);
     }
 
-    public function store(StoreReferralRequest $request)
+    public function store(StoreReferralRequest $request, StorageService $storage)
     {
-        $storage = app(StorageService::class);
-        $storedPaths = [];
-
         try {
-            $referral = DB::transaction(function () use ($request, $storage, &$storedPaths) {
-                $referral = $this->referralService->createReferral(
-                    $request->validated(),
-                    $request->user()->id,
-                );
-
-                if ($request->hasFile('documents')) {
-                    foreach ($request->file('documents') as $file) {
-                        $result = $storage->store($file, 'case-documents/'.$referral->case_id);
-
-                        if (! $result->success) {
-                            throw new ReferralDocumentUploadException(
-                                $result->error ?? 'Failed to store file.',
-                            );
-                        }
-
-                        $storedPaths[] = $result->path;
-
-                        CaseDocument::create([
-                            'file_name' => $result->originalName,
-                            'file_path' => $result->path,
-                            'file_type' => $result->type,
-                            'size' => $result->size,
-                            'case_id' => $referral->case_id,
-                            'referral_id' => $referral->id,
-                            'user_id' => $request->user()->id,
-                            'category' => 'referral',
-                        ]);
-                    }
-                }
-
-                return $referral;
-            });
+            $referral = $this->referralService->createReferralWithDocuments(
+                $request->validated(),
+                $request->user()->id,
+                $request->hasFile('documents') ? $request->file('documents') : [],
+                $storage,
+            );
         } catch (ReferralDocumentUploadException $e) {
-            // Roll back the object-storage side so a failed upload leaves no
-            // orphaned files. The DB transaction is rolled back automatically.
-            foreach ($storedPaths as $path) {
-                $storage->delete($path);
-            }
-
             return back()->withErrors(['documents' => $e->userMessage]);
         }
 
@@ -270,15 +235,12 @@ class ReferralController extends Controller
             ->with('success', 'Milestone added.');
     }
 
-    public function addComment(Request $request, string $id)
+    public function addComment(StoreReferralCommentRequest $request, string $id)
     {
         $referral = $this->referralService->getReferral($id);
         $this->authorizeReferralAccess($referral, $request->user());
 
-        $validated = $request->validate([
-            'content' => 'required|string|max:5000',
-            'visibility' => 'sometimes|in:INTERNAL,AGY_ONLY',
-        ]);
+        $validated = $request->validated();
 
         $comment = $this->referralService->addComment(
             $id,
@@ -292,7 +254,7 @@ class ReferralController extends Controller
             ->with('success', 'Comment added.');
     }
 
-    public function replyToComment(Request $request, string $id, string $commentId)
+    public function replyToComment(StoreReferralCommentRequest $request, string $id, string $commentId)
     {
         $referral = $this->referralService->getReferral($id);
         $this->authorizeReferralAccess($referral, $request->user());
@@ -301,10 +263,7 @@ class ReferralController extends Controller
         // referral's comment tree.
         ReferralComment::where('refr_id', $id)->where('id', $commentId)->firstOrFail();
 
-        $validated = $request->validate([
-            'content' => 'required|string|max:5000',
-            'visibility' => 'sometimes|in:INTERNAL,AGY_ONLY',
-        ]);
+        $validated = $request->validated();
 
         $reply = $this->referralService->replyToComment(
             $id,
@@ -462,7 +421,7 @@ class ReferralController extends Controller
         ]);
 
         try {
-            $this->referralService->addService($referral, $validated['service_id']);
+            $this->referralService->addService($referral, $validated['service_id'], $request->user()->id);
 
             return redirect()->back()->with('success', 'Service added to referral.');
         } catch (\InvalidArgumentException $e) {
@@ -575,8 +534,8 @@ class ReferralController extends Controller
             'date_from', 'date_to', 'agcy_id', 'category_id', 'category_ids', 'case_issue_id',
         ]), CategoryFilter::fromRequest($request)->toArray()));
 
-        $queries = new DataExportQueries;
-        $exportService = new DataExportService;
+        $queries = $this->exportQueries;
+        $exportService = $this->exportService;
 
         $data = $queries->getReferralsExport($user, $filters);
 
@@ -611,7 +570,7 @@ class ReferralController extends Controller
             'date_from', 'date_to', 'agcy_id', 'category_id', 'category_ids', 'case_issue_id',
         ]), CategoryFilter::fromRequest($request)->toArray()));
 
-        $count = (new DataExportQueries)->countReferralsExport($user, $filters);
+        $count = $this->exportQueries->countReferralsExport($user, $filters);
 
         return response()->json(['count' => $count]);
     }

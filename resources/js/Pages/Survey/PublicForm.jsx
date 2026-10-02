@@ -211,7 +211,7 @@ function QuestionField({ question, answer, onAnswerChange, error, questionNumber
   );
 }
 
-export default function PublicForm({ invitation, surveyForm, questions }) {
+export default function PublicForm({ invitation, surveyForm, questions, token }) {
   const today = new Date().toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' });
 
   // Build initial answers state
@@ -244,7 +244,7 @@ export default function PublicForm({ invitation, surveyForm, questions }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    post(window.location.pathname);
+    post(typeof route === 'function' ? route('survey.public.submit', token) : window.location.pathname);
   };
 
   return (

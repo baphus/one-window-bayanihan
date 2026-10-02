@@ -19,6 +19,11 @@ use Inertia\Inertia;
 
 class ClientController extends Controller
 {
+    public function __construct(
+        private readonly DataExportQueries $exportQueries,
+        private readonly DataExportService $exportService,
+    ) {}
+
     public function index(Request $request)
     {
         $user = $request->user();
@@ -316,8 +321,8 @@ class ClientController extends Controller
             'search', 'sex', 'client_type', 'vulnerability_indicator', 'case_status', 'category_id', 'case_issue_id', 'agcy_id', 'date_from', 'date_to',
         ]), CategoryFilter::fromRequest($request)->toArray()));
 
-        $queries = new DataExportQueries;
-        $exportService = new DataExportService;
+        $queries = $this->exportQueries;
+        $exportService = $this->exportService;
 
         $data = $queries->getClientsExport($user, $filters);
 
@@ -351,7 +356,7 @@ class ClientController extends Controller
             'search', 'sex', 'client_type', 'vulnerability_indicator', 'case_status', 'category_id', 'case_issue_id', 'agcy_id', 'date_from', 'date_to',
         ]), CategoryFilter::fromRequest($request)->toArray()));
 
-        $count = (new DataExportQueries)->countClientsExport($user, $filters);
+        $count = $this->exportQueries->countClientsExport($user, $filters);
 
         return response()->json(['count' => $count]);
     }

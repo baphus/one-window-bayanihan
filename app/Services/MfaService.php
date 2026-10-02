@@ -162,7 +162,12 @@ class MfaService
                 if (! Cache::add($key, true, config('mfa.replay_ttl', 120))) {
                     return false;
                 }
-            } catch (Throwable) {
+            } catch (Throwable $e) {
+                // Fail closed: without the replay cache we cannot tell a fresh
+                // code from a replayed one, so rejecting is safer than risking
+                // TOTP reuse. Logged distinctly from a genuine replay rejection.
+                report($e);
+
                 return false;
             }
 

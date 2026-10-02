@@ -46,7 +46,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(MalwareScannerInterface::class, function ($app) {
-            return env('MALWARE_SCANNER', 'null') === 'clamav'
+            return config('services.malware.scanner', 'null') === 'clamav'
                 ? new ClamAvScanner
                 : new NullScanner;
         });
@@ -168,10 +168,6 @@ class AppServiceProvider extends ServiceProvider
 
         RateLimiter::for('intake-submit', function (Request $request) {
             return Limit::perMinute(5)->by($request->ip());
-        });
-
-        RateLimiter::for('address-lookup', function (Request $request) {
-            return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
         });
 
         RateLimiter::for('chatbot', function (Request $request) {

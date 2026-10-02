@@ -23,12 +23,18 @@ export default function useAutoPageGuide(): void {
     const onboarding = useOnboardingOptional();
     const auth = (props as { auth?: { user?: { role?: string } } }).auth;
     const role = auth?.user?.role;
+    // Read the context through its stable primitives so the effect below can
+    // list honest dependencies (all provider callbacks are useCallback'd).
+    const phase = onboarding?.phase;
+    const seenGuides = onboarding?.seenGuides;
+    const startPageGuide = onboarding?.startPageGuide;
     const launchedRef = useRef<Set<string>>(new Set());
 
     useEffect(() => {
-        if (!onboarding || role !== 'CASE_MANAGER') return;
-
-        const { phase, seenGuides, startPageGuide } = onboarding;
+        // onboarding is null outside the app shell (tests) — its pieces
+        // below are undefined then, so guard on them instead of the whole
+        // context object (whose identity isn't a meaningful change signal).
+        if (role !== 'CASE_MANAGER' || !startPageGuide || !seenGuides) return;
 
         // Don't launch while a welcome tour or another guide is active.
         if (phase === 'touring' || phase === 'welcome') return;
@@ -77,6 +83,8 @@ export default function useAutoPageGuide(): void {
 
         launchedRef.current.add(qualifiedKey);
         startPageGuide(currentRoute, qualifiedKey);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [url, role, onboarding?.phase, onboarding?.seenGuides]);
+        // launchedRef + the seen-check above make re-runs (e.g. when
+        // seenGuides changes) no-ops, so every reactive value can stay in
+        // the dep array honestly.
+    }, [url, role, phase, seenGuides, startPageGuide]);
 }

@@ -3,6 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Helpers\CacheHelper;
+use App\Http\Requests\InviteAdminUserRequest;
+use App\Http\Requests\StoreAdminUserRequest;
+use App\Http\Requests\UpdateAdminUserRequest;
 use App\Models\Agency;
 use App\Models\SystemSetting;
 use App\Models\User;
@@ -104,28 +107,18 @@ class AdminUserController extends Controller
         return Inertia::render('Admin/User/Show', ['user' => $user]);
     }
 
-    public function store(Request $request)
+    public function store(StoreAdminUserRequest $request)
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email',
-            'password' => ['required', 'string', Password::min(8)->mixedCase()->numbers()->symbols()],
-            'role' => 'required|in:ADMIN,AGENCY,CASE_MANAGER',
-            'agcy_id' => 'nullable|exists:agencies,id',
-        ]);
+        $validated = $request->validated();
 
         $this->users->createUser($validated, $request->user()->id);
 
         return back()->with('success', 'User created successfully.');
     }
 
-    public function invite(Request $request)
+    public function invite(InviteAdminUserRequest $request)
     {
-        $validated = $request->validate([
-            'email' => 'required|email|unique:users,email',
-            'role' => 'required|in:ADMIN,AGENCY,CASE_MANAGER',
-            'agcy_id' => 'nullable|exists:agencies,id',
-        ]);
+        $validated = $request->validated();
 
         // Also check for existing pending invite
         if ($this->users->pendingInviteFor($validated['email'])) {
@@ -164,23 +157,11 @@ class AdminUserController extends Controller
         return back()->with('success', 'Invitation cancelled.');
     }
 
-    public function update(Request $request, string $id)
+    public function update(UpdateAdminUserRequest $request, string $id)
     {
         $user = User::findOrFail($id);
 
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email,'.$id,
-            'role' => 'required|in:ADMIN,AGENCY,CASE_MANAGER',
-            'agcy_id' => 'nullable|exists:agencies,id',
-            'contact_number' => 'nullable|string',
-            'position' => 'nullable|string|max:255',
-            'department' => 'nullable|string|max:255',
-            'office_location' => 'nullable|string|max:500',
-            'bio' => 'nullable|string|max:2000',
-            'emergency_contact' => 'nullable|json',
-            'is_active' => 'boolean',
-        ]);
+        $validated = $request->validated();
 
         $updateData = $validated;
 

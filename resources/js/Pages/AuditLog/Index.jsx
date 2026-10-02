@@ -77,7 +77,9 @@ function ExportDialog({ open, onClose, filterValues, defaultDays, maxDays }) {
     setError('');
     if (exporting) return;
     setExporting(true);
-    window.location.href = `/audit-logs/export?${params.toString()}`;
+    // File downloads must use a full navigation (Inertia visits can't
+    // receive blobs) — but the URL itself comes from the named route.
+    window.location.href = `${route('audit-logs.export')}?${params.toString()}`;
     timeoutRef.current = window.setTimeout(clearPending, SAFETY_TIMEOUT_MS);
     onClose();
   };

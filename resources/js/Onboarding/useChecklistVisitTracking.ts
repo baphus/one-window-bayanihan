@@ -38,8 +38,8 @@ export default function useChecklistVisitTracking(): void {
                 markChecklistItem(item.id);
             }
         }
-        // checklistProgress is intentionally read fresh each navigation; url
-        // is the navigation signal.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [url, role]);
+        // Re-running when progress changes is safe: already-marked items are
+        // skipped, so the effect settles instead of looping. `url` stays the
+        // navigation signal that wakes it on each page visit.
+    }, [url, role, checklistProgress, markChecklistItem]);
 }

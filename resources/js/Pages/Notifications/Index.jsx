@@ -222,7 +222,7 @@ export default function NotificationsIndex() {
   const { data: notifData, isLoading: notifLoading, error: notifError } = useQuery({
     queryKey: ['notifications-page', notifPage],
     queryFn: async () => {
-      const res = await fetch(`/notifications?per_page=20&page=${notifPage}`, {
+      const res = await fetch(route('notifications.index', { per_page: 20, page: notifPage }), {
         headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
       });
       if (!res.ok) throw new Error(`Failed: ${res.status}`);
@@ -235,7 +235,7 @@ export default function NotificationsIndex() {
   // ── Mutations ──
   const markReadMutation = useMutation({
     mutationFn: (rawId) =>
-      fetch(`/notifications/${rawId}/read`, {
+      fetch(route('notifications.mark-as-read', rawId), {
         method: 'PATCH',
         headers: {
           Accept: 'application/json',
@@ -252,7 +252,7 @@ export default function NotificationsIndex() {
 
   const markAllReadMutation = useMutation({
     mutationFn: () =>
-      fetch('/notifications/mark-all-read', {
+      fetch(route('notifications.mark-all-read'), {
         method: 'PATCH',
         headers: {
           Accept: 'application/json',

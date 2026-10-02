@@ -77,9 +77,36 @@ class ReferralTimelineTest extends TestCase
         $statusEvent = collect($timeline)->firstWhere('type', 'referral_status');
 
         $this->assertNotNull($statusEvent);
-        $this->assertSame('Referral status updated', $statusEvent['title']);
-        $this->assertSame('', $statusEvent['description']);
+        $this->assertSame('Referral status updated to Processing', $statusEvent['title']);
+        $this->assertSame('Changed from Pending to Processing', $statusEvent['description']);
         $this->assertStringNotContainsString($sensitiveValue, json_encode($statusEvent));
         $this->assertStringNotContainsString('old private note', json_encode($statusEvent));
+        $this->assertStringNotContainsString('Referral updated:', json_encode($statusEvent));
+    }
+
+    public function test_timeline_humanizes_for_compliance_status_change(): void
+    {
+        $referral = Referral::factory()->create([
+            'agcy_id' => Agency::factory()->create()->id,
+            'case_id' => CaseFile::factory()->create()->id,
+        ]);
+
+        AuditLog::create([
+            'action' => 'UPDATE',
+            'module' => 'referral',
+            'entity_id' => $referral->id,
+            'description' => 'Referral updated: status changed',
+            'old_value' => ['status' => 'PROCESSING', 'decision_comment' => 'internal comment must stay hidden'],
+            'new_value' => ['status' => 'FOR_COMPLIANCE', 'decision_comment' => 'another internal comment'],
+            'timestamp' => now(),
+        ]);
+
+        $timeline = app(ReferralService::class)->getReferralTimeline($referral->fresh());
+        $statusEvent = collect($timeline)->firstWhere('type', 'referral_status');
+
+        $this->assertNotNull($statusEvent);
+        $this->assertSame('Referral status updated to For Compliance', $statusEvent['title']);
+        $this->assertSame('Changed from Processing to For Compliance', $statusEvent['description']);
+        $this->assertStringNotContainsString('internal comment', json_encode($statusEvent));
     }
 }

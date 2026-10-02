@@ -103,14 +103,21 @@ class ContentSecurityPolicy
      */
     private function getDevPolicy(): string
     {
-        $viteOrigin = env('VITE_DEV_SERVER_URL', 'http://127.0.0.1:5173');
+        $viteOrigin = config('csp.dev_server_url', 'http://127.0.0.1:5173');
         $appOrigin = config('app.url');
+
+        // Dev-only origins (localhost HMR endpoints) are scoped to this local
+        // policy, which is only served when app()->environment('local').
+        // Production/staging use getPolicy() and never see these origins.
+        $devConnectOrigins = app()->environment('local')
+            ? 'http://localhost:8000 http://127.0.0.1:8000 wss: '.$viteOrigin.' ws://127.0.0.1:5173'
+            : $viteOrigin;
 
         return "default-src 'self'; "
             ."script-src 'self' 'unsafe-inline' 'unsafe-eval' {$viteOrigin} https://challenges.cloudflare.com; "
             ."style-src 'self' 'unsafe-inline' https://fonts.bunny.net https://fonts.googleapis.com; "
             ."img-src 'self' data: blob: https://res.cloudinary.com; "
-            ."connect-src 'self' {$appOrigin} http://localhost:8000 http://127.0.0.1:8000 wss: {$viteOrigin} ws://127.0.0.1:5173 https://challenges.cloudflare.com; "
+            ."connect-src 'self' {$appOrigin} {$devConnectOrigins} https://challenges.cloudflare.com; "
             ."worker-src 'self' blob:; "
             ."frame-src 'self' https://challenges.cloudflare.com https://www.google.com https://maps.google.com; "
             ."object-src 'none'; "

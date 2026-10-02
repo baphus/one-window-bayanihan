@@ -131,7 +131,6 @@ authenticated user ID and falls back to IP for guests.
 | `survey-submit` | 10/min | Per IP | `POST /survey/{token}`; spam prevention |
 | `contact-form` | 5/min | Per IP | `POST /contact`; spam prevention |
 | `chatbot` | 30/min | Per IP | `POST /chatbot/message`; API cost control |
-| `address-lookup` | 60/min | Per user (fallback: IP) | `/api/address/*` (5 public PSGC endpoints) |
 | `csp-report` | 120/min | Per IP | `POST /api/csp/report`; high-volume endpoint |
 | `readiness` | 60/min | Per IP | `GET /api/readyz` |
 | `resend-webhook` | 300/min | Per IP | `POST /api/webhooks/resend` (delivery-event ingest) |

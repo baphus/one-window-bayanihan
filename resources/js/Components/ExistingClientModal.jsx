@@ -114,9 +114,8 @@ export default function ExistingClientModal({ show, onClose, onSelect }) {
     // Debounced search
     const performSearch = useCallback((searchTerm) => {
         setLoading(true);
-        const url = searchTerm.trim()
-            ? `/api/clients?q=${encodeURIComponent(searchTerm.trim())}`
-            : '/api/clients';
+        const trimmed = searchTerm.trim();
+        const url = route('api.clients.index', trimmed ? { q: trimmed } : {});
 
         axios.get(url)
             .then((res) => {

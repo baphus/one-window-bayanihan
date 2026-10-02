@@ -101,18 +101,13 @@ Responses contain `reply`, `status`, `sources`, `actions`, and explicitly nullab
 | Method | URI | Controller | Name | Middleware |
 |--------|-----|-----------|------|------------|
 | GET | `/api/readyz` | `ReadinessController` (single-action) | `monitoring.readyz` | `throttle:readiness` |
-| GET | `/api/address/regions` | `PhilippineAddressController@regions` | — | `throttle:address-lookup` |
-| GET | `/api/address/provinces` | `PhilippineAddressController@provinces` | — | `throttle:address-lookup` |
-| GET | `/api/address/cities` | `PhilippineAddressController@cities` | — | `throttle:address-lookup` |
-| GET | `/api/address/barangays` | `PhilippineAddressController@barangays` | — | `throttle:address-lookup` |
-| GET | `/api/address/resolve` | `PhilippineAddressController@resolve` | — | `throttle:address-lookup` |
 | POST | `/api/csp/report` | `CspViolationController@report` | — | `throttle:csp-report` |
 | POST | `/api/webhooks/resend` | `ResendWebhookController` (single-action) | `webhooks.resend` | `throttle:resend-webhook` |
 
 Notes:
 
 - **`GET /up` vs `GET /api/readyz`.** `/up` is the shallow framework health endpoint (configured in `bootstrap/app.php`); the hosting platform's liveness probe must use it. `/api/readyz` is the deep readiness probe (database, scheduler heartbeat, queue backlog, image rendering) for external monitoring. It requires the `X-Monitoring-Token` header and returns 404 when no token is configured. They are deliberately different: pointing the liveness probe at the deep check turns a database blip into a restart loop.
-- **PSGC address lookup.** The five `/api/address/*` endpoints serve public Philippine Standard Geographic Code data (regions → provinces → cities → barangays → resolve). No auth required. The limiter must stay the named `address-lookup` limiter — an inline limit would share one counter with `/intake/submit` and reject filer submissions.
+- **PSGC address data (no endpoints).** Philippine Standard Geographic Code data lives in the generated `resources/js/data/philippine-addresses.ts` file (regenerate with `npm run addresses:sync`); the frontend reads it directly and `PhilippineAddressService` parses the same file server-side. The former five public `/api/address/*` endpoints were removed (unused — no frontend code called them).
 - **Resend webhook.** Authenticated by Svix signature inside the controller (see the mail webhook verifier service), not by session or token. It lives in `api.php` so it bypasses CSRF, sessions, and the MFA middleware the web group appends.
 
 ### Health Check
@@ -535,7 +530,6 @@ In debug mode, Inertia requests that raise bubble a 409 with `X-Inertia-Location
 | `intake-otp` | 5/min | `/intake/verify-email` |
 | `intake-duplicate` | 10/min | `/intake/check-duplicate` |
 | `intake-submit` | 5/min | `/intake/submit`, `/intake/register`, `/track/register` |
-| `address-lookup` | 60/min | `/api/address/*` (×5) |
 | `chatbot` | 30/min | `POST /chatbot/message` |
 | `contact-form` | 5/min | `POST /contact` |
 | `csp-report` | 120/min | `POST /api/csp/report` |

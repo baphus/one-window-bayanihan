@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useMemo, Fragment } from 'react';
-import { Head, usePage } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import AppHeader from '@/Components/landing/AppHeader';
 import AppFooter from '@/Components/landing/AppFooter';
 import TurnstileWidget from '@/Components/TurnstileWidget';
@@ -1120,7 +1120,7 @@ function IntakeSuccess({ caseNumber, trackerNumber, email }) {
 
       if (res.ok && json?.success) {
         // Account created — redirect to OFW portal
-        window.location.href = json.redirect || route('ofw.dashboard');
+        router.visit(json.redirect || route('ofw.dashboard'));
       } else if (res.status === 422) {
         if (json?.errors) {
           setRegisterErrors(json.errors);

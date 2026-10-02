@@ -64,12 +64,7 @@ class ReferralCreated extends Notification implements ShouldQueue
         $agencyName = $referral->relationLoaded('agency')
             ? ($referral->agency?->name ?? 'agency')
             : 'agency';
-        $services = $referral->relationLoaded('services')
-            ? $referral->services->pluck('name')->implode(', ')
-            : $referral->required_services;
-        $servicesDisplay = $services !== '' ? $services : 'Services pending agency assignment';
-
-        $message = "Case {$caseNumber} referred to {$agencyName} — {$servicesDisplay}";
+        $message = "Case {$caseNumber} referred to {$agencyName}";
         if ($this->actorName !== null && $this->actorName !== '') {
             $message .= " by {$this->actorName}";
         }
@@ -84,7 +79,6 @@ class ReferralCreated extends Notification implements ShouldQueue
             'referral_id' => $referral->id,
             'case_id' => $referral->case_id,
             'agency' => $agencyName,
-            'required_services' => $servicesDisplay,
         ];
     }
 

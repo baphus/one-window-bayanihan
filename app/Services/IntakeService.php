@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\AuditAction;
 use App\Enums\AuditModule;
+use App\Mail\IntakeReceivedMail;
 use App\Models\AuditLog;
 use App\Models\CaseFile;
 use App\Models\Client;
@@ -11,6 +12,7 @@ use App\Models\User;
 use App\Notifications\NewIntakeSubmission;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
 
 class IntakeService
@@ -140,6 +142,31 @@ class IntakeService
             'user_id' => null,
             'timestamp' => now(),
         ]);
+
+        // Receipt email to the filer (outside transaction, after notify + audit).
+        // Tells the OFW the case is being evaluated and prompts account
+        // creation with the same email so the case links automatically.
+        $hasAccount = User::where('role', 'OFW')
+            ->whereRaw('LOWER(TRIM(email)) = ?', [strtolower(trim($verifiedEmail))])
+            ->exists();
+
+        Mail::to($verifiedEmail)->queue(
+            new IntakeReceivedMail($case->loadMissing('client'), $hasAccount)
+        );
+
+        app(NotificationService::class)->notifyOfw(
+            $case,
+            $verifiedEmail,
+            'intake_received',
+            'Case Received',
+            "We received your request. It is currently being evaluated by a Case Manager. Your tracker number is {$case->tracker_number}.",
+            [
+                'case_number' => $case->case_number,
+                'tracker_number' => $case->tracker_number,
+            ],
+            route('track.index', ['tracker_number' => $case->tracker_number]),
+            false,
+        );
 
         return $case;
     }

@@ -1,6 +1,8 @@
-import { usePage } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import GettingStartedChecklist from '@/Components/GettingStartedChecklist';
 import StatusBadge from '@/Components/ui/StatusBadge';
+import { humanizeStatus } from '@/lib/statusLabels';
+import { formatRelativeTime } from '@/lib/relativeTime';
 import {
     ActivityFeed,
     BarList,
@@ -10,17 +12,53 @@ import {
     PageHeader,
     QuickActions,
     SectionCard,
-    StatRow,
-    StatusDonut,
-    TriageStrip,
     ViewAllLink,
     formatCount,
     safeArray,
+    toneDot,
 } from '@/Components/Dashboard/primitives';
 
-function formatAge(days) {
-    const parsed = Number(days ?? 0);
-    return parsed > 0 ? `${parsed}d` : 'New';
+const OVERDUE_DAYS = 5;
+
+function toAgeDays(value, fallback = 0) {
+    if (value === undefined || value === null) {
+        return fallback;
+    }
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed >= 0 ? Math.floor(parsed) : fallback;
+}
+
+function AgeFlag({ days }) {
+    const parsed = toAgeDays(days, 0);
+    const overdue = parsed >= OVERDUE_DAYS;
+    return (
+        <span
+            className={
+                overdue
+                    ? 'inline-flex items-center rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-black text-white'
+                    : 'text-[10px] font-bold uppercase tracking-widest text-slate-400'
+            }
+        >
+            {parsed}d
+        </span>
+    );
+}
+
+function formatReferredAt(iso) {
+    if (!iso) {
+        return '';
+    }
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) {
+        return '';
+    }
+    const short = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(date);
+    return `${short} · ${formatRelativeTime(iso)}`;
+}
+
+function referralNote(item) {
+    const stamp = formatReferredAt(item.referred_at);
+    return [item.service, stamp || null].filter(Boolean).join(' · ');
 }
 
 function PulseStat({ label, value }) {
@@ -32,15 +70,21 @@ function PulseStat({ label, value }) {
     );
 }
 
+const QUEUE_ORDER = ['newReferrals', 'pendingReferrals', 'processingReferrals', 'forComplianceReferrals', 'overdueReferrals', 'returnedReferrals'];
+
 export default function AgencyDashboard({ dashboard = {} }) {
     const { auth } = usePage().props;
     const firstName = auth?.user?.name?.split(' ')[0] ?? 'there';
 
-    const priorityReferrals = safeArray(dashboard.priorityReferrals).slice(0, 8);
+    const pendingReferrals = safeArray(dashboard.pendingReferrals).slice(0, 5);
+    const overdueReferrals = safeArray(dashboard.overdueReferrals).slice(0, 5);
     const serviceDemand = safeArray(dashboard.serviceDemand).slice(0, 6);
-    const agingBands = safeArray(dashboard.referralAgingBands);
     const pulse = dashboard.feedbackPulse ?? {};
     const hasPulse = Boolean(pulse.hasData);
+
+    const queueCells = QUEUE_ORDER.map((key) => safeArray(dashboard.workQueue).find((item) => item.key === key))
+        .filter(Boolean)
+        .map((item) => (item.key === 'returnedReferrals' ? { ...item, tone: 'slate' } : item));
 
     return (
         <div className="mx-auto max-w-7xl pb-8">
@@ -61,36 +105,73 @@ export default function AgencyDashboard({ dashboard = {} }) {
                 />
             </PageHeader>
 
-            <StatRow
-                dataTour="dashboard-stats"
-                stats={[
-                    { title: 'Pending', value: dashboard.pendingReferrals, icon: 'schedule', iconBg: 'bg-amber-50', iconColor: 'text-amber-700' },
-                    { title: 'Processing', value: dashboard.processingReferrals, icon: 'sync', iconBg: 'bg-cyan-50', iconColor: 'text-cyan-700' },
-                    { title: 'For compliance', value: dashboard.forComplianceReferrals, icon: 'fact_check', iconBg: 'bg-orange-50', iconColor: 'text-orange-700' },
-                    { title: 'Completed', value: dashboard.completedReferrals, icon: 'task_alt', iconBg: 'bg-emerald-50', iconColor: 'text-emerald-700' },
-                ]}
-            />
+            <SectionCard title="My referrals" dataTour="dashboard-work-queue" bodyClassName="">
+                <div data-tour="dashboard-stats" className="grid grid-cols-2 gap-px overflow-hidden rounded-b-xl bg-slate-100 sm:grid-cols-3 lg:grid-cols-6">
+                    {queueCells.map((item, index) => {
+                        const count = Number(item.count ?? 0);
+                        const urgent = count > 0 && (item.tone === 'rose' || item.tone === 'orange');
 
-            <TriageStrip items={dashboard.workQueue} dataTour="dashboard-work-queue" />
+                        return (
+                            <Link
+                                key={item.key ?? index}
+                                href={item.href ?? '#'}
+                                className={`group flex flex-col gap-1 px-4 py-3.5 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary ${
+                                    urgent ? 'bg-rose-50/40' : 'bg-white'
+                                }`}
+                            >
+                                <span className="flex items-center gap-1.5">
+                                    <span className={`h-1.5 w-1.5 rounded-circle ${toneDot(item.tone)}`} />
+                                    <span className="truncate text-[10px] font-bold uppercase tracking-widest text-slate-400">{item.label}</span>
+                                </span>
+                                <span className={`text-xl font-black ${count === 0 ? 'text-slate-300' : urgent ? 'text-rose-600' : 'text-slate-900'}`}>
+                                    {formatCount(count)}
+                                </span>
+                                <span className={`hidden truncate text-[11px] md:block ${urgent ? 'font-medium text-rose-500' : 'text-slate-500'}`}>
+                                    {item.note}
+                                </span>
+                            </Link>
+                        );
+                    })}
+                </div>
+            </SectionCard>
 
-            <div className="grid gap-6 xl:grid-cols-12">
+            <div className="mt-6 grid gap-6 xl:grid-cols-12">
                 <div className="space-y-6 xl:col-span-8">
                     <SectionCard
-                        title="Priority referrals"
+                        title="Pending referrals"
                         dataTour="dashboard-agency-referrals"
-                        action={<ViewAllLink href="/referrals" />}
+                        action={<ViewAllLink href="/referrals?status=PENDING" />}
                         bodyClassName=""
                     >
-                        <EntityList empty={<EmptyState message="No referrals need action right now." href="/referrals" actionLabel="Open referrals" />}>
-                            {priorityReferrals.map((item) => (
+                        <EntityList empty={<EmptyState message="No pending referrals." href="/referrals" actionLabel="Open referrals" />}>
+                            {pendingReferrals.map((item) => (
                                 <EntityRow
                                     key={item.id}
                                     href={item.href ?? `/referrals/${item.id}`}
                                     pill={item.case_number}
                                     title={item.client_name}
-                                    note={item.service}
-                                    age={formatAge(item.age_days)}
-                                    right={<StatusBadge status={item.status} />}
+                                    note={referralNote(item)}
+                                    age={<AgeFlag days={item.age_days} />}
+                                />
+                            ))}
+                        </EntityList>
+                    </SectionCard>
+
+                    <SectionCard
+                        title="Overdue referrals"
+                        action={<ViewAllLink href="/overdue-referrals" />}
+                        bodyClassName=""
+                    >
+                        <EntityList empty={<EmptyState message="Nothing is late." href="/overdue-referrals" actionLabel="Check overdue" />}>
+                            {overdueReferrals.map((item) => (
+                                <EntityRow
+                                    key={item.id}
+                                    href={item.href ?? `/referrals/${item.id}`}
+                                    pill={item.case_number}
+                                    title={item.client_name}
+                                    note={referralNote(item)}
+                                    age={<AgeFlag days={item.age_days} />}
+                                    right={<StatusBadge status={item.status} label={humanizeStatus(item.status)} />}
                                 />
                             ))}
                         </EntityList>
@@ -102,31 +183,7 @@ export default function AgencyDashboard({ dashboard = {} }) {
                 </div>
 
                 <div className="space-y-6 xl:col-span-4">
-                    <SectionCard title="Referral status">
-                        {safeArray(dashboard.referralStatusDistribution).length > 0 ? (
-                            <StatusDonut items={dashboard.referralStatusDistribution} />
-                        ) : (
-                            <p className="text-sm text-slate-500">Status distribution appears once referrals arrive.</p>
-                        )}
-                    </SectionCard>
-
-                    <SectionCard title="Referral aging">
-                        {agingBands.length > 0 ? (
-                            <BarList
-                                items={agingBands.map((item) => ({
-                                    key: item.key,
-                                    label: item.label,
-                                    count: item.count,
-                                    percent: item.percent,
-                                    tone: item.tone,
-                                }))}
-                            />
-                        ) : (
-                            <p className="text-sm text-slate-500">Aging bands appear once active referrals are present.</p>
-                        )}
-                    </SectionCard>
-
-                    <SectionCard title="Service demand">
+                    <SectionCard title="Services applied">
                         {serviceDemand.length > 0 ? (
                             <BarList
                                 items={serviceDemand.map((item) => ({
@@ -138,7 +195,7 @@ export default function AgencyDashboard({ dashboard = {} }) {
                                 }))}
                             />
                         ) : (
-                            <p className="text-sm text-slate-500">Demand appears once referrals request your services.</p>
+                            <p className="text-sm text-slate-500">Applied services appear once your services are added to referrals.</p>
                         )}
                     </SectionCard>
 

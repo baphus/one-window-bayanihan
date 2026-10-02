@@ -14,6 +14,7 @@ use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class DataExportQueries
 {
@@ -291,7 +292,11 @@ class DataExportQueries
                 try {
                     $dob = new \DateTimeImmutable($row->ofw_date_of_birth);
                     $row->ofw_age = (string) CarbonImmutable::parse($dob)->age;
-                } catch (\Exception) {
+                } catch (\Exception $e) {
+                    Log::debug('DataExportQueries: unparseable date of birth in export', [
+                        'value' => $row->ofw_date_of_birth,
+                        'exception' => $e->getMessage(),
+                    ]);
                     $row->ofw_age = '';
                 }
             }

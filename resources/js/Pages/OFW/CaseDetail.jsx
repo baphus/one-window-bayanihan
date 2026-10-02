@@ -332,7 +332,9 @@ export default function CaseDetail({
                                         a.status === 'PROCESSING' ? 'bg-blue-300/70' :
                                         'bg-white/30'
                                     }`}
-                                />
+                                >
+                                    <span className="sr-only">{`${a.name} — ${(REFERRAL_STAMP[a.status] ?? REFERRAL_STAMP.PENDING).label}`}</span>
+                                </span>
                             ))}
                         </div>
                         <p className="mt-2 text-[11px] text-primary-fixed-dim/80">

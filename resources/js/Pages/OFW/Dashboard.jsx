@@ -3,6 +3,17 @@ import { Hourglass } from 'lucide-react';
 import OfwLayout from '@/Layouts/OfwLayout';
 import StatusBadge from '@/Components/ui/StatusBadge';
 
+// Laravel paginator labels are server-escaped strings limited to page
+// numbers plus &laquo; / &raquo; / &hellip; entities — decode them as text
+// instead of injecting them with dangerouslySetInnerHTML.
+function paginationLabel(label) {
+    return String(label ?? '')
+        .replace(/&laquo;/g, '«')
+        .replace(/&raquo;/g, '»')
+        .replace(/&hellip;/g, '…')
+        .replace(/<[^>]*>/g, '');
+}
+
 function formatDate(dateStr) {
     if (!dateStr) return '—';
     return new Date(dateStr).toLocaleDateString('en-PH', {
@@ -217,21 +228,28 @@ export default function Dashboard({ cases, caseStats }) {
             {/* Pagination links */}
             {cases?.links && cases.links.length > 3 && (
                 <nav className="mt-8 flex items-center justify-center gap-1" aria-label="Pagination">
-                    {cases.links.map((link, index) => (
-                        <Link
-                            key={index}
-                            href={link.url ?? '#'}
-                            className={`rounded px-3 py-1.5 text-sm ${
-                                link.active
-                                    ? 'bg-primary font-semibold text-white'
-                                    : link.url
-                                      ? 'text-slate-600 hover:bg-slate-100'
-                                      : 'cursor-not-allowed text-slate-300'
-                            }`}
-                            preserveScroll
-                            dangerouslySetInnerHTML={{ __html: link.label }}
-                        />
-                    ))}
+                    {cases.links.map((link) => {
+                        // Paginator labels are unique per control (Previous /
+                        // page numbers / Next), so the decoded text is a
+                        // stable key — unlike the array index.
+                        const label = paginationLabel(link.label);
+                        return (
+                            <Link
+                                key={label}
+                                href={link.url ?? '#'}
+                                className={`rounded px-3 py-1.5 text-sm ${
+                                    link.active
+                                        ? 'bg-primary font-semibold text-white'
+                                        : link.url
+                                          ? 'text-slate-600 hover:bg-slate-100'
+                                          : 'cursor-not-allowed text-slate-300'
+                                }`}
+                                preserveScroll
+                            >
+                                {label}
+                            </Link>
+                        );
+                    })}
                 </nav>
             )}
         </OfwLayout>

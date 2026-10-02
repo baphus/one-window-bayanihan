@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\AuditAction;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class SessionService
 {
@@ -16,8 +17,12 @@ class SessionService
                 ->orderBy('last_activity', 'desc')
                 ->get();
 
-            return $sessions->map(function ($session) {
-                $user = User::find($session->user_id);
+            $users = User::whereIn('id', $sessions->pluck('user_id')->unique()->values()->all())
+                ->get(['id', 'name', 'email'])
+                ->keyBy('id');
+
+            return $sessions->map(function ($session) use ($users) {
+                $user = $users->get($session->user_id);
 
                 if (! $user) {
                     return null;
@@ -35,6 +40,8 @@ class SessionService
                 ];
             })->filter()->values()->toArray();
         } catch (\Exception $e) {
+            Log::warning('SessionService: failed to load sessions', ['exception' => $e->getMessage()]);
+
             return [];
         }
     }

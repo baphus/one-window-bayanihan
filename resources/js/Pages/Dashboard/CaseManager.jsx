@@ -395,7 +395,7 @@ function NotificationsBlock() {
     const { data: notifData, isLoading } = useQuery({
         queryKey: ['notifications'],
         queryFn: async () => {
-            const res = await fetch('/notifications?per_page=20', {
+            const res = await fetch(safeRoute('notifications.index', { per_page: 20 }, '/notifications?per_page=20'), {
                 headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
             });
             if (!res.ok) throw new Error(`Failed: ${res.status}`);
@@ -408,7 +408,7 @@ function NotificationsBlock() {
     const { data: unreadData } = useQuery({
         queryKey: ['notifications', 'unread-count'],
         queryFn: async () => {
-            const res = await fetch('/notifications/unread-count', {
+            const res = await fetch(safeRoute('notifications.unread-count', undefined, '/notifications/unread-count'), {
                 headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
             });
             if (!res.ok) throw new Error(`Failed: ${res.status}`);
@@ -420,7 +420,7 @@ function NotificationsBlock() {
 
     const markReadMutation = useMutation({
         mutationFn: (rawId) =>
-            fetch(`/notifications/${rawId}/read`, {
+            fetch(safeRoute('notifications.mark-as-read', rawId, `/notifications/${rawId}/read`), {
                 method: 'PATCH',
                 headers: {
                     Accept: 'application/json',

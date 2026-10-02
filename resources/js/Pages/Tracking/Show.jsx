@@ -678,7 +678,7 @@ function AccountUpsell({ verifiedEmail, hasOfwAccount }) {
       }
 
       if (res.ok && json?.success) {
-        window.location.href = json.redirect || route('ofw.dashboard');
+        router.visit(json.redirect || route('ofw.dashboard'));
         return;
       }
 
@@ -937,7 +937,9 @@ export default function TrackingShow({
                       a.status === 'PROCESSING' ? 'bg-blue-300/70' :
                       'bg-white/30'
                     }`}
-                  />
+                  >
+                    <span className="sr-only">{`${a.name} — ${(REFERRAL_STAMP[a.status] ?? REFERRAL_STAMP.PENDING).label}`}</span>
+                  </span>
                 ))}
               </div>
               <p className="mt-2 text-[11px] text-primary-fixed-dim/80">

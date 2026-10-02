@@ -426,7 +426,7 @@ export default function CaseCreate() {
         return value;
     }
 
-    const { data, setData, post, put, processing, errors, setError, clearErrors } = useForm({
+    const { data, setData, post, put, transform, processing, errors, setError, clearErrors } = useForm({
         client_type: 'OFW',
         category_ids: [],
         vulnerability_indicator: 'None',
@@ -484,6 +484,9 @@ export default function CaseCreate() {
     const searchDebounceRef = useRef(null);
     const draftIdRef = useRef(existingDraft?.id || null);
     const restoredRef = useRef(false);
+    // Guards the existing-client prefill below so it fires exactly once,
+    // when the late `client` prop arrives — never re-running on edits.
+    const clientPrefillRef = useRef(false);
     const [searchResults, setSearchResults] = useState([]);
     const [searchLoading, setSearchLoading] = useState(false);
     const [emailDupClient, setEmailDupClient] = useState(null);
@@ -616,7 +619,7 @@ export default function CaseCreate() {
         const params = {};
         const q = debouncedSearch.trim();
         if (q) params.q = q;
-        window.axios.get('/api/clients', { params })
+        window.axios.get(route('api.clients.index'), { params })
             .then((res) => {
                 if (!cancelled) {
                     const mapped = (res.data.data || []).map((c) => ({
@@ -655,8 +658,9 @@ export default function CaseCreate() {
     }
 
     useEffect(() => {
-        if (client) {
-            setClientSource('existing');
+        if (!client || clientPrefillRef.current) return;
+        clientPrefillRef.current = true;
+        setClientSource('existing');
             setData('selected_client_id', client.id);
             setData('client', {
                 ...data.client,
@@ -785,8 +789,7 @@ export default function CaseCreate() {
             setSelectedClient(null);
             setSavedSnapshot(initialFormRef.current);
             setCurrentStep(2);
-        }
-    }, []);
+    }, [client]);
 
     // Seed form state when an existing draft is loaded
     useEffect(() => {
@@ -1042,7 +1045,7 @@ export default function CaseCreate() {
         if (!client?.id) return;
         setSelectedClient(null);
         try {
-            const res = await window.axios.get(`/api/clients/${client.id}`);
+            const res = await window.axios.get(route('api.clients.show', client.id));
             const data = res.data.data;
             const mapped = {
                 ...data,
@@ -1485,15 +1488,22 @@ export default function CaseCreate() {
         bypassNext();
 
         // Inertia v2's useForm.post/put ignores options.data and always sends the
-        // form's internal dataRef. Set is_draft on the form state so it reaches
-        // the backend, which uses it to switch validation to nullable rules.
+        // form's internal dataRef. setData is async, so a submit issued in the
+        // same tick could still carry the old flag — belt-and-braces: mirror
+        // it into form state AND force it via transform for this request,
+        // resetting the transformer in both outcomes so later submits are
+        // unaffected.
         setData('is_draft', true);
+        transform((formData) => ({ ...formData, is_draft: true }));
 
+        const resetTransform = () => transform((formData) => formData);
         const onError = (errors) => {
+            resetTransform();
             const msgs = Object.values(errors);
             toast.error(msgs[0] || 'Validation failed.');
         };
         const onSuccess = () => {
+            resetTransform();
             cancelPendingSave();
             commitSavedSnapshot({ ...data, is_draft: true });
         };
@@ -1554,13 +1564,17 @@ export default function CaseCreate() {
         }
 
         // Inertia v2's useForm.post ignores options.data — set flags directly
-        // on the form state so the backend receives them.
+        // on the form state so the backend receives them, and force them via
+        // transform for the same-tick race described in handleSaveDraft.
+        const confirmDuplicate = !!data.confirm_duplicate_client;
         setData('is_draft', false);
-        setData('confirm_duplicate_client', !!data.confirm_duplicate_client);
+        setData('confirm_duplicate_client', confirmDuplicate);
+        transform((formData) => ({ ...formData, is_draft: false, confirm_duplicate_client: confirmDuplicate }));
 
         post(route('cases.store'), {
-            onSuccess: () => { clearLocalBackup(); },
+            onSuccess: () => { transform((formData) => formData); clearLocalBackup(); },
             onError: (errors) => {
+                transform((formData) => formData);
                 const msgs = Object.values(errors);
                 toast.error(msgs[0] || 'Validation failed.');
             },
@@ -2209,7 +2223,7 @@ function handleConfirmClient(client) {
                                                 )}
 
                                                 {data.next_of_kin.map((nok, idx) => (
-                                                    <div key={idx} className="mb-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+                                                    <div key={nok.id ?? `pending-${idx}`} className="mb-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
                                                         <div className="mb-4 flex items-center justify-between">
                                                             <h4 className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-700">
                                                                 Next of Kin #{idx + 1}

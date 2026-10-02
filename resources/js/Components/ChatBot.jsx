@@ -305,7 +305,7 @@ function ChatBotSession({ owner }) {
         try {
             localStorage.removeItem(CHAT_HISTORY_KEY);
             localStorage.removeItem(CHAT_CONTEXT_KEY);
-        } catch { /* noop */ }
+        } catch { /* localStorage unavailable — history simply won't persist */ }
         if (inputRef.current) inputRef.current.focus();
     }
 

@@ -1,7 +1,6 @@
 import { Link, usePage, router } from '@inertiajs/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import UserAvatar from '@/Components/ui/UserAvatar';
-import NotificationPanel from '@/Components/ui/NotificationPanel';
 import PageGuideButton from '@/Components/PageGuideButton';
 import PeerProfileModal from '@/Components/PeerProfileModal';
 
@@ -159,12 +158,8 @@ export default function AppSidebar() {
     fetchCount();
     timer = setInterval(fetchCount, 60000);
 
-    // Listen for immediate-refresh signal from NotificationPanel
-    const onCountUpdated = () => fetchCount();
-    window.addEventListener('notification-count-updated', onCountUpdated);
     return () => {
       clearInterval(timer);
-      window.removeEventListener('notification-count-updated', onCountUpdated);
     };
   }, []);
 
@@ -368,7 +363,6 @@ export default function AppSidebar() {
               </div>
             )}
             {!collapsed && <PageGuideButton />}
-            {!collapsed && <NotificationPanel />}
           </div>
 
           <div className={`mt-4 flex items-center ${collapsed ? 'flex-col gap-2' : 'gap-2'}`}>

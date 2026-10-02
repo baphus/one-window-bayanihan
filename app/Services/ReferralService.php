@@ -5,9 +5,11 @@ namespace App\Services;
 use App\Enums\AuditAction;
 use App\Enums\AuditModule;
 use App\Events\ReferralCompleted;
+use App\Exceptions\ReferralDocumentUploadException;
 use App\Helpers\CacheHelper;
 use App\Models\Agency;
 use App\Models\AuditLog;
+use App\Models\CaseDocument;
 use App\Models\CaseFile;
 use App\Models\Milestone;
 use App\Models\Referral;
@@ -24,6 +26,7 @@ use App\Notifications\ReferralCreated;
 use App\Notifications\ReferralStatusChanged;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -136,9 +139,65 @@ class ReferralService
             return $referral->load(['agency', 'caseFile', 'milestones']);
         });
 
-        TrackingService::invalidateTrackingCache($data['case_id']);
-
         return $referral;
+    }
+
+    /**
+     * Create a referral plus its uploaded case documents atomically.
+     *
+     * The referral row, the stored files, and the case-document rows share one
+     * database transaction (nested service transactions join it via savepoints),
+     * so a failed upload rolls everything back. Already-stored files are
+     * deleted from object storage so no orphans remain.
+     *
+     * @param  array<string, mixed>  $data  Validated referral attributes.
+     * @param  array<int, UploadedFile>|UploadedFile|null  $files  Uploaded documents.
+     *
+     * @throws ReferralDocumentUploadException
+     */
+    public function createReferralWithDocuments(array $data, string $userId, array|UploadedFile|null $files, StorageService $storage): Referral
+    {
+        $files = is_array($files) ? $files : ($files instanceof UploadedFile ? [$files] : []);
+        $storedPaths = [];
+
+        try {
+            return DB::transaction(function () use ($data, $userId, $files, $storage, &$storedPaths) {
+                $referral = $this->createReferral($data, $userId);
+
+                foreach ($files as $file) {
+                    $result = $storage->store($file, 'case-documents/'.$referral->case_id);
+
+                    if (! $result->success) {
+                        throw new ReferralDocumentUploadException(
+                            $result->error ?? 'Failed to store file.',
+                        );
+                    }
+
+                    $storedPaths[] = $result->path;
+
+                    CaseDocument::create([
+                        'file_name' => $result->originalName,
+                        'file_path' => $result->path,
+                        'file_type' => $result->type,
+                        'size' => $result->size,
+                        'case_id' => $referral->case_id,
+                        'referral_id' => $referral->id,
+                        'user_id' => $userId,
+                        'category' => 'referral',
+                    ]);
+                }
+
+                return $referral;
+            });
+        } catch (ReferralDocumentUploadException $e) {
+            // Roll back the object-storage side; the DB transaction is rolled
+            // back automatically.
+            foreach ($storedPaths as $path) {
+                $storage->delete($path);
+            }
+
+            throw $e;
+        }
     }
 
     public function getReferralStats(?string $userAgencyId = null, ?string $userRole = null, ?string $userId = null): array
@@ -458,7 +517,7 @@ class ReferralService
         })->toArray();
     }
 
-    public function addService(Referral $referral, string $serviceId): Referral
+    public function addService(Referral $referral, string $serviceId, string $userId): Referral
     {
         if ($referral->status === 'COMPLETED') {
             throw new \InvalidArgumentException('Cannot modify services on a completed referral.');
@@ -468,14 +527,31 @@ class ReferralService
             ->where('agcy_id', $referral->agcy_id)
             ->firstOrFail();
 
-        $referral->services()->syncWithoutDetaching([$service->id]);
+        return DB::transaction(function () use ($referral, $service, $userId) {
+            $alreadyAttached = $referral->services()->where('services.id', $service->id)->exists();
 
-        // Copy global service requirements to per-referral requirements
-        $this->copyServiceRequirements($referral, $service);
+            $referral->services()->syncWithoutDetaching([$service->id]);
 
-        $this->syncRequiredServicesText($referral);
+            // Copy global service requirements to per-referral requirements
+            $this->copyServiceRequirements($referral, $service);
 
-        return $referral->load('services');
+            $this->syncRequiredServicesText($referral);
+
+            if (! $alreadyAttached) {
+                $actorName = User::whereKey($userId)->value('name');
+
+                $milestone = Milestone::create([
+                    'title' => "Service assigned: {$service->name}",
+                    'description' => $actorName !== null ? "Added by {$actorName}" : null,
+                    'refr_id' => $referral->id,
+                    'user_id' => $userId,
+                ]);
+
+                $this->eventRecorder->milestoneAdded($referral, $milestone, $userId);
+            }
+
+            return $referral->load('services');
+        });
     }
 
     /**
@@ -691,7 +767,7 @@ class ReferralService
         });
 
         if ($changed && $caseId !== null) {
-            TrackingService::invalidateTrackingCache($caseId, $id);
+            Cache::forget(TrackingService::trackingMilestonesCacheKey($caseId, $id));
         }
 
         return $referral;
@@ -810,7 +886,7 @@ class ReferralService
         });
 
         if ($caseId !== null) {
-            TrackingService::invalidateTrackingCache($caseId, $referralId);
+            Cache::forget(TrackingService::trackingMilestonesCacheKey($caseId, $referralId));
         }
 
         return $milestone;
@@ -1198,13 +1274,30 @@ class ReferralService
             ->get();
 
         foreach ($statusLogs as $log) {
+            // Timeline is metadata-only: surface only the controlled-vocabulary
+            // `status` key. Never include free-text fields (decision_comment,
+            // private_note, description, etc.) or the raw audit description.
+            $oldStatus = self::extractTimelineStatus($log->old_value);
+            $newStatus = self::extractTimelineStatus($log->new_value);
+            $oldLabel = $oldStatus !== null ? self::humanizeReferralStatus($oldStatus) : null;
+            $newLabel = $newStatus !== null ? self::humanizeReferralStatus($newStatus) : null;
+
+            $title = 'Referral status updated';
+            $description = '';
+
+            if ($newLabel !== null) {
+                $title = "Referral status updated to {$newLabel}";
+
+                if ($oldLabel !== null) {
+                    $description = "Changed from {$oldLabel} to {$newLabel}";
+                }
+            }
+
             $events->push([
                 'id' => 'status-'.$log->id,
                 'type' => 'referral_status',
-                // The audit row may include internal free text or additional
-                // fields beside status. Keep this timeline metadata-only.
-                'title' => 'Referral status updated',
-                'description' => '',
+                'title' => $title,
+                'description' => $description,
                 'timestamp' => $log->timestamp->toISOString(),
                 'actor' => $log->user?->name ?? 'System',
             ]);
@@ -1289,8 +1382,50 @@ class ReferralService
     {
         return ReferralAttachment::where('referral_id', $referralId)
             ->where('version_group_id', $versionGroupId)
-            ->with('user')
             ->orderBy('created_at', 'desc')
             ->get();
+    }
+
+    /**
+     * Extract the controlled-vocabulary referral status from an audit
+     * old_value/new_value payload. Payloads may be arrays (Eloquent cast)
+     * or raw JSON strings. Only the `status` key is used; anything else
+     * (free text, notes, diffs) is ignored so it can never leak into
+     * the timeline.
+     */
+    private static function extractTimelineStatus(mixed $value): ?string
+    {
+        if (is_string($value)) {
+            $decoded = json_decode($value, true);
+
+            if (! is_array($decoded)) {
+                return null;
+            }
+
+            $value = $decoded;
+        }
+
+        if (! is_array($value)) {
+            return null;
+        }
+
+        $status = $value['status'] ?? null;
+
+        if (! is_string($status) || trim($status) === '') {
+            return null;
+        }
+
+        $normalized = strtoupper(trim($status));
+
+        if (! in_array($normalized, ['PENDING', 'PROCESSING', 'FOR_COMPLIANCE', 'COMPLETED', 'REJECTED'], true)) {
+            return null;
+        }
+
+        return $normalized;
+    }
+
+    private static function humanizeReferralStatus(string $status): string
+    {
+        return ucwords(strtolower(str_replace('_', ' ', $status)));
     }
 }
