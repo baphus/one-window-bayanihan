@@ -51,7 +51,7 @@ class SendOtpTest extends TestCase
             ->where('tracker_number', $this->trackerNumber)
             ->where('email', $this->email)
             ->where('hint', $hint)
-            ->where('debug_otp', null)
+            ->missing('debug_otp')
         );
     }
 

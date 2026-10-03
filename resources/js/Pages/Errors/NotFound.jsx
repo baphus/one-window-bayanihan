@@ -1,5 +1,6 @@
 import { Head, Link } from '@inertiajs/react';
 import GuestLayout from '@/Layouts/GuestLayout';
+import safeRoute from '@/utils/safeRoute';
 
 export default function NotFound() {
     return (
@@ -12,7 +13,7 @@ export default function NotFound() {
                     The page you're looking for doesn't exist or has been moved.
                 </p>
                 <Link
-                    href="/"
+                    href={safeRoute('home', undefined, '/')}
                     className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                 >
                     Go back home

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\AuditAction;
 use App\Enums\AuditModule;
 use App\Helpers\CacheHelper;
+use App\Http\Controllers\Concerns\ResolvesPerPage;
 use App\Models\AuditLog;
 use App\Models\CaseFile;
 use App\Models\Milestone;
@@ -20,6 +21,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class AuditLogController extends Controller
 {
+    use ResolvesPerPage;
+
     /** Categories shown when the viewer applies no explicit category filter. */
     public const DEFAULT_CATEGORIES = [AuditCategory::SECURITY, AuditCategory::DATA, AuditCategory::ADMIN];
 
@@ -352,13 +355,6 @@ class AuditLogController extends Controller
         return $parsed !== false && $parsed->format('Y-m-d') === $value;
     }
 
-    private function perPage(Request $request, int $default): int
-    {
-        $requested = (int) $request->input('per_page', $default);
-
-        return in_array($requested, [15, 25, 50, 100], true) ? $requested : $default;
-    }
-
     /**
      * Requested categories, defaulting to everything except system noise.
      */
@@ -452,7 +448,7 @@ class AuditLogController extends Controller
 
         $query->with('user')->orderBy('timestamp', 'desc');
 
-        $perPage = min((int) $request->input('per_page', 50), 100);
+        $perPage = $this->perPage($request, 50);
         $logs = $query->cursorPaginate($perPage);
 
         $formatter = app(AuditLogFormatter::class);
@@ -509,7 +505,7 @@ class AuditLogController extends Controller
 
         $query->with('user')->orderBy('timestamp', 'desc');
 
-        $perPage = min((int) $request->input('per_page', 50), 100);
+        $perPage = $this->perPage($request, 50);
         $logs = $query->cursorPaginate($perPage);
 
         $formatter = app(AuditLogFormatter::class);

@@ -316,10 +316,9 @@ export const pageGuides: Record<string, PageGuide> = {
         title: 'System Settings',
         helpdeskSlug: 'configuring-system-settings-ai-chatbot',
         steps: [
-            { element: '[data-tour="settings-header"]', title: 'System Settings', description: 'Configure system-wide behavior: application info, referral timing, and OTP debug options all live on this page.', side: 'bottom' },
-            { element: '[data-tour="settings-form"]', title: 'Settings Panels', description: 'Each card is an independent setting group. Changes to toggles apply immediately; numeric settings need an explicit Save.', side: 'top' },
+            { element: '[data-tour="settings-header"]', title: 'System Settings', description: 'Configure system-wide behavior: application info, referral timing, and chatbot knowledge all live on this page.', side: 'bottom' },
+            { element: '[data-tour="settings-form"]', title: 'Settings Panels', description: 'Each card is an independent setting group. Numeric settings need an explicit Save.', side: 'top' },
             { element: '[data-tour="settings-overdue-threshold"]', title: 'Overdue Threshold', description: 'Referrals older than this many days without completion are flagged overdue across dashboards and reports. Align it with your agencies\' agreed processing times.', side: 'top' },
-            { element: '[data-tour="settings-otp-debug"]', title: 'OTP Debug Modes', description: 'These toggles auto-fill OTP codes for testing and expose them in responses. Keep both switched off in production — check them after every deployment.', side: 'top' },
         ],
     },
     'admin.system.active-sessions': {
@@ -335,9 +334,7 @@ export const pageGuides: Record<string, PageGuide> = {
         title: 'Security Settings',
         helpdeskSlug: 'securing-your-account-password-and-mfa',
         steps: [
-            { element: '[data-tour="security-header"]', title: 'Security Policies', description: 'Set the password, session, and access-control rules that apply to every account in the system.', side: 'bottom' },
-            { element: '[data-tour="security-password-policy"]', title: 'Password Policy', description: 'Define minimum length, required character types, and expiry. Stricter rules apply to new passwords only — existing ones rotate at their next expiry.', side: 'top' },
-            { element: '[data-tour="security-session"]', title: 'Sessions & Lockout', description: 'Control how long sessions last and when repeated failed logins lock an account. Shorter lifetimes are safer for shared workstations.', side: 'top' },
+            { element: '[data-tour="security-header"]', title: 'Security Policies', description: 'Set the access-control rules that apply to every account in the system.', side: 'bottom' },
             { element: '[data-tour="security-access-control"]', title: 'Access Control', description: 'Require two-factor authentication for all users.', side: 'top' },
             { element: '[data-tour="security-save"]', title: 'Apply Changes', description: 'Nothing takes effect until you click Save Changes. Review each section, save, then test a login to confirm you have not locked yourself out.', side: 'left' },
         ],

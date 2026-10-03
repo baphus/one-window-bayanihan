@@ -6,6 +6,7 @@ import { route } from 'ziggy-js';
 import { useOnboardingOptional } from './OnboardingProvider';
 import { useToast } from '@/Hooks/useToast';
 import { completeOnboarding, skipOnboarding, updateStep } from './api';
+import safeRoute from '@/utils/safeRoute';
 import { TourStep } from './types';
 
 /** Popover step shape passed to driver.js */
@@ -326,12 +327,7 @@ export default function TourManager(): null {
             // to a Helpdesk article. driver.js renders descriptions as HTML.
             if (guide.helpdeskSlug) {
                 const last = steps[steps.length - 1];
-                let articleUrl = `/help/${guide.helpdeskSlug}`;
-                try {
-                    articleUrl = route('helpdesk.show', { slug: guide.helpdeskSlug });
-                } catch {
-                    // Fall back to the literal path if Ziggy can't resolve.
-                }
+                const articleUrl = safeRoute('helpdesk.show', { slug: guide.helpdeskSlug }, `/help/${guide.helpdeskSlug}`);
                 last.popover.description += `<div class="driver-popover-readmore"><a href="${articleUrl}">Read more in the Help Center →</a></div>`;
             }
 

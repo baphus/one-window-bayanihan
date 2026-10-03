@@ -6,19 +6,12 @@ Administrators control platform-wide security posture from **System → Security
 
 ## Security settings
 
-The **Security** page manages these policies (bounds enforced by the security settings service):
-
-**Password policy**
-- **Minimum length** (6–64 characters)
-- **Require special characters** and **require numbers**
-- **Password expiry** in days (0 disables expiry, up to 365)
-
-New staff passwords require a minimum of 8 characters with mixed case, numbers, and symbols (see *User management guide*).
+The **Security** page manages this policy:
 
 **Sign-in protection**
-- **Session lifetime** in minutes (15–1440) — how long an idle session stays valid.
-- **Max login attempts** (1–50) and **lockout duration** in minutes — brute-force protection.
 - **Require two-factor authentication** — makes authenticator (TOTP) MFA mandatory instead of optional (see *Securing your account: password and MFA*).
+
+Password strength, session lifetime, and sign-in rate limits are fixed platform defaults and cannot be changed from this page. New staff passwords require a minimum of 8 characters with mixed case, numbers, and symbols (see *User management guide*).
 
 Sign-in is password plus optional authenticator — there is no login email-OTP.
 

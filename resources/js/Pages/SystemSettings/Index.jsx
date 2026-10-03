@@ -7,62 +7,26 @@ import { formatDisplayDateTime } from '@/lib/utils';
 
 
 export default function SystemSettings({ 
-    debug_otp_enabled,
-    debug_tracking_otp_enabled,
     referral_overdue_days,
     chatbot_last_reindexed_at,
 }) {
-    const [debugOtp, setDebugOtp] = useState(debug_otp_enabled);
-    const [debugTrackingOtp, setDebugTrackingOtp] = useState(debug_tracking_otp_enabled);
     const [overdueDays, setOverdueDays] = useState(referral_overdue_days);
     const [reindexing, setReindexing] = useState(false);
     const [lastReindexedAt, setLastReindexedAt] = useState(chatbot_last_reindexed_at);
     const toast = useToast();
 
     const initialRef = useRef({ 
-        debugOtp: debug_otp_enabled,
-        debugTrackingOtp: debug_tracking_otp_enabled,
         overdueDays: referral_overdue_days,
     });
     
     const hasDirty = useMemo(() => (
-        debugOtp !== initialRef.current.debugOtp
-        || debugTrackingOtp !== initialRef.current.debugTrackingOtp
-        || overdueDays !== initialRef.current.overdueDays
-    ), [debugOtp, debugTrackingOtp, overdueDays]);
+        overdueDays !== initialRef.current.overdueDays
+    ), [overdueDays]);
     const { UnsavedModal, bypassNext } = useUnsavedChanges(hasDirty);
-
-    const toggleDebugOtp = () => {
-        const next = !debugOtp;
-        setDebugOtp(next);
-        bypassNext();
-        router.post(route('admin.system-settings.update'), {
-            debug_otp_enabled: next,
-            referral_overdue_days: overdueDays,
-        }, {
-            preserveScroll: true,
-            onError: () => setDebugOtp(!next),
-        });
-    };
-
-    const toggleDebugTrackingOtp = () => {
-        const next = !debugTrackingOtp;
-        setDebugTrackingOtp(next);
-        bypassNext();
-        router.post(route('admin.system-settings.update'), {
-            debug_tracking_otp_enabled: next,
-            referral_overdue_days: overdueDays,
-        }, {
-            preserveScroll: true,
-            onError: () => setDebugTrackingOtp(!next),
-        });
-    };
 
     const saveOverdueDays = () => {
         bypassNext();
         router.post(route('admin.system-settings.update'), {
-            debug_otp_enabled: debugOtp,
-            debug_tracking_otp_enabled: debugTrackingOtp,
             referral_overdue_days: overdueDays,
         }, {
             preserveScroll: true,
@@ -142,59 +106,6 @@ export default function SystemSettings({
                             className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-500"
                         >
                             Save
-                        </button>
-                    </div>
-                </div>
-
-                <div className="rounded-lg bg-white shadow-sm border border-slate-200 p-6">
-                    <h3 className="text-base font-semibold text-slate-900 mb-4">OTP Settings</h3>
-                    <p className="text-sm text-slate-600">
-                        One-Time Password settings for login and tracking systems.
-                    </p>
-                </div>
-
-                <div data-tour="settings-otp-debug" className="rounded-lg bg-white shadow-sm border border-slate-200 p-6">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <h3 className="text-base font-semibold text-slate-900">Login OTP Debug Mode</h3>
-                            <p className="text-sm text-slate-500 mt-1">
-                                When enabled, login OTP values will be auto-filled on the login verification screen for testing purposes.
-                            </p>
-                            <p className="text-xs text-amber-600 font-medium mt-2">
-                                Exposes OTP values in login page responses. Disable in production.
-                            </p>
-                        </div>
-                        <button
-                            type="button"
-                            role="switch"
-                            aria-checked={debugOtp}
-                            onClick={toggleDebugOtp}
-                            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 ${debugOtp ? 'bg-amber-500' : 'bg-slate-300'}`}
-                        >
-                            <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${debugOtp ? 'translate-x-5' : 'translate-x-0'}`} />
-                        </button>
-                    </div>
-                </div>
-
-                <div className="rounded-lg bg-white shadow-sm border border-slate-200 p-6">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <h3 className="text-base font-semibold text-slate-900">Tracking OTP Debug Mode</h3>
-                            <p className="text-sm text-slate-500 mt-1">
-                                When enabled, tracking OTP values will be auto-filled on the case tracking verification screen for testing purposes.
-                            </p>
-                            <p className="text-xs text-amber-600 font-medium mt-2">
-                                Exposes OTP values in tracking page responses. Disable in production.
-                            </p>
-                        </div>
-                        <button
-                            type="button"
-                            role="switch"
-                            aria-checked={debugTrackingOtp}
-                            onClick={toggleDebugTrackingOtp}
-                            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 ${debugTrackingOtp ? 'bg-amber-500' : 'bg-slate-300'}`}
-                        >
-                            <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${debugTrackingOtp ? 'translate-x-5' : 'translate-x-0'}`} />
                         </button>
                     </div>
                 </div>

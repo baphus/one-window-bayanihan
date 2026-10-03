@@ -10,10 +10,8 @@ Administrators manage runtime settings on the **System Settings** page. The AI c
 
 - **Application Information** — read-only: application name, version, and region.
 - **Referral Overdue Threshold** — *Overdue after (days)*, 1–365 (default 7). Referrals exceeding this age without being completed or rejected are flagged overdue on referral pages and the Overdue Referrals view. Changing it immediately changes what counts as overdue everywhere.
-- **Email OTP Debug Mode** (\`debug_otp_enabled\`) — returns the email-change verification code in responses for testing profile and admin email changes. Testing only. The page itself warns that debug output must stay off in production.
-- **Tracking OTP Debug Mode** (\`debug_tracking_otp_enabled\`) — same as above for the public tracking portal and intake email verification. **Both debug toggles must stay off in production** — they bypass a security control for real users.
 
-Neither toggle affects sign-in: login uses password plus an optional authenticator-app MFA challenge, never an email OTP.
+Sign-in uses password plus an optional authenticator-app MFA challenge, never an email OTP.
 
 Changes confirm with **"Settings updated successfully."** and are recorded in the audit log.
 
@@ -37,6 +35,6 @@ Practical guidance for administrators:
 
 ## Related security pages
 
-Password policy, lockouts, mandatory MFA, and session termination live on separate pages — see *System security: settings and active sessions*.
+Mandatory MFA and session termination live on separate pages — see *System security: settings and active sessions*.
 `;
 export default content;

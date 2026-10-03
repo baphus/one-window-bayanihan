@@ -2,6 +2,7 @@ import ApplicationLogo from '@/Components/ApplicationLogo';
 import { Link } from '@inertiajs/react';
 import ChatBot from '@/Components/ChatBot';
 import { FlashMessageWatcher } from '@/Components/ToastProvider';
+import safeRoute from '@/utils/safeRoute';
 
 export default function GuestLayout({ children }) {
     return (
@@ -9,7 +10,7 @@ export default function GuestLayout({ children }) {
             <ChatBot />
             <FlashMessageWatcher />
             <div>
-                <Link href="/">
+                <Link href={safeRoute('home', undefined, '/')}>
                     <ApplicationLogo className="h-20 w-20 fill-current text-gray-500" />
                 </Link>
             </div>

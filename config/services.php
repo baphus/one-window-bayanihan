@@ -55,6 +55,10 @@ return [
 
     'malware' => [
         'scanner' => env('MALWARE_SCANNER', 'null'),
+        // When true, an unreachable ClamAV daemon (or unexpected response)
+        // logs a warning and treats the file as clean so uploads keep working.
+        // Set to false in environments where unscanned uploads must be blocked.
+        'fail_open' => env('MALWARE_FAIL_OPEN', true),
     ],
 
 ];

@@ -57,7 +57,7 @@ Route::post('/survey/{token}', [PublicSurveyController::class, 'submit'])
     ->name('survey.public.submit')
     ->middleware('throttle:survey-submit');
 
-Route::get('/', [HomeController::class, 'index']);
+Route::get('/', [HomeController::class, 'index'])->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');

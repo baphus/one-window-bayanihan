@@ -1064,9 +1064,9 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                             {/* Avatar + Name row */}
                             <div className="flex items-start gap-4 pb-4 border-b border-slate-200">
                                 {client?.avatar_url ? (
-                                    <img src={client.avatar_url} alt="" className="h-14 w-14 rounded-circle object-cover border border-slate-200 shrink-0" onError={(e) => { e.target.style.display = 'none'; }} />
+                                    <img src={client.avatar_url} alt="" className="h-14 w-14 rounded-full object-cover border border-slate-200 shrink-0" onError={(e) => { e.target.style.display = 'none'; }} />
                                 ) : (
-                                    <span className={`h-14 w-14 inline-flex items-center justify-center rounded-circle shrink-0 ${getAvatarColor(formatFullName(client))}`}>
+                                    <span className={`h-14 w-14 inline-flex items-center justify-center rounded-full shrink-0 ${getAvatarColor(formatFullName(client))}`}>
                                         <span className="material-symbols-outlined text-[24px] text-white/60">person</span>
                                     </span>
                                 )}

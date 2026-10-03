@@ -52,8 +52,9 @@ class IntakeValidationTest extends TestCase
         $response = $this->postJson('/intake/verify-email', ['email' => 'ofw@example.com']);
 
         $response->assertOk();
-        $response->assertJsonStructure(['sent', 'hint', 'debug_otp']);
+        $response->assertJsonStructure(['sent', 'hint']);
         $response->assertJson(['sent' => true]);
+        $response->assertJsonMissingPath('debug_otp');
         $this->assertStringContainsString('@', $response->json('hint'));
     }
 

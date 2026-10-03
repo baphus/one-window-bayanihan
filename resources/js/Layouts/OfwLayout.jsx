@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { FlashMessageWatcher } from '@/Components/ToastProvider';
 import OfwNotificationBell from '@/Components/OfwNotificationBell';
+import safeRoute from '@/utils/safeRoute';
 
 export default function OfwLayout({ children, title }) {
     const { url, props } = usePage();
@@ -25,7 +26,7 @@ export default function OfwLayout({ children, title }) {
             <nav className="fixed top-0 left-0 right-0 z-50 border-b border-outline-variant bg-white">
                 <div className="mx-auto flex h-[76px] w-full max-w-5xl items-stretch justify-between px-4 sm:px-6">
                     {/* Logo / App name */}
-                    <Link href="/" className="flex min-w-0 items-center gap-3 self-center">
+                    <Link href={safeRoute('home', undefined, '/')} className="flex min-w-0 items-center gap-3 self-center">
                         <div className="flex h-[44px] w-[44px] items-center justify-center overflow-hidden bg-white">
                             <img
                                 src="/logo.png"
@@ -51,7 +52,7 @@ export default function OfwLayout({ children, title }) {
                         {/* Desktop actions */}
                         <div className="hidden items-center gap-3 md:flex">
                             <div className="flex items-center gap-4 border-l border-gray-200 pl-5">
-                                <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-circle bg-primary">
+                                <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-primary">
                                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-3/5 w-3/5 text-white/50">
                                         <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
                                     </svg>
@@ -127,7 +128,7 @@ export default function OfwLayout({ children, title }) {
                                 <button
                                     type="button"
                                     aria-label="Close menu"
-                                    className="inline-flex h-10 w-10 items-center justify-center rounded-circle border border-gray-200 text-slate-600 transition hover:bg-slate-50 hover:text-primary"
+                                    className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 text-slate-600 transition hover:bg-slate-50 hover:text-primary"
                                     onClick={() => setMobileMenuOpen(false)}
                                 >
                                     <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">

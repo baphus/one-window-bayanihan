@@ -3,103 +3,104 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import UserAvatar from '@/Components/ui/UserAvatar';
 import PageGuideButton from '@/Components/PageGuideButton';
 import PeerProfileModal from '@/Components/PeerProfileModal';
+import safeRoute from '@/utils/safeRoute';
 
 
 export const navByRole = {
   CASE_MANAGER: [
     { label: 'Overview', items: [
-      { name: 'Dashboard', href: '/dashboard', icon: 'dashboard' },
+      { name: 'Dashboard', href: '/dashboard', route: 'dashboard', icon: 'dashboard' },
     ]},
     { label: 'Notifications', items: [
-      { name: 'Notifications', href: '/notifications/page', icon: 'notifications' },
+      { name: 'Notifications', href: '/notifications/page', route: 'notifications.page', icon: 'notifications' },
     ]},
     { label: 'Management', items: [
-      { name: 'Cases', href: '/cases', icon: 'folder' },
-      { name: 'Intake Queue', href: '/cases/intake-queue', icon: 'pending_actions', badge: 'intakeQueueCount' },
-      { name: 'My Drafts', href: '/cases/drafts', icon: 'drafts' },
-      { name: 'Case Trash', href: '/cases/trash', icon: 'delete_outline' },
-      { name: 'Clients', href: '/clients', icon: 'people' },
-      { name: 'Referrals', href: '/referrals', icon: 'send' },
-      { name: 'Overdue Referrals', href: '/overdue-referrals', icon: 'warning' },
-      { name: 'Stakeholders', href: '/stakeholders', icon: 'account_balance' },
+      { name: 'Cases', href: '/cases', route: 'cases.index', icon: 'folder' },
+      { name: 'Intake Queue', href: '/cases/intake-queue', route: 'cases.intake-queue', icon: 'pending_actions', badge: 'intakeQueueCount' },
+      { name: 'My Drafts', href: '/cases/drafts', route: 'cases.drafts', icon: 'drafts' },
+      { name: 'Case Trash', href: '/cases/trash', route: 'cases.trash', icon: 'delete_outline' },
+      { name: 'Clients', href: '/clients', route: 'clients.index', icon: 'people' },
+      { name: 'Referrals', href: '/referrals', route: 'referrals.index', icon: 'send' },
+      { name: 'Overdue Referrals', href: '/overdue-referrals', route: 'overdue-referrals.index', icon: 'warning' },
+      { name: 'Stakeholders', href: '/stakeholders', route: 'stakeholders.index', icon: 'account_balance' },
     ]},
     { label: 'Reports', items: [
-      { name: 'Reports', href: '/reports', icon: 'summarize' },
-      { name: 'Audit Logs', href: '/audit-logs', icon: 'history' },
+      { name: 'Reports', href: '/reports', route: 'reports.index', icon: 'summarize' },
+      { name: 'Audit Logs', href: '/audit-logs', route: 'audit-logs.index', icon: 'history' },
     ]},
     { label: 'Resources', items: [
-      { name: 'Help Center', href: '/help', icon: 'help', external: true },
+      { name: 'Help Center', href: '/help', route: 'helpdesk.index', icon: 'help', external: true },
     ]},
   ],
   AGENCY: [
     { label: 'Overview', items: [
-      { name: 'Dashboard', href: '/dashboard', icon: 'dashboard' },
+      { name: 'Dashboard', href: '/dashboard', route: 'dashboard', icon: 'dashboard' },
     ]},
     { label: 'Notifications', items: [
-      { name: 'Notifications', href: '/notifications/page', icon: 'notifications' },
+      { name: 'Notifications', href: '/notifications/page', route: 'notifications.page', icon: 'notifications' },
     ]},
     { label: 'Operations', items: [
-      { name: 'Referred Cases', href: '/referrals', icon: 'assignment' },
-      { name: 'Overdue Referrals', href: '/overdue-referrals', icon: 'warning' },
-      { name: 'Services', href: '/services', icon: 'medical_services' },
+      { name: 'Referred Cases', href: '/referrals', route: 'referrals.index', icon: 'assignment' },
+      { name: 'Overdue Referrals', href: '/overdue-referrals', route: 'overdue-referrals.index', icon: 'warning' },
+      { name: 'Services', href: '/services', route: 'agency.services.index', icon: 'medical_services' },
     ]},
     { label: 'Feedback', items: [
-      { name: 'Survey Forms', href: '/survey-forms', icon: 'assignment' },
-      { name: 'Survey Responses', href: '/surveys', icon: 'poll' },
+      { name: 'Survey Forms', href: '/survey-forms', route: 'survey.forms.index', icon: 'assignment' },
+      { name: 'Survey Responses', href: '/surveys', route: 'survey.responses.index', icon: 'poll' },
     ]},
     { label: 'Reports', items: [
-      { name: 'Reports', href: '/reports', icon: 'summarize' },
-      { name: 'Audit Logs', href: '/audit-logs', icon: 'history' },
+      { name: 'Reports', href: '/reports', route: 'reports.index', icon: 'summarize' },
+      { name: 'Audit Logs', href: '/audit-logs', route: 'audit-logs.index', icon: 'history' },
     ]},
     { label: 'Resources', items: [
-      { name: 'Help Center', href: '/help', icon: 'help', external: true },
+      { name: 'Help Center', href: '/help', route: 'helpdesk.index', icon: 'help', external: true },
     ]},
   ],
   ADMIN: [
     { label: 'Overview', items: [
-      { name: 'Dashboard', href: '/dashboard', icon: 'dashboard' },
+      { name: 'Dashboard', href: '/dashboard', route: 'dashboard', icon: 'dashboard' },
     ]},
     { label: 'Notifications', items: [
-      { name: 'Notifications', href: '/notifications/page', icon: 'notifications' },
+      { name: 'Notifications', href: '/notifications/page', route: 'notifications.page', icon: 'notifications' },
     ]},
     { label: 'Reports', items: [
-      { name: 'Reports', href: '/reports', icon: 'summarize' },
-      { name: 'Survey Responses', href: '/surveys', icon: 'poll' },
+      { name: 'Reports', href: '/reports', route: 'reports.index', icon: 'summarize' },
+      { name: 'Survey Responses', href: '/surveys', route: 'survey.responses.index', icon: 'poll' },
     ]},
     { label: 'Case Operations', items: [
-      { name: 'Cases', href: '/cases', icon: 'folder' },
-      { name: 'Intake Queue', href: '/cases/intake-queue', icon: 'pending_actions', badge: 'intakeQueueCount' },
-      { name: 'My Drafts', href: '/cases/drafts', icon: 'drafts' },
-      { name: 'Case Trash', href: '/cases/trash', icon: 'delete_outline' },
-      { name: 'Clients', href: '/clients', icon: 'people' },
-      { name: 'Referrals', href: '/referrals', icon: 'send' },
-      { name: 'Overdue Referrals', href: '/overdue-referrals', icon: 'warning' },
-      { name: 'Stakeholders', href: '/stakeholders', icon: 'account_balance' },
+      { name: 'Cases', href: '/cases', route: 'cases.index', icon: 'folder' },
+      { name: 'Intake Queue', href: '/cases/intake-queue', route: 'cases.intake-queue', icon: 'pending_actions', badge: 'intakeQueueCount' },
+      { name: 'My Drafts', href: '/cases/drafts', route: 'cases.drafts', icon: 'drafts' },
+      { name: 'Case Trash', href: '/cases/trash', route: 'cases.trash', icon: 'delete_outline' },
+      { name: 'Clients', href: '/clients', route: 'clients.index', icon: 'people' },
+      { name: 'Referrals', href: '/referrals', route: 'referrals.index', icon: 'send' },
+      { name: 'Overdue Referrals', href: '/overdue-referrals', route: 'overdue-referrals.index', icon: 'warning' },
+      { name: 'Stakeholders', href: '/stakeholders', route: 'stakeholders.index', icon: 'account_balance' },
     ]},
     { label: 'Agency Management', items: [
-      { name: 'Agencies', href: '/admin/agencies', icon: 'account_balance' },
-      { name: 'Services', href: '/admin/services', icon: 'medical_services' },
-      { name: 'Users', href: '/admin/users', icon: 'manage_accounts' },
+      { name: 'Agencies', href: '/admin/agencies', route: 'admin.agencies.index', icon: 'account_balance' },
+      { name: 'Services', href: '/admin/services', route: 'admin.services.index', icon: 'medical_services' },
+      { name: 'Users', href: '/admin/users', route: 'admin.users.index', icon: 'manage_accounts' },
     ]},
     { label: 'System Health', items: [
-      { name: 'System Logs', href: '/admin/system/logs', icon: 'list_alt' },
-      { name: 'Email Logs', href: '/admin/system/email-logs', icon: 'mail' },
+      { name: 'System Logs', href: '/admin/system/logs', route: 'admin.system.logs', icon: 'list_alt' },
+      { name: 'Email Logs', href: '/admin/system/email-logs', route: 'admin.system.email-logs.index', icon: 'mail' },
     ]},
     { label: 'Administration', items: [
-      { name: 'Audit Logs', href: '/audit-logs', icon: 'history' },
-      { name: 'Case Statuses', href: '/admin/case-statuses', icon: 'label' },
-      { name: 'Case Categories', href: '/admin/case-categories', icon: 'topic' },
-      { name: 'Case Issues', href: '/admin/case-issues', icon: 'feedback' },
-      { name: 'Data Export', href: '/admin/data-export', icon: 'file_download' },
-      { name: 'Maintenance Mode', href: '/admin/system/maintenance', icon: 'construction' },
+      { name: 'Audit Logs', href: '/audit-logs', route: 'audit-logs.index', icon: 'history' },
+      { name: 'Case Statuses', href: '/admin/case-statuses', route: 'admin.case-statuses.index', icon: 'label' },
+      { name: 'Case Categories', href: '/admin/case-categories', route: 'admin.case-categories.index', icon: 'topic' },
+      { name: 'Case Issues', href: '/admin/case-issues', route: 'admin.case-issues.index', icon: 'feedback' },
+      { name: 'Data Export', href: '/admin/data-export', route: 'admin.data-export.index', icon: 'file_download' },
+      { name: 'Maintenance Mode', href: '/admin/system/maintenance', route: 'admin.system.maintenance', icon: 'construction' },
     ]},
     { label: 'Settings', items: [
-      { name: 'System Settings', href: '/admin/system-settings', icon: 'settings' },
-      { name: 'Security & Auth', href: '/admin/system/security', icon: 'security' },
-      { name: 'Active Sessions', href: '/admin/system/active-sessions', icon: 'phonelink' },
+      { name: 'System Settings', href: '/admin/system-settings', route: 'admin.system-settings.index', icon: 'settings' },
+      { name: 'Security & Auth', href: '/admin/system/security', route: 'admin.system.security', icon: 'security' },
+      { name: 'Active Sessions', href: '/admin/system/active-sessions', route: 'admin.system.active-sessions', icon: 'phonelink' },
     ]},
     { label: 'Resources', items: [
-      { name: 'Help Center', href: '/help', icon: 'help', external: true },
+      { name: 'Help Center', href: '/help', route: 'helpdesk.index', icon: 'help', external: true },
     ]},
   ],
 };
@@ -142,7 +143,7 @@ export default function AppSidebar() {
   useEffect(() => {
     let timer;
     const fetchCount = () => {
-      fetch('/notifications/unread-count', {
+      fetch(safeRoute('notifications.unread-count', undefined, '/notifications/unread-count'), {
         headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
       })
         .then((res) => res.ok ? res.json() : null)
@@ -176,6 +177,10 @@ export default function AppSidebar() {
     return navByRole[user?.role] || [];
   }, [user]);
 
+  // Resolve a nav item through its Ziggy route name, falling back to the
+  // plain href. Active-state matching still uses the plain href (URL paths).
+  const resolveNavHref = (item) => (item.route ? safeRoute(item.route, undefined, item.href) : item.href);
+
   const isActive = (href) => {
     if (href === '/dashboard') return url === '/dashboard';
     if (href === '/cases') return url.startsWith('/cases') && !url.startsWith('/cases/drafts') && !url.startsWith('/cases/trash') && !url.startsWith('/cases/intake-queue');
@@ -187,7 +192,7 @@ export default function AppSidebar() {
     <aside className={`${collapsed ? 'w-16' : 'w-72'} transition-[width] duration-200 ease-in-out bg-white border-r border-slate-200 hidden md:flex shrink-0 h-screen font-body flex-col`}>
       {/* Logo */}
       <div className={`h-24 flex items-center border-b border-transparent shrink-0 ${collapsed ? 'flex-col justify-center px-2 gap-2' : 'px-6'}`}>
-        <Link href="/" className={`flex items-center gap-2 min-w-0 ${collapsed ? 'justify-center' : 'flex-1'}`}>
+        <Link href={safeRoute('home', undefined, '/')} className={`flex items-center gap-2 min-w-0 ${collapsed ? 'justify-center' : 'flex-1'}`}>
           <div className="w-10 h-10 flex items-center justify-center shrink-0">
             <img src="/logo.png" alt="One Window Bayanihan Logo" className="w-full h-full object-contain" />
           </div>
@@ -324,7 +329,7 @@ export default function AppSidebar() {
                   return (
                     <a
                       key={item.name}
-                      href={item.href}
+                      href={resolveNavHref(item)}
                       target="_blank"
                       rel="noopener noreferrer"
                       {...sharedAttrs}
@@ -337,7 +342,7 @@ export default function AppSidebar() {
                 return (
                   <Link
                     key={item.name}
-                    href={item.href}
+                    href={resolveNavHref(item)}
                     {...sharedAttrs}
                   >
                     {content}

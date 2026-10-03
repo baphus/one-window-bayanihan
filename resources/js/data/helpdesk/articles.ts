@@ -321,7 +321,7 @@ export const articles: HelpdeskArticle[] = [
     title: "Configuring System Settings and AI Chatbot",
     slug: "configuring-system-settings-ai-chatbot",
     excerpt:
-      "Guide for administrators on configuring system settings including OTP debug mode, session timeout, file upload limits, and the AI chatbot provider setup.",
+      "Guide for administrators on configuring system settings including the referral overdue threshold and the AI chatbot provider setup.",
     content: configuringSystemSettingsAiChatbot,
     categoryId: CATEGORY["system-config"],
     tagIds: [TAG["troubleshooting"], TAG["onboarding"]],
@@ -654,7 +654,7 @@ export const articles: HelpdeskArticle[] = [
     title: "System Security: Settings and Active Sessions",
     slug: "system-security-settings-and-sessions",
     excerpt:
-      "Password policy, lockout rules, mandatory MFA, and terminating active sessions.",
+      "Mandatory MFA and terminating active sessions.",
     content: systemSecuritySettingsAndSessions,
     categoryId: CATEGORY["system-config"],
     tagIds: [TAG["security"], TAG["audit"]],

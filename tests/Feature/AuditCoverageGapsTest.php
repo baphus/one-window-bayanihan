@@ -39,8 +39,7 @@ class AuditCoverageGapsTest extends TestCase
         $this->actingAs($admin);
 
         (new SecuritySettingsService)->update([
-            'password_min_length' => 12,
-            'session_lifetime_minutes' => 187,
+            'two_factor_required' => true,
         ]);
 
         $this->assertDatabaseHas('audit_logs', [
@@ -55,10 +54,9 @@ class AuditCoverageGapsTest extends TestCase
             ->firstOrFail();
 
         // Only the changed key NAMES are logged — never the values. The
-        // absence of the distinctive value below proves values are excluded.
-        $this->assertStringContainsString('password_min_length', $entry->description);
-        $this->assertStringContainsString('session_lifetime_minutes', $entry->description);
-        $this->assertStringNotContainsString('187', $entry->description);
+        // absence of any value below proves values are excluded.
+        $this->assertStringContainsString('two_factor_required', $entry->description);
+        $this->assertStringNotContainsString('true', $entry->description);
         $this->assertNull($entry->old_value);
         $this->assertNull($entry->new_value);
     }

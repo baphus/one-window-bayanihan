@@ -6,7 +6,6 @@ use App\Http\Requests\Intake\CheckDuplicateIntakeRequest;
 use App\Http\Requests\Intake\VerifyIntakeEmailRequest;
 use App\Http\Requests\StoreIntakeRequest;
 use App\Models\Client;
-use App\Models\SystemSetting;
 use App\Services\IntakeService;
 use App\Services\PhilippineAddressService;
 use App\Services\ReferenceDataService;
@@ -132,14 +131,9 @@ class IntakeController extends Controller
             ? substr($emailParts[0], 0, 2).str_repeat('*', strlen($emailParts[0]) - 2).'@'.$emailParts[1]
             : $email;
 
-        $debugOtp = (SystemSetting::getValue('debug_tracking_otp_enabled', false) && app()->environment('local', 'testing'))
-            ? $otp
-            : null;
-
         return response()->json([
             'sent' => true,
             'hint' => $hint,
-            'debug_otp' => $debugOtp,
         ]);
     }
 

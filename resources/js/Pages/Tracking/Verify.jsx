@@ -4,24 +4,13 @@ import AppHeader from '@/Components/landing/AppHeader';
 import AppFooter from '@/Components/landing/AppFooter';
 import ChatBot from '@/Components/ChatBot';
 
-export default function TrackingVerify({ tracker_number, email, hint, debug_otp }) {
+export default function TrackingVerify({ tracker_number, email, hint }) {
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [error, setError] = useState('');
   const [processing, setProcessing] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
   const otpRefs = useRef([]);
-  const autoFilled = useRef(false);
   const cooldownInterval = useRef(null);
-
-  useEffect(() => {
-    if (debug_otp && !autoFilled.current) {
-      autoFilled.current = true;
-      const digits = debug_otp.split('').slice(0, 6);
-      const filled = ['', '', '', '', '', ''];
-      digits.forEach((d, i) => { filled[i] = d; });
-      setOtp(filled);
-    }
-  }, [debug_otp]);
 
   useEffect(() => {
     setResendCooldown(30);
@@ -202,12 +191,6 @@ export default function TrackingVerify({ tracker_number, email, hint, debug_otp 
                 )}
               </button>
             </div>
-
-            {debug_otp && (
-              <div className="mt-4 rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs font-bold text-amber-700 uppercase tracking-wider">
-                Debug Mode — OTP: {debug_otp}
-              </div>
-            )}
           </div>
 
           <button
