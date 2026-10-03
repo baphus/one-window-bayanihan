@@ -11,10 +11,10 @@
 | D1 | 3 workflows + staging/deploy-staging/reset-staging-data file tree | **4 files:** `ci.yml` · `deploy.yml` (reusable) · `deploy-production.yml` (caller) · `build-image.yml` (manual). No staging caller exists; §7 file tree replaced |
 | D2 | CI on "PR to main"; PHP 8.3 / Node 22; E2E Playwright job | CI on **PR to `main` AND push to `main`**; **PHP 8.4**, **Node 24**; **no E2E job** — jobs are `lint-and-audit` + `backend-tests` (PG17) + `frontend-tests`. TypeScript check is **blocking** (`npm run typecheck`, NOT continue-on-error) |
 | D3 | `e2e-tests` required check, `npx playwright test` portable command | **No `playwright.config.ts`, no `tests/e2e`** — `npx playwright test` is **not runnable** in this repo. E2E history lives in `docs/E2E_TEST_FINDINGS_v1.0.0.md` (record, not a runnable suite) |
-| D4 | Generic deploy trigger + `/up` health gate | `deploy.yml` is a concrete reusable workflow: **OIDC** (`id-token: write`), **ECR image-exists check**, **mail-coherence guard** (`resend` without `RESEND_API_KEY` fails pre-deploy), **pre-deploy snapshot**, **jq-rendered payload**, **ACTIVE-on-expected-image poll**, **`/up` + `/api/readyz` gates** |
+| D4 | Generic deploy trigger + `/up` health gate | `deploy.yml` is a concrete reusable workflow: **OIDC** (`id-token: write`), **registry image-exists check**, **mail-coherence guard** (`resend` without `RESEND_API_KEY` fails pre-deploy), **pre-deploy snapshot**, **jq-rendered payload**, **ACTIVE-on-expected-image poll**, **`/up` + `/api/readyz` gates** |
 | D5 | Deploy payload cache/queue/session unspecified | Payload **forces `CACHE_STORE=database`, `QUEUE_CONNECTION=database`, `SESSION_DRIVER=database`** (deploy override vs local redis — see Deployment Guide v3.1.0 Annex 4A) |
-| D6 | Production trigger "type deploy-production" | Trigger is `workflow_dispatch` with **`image_tag` (ECR SHA, doubles as rollback selector) + `confirm == PRODUCTION`** → environment `production`, service `bayanihan-production`, host `dmw7.owbap.app` |
-| D7 | No image-build workflow documented | `build-image.yml` (manual): builds SHA-tagged ECR image + 8 verification gates incl. FreeType/JPEG, chart render, helpdesk corpus, nginx/supervisord parse, entrypoint fail-closed/open |
+| D6 | Production trigger "type deploy-production" | Trigger is `workflow_dispatch` with **`image_tag` (registry SHA, doubles as rollback selector) + `confirm == PRODUCTION`** → environment `production`, service `bayanihan-production`, host `dmw7.owbap.app` |
+| D7 | No image-build workflow documented | `build-image.yml` (manual): builds SHA-tagged image + 8 verification gates incl. FreeType/JPEG, chart render, helpdesk corpus, nginx/supervisord parse, entrypoint fail-closed/open |
 
 ## 1. CI pipeline (`ci.yml`) — verified
 
@@ -44,7 +44,7 @@ No staging environment, no staging caller, no reset workflow. Do not add one unt
 
 ### Image (`build-image.yml`, manual `workflow_dispatch`)
 
-Builds the deployable artefact separately from deploying it (schema must apply before the image that depends on it). OIDC → ECR login → Buildx (`cache-from/to type=gha`, `provenance: false`, build-args `VITE_SENTRY_DSN_PUBLIC` / `VITE_SENTRY_RELEASE=<sha>` / `VITE_APP_ENV`) → `load: true` as `bayanihan:<sha>` → verifications against the exact artefact:
+Builds the deployable artefact separately from deploying it (schema must apply before the image that depends on it). The manual-only trigger is deliberate — an automatic build on every push charged storage per image (`build-image.yml:9-11`). OIDC → registry login → Buildx (`cache-from/to type=gha`, `provenance: false`, build-args `VITE_SENTRY_DSN_PUBLIC` / `VITE_SENTRY_RELEASE=<sha>` / `VITE_APP_ENV`) → `load: true` as `bayanihan:<sha>` → verifications against the exact artefact:
 
 1. PHP extensions present: `pdo_pgsql pdo_sqlite redis bcmath gd intl pcntl exif zip`
 2. GD FreeType + JPEG (`imagettftext`/`imagettfbbox` exist, `gd_info` flags) — guards the `/reports/export-pdf` 500 class
@@ -55,23 +55,23 @@ Builds the deployable artefact separately from deploying it (schema must apply b
 7. Entrypoint **fail-closed**: with `APP_ENV=production` and no creds → non-zero exit naming `APP_KEY DB_HOST DB_DATABASE DB_USERNAME DB_PASSWORD`
 8. Entrypoint **opens** with valid config (`docker-entrypoint.sh echo STARTED`)
 
-Then pushes `$REGISTRY/bayanihan:<sha>` (ECR tags **immutable** — rollback = redeploy previous tag) and reports image-scan findings (continue-on-error).
+Then pushes `$REGISTRY/bayanihan:<sha>` (registry tags **immutable** — rollback = redeploy previous tag) and reports image-scan findings (continue-on-error).
 
 ### Deploy (`deploy.yml`, reusable — called by `deploy-production.yml`)
 
 Inputs: `environment` · `service_name` · `hostname` · `image_tag` (commit SHA) · `app_env` (default `production`). Perms `contents: read` + `id-token: write`; region `ap-southeast-1`, repo `bayanihan`.
 
-1. OIDC AWS credentials (`vars.AWS_DEPLOY_ROLE_ARN`).
-2. **ECR check**: `ecr describe-images --image-ids imageTag=<tag>` — refuse before touching anything.
+1. OIDC credentials exchanged for the deploy role (`vars.AWS_DEPLOY_ROLE_ARN`; workflow carries `id-token: write`).
+2. **Registry image-exists check**: refuses before touching anything if the tag is not present in the container registry (literal command in `deploy.yml`).
 3. **Mail-coherence guard**: `MAIL_MAILER=resend` (case-insensitive) with empty `RESEND_API_KEY` → fail with remediation (`gh secret set … --env <env>`). Catches the outage class where a renamed secret ships `resend` with no key.
-4. **Snapshot**: `lightsail create-relational-database-snapshot` named `<db>-predeploy-<UTC>`; `LIGHTSAIL_DB_NAME` missing → refuse. (Lightsail ≠ RDS snapshots — moving engines means changing this step.)
+4. **Snapshot**: pre-deploy managed-database snapshot named `<db>-predeploy-<UTC>`; `LIGHTSAIL_DB_NAME` missing → refuse. (Snapshot formats are offering-specific and not interchangeable across database services — moving engines means changing this step; literal command in `deploy.yml`.)
 5. **Render payload** (jq, never logged): image `$REGISTRY/bayanihan:<tag>`, port `8080`, `APP_ENV/APP_URL/APP_TIMEZONE=Asia/Manila`, `LOG_CHANNEL=stderr`, `DB_*` + `DB_SSLMODE=require`, **`CACHE_STORE/QUEUE_CONNECTION/SESSION_DRIVER=database`**, `FILESYSTEM_DISK/STORAGE_*/R2_*`, separate `AUDIT_ARCHIVE_BUCKET`, `RUN_MIGRATIONS/RUN_SCHEDULER/RUN_QUEUE_WORKER=true`, `TRUSTED_PROXIES=*`, mail (`log` default; `resend` only post-verification), Sentry (`SENTRY_RELEASE=<tag>` asserted == `IMAGE_TAG`), OpenRouter/Turnstile, readiness token, `SEARCH_INDEXING_ENABLED=false` default, plus all GitHub Environment `vars` merged. Health check `GET /up`, 30 s interval.
 6. Submit deployment → **poll for `currentDeployment.state == ACTIVE` on the expected image** (40 × 15 s; poll the deployment, not the service — `READY` means "no deployment"). On `FAILED`, dump last 40 container-log lines.
 7. **`/up` gate** (10 × 15 s) then **`/api/readyz` gate** (`X-Monitoring-Token` required; refuse without it; 75 s settle for scheduler heartbeat; 8 × 20 s; body appended to summary). `/up` green + `readyz` red = serving but degraded → fail.
 
 ### Production (`deploy-production.yml`)
 
-Manual only. `workflow_dispatch` inputs `image_tag` (required) + `confirm` (must equal `PRODUCTION`) → `guard` job → calls reusable `deploy.yml` with `environment: production`, `service_name: bayanihan-production`, `hostname: dmw7.owbap.app`, `app_env: production`. Concurrency `deploy-production`, no cancel. Configure the `production` GitHub Environment with required reviewers — without it, "manual" only means "someone clicked".
+Manual only. `workflow_dispatch` inputs `image_tag` (required) + `confirm` (must equal `PRODUCTION`) → `guard` job → calls reusable `deploy.yml` with `environment: production`, `service_name: bayanihan-production`, `hostname: dmw7.owbap.app`, `app_env: production`. Concurrency `deploy-production`, no cancel. The `guard` job itself declares no `environment:` — it only compares the typed phrase (`deploy-production.yml:36-42`); the `production` Environment binds downstream at `deploy.yml:61-62`, selected by the input passed at `deploy-production.yml:48`. Pairing required reviewers with that Environment is currently **only a comment** in the workflow (`deploy-production.yml:8-9`), not an enforced setting — configure it on the `production` Environment itself, or "manual" only means "someone clicked".
 
 ## 7. Workflow files — verified
 
@@ -79,8 +79,8 @@ Manual only. `workflow_dispatch` inputs `image_tag` (required) + `confirm` (must
 .github/
 ├── workflows/
 │   ├── ci.yml                # PR+push: lint/audit/Ward/typecheck/build, PG17 backend, Vitest
-│   ├── build-image.yml       # Manual: SHA-tagged ECR build + 8 image verifications
-│   ├── deploy.yml            # Reusable: OIDC → ECR/mail/snapshot/payload/ACTIVE → /up → /readyz
+│   ├── build-image.yml       # Manual: SHA-tagged image build + 8 image verifications
+│   ├── deploy.yml            # Reusable: OIDC → registry/mail/snapshot/payload/ACTIVE → /up → /readyz
 │   └── deploy-production.yml # Manual: confirm==PRODUCTION → production dmw7.owbap.app
 ```
 
@@ -95,6 +95,6 @@ Runner: Linux, **PHP >= 8.4.1** (`pdo_pgsql`, `sockets`, plus app extensions), *
 | Version | Date | Change |
 |---|---|---|
 | 2.1.0 | 2026-10-03 (amendment) | npm-audit gate is now the filtered `node scripts/npm-audit-filter.mjs` (allowlists only braces GHSA-vfj7-8cjw-p6xm — no patched braces exists, latest 3.0.3 still flagged; only fix is breaking Tailwind 3 → 4; exposure is build-time only). Any other high/critical advisory still fails the build. |
-| 2.1.0 | 2026-09-15 | Reconciled with the four-file reality: `ci.yml` triggers/versions/jobs (PHP 8.4, Node 24, Ward, blocking typecheck, PG17, cache-command verification, no E2E); `deploy.yml` OIDC/ECR/mail-guard/snapshot/jq-payload/`database`-trio override/ACTIVE-poll/`/up`+`/readyz` gates; `deploy-production.yml` `image_tag`+`PRODUCTION` confirm → `dmw7.owbap.app`; `build-image.yml` manual SHA build + 8 verifications. Marked `deploy-staging.yml`/`reset-staging-data.yml`/daily-reset as non-existent; E2E as record-only (`E2E_TEST_FINDINGS_v1.0.0.md`); `.npmrc` noted. |
+| 2.1.0 | 2026-09-15 | Reconciled with the four-file reality: `ci.yml` triggers/versions/jobs (PHP 8.4, Node 24, Ward, blocking typecheck, PG17, cache-command verification, no E2E); `deploy.yml` OIDC/registry image-exists/mail-guard/snapshot/jq-payload/`database`-trio override/ACTIVE-poll/`/up`+`/readyz` gates; `deploy-production.yml` `image_tag`+`PRODUCTION` confirm → `dmw7.owbap.app`; `build-image.yml` manual SHA build + 8 verifications. Marked `deploy-staging.yml`/`reset-staging-data.yml`/daily-reset as non-existent; E2E as record-only (`E2E_TEST_FINDINGS_v1.0.0.md`); `.npmrc` noted. |
 | 2.0.0 | 2026-07-27 | Platform-neutral overhaul (see its §11). |
 | 1.0.0 | — | Previous revision (`CI_CD_GUIDE.md`). |

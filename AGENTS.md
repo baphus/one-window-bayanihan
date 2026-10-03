@@ -1,6 +1,6 @@
 # One Window Bayanihan
 
-Laravel 13 + Inertia/React 18 case-management system for DMW Region VII. PostgreSQL 17, Redis 7, S3-compatible object storage, Tailwind CSS 3, Vite 8, PHP 8.4 (`>=8.4.1 <9.0`).
+Laravel 13 + Inertia/React 18 case-management system for DMW Region VII. PostgreSQL 17 in CI (`ci.yml:105`), PostgreSQL 15 in the local Docker stack (`docker-compose.yml:268`), Redis 7, S3-compatible object storage, Tailwind CSS 3, Vite 8, PHP 8.4 (`>=8.4.1 <9.0`).
 
 Documentation is platform-neutral: describe infrastructure by technology and capability, not by hosting or managed-service vendor. See `docs/DEPLOYMENT_GUIDE_v3.1.0.md` §1 (what a target must provide) and §12 (the only places a provider may be named).
 
@@ -9,7 +9,7 @@ Documentation is platform-neutral: describe infrastructure by technology and cap
 | Command | Use |
 |---|---|
 | `composer run setup` | Bootstrap: `composer install`, copy `.env`, keygen, migrate, `npm install --ignore-scripts`, build |
-| `composer run dev` | Starts `php artisan serve`, `php artisan queue:listen --tries=1 --timeout=0`, and Vite via `concurrently` |
+| `composer run dev` | Starts `php artisan serve`, `php artisan queue:listen --queue=default,notifications --tries=1 --timeout=0`, and Vite via `concurrently` |
 | `composer run test` | Clears Laravel config, then runs `php artisan test` |
 | `php artisan test tests/Feature/NameTest.php` | Focused PHP test file |
 | `php artisan test --filter test_name` | Focused PHP test method/name |
@@ -26,31 +26,31 @@ Documentation is platform-neutral: describe infrastructure by technology and cap
 
 - SPA entry is `resources/js/app.tsx`; Inertia resolves pages from `resources/js/Pages/**/*.{jsx,tsx}`.
 - Vite input is `resources/js/app.tsx`; alias `@/` points to `resources/js` in `vite.config.js`, `vitest.config.ts`, and `tsconfig.json`.
-- Auth routes live in `routes/auth.php`; login is custom OTP/MFA via `LoginOtpController`, not default Breeze login flow.
+- Auth routes live in `routes/auth.php`; login is email + password via `AuthenticatedSessionController` (`routes/auth.php:21-29`), followed by TOTP MFA via `MfaChallengeController` (`routes/auth.php:31-37`), not default Breeze login flow. OTP is used only for email-change verification, public case intake, and citizen tracking-number verification — not for login.
 - Authenticated app routes live in `routes/web.php`. Some session-authenticated `api/*` endpoints are defined there, so do not assume every API-looking route is in `routes/api.php`.
-- Public API routes in `routes/api.php` are only PSGC address lookup and CSP report endpoints, throttled and unauthenticated.
+- Public API routes in `routes/api.php` are PSGC address lookup, CSP report, `/api/readyz` (`routes/api.php:13`), and `/api/webhooks/resend` (`routes/api.php:37`) endpoints, throttled and unauthenticated.
 - Middleware, aliases, routing, and exception rendering (custom 404/403/500 Inertia pages) are configured in `bootstrap/app.php`, not `app/Http/Kernel.php`.
 
 ## CI/CD pipelines (`.github/workflows/`)
 
 | Workflow | Trigger | What it does |
 |---|---|---|
-| `ci.yml` | PR to `main`, and push to `main` | `lint-and-audit`, `backend-tests`, `frontend-tests` (PHP 8.4, Node 24, Postgres 17 service container). Push-to-main runs too, because a direct push or merge queue can land a combination no PR tested |
+| `ci.yml` | PR to `main`, and push to `main` | `lint-and-audit`, `backend-tests`, `frontend-tests` — the only workflow that configures any runtime: PHP 8.4 (`ci.yml:38,124`), Node 24 (`ci.yml:45,130,228`), and a Postgres 17 service container that exists only in `backend-tests` (`ci.yml:103-116`; `lint-and-audit` and `frontend-tests` have no database). `build-image.yml`, `deploy.yml`, and `deploy-production.yml` have no `setup-php`/`setup-node`/`services` block — they shell into the built image or use `docker`. Push-to-main runs too, because a direct push or merge queue can land a combination no PR tested |
 | `build-image.yml` | Manual (`workflow_dispatch`) | Builds the deployable OCI image and pushes it to the registry tagged with the commit SHA. Deliberately manual: an automatic build on every push charged storage per image |
-| `deploy.yml` | `workflow_call` (reusable) | The actual rollout: deploys a built image to the container service, runs schema migrations ahead of the image that depends on them, and waits for the health probe before reporting success. Contains the platform-specific deploy REST call |
-| `deploy-production.yml` | Manual — must type `PRODUCTION` | Thin gated caller: checks the confirmation phrase against the `production` GitHub Environment, then invokes `deploy.yml`. Pair the Environment with required reviewers |
+| `deploy.yml` | `workflow_call` (reusable) | The actual rollout: deploys a built image to the container service, runs migrations INSIDE the container at start (`RUN_MIGRATIONS=true`), not from the runner, and waits for the health probe before reporting success. Contains the platform-specific deploy step (AWS CLI) |
+| `deploy-production.yml` | Manual — must type `PRODUCTION` | Thin gated caller: the `guard` job (`deploy-production.yml:32-42`) compares the input against the uppercase literal `"PRODUCTION"` (`:38`) but declares no `environment:`; the `production` Environment binds downstream, passed as an input (`:48`) into `deploy.yml` (`:61-62`). Pairing the Environment with required reviewers is currently only a comment (`:8-9`), not enforced in the file |
 
-- There is no `deploy-staging.yml` and no `reset-staging-data.yml`; staging rollouts are `deploy.yml` invoked with different inputs.
+- There is no `deploy-staging.yml` and no `reset-staging-data.yml`, and no staging caller exists either: `deploy.yml` has exactly one caller, `deploy-production.yml:46`, which always passes `environment: production`. `deploy.yml` accepts an `environment` input that could stage, but nothing invokes it that way.
 - Production requires explicit `workflow_dispatch` with the confirmation phrase `PRODUCTION` (uppercase).
-- The deploy step calls the hosting platform's deploy REST API with credentials from repository secrets, then health-gates `/up`. This API call is the **only** platform-specific step in the pipeline — the provider-named secrets in the workflow files are the last remaining vendor binding in the repo (`docs/CI_CD_GUIDE_v2.1.0.md` §4). Read the workflow file for the current endpoint; do not re-introduce provider names into docs.
+- The deploy step shells out to the AWS CLI (`aws lightsail create-container-service-deployment`, `deploy.yml:333`) — not a REST call — with OIDC-federated cloud credentials rather than repository secrets (`deploy.yml:53` requests `id-token: write`; `deploy.yml:69-71` uses `aws-actions/configure-aws-credentials@v5` with `role-to-assume: vars.AWS_DEPLOY_ROLE_ARN`; static keys were deliberately removed, `build-image.yml:16-19`), then health-gates `/up` (`deploy.yml:382-392`, route registered at `bootstrap/app.php:41`). This CLI call is the **only** platform-specific step in the pipeline — the provider-named deploy command in the workflow file is the last remaining vendor binding in the repo (`docs/CI_CD_GUIDE_v2.1.0.md` §4). Read the workflow file for the current command; do not re-introduce provider names into docs.
 
 ## Backend conventions
 
 - Keep controllers thin: Controller → Service (`app/Services/*`) → Model. Put validation in `app/Http/Requests/*`.
-- Models use UUID primary keys via `App\Models\Concerns\UsesUuid`; route model binding expects string UUIDs.
-- Soft deletion is flag-based (`SoftDeleteFlag`, `is_deleted`, `deleted_at`, `deleted_by`), not Laravel's `SoftDeletes` trait.
+- Models use UUID primary keys via `App\Models\Concerns\UsesUuid` (37 of 40 models; `AgencyThreadRead`, `Notification`, and `SystemSetting` do not); route model binding expects string UUIDs.
+- Soft-deletion semantics are layered on top of Laravel's `SoftDeletes`: `app/Models/Concerns/SoftDeleteFlag.php:9` does `use SoftDeletes;`, adding a custom `is_deleted` boolean and `deleted_by` via a `deleting` hook (`:18-27`) and clearing them on `restoring` (`:31-34`); `deleted_at` comes from `SoftDeletes` itself.
 - Audit logging belongs in the service layer with `AuditLog::log(...)`; models may define `$auditExclude` and `getAuditModuleName()`.
-- RBAC uses `users.role` through `role` middleware (`CASE_MANAGER`, `AGENCY`, `ADMIN`).
+- RBAC uses `users.role` through `role` middleware (`CASE_MANAGER`, `AGENCY`, `ADMIN`, `OFW`; counted in `routes/web.php` as `role:CASE_MANAGER` ×8, `role:ADMIN` ×3, `role:AGENCY` ×2, `role:OFW` ×1). The column is a plain `string(50)` (`0001_01_01_000000_create_framework_tables.php:16`), not an enum — `app/Enums/` holds only `AuditAction` and `AuditModule`. The `role` alias resolves to `app/Http/Middleware/CheckRole.php` (`bootstrap/app.php:74`), which does `in_array($request->user()->role, $roles)` (`:13`).
 - Global/web middleware includes PostgreSQL session context, log context, security headers, CSP, active-user/MFA checks, and Inertia shared props.
 - AI chatbot uses in-memory weighted token match over the cached parsed helpdesk corpus (no vector DB, no SQLite FTS5 — retired); pre-warm via `php artisan chatbot:index`.
 
@@ -78,13 +78,13 @@ Documentation is platform-neutral: describe infrastructure by technology and cap
 - `docs/PROJECT_RULES_v2.1.0.md` for domain/business constraints, role rules, and the platform-neutrality rule.
 - `docs/ARCHITECTURE_v2.2.0.md` for system flow and deployment topology.
 - `docs/TESTING_STRATEGY_v2.1.0.md` for focused test commands and coverage expectations.
-- `docs/API_CONTRACTS.md` for all ~243 routes with middleware.
-- `docs/DATA_MODEL.md` for the complete database schema (42 live domain tables — 57 `Schema::create` calls minus 8 Laravel framework tables and 7 later retired by migration).
+- `docs/API_CONTRACTS.md` for the application's routes with middleware: `php artisan route:list --json` returns 238, which includes 4 vendor routes, so the application's own surface is 234 (`--except-vendor`). The doc catalogues 238 method rows (234 application + 4 vendor) across 235 unique method+URI pairs; its former "~165-175 named routes" prose figures were corrected to 234, resolving that discrepancy.
+- `docs/DATA_MODEL.md` for the complete database schema (41 live domain tables — 57 `Schema::create` calls in `up()` methods minus 9 Laravel framework tables and 7 later retired by migration; 51 tables total in a fully-migrated database = 41 domain + 9 framework + `migrations`).
 - `docs/SECURITY_REQUIREMENTS_v2.2.0.md` for auth, RBAC, MFA, encryption details.
 - `docs/DEPLOYMENT_GUIDE_v3.1.0.md` for the platform capability contract, env contract, scaling, and migration policy.
 - `docs/CI_CD_GUIDE_v2.1.0.md` for CI stages and the deploy-trigger contract.
 - Superseded unversioned copies of the docs above are kept as history; always read the highest version.
-- `instructions.md` is stale Copilot-era guidance; prefer executable config and current `docs/` files.
+- Prefer executable config and current `docs/` files.
 
 ## Agent skills
 

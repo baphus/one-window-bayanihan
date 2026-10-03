@@ -1,6 +1,6 @@
 # Architecture
 
-> **Version:** 2.2.0 | **Updated:** 2026-09-15 | **Status:** Verified against source code
+> **Version:** 2.2.1 | **Updated:** 2026-10-03 | **Status:** Verified against source code
 > **Source:** `composer.json`, `package.json`, `Dockerfile`, `docker-compose.yml`,
 > `docker/supervisord.conf`, `bootstrap/app.php`, `routes/web.php`, `routes/api.php`,
 > `routes/auth.php`, `config/filesystems.php`, `config/mfa.php`, `config/auth.php`,
@@ -9,12 +9,27 @@
 > `database/seeders/StagingSeeder.php`, `scripts/sync-philippine-addresses.cjs`,
 > `.github/workflows/deploy.yml`
 >
-> Supersedes `ARCHITECTURE_v2.1.0.md` (v2.1.0), retained unchanged per document
-> versioning policy. This is a delta document — everything in v2.1.0 still holds
+> Supersedes `ARCHITECTURE_v2.1.0.md` (v2.1.0); its body is retained as history per document
+> versioning policy and carries a dated erratum banner. This is a delta document — everything in v2.1.0 still holds
 > unless restated below. Infrastructure is described by technology and capability,
 > never by hosting vendor — see `DEPLOYMENT_GUIDE_v3.0.0.md` §1.
 
 ## Changelog
+
+**2.2.1 (2026-10-03)** — targeted corrections, each re-read from source on 2026-10-03:
+
+- **MFA enrollment enforcement restated.** v2.2.0 §4 said enrollment "is enforced for
+  `ADMIN,CASE_MANAGER,AGENCY` (`config/mfa.php:22-25`; OFW excluded)". The roles actually come
+  from `enrollment_enforced_roles` (`config/mfa.php:30-33`, default `ADMIN,CASE_MANAGER,AGENCY`,
+  overridable via `MFA_ENROLLMENT_ENFORCED_ROLES`), and the OFW exclusion does **not** hold in
+  production: `User::isInMfaEnforcedRole()` (`app/Models/User.php:118-131`) enforces MFA for
+  **every non-empty role** whenever `app()->isProduction()`, so OFW must enrol in production too.
+  `config/mfa.php:22-25` is a comment block, not the setting.
+- **Readiness-probe citation tightened.** `GET /api/readyz` is declared at
+  `routes/api.php:12-14` (was cited as `:13-15`, which ran past the route into a blank line).
+- **§3 data layer added.** Counts read from source on 2026-10-03: 40 models, 37 on
+  `UsesUuid` (exceptions `AgencyThreadRead`, `Notification`, `SystemSetting`), and the
+  layered `SoftDeleteFlag` semantics (`SoftDeleteFlag.php:9,18-27,31-34`).
 
 **2.2.0 (2026-09-15)** — ground-truth reconciliation pass. Every version number,
 path, middleware name, and queue policy below was read from code on 2026-09-15:
@@ -70,7 +85,7 @@ path, middleware name, and queue policy below was read from code on 2026-09-15:
   traffic is accepted (`--isolated` lock, non-zero exit fails the release and
   keeps the previous revision). The runner owns the pre-deploy snapshot,
   the image-tag deployment, and the health gates (`/up` shallow + `/api/readyz`
-  deep — see `routes/api.php:13-15`, which is deliberately *not* the container
+  deep — see `routes/api.php:12-14`, which is deliberately *not* the container
   health check so a database blip cannot cause a restart loop).
 - **Queue/cache drift from v2.1.0 resolved.** The "known drift" note in v2.1.0
   §15 is closed: the canonical backend is Redis 7 (`redis:7-alpine`,
@@ -143,6 +158,19 @@ Layer responsibilities are as documented in v2.1.0 §3
 Row-level scoping is enforced at the database session layer via
 `SetPostgresSession` (`app.current_user_id`), as in v2.1.0 §4.
 
+### Data layer (new in 2.2.1)
+
+- **40 Eloquent models** live in `app/Models/`. **37 use UUID primary keys** through
+  `App\Models\Concerns\UsesUuid`; the three that do not are `AgencyThreadRead`,
+  `Notification`, and `SystemSetting`. Route model binding therefore expects string UUIDs.
+- **Soft deletes are layered on top of `SoftDeletes`, not a replacement for it.**
+  `app/Models/Concerns/SoftDeleteFlag.php:9` does `use SoftDeletes;`, then a `deleting`
+  hook writes the custom `is_deleted` boolean and `deleted_by`
+  (`SoftDeleteFlag.php:18-27`), and a `restoring` hook clears both
+  (`SoftDeleteFlag.php:31-34`). `deleted_at` itself comes from `SoftDeletes`.
+- **Roles are route-driven, not enum-driven** — see
+  `ROLES_AND_PERMISSIONS_v1.0.0.md` §1-§3.
+
 ## 4. Authentication Flow (corrects v2.1.0 §5)
 
 ```
@@ -162,10 +190,14 @@ Alternative: POST /login/mfa/recovery (recovery_code) [throttle:recovery-code]
 ```
 
 Challenge policy (`config/mfa.php:4-7`): `pending_ttl` 300s, `max_attempts` 5,
-`replay_ttl` 120s. Enrollment is enforced for `ADMIN,CASE_MANAGER,AGENCY`
-(`config/mfa.php:22-25`; OFW excluded) via `CheckMfaEnrolled`
-(`bootstrap/app.php:67`) and `EnsureMfaSession` (`bootstrap/app.php:66`).
-Email OTP (`OtpService`, TTL 5 min, max 5 attempts) is independent of login —
+`replay_ttl` 120s. Enrollment is enforced by `CheckMfaEnrolled`
+(`bootstrap/app.php:67`) after `EnsureMfaSession` (`bootstrap/app.php:66`), for
+the roles in `config('mfa.enrollment_enforced_roles')` — default
+`ADMIN,CASE_MANAGER,AGENCY` (`config/mfa.php:30-33`) — **except that in
+production every non-empty role is enforced, OFW included**
+(`User::isInMfaEnforcedRole()`, `app/Models/User.php:118-131`). Email OTP
+(`OtpService`, `TTL_MINUTES = 5`, `MAX_ATTEMPTS = 5` at
+`app/Services/OtpService.php:11-13`) is independent of login —
 see §6 of `ROLES_AND_PERMISSIONS_v1.0.0.md` for where each mechanism applies.
 
 ## 5. Chatbot Pipeline (new in this revision)

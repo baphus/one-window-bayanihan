@@ -1,6 +1,8 @@
 # API Contracts
 
-> **Version:** 2.1.0 | **Updated:** 2026-09-15 | **Source:** `routes/web.php` (455 lines), `routes/auth.php`, `routes/api.php`, `bootstrap/app.php`, `app/Providers/AppServiceProvider.php` (rate limiters)
+> **Version:** 2.2.0 | **Updated:** 2026-10-03 | **Source:** `routes/web.php` (455 lines), `routes/auth.php` (118 lines), `routes/api.php`, `bootstrap/app.php`, `app/Providers/AppServiceProvider.php` (rate limiters), `php artisan route:list --json`
+>
+> **What changed in 2.2.0:** re-ran `php artisan route:list --json` on 2026-10-03 — 238 routes in total, of which 234 survive `--except-vendor` (the 4 vendor routes are `sanctum.csrf-cookie`, `storage/{path}` GET and PUT, and the framework `/up`); every table below was re-counted against that output. Corrections: the tracking milestone placeholder is `{tracker_number}`, not `{tracker}` (`routes/web.php:394`); `routes/auth.php` defines 23 routes, not ~19 (13 guest + 10 authenticated, matching the two auth tables below); `routes/api.php` defines 3 routes, not 8, and its overview line no longer mentions the removed `/api/address/*` lookups; there are 27 named rate limiters, not 28; the Route Count Summary now carries exact per-section counts plus a footnote explaining why the column sums past the unique-pair total.
 >
 > **What changed in 2.1.0:** recounted every group against the current route files; corrected the auth tables (the previous revision named a `LoginOtpController` flow that no longer exists — login is `AuthenticatedSessionController`, MFA challenge is `MfaChallengeController`, invites are `RegisterViaInviteController`); added the survey-token, intake, expanded track, session-auth ClientSelect, OFW portal, client-request, survey-form, and expanded admin sections that were missing; split document read/write and audit-log visibility by role; added the `/api/readyz` vs `/up` distinction, the Resend webhook, the exception-rendering contract, and the full named-throttle table. Previous version: 2.0.0 (2026-07-11, ~164 routes).
 
@@ -10,7 +12,7 @@ All routes are defined in three files:
 
 - `routes/web.php` — Application routes (public pages, session-authenticated app, session-authenticated `api/*` helpers)
 - `routes/auth.php` — Authentication routes (required at the end of `web.php`)
-- `routes/api.php` — Public stateless API routes (readiness probe, address lookup, CSP reports, mail webhooks)
+- `routes/api.php` — Public stateless API routes (readiness probe, CSP reports, mail webhooks)
 
 **Important:** Session-authenticated API-style endpoints (`/api/clients*`, `/api/referrals/{referral}/messages`, `/api/*/audit-logs`) live in `web.php`, not `api.php`. Do not assume every API-looking route is in `routes/api.php`.
 
@@ -20,7 +22,7 @@ All routes are defined in three files:
 php artisan route:list --except-vendor
 ```
 
-Group totals below are approximate (`~165–175` named routes across all files at time of writing).
+This document catalogues 238 method rows — 237 application rows plus 1 vendor row (`GET /up`)— which deduplicate to 235 unique method+URI pairs: the 234 application routes (`--except-vendor`) plus `/up`.— the 234 application routes (`--except-vendor`) plus 4 vendor routes — across 235 unique method+URI pairs. Per-role totals below are groupings of those application routes and are approximate.
 
 ---
 
@@ -68,7 +70,7 @@ Each intake step has its own named limiter on purpose: sharing one counter with 
 | GET | `/track/verify-otp` | redirect → `track.index` | `track.verify-otp.get` | — (GET guard; the real verification is POST-only) |
 | POST | `/track/verify-otp` | `TrackController@verifyOtp` | `track.verify-otp` | `throttle:tracking` |
 | GET | `/track/case` | `TrackController@show` | `track.show` | — (OTP-gated session) |
-| GET | `/track/case/{tracker}/referrals/{referral}/milestones` | `TrackController@milestones` | `track.milestones` | — |
+| GET | `/track/case/{tracker_number}/referrals/{referral}/milestones` | `TrackController@milestones` | `track.milestones` | — |
 | POST | `/track/register` | `TrackRegistrationController@store` | `track.register` | `throttle:intake-submit` |
 | GET | `/track/request` | `ReferralClientRequestController@show` | `track.request.index` | token-based client view |
 | POST | `/track/request/exchange` | `ReferralClientRequestController@exchange` | `track.request.exchange` | `throttle:track-request-exchange` |
@@ -118,7 +120,7 @@ Notes:
 
 ---
 
-## Authentication Routes (`routes/auth.php`, ~19 routes)
+## Authentication Routes (`routes/auth.php`, 118 lines, 23 routes)
 
 ### Guest-Only (Unauthenticated)
 
@@ -164,7 +166,7 @@ Logout writes its own `AuditLog::create` row (LOGOUT/`auth`) before invalidating
 
 ## Authenticated Routes (All Roles)
 
-All routes below require `auth` + `verified`, except the five notification routes, which explicitly opt out of `verified` via `withoutMiddleware('verified')` so that users with unverified emails can still read their notifications.
+All routes below require `auth` + `verified`, except the four notification routes, which explicitly opt out of `verified` via `withoutMiddleware('verified')` so that users with unverified emails can still read their notifications.
 
 ### Dashboard & Profile
 
@@ -226,7 +228,7 @@ Pre-flight row-cap guards, small-cell suppression, role scoping, and the attempt
 
 ### Notifications (Without `verified`)
 
-All five routes below carry `withoutMiddleware('verified')` — users with unverified emails can still read notifications.
+All four routes below carry `withoutMiddleware('verified')` — users with unverified emails can still read notifications.
 
 | Method | URI | Controller | Name |
 |--------|-----|-----------|------|
@@ -327,7 +329,7 @@ Rows are scoped per role inside the controllers — admin sees all, case manager
 | GET | `/referrals/{referral}/client-requests` | `ReferralClientRequestController@index` | `referrals.client-requests.index` |
 | GET | `/referrals/{referral}/client-requests/attachments/{attachment}/download` | `ReferralClientRequestController@downloadAgencyAttachment` | `referrals.client-requests.attachments.download` |
 | POST | `/client-access-links/{accessLink}/revoke` | `ReferralClientRequestController@revoke` | `referrals.client-requests.access.revoke` |
-| GET | `/survey-forms` | `SurveyFormController@index` | `survey.forms.index` |
+| GET | `/survey-forms` | `SurveyFormController@index` | `survey.forms.index` | (access note: `role:AGENCY` only — see AGENCY section) |
 | GET | `/surveys` | `SurveyResponseController@index` | `survey.responses.index` |
 | GET | `/survey/{token}` | `PublicSurveyController@show` (public, token-based) | `survey.public.show` |
 
@@ -360,7 +362,7 @@ Reads are triple-role (above); writes stay dual-role.
 
 | Method | URI | Controller | Name (`survey.forms.*`) |
 |--------|-----|-----------|------------------------|
-| GET | `/survey-forms` | `SurveyFormController@index` | `survey.forms.index` |
+| GET | `/survey-forms` | `SurveyFormController@index` | `survey.forms.index` | (access note: `role:AGENCY` only — see AGENCY section) |
 | GET | `/survey-forms/create` | `SurveyFormController@create` | `survey.forms.create` |
 | POST | `/survey-forms` | `SurveyFormController@store` | `survey.forms.store` |
 | GET | `/survey-forms/{form}/edit` | `SurveyFormController@edit` | `survey.forms.edit` |
@@ -518,7 +520,7 @@ In debug mode, Inertia requests that raise bubble a 409 with `X-Inertia-Location
 
 ## Rate Limiters (Named, `AppServiceProvider`)
 
-28 named limiters. Prefer named limiters over inline `throttle:60,1` values: named limiters keep independent counters per feature so unrelated endpoints never share a budget.
+27 named limiters. Prefer named limiters over inline `throttle:60,1` values: named limiters keep independent counters per feature so unrelated endpoints never share a budget.
 
 | Limiter | Budget | Used By |
 |---------|--------|---------|
@@ -554,26 +556,38 @@ In debug mode, Inertia requests that raise bubble a 409 with `X-Inertia-Location
 
 ## Route Count Summary
 
-| Category | Approx. Count |
-|----------|---------------|
+Rows re-tallied from the tables above on 2026-10-03 and cross-checked against
+`php artisan route:list --json`.
+
+| Category | Rows |
+|----------|------|
 | Public (landing, partners, contact, privacy, terms) | 7 |
 | Public survey (token) | 2 |
 | Public intake | 5 |
 | Tracking portal + client-request track side | 12 |
 | Helpdesk | 3 |
 | Chatbot | 1 |
-| Public stateless API (`api.php`) | 8 |
+| Public stateless API (`api.php`) | 3 |
+| Health probe `/up` (vendor/framework) | 1 |
 | Authentication — guest | 13 |
 | Authentication — auth | 10 |
-| Authenticated all roles (dashboard, profile, MFA, referrals, reports, notifications, onboarding, session API) | ~50 |
-| CASE_MANAGER + ADMIN (cases ~21, quick issue, stakeholders, audit export, case audit-log API) | ~26 |
-| Triple-role shared reads (audit, case show, documents read, clients, client-requests read, feedbacks) | ~18 |
+| Authenticated all roles (dashboard/profile 4, MFA 5, referrals 24, reports 3, notifications 5, onboarding 9, session API 3) | 53 |
+| CASE_MANAGER + ADMIN (cases 21, quick issue 1, stakeholders 2, audit export 1, case audit-log API 1) | 26 |
+| Triple-role shared reads (audit viewer 1, case show 1, documents read 3, clients 6, client-request read 3, survey-form/survey list 2 [survey-forms is AGENCY-only], public survey show 1) | 17 |
 | Documents write (dual-role) | 2 |
 | AGENCY (client-requests 7, services 4, survey forms 7) | 18 |
 | Survey responses dashboard | 2 |
 | Overdue referrals (outside `verified`) | 2 |
 | OFW portal | 7 |
-| Admin (agencies 5 + single-agency show, services 4, users ~13, system-settings 3, case-categories 5, case-statuses 4, case-issues 5, data-export 2, system 11) | ~52 |
-| **Total named** | **~165–175** |
+| Admin (agencies 5 + single-agency show, services 4, users 14, system-settings 3, case-categories 5, case-statuses 4, case-issues 5, data-export 2, system 11) | 54 |
+| **Total method rows (duplicates included)** | **238** |
+| **Unique application routes (excludes `/up`)** | **234** |
+
+The `Rows` column sums to 238 — the 238 method rows this document catalogues —
+because `GET /survey/{token}`, `GET /survey-forms`, and `GET /surveys` are each
+listed in two sections. Deduplicated that is **235 unique method+URI pairs**:
+the **234 application routes** counted as the total above, plus `/up`, which is
+a vendor/framework route. The other three vendor routes
+(`sanctum/csrf-cookie`, and `storage/{path}` GET and PUT) are not catalogued.
 
 For the exact count on any checkout: `php artisan route:list --except-vendor`.

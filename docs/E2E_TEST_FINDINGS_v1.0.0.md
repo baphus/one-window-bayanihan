@@ -1,5 +1,10 @@
 # End-to-End Test Findings — AWS Staging
 
+> **HISTORICAL - archived point-in-time findings record retained for provenance; written 2026-07-27.**
+> Not current guidance - do not follow it as a procedure or spec.
+> The pass/assertion counts and image SHA in this record describe that single dated staging run only; they are not current.
+> See `docs/README.md` for current documentation.
+
 > **Version:** 1.0.0 | **Date:** 2026-07-27
 > **Environment:** `https://bayanihan-staging.m317gkz7tgsqm.ap-southeast-1.cs.amazonlightsail.com`
 > **Image:** `8f4d1d36ae14725661a05e70fff704d8856ffdde` (deployment v4)

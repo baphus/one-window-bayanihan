@@ -69,7 +69,7 @@ Layer 6: Data Protection (PII encryption, audit logging, RLS)
 ### Implementation
 
 - **Mechanism:** Custom `CheckRole` middleware (NOT Spatie laravel-permission)
-- **Storage:** `users.role` column (string: `CASE_MANAGER`, `AGENCY`, `ADMIN`)
+- **Storage:** `users.role` column (string: `CASE_MANAGER`, `AGENCY`, `ADMIN`, `OFW`)
 - **Usage:** `Route::middleware('role:CASE_MANAGER,ADMIN')` — comma-separated allowed roles
 
 ### Lane Isolation (Agency)
@@ -89,7 +89,8 @@ Layer 6: Data Protection (PII encryption, audit logging, RLS)
 | `X-Content-Type-Options` | `nosniff` |
 | `Referrer-Policy` | `strict-origin-when-cross-origin` |
 | `Permissions-Policy` | `camera=(), microphone=(), geolocation=()` |
-| `X-XSS-Protection` | `1; mode=block` |
+
+(`X-XSS-Protection` is not emitted — modern browsers ignore it and the middleware does not set it. Outside local environments the middleware also sets `Strict-Transport-Security` and `Cross-Origin-Resource-Policy: same-origin`, and `X-Robots-Tag: noindex, nofollow` unless `SEARCH_INDEXING_ENABLED=true`.)
 
 ### Content Security Policy (`ContentSecurityPolicy` middleware)
 
@@ -167,7 +168,7 @@ authenticated user ID and falls back to IP for guests.
 
 - MIME type validation (server-side, not just extension)
 - File size limits (configurable via `config/file-uploads.php`)
-- Malware scanning (`MalwareScannerTest` confirms implementation)
+- Malware scanning — scanner is wired through `StorageService` (confirmed by `MalwareScannerTest`) but **disabled by default**: `MALWARE_SCANNER` defaults to `null` (`config/services.php:56-58`), which binds the `NullScanner` that passes every upload. Set `MALWARE_SCANNER=clamav` to activate it
 - File extension whitelist
 
 ### Storage
@@ -178,10 +179,10 @@ authenticated user ID and falls back to IP for guests.
 
 ## 7. Audit Trail
 
-- **Append-only:** PostgreSQL trigger prevents UPDATE/DELETE on `audit_logs`
+- **Append-only:** PostgreSQL trigger prevents UPDATE/DELETE on `audit_logs` (sole exception: the `app.allow_audit_mutations` session flag set by the authorized prune/backfill commands — `2026_07_08_000002_make_audit_logs_trigger_conditional.php`)
 - **Hash chain:** SHA-256 `prev_hash` links each entry to its predecessor
 - **Context:** IP address, user agent, correlation ID on every entry
-- **Observer:** `AuditObserver` on 10 models for automatic CREATE/UPDATE/DELETE logging
+- **Observer:** `AuditObserver` on the 26 models in `config/audit.php` `observed_models` for automatic CREATE/UPDATE/DELETE logging
 - **Manual:** Login/logout explicitly logged in auth handlers
 
 See [AUDIT_STRATEGY_v2.2.0.md](AUDIT_STRATEGY_v2.2.0.md) for full audit design.

@@ -1,7 +1,7 @@
 # Deployment Guide
 
 > **Version:** 3.1.0 | **Updated:** 2026-09-15 | **Supersedes:** `DEPLOYMENT_GUIDE_v3.0.0.md` (2026-07-27)
-> **Source of truth:** `Dockerfile`, `docker-compose.yml`, `docker/supervisord.conf`, `docker/php/docker-entrypoint.sh`, `composer.json`, `config/*.php`, `.env.example`, `.github/workflows/deploy.yml`
+> **Source of truth:** `Dockerfile`, `docker-compose.yml`, `docker/supervisord.conf`, `docker/php/docker-entrypoint.sh`, `composer.json`, `config/*.php`, `.env.example`, `.github/workflows/ci.yml`, `.github/workflows/deploy.yml`, `.github/workflows/deploy-production.yml`
 > **Delta scope:** v3.0.0 remains the full strategy. This revision corrects floors, pins, and divergences verified against the repo on 2026-09-15. Anything not re-stated here is unchanged from v3.0.0 (§0 portability rules, §2 environment matrix shape, §5 models, §7 runbooks, §8 scaling, §9 operations, §10 monitoring, §11 rollback, §13 standards check).
 
 ## 0. What changed in v3.1.0 (delta)
@@ -179,7 +179,7 @@ The deploy override is deliberate: the hosted container runs cache+queue on `dat
 
 ## 6. Build pipeline and release sequence (reconciled)
 
-Production build steps and the provider-agnostic trigger contract (`DEPLOY_API_URL` / `DEPLOY_API_TOKEN` / `DEPLOY_SERVICE_ID` / `HEALTH_CHECK_URL`) are unchanged from v3.0.0. What v3.0.0 described as "migrations as a release step, not on boot" is reconciled with the verified design:
+Production build steps are unchanged from v3.0.0. The provider-agnostic trigger contract v3.0.0 described (`DEPLOY_API_URL` / `DEPLOY_API_TOKEN` / `DEPLOY_SERVICE_ID` / `HEALTH_CHECK_URL`) does not exist in this repo — none of those keys appear in `.env.example`, `config/`, `docker/`, or `.github/workflows/`. The committed pipeline's trigger contract is the reusable workflow's typed inputs: `deploy.yml` accepts `environment` · `service_name` · `hostname` · `image_tag` · `app_env`, its only caller passes `environment: production` (`deploy-production.yml:46-52`), and the health gate is `https://<hostname>/up` followed by `/api/readyz` (`deploy.yml:382-422`), not a `HEALTH_CHECK_URL` variable. What v3.0.0 described as "migrations as a release step, not on boot" is reconciled with the verified design:
 
 1. **Migrations run in the entrypoint** (`docker/php/docker-entrypoint.sh`): precondition check (fail closed on missing `APP_KEY`/`DB_*`) → `mail:verify-transport --no-send` (fail closed before mutating schema) → `migrate --force --isolated --no-interaction` (atomic cache lock; exactly one container migrates; failure aborts boot so the previous deployment keeps serving) → optional `chatbot:index` → `exec "$@"` (supervisord).
 2. **Why inside, not from CI:** the database no longer accepts public connections (private endpoint), so a hosted runner cannot reach it; running migrations from CI would require keeping the DB internet-facing purely for the pipeline (documented in `deploy.yml` header).
@@ -189,7 +189,7 @@ Production build steps and the provider-agnostic trigger contract (`DEPLOY_API_U
 
 ## 12. Platform binding inventory (sole vendor pit — unchanged rule)
 
-Same rule as v3.0.0: everything vendor-specific is confined to the deploy step's endpoint/credentials, `HEALTH_CHECK_URL`, `DB_*`, `STORAGE_*`/`R2_*`, `REDIS_*`, `MAIL_MAILER` + transport credentials (see `docs/EMAIL_DELIVERY_v2.1.0.md`), `SENTRY_LARAVEL_DSN`, `CLOUDINARY_URL`, `TURNSTILE_*`. The committed pipeline's deploy step is the **only** platform-specific link; the rest (install → lint → audit → test → build → gate → notify) is provider-neutral. This section is the only place provider names may appear; compliance/management docs are exempt from the neutrality scrub per repo policy.
+Same rule as v3.0.0: everything vendor-specific is confined to the deploy step's endpoint/credentials, the deploy workflow's target inputs (`hostname`, `service_name`, `image_tag`), `DB_*`, `STORAGE_*`/`R2_*`, `REDIS_*`, `MAIL_MAILER` + transport credentials (see `docs/EMAIL_DELIVERY_v2.1.0.md`), `SENTRY_LARAVEL_DSN`, `CLOUDINARY_URL`, `TURNSTILE_*`. The committed pipeline's deploy step is the **only** platform-specific link; the rest (install → lint → audit → test → build → gate → notify) is provider-neutral. This section is the only place provider names may appear; compliance/management docs are exempt from the neutrality scrub per repo policy.
 
 ## 14. Changelog
 

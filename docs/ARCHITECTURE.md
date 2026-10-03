@@ -1,5 +1,18 @@
 > **SUPERSEDED - see `ARCHITECTURE_v2.2.0.md`.**
 > Retained as history. Do not use for new work; it does not reflect the current system.
+>
+> **Anachronisms kept deliberately (annotated 2026-10-03; body left unchanged as history):**
+>
+> - §5 and §10 describe an email-OTP login driven by `LoginOtpController`. That controller has
+>   never existed in this codebase — there is no email-OTP step at login. Login is email + password
+>   via `AuthenticatedSessionController` (`routes/auth.php:21-29`), then the TOTP MFA challenge via
+>   `MfaChallengeController` (`routes/auth.php:31-38`). Email OTP (`App\Services\OtpService`) is used
+>   only for email-change verification, public case intake, and citizen tracking-number verification.
+> - §6 lists three roles; the fourth is `OFW`. `users.role` is a plain `string(50)`, not an enum
+>   (`database/migrations/0001_01_01_000000_create_framework_tables.php:16`); `app/Enums/` holds only
+>   `AuditAction` and `AuditModule`.
+> - §4 rate-limiter budgets, §9 vendor-named topology, and §12-§13 database queue/cache drivers are
+>   superseded — see `ARCHITECTURE_v2.2.0.md`.
 
 # Architecture
 
@@ -132,6 +145,11 @@ Alternative: POST /login/verify-recovery-code (recovery_code)
    → Consumes one recovery code, authenticates
 ```
 
+> **Erratum (2026-10-03):** the flow above never shipped — kept verbatim as history, see the
+> top banner. `LoginOtpController` does not exist; there is no email-OTP step at login. Login is
+> `AuthenticatedSessionController` (`routes/auth.php:21-29`), then the TOTP challenge
+> `MfaChallengeController` (`routes/auth.php:31-38`).
+
 ### MFA (TOTP) Enrollment
 
 - Users can enable TOTP via Profile → MFA Setup
@@ -260,6 +278,9 @@ docker-compose.yml
 | Admin | `AdminUserController`, `AdminAgencyController`, `AdminServiceController`, `AdminCaseCategoryController`, `AdminCaseStatusController`, `AdminCaseIssueController` | Admin CRUD |
 | Admin System | `LogViewerController`, `MaintenanceController`, `SecuritySettingsController`, `ActiveSessionsController`, `EmailLogController`, `DataExportController`, `OverdueReferralController` | System administration |
 | Other | `DashboardController`, `ProfileController`, `NotificationController`, `StakeholderController`, `OnboardingController`, `SystemSettingsController`, `AuditLogController`, `AgencyServiceController` | Supporting features |
+
+> **Erratum (2026-10-03):** the `LoginOtpController` entry in the Auth row above never existed —
+> see the top banner and the note under §5.
 
 ## 11. Event System
 

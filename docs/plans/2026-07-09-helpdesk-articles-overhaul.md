@@ -1,5 +1,9 @@
 # Helpdesk Articles Overhaul — Implementation Plan
 
+> **HISTORICAL - archived artifact retained for provenance; written 2026-07-09.**
+> Not current guidance - do not follow it as a procedure or spec.
+> See `docs/README.md` for current documentation.
+
 **Goal:** Replace all 22 placeholder/commercial helpdesk articles with accurate, codebase-referencing guides, add 7 new articles for missing workflows, and attach Playwright screenshots to every article.
 
 **Architecture:** Static data-only change — no new DB tables, no routes, no backend code. Articles live as TypeScript string exports in `resources/js/data/helpdesk/content/*.ts`, registered in `resources/js/data/helpdesk/articles.ts`. Category/tag metadata and the rendering pipeline (`HelpdeskLayout`, `ArticleCard`, `Show.jsx`) are untouched. Screenshots are stored in `storage/app/public/helpdesk/` and served via relative URLs.

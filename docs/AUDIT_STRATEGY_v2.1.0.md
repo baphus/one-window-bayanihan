@@ -1,5 +1,18 @@
 > **SUPERSEDED - see `AUDIT_STRATEGY_v2.2.0.md`.**
 > Retained as history. Do not use for new work; it does not reflect the current system.
+>
+> **Correction (2026-10-03; body left unchanged as history):** §Access Control states
+> "**AGENCY**: no audit access (route-enforced)". That no longer matches the code:
+> `routes/web.php:161-163` grants `role:CASE_MANAGER,ADMIN,AGENCY` on `GET /audit-logs`, and
+> `AuditLogController::scopedEntityIds` (`app/Http/Controllers/AuditLogController.php:291-315`)
+> narrows agency rows to their own referrals plus the parent cases. Export remains ADMIN-only
+> (`AuditLogController.php:112`). See `AUDIT_STRATEGY_v2.2.0.md` §Access control.
+>
+> Also dated: §Schema's "Allowed actions now" list is the 2026-07-12 set of 10 verbs.
+> `RESTORE` and `PURGE` were appended on 2026-07-24
+> (`2026_07_24_000002_add_restore_purge_to_audit_logs_action_check.php`), so the
+> `audit_logs_action_check` constraint and `App\Enums\AuditAction` now hold 12 — see
+> `AUDIT_STRATEGY_v2.2.0.md` §Event vocabulary.
 
 # Audit Strategy
 

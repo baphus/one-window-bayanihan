@@ -121,6 +121,20 @@ Unchanged from v1.2.0 §2 apart from three corrections found while provisioning:
 | `AUDIT_ARCHIVE_BUCKET` is its own variable | It previously reused `STORAGE_BUCKET`, which would have written audit archives into the non-Object-Lock bucket. |
 | `MAIL_MAILER` is configurable, default `log` | It was hardcoded to `resend`; mail would have been accepted and dropped, making sign-in impossible with nothing shown in the UI. |
 
+**The workflow set itself has since changed — v1.2.0 §2.1's table is stale.**
+`.github/workflows/` now holds exactly four files: `ci.yml`, `build-image.yml`,
+`deploy.yml`, `deploy-production.yml`. There is **no `deploy-staging.yml` and no
+staging caller of any kind**: `deploy.yml` accepts an `environment` input, but its
+only caller (`deploy-production.yml:46-52`) always passes
+`environment: production`, so a staging rollout cannot be produced by invoking
+`deploy.yml` with different inputs. `build-image.yml` is `workflow_dispatch` only —
+manual (`build-image.yml:8-12`), not `push` or `workflow_run` triggered — and it
+asserts GD FreeType/JPEG, a rendered report chart, and packaged helpdesk content
+rather than FTS5. Migrations run inside the container at start
+(`RUN_MIGRATIONS=true`, `deploy.yml:288`), **not from a GitHub Actions runner**;
+the runner only takes the pre-deploy snapshot, submits the deployment, polls it to
+`ACTIVE` on the expected image, and gates on `/up` + `/api/readyz`.
+
 The image build additionally asserts that the entrypoint **fails closed**. This
 came out of a real CI failure: `docker run <image> php -m` executes the entrypoint,
 which now exits non-zero when `config:cache` fails, so every inspection step needs
@@ -195,7 +209,7 @@ charging.
 
 | Finding | Standard | Note |
 |---|---|---|
-| **Database publicly reachable.** Required by the pipeline, which runs migrations from a GitHub Actions runner, and Lightsail container services cannot join a VPC. Mitigated by TLS, a 40-character password, and no real data. | A.8.20/A.8.22, CC6.6 | Architectural. Resolving it means moving compute to ECS in a VPC and running migrations as an in-VPC task. |
+| **Database publicly reachable.** No longer required by the pipeline: migrations run inside the container at start (`RUN_MIGRATIONS=true`), not from a GitHub Actions runner, so the pipeline does not need a public endpoint; and Lightsail container services cannot join a VPC. Mitigated by TLS, a 40-character password, and no real data. | A.8.20/A.8.22, CC6.6 | Architectural. Resolving it means moving compute to ECS in a VPC — in-container migrations already remove the reason to expose the database. |
 | **Account root used for administration.** Every CLI action provisioning this environment ran as root. | A.8.2, CC6.1 | Enable MFA on root; move humans to IAM Identity Center. |
 | Legacy IAM users `bayanihan-ci-ecr` and `bayanihan-deploy` still exist | A.5.17 | Superseded by the OIDC roles — delete them. |
 | Plaintext secrets in Lightsail container environment variables | A.8.24, CC6.1 | Readable via `lightsail get-container-services`; needs the VPC move for Secrets Manager. |

@@ -5,7 +5,7 @@
 > verified and the defect log (its §2, §3, §4, §6). v1.5.0 added the operations
 > manual — §3 onward. This version corrects the Resend secret name and records the
 > release gate added after it caused a production outage.
-> **Platform-neutral contract:** `docs/DEPLOYMENT_GUIDE_v3.0.0.md`
+> **Platform-neutral contract:** `docs/DEPLOYMENT_GUIDE_v3.1.0.md`
 
 ## 0. What changed from 1.5.0
 
@@ -30,8 +30,9 @@ null given, called in .../Illuminate/Mail/MailManager.php on line 323
 
 Two things made this worse than a typo:
 
-1. **Every gate passed.** `/up` never touches mail. `/api/readyz` did not either.
-   The deployment was reported healthy while outbound mail was completely dead.
+1. **Every gate passed.** `/up` never touches mail, and `/api/readyz` had no mail
+   check yet. The deployment was reported healthy while outbound mail was
+   completely dead.
 2. **No test did catch it.** The suite calls `Mail::fake()` throughout, and the
    fake intercepts the send path — so no functional test ever reached the
    transport construction that threw. (`MailFake` does still forward unknown
@@ -118,9 +119,9 @@ Set-Alias aws "$env:LOCALAPPDATA\Programs\Amazon\AWSCLIV2\aws.exe"
 | Workflow | Trigger | Does |
 |---|---|---|
 | `ci.yml` | PR + push to `main` | Pint, `composer audit`, `npm audit`, asset build, all four production cache commands, `migrate --pretend`, migrate, backend + frontend tests |
-| `build-image.yml` | push to `main` / `deploy/**`, manual | Builds the image, asserts PHP extensions + FTS5 + nginx + supervisord parse, asserts the entrypoint fails closed **and** starts when configured, pushes to ECR tagged with the commit SHA, reports scan findings |
-| `deploy-production.yml` | **manual only** | Confirmation phrase → `production` Environment approval → `deploy.yml` |
-| `deploy.yml` | `workflow_call` | Mail-config guard → snapshot → deploy → wait READY → `/up` gate → `/api/readyz` gate (now includes a mail-transport check) |
+| `build-image.yml` | **manual only** (`workflow_dispatch`) | Builds the image, asserts PHP extensions + GD FreeType/JPEG + a rendered report chart + packaged helpdesk content + nginx/supervisord parse, asserts the entrypoint fails closed **and** starts when configured, pushes to ECR tagged with the commit SHA, reports scan findings |
+| `deploy-production.yml` | **manual only** | Confirmation phrase (`guard` job) → calls `deploy.yml` with `environment: production` |
+| `deploy.yml` | `workflow_call` | Mail-config guard → snapshot → deploy → wait for the deployment to reach `ACTIVE` on the expected image → `/up` gate → `/api/readyz` gate (now includes a mail-transport check) |
 
 The container adds a gate the pipeline cannot: the entrypoint runs
 `mail:verify-transport --no-send` before migrations and exits non-zero on a
@@ -129,19 +130,29 @@ instead of reaching users. See §0.
 
 Build and deploy are separate on purpose. Merging code does **not** ship it.
 
-`build-image.yml` ignores `docs/**` and `**.md`, so a documentation-only change
-does not trigger a build.
+`build-image.yml` has no automatic trigger at all — it is `workflow_dispatch`
+only (`build-image.yml:8-12`) — so no change, documentation-only or otherwise,
+triggers a build; an image exists when someone deliberately dispatches one.
+That is deliberate: every push to `main` used to trigger a full build and push,
+which charged storage per image (`build-image.yml:9-11`).
 
 ---
 
 ## 3. Deploying a new version
 
-**Step 1 — get the image tag.** Merging to `main` builds and pushes automatically.
-The tag is the commit SHA.
+**Step 1 — get the image tag.** Images are built by dispatching the **Build and
+Push Image** workflow (`build-image.yml`, manual `workflow_dispatch`); merging to
+`main` does **not** build one. The tag is the commit SHA.
 
 ```bash
 gh run list --repo baphus/one-window-bayanihan --workflow build-image.yml --limit 5 \
   --json headSha,status,conclusion --jq '.[] | "\(.headSha[0:40]) \(.status) \(.conclusion)"'
+```
+
+If no run exists for the commit you want, build it first:
+
+```bash
+gh workflow run "Build and Push Image" --repo baphus/one-window-bayanihan
 ```
 
 Or read it straight from the registry:
@@ -161,14 +172,20 @@ gh workflow run "Deploy Production" --repo baphus/one-window-bayanihan \
 Or Actions → **Deploy Production** → Run workflow. The `confirm=PRODUCTION` phrase
 is deliberate friction; a misclick cannot ship.
 
-**Step 3 — approve.** The `production` Environment requires a named reviewer. This
-is a technical control, not a UI convention: the OIDC deploy role's trust policy
-only permits `repo:baphus/one-window-bayanihan:environment:production`, so
-credentials are unobtainable from a job that is not running in that environment.
+**Step 3 — approve.** The deploy job runs inside the `production` Environment
+(`deploy.yml:61-62`), selected by the input passed at `deploy-production.yml:48`.
+No workflow file enforces reviewer approval: pairing required reviewers with the
+Environment is only a comment (`deploy-production.yml:8-9`), so unless the
+Environment itself has required reviewers configured, the typed phrase alone is
+all that gates the run. What the workflows *do* guarantee is credential scoping:
+the OIDC deploy role's trust policy only permits
+`repo:baphus/one-window-bayanihan:environment:production`, so credentials are
+unobtainable from a job that is not running in that environment.
 
-**Step 4 — the pipeline gates for you.** Pre-deploy database snapshot → submit
-deployment → wait for `READY` → `/up` must return 200 → `/api/readyz` must return
-200. A failed gate turns the run red; the previous deployment continues serving.
+**Step 4 — the pipeline gates for you.** Image-exists check + mail-config guard →
+pre-deploy database snapshot → submit deployment → wait for the deployment to
+reach `ACTIVE` on the expected image → `/up` must return 200 → `/api/readyz` must
+return 200. A failed gate turns the run red; the previous deployment continues serving.
 
 > **Never confuse the image tag with an abbreviated SHA.** Passing a tag that does
 > not exist produces a deployment that fails on image pull. Harmless — the previous
@@ -317,7 +334,8 @@ aws lightsail get-container-log --service-name bayanihan-production `
 # shallow health — this is what Lightsail's health check probes
 curl https://dmw7.owbap.app/up
 
-# deep health — database, scheduler heartbeat, queue backlog, failed jobs
+# deep health — database, scheduler heartbeat, mail transport, image rendering,
+# queue backlog, failed jobs
 curl -H "X-Monitoring-Token: <token>" https://dmw7.owbap.app/api/readyz
 ```
 
@@ -334,6 +352,8 @@ returned 502. `/api/readyz` exists specifically to catch that class of failure:
 {"status":"ok","failing":[],"checks":{
   "database":{"status":"ok"},
   "scheduler":{"status":"ok","age_seconds":26,"threshold_seconds":300},
+  "mail":{"status":"ok","mailer":"resend"},
+  "image_rendering":{"status":"ok","freetype":true},
   "queue_backlog":{"status":"ok","count":0,"threshold":100},
   "failed_jobs":{"status":"ok","count":0,"threshold":25}}}
 ```
@@ -386,7 +406,7 @@ aws lightsail get-relational-database-snapshots --region ap-southeast-1 `
 | SSH or `exec` into the container | Lightsail does not offer it. §6 is the workaround. |
 | Connect to the database from outside AWS | Private endpoint — the property that closed the worst compliance finding. |
 | Change environment variables without redeploying | Lightsail bakes them into a deployment. |
-| Deploy without approval | The deploy OIDC role is assumable only from the `production` Environment. |
+| Deploy without approval | Only if the `production` Environment has no required reviewers configured — the workflows do not enforce approval (it is a comment at `deploy-production.yml:8-9`). What *is* enforced: the deploy OIDC role is assumable only from the `production` Environment. |
 | Run migrations from CI | Follows from the private database. |
 | Recreate the audit bucket with Object Lock | Object Lock is **creation-time only**. Losing that bucket means a new bucket plus a verified copy. |
 

@@ -1,8 +1,8 @@
 # Deployment Costing — Bayanihan One Window
 
-> **SUPERSEDED** — see [DEPLOYMENT_COSTING_v2.0.0.md](DEPLOYMENT_COSTING_v2.0.0.md). This version's AI-chatbot row claims "pgvector retrieval in the same database", but the `chatbot_embeddings` table was dropped by `database/migrations/2026_09_16_000001_drop_chatbot_embeddings_table.php` and `.env.example:185` documents tool-based reading "without embeddings". Figures below are otherwise unchanged.
-
 **What it costs to keep the system running, per month and per year.**
+
+> **Version:** 2.0.0 | **Updated:** 2026-10-03 | **Supersedes:** `DEPLOYMENT_COSTING_v1.0.0.md` (2026-08-18)
 
 Prepared: 2026-08-18 · Currency: USD (PHP shown at ₱58.00/USD — see §8)
 Environment costed: `production` (`https://dmw7.owbap.app`), AWS `ap-southeast-1`, account `677206905439`
@@ -15,7 +15,7 @@ This covers **running costs only** — the infrastructure and third-party servic
 needed to keep the deployed application available. It excludes development
 labour, project management, training, and hardware.
 
-Architecture being costed (from `docs/DEPLOYMENT_PRODUCTION_AWS_v1.6.0.md`):
+Architecture being costed (line-item baseline from the **superseded** `docs/DEPLOYMENT_PRODUCTION_AWS_v1.4.0.md` — §8; the current runbook `docs/DEPLOYMENT_PRODUCTION_AWS_v1.6.0.md` records only the ~$31/month total, not these line items):
 
 | Layer | What runs it |
 |---|---|
@@ -28,7 +28,7 @@ Architecture being costed (from `docs/DEPLOYMENT_PRODUCTION_AWS_v1.6.0.md`):
 | Email | Resend (HTTPS API) |
 | Error monitoring | Sentry |
 | Bot protection | Cloudflare Turnstile |
-| AI chatbot | OpenRouter (free-tier model), pgvector retrieval in the same database |
+| AI chatbot | Configurable — deploy passes `OPENROUTER_API_KEY`, repo default is `gemini` (`config/ai-chatbot.php:6`); helpdesk articles read via tool calls at answer time — **no vector/embedding store** (the `chatbot_embeddings` pgvector table was dropped 2026-09-16) |
 | CI/CD | GitHub Actions |
 
 There is **no staging environment** — it was decommissioned. Production is the
@@ -65,7 +65,7 @@ free tiers have hard ceilings that ordinary growth will reach.
 | Resend | Transactional email — OTP, MFA, password reset | Free: 3,000 emails/mo, 100/day | 0.00 | $20/mo — 50,000 emails |
 | Sentry | Error and performance monitoring | Developer: 5,000 errors/mo | 0.00 | $26/mo — Team |
 | Cloudflare Turnstile | Bot protection on public forms | Free (unlimited) | 0.00 | — |
-| OpenRouter | AI chatbot answer generation | Free model | 0.00 | ~$5–20/mo on a paid model |
+| OpenRouter | AI chatbot answer generation (only if selected; default is `gemini`) | Free model | 0.00 | ~$5–20/mo on a paid model |
 | GitHub Actions | CI/CD pipeline | Within included minutes | 0.00 | $4/user/mo (Team) |
 | Domain `owbap.app` | Public URL | `.app` registration | ~1.75 | ~$21/yr |
 | DNS hosting | Name resolution | Cloudflare free / Route 53 | 0.00–0.50 | — |
@@ -190,7 +190,7 @@ more than building it in now.
 1. **Prices are AWS `ap-southeast-1` (Singapore) list prices.** The AWS baseline
    in §2 is taken from the deployment runbook, which records figures verified
    against the live account.
-2. **One line to reconcile against the actual invoice:** the runbook records the
+2. **One line to reconcile against the actual invoice:** the superseded v1.4.0 baseline records the
    `small` container service at **$15/month**; AWS list price for a `small`
    container node is **$20/node/month** in most regions. If the invoice shows
    $20, the baseline totals become **$38/month · $456/year**, and Tier B rises by
@@ -223,4 +223,5 @@ more than building it in now.
 
 | Version | Date | Change |
 |---|---|---|
+| 2.0.0 | 2026-10-03 | Corrected §1's AI chatbot row: retrieval is **not** pgvector — the `chatbot_embeddings` (pgvector + FTS) table was dropped on 2026-09-16 (`2026_09_16_000001_drop_chatbot_embeddings_table.php`) and the chatbot now reads the packaged helpdesk corpus through tool calls at answer time (`.env.example`: "without embeddings"). Re-verified the architecture, CI/CD and optional-item rows against `.github/workflows/` (exactly four workflow files: `ci.yml`, `build-image.yml`, `deploy.yml`, `deploy-production.yml`; image builds are manual `workflow_dispatch`, not per-push; there is no staging workflow) and re-checked every total against §2–§5 — figures unchanged. |
 | 1.0.0 | 2026-08-18 | Initial costing. Baseline drawn from the verified AWS production runbook (`DEPLOYMENT_PRODUCTION_AWS_v1.4.0.md` §8, `v1.6.0` §1); third-party services identified from `deploy/lightsail/app-deployment.template.json` and `.github/workflows/deploy.yml`. Added growth tiers, cost drivers, deferred items, and a standards-readiness check. |
