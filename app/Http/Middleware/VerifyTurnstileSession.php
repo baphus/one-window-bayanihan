@@ -23,15 +23,24 @@ class VerifyTurnstileSession
 
     private const SESSION_KEY = 'turnstile_verified';
 
+    private const SESSION_VERIFIED_AT_KEY = 'turnstile_verified_at';
+
     public function handle(Request $request, Closure $next): Response
     {
         if (! config('turnstile.enabled')) {
             return $next($request);
         }
 
-        // Already verified this session — allow through
+        // Already verified this session — allow through while the check is fresh
         if ($request->session()->get(self::SESSION_KEY)) {
-            return $next($request);
+            $verifiedAt = (int) $request->session()->get(self::SESSION_VERIFIED_AT_KEY, 0);
+            $ttl = (int) config('turnstile.session_ttl', 1800);
+
+            if ($verifiedAt > 0 && (time() - $verifiedAt) < $ttl) {
+                return $next($request);
+            }
+
+            $request->session()->forget([self::SESSION_KEY, self::SESSION_VERIFIED_AT_KEY]);
         }
 
         $token = $request->input('cf-turnstile-response') ?? $request->input('cf_turnstile_response');
@@ -78,6 +87,7 @@ class VerifyTurnstileSession
 
         // Mark session as verified
         $request->session()->put(self::SESSION_KEY, true);
+        $request->session()->put(self::SESSION_VERIFIED_AT_KEY, time());
 
         return $next($request);
     }

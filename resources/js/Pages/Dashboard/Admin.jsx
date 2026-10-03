@@ -3,6 +3,7 @@ import { Link, usePage } from '@inertiajs/react';
 import GettingStartedChecklist from '@/Components/GettingStartedChecklist';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import { formatDisplayDate, formatDisplayDateTime } from '@/lib/utils';
+import safeRoute from '@/utils/safeRoute';
 import {
     ActivityFeed,
     AgencyScorecard,
@@ -26,21 +27,28 @@ import {
 } from '@/Components/Dashboard/primitives';
 
 const QUEUE_ROUTES = {
-    openCases: '/cases?status=OPEN',
-    pendingReferrals: '/referrals?status=PENDING',
-    processingReferrals: '/referrals?status=PROCESSING',
-    forComplianceReferrals: '/referrals?status=FOR_COMPLIANCE',
-    overdueReferrals: '/overdue-referrals',
+    openCases: { route: 'cases.index', params: { status: 'OPEN' }, fallback: '/cases?status=OPEN' },
+    pendingReferrals: { route: 'referrals.index', params: { status: 'PENDING' }, fallback: '/referrals?status=PENDING' },
+    processingReferrals: { route: 'referrals.index', params: { status: 'PROCESSING' }, fallback: '/referrals?status=PROCESSING' },
+    forComplianceReferrals: { route: 'referrals.index', params: { status: 'FOR_COMPLIANCE' }, fallback: '/referrals?status=FOR_COMPLIANCE' },
+    overdueReferrals: { route: 'overdue-referrals.index', params: undefined, fallback: '/overdue-referrals' },
 };
+
+function resolveQueueHref(item) {
+    if (item.href) return item.href;
+    const target = QUEUE_ROUTES[item.key];
+    if (!target) return safeRoute('referrals.index', undefined, '/referrals');
+    return safeRoute(target.route, target.params, target.fallback);
+}
 
 const ATTENTION_STATUSES = ['REJECTED', 'FOR_COMPLIANCE'];
 
 const ADMIN_TOOLS = [
-    { label: 'Users', description: 'Roles, verification, access', href: '/admin/users', icon: 'group' },
-    { label: 'Agencies', description: 'Partner profiles and activation', href: '/admin/agencies', icon: 'business' },
-    { label: 'Services', description: 'Catalog and requirements', href: '/admin/services', icon: 'inventory_2' },
-    { label: 'Audit logs', description: 'Review system changes', href: '/audit-logs', icon: 'history' },
-    { label: 'Sessions', description: 'Monitor signed-in users', href: '/admin/system/active-sessions', icon: 'devices' },
+    { label: 'Users', description: 'Roles, verification, access', href: '/admin/users', route: 'admin.users.index', icon: 'group' },
+    { label: 'Agencies', description: 'Partner profiles and activation', href: '/admin/agencies', route: 'admin.agencies.index', icon: 'business' },
+    { label: 'Services', description: 'Catalog and requirements', href: '/admin/services', route: 'admin.services.index', icon: 'inventory_2' },
+    { label: 'Audit logs', description: 'Review system changes', href: '/audit-logs', route: 'audit-logs.index', icon: 'history' },
+    { label: 'Sessions', description: 'Monitor signed-in users', href: '/admin/system/active-sessions', route: 'admin.system.active-sessions', icon: 'devices' },
 ];
 
 function buildQueueItems(dashboard, stats) {
@@ -75,17 +83,17 @@ function buildQueueItems(dashboard, stats) {
                 note,
                 tone,
                 worstAgeDays: worstAge,
-                href: item.href ?? QUEUE_ROUTES[item.key] ?? '/referrals',
+                href: resolveQueueHref(item),
             };
         });
     }
 
     return [
-        { key: 'openCases', label: 'Open cases', count: stats.openCases ?? stats.totalOpenCases ?? 0, note: 'Cases still being handled.', tone: 'blue', href: '/cases?status=OPEN' },
-        { key: 'pendingReferrals', label: 'Pending referrals', count: stats.pendingReferrals ?? 0, note: 'Waiting for agency action.', tone: 'amber', href: '/referrals?status=PENDING' },
-        { key: 'processingReferrals', label: 'Processing', count: stats.processingReferrals ?? 0, note: 'Currently being worked by agencies.', tone: 'cyan', href: '/referrals?status=PROCESSING' },
-        { key: 'forComplianceReferrals', label: 'For compliance', count: stats.forComplianceReferrals ?? 0, note: 'Need missing requirements.', tone: 'orange', href: '/referrals?status=FOR_COMPLIANCE' },
-        { key: 'overdueReferrals', label: 'Overdue', count: stats.overdueReferrals ?? 0, note: 'Past the expected response window.', tone: (stats.overdueReferrals ?? 0) > 0 ? 'rose' : 'slate', href: '/overdue-referrals' },
+        { key: 'openCases', label: 'Open cases', count: stats.openCases ?? stats.totalOpenCases ?? 0, note: 'Cases still being handled.', tone: 'blue', href: safeRoute('cases.index', { status: 'OPEN' }, '/cases?status=OPEN') },
+        { key: 'pendingReferrals', label: 'Pending referrals', count: stats.pendingReferrals ?? 0, note: 'Waiting for agency action.', tone: 'amber', href: safeRoute('referrals.index', { status: 'PENDING' }, '/referrals?status=PENDING') },
+        { key: 'processingReferrals', label: 'Processing', count: stats.processingReferrals ?? 0, note: 'Currently being worked by agencies.', tone: 'cyan', href: safeRoute('referrals.index', { status: 'PROCESSING' }, '/referrals?status=PROCESSING') },
+        { key: 'forComplianceReferrals', label: 'For compliance', count: stats.forComplianceReferrals ?? 0, note: 'Need missing requirements.', tone: 'orange', href: safeRoute('referrals.index', { status: 'FOR_COMPLIANCE' }, '/referrals?status=FOR_COMPLIANCE') },
+        { key: 'overdueReferrals', label: 'Overdue', count: stats.overdueReferrals ?? 0, note: 'Past the expected response window.', tone: (stats.overdueReferrals ?? 0) > 0 ? 'rose' : 'slate', href: safeRoute('overdue-referrals.index', undefined, '/overdue-referrals') },
     ];
 }
 
@@ -217,9 +225,9 @@ export default function AdminDashboard({ dashboard = {} }) {
             >
                 <QuickActions
                     actions={[
-                        { href: '/cases', label: 'Cases', icon: 'folder', count: stats.totalCases, primary: true },
-                        { href: '/referrals', label: 'Referrals', icon: 'send', count: stats.totalReferrals },
-                        { href: '/overdue-referrals', label: 'Overdue', icon: 'warning', count: stats.overdueReferrals },
+                        { href: '/cases', route: 'cases.index', label: 'Cases', icon: 'folder', count: stats.totalCases, primary: true },
+                        { href: '/referrals', route: 'referrals.index', label: 'Referrals', icon: 'send', count: stats.totalReferrals },
+                        { href: '/overdue-referrals', route: 'overdue-referrals.index', label: 'Overdue', icon: 'warning', count: stats.overdueReferrals },
                     ]}
                 />
             </PageHeader>
@@ -294,7 +302,7 @@ export default function AdminDashboard({ dashboard = {} }) {
                     <SectionCard
                         title="Recent case activity"
                         dataTour="dashboard-recent-cases"
-                        action={<ViewAllLink href="/cases">View all cases</ViewAllLink>}
+                        action={<ViewAllLink href={safeRoute('cases.index', undefined, '/cases')}>View all cases</ViewAllLink>}
                         bodyClassName="p-0"
                     >
                         <div className="flex items-center gap-2 border-b border-slate-100 px-5 pb-3 pt-4">
@@ -317,11 +325,11 @@ export default function AdminDashboard({ dashboard = {} }) {
                                 onClick={() => setFeedFilter('overdue')}
                             />
                         </div>
-                        <EntityList empty={<EmptyState message="No recent cases yet." href="/cases" actionLabel="Open cases" />}>
+                        <EntityList empty={<EmptyState message="No recent cases yet." href={safeRoute('cases.index', undefined, '/cases')} actionLabel="Open cases" />}>
                             {filteredCases.map((item) => (
                                 <CaseActivityRow
                                     key={item.id}
-                                    href={`/cases/${item.id}`}
+                                    href={safeRoute('cases.show', item.id, `/cases/${item.id}`)}
                                     caseNumber={item.case_number ?? item.caseNo}
                                     clientName={item.client_name ?? item.clientName}
                                     category={item.category}
@@ -341,13 +349,13 @@ export default function AdminDashboard({ dashboard = {} }) {
                     <SectionCard
                         title="Priority referrals"
                         dataTour="dashboard-priority-referrals"
-                        action={<ViewAllLink href="/referrals">View referrals</ViewAllLink>}
+                        action={<ViewAllLink href={safeRoute('referrals.index', undefined, '/referrals')}>View referrals</ViewAllLink>}
                     >
                         <EntityList
                             empty={
                                 <EmptyState
                                     message="No priority referrals right now."
-                                    href="/referrals"
+                                    href={safeRoute('referrals.index', undefined, '/referrals')}
                                     actionLabel="View referrals"
                                 />
                             }
@@ -355,7 +363,7 @@ export default function AdminDashboard({ dashboard = {} }) {
                             {priorityReferrals.map((item, idx) => (
                                 <PriorityReferralRow
                                     key={item.id ?? item.case_number ?? idx}
-                                    href={item.case_id ? `/cases/${item.case_id}` : '/referrals'}
+                                    href={item.case_id ? safeRoute('cases.show', item.case_id, `/cases/${item.case_id}`) : safeRoute('referrals.index', undefined, '/referrals')}
                                     caseNumber={item.case_number}
                                     clientName={item.client_name}
                                     agencyName={item.agency_name}
@@ -370,7 +378,7 @@ export default function AdminDashboard({ dashboard = {} }) {
                     <SectionCard
                         title="Recent administrative changes"
                         dataTour="dashboard-recent-activity"
-                        action={<ViewAllLink href="/audit-logs">View audit logs</ViewAllLink>}
+                        action={<ViewAllLink href={safeRoute('audit-logs.index', undefined, '/audit-logs')}>View audit logs</ViewAllLink>}
                         bodyClassName="p-0"
                     >
                         <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-5 pb-3 pt-4">
@@ -402,8 +410,8 @@ export default function AdminDashboard({ dashboard = {} }) {
                         <div className="grid gap-1">
                             {ADMIN_TOOLS.map((tool) => (
                                 <Link
-                                    key={tool.href}
-                                    href={tool.href}
+                                    key={tool.route ?? tool.href}
+                                    href={tool.route ? safeRoute(tool.route, undefined, tool.href) : tool.href}
                                     className="flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                                 >
                                     <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
@@ -422,14 +430,14 @@ export default function AdminDashboard({ dashboard = {} }) {
                     <SectionCard
                         title="Agency response"
                         dataTour="dashboard-agency-scorecard"
-                        action={<ViewAllLink href="/admin/agencies">View agencies</ViewAllLink>}
+                        action={<ViewAllLink href={safeRoute('admin.agencies.index', undefined, '/admin/agencies')}>View agencies</ViewAllLink>}
                     >
                         <AgencyScorecard
                             agencies={scorecardAgencies}
                             empty={
                                 <EmptyState
                                     message="No agency activity yet."
-                                    href="/admin/agencies"
+                                    href={safeRoute('admin.agencies.index', undefined, '/admin/agencies')}
                                     actionLabel="View agencies"
                                 />
                             }

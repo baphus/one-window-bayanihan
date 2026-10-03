@@ -398,9 +398,9 @@ These two routes sit outside the `auth` + `verified` mega-group but still requir
 
 ---
 
-## Admin Routes (ADMIN + IP Whitelist)
+## Admin Routes (ADMIN)
 
-All prefixed with `/admin`, named with the `admin.` prefix, behind `role:ADMIN` + `ip.whitelist`. One exception: `GET /admin/agencies/{agency}` (`admin.agencies.show`) allows `role:ADMIN,CASE_MANAGER` (read-only for non-admin) with `ip.whitelist`.
+All prefixed with `/admin`, named with the `admin.` prefix, behind `role:ADMIN`. One exception: `GET /admin/agencies/{agency}` (`admin.agencies.show`) allows `role:ADMIN,CASE_MANAGER` (read-only for non-admin).
 
 ### Single-Agency Detail (ADMIN + CASE_MANAGER, Read-Only)
 

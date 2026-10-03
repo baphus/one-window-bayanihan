@@ -7,7 +7,6 @@ use App\Http\Middleware\ContentSecurityPolicy;
 use App\Http\Middleware\EnsureMfaChallenge;
 use App\Http\Middleware\EnsureMfaSession;
 use App\Http\Middleware\HandleInertiaRequests;
-use App\Http\Middleware\IpWhitelist;
 use App\Http\Middleware\LogContext;
 use App\Http\Middleware\SecurityHeaders;
 use App\Http\Middleware\SetPostgresSession;
@@ -73,7 +72,6 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'role' => CheckRole::class,
-            'ip.whitelist' => IpWhitelist::class,
             'turnstile' => VerifyTurnstile::class,
             'turnstile.session' => VerifyTurnstileSession::class,
             'mfa.pending' => EnsureMfaChallenge::class,

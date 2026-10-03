@@ -1,6 +1,6 @@
 # CI/CD Pipeline Guide
 
-> **Version:** 2.1.0 | **Updated:** 2026-09-15 | **Supersedes:** `CI_CD_GUIDE_v2.0.0.md` (2026-07-27)
+> **Version:** 2.1.0 | **Updated:** 2026-10-03 (amendment: npm-audit gate) | **Supersedes:** `CI_CD_GUIDE_v2.0.0.md` (2026-07-27)
 > **Source of truth:** `.github/workflows/ci.yml`, `.github/workflows/deploy.yml`, `.github/workflows/deploy-production.yml`, `.github/workflows/build-image.yml`, `composer.json`, `package.json`, `.npmrc`
 > **Delta scope:** v2.0.0 remains the design reference (§0 provider-agnostic principle, §4 trigger contract, §5 environments, §9 troubleshooting shape, §10 standards check). This revision replaces the documented workflow set and job contents with the verified four-file reality. **There is no `deploy-staging.yml`, no `reset-staging-data.yml`, no daily 02:00 UTC staging reset** — any doc referencing them is stale.
 
@@ -22,7 +22,7 @@ Triggers: `pull_request` → `main` **and** `push` → `main`. Least-privilege (
 
 | Job | Runner deps | Steps (in order) |
 |---|---|---|
-| `lint-and-audit` | PHP **8.4** (`pdo, pdo_pgsql, sockets`), Node **24**, Go 1.27.x | checkout → composer cache/install → node cache/`npm ci` → **`vendor/bin/pint --test`** → **`composer audit`** → **`npm audit --audit-level=high`** → install **Ward** `v0.4.2`, `ward scan . --output json,sarif --baseline .ward-baseline.json --fail-on high` → **`npm run typecheck` (BLOCKING)** → **`npm run build`** |
+| `lint-and-audit` | PHP **8.4** (`pdo, pdo_pgsql, sockets`), Node **24**, Go 1.27.x | checkout → composer cache/install → node cache/`npm ci` → **`vendor/bin/pint --test`** → **`composer audit`** → **`node scripts/npm-audit-filter.mjs`** (filtered `npm audit --audit-level=high`; allowlists braces GHSA-vfj7-8cjw-p6xm — see script header) → install **Ward** `v0.4.2`, `ward scan . --output json,sarif --baseline .ward-baseline.json --fail-on high` → **`npm run typecheck` (BLOCKING)** → **`npm run build`** |
 | `backend-tests` | Same PHP/Node + **PostgreSQL 17 service** (`bayanihan_test`/`postgres`/`postgres`, `pg_isready` health) | checkout → install → `cp .env.example .env && php artisan key:generate` → `npm run build` → **production cache-command verification** (`config/route/view/event:cache` then matching `:clear` — deliberately NOT `optimize:clear`, which would hit the redis-configured cache store with no Redis in the job) → `migrate --pretend --force` → `migrate --force` → `composer test` (all DB env pinned to `127.0.0.1:5432/bayanihan_test`) |
 | `frontend-tests` | Node 24 | checkout → cache/`npm ci` → **`npm run test:run`** (`LARAVEL_BYPASS_ENV_CHECK=1`) |
 
@@ -30,7 +30,7 @@ Triggers: `pull_request` → `main` **and** `push` → `main`. Least-privilege (
 
 ### Step → failure meaning (updated)
 
-`pint --test` = style drift · `composer audit` / `npm audit --audit-level=high` = known vuln · Ward high = static-security finding · **`typecheck` = TypeScript error, blocks merge** · `build` = broken import/JSX · `migrate --pretend` = migration SQL would fail on PG17 · cache-command verification = non-serializable config value that would abort every container boot · `composer test` = PHP regression · `test:run` = React regression.
+`pint --test` = style drift · `composer audit` / filtered npm-audit gate (`scripts/npm-audit-filter.mjs`) = known vuln — fails on any high/critical except the single accepted-risk allowlist (braces GHSA-vfj7-8cjw-p6xm, unpatchable on Tailwind v3, build-time only) · Ward high = static-security finding · **`typecheck` = TypeScript error, blocks merge** · `build` = broken import/JSX · `migrate --pretend` = migration SQL would fail on PG17 · cache-command verification = non-serializable config value that would abort every container boot · `composer test` = PHP regression · `test:run` = React regression.
 
 ## 2. Database in CI — re-affirmed
 
@@ -88,12 +88,13 @@ Manual only. `workflow_dispatch` inputs `image_tag` (required) + `confirm` (must
 
 ## 8. Porting the pipeline (floors corrected)
 
-Runner: Linux, **PHP >= 8.4.1** (`pdo_pgsql`, `sockets`, plus app extensions), **Node 24**, Composer 2, Go 1.27 (Ward) — or drop Ward with a recorded decision. Service: PostgreSQL 17 at `127.0.0.1:5432`, `DB_SSLMODE=disable`. Commands: `composer install` · `npm ci` (`.npmrc` honour) · `vendor/bin/pint --test` · `composer audit` · `npm audit --audit-level=high` · `ward scan` · **`npm run typecheck` (blocking)** · `npm run build` · cache-command verify loop · `migrate --pretend` · `composer test` · `npm run test:run`. Deploy: implement the §4 contract + snapshot + `/up` + deep readiness.
+Runner: Linux, **PHP >= 8.4.1** (`pdo_pgsql`, `sockets`, plus app extensions), **Node 24**, Composer 2, Go 1.27 (Ward) — or drop Ward with a recorded decision. Service: PostgreSQL 17 at `127.0.0.1:5432`, `DB_SSLMODE=disable`. Commands: `composer install` · `npm ci` (`.npmrc` honour) · `vendor/bin/pint --test` · `composer audit` · `node scripts/npm-audit-filter.mjs` (was `npm audit --audit-level=high`) · `ward scan` · **`npm run typecheck` (blocking)** · `npm run build` · cache-command verify loop · `migrate --pretend` · `composer test` · `npm run test:run`. Deploy: implement the §4 contract + snapshot + `/up` + deep readiness.
 
 ## 11. Changelog
 
 | Version | Date | Change |
 |---|---|---|
+| 2.1.0 | 2026-10-03 (amendment) | npm-audit gate is now the filtered `node scripts/npm-audit-filter.mjs` (allowlists only braces GHSA-vfj7-8cjw-p6xm — no patched braces exists, latest 3.0.3 still flagged; only fix is breaking Tailwind 3 → 4; exposure is build-time only). Any other high/critical advisory still fails the build. |
 | 2.1.0 | 2026-09-15 | Reconciled with the four-file reality: `ci.yml` triggers/versions/jobs (PHP 8.4, Node 24, Ward, blocking typecheck, PG17, cache-command verification, no E2E); `deploy.yml` OIDC/ECR/mail-guard/snapshot/jq-payload/`database`-trio override/ACTIVE-poll/`/up`+`/readyz` gates; `deploy-production.yml` `image_tag`+`PRODUCTION` confirm → `dmw7.owbap.app`; `build-image.yml` manual SHA build + 8 verifications. Marked `deploy-staging.yml`/`reset-staging-data.yml`/daily-reset as non-existent; E2E as record-only (`E2E_TEST_FINDINGS_v1.0.0.md`); `.npmrc` noted. |
 | 2.0.0 | 2026-07-27 | Platform-neutral overhaul (see its §11). |
 | 1.0.0 | — | Previous revision (`CI_CD_GUIDE.md`). |

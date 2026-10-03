@@ -153,7 +153,7 @@ Follow your office's change-control process for production maintenance. Avoid ma
 
 ## 10. Where to go deeper
 
-- **Security**: *System security: settings, IP whitelist, and active sessions* and *Securing your account: password and MFA*.
+- **Security**: *System security: settings and active sessions* and *Securing your account: password and MFA*.
 - **Operations**: *Maintenance mode, system logs, and data export* and *Email logs and resending failed emails*.
 - **Settings**: *Configuring system settings and the AI chatbot*.
 - **Feedback oversight**: *Feedback dashboards for case managers and admins*.

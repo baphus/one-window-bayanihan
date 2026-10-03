@@ -8,12 +8,10 @@ import Section from '@/Components/Section';
 export default function ChangeEmailForm({
     initialStep,
     hint: propHint,
-    debugOtp: propDebugOtp,
 }) {
     const pageProps = usePage().props;
     const stepFromServer = initialStep || pageProps.email_change_step;
     const hintFromServer = propHint || pageProps.email_change_hint || '';
-    const debugOtpFromServer = propDebugOtp || pageProps.email_change_debug_otp || '';
 
     const [step, setStep] = useState(stepFromServer || 'start');
     const [password, setPassword] = useState('');
@@ -26,7 +24,6 @@ export default function ChangeEmailForm({
     const [passwordError, setPasswordError] = useState('');
     const [resendCooldown, setResendCooldown] = useState(0);
     const otpRefs = useRef([]);
-    const autoFilled = useRef(false);
     const cooldownInterval = useRef(null);
 
     // Sync step from server props
@@ -55,17 +52,6 @@ export default function ChangeEmailForm({
             }
         };
     }, [resendCooldown > 0]);
-
-    // Debug OTP auto-fill
-    useEffect(() => {
-        if (debugOtpFromServer && step === 'otp' && !autoFilled.current) {
-            autoFilled.current = true;
-            const digits = debugOtpFromServer.split('').slice(0, 6);
-            const filled = ['', '', '', '', '', ''];
-            digits.forEach((d, i) => { filled[i] = d; });
-            setOtp(filled);
-        }
-    }, [debugOtpFromServer, step]);
 
     function handleInit(e) {
         e.preventDefault();
@@ -294,14 +280,6 @@ export default function ChangeEmailForm({
                         )}
                     </button>
                 </div>
-
-                {debugOtpFromServer && (
-                    <div className="rounded-md bg-amber-50 border border-amber-200 p-3">
-                        <p className="text-xs font-bold text-amber-800 uppercase tracking-wider">
-                            Debug Mode — OTP: {debugOtpFromServer}
-                        </p>
-                    </div>
-                )}
             </Section>
         );
     }

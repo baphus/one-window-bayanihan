@@ -8,6 +8,7 @@ import StatusBadge from '@/Components/ui/StatusBadge';
 import { formatDisplayDate, getCaseAgeInDays } from '@/lib/utils';
 import { humanizeStatus } from '@/lib/statusLabels';
 import { formatRelativeTime } from '@/lib/relativeTime';
+import safeRoute from '@/utils/safeRoute';
 import { getSeverityConfig, normalizeNotification, timeAgo } from '@/lib/notifications';
 import {
     ActivityFeed,
@@ -39,17 +40,6 @@ const CASE_EVENT_TYPES = new Set([
     'case_closed',
     'case_reopened',
 ]);
-
-function safeRoute(name, params, fallback) {
-    try {
-        if (typeof route === 'function') {
-            return route(name, params);
-        }
-    } catch {
-        // Ziggy not ready (tests / early boot) — fall through to plain path.
-    }
-    return fallback;
-}
 
 function pick(...values) {
     for (const value of values) {
@@ -333,7 +323,7 @@ function PieCard({ title, dataTour, slices, emptyMessage }) {
                         {visible.map((slice) => (
                             <li key={slice.key} className="flex items-center justify-between gap-2 text-xs">
                                 <span className="flex min-w-0 items-center gap-1.5">
-                                    <span className="h-2 w-2 shrink-0 rounded-circle" style={{ backgroundColor: slice.hex }} />
+                                    <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: slice.hex }} />
                                     <span className="truncate font-semibold text-slate-700">{slice.label}</span>
                                 </span>
                                 <span className="shrink-0 font-bold text-slate-900">{formatCount(slice.count)}</span>
@@ -433,6 +423,7 @@ function NotificationsBlock() {
             }),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['notifications'] });
+            queryClient.invalidateQueries({ queryKey: ['notifications', 'unread-count'] });
         },
     });
 
@@ -450,7 +441,7 @@ function NotificationsBlock() {
                             {formatCount(unreadCount)} unread
                         </span>
                     ) : null}
-                    <ViewAllLink href="/notifications/page">View all</ViewAllLink>
+                    <ViewAllLink href={safeRoute('notifications.page', undefined, '/notifications/page')}>View all</ViewAllLink>
                 </div>
             }
             bodyClassName=""
@@ -478,7 +469,7 @@ function NotificationsBlock() {
                             >
                                 <div className="min-w-0 flex-1">
                                     <div className="flex flex-wrap items-center gap-2">
-                                        <span className={`h-1.5 w-1.5 shrink-0 rounded-circle ${config.dot}`} />
+                                        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${config.dot}`} />
                                         <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500">
                                             {config.label}
                                         </span>
@@ -557,7 +548,7 @@ function NeedsYouBlock({ dashboard }) {
 
     return (
         <SectionCard title="Needs You" dataTour="dashboard-needs-you" bodyClassName="">
-            <EntityList empty={<EmptyState message="Nothing is late." href="/overdue-referrals" actionLabel="Check overdue" />}>
+            <EntityList empty={<EmptyState message="Nothing is late." href={safeRoute('overdue-referrals.index', undefined, '/overdue-referrals')} actionLabel="Check overdue" />}>
                 {rows.map((row) => (
                     <EntityRow
                         key={row.key}
@@ -649,7 +640,7 @@ function normalizeReferralNews(dashboard) {
                 caseNumber: pick(item.caseNumber, item.case_number, item.meta?.case_number),
                 clientName: pick(item.clientName, item.client_name, item.meta?.client_name),
                 milestone: pick(item.milestone, item.milestoneTitle, item.title),
-                href: pick(item.href, item.referral_id ? `/referrals/${item.referral_id}` : item.case_id ? `/cases/${item.case_id}` : '/referrals'),
+                href: pick(item.href, item.referral_id ? safeRoute('referrals.show', item.referral_id, `/referrals/${item.referral_id}`) : item.case_id ? safeRoute('cases.show', item.case_id, `/cases/${item.case_id}`) : safeRoute('referrals.index', undefined, '/referrals')),
                 at: createdAtOf(item) ?? pick(item.time),
                 raw: item,
             }))
@@ -763,7 +754,7 @@ function AgenciesBlock({ dashboard }) {
                 {agencies.map((agency, index) => (
                     <EntityRow
                         key={agency.id ?? agency.name ?? index}
-                        href={agency.id ? `/agencies/${agency.id}` : safeRoute('reports.index', undefined, '/reports')}
+                        href={agency.id ? safeRoute('admin.agencies.show', agency.id, `/admin/agencies/${agency.id}`) : safeRoute('reports.index', undefined, '/reports')}
                         title={agency.name}
                         note={[`${formatCount(agency.active)} active`, agency.detail].filter(Boolean).join(' · ')}
                         age={agency.overdue > 0 ? <AgeFlag days={OVERDUE_DAYS} /> : undefined}

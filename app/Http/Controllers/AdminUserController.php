@@ -3,11 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Helpers\CacheHelper;
+use App\Http\Controllers\Concerns\ResolvesPerPage;
 use App\Http\Requests\InviteAdminUserRequest;
 use App\Http\Requests\StoreAdminUserRequest;
 use App\Http\Requests\UpdateAdminUserRequest;
 use App\Models\Agency;
-use App\Models\SystemSetting;
 use App\Models\User;
 use App\Models\UserInvite;
 use App\Services\OtpService;
@@ -22,6 +22,8 @@ use Inertia\Inertia;
 
 class AdminUserController extends Controller
 {
+    use ResolvesPerPage;
+
     public function __construct(
         private readonly OtpService $otpService,
         private readonly UserService $users,
@@ -71,7 +73,7 @@ class AdminUserController extends Controller
             }
         }
 
-        $perPage = min((int) ($request->per_page ?? 15), 100);
+        $perPage = $this->perPage($request, 15);
         $users = $query->orderBy('created_at', 'desc')->paginate($perPage);
 
         $agencies = Agency::where('is_active', true)
@@ -198,7 +200,6 @@ class AdminUserController extends Controller
         return back()->with([
             'email_change_step' => 'otp',
             'email_change_hint' => $this->maskEmail($newEmail),
-            'email_change_debug_otp' => (SystemSetting::getValue('debug_otp_enabled', false) && app()->environment('local', 'staging', 'testing')) ? $otp : null,
         ]);
     }
 

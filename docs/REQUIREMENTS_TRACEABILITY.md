@@ -17,7 +17,7 @@
 | FR-AUTH-003 | Tracker + OTP for OFW tracking | `TrackController` — `/track/send-otp`, `/track/verify-otp` | Integration test, manual | ✅ |
 | FR-AUTH-004 | Role-based feature restriction | Spatie `laravel-permission`, `role:` middleware | Route permissions test | ✅ |
 | FR-AUTH-005 | Lane-based access for agencies | Service layer filtered by `agcy_id` | Feature test | ✅ |
-| FR-AUTH-006 | IP whitelist for admin backend | `IpWhitelist` middleware on `/admin/*` routes | `IpWhitelistMiddlewareTest` | ✅ |
+| FR-AUTH-006 | ~~IP whitelist for admin backend~~ (removed — admin routes rely on `role:ADMIN` + MFA enforcement) | — | — | ➖ |
 | FR-AUTH-007 | Session timeout | `session.lifetime` config (120 min default) | Manual check | ✅ |
 | FR-AUTH-008 | Rate-limit failed auth | `throttle:login` (6/min), `throttle:otp` (3/min) | Route middleware test | ✅ |
 | FR-AUTH-009 | Reject invalid credentials | Laravel authentication validation | Auth test | ✅ |
@@ -242,7 +242,7 @@
 | BR-007 | Append-only milestones/audit | No update/delete routes | `CaseReferralGuardTest` | ✅ |
 | BR-008 | DMW-only case closure | Role check + terminal-state validation | `CaseReferralGuardTest` | ✅ |
 | BR-009 | OTP MFA | `OtpService` for all auth | Integration test | ✅ |
-| BR-010 | IP whitelist admin backend | `IpWhitelist` middleware | `IpWhitelistMiddlewareTest` | ✅ |
+| BR-010 | ~~IP whitelist admin backend~~ (removed — admin routes rely on `role:ADMIN` + MFA enforcement) | — | — | ➖ |
 | BR-011 | Privacy-safe public tracking | TrackController hides internal data | Manual QA | ✅ |
 | BR-012 | Duplicate flagging | Name + DOB matching needed | 🔴 Not Done |
 

@@ -50,7 +50,7 @@ Documentation is platform-neutral: describe infrastructure by technology and cap
 - Models use UUID primary keys via `App\Models\Concerns\UsesUuid`; route model binding expects string UUIDs.
 - Soft deletion is flag-based (`SoftDeleteFlag`, `is_deleted`, `deleted_at`, `deleted_by`), not Laravel's `SoftDeletes` trait.
 - Audit logging belongs in the service layer with `AuditLog::log(...)`; models may define `$auditExclude` and `getAuditModuleName()`.
-- RBAC uses `users.role` through `role` middleware (`CASE_MANAGER`, `AGENCY`, `ADMIN`). Admin areas also use `ip.whitelist`.
+- RBAC uses `users.role` through `role` middleware (`CASE_MANAGER`, `AGENCY`, `ADMIN`).
 - Global/web middleware includes PostgreSQL session context, log context, security headers, CSP, active-user/MFA checks, and Inertia shared props.
 - AI chatbot uses in-memory weighted token match over the cached parsed helpdesk corpus (no vector DB, no SQLite FTS5 — retired); pre-warm via `php artisan chatbot:index`.
 

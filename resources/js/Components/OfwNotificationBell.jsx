@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, router } from '@inertiajs/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import safeRoute from '@/utils/safeRoute';
 
 const NOTIFICATIONS_KEYS = ['ofw-notifications'];
 
@@ -206,7 +207,7 @@ export default function OfwNotificationBell() {
                     </div>
 
                     <Link
-                        href="/my-cases/notifications"
+                        href={safeRoute('ofw.notifications', undefined, '/my-cases/notifications')}
                         onClick={() => setOpen(false)}
                         className="flex items-center justify-center gap-1.5 border-t border-slate-100 px-4 py-3 text-[11px] font-bold text-primary transition-colors hover:bg-slate-50"
                     >

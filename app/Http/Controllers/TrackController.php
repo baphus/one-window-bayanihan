@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Http\Requests\Track\StoreTrackingRequest;
 use App\Http\Requests\Track\UpdateTrackingRequest;
 use App\Models\Referral;
-use App\Models\SystemSetting;
 use App\Models\User;
 use App\Services\TrackingService;
 use Illuminate\Http\Request;
@@ -53,7 +52,6 @@ class TrackController extends Controller
             'tracker_number' => $validated['tracker_number'],
             'email' => $email,
             'hint' => $hint,
-            'debug_otp' => (SystemSetting::getValue('debug_tracking_otp_enabled', false) && app()->environment('local', 'testing')) ? $otp : null,
         ]);
     }
 

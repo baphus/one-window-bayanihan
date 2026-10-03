@@ -995,27 +995,58 @@ class ReferralService
             $query->where('status', strtoupper($statusFilter));
         }
 
-        // Sort
+        // Sort — joins instead of correlated per-row subqueries so the
+        // planner scans the joined tables once rather than once per row.
+        // The milestone subquery reads the table directly (DB::table, no
+        // model scopes) to match the original raw-SQL semantics exactly.
         $sortBy = $filters['sort_by'] ?? 'most_stale';
-        $query->orderBy(
-            match ($sortBy) {
-                'status' => 'status',
-                'client_name' => DB::raw('(SELECT CONCAT(first_name, \' \', last_name) FROM clients WHERE clients.id = (SELECT client_id FROM cases WHERE cases.id = referrals.case_id))'),
-                default => DB::raw('EXTRACT(EPOCH FROM (NOW() - COALESCE(
-                    (SELECT MAX(created_at) FROM milestones WHERE refr_id = referrals.id),
-                    GREATEST(referrals.updated_at, referrals.created_at)
-                )))'),
-            },
-            match ($sortBy) {
-                'status' => 'asc',
-                default => 'desc',
-            },
-        );
+        $latestMilestones = fn (): \Illuminate\Database\Query\Builder => DB::table('milestones')
+            ->select('refr_id')
+            ->selectRaw('MAX(created_at) AS max_created_at')
+            ->groupBy('refr_id');
+        $query->select('referrals.*');
+        if ($sortBy === 'client_name') {
+            $query
+                ->leftJoin('cases', 'cases.id', '=', 'referrals.case_id')
+                ->leftJoin('clients', 'clients.id', '=', 'cases.client_id')
+                ->orderByRaw("CONCAT(clients.first_name, ' ', clients.last_name) DESC");
+        } elseif ($sortBy === 'status') {
+            $query->orderBy('referrals.status', 'asc');
+        } else {
+            $query
+                ->leftJoinSub(
+                    $latestMilestones(),
+                    'latest_milestones',
+                    'latest_milestones.refr_id',
+                    '=',
+                    'referrals.id'
+                )
+                ->orderByRaw('EXTRACT(EPOCH FROM (NOW() - COALESCE(latest_milestones.max_created_at, GREATEST(referrals.updated_at, referrals.created_at)))) DESC');
+        }
 
         // Stats and pagination intentionally derive from the same scoped and
-        // filtered query. Stats must not be limited to the current page.
-        $allReferrals = (clone $query)->get();
-        $perPage = (int) ($filters['per_page'] ?? 15);
+        // filtered query. Stats must not be limited to the current page, so
+        // they run as one conditional-aggregate query instead of hydrating
+        // every matching row into memory. select() (not selectRaw) resets the
+        // referrals.* column list the sort branch above added.
+        $statsRow = (clone $query)->toBase()->reorder()->select([
+            DB::raw('COUNT(*) AS total'),
+            DB::raw("COUNT(*) FILTER (WHERE referrals.status = 'PENDING') AS pending_count"),
+            DB::raw("COUNT(*) FILTER (WHERE referrals.status = 'PROCESSING') AS processing_count"),
+            DB::raw("COUNT(*) FILTER (WHERE referrals.status = 'FOR_COMPLIANCE') AS for_compliance_count"),
+            DB::raw('COUNT(*) FILTER (WHERE EXTRACT(EPOCH FROM (NOW() - COALESCE(latest_activity.max_created_at, GREATEST(referrals.updated_at, referrals.created_at)))) / 86400 < 15) AS mild_count'),
+            DB::raw('COUNT(*) FILTER (WHERE EXTRACT(EPOCH FROM (NOW() - COALESCE(latest_activity.max_created_at, GREATEST(referrals.updated_at, referrals.created_at)))) / 86400 BETWEEN 15 AND 29) AS moderate_count'),
+            DB::raw('COUNT(*) FILTER (WHERE EXTRACT(EPOCH FROM (NOW() - COALESCE(latest_activity.max_created_at, GREATEST(referrals.updated_at, referrals.created_at)))) / 86400 >= 30) AS severe_count'),
+        ])
+            ->leftJoinSub(
+                $latestMilestones(),
+                'latest_activity',
+                'latest_activity.refr_id',
+                '=',
+                'referrals.id'
+            )
+            ->first();
+        $perPage = max(1, min((int) ($filters['per_page'] ?? 15), 100));
         $referrals = $query->paginate($perPage);
 
         // Transform each referral to enrich with computed attributes
@@ -1065,32 +1096,17 @@ class ReferralService
 
         $referrals->setCollection($transformed);
 
-        // Aggregate stats
-        $allItems = $allReferrals->map(function (Referral $referral) use ($now) {
-            $latestMilestone = $referral->milestones->first();
-            $lastActivityDate = $latestMilestone
-                ? $latestMilestone->created_at
-                : ($referral->updated_at ?? $referral->created_at);
-            $daysSinceLastActivity = (int) $lastActivityDate->diffInDays($now);
-
-            return [
-                'status' => $referral->status,
-                'severity' => match (true) {
-                    $daysSinceLastActivity >= 30 => 'severe',
-                    $daysSinceLastActivity >= 15 => 'moderate',
-                    default => 'mild',
-                },
-            ];
-        });
-        $total = $allItems->count();
+        // Aggregate stats — computed by the single conditional-aggregate
+        // query above; no rows are hydrated for stats.
+        $total = (int) ($statsRow->total ?? 0);
         $stats = [
             'total' => $total,
-            'mild_count' => $allItems->where('severity', 'mild')->count(),
-            'moderate_count' => $allItems->where('severity', 'moderate')->count(),
-            'severe_count' => $allItems->where('severity', 'severe')->count(),
-            'pending_count' => $allItems->where('status', 'PENDING')->count(),
-            'processing_count' => $allItems->where('status', 'PROCESSING')->count(),
-            'for_compliance_count' => $allItems->where('status', 'FOR_COMPLIANCE')->count(),
+            'mild_count' => (int) ($statsRow->mild_count ?? 0),
+            'moderate_count' => (int) ($statsRow->moderate_count ?? 0),
+            'severe_count' => (int) ($statsRow->severe_count ?? 0),
+            'pending_count' => (int) ($statsRow->pending_count ?? 0),
+            'processing_count' => (int) ($statsRow->processing_count ?? 0),
+            'for_compliance_count' => (int) ($statsRow->for_compliance_count ?? 0),
         ];
 
         // Determine bottleneck

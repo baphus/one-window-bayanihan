@@ -9,7 +9,6 @@ use App\Http\Requests\EmailChangeSendOtpRequest;
 use App\Http\Requests\EmailChangeVerifyOtpRequest;
 use App\Mail\EmailChangedNotification;
 use App\Models\AuditLog;
-use App\Models\SystemSetting;
 use App\Services\AuditCategory;
 use App\Services\OtpService;
 use Illuminate\Support\Facades\Log;
@@ -34,7 +33,6 @@ class EmailChangeController extends Controller
         return Inertia::render('Profile/Edit', [
             'email_change_step' => 'new-email',
             'email_change_hint' => null,
-            'email_change_debug_otp' => null,
         ]);
     }
 
@@ -62,7 +60,6 @@ class EmailChangeController extends Controller
         return Inertia::render('Profile/Edit', [
             'email_change_step' => 'otp',
             'email_change_hint' => $hint,
-            'email_change_debug_otp' => (SystemSetting::getValue('debug_otp_enabled', false) && app()->environment('local', 'testing')) ? $otp : null,
         ]);
     }
 

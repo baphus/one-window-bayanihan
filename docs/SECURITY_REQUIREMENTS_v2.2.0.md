@@ -19,7 +19,7 @@ Layer 1: Network (platform firewall/security groups, HTTPS-only ingress, trusted
 Layer 2: Application Entry (CAPTCHA verification, rate limiting)
 Layer 3: Global Middleware (SecurityHeaders, CSP, LogContext)
 Layer 4: Authentication (password + TOTP MFA, session management)
-Layer 5: Authorization (CheckRole, IpWhitelist, lane isolation)
+Layer 5: Authorization (CheckRole, lane isolation)
 Layer 6: Data Protection (PII encryption, audit logging, RLS)
 ```
 
@@ -71,13 +71,6 @@ Layer 6: Data Protection (PII encryption, audit logging, RLS)
 - **Mechanism:** Custom `CheckRole` middleware (NOT Spatie laravel-permission)
 - **Storage:** `users.role` column (string: `CASE_MANAGER`, `AGENCY`, `ADMIN`)
 - **Usage:** `Route::middleware('role:CASE_MANAGER,ADMIN')` — comma-separated allowed roles
-
-### IP Whitelist (Admin)
-
-- **Middleware:** `IpWhitelist`
-- **Scope:** All `/admin/*` routes
-- **Config:** Managed via `SecuritySettingsController` → `system_settings` table
-- **Behavior:** Returns 403 if request IP not in whitelist
 
 ### Lane Isolation (Agency)
 
