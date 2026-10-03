@@ -41,12 +41,12 @@ function ClientCard({ client, onSelect }) {
             className="group flex w-full items-center gap-3.5 rounded-xl border border-slate-200/80 bg-white px-4 py-3 text-left transition-all duration-150 hover:border-primary/30 hover:bg-primary/[0.02] hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/40 focus:ring-offset-1"
         >
             {/* ── Circular avatar ── */}
-            <span className="relative h-11 w-11 shrink-0 rounded-circle overflow-hidden flex-shrink-0">
+            <span className="relative h-11 w-11 shrink-0 rounded-full overflow-hidden flex-shrink-0">
                 {client.avatar_url ? (
                     <img
                         src={client.avatar_url}
                         alt={fullName}
-                        className="absolute inset-0 h-full w-full rounded-circle object-cover border border-slate-200"
+                        className="absolute inset-0 h-full w-full rounded-full object-cover border border-slate-200"
                         onError={(e) => {
                             e.target.style.display = 'none';
                             e.target.parentElement.querySelector('.avatar-fallback')?.classList.remove('hidden');
@@ -54,7 +54,7 @@ function ClientCard({ client, onSelect }) {
                     />
                 ) : null}
                 <span
-                    className={`avatar-fallback ${client.avatar_url ? 'hidden' : ''} absolute inset-0 h-full w-full rounded-circle flex items-center justify-center text-white font-semibold text-[13px] select-none ${avatarBg}`}
+                    className={`avatar-fallback ${client.avatar_url ? 'hidden' : ''} absolute inset-0 h-full w-full rounded-full flex items-center justify-center text-white font-semibold text-[13px] select-none ${avatarBg}`}
                     aria-hidden="true"
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="absolute w-3/5 h-3/5 text-white/20">

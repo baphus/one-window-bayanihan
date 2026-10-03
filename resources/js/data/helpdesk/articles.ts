@@ -43,7 +43,7 @@ import managingClientRecords from "./content/managing-client-records";
 import usingTheStakeholderDirectory from "./content/using-the-stakeholder-directory";
 import creatingAReferralChoosingAgencyAndService from "./content/creating-a-referral-choosing-agency-and-service";
 import referralDocumentsAndComplianceUploads from "./content/referral-documents-and-compliance-uploads";
-import systemSecuritySettingsIpWhitelistAndSessions from "./content/system-security-settings-ip-whitelist-and-sessions";
+import systemSecuritySettingsAndSessions from "./content/system-security-settings-and-sessions";
 import emailLogsAndResendingFailedEmails from "./content/email-logs-and-resending-failed-emails";
 import maintenanceModeSystemLogsAndDataExport from "./content/maintenance-mode-system-logs-and-data-export";
 
@@ -321,7 +321,7 @@ export const articles: HelpdeskArticle[] = [
     title: "Configuring System Settings and AI Chatbot",
     slug: "configuring-system-settings-ai-chatbot",
     excerpt:
-      "Guide for administrators on configuring system settings including OTP debug mode, session timeout, file upload limits, and the AI chatbot provider setup.",
+      "Guide for administrators on configuring system settings including the referral overdue threshold and the AI chatbot provider setup.",
     content: configuringSystemSettingsAiChatbot,
     categoryId: CATEGORY["system-config"],
     tagIds: [TAG["troubleshooting"], TAG["onboarding"]],
@@ -651,11 +651,11 @@ export const articles: HelpdeskArticle[] = [
 
   {
     id: "article-44",
-    title: "System Security: Settings, IP Whitelist, and Active Sessions",
-    slug: "system-security-settings-ip-whitelist-and-sessions",
+    title: "System Security: Settings and Active Sessions",
+    slug: "system-security-settings-and-sessions",
     excerpt:
-      "Password policy, lockout rules, mandatory MFA, the admin IP whitelist (and its lock-out risk), and terminating active sessions.",
-    content: systemSecuritySettingsIpWhitelistAndSessions,
+      "Mandatory MFA and terminating active sessions.",
+    content: systemSecuritySettingsAndSessions,
     categoryId: CATEGORY["system-config"],
     tagIds: [TAG["security"], TAG["audit"]],
     featured: false,

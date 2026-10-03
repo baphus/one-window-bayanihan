@@ -2,12 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ResolvesPerPage;
 use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class NotificationController extends Controller
 {
+    use ResolvesPerPage;
+
     public function __construct(
         private readonly NotificationService $notificationService,
     ) {}
@@ -17,11 +20,11 @@ class NotificationController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $perPage = (int) $request->input('per_page', 20);
+        $perPage = $this->perPage($request, 20);
         $notifications = $this->notificationService->getNotifications(
             $request->user(),
             'user',
-            min($perPage, 100),
+            $perPage,
         );
 
         $items = collect($notifications->items())->map(fn ($n) => [

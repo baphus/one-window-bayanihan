@@ -2,6 +2,7 @@ import { Link, usePage } from '@inertiajs/react';
 import { Hourglass } from 'lucide-react';
 import OfwLayout from '@/Layouts/OfwLayout';
 import StatusBadge from '@/Components/ui/StatusBadge';
+import safeRoute from '@/utils/safeRoute';
 
 // Laravel paginator labels are server-escaped strings limited to page
 // numbers plus &laquo; / &raquo; / &hellip; entities — decode them as text
@@ -47,7 +48,7 @@ function CaseCard({ caseItem }) {
         >
             <div className="flex items-start gap-4">
                 {/* Status icon tile */}
-                <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-circle ${tile.className}`}>
+                <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${tile.className}`}>
                     <span className="material-symbols-outlined text-[22px]" aria-hidden="true">{tile.icon}</span>
                 </span>
 
@@ -144,7 +145,7 @@ function EmptyState() {
                 You haven't filed any cases yet. Start by filing a new case and a Case Manager will review it.
             </p>
             <Link
-                href="/intake"
+                href={safeRoute('intake.index', undefined, '/intake')}
                 className="mt-6 inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-container"
             >
                 <span className="material-symbols-outlined text-[18px]">add_circle</span>
@@ -183,7 +184,7 @@ export default function Dashboard({ cases, caseStats }) {
                         </Link>
                         {caseList.length > 0 && (
                             <Link
-                                href="/intake"
+                                href={safeRoute('intake.index', undefined, '/intake')}
                                 className="inline-flex items-center gap-1.5 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-primary shadow-sm transition-colors hover:bg-primary-fixed"
                             >
                                 <span className="material-symbols-outlined text-[18px]">add</span>

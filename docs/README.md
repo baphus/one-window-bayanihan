@@ -38,11 +38,11 @@ superseded by every numbered version of the same document. The highest version a
 |----------|--------|-------------|
 | [PROJECT_RULES_v2.1.0.md](PROJECT_RULES_v2.1.0.md) | CURRENT | Domain/business constraints, role rules, coding conventions, and the platform-neutrality rule |
 | [PROJECT_RULES.md](PROJECT_RULES.md) | SUPERSEDED | Unversioned original of the rules above; use `PROJECT_RULES_v2.1.0.md` |
-| [UI_PATTERNS.md](UI_PATTERNS.md) | CURRENT | Design system, component library, and layout patterns derived from SRS Â§A3.1/A6.5 (2026-05-28) |
-| [STAGING_DATA_v1.0.0.md](STAGING_DATA_v1.0.0.md) | CURRENT | Deterministic six-month staging demo dataset â€” how `StagingSeeder` builds, guards, and verifies it |
+| [UI_PATTERNS.md](UI_PATTERNS.md) | CURRENT | Design system, component library, and layout patterns derived from SRS §A3.1/A6.5 (2026-05-28) |
+| [STAGING_DATA_v1.0.0.md](STAGING_DATA_v1.0.0.md) | CURRENT | Deterministic six-month staging demo dataset — how `StagingSeeder` builds, guards, and verifies it |
 | [agents/domain.md](agents/domain.md) | CURRENT | Agent guidance for deriving domain vocabulary; notes that `CONTEXT.md` and `docs/adr/` are not yet present |
 | [agents/issue-tracker.md](agents/issue-tracker.md) | CURRENT | GitHub Issues workflow for agents via the `gh` CLI |
-| [agents/triage-labels.md](agents/triage-labels.md) | CURRENT | Five-role triage label vocabulary (`needs-triage` â€¦ `wontfix`) |
+| [agents/triage-labels.md](agents/triage-labels.md) | CURRENT | Five-role triage label vocabulary (`needs-triage` … `wontfix`) |
 
 ### Architecture
 

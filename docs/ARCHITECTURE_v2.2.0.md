@@ -104,12 +104,12 @@ Browser (React 18.2 + Inertia 2.0)
 Laravel 13 application (PHP >= 8.4.1)
     ├─ Global middleware (SetPostgresSession → LogContext → SecurityHeaders
     │   → StripRedirectResponseBody; origin-only forgery protection;
-    │   trusted proxies 10.0.0.0/8) — bootstrap/app.php:44-61
+    │   trusted proxies 10.0.0.0/8) — bootstrap/app.php:43-60
     ├─ Web middleware (ContentSecurityPolicy prepended; CheckUserActive →
     │   EnsureMfaSession → CheckMfaEnrolled → HandleInertiaRequests →
-    │   AddLinkHeadersForPreloadedAssets) — bootstrap/app.php:63-72
-    ├─ Route middleware aliases: role, ip.whitelist, turnstile,
-    │   turnstile.session, mfa.pending — bootstrap/app.php:74-80
+    │   AddLinkHeadersForPreloadedAssets) — bootstrap/app.php:62-71
+    ├─ Route middleware aliases: role, turnstile,
+    │   turnstile.session, mfa.pending — bootstrap/app.php:73-78
     │
     ▼ Controller → Service → Model
 PostgreSQL (15-alpine local, newer managed server in CI/production)
@@ -191,14 +191,14 @@ Alternative: POST /login/mfa/recovery (recovery_code) [throttle:recovery-code]
 
 Challenge policy (`config/mfa.php:4-7`): `pending_ttl` 300s, `max_attempts` 5,
 `replay_ttl` 120s. Enrollment is enforced by `CheckMfaEnrolled`
-(`bootstrap/app.php:68`) after `EnsureMfaSession` (`bootstrap/app.php:67`), for
+(`bootstrap/app.php:67`) after `EnsureMfaSession` (`bootstrap/app.php:66`), for
 the roles in `config('mfa.enrollment_enforced_roles')` — default
 `ADMIN,CASE_MANAGER,AGENCY` (`config/mfa.php:30-33`) — **except that in
 production every non-empty role is enforced, OFW included**
 (`User::isInMfaEnforcedRole()`, `app/Models/User.php:118-131`). Email OTP
 (`OtpService`, `TTL_MINUTES = 5`, `MAX_ATTEMPTS = 5` at
 `app/Services/OtpService.php:11-13`) is independent of login —
-see §7 of `ROLES_AND_PERMISSIONS_v1.0.0.md` for where each mechanism applies.
+see §6 of `ROLES_AND_PERMISSIONS_v1.0.0.md` for where each mechanism applies.
 
 ## 5. Chatbot Pipeline (new in this revision)
 

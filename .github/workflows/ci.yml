@@ -75,7 +75,11 @@ jobs:
         run: composer audit
 
       - name: Run NPM Audit
-        run: npm audit --audit-level=high
+        # Filtered gate (see scripts/npm-audit-filter.mjs): braces GHSA-vfj7-8cjw-p6xm
+        # is unpatchable on Tailwind v3 (latest braces 3.0.3 still flagged; only
+        # fix is breaking tailwind 3 -> 4) and build-time-only, so it is
+        # allowlisted. Any other high/critical advisory still fails the build.
+        run: node scripts/npm-audit-filter.mjs
 
       - name: Setup Go
         uses: actions/setup-go@v5

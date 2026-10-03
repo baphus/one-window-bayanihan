@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Helpers\CacheHelper;
+use App\Http\Controllers\Concerns\ResolvesPerPage;
 use App\Http\Requests\ProfilePictureRequest;
 use App\Models\AuditLog;
 use App\Models\Client;
@@ -19,6 +20,8 @@ use Inertia\Inertia;
 
 class ClientController extends Controller
 {
+    use ResolvesPerPage;
+
     public function __construct(
         private readonly DataExportQueries $exportQueries,
         private readonly DataExportService $exportService,
@@ -149,7 +152,7 @@ class ClientController extends Controller
         $direction = $request->input('direction', 'desc');
         $direction = in_array(strtolower($direction), ['asc', 'desc']) ? $direction : 'desc';
 
-        $perPage = min((int) $request->input('per_page', 15), 100);
+        $perPage = $this->perPage($request, 15);
 
         $clients = $clients->orderBy($sort, $direction)->paginate($perPage);
 

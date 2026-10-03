@@ -11,6 +11,7 @@ import SearchableSelect from '@/Components/SearchableSelect';
 import PasswordStrengthMeter from '@/Components/PasswordStrengthMeter';
 import { DEFAULT_OCCUPATIONS } from '@/data/defaultOccupations';
 import { getTurnstileError } from '@/lib/turnstile';
+import safeRoute from '@/utils/safeRoute';
 
 // Mirrors IntakeRegistrationController: Password::min(8)->mixedCase()->numbers().
 // (No symbol requirement — the shared `passwordRules` prop must not be used here.)
@@ -170,7 +171,6 @@ export default function IntakeIndex({ occupationOptions, existingClient, skipVer
   const [turnstileToken, setTurnstileToken] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [otpHint, setOtpHint] = useState('');
-  const [debugOtp, setDebugOtp] = useState(null);
   const [duplicateMessage, setDuplicateMessage] = useState('');
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [submittedCase, setSubmittedCase] = useState(null);
@@ -214,7 +214,6 @@ export default function IntakeIndex({ occupationOptions, existingClient, skipVer
     setDuplicateMessage('');
     setOtpSent(false);
     setOtpHint('');
-    setDebugOtp(null);
     setTurnstileToken('');
     updateField('otp', '');
     goBack();
@@ -236,7 +235,6 @@ export default function IntakeIndex({ occupationOptions, existingClient, skipVer
       if (res.ok && json?.sent) {
         setOtpSent(true);
         setOtpHint(json.hint);
-        setDebugOtp(json.debug_otp);
       } else if (res.status === 429) {
         setErrors({ email: 'Too many verification codes requested. Please wait a minute and try again.' });
       } else {
@@ -422,7 +420,6 @@ export default function IntakeIndex({ occupationOptions, existingClient, skipVer
                   processing={processing}
                   otpSent={otpSent}
                   otpHint={otpHint}
-                  debugOtp={debugOtp}
                   duplicateMessage={duplicateMessage}
                   turnstile={turnstile}
                   turnstileToken={turnstileToken}
@@ -461,7 +458,7 @@ export default function IntakeIndex({ occupationOptions, existingClient, skipVer
 
 // --- Step Components ---
 
-function EmailStep({ formData, updateField, errors, processing, otpSent, otpHint, debugOtp, duplicateMessage, turnstile, turnstileToken, setTurnstileToken, onSendOtp, onVerifyOtp, onBackToEmail, onBack }) {
+function EmailStep({ formData, updateField, errors, processing, otpSent, otpHint, duplicateMessage, turnstile, turnstileToken, setTurnstileToken, onSendOtp, onVerifyOtp, onBackToEmail, onBack }) {
   const [turnstileStatus, setTurnstileStatus] = useState('idle');
 
   if (duplicateMessage) {
@@ -523,11 +520,6 @@ function EmailStep({ formData, updateField, errors, processing, otpSent, otpHint
           <p className="text-sm text-slate-600">
             A verification code has been sent to <strong>{otpHint}</strong>
           </p>
-          {debugOtp && (
-            <div className="rounded bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800">
-              Debug OTP: <strong>{debugOtp}</strong>
-            </div>
-          )}
           <div>
             <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Verification Code</label>
             <input
@@ -1276,7 +1268,7 @@ function IntakeSuccess({ caseNumber, trackerNumber, email }) {
               <span className="material-symbols-outlined text-[18px]">search</span>
               Track Your Case
             </a>
-            <a href="/" className="inline-flex items-center justify-center gap-2 border border-outline-variant px-6 py-3.5 text-sm font-medium text-slate-600 hover:bg-slate-50">
+            <a href={safeRoute('home', undefined, '/')} className="inline-flex items-center justify-center gap-2 border border-outline-variant px-6 py-3.5 text-sm font-medium text-slate-600 hover:bg-slate-50">
               Return to Home
             </a>
           </div>

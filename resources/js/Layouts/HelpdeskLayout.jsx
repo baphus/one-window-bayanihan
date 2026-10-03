@@ -10,6 +10,7 @@ import useChecklistVisitTracking from '@/Onboarding/useChecklistVisitTracking';
 import { categories as categoryData, buildCategoryTree } from '@/data/helpdesk/categories';
 import { articles } from '@/data/helpdesk/articles';
 import { searchArticles } from '@/data/helpdesk/search';
+import safeRoute from '@/utils/safeRoute';
 
 export function SearchBar({ query, onSearch, large }) {
   const [value, setValue] = useState(query || '');
@@ -71,7 +72,7 @@ export function SearchBar({ query, onSearch, large }) {
               return (
                 <Link
                   key={article.id}
-                  href={`/help/${article.slug}`}
+                  href={safeRoute('helpdesk.show', article.slug, `/help/${article.slug}`)}
                   className="block px-4 py-3 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
                 >
                   <div className="flex items-start gap-3">
@@ -133,7 +134,7 @@ function CategoryNav({ categories, activeSlug, idPrefix = 'desktop' }) {
   return (
     <div className="space-y-1">
       <Link
-        href="/help"
+        href={safeRoute('helpdesk.index', undefined, '/help')}
         aria-current={!activeSlug ? 'page' : undefined}
         className={linkClasses(!activeSlug)}
       >
@@ -151,7 +152,7 @@ function CategoryNav({ categories, activeSlug, idPrefix = 'desktop' }) {
           <div key={cat.id} className="border-b border-slate-200 last:border-b-0">
             <div className="group flex items-stretch gap-0">
               <Link
-                href={`/help?category=${cat.slug}`}
+                href={safeRoute('helpdesk.index', { category: cat.slug }, `/help?category=${cat.slug}`)}
                 aria-current={isActive ? 'page' : undefined}
                 className={linkClasses(isParentActive)}
               >
@@ -191,7 +192,7 @@ function CategoryNav({ categories, activeSlug, idPrefix = 'desktop' }) {
                   return (
                     <Link
                       key={child.id}
-                      href={`/help?category=${child.slug}`}
+                      href={safeRoute('helpdesk.index', { category: child.slug }, `/help?category=${child.slug}`)}
                       aria-current={isChildActive ? 'page' : undefined}
                       className={`flex items-center gap-2 border-l-4 px-3 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary ${
                         isChildActive
@@ -260,7 +261,7 @@ export default function HelpdeskLayout({
   useChecklistVisitTracking();
 
   const handleSearch = (q) => {
-    router.visit('/help/search?q=' + encodeURIComponent(q));
+    router.visit(safeRoute('helpdesk.search', { q }, '/help/search?q=' + encodeURIComponent(q)));
   };
 
   return (

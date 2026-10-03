@@ -66,7 +66,7 @@ function UserAvatar({ user, size = 'sm', fallbackType = 'person', onClick }) {
     }
 
     // Shared container: square + circular clip
-    const containerClass = `${sizeClass} rounded-circle overflow-hidden flex-shrink-0 inline-flex items-center justify-center relative ${
+    const containerClass = `${sizeClass} rounded-full overflow-hidden flex-shrink-0 inline-flex items-center justify-center relative ${
         hasImage || fallbackImg ? '' : getAvatarColor(user?.name) + ' text-white font-bold'
     }`;
 

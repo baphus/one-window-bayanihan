@@ -1,6 +1,7 @@
 import { Link, router, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import AppButton from './AppButton';
+import safeRoute from '@/utils/safeRoute';
 
 const roleLabels = {
   CASE_MANAGER: 'Case Manager',
@@ -10,8 +11,8 @@ const roleLabels = {
 };
 
 const navLinks = [
-  { name: 'Home', href: '/', exact: true },
-  { name: 'Help Center', href: '/help', exact: false },
+  { name: 'Home', href: '/', route: 'home', exact: true },
+  { name: 'Help Center', href: '/help', route: 'helpdesk.index', exact: false },
   { name: 'Track Your Case', href: '/track', exact: false },
   { name: 'Partners', href: '/partners', exact: false },
   { name: 'Contact', href: '/contact', exact: false },
@@ -46,7 +47,7 @@ export default function AppHeader({ minimal }) {
       }`}
     >
       <div className="mx-auto flex h-[76px] w-full max-w-7xl items-stretch justify-between px-4 md:px-8">
-        <Link href="/" className="flex min-w-0 items-center gap-3 self-center">
+        <Link href={safeRoute('home', undefined, '/')} className="flex min-w-0 items-center gap-3 self-center">
           <div className="flex h-[44px] w-[44px] items-center justify-center overflow-hidden bg-white">
             <img
               src="/logo.png"
@@ -70,7 +71,7 @@ export default function AppHeader({ minimal }) {
                 return (
                   <Link
                     key={link.name}
-                    href={link.href}
+                    href={link.route ? safeRoute(link.route, undefined, link.href) : link.href}
                     className={`flex items-center px-4 text-[14px] font-label transition-colors duration-200 ${
                       active
                         ? 'border-b-2 border-primary font-bold text-primary'
@@ -104,7 +105,7 @@ export default function AppHeader({ minimal }) {
                   </AppButton>
 
                   <div className="flex items-center gap-4 border-l border-gray-200 pl-5">
-                    <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-circle bg-primary">
+                    <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-primary">
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3/5 h-3/5 text-white/50">
                         <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
                       </svg>
@@ -233,7 +234,7 @@ export default function AppHeader({ minimal }) {
               <button
                 type="button"
                 aria-label="Close menu"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-circle border border-gray-200 text-slate-600 transition hover:bg-slate-50 hover:text-primary"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 text-slate-600 transition hover:bg-slate-50 hover:text-primary"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 <svg

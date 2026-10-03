@@ -2,10 +2,9 @@
 
 > **Version:** 1.1.0 | **Updated:** 2026-10-03 | **Status:** Verified against source code
 > **Source:** `app/Models/User.php:98-115`, `app/Http/Middleware/CheckRole.php`,
-> `app/Http/Middleware/IpWhitelist.php`, `config/auth.php:64-77`,
 > `config/mfa.php`, `routes/web.php`, `routes/auth.php`, `routes/api.php`,
 > `app/Http/Controllers/Auth/MfaChallengeController.php`,
-> `app/Services/OtpService.php`, `bootstrap/app.php:63-80,120-133`,
+> `app/Services/OtpService.php`, `bootstrap/app.php:62-78,118-138`,
 > `database/migrations/0001_01_01_000000_create_framework_tables.php`
 
 ## 1. Role Vocabulary (exact, closed)
@@ -40,10 +39,10 @@ if (! $request->user() || ! in_array($request->user()->role, $roles)) {
 
 Strict `in_array` against the route's allow-list; anything else — including a
 missing user — aborts **403**, never 401 (authentication failures are handled
-separately — §7). The middleware is aliased as `role` (`bootstrap/app.php:75`)
+separately — §7). The middleware is aliased as `role` (`bootstrap/app.php:74`)
 and always runs inside the `auth`/`verified` web group or an explicit `auth`
 group, after `CheckUserActive`, `EnsureMfaSession`, `CheckMfaEnrolled`, and
-`HandleInertiaRequests` (`bootstrap/app.php:63-72`).
+`HandleInertiaRequests` (`bootstrap/app.php:62-71`).
 
 ## 3. Route-Group Matrix (`routes/web.php`, 455 lines)
 
@@ -67,8 +66,8 @@ are to `routes/web.php`.
 | 205-209 | client-request visibility | `CASE_MANAGER,ADMIN,AGENCY` | request index, agency-attachment download, access-link revoke |
 | 212-220 | survey form builder | `AGENCY` only | `survey.forms.*` CRUD + activate |
 | 223-226 | survey responses | `CASE_MANAGER,ADMIN,AGENCY` | `survey.responses.index/show` |
-| 229-232 | agency detail | `ADMIN,CASE_MANAGER` **+ `ip.whitelist`** | read-only for non-admin; the only non-`ADMIN`-only route that still requires IP whitelisting |
-| 245-315 | `admin` prefix | `ADMIN` **+ `ip.whitelist`** | agencies, services, users (+ invites, email-change OTP, MFA reset), system settings (+ chatbot reindex), case taxonomies, data export, `system.*` (logs, maintenance, security, active sessions, email logs) |
+| 229-232 | agency detail | `ADMIN,CASE_MANAGER` | read-only for non-admin |
+| 245-315 | `admin` prefix | `ADMIN` | agencies, services, users (+ invites, email-change OTP, MFA reset), system settings (+ chatbot reindex), case taxonomies, data export, `system.*` (logs, maintenance, security, active sessions, email logs) |
 | 318-321 | overdue referrals | `ADMIN,CASE_MANAGER,AGENCY` (`auth` only, no `verified`) | index + send-reminders |
 | 432-438 | session API (`/api/*` in web.php) | `auth` + `verified` + `throttle:api-global` | client search / email-check / show for the case form |
 | 445-453 | `my-cases` portal (`ofw.*`) | `OFW` only | dashboard, notifications (+ mark-read), agency milestones, profile edit/update, case show — 7 routes, the OFW's entire surface |
@@ -134,43 +133,26 @@ Outside production, OFW is excluded from MFA enrollment enforcement (the
 `User::isInMfaEnforcedRole()` (`app/Models/User.php:118-131`) enforces MFA for
 every non-empty role, OFW included.
 
-## 6. Admin IP Whitelist
-
-Second gate on every `admin` route plus the agency-detail route (§3, 229/245),
-via the `ip.whitelist` alias (`bootstrap/app.php:76` →
-`App\Http\Middleware\IpWhitelist`):
-
-- Disabled by default: `config/auth.php:74-77` reads
-  `AUTH_IP_WHITELIST_ENABLED` (default `false`) and
-  `AUTH_IP_WHITELIST_ADDRESSES` (default `127.0.0.1`). When disabled, the
-  middleware passes through (`IpWhitelist.php:18-20`) — the `role:ADMIN` check
-  still applies.
-- When enabled, matching is exact-IP or CIDR (`IpWhitelist.php:34-53`,
-  `ip2long` + mask); a non-matching IP aborts **403** (`IpWhitelist.php:31`).
-- Operational note: enabling it without adding the deployment's egress/NAT
-  addresses locks every admin out — verify the address list before flipping
-  `AUTH_IP_WHITELIST_ENABLED=true`.
-
-## 7. MFA & OTP: Two Mechanisms, Different Jobs
+## 6. MFA & OTP: Two Mechanisms, Different Jobs
 
 | Mechanism | Where configured | Policy | Applies to |
 |-----------|-----------------|--------|------------|
-| TOTP MFA challenge (authenticator app + recovery codes) | `config/mfa.php:4-7`; `MfaChallengeController`; `mfa.pending` alias (`bootstrap/app.php:79`) | `pending_ttl` 300 s, `max_attempts` 5, `replay_ttl` 120 s; self-service enroll/verify/disable/regenerate at `profile/mfa/*` (`web.php:69-73`) | login for roles in `config('mfa.enrollment_enforced_roles')` — default `ADMIN,CASE_MANAGER,AGENCY` (`config/mfa.php:30-33`) — and for **all** roles incl. `OFW` when `APP_ENV=production` (`User::isInMfaEnforcedRole()`, `app/Models/User.php:118-131`); enforced pre-access by `EnsureMfaSession` + `CheckMfaEnrolled` (`bootstrap/app.php:67-68`) |
+| TOTP MFA challenge (authenticator app + recovery codes) | `config/mfa.php:4-7`; `MfaChallengeController`; `mfa.pending` alias (`bootstrap/app.php:77`) | `pending_ttl` 300 s, `max_attempts` 5, `replay_ttl` 120 s; self-service enroll/verify/disable/regenerate at `profile/mfa/*` (`web.php:69-73`) | login for roles in `config('mfa.enrollment_enforced_roles')` — default `ADMIN,CASE_MANAGER,AGENCY` (`config/mfa.php:30-33`) — and for **all** roles incl. `OFW` when `APP_ENV=production` (`User::isInMfaEnforcedRole()`, `app/Models/User.php:118-131`); enforced pre-access by `EnsureMfaSession` + `CheckMfaEnrolled` (`bootstrap/app.php:66-67`) |
 | Email OTP (6-digit) | `App\Services\OtpService:11-13` | `TTL_MINUTES` 5, `MAX_ATTEMPTS` 5, cache-backed with per-purpose attempt counters | email-change (`auth.php:88-93`, `throttle:otp`), public intake verification, tracking-portal OTP — never login |
 
 Admins can reset a user's MFA (`admin.users.reset-mfa`, `web.php:269`).
 
-## 8. Denied-Access Behavior (`bootstrap/app.php:120-133`)
+## 7. Denied-Access Behavior (`bootstrap/app.php:118-131`)
 
 | Failure | Web (Inertia) response | API/JSON response |
 |---------|----------------------|-------------------|
-| 403 `CheckRole` / `IpWhitelist` (`AccessDeniedHttpException`) | `Errors/Forbidden` page, status 403 (`app.php:120-126`) | `{ message: 'Forbidden.' }`, 403 |
-| 401 unauthenticated (`AuthenticationException`) | redirect to `route('login')` (`app.php:127-133`) | `{ message: 'Unauthenticated.' }`, 401 |
-| 404 unknown route | `Errors/NotFound`, 404 (`app.php:103-109`) | `{ message: 'Resource not found.' }`, 404 |
-| 429 rate-limit | `Errors/TooManyRequests`, 429 (`app.php:134-140`) | `{ message: 'Too many requests…' }`, 429 |
+| 403 `CheckRole` (`AccessDeniedHttpException`) | `Errors/Forbidden` page, status 403 (`app.php:118-124`) | `{ message: 'Forbidden.' }`, 403 |
+| 401 unauthenticated (`AuthenticationException`) | redirect to `route('login')` (`app.php:125-131`) | `{ message: 'Unauthenticated.' }`, 401 |
+| 404 unknown route | `Errors/NotFound`, 404 (`app.php:101-107`) | `{ message: 'Resource not found.' }`, 404 |
+| 429 rate-limit | `Errors/TooManyRequests`, 429 (`app.php:132-138`) | `{ message: 'Too many requests…' }`, 429 |
 
 Deactivated users are rejected earlier by `CheckUserActive`
-(`bootstrap/app.php:66`) before any role check runs.
+(`bootstrap/app.php:65`) before any role check runs.
 
 ---
 

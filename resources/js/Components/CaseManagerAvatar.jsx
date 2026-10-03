@@ -6,7 +6,7 @@ const sizeMap = {
     lg: 'h-10 w-10 text-sm',
 };
 
-const imageClasses = 'rounded-circle object-cover border border-slate-200';
+const imageClasses = 'rounded-full object-cover border border-slate-200';
 
 const BAYANIHAN_LOGO = '/images/bayanihan-logo.svg';
 
@@ -30,7 +30,7 @@ export default function CaseManagerAvatar({ user, size = 'md' }) {
                 <img
                     src={user.avatar_url}
                     alt={user.name || 'Avatar'}
-                    className="h-full w-full rounded-circle object-cover border border-slate-200"
+                    className="h-full w-full rounded-full object-cover border border-slate-200"
                     onError={() => setFallbackLevel(1)}
                 />
                 {user?.name && (
@@ -49,7 +49,7 @@ export default function CaseManagerAvatar({ user, size = 'md' }) {
                 <img
                     src={BAYANIHAN_LOGO}
                     alt="One Window Bayanihan Logo"
-                    className="h-full w-full rounded-circle object-contain border border-slate-200"
+                    className="h-full w-full rounded-full object-contain border border-slate-200"
                     onError={() => setFallbackLevel(2)}
                 />
                 {user?.name && (
@@ -64,7 +64,7 @@ export default function CaseManagerAvatar({ user, size = 'md' }) {
     // Level 2: person icon fallback
     return (
         <span className={`group relative inline-block ${sizeClass}`}>
-            <span className="h-full w-full rounded-circle bg-indigo-100 flex items-center justify-center">
+            <span className="h-full w-full rounded-full bg-indigo-100 flex items-center justify-center">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3/5 h-3/5 text-indigo-400/50">
                     <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
                 </svg>

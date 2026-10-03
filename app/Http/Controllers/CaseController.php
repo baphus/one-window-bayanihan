@@ -32,6 +32,7 @@ class CaseController extends Controller
         private readonly AddressNameResolver $addressNames,
         private readonly DataExportQueries $exportQueries,
         private readonly DataExportService $exportService,
+        private readonly OnboardingService $onboardingService,
     ) {}
 
     public function index(Request $request)
@@ -39,11 +40,17 @@ class CaseController extends Controller
         $filterKeys = ['status', 'search', 'client_type', 'vulnerability_indicator', 'user_id', 'agcy_id', 'category_id', 'category_ids', 'case_issue_id', 'age_min_days', 'referral_state', 'date_from', 'date_to', 'sort', 'direction', 'per_page'];
         $categoryFilters = CategoryFilter::fromRequest($request)->toArray();
 
+        $listing = $request->validate([
+            'sort' => ['sometimes', 'string', 'in:case_number,tracker_number,client_type,status,created_at'],
+            'direction' => ['sometimes', 'string', 'in:asc,desc'],
+            'per_page' => ['sometimes', 'integer', 'min:10', 'max:100'],
+        ]);
+
         $cases = $this->caseService->getCases(
             array_merge($request->only($filterKeys), $categoryFilters),
-            $request->input('sort', 'created_at'),
-            $request->input('direction', 'desc'),
-            (int) $request->input('per_page', 15)
+            $listing['sort'] ?? 'created_at',
+            $listing['direction'] ?? 'desc',
+            (int) ($listing['per_page'] ?? 15)
         );
 
         return Inertia::render('Case/Index', [
@@ -85,21 +92,23 @@ class CaseController extends Controller
 
     public function store(StoreCaseRequest $request)
     {
+        $validated = $request->validated();
+
         $case = $this->caseService->createCase(
-            $request->validated(),
+            $validated,
             $request->user()->id,
         );
 
-        $isDraft = $request->validated()['is_draft'] ?? true;
+        $isDraft = $validated['is_draft'] ?? true;
 
         if (! $isDraft) {
             $case = $this->caseService->publishDraft(
                 $case->id,
                 $request->user()->id,
-                (bool) ($request->validated()['confirm_duplicate_client'] ?? false),
+                (bool) ($validated['confirm_duplicate_client'] ?? false),
             );
 
-            app(OnboardingService::class)
+            $this->onboardingService
                 ->markChecklistItemQuietly($request->user(), 'create-first-case');
 
             return redirect()
@@ -127,17 +136,7 @@ class CaseController extends Controller
         $categories = $this->referenceData->getActiveCategories();
         $caseIssues = $this->referenceData->getActiveIssues();
 
-        // Resolve draft address names to codes for cascade dropdown pre-population
-        $draftResolvedAddress = [];
-        $draftData = $case->draft_client_data;
-        if (! empty($draftData['address'])) {
-            $region = $draftData['address']['region'] ?? '';
-            if (! empty($region) && preg_match('/[a-zA-Z]/', $region)) {
-                $draftResolvedAddress = $this->addressService->resolveAddressToCodes($draftData['address']);
-            } else {
-                $draftResolvedAddress = $draftData['address'];
-            }
-        }
+        $draftResolvedAddress = $this->resolveDraftAddressForCascade($case->draft_client_data);
 
         return Inertia::render('Case/Create', [
             'existingDraft' => $case,
@@ -161,17 +160,8 @@ class CaseController extends Controller
         $categories = $this->referenceData->getActiveCategories();
         $caseIssues = $this->referenceData->getActiveIssues();
 
-        // Resolve draft address names to codes for cascade dropdown pre-population
-        $draftResolvedAddress = [];
         $draftData = $case->draft_client_data;
-        if (! empty($draftData['address'])) {
-            $region = $draftData['address']['region'] ?? '';
-            if (! empty($region) && preg_match('/[a-zA-Z]/', $region)) {
-                $draftResolvedAddress = $this->addressService->resolveAddressToCodes($draftData['address']);
-            } else {
-                $draftResolvedAddress = $draftData['address'];
-            }
-        }
+        $draftResolvedAddress = $this->resolveDraftAddressForCascade($draftData);
 
         // draftResolvedAddress carries PSGC *codes* so the cascade dropdowns can
         // pre-select. The review screen also needs human-readable *names*, and
@@ -275,7 +265,7 @@ class CaseController extends Controller
             $request->boolean('confirm_duplicate_client'),
         );
 
-        app(OnboardingService::class)
+        $this->onboardingService
             ->markChecklistItemQuietly($request->user(), 'create-first-case');
 
         return redirect()
@@ -326,12 +316,17 @@ class CaseController extends Controller
     public function intakeQueue(Request $request)
     {
         $filters = $request->only(['search']);
-        $sort = $request->query('sort', 'created_at');
-        $direction = $request->query('direction', 'asc');
+        $listing = $request->validate([
+            'sort' => ['sometimes', 'string', 'in:created_at,client_name,vulnerability_indicator'],
+            'direction' => ['sometimes', 'string', 'in:asc,desc'],
+            'per_page' => ['sometimes', 'integer', 'min:10', 'max:100'],
+        ]);
+        $sort = $listing['sort'] ?? 'created_at';
+        $direction = $listing['direction'] ?? 'asc';
 
         $cases = $this->caseService->getIntakeQueue(
             $filters,
-            (int) $request->input('per_page', 15),
+            (int) ($listing['per_page'] ?? 15),
             $sort,
             $direction,
         );
@@ -526,6 +521,27 @@ class CaseController extends Controller
         return redirect()
             ->route('cases.trash')
             ->with('success', 'Case restored successfully.');
+    }
+
+    /**
+     * Resolve draft address names to PSGC codes for cascade dropdown
+     * pre-population. Returns the address as-is when it already holds codes.
+     */
+    private function resolveDraftAddressForCascade(?array $draftClientData): array
+    {
+        $address = $draftClientData['address'] ?? null;
+
+        if (empty($address) || ! is_array($address)) {
+            return [];
+        }
+
+        $region = $address['region'] ?? '';
+
+        if (! empty($region) && preg_match('/[a-zA-Z]/', $region)) {
+            return $this->addressService->resolveAddressToCodes($address);
+        }
+
+        return $address;
     }
 
     private function authorizeCaseAccess($case, $user)

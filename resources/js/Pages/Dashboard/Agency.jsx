@@ -3,6 +3,7 @@ import GettingStartedChecklist from '@/Components/GettingStartedChecklist';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import { humanizeStatus } from '@/lib/statusLabels';
 import { formatRelativeTime } from '@/lib/relativeTime';
+import safeRoute from '@/utils/safeRoute';
 import {
     ActivityFeed,
     BarList,
@@ -97,10 +98,10 @@ export default function AgencyDashboard({ dashboard = {} }) {
             >
                 <QuickActions
                     actions={[
-                        { href: '/referrals', label: 'Open referrals', icon: 'send', primary: true },
-                        { href: '/overdue-referrals', label: 'Overdue', icon: 'warning' },
-                        { href: '/surveys', label: 'Surveys', icon: 'reviews' },
-                        { href: '/reports', label: 'Reports', icon: 'bar_chart' },
+                        { href: '/referrals', route: 'referrals.index', label: 'Open referrals', icon: 'send', primary: true },
+                        { href: '/overdue-referrals', route: 'overdue-referrals.index', label: 'Overdue', icon: 'warning' },
+                        { href: '/surveys', route: 'survey.responses.index', label: 'Surveys', icon: 'reviews' },
+                        { href: '/reports', route: 'reports.index', label: 'Reports', icon: 'bar_chart' },
                     ]}
                 />
             </PageHeader>
@@ -120,7 +121,7 @@ export default function AgencyDashboard({ dashboard = {} }) {
                                 }`}
                             >
                                 <span className="flex items-center gap-1.5">
-                                    <span className={`h-1.5 w-1.5 rounded-circle ${toneDot(item.tone)}`} />
+                                    <span className={`h-1.5 w-1.5 rounded-full ${toneDot(item.tone)}`} />
                                     <span className="truncate text-[10px] font-bold uppercase tracking-widest text-slate-400">{item.label}</span>
                                 </span>
                                 <span className={`text-xl font-black ${count === 0 ? 'text-slate-300' : urgent ? 'text-rose-600' : 'text-slate-900'}`}>
@@ -140,14 +141,14 @@ export default function AgencyDashboard({ dashboard = {} }) {
                     <SectionCard
                         title="Pending referrals"
                         dataTour="dashboard-agency-referrals"
-                        action={<ViewAllLink href="/referrals?status=PENDING" />}
+                        action={<ViewAllLink href={safeRoute('referrals.index', { status: 'PENDING' }, '/referrals?status=PENDING')} />}
                         bodyClassName=""
                     >
-                        <EntityList empty={<EmptyState message="No pending referrals." href="/referrals" actionLabel="Open referrals" />}>
+                        <EntityList empty={<EmptyState message="No pending referrals." href={safeRoute('referrals.index', undefined, '/referrals')} actionLabel="Open referrals" />}>
                             {pendingReferrals.map((item) => (
                                 <EntityRow
                                     key={item.id}
-                                    href={item.href ?? `/referrals/${item.id}`}
+                                    href={item.href ?? safeRoute('referrals.show', item.id, `/referrals/${item.id}`)}
                                     pill={item.case_number}
                                     title={item.client_name}
                                     note={referralNote(item)}
@@ -159,14 +160,14 @@ export default function AgencyDashboard({ dashboard = {} }) {
 
                     <SectionCard
                         title="Overdue referrals"
-                        action={<ViewAllLink href="/overdue-referrals" />}
+                        action={<ViewAllLink href={safeRoute('overdue-referrals.index', undefined, '/overdue-referrals')} />}
                         bodyClassName=""
                     >
-                        <EntityList empty={<EmptyState message="Nothing is late." href="/overdue-referrals" actionLabel="Check overdue" />}>
+                        <EntityList empty={<EmptyState message="Nothing is late." href={safeRoute('overdue-referrals.index', undefined, '/overdue-referrals')} actionLabel="Check overdue" />}>
                             {overdueReferrals.map((item) => (
                                 <EntityRow
                                     key={item.id}
-                                    href={item.href ?? `/referrals/${item.id}`}
+                                    href={item.href ?? safeRoute('referrals.show', item.id, `/referrals/${item.id}`)}
                                     pill={item.case_number}
                                     title={item.client_name}
                                     note={referralNote(item)}
@@ -199,7 +200,7 @@ export default function AgencyDashboard({ dashboard = {} }) {
                         )}
                     </SectionCard>
 
-                    <SectionCard title="Client feedback" action={<ViewAllLink href="/surveys" />}>
+                    <SectionCard title="Client feedback" action={<ViewAllLink href={safeRoute('survey.responses.index', undefined, '/surveys')} />}>
                         {hasPulse ? (
                             <div className="space-y-3">
                                 <div className="grid grid-cols-2 gap-2">

@@ -14,6 +14,7 @@ import KpiCard from '@/Components/ui/KpiCard';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import ActivityItem from '@/Components/Dashboard/ActivityItem';
 import { formatStatusLabel } from '@/lib/utils';
+import safeRoute from '@/utils/safeRoute';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend);
 
@@ -82,8 +83,8 @@ export function QuickActions({ actions }) {
         <div data-tour="dashboard-quick-actions" className="flex flex-wrap items-center gap-2">
             {safeArray(actions).map((action) => (
                 <Link
-                    key={action.href}
-                    href={action.href}
+                    key={action.route ?? action.href}
+                    href={action.route ? safeRoute(action.route, action.params, action.href) : action.href}
                     className={
                         action.primary
                             ? 'inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-xs font-bold text-white transition-colors hover:bg-primary-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2'
@@ -218,7 +219,7 @@ export function TriageStrip({ items, dataTour }) {
                             }`}
                         >
                             <span className="flex items-center gap-1.5">
-                                <span className={`h-1.5 w-1.5 rounded-circle ${toneDot(item.tone)}`} />
+                                <span className={`h-1.5 w-1.5 rounded-full ${toneDot(item.tone)}`} />
                                 <span className="truncate text-[10px] font-bold uppercase tracking-widest text-slate-400">{item.label}</span>
                             </span>
                             <span className={`text-xl font-black ${count === 0 ? 'text-slate-300' : urgent ? 'text-rose-600' : 'text-slate-900'}`}>
@@ -331,7 +332,7 @@ export function StatusDonut({ items }) {
                 {rows.map((item) => (
                     <li key={item.status ?? item.label} className="flex items-center justify-between gap-2 text-xs">
                         <span className="flex min-w-0 items-center gap-1.5">
-                            <span className="h-2 w-2 shrink-0 rounded-circle" style={{ backgroundColor: item.hex ?? toneHex(item.tone) }} />
+                            <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: item.hex ?? toneHex(item.tone) }} />
                             <span className="truncate font-semibold text-slate-700">{item.label}</span>
                         </span>
                         <span className="shrink-0 font-bold text-slate-900">
@@ -573,7 +574,7 @@ export function AgencyScorecard({ agencies, empty }) {
                 return (
                     <Link
                         key={agency.id ?? agency.name}
-                        href={agency.id ? `/agencies/${agency.id}` : '/admin/agencies'}
+                        href={agency.id ? safeRoute('admin.agencies.show', agency.id, `/admin/agencies/${agency.id}`) : safeRoute('admin.agencies.index', undefined, '/admin/agencies')}
                         className="block px-5 py-3 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
                     >
                         <div className="flex items-center justify-between gap-2">
