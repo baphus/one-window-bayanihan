@@ -53,7 +53,7 @@
     "rehype-sanitize": "^6.0.0",
     "remark-gfm": "^4.0.1",
     "ziggy-js": "^2.6.3",
-    "zod": "^4.4.3"
+    "zod": "^4.6.5"
   },
   "trustedDependencies": [
     "@code-yeongyu/comment-checker",
