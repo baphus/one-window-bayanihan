@@ -58,5 +58,8 @@
   "trustedDependencies": [
     "@code-yeongyu/comment-checker",
     "core-js"
-  ]
+  ],
+  "overrides": {
+    "shell-quote": "^1.11.0"
+  }
 }
