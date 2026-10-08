@@ -9,28 +9,6 @@ use Symfony\Component\HttpFoundation\Response;
 class CheckMfaEnrolled
 {
     /**
-     * Routes that don't require MFA enrollment check.
-     *
-     * profile.edit is excluded because the middleware redirects there;
-     * excluding it prevents a redirect loop when the user lands on the
-     * profile page to set up MFA. profile.mfa.* is already excluded to
-     * allow the setup AJAX calls to work.
-     */
-    private array $exceptRoutes = [
-        'profile.edit',
-        'profile.update',
-        'profile.destroy',
-        'profile.email-change.*',
-        'profile.mfa.*',
-        'login',
-        'login.*',
-        'logout',
-        'password.*',
-        'register',
-        'verification.*',
-    ];
-
-    /**
      * Handle an incoming request.
      */
     public function handle(Request $request, Closure $next): Response
@@ -66,8 +44,11 @@ class CheckMfaEnrolled
             return $next($request);
         }
 
-        // Skip excluded routes
-        foreach ($this->exceptRoutes as $pattern) {
+        // Skip exempt routes. profile.edit is exempt because the middleware
+        // redirects there; exempting it prevents a redirect loop when the
+        // user lands on the profile page to set up MFA. profile.mfa.* is
+        // already exempt to allow the setup AJAX calls to work.
+        foreach (MfaPendingState::EXEMPT_ROUTES as $pattern) {
             if ($request->routeIs($pattern)) {
                 return $next($request);
             }

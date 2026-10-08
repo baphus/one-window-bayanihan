@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import useLocalStorage from './useLocalStorage';
 
 const STORAGE_PREFIX = 'owb-columns';
 
@@ -10,32 +10,9 @@ const STORAGE_PREFIX = 'owb-columns';
  * @returns {[string[], Function]} — same API as useState
  */
 export default function usePersistedColumns(pageKey, defaultKeys) {
-  const storageKey = `${STORAGE_PREFIX}_${pageKey}`;
-
-  const [visibleColumns, _setVisibleColumns] = useState(() => {
-    try {
-      const raw = localStorage.getItem(storageKey);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-    } catch {
-      // corrupted data — fall through to default
-    }
-    return defaultKeys;
-  });
-
-  const setVisibleColumns = useCallback((value) => {
-    _setVisibleColumns((prev) => {
-      const next = typeof value === 'function' ? value(prev) : value;
-      try {
-        localStorage.setItem(storageKey, JSON.stringify(next));
-      } catch {
-        // quota exceeded — silently ignore
-      }
-      return next;
-    });
-  }, [storageKey]);
-
-  return [visibleColumns, setVisibleColumns];
+  return useLocalStorage(
+    `${STORAGE_PREFIX}_${pageKey}`,
+    defaultKeys,
+    (parsed) => Array.isArray(parsed) && parsed.length > 0,
+  );
 }

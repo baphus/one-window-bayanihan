@@ -11,13 +11,14 @@ function getAvatarColor(name) {
     return avatarColors[hash % avatarColors.length];
 }
 
-function UserAvatar({ user, size = 'sm', fallbackType = 'person', onClick }) {
+function UserAvatar({ user, size = 'sm', fallbackType = 'person', fallbackSrc, tooltip = false, onClick }) {
     const sizeMap = { sm: 'h-6 w-6 text-[9px]', md: 'h-8 w-8 text-[11px]', lg: 'h-10 w-10 text-[13px]' };
     const sizeClass = sizeMap[size] || sizeMap.sm;
     const [imgError, setImgError] = useState(false);
 
     const hasImage = user?.avatar_url && !imgError;
-    const fallbackImg = fallbackType === 'bayanihan' || fallbackType === 'agency';
+    const customFallback = fallbackSrc && !imgError;
+    const fallbackImg = customFallback || fallbackType === 'bayanihan' || fallbackType === 'agency';
 
     // Inner content: either an <img> or the person icon fallback
     let innerContent;
@@ -28,6 +29,15 @@ function UserAvatar({ user, size = 'sm', fallbackType = 'person', onClick }) {
                 src={user.avatar_url}
                 alt={user.name || 'Avatar'}
                 className="h-full w-full object-cover"
+                onError={() => setImgError(true)}
+            />
+        );
+    } else if (customFallback) {
+        innerContent = (
+            <img
+                src={fallbackSrc}
+                alt={user?.name ? `${user.name}'s organization logo` : 'Organization logo'}
+                className="h-full w-full object-contain"
                 onError={() => setImgError(true)}
             />
         );
@@ -70,24 +80,32 @@ function UserAvatar({ user, size = 'sm', fallbackType = 'person', onClick }) {
         hasImage || fallbackImg ? '' : getAvatarColor(user?.name) + ' text-white font-bold'
     }`;
 
-    if (onClick) {
-        return (
-            <span
-                role="button"
-                tabIndex={0}
-                onClick={onClick}
-                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } }}
-                className={`${containerClass} cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500`}
-                aria-label={`View ${user?.name || 'user'}'s profile`}
-            >
-                {innerContent}
-            </span>
-        );
-    }
-
-    return (
+    const avatar = onClick ? (
+        <span
+            role="button"
+            tabIndex={0}
+            onClick={onClick}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } }}
+            className={`${containerClass} cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500`}
+            aria-label={`View ${user?.name || 'user'}'s profile`}
+        >
+            {innerContent}
+        </span>
+    ) : (
         <span className={containerClass}>
             {innerContent}
+        </span>
+    );
+
+    const tooltipText = typeof tooltip === 'string' ? tooltip : tooltip ? user?.name : null;
+    if (!tooltipText) return avatar;
+
+    return (
+        <span className="group relative inline-flex">
+            {avatar}
+            <span className="pointer-events-none absolute bottom-full left-1/2 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded bg-slate-900 px-2 py-1 text-[10px] text-white opacity-0 shadow-sm transition-opacity group-hover:opacity-100">
+                {tooltipText}
+            </span>
         </span>
     );
 }

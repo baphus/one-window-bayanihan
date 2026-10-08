@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link, router, usePage } from '@inertiajs/react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import useJsonPoll, { JSON_HEADERS } from '@/Hooks/useJsonPoll';
 import { Bar, Line, Pie } from 'react-chartjs-2';
 import { ArcElement, Chart as ChartJS, Filler, Legend, LineElement, PointElement, Tooltip } from 'chart.js';
 import GettingStartedChecklist from '@/Components/GettingStartedChecklist';
@@ -9,7 +9,7 @@ import { formatDisplayDate, getCaseAgeInDays } from '@/lib/utils';
 import { humanizeStatus } from '@/lib/statusLabels';
 import { formatRelativeTime } from '@/lib/relativeTime';
 import safeRoute from '@/utils/safeRoute';
-import { getSeverityConfig, normalizeNotification, timeAgo } from '@/lib/notifications';
+import { getSeverityConfig, normalizeNotification } from '@/lib/notifications';
 import {
     ActivityFeed,
     EmptyState,
@@ -380,52 +380,33 @@ function PiesRow({ dashboard }) {
 }
 
 function NotificationsBlock() {
-    const queryClient = useQueryClient();
+    const { data: notifData, isLoading, reload: reloadList } = useJsonPoll(
+        safeRoute('notifications.index', { per_page: 20 }, '/notifications?per_page=20'),
+    );
 
-    const { data: notifData, isLoading } = useQuery({
-        queryKey: ['notifications'],
-        queryFn: async () => {
-            const res = await fetch(safeRoute('notifications.index', { per_page: 20 }, '/notifications?per_page=20'), {
-                headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-            });
-            if (!res.ok) throw new Error(`Failed: ${res.status}`);
-            return res.json();
-        },
-        refetchInterval: 60000,
-        staleTime: 30000,
-    });
+    const { data: unreadData, reload: reloadUnread } = useJsonPoll(
+        safeRoute('notifications.unread-count', undefined, '/notifications/unread-count'),
+    );
 
-    const { data: unreadData } = useQuery({
-        queryKey: ['notifications', 'unread-count'],
-        queryFn: async () => {
-            const res = await fetch(safeRoute('notifications.unread-count', undefined, '/notifications/unread-count'), {
-                headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-            });
-            if (!res.ok) throw new Error(`Failed: ${res.status}`);
-            return res.json();
-        },
-        refetchInterval: 60000,
-        staleTime: 30000,
-    });
+    const [marking, setMarking] = useState(false);
 
-    const markReadMutation = useMutation({
-        mutationFn: (rawId) =>
-            fetch(safeRoute('notifications.mark-as-read', rawId, `/notifications/${rawId}/read`), {
+    const markRead = async (rawId) => {
+        setMarking(true);
+        try {
+            const res = await fetch(safeRoute('notifications.mark-as-read', rawId, `/notifications/${rawId}/read`), {
                 method: 'PATCH',
                 headers: {
-                    Accept: 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
+                    ...JSON_HEADERS,
                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
                 },
-            }).then((res) => {
-                if (!res.ok) throw new Error(`Failed to mark as read: ${res.status}`);
-                return res.json();
-            }),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['notifications'] });
-            queryClient.invalidateQueries({ queryKey: ['notifications', 'unread-count'] });
-        },
-    });
+            });
+            if (!res.ok) throw new Error(`Failed to mark as read: ${res.status}`);
+            await res.json();
+            await Promise.all([reloadList(), reloadUnread()]);
+        } finally {
+            setMarking(false);
+        }
+    };
 
     const items = safeArray(notifData?.data).map((row) => normalizeNotification(row)).slice(0, 5);
     const unreadCount = Number(unreadData?.count ?? items.filter((item) => !item.is_read).length);
@@ -477,16 +458,16 @@ function NotificationsBlock() {
                                             {item.title || 'Notification'}
                                         </span>
                                     </div>
-                                    <p className="mt-0.5 text-[11px] text-slate-400">{timeAgo(item.created_at)}</p>
+                                    <p className="mt-0.5 text-[11px] text-slate-400">{formatRelativeTime(item.created_at)}</p>
                                 </div>
                                 {isUnread ? (
                                     <button
                                         type="button"
                                         onClick={(event) => {
                                             event.stopPropagation();
-                                            markReadMutation.mutate(item._rawId);
+                                            markRead(item._rawId);
                                         }}
-                                        disabled={markReadMutation.isPending}
+                                        disabled={marking}
                                         title="Mark as read"
                                         className="inline-flex shrink-0 items-center rounded-lg border border-slate-200 px-2.5 py-1.5 text-[11px] font-bold text-slate-500 transition-colors hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                                     >

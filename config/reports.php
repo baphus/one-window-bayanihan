@@ -36,15 +36,6 @@ return [
     'export_row_cap' => (int) env('REPORTS_EXPORT_ROW_CAP', 6000),
 
     /*
-    | Pre-flight guard. Above this many matching rows the export is refused
-    | with an actionable message instead of being attempted and failing, or
-    | being silently truncated. Kept equal to the cap so a user is always told
-    | when their range is too wide rather than handed a partial file.
-    */
-
-    'export_preflight_max_rows' => (int) env('REPORTS_EXPORT_PREFLIGHT_MAX_ROWS', 6000),
-
-    /*
     | The PDF is bounded by design — a fixed set of charts plus a capped
     | appendix — so it scales far better than the workbook. Measured at 12,000
     | cases / 24,000 referrals it renders in 8.4s at 184 MB, well inside both

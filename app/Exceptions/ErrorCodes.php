@@ -2,29 +2,21 @@
 
 namespace App\Exceptions;
 
-final class ErrorCodes
+enum ErrorCodes: string
 {
-    const VALIDATION_ERROR = 'VALIDATION_ERROR';
+    case VALIDATION_ERROR = 'VALIDATION_ERROR';
+    case AUTHENTICATION_FAILED = 'AUTHENTICATION_FAILED';
+    case FORBIDDEN = 'FORBIDDEN';
+    case NOT_FOUND = 'NOT_FOUND';
+    case RATE_LIMITED = 'RATE_LIMITED';
+    case CONFLICT = 'CONFLICT';
+    case EXTERNAL_SERVICE_ERROR = 'EXTERNAL_SERVICE_ERROR';
+    case DATABASE_ERROR = 'DATABASE_ERROR';
+    case INTERNAL_ERROR = 'INTERNAL_ERROR';
 
-    const AUTHENTICATION_FAILED = 'AUTHENTICATION_FAILED';
-
-    const FORBIDDEN = 'FORBIDDEN';
-
-    const NOT_FOUND = 'NOT_FOUND';
-
-    const RATE_LIMITED = 'RATE_LIMITED';
-
-    const CONFLICT = 'CONFLICT';
-
-    const EXTERNAL_SERVICE_ERROR = 'EXTERNAL_SERVICE_ERROR';
-
-    const DATABASE_ERROR = 'DATABASE_ERROR';
-
-    const INTERNAL_ERROR = 'INTERNAL_ERROR';
-
-    public static function messageFor(string $code): string
+    public function message(): string
     {
-        return match ($code) {
+        return match ($this) {
             self::VALIDATION_ERROR => 'The provided data is invalid.',
             self::AUTHENTICATION_FAILED => 'You are not authenticated.',
             self::FORBIDDEN => 'You do not have permission to perform this action.',
@@ -34,7 +26,17 @@ final class ErrorCodes
             self::EXTERNAL_SERVICE_ERROR => 'An external service is unavailable.',
             self::DATABASE_ERROR => 'A database error occurred.',
             self::INTERNAL_ERROR => 'Something went wrong. Please try again.',
-            default => throw new \InvalidArgumentException("Unknown error code: {$code}"),
         };
+    }
+
+    public static function messageFor(self|string $code): string
+    {
+        $enum = $code instanceof self ? $code : self::tryFrom($code);
+
+        if ($enum === null) {
+            throw new \InvalidArgumentException("Unknown error code: {$code}");
+        }
+
+        return $enum->message();
     }
 }

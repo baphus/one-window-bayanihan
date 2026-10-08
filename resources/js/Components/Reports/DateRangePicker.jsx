@@ -1,44 +1,7 @@
 import { CalendarRange, RotateCcw } from 'lucide-react';
 import { useMemo } from 'react';
 import { COLORS } from '@/Components/Reports/pageHeadingStyles';
-
-const DAY_MS = 1000 * 60 * 60 * 24;
-
-function toCalendarDate(isoDate) {
-  const [year, month, day] = isoDate.split('-').map(Number);
-  return new Date(year, month - 1, day);
-}
-
-function addDays(date, days) {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
-}
-
-function toISODateInputValue(date) {
-  const year = date.getFullYear();
-  const month = `${date.getMonth() + 1}`.padStart(2, '0');
-  const day = `${date.getDate()}`.padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
-function getQuickRangeDates(option) {
-  const toDate = new Date();
-  let fromDate = new Date(toDate.getFullYear(), toDate.getMonth(), toDate.getDate());
-
-  if (option === '7_DAYS') fromDate = addDays(toDate, -6);
-  if (option === '14_DAYS') fromDate = addDays(toDate, -13);
-  if (option === '30_DAYS') fromDate = addDays(toDate, -29);
-  if (option === '6_MONTHS') fromDate = new Date(toDate.getFullYear(), toDate.getMonth() - 6, toDate.getDate());
-  if (option === '1_YEAR') fromDate = new Date(toDate.getFullYear() - 1, toDate.getMonth(), toDate.getDate());
-
-  return { fromISO: toISODateInputValue(fromDate), toISO: toISODateInputValue(toDate) };
-}
-
-function formatDisplayDate(isoDate) {
-  if (!isoDate) return '---';
-  return toCalendarDate(isoDate).toLocaleDateString('en-US', {
-    month: 'short', day: '2-digit', year: 'numeric',
-  });
-}
+import { formatDisplayDate } from '@/lib/dates';
 
 export default function DateRangePicker({
   fromDateISO,
@@ -119,5 +82,3 @@ export default function DateRangePicker({
     </div>
   );
 }
-
-export { getQuickRangeDates, toCalendarDate, addDays, formatDisplayDate };

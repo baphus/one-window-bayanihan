@@ -1,19 +1,9 @@
 import AppSidebar from '@/Components/AppSidebar';
-import { Head, usePage } from '@inertiajs/react';
+import { Head } from '@inertiajs/react';
 import { FlashMessageWatcher } from '@/Components/ToastProvider';
 import { useRef, useEffect } from 'react';
 import { router } from '@inertiajs/react';
-import WelcomeModal from '@/Components/WelcomeModal';
-import TourManager from '@/Onboarding/TourManager';
-import { useOnboarding } from '@/Onboarding/OnboardingProvider';
-import { skipOnboarding } from '@/Onboarding/api';
-import { caseManagerTour } from '@/Onboarding/configs/caseManager';
-import { agencyTour } from '@/Onboarding/configs/agency';
-import { adminTour } from '@/Onboarding/configs/admin';
-import { parseStepKey } from '@/Onboarding/types';
 import useChecklistVisitTracking from '@/Onboarding/useChecklistVisitTracking';
-import useAutoPageGuide from '@/Onboarding/useAutoPageGuide';
-import { route } from 'ziggy-js';
 
 // Module-level variables persist across AppLayout instances (which remount on every navigation)
 let savedScrollTop = 0;
@@ -21,39 +11,8 @@ let navIdCounter = 0;
 
 export default function AppLayout({ title, children }) {
   const mainRef = useRef(null);
-  const { auth, onboarding } = usePage().props;
-  const { phase, startTour, endTour, dismissRemindLater } = useOnboarding();
-
-  // Saved welcome-tour position ("<pageIndex>:<stepIndex>"), validated
-  // against the role's config bounds. Corrupt or legacy keys resolve to
-  // null and the modal falls back to a fresh Start Tour.
-  const tourConfig = { CASE_MANAGER: caseManagerTour, AGENCY: agencyTour, ADMIN: adminTour }[auth.user?.role] ?? null;
-  const savedPosition = parseStepKey(onboarding?.step, tourConfig);
 
   useChecklistVisitTracking();
-  useAutoPageGuide();
-
-  // Start (or resume) the welcome tour. The tour only renders an overlay on
-  // pages in its config, so launching from anywhere else must navigate to
-  // the target page first — otherwise nothing visible happens and the app
-  // is stuck in a silent 'touring' state.
-  const launchTour = (at) => {
-    if (!tourConfig) return;
-    const targetRoute = tourConfig.pages[at?.page ?? 0].route;
-    let targetPath;
-    try {
-      targetPath = new URL(route(targetRoute), window.location.origin).pathname;
-    } catch {
-      return;
-    }
-    if (window.location.pathname === targetPath) {
-      startTour(tourConfig, at ?? undefined);
-    } else {
-      router.visit(targetPath, {
-        onSuccess: () => startTour(tourConfig, at ?? undefined),
-      });
-    }
-  };
 
   // Lock body scroll — only the inner <main> should scroll.
   useEffect(() => {
@@ -100,20 +59,6 @@ export default function AppLayout({ title, children }) {
           {children}
         </main>
       </div>
-
-      {/* Onboarding UI — use show prop so Headless UI Dialog properly cleans up on close */}
-      <WelcomeModal
-        show={phase === 'welcome'}
-        onStartTour={() => launchTour(null)}
-        onSkipTour={() => {
-          skipOnboarding().then(() => endTour()).catch(() => endTour());
-        }}
-        onRemindLater={dismissRemindLater}
-        {...(savedPosition !== null
-          ? { canResume: true, onResumeTour: () => launchTour(savedPosition) }
-          : { canResume: false })}
-      />
-      <TourManager />
     </div>
   );
 }

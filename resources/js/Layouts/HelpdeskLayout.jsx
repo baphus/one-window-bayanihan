@@ -4,8 +4,6 @@ import { useState, useMemo, useEffect } from 'react';
 import ChatBot from '@/Components/ChatBot';
 import AppHeader from '@/Components/landing/AppHeader';
 import AppFooter from '@/Components/landing/AppFooter';
-import PageGuideButton from '@/Components/PageGuideButton';
-import TourManager from '@/Onboarding/TourManager';
 import useChecklistVisitTracking from '@/Onboarding/useChecklistVisitTracking';
 import { categories as categoryData, buildCategoryTree } from '@/data/helpdesk/categories';
 import { articles } from '@/data/helpdesk/articles';
@@ -279,7 +277,6 @@ export default function HelpdeskLayout({
       <AppHeader onTrackCaseClick={() => router.visit(route('track.index'))} />
 
       <ChatBot />
-      <TourManager />
 
       <div className="mx-auto min-w-0 max-w-7xl overflow-x-hidden px-4 pb-8 pt-24 sm:px-6 lg:px-8">
         <div className={`flex items-center justify-end gap-3 pt-3 ${showCompactSearch ? 'mb-4' : 'mb-2'}`}>
@@ -288,7 +285,6 @@ export default function HelpdeskLayout({
               <SearchBar query={query} onSearch={handleSearch} />
             </div>
           )}
-          <PageGuideButton />
         </div>
 
         {showSidebar && <MobileTopicsDisclosure categories={parentCategories} activeSlug={activeSlug} />}

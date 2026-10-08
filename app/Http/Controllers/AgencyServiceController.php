@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Services\AgencyServiceService;
 use App\Services\OnboardingService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -10,18 +9,18 @@ use Inertia\Inertia;
 class AgencyServiceController extends Controller
 {
     public function __construct(
-        private readonly AgencyServiceService $serviceService,
+        private readonly AgencyService $agencyService,
     ) {}
 
     public function index(Request $request)
     {
         $user = $request->user();
-        $services = $this->serviceService->getServices(
+        $services = $this->agencyService->getServices(
             $user->agcy_id,
             $request->only(['search']),
         );
 
-        $allServices = $this->serviceService->allServices($user->agcy_id);
+        $allServices = $this->agencyService->allServices($user->agcy_id);
 
         return Inertia::render('Agency/Services/Index', [
             'services' => $services,
@@ -38,7 +37,7 @@ class AgencyServiceController extends Controller
             'requirements.*' => 'string|max:255',
         ]);
 
-        $service = $this->serviceService->createService(
+        $service = $this->agencyService->createService(
             $request->user()->agcy_id,
             $validated,
             $request->user()->id,
@@ -61,7 +60,7 @@ class AgencyServiceController extends Controller
             'requirements.*' => 'string|max:255',
         ]);
 
-        $service = $this->serviceService->updateService(
+        $service = $this->agencyService->updateService(
             $id,
             $request->user()->agcy_id,
             $validated,
@@ -75,7 +74,7 @@ class AgencyServiceController extends Controller
 
     public function destroy(Request $request, string $id)
     {
-        $this->serviceService->deleteService(
+        $this->agencyService->deleteService(
             $id,
             $request->user()->agcy_id,
             $request->user()->id,

@@ -6,7 +6,7 @@ use App\Models\Service;
 use App\Models\ServiceRequirement;
 use Illuminate\Support\Facades\DB;
 
-class AgencyServiceService
+class AgencyService
 {
     public function getServices(string $agencyId, array $filters = [])
     {

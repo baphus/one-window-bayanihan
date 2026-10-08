@@ -34,7 +34,7 @@ class ErrorCodesTest extends TestCase
         foreach (self::EXPECTED_CODES as $code) {
             $this->assertSame(
                 $code,
-                constant(ErrorCodes::class.'::'.$code),
+                constant(ErrorCodes::class.'::'.$code)->value,
                 "Constant ErrorCodes::{$code} should equal '{$code}'.",
             );
         }

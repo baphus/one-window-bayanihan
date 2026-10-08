@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react';
 import { Users, Target, Clock, GitFork, CheckCircle2, Hourglass, ClipboardCheck } from 'lucide-react';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, PointElement, LineElement, Title, Tooltip, Legend, Filler } from 'chart.js';
 import { COLORS } from '@/Components/Reports/pageHeadingStyles';
-import MetricCard from '@/Components/Reports/MetricCard';
+import KpiCard from '@/Components/ui/KpiCard';
 import TopServiceRequestedCard from '@/Components/Reports/TopServiceRequestedCard';
 import TrendIndicator from '@/Components/Reports/TrendIndicator';
 import Sparkline from '@/Components/Reports/Sparkline';
@@ -187,32 +187,32 @@ function ReportsDashboard({
 
       {/* ── KPI hero ── */}
       <section data-tour="reports-kpis" className={`grid grid-cols-1 gap-3 sm:grid-cols-2 ${heroCols}`}>
-        <MetricCard label="Active Caseload" value={`${kpis?.openCases ?? 0}`}
-          icon={<Users className="w-4 h-4 text-primary" />}
+        <KpiCard label="Active Caseload" value={`${kpis?.openCases ?? 0}`}
+          icon={<Users className="w-4 h-4 text-primary" />} iconBg="bg-slate-100/80 dark:bg-slate-800"
           sparkline={<Sparkline data={caseSparkline} color={COLORS.primary} />} />
-        <MetricCard label="Completed This Period" value={`${kpis?.completedReferrals ?? 0}`}
-          icon={<CheckCircle2 className="w-4 h-4 text-[#3f915f]" />}
+        <KpiCard label="Completed This Period" value={`${kpis?.completedReferrals ?? 0}`}
+          icon={<CheckCircle2 className="w-4 h-4 text-[#3f915f]" />} iconBg="bg-slate-100/80 dark:bg-slate-800"
           trailing={<TrendIndicator change={kpis?.kpiChanges?.completedReferrals} />} />
-        <MetricCard label="Completion Rate" value={`${kpis?.completionRate || 0}%`}
-          icon={<Target className="w-4 h-4 text-[#0b7a75]" />}
+        <KpiCard label="Completion Rate" value={`${kpis?.completionRate || 0}%`}
+          icon={<Target className="w-4 h-4 text-[#0b7a75]" />} iconBg="bg-slate-100/80 dark:bg-slate-800"
           trailing={<TrendIndicator change={kpis?.kpiChanges?.completionRate} />} />
-        <MetricCard label="Avg Resolution" value={`${kpis?.avgResolutionDays ?? 0}d`}
-          icon={<Hourglass className="w-4 h-4 text-[#9b51b0]" />}
+        <KpiCard label="Avg Resolution" value={`${kpis?.avgResolutionDays ?? 0}d`}
+          icon={<Hourglass className="w-4 h-4 text-[#9b51b0]" />} iconBg="bg-slate-100/80 dark:bg-slate-800"
           description="Time from case open to close" />
         <TopServiceRequestedCard role={role} />
       </section>
 
       {/* ── KPI hero: volume strip ── */}
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <MetricCard label="Total Referrals" value={`${kpis?.totalReferrals ?? 0}`}
-          icon={<GitFork className="w-4 h-4 text-primary" />}
+        <KpiCard label="Total Referrals" value={`${kpis?.totalReferrals ?? 0}`}
+          icon={<GitFork className="w-4 h-4 text-primary" />} iconBg="bg-slate-100/80 dark:bg-slate-800"
           trailing={<TrendIndicator change={kpis?.kpiChanges?.totalReferrals} />}
           sparkline={<Sparkline data={referralSparkline} color={COLORS.primary} />} />
-        <MetricCard label="Pending" value={`${kpis?.pendingReferrals ?? 0}`} valueTone="text-[#9a5b1a] dark:text-amber-400"
-          icon={<Clock className="w-4 h-4 text-[#9a5b1a]" />}
+        <KpiCard label="Pending" value={`${kpis?.pendingReferrals ?? 0}`} valueTone="text-[#9a5b1a] dark:text-amber-400"
+          icon={<Clock className="w-4 h-4 text-[#9a5b1a]" />} iconBg="bg-slate-100/80 dark:bg-slate-800"
           trailing={<TrendIndicator change={kpis?.kpiChanges?.pendingReferrals} />} />
-        <MetricCard label="For Compliance" value={`${kpis?.forComplianceReferrals ?? 0}`} valueTone="text-[#d9663b]"
-          icon={<ClipboardCheck className="w-4 h-4 text-[#d9663b]" />} />
+        <KpiCard label="For Compliance" value={`${kpis?.forComplianceReferrals ?? 0}`} valueTone="text-[#d9663b]"
+          icon={<ClipboardCheck className="w-4 h-4 text-[#d9663b]" />} iconBg="bg-slate-100/80 dark:bg-slate-800" />
       </section>
 
       {activeTab === 'cases' ? (

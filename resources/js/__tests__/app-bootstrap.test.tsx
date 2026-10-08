@@ -49,11 +49,6 @@ vi.mock('@/Onboarding/OnboardingProvider', () => ({
     default: ({ children }: { children: ReactNode }) => children,
 }));
 
-vi.mock('@tanstack/react-query', () => ({
-    QueryClient: class QueryClient {},
-    QueryClientProvider: ({ children }: { children: ReactNode }) => children,
-}));
-
 beforeEach(() => {
     bootstrap.renderRoot.mockClear();
     bootstrap.routerOn.mockClear();

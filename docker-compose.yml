@@ -39,6 +39,51 @@ x-app-env: &app-env
   - R2_ENDPOINT=${R2_ENDPOINT:-}
   - R2_PUBLIC_URL=${R2_PUBLIC_URL:-}
 
+# Shared build + runtime for the four PHP services (app, queue, scheduler,
+# migrate), defined once and merged below. migrate uses only php-base: it is
+# a one-shot runner, so it must NOT inherit restart/deploy from php-hardened
+# (restarting an exited-zero one-shot would loop it).
+x-php-base: &php-base
+  build:
+    context: .
+    dockerfile: Dockerfile
+    target: app
+  env_file:
+    - .env
+  environment: *app-env
+  depends_on:
+    db:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "10m"
+      max-file: "3"
+  networks:
+    - app-network
+
+# Long-lived hardening for app/queue/scheduler only (not migrate).
+x-php-hardened: &php-hardened
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  cap_add:
+    - FOWNER
+    - SETGID
+    - SETUID
+  restart: unless-stopped
+  deploy:
+    resources:
+      limits:
+        cpus: '1'
+        memory: 512M
+      reservations:
+        cpus: '0.25'
+        memory: 128M
+
 services:
   # ── Nginx Web Server ──────────────────────────────────────────────────────
   nginx:
@@ -68,153 +113,30 @@ services:
 
   # ── PHP-FPM Application ──────────────────────────────────────────────────
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: app
-    env_file:
-      - .env
-    environment: *app-env
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
-    cap_add:
-      - FOWNER
-      - SETGID
-      - SETUID
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          cpus: '1'
-          memory: 512M
-        reservations:
-          cpus: '0.25'
-          memory: 128M
+    <<: [*php-base, *php-hardened]
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://nginx/up || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 30s
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-    networks:
-      - app-network
 
   # ── Queue Worker ──────────────────────────────────────────────────────────
   queue:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: app
-    env_file:
-      - .env
-    environment: *app-env
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
-    cap_add:
-      - FOWNER
-      - SETGID
-      - SETUID
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          cpus: '1'
-          memory: 512M
-        reservations:
-          cpus: '0.25'
-          memory: 128M
+    <<: [*php-base, *php-hardened]
     command: php artisan queue:listen --tries=3 --timeout=90
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-    networks:
-      - app-network
 
   # ── Scheduler ─────────────────────────────────────────────────────────────
   scheduler:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: app
-    env_file:
-      - .env
-    environment: *app-env
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
-    cap_add:
-      - FOWNER
-      - SETGID
-      - SETUID
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          cpus: '1'
-          memory: 512M
-        reservations:
-          cpus: '0.25'
-          memory: 128M
+    <<: [*php-base, *php-hardened]
     command: php artisan schedule:work
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-    networks:
-      - app-network
 
   # ── Migration Runner (one-shot, profile-based) ───────────────────────────
   migrate:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: app
-    env_file:
-      - .env
-    environment: *app-env
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+    <<: *php-base
     command: php artisan migrate --force --no-interaction
-    networks:
-      - app-network
     profiles:
       - migrate
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
 
   # ── PostgreSQL Database ───────────────────────────────────────────────────
   # For local development. In production, point DB_HOST to your Supabase host.

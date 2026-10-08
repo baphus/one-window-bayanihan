@@ -21,102 +21,26 @@ class OnboardingService
     ];
 
     /**
-     * Check if onboarding tour is required for a user.
-     * Returns true if onboarding_completed_at is null.
-     */
-    public function isOnboardingRequired(User $user): bool
-    {
-        return is_null($user->onboarding_completed_at);
-    }
-
-    /**
-     * Mark onboarding tour as complete.
-     * Sets onboarding_completed_at to now, onboarding_step to null.
-     */
-    public function markOnboardingComplete(User $user): void
-    {
-        $user->update([
-            'onboarding_completed_at' => now(),
-            'onboarding_step' => null,
-        ]);
-    }
-
-    /**
-     * Update the current onboarding step for a user.
-     * Pass null to reset the step counter.
-     */
-    public function updateStep(User $user, ?string $step): void
-    {
-        $user->update([
-            'onboarding_step' => $step,
-        ]);
-    }
-
-    /**
-     * Parse a persisted onboarding step key of the form "<pageIndex>:<stepIndex>".
-     * Returns ['page' => int, 'step' => int] or null when the value is
-     * missing, malformed, or negative. Legacy/corrupt values fall back to null
-     * so callers treat them as "no saved progress".
-     */
-    public function parseStep(?string $step): ?array
-    {
-        if ($step === null || ! preg_match('/^(\d+):(\d+)$/', $step, $m)) {
-            return null;
-        }
-
-        return ['page' => (int) $m[1], 'step' => (int) $m[2]];
-    }
-
-    /**
      * Get the current onboarding state for a user.
-     * Returns an array with 'required', 'step', 'completed_at',
-     * 'profile_incomplete', 'profile_completed_at', 'seen_page_guides',
-     * and 'checklist_progress' keys.
+     * Returns an array with the 'checklist_progress' key.
      */
     public function getOnboardingState(User $user): array
     {
         return [
-            'required' => $this->isOnboardingRequired($user),
-            'step' => $user->onboarding_step,
-            'completed_at' => $user->onboarding_completed_at?->toISOString(),
-            'profile_incomplete' => $this->isProfileIncomplete($user),
-            'profile_completed_at' => $user->profile_completed_at?->toISOString(),
-            'seen_page_guides' => $user->seen_page_guides ?? [],
             'checklist_progress' => $user->checklist_progress ?? ['items' => [], 'dismissed_at' => null],
         ];
     }
 
     // ─────────────────────────────────────────────
-    //  Page Guides (per-page contextual help)
-    // ─────────────────────────────────────────────
-
-    /**
-     * Hard caps preventing unbounded growth of the UX-state JSON columns —
-     * ~30 real route names and ~4 checklist ids exist; anything beyond the
-     * cap is a client bug or abuse and is silently ignored.
-     */
-    public const MAX_SEEN_GUIDES = 100;
-
-    public const MAX_CHECKLIST_ITEMS = 50;
-
-    /**
-     * Mark a page guide as seen for the user. Idempotent and capped.
-     * $route is the Ziggy route name of the guided page.
-     */
-    public function markGuideSeen(User $user, string $route): void
-    {
-        $seen = $user->seen_page_guides ?? [];
-        if (in_array($route, $seen, true) || count($seen) >= self::MAX_SEEN_GUIDES) {
-            return;
-        }
-
-        $seen[] = $route;
-        $user->update(['seen_page_guides' => array_values($seen)]);
-    }
-
-    // ─────────────────────────────────────────────
     //  Getting-Started Checklist
     // ─────────────────────────────────────────────
+
+    /**
+     * Hard cap preventing unbounded growth of the checklist JSON column —
+     * ~4 checklist ids exist; anything beyond the cap is a client bug or
+     * abuse and is silently ignored.
+     */
+    public const MAX_CHECKLIST_ITEMS = 50;
 
     /**
      * Mark a checklist item complete for the user. Idempotent — the first
@@ -168,18 +92,6 @@ class OnboardingService
         $progress = $user->checklist_progress ?? ['items' => [], 'dismissed_at' => null];
         $progress['dismissed_at'] = now()->toISOString();
         $user->update(['checklist_progress' => $progress]);
-    }
-
-    /**
-     * Reset onboarding tour state (for replay).
-     * Sets both onboarding_completed_at and onboarding_step to null.
-     */
-    public function resetOnboarding(User $user): void
-    {
-        $user->update([
-            'onboarding_completed_at' => null,
-            'onboarding_step' => null,
-        ]);
     }
 
     // ─────────────────────────────────────────────

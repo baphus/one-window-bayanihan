@@ -177,7 +177,7 @@ class StorageService
     public function validate(UploadedFile $file, string $context = 'default'): array
     {
         $errors = [];
-        $config = config('file-uploads.'.$context);
+        $config = config('file-uploads.'.$context) ?? config('file-uploads.default');
 
         if ($config === null) {
             return ["No validation configuration found for context: '{$context}'."];
@@ -194,17 +194,15 @@ class StorageService
 
         // Server-side MIME content-sniffing check (defense in depth — augments extension check above)
         if (! empty($allowedTypes)) {
-            // Build a flat list of allowed MIME types from the allowed extensions
-            $allowedMimes = $config['allowed_mime_types'] ?? [];
-            if (empty($allowedMimes)) {
-                foreach ($allowedTypes as $ext) {
-                    $ext = strtolower($ext);
-                    if (isset(self::EXTENSION_MIME_MAP[$ext])) {
-                        $allowedMimes = array_merge($allowedMimes, self::EXTENSION_MIME_MAP[$ext]);
-                    }
+            // Allowed MIME types are derived from the allowed extensions
+            $allowedMimes = [];
+            foreach ($allowedTypes as $ext) {
+                $ext = strtolower($ext);
+                if (isset(self::EXTENSION_MIME_MAP[$ext])) {
+                    $allowedMimes = array_merge($allowedMimes, self::EXTENSION_MIME_MAP[$ext]);
                 }
-                $allowedMimes = array_unique($allowedMimes);
             }
+            $allowedMimes = array_unique($allowedMimes);
 
             if (! empty($allowedMimes)) {
                 $finfo = new \finfo(FILEINFO_MIME_TYPE);

@@ -17,7 +17,6 @@ use App\Models\Referral;
 use App\Models\ReferralClientRequest;
 use App\Models\Service;
 use App\Models\ServiceRequirement;
-use App\Models\SurveyInvitation;
 use App\Models\User;
 use App\Observers\AuditObserver;
 use App\Observers\CacheInvalidationObserver;
@@ -101,7 +100,6 @@ class AppServiceProvider extends ServiceProvider
             Referral::class,
             Service::class,
             ServiceRequirement::class,
-            SurveyInvitation::class,
             Milestone::class,
         ];
 

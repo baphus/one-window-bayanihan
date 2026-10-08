@@ -1,4 +1,4 @@
-import MetricCard from '@/Components/Reports/MetricCard';
+import KpiCard from '@/Components/ui/KpiCard';
 import { useLazyProp } from '@/Hooks/useLazyProp';
 
 export default function AvgCompletionCard({ role }) {
@@ -12,10 +12,9 @@ export default function AvgCompletionCard({ role }) {
     : '—';
 
   return (
-    <MetricCard
-      label="Avg Completion Time"
+    <KpiCard
+      title="Avg Completion Time"
       value={isLoading ? '—' : formatted}
-      accent="border-l-[#3f915f]"
       description={isLoading ? 'Loading average…' : 'Average referral completion days'}
     />
   );

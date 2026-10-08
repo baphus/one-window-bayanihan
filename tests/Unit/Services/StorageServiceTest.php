@@ -207,13 +207,12 @@ class StorageServiceTest extends TestCase
         $this->assertTrue($found, 'Expected a type-not-allowed error message.');
     }
 
-    public function test_validate_returns_error_for_unknown_context(): void
+    public function test_validate_falls_back_to_default_for_unknown_context(): void
     {
-        $file = UploadedFile::fake()->create('test.pdf', 100);
+        $file = UploadedFile::fake()->image('avatar.jpg', 100);
 
         $errors = $this->service->validate($file, 'non_existent_context');
 
-        $this->assertNotEmpty($errors);
-        $this->assertStringContainsString('No validation configuration found', $errors[0]);
+        $this->assertEmpty($errors);
     }
 }

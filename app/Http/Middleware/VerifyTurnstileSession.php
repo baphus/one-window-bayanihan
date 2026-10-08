@@ -2,11 +2,9 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\TurnstileVerifier;
 use Closure;
-use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -19,11 +17,11 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class VerifyTurnstileSession
 {
-    private const TURNSTILE_VERIFY_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
-
     private const SESSION_KEY = 'turnstile_verified';
 
     private const SESSION_VERIFIED_AT_KEY = 'turnstile_verified_at';
+
+    public function __construct(private readonly TurnstileVerifier $verifier) {}
 
     public function handle(Request $request, Closure $next): Response
     {
@@ -43,45 +41,24 @@ class VerifyTurnstileSession
             $request->session()->forget([self::SESSION_KEY, self::SESSION_VERIFIED_AT_KEY]);
         }
 
-        $token = $request->input('cf-turnstile-response') ?? $request->input('cf_turnstile_response');
+        $result = $this->verifier->verify(
+            $request->input('cf-turnstile-response') ?? $request->input('cf_turnstile_response'),
+            $request->ip(),
+        );
 
-        if (empty($token)) {
-            return response()->json([
-                'error' => 'turnstile_required',
-                'message' => 'Please complete the security check to continue.',
-            ], 422);
-        }
+        if (! $result['ok']) {
+            if ($result['unavailable']) {
+                return response()->json([
+                    'error' => 'turnstile_unavailable',
+                    'message' => $result['message'],
+                ], 503);
+            }
 
-        try {
-            $response = Http::asForm()
-                ->timeout(5)
-                ->connectTimeout(3)
-                ->post(self::TURNSTILE_VERIFY_URL, [
-                    'secret' => config('turnstile.secret_key'),
-                    'response' => $token,
-                    'remoteip' => $request->ip(),
-                ]);
-        } catch (ConnectionException $e) {
-            Log::warning('Turnstile session verification request failed', [
-                'error' => $e->getMessage(),
-                'ip' => $request->ip(),
-            ]);
+            $missingToken = empty($request->input('cf-turnstile-response') ?? $request->input('cf_turnstile_response'));
 
             return response()->json([
-                'error' => 'turnstile_unavailable',
-                'message' => 'The security check service is temporarily unavailable. Please try again in a moment.',
-            ], 503);
-        }
-
-        if (! $response->json('success')) {
-            Log::warning('Turnstile session verification failed', [
-                'error_codes' => $response->json('error-codes') ?? [],
-                'ip' => $request->ip(),
-            ]);
-
-            return response()->json([
-                'error' => 'turnstile_failed',
-                'message' => $this->errorMessage($response->json('error-codes') ?? []),
+                'error' => $missingToken ? 'turnstile_required' : 'turnstile_failed',
+                'message' => $result['message'],
             ], 422);
         }
 
@@ -90,14 +67,5 @@ class VerifyTurnstileSession
         $request->session()->put(self::SESSION_VERIFIED_AT_KEY, time());
 
         return $next($request);
-    }
-
-    private function errorMessage(array $errorCodes): string
-    {
-        if (in_array('timeout-or-duplicate', $errorCodes, true)) {
-            return 'Your security check expired. Please complete it again.';
-        }
-
-        return 'The security check could not be verified. Please try again.';
     }
 }

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import createPasswordSchema from '@/utils/createPasswordSchema';
+import createPasswordSchema, { withPasswordConfirmation } from '@/utils/createPasswordSchema';
 
 export const profileSchema = z.object({
   name: z
@@ -19,7 +19,7 @@ export const profileSchema = z.object({
  * Update password schema (Profile page) — password uses server-defined rules.
  */
 export function makeUpdatePasswordSchema(rules) {
-  return z.object({
+  return withPasswordConfirmation(z.object({
     current_password: z
       .string()
       .min(1, 'Current password is required.'),
@@ -27,8 +27,5 @@ export function makeUpdatePasswordSchema(rules) {
     password_confirmation: z
       .string()
       .min(1, 'Please confirm your password.'),
-  }).refine((data) => data.password === data.password_confirmation, {
-    message: 'Passwords do not match.',
-    path: ['password_confirmation'],
-  });
+  }));
 }

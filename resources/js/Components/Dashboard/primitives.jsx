@@ -13,7 +13,7 @@ import {
 import KpiCard from '@/Components/ui/KpiCard';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import ActivityItem from '@/Components/Dashboard/ActivityItem';
-import { formatStatusLabel } from '@/lib/utils';
+import { humanizeStatus } from '@/lib/statusLabels';
 import safeRoute from '@/utils/safeRoute';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend);
@@ -421,7 +421,7 @@ export function CaseActivityRow({
     const slaLabel = isOverdue
         ? `OVERDUE${maxReferralAgeDays ? ` ${maxReferralAgeDays}d` : ''}`
         : referralCount > 0 && worstReferralStatus
-            ? `${referralCount} referral${referralCount === 1 ? '' : 's'} · ${formatStatusLabel(worstReferralStatus).toLowerCase()}`
+            ? `${referralCount} referral${referralCount === 1 ? '' : 's'} · ${humanizeStatus(worstReferralStatus).toLowerCase()}`
             : referralCount > 0
                 ? `${referralCount} referral${referralCount === 1 ? '' : 's'}`
                 : null;
@@ -443,7 +443,7 @@ export function CaseActivityRow({
     if (caseOwner) secondaryParts.push(caseOwner);
     if (referralCount > 0) secondaryParts.push(`${referralCount} referral${referralCount === 1 ? '' : 's'}`);
     if (worstReferralStatus && worstReferralStatus !== 'PENDING') {
-        secondaryParts.push(formatStatusLabel(worstReferralStatus).toLowerCase());
+        secondaryParts.push(humanizeStatus(worstReferralStatus).toLowerCase());
     }
 
     return (

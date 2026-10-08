@@ -1,7 +1,6 @@
 import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import CaseManagerDashboard from '../CaseManager';
 
 const { pageProps, chartSpy, routerSpy } = vi.hoisted(() => ({
@@ -98,14 +97,8 @@ function renderNumbers(customDashboard = dashboard) {
         dashboard: customDashboard,
     });
 
-    const client = new QueryClient({
-        defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-    });
-
     render(
-        <QueryClientProvider client={client}>
-            <CaseManagerDashboard dashboard={customDashboard} />
-        </QueryClientProvider>,
+        <CaseManagerDashboard dashboard={customDashboard} />,
     );
 
     return within(document.querySelector('[data-tour="dashboard-stats"]'));

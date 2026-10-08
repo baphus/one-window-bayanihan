@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Exceptions\ReferralDocumentUploadException;
+use App\Exceptions\SafeException;
 use App\Http\Requests\StoreMilestoneRequest;
 use App\Http\Requests\StoreReferralCommentRequest;
 use App\Http\Requests\StoreReferralRequest;
@@ -115,7 +115,7 @@ class ReferralController extends Controller
                 $request->hasFile('documents') ? $request->file('documents') : [],
                 $storage,
             );
-        } catch (ReferralDocumentUploadException $e) {
+        } catch (SafeException $e) {
             return back()->withErrors(['documents' => $e->userMessage]);
         }
 

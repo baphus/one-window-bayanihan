@@ -5,7 +5,7 @@ namespace App\Services;
 use App\Enums\AuditAction;
 use App\Enums\AuditModule;
 use App\Events\ReferralCompleted;
-use App\Exceptions\ReferralDocumentUploadException;
+use App\Exceptions\SafeException;
 use App\Helpers\CacheHelper;
 use App\Models\Agency;
 use App\Models\AuditLog;
@@ -153,7 +153,7 @@ class ReferralService
      * @param  array<string, mixed>  $data  Validated referral attributes.
      * @param  array<int, UploadedFile>|UploadedFile|null  $files  Uploaded documents.
      *
-     * @throws ReferralDocumentUploadException
+     * @throws SafeException
      */
     public function createReferralWithDocuments(array $data, string $userId, array|UploadedFile|null $files, StorageService $storage): Referral
     {
@@ -168,7 +168,8 @@ class ReferralService
                     $result = $storage->store($file, 'case-documents/'.$referral->case_id);
 
                     if (! $result->success) {
-                        throw new ReferralDocumentUploadException(
+                        throw new SafeException(
+                            'REFERRAL_DOCUMENT_UPLOAD_FAILED',
                             $result->error ?? 'Failed to store file.',
                         );
                     }
@@ -189,7 +190,7 @@ class ReferralService
 
                 return $referral;
             });
-        } catch (ReferralDocumentUploadException $e) {
+        } catch (SafeException $e) {
             // Roll back the object-storage side; the DB transaction is rolled
             // back automatically.
             foreach ($storedPaths as $path) {

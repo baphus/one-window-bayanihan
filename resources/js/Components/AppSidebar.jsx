@@ -1,7 +1,6 @@
 import { Link, usePage, router } from '@inertiajs/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import UserAvatar from '@/Components/ui/UserAvatar';
-import PageGuideButton from '@/Components/PageGuideButton';
 import PeerProfileModal from '@/Components/PeerProfileModal';
 import safeRoute from '@/utils/safeRoute';
 
@@ -367,7 +366,6 @@ export default function AppSidebar() {
                 </span>
               </div>
             )}
-            {!collapsed && <PageGuideButton />}
           </div>
 
           <div className={`mt-4 flex items-center ${collapsed ? 'flex-col gap-2' : 'gap-2'}`}>
