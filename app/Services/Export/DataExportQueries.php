@@ -2,14 +2,12 @@
 
 namespace App\Services\Export;
 
-use App\Casts\EncryptedString;
 use App\Models\CaseFile;
 use App\Models\Client;
 use App\Models\ClientAddress;
 use App\Models\ClientEmployment;
 use App\Models\NextOfKin;
 use App\Models\User;
-use App\Services\AddressNameResolver;
 use App\Support\CategoryFilter;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
@@ -24,19 +22,9 @@ class DataExportQueries
     }
 
     /** @return array<int, string> */
-    private function categoryFilterIds(array $filters): array
-    {
-        return CategoryFilter::fromArray($filters)->ids();
-    }
-
-    /**
-     * Apply the category match without joining the pivot.  EXISTS keeps one
-     * result per case (and therefore one result per referral/client row),
-     * while the grouped predicate preserves the legacy scalar fallback.
-     */
     private function applyCategoryFilter($query, string $caseAlias, array $filters)
     {
-        $categoryIds = $this->categoryFilterIds($filters);
+        $categoryIds = CategoryFilter::fromArray($filters)->ids();
         if (! $categoryIds) {
             return $query;
         }
@@ -48,24 +36,6 @@ class DataExportQueries
                 ->whereColumn('category_assignment.case_id', $caseAlias.'.id')
                 ->whereIn('category_assignment.case_category_id', $categoryIds));
         });
-    }
-
-    private function addresses(): AddressNameResolver
-    {
-        return app(AddressNameResolver::class);
-    }
-
-    /**
-     * Decrypt a field value that may be stored encrypted.
-     * Returns the decrypted string, or the original value if it's plaintext.
-     */
-    private function decryptField(?string $value): ?string
-    {
-        if ($value === null || $value === '') {
-            return $value;
-        }
-
-        return EncryptedString::decrypt($value);
     }
 
     private function isAdmin(?User $user): bool
@@ -103,7 +73,7 @@ class DataExportQueries
             $query->where('user_id', $user->id);
         }
 
-        $addressResolver = $this->addresses();
+        $addressResolver = app(PhilippineAddressService::class);
 
         return $query->get()->map(function ($row) use ($addressResolver) {
             foreach (['region', 'province', 'city_municipality', 'barangay'] as $field) {
@@ -259,17 +229,17 @@ class DataExportQueries
             $row = (object) $row;
 
             // --- Decrypt encrypted PII fields from raw subqueries ---
-            $row->ofw_date_of_birth = $this->decryptField($row->ofw_date_of_birth ?? null);
-            $row->ofw_contact_number = $this->decryptField($row->ofw_contact_number ?? null);
-            $row->ofw_email = $this->decryptField($row->ofw_email ?? null);
-            $row->nok_contact_number = $this->decryptField($row->nok_contact_number ?? null);
-            $row->nok_email = $this->decryptField($row->nok_email ?? null);
+            $row->ofw_date_of_birth = EncryptedString::decrypt($row->ofw_date_of_birth ?? null);
+            $row->ofw_contact_number = EncryptedString::decrypt($row->ofw_contact_number ?? null);
+            $row->ofw_email = EncryptedString::decrypt($row->ofw_email ?? null);
+            $row->nok_contact_number = EncryptedString::decrypt($row->nok_contact_number ?? null);
+            $row->nok_email = EncryptedString::decrypt($row->nok_email ?? null);
             // Employment subquery fields
             if (isset($row->previous_country)) {
-                $row->previous_country = $this->decryptField($row->previous_country);
+                $row->previous_country = EncryptedString::decrypt($row->previous_country);
             }
             if (isset($row->work_position)) {
-                $row->work_position = $this->decryptField($row->work_position);
+                $row->work_position = EncryptedString::decrypt($row->work_position);
             }
 
             // --- OFW Full Name: "Last, First Middle" ---
@@ -312,7 +282,7 @@ class DataExportQueries
                 $row->nok_middle_name,
             );
 
-            $addressResolver = $this->addresses();
+            $addressResolver = app(PhilippineAddressService::class);
             $row->barangay = $addressResolver->resolve($row->barangay ?? null);
             $row->municipality = $addressResolver->resolve($row->municipality ?? null);
             $row->province = $addressResolver->resolve($row->province ?? null);
@@ -521,7 +491,7 @@ class DataExportQueries
                     ->whereNotNull('c9.client_id');
             });
         }
-        $categoryIds = $this->categoryFilterIds($filters);
+        $categoryIds = CategoryFilter::fromArray($filters)->ids();
         if ($categoryIds) {
             $query->whereIn('cl.id', function ($q) use ($filters) {
                 $q->select('c10.client_id')
@@ -580,19 +550,19 @@ class DataExportQueries
             $row = (object) $row;
 
             // --- Decrypt encrypted PII fields from raw subqueries ---
-            $row->date_of_birth = $this->decryptField($row->date_of_birth ?? null);
-            $row->contact_number = $this->decryptField($row->contact_number ?? null);
-            $row->email = $this->decryptField($row->email ?? null);
-            $row->nok_contact_number = $this->decryptField($row->nok_contact_number ?? null);
-            $row->nok_email = $this->decryptField($row->nok_email ?? null);
+            $row->date_of_birth = EncryptedString::decrypt($row->date_of_birth ?? null);
+            $row->contact_number = EncryptedString::decrypt($row->contact_number ?? null);
+            $row->email = EncryptedString::decrypt($row->email ?? null);
+            $row->nok_contact_number = EncryptedString::decrypt($row->nok_contact_number ?? null);
+            $row->nok_email = EncryptedString::decrypt($row->nok_email ?? null);
             // Address street is encrypted
-            $row->street = $this->decryptField($row->street ?? null);
+            $row->street = EncryptedString::decrypt($row->street ?? null);
             // Employment subquery fields
             if (isset($row->previous_country)) {
-                $row->previous_country = $this->decryptField($row->previous_country);
+                $row->previous_country = EncryptedString::decrypt($row->previous_country);
             }
             if (isset($row->work_position)) {
-                $row->work_position = $this->decryptField($row->work_position);
+                $row->work_position = EncryptedString::decrypt($row->work_position);
             }
 
             // --- Full Name: "Last, First Middle" ---
@@ -613,7 +583,7 @@ class DataExportQueries
             }
 
             // --- Full Address ---
-            $addressResolver = $this->addresses();
+            $addressResolver = app(PhilippineAddressService::class);
             $row->full_address = $addressResolver->format(
                 $row->street ?? null,
                 $row->barangay ?? null,
@@ -807,19 +777,19 @@ class DataExportQueries
             $row = (object) $row;
 
             // --- Decrypt encrypted PII fields from raw subqueries ---
-            $row->client_date_of_birth = $this->decryptField($row->client_date_of_birth ?? null);
-            $row->client_contact_number = $this->decryptField($row->client_contact_number ?? null);
-            $row->client_email = $this->decryptField($row->client_email ?? null);
-            $row->nok_contact_number = $this->decryptField($row->nok_contact_number ?? null);
-            $row->nok_email = $this->decryptField($row->nok_email ?? null);
+            $row->client_date_of_birth = EncryptedString::decrypt($row->client_date_of_birth ?? null);
+            $row->client_contact_number = EncryptedString::decrypt($row->client_contact_number ?? null);
+            $row->client_email = EncryptedString::decrypt($row->client_email ?? null);
+            $row->nok_contact_number = EncryptedString::decrypt($row->nok_contact_number ?? null);
+            $row->nok_email = EncryptedString::decrypt($row->nok_email ?? null);
             // Address street is encrypted
-            $row->street = $this->decryptField($row->street ?? null);
+            $row->street = EncryptedString::decrypt($row->street ?? null);
             // Employment subquery fields
             if (isset($row->previous_country)) {
-                $row->previous_country = $this->decryptField($row->previous_country);
+                $row->previous_country = EncryptedString::decrypt($row->previous_country);
             }
             if (isset($row->work_position)) {
-                $row->work_position = $this->decryptField($row->work_position);
+                $row->work_position = EncryptedString::decrypt($row->work_position);
             }
 
             // --- Client Full Name: "Last, First Middle" ---
@@ -843,7 +813,7 @@ class DataExportQueries
             $row->client_type = $row->client_type === CaseFile::CLIENT_TYPE_NEXT_OF_KIN ? 'Next of Kin' : 'OFW';
 
             // --- Client Full Address ---
-            $addressResolver = $this->addresses();
+            $addressResolver = app(PhilippineAddressService::class);
             $row->client_full_address = $addressResolver->format(
                 $row->street ?? null,
                 $row->barangay ?? null,
@@ -1070,7 +1040,7 @@ class DataExportQueries
             });
         }
 
-        $addressResolver = $this->addresses();
+        $addressResolver = app(PhilippineAddressService::class);
 
         return $query->get()->map(function ($row) use ($addressResolver) {
             foreach (['region', 'province', 'city_municipality', 'barangay'] as $field) {
@@ -1148,7 +1118,7 @@ class DataExportQueries
             });
         }
 
-        $addressResolver = $this->addresses();
+        $addressResolver = app(PhilippineAddressService::class);
 
         return $query->get()->map(function ($row) use ($addressResolver) {
             foreach (['region', 'province', 'city_municipality', 'barangay'] as $field) {

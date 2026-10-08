@@ -63,9 +63,9 @@ class ChatbotQueryNormalizer
     /**
      * Canonical tokenizer: normalize, split on non-alphanumeric, drop filler.
      *
-     * Shared by extractKeywords() and ChatbotKnowledge::tokens() so both
-     * lanes split and filter identically. No length filter and no dedupe —
-     * callers apply those themselves if needed.
+     * Shared with ChatbotKnowledge::tokens() so both lanes split and filter
+     * identically. No length filter and no dedupe — callers apply those
+     * themselves if needed.
      *
      * @return list<string>
      */
@@ -75,19 +75,5 @@ class ChatbotQueryNormalizer
         $words = preg_split('/[^\p{L}\p{N}]+/u', $normalized, -1, PREG_SPLIT_NO_EMPTY) ?: [];
 
         return array_values(array_filter($words, fn (string $word) => ! in_array($word, self::FILLER_WORDS, true)));
-    }
-
-    /**
-     * Extract search keywords: strip common filler words that add noise to
-     * retrieval but keep domain-specific terms.
-     *
-     * This is NOT a stop-word removal — it only removes the most generic
-     * English/Filipino filler that every query contains.
-     */
-    public function extractKeywords(string $normalizedMessage): string
-    {
-        $keywords = self::tokenize($normalizedMessage);
-
-        return $keywords !== [] ? implode(' ', $keywords) : $normalizedMessage;
     }
 }

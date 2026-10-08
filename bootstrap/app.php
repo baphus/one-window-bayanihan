@@ -10,9 +10,7 @@ use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\LogContext;
 use App\Http\Middleware\SecurityHeaders;
 use App\Http\Middleware\SetPostgresSession;
-use App\Http\Middleware\StripRedirectResponseBody;
 use App\Http\Middleware\VerifyTurnstile;
-use App\Http\Middleware\VerifyTurnstileSession;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Application;
@@ -43,7 +41,6 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->append(SetPostgresSession::class);
         $middleware->append(LogContext::class);
         $middleware->append(SecurityHeaders::class);
-        $middleware->append(StripRedirectResponseBody::class);
 
         // Use browser-provided origin metadata for CSRF protection. Besides
         // rejecting cross-origin writes, this prevents Laravel from emitting
@@ -73,7 +70,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'role' => CheckRole::class,
             'turnstile' => VerifyTurnstile::class,
-            'turnstile.session' => VerifyTurnstileSession::class,
+            'turnstile.session' => VerifyTurnstile::class,
             'mfa.pending' => EnsureMfaChallenge::class,
         ]);
     })

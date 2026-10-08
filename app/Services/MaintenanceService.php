@@ -9,22 +9,11 @@ class MaintenanceService
 {
     public function getStatus(): array
     {
-        $path = storage_path('framework/down');
-        $isDown = file_exists($path);
-        $secret = null;
-        $retry = null;
-
-        if ($isDown) {
-            $data = json_decode(file_get_contents($path), true) ?: [];
-            $secret = $data['secret'] ?? null;
-            $retry = $data['retry'] ?? null;
-        }
-
         return [
-            'active' => $isDown,
-            'secret' => $secret,
-            'retry' => $retry,
-            'since' => $isDown ? date('Y-m-d H:i:s', filemtime($path)) : null,
+            'active' => app()->maintenanceMode()->active(),
+            'secret' => null,
+            'retry' => null,
+            'since' => null,
         ];
     }
 

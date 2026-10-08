@@ -4,11 +4,6 @@
  * import from a component file.
  */
 
-export function toCalendarDate(isoDate) {
-  const [year, month, day] = isoDate.split('-').map(Number);
-  return new Date(year, month - 1, day);
-}
-
 export function addDays(date, days) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
 }
@@ -31,11 +26,4 @@ export function getQuickRangeDates(option) {
   if (option === '1_YEAR') fromDate = new Date(toDate.getFullYear() - 1, toDate.getMonth(), toDate.getDate());
 
   return { fromISO: toISODateInputValue(fromDate), toISO: toISODateInputValue(toDate) };
-}
-
-export function formatDisplayDate(isoDate) {
-  if (!isoDate) return '---';
-  return toCalendarDate(isoDate).toLocaleDateString('en-US', {
-    month: 'short', day: '2-digit', year: 'numeric',
-  });
 }

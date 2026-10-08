@@ -28,8 +28,7 @@ Companion `.docx` files are noted inline next to their Markdown twin.
 
 **Versioning policy:** a revised document is written as `NAME_vX.Y.Z.md` and superseded versioned
 copies are removed — only the highest version is kept. Unversioned legacy copies were removed 2026-10-08.
-The highest version always wins. Exception: `DEPLOYMENT_PRODUCTION_AWS_v1.4.0.md` is retained because
-`DEPLOYMENT_COSTING_v2.0.0.md` §1 baselines its line items on v1.4.0 §8.
+The highest version always wins.
 
 ## Documentation Index
 
@@ -90,9 +89,7 @@ The highest version always wins. Exception: `DEPLOYMENT_PRODUCTION_AWS_v1.4.0.md
 | [DEPLOYMENT_GUIDE_v3.1.0.md](DEPLOYMENT_GUIDE_v3.1.0.md) | CURRENT | Platform capability contract, environment matrix, deployment models, migration policy, scaling, rollback |
 | [CI_CD_GUIDE_v2.1.0.md](CI_CD_GUIDE_v2.1.0.md) | CURRENT | CI stages and the provider-agnostic deploy-trigger contract, verified against the four workflows |
 | [DEPLOYMENT_PRODUCTION_AWS_v1.6.0.md](DEPLOYMENT_PRODUCTION_AWS_v1.6.0.md) | CURRENT | Provider-named production runbook (a provider may be named only in the places allowed by `DEPLOYMENT_GUIDE_v3.1.0.md` Â§12) |
-| [DEPLOYMENT_STAGING_AWS_v1.3.0.md](DEPLOYMENT_STAGING_AWS_v1.3.0.md) | CURRENT | Provider-named staging environment runbook |
-| [DEPLOYMENT_PRODUCTION_AWS_v1.4.0.md](DEPLOYMENT_PRODUCTION_AWS_v1.4.0.md) | SUPERSEDED | Older revision of the production runbook — retained: `DEPLOYMENT_COSTING_v2.0.0.md` §1 baselines its line items on v1.4.0 §8 |
-| [DEPLOYMENT_COSTING_v2.0.0.md](DEPLOYMENT_COSTING_v2.0.0.md) | CURRENT | Provider-named deployment cost baseline (point-in-time pricing snapshot, not a live quote). Supersedes v1.0.0: corrects the AI-chatbot row â€” the chatbot uses tool-based article reading, not pgvector retrieval (`2026_09_16_000001_drop_chatbot_embeddings_table.php`, `.env.example:185`) |
+| [DEPLOYMENT_COSTING_v2.0.0.md](DEPLOYMENT_COSTING_v2.0.0.md) | CURRENT | Provider-named deployment cost baseline (point-in-time pricing snapshot, not a live quote). Supersedes v1.0.0: corrects the AI-chatbot row â€” the chatbot uses tool-based article reading, not pgvector retrieval (`2026_09_16_000001_drop_chatbot_embeddings_table.php`, `.env.example:179`) |
 
 ### Compliance, quality & requirements evidence
 
@@ -131,7 +128,6 @@ All entries are CURRENT. Named suppliers appear here deliberately as audit evide
 | [CHATBOT_PIPELINE_v1.0.0.md](CHATBOT_PIPELINE_v1.0.0.md) | CURRENT | Chatbot request pipeline and its eleven services, configuration surface, and verification procedure |
 | [CHATBOT_AGENT.md](CHATBOT_AGENT.md) | SUPERSEDED | Older helpdesk-chatbot description; replaced by `CHATBOT_PIPELINE_v1.0.0.md`, retained as history |
 | [REPORTS_EXPORT_v1.1.0.md](REPORTS_EXPORT_v1.1.0.md) | CURRENT | Current reports/export behaviour â€” PDF and Excel routes, limits, pre-flight row caps, and suppression rules |
-| [REPORTS_EXPORT_DESIGN_v1.0.0.md](REPORTS_EXPORT_DESIGN_v1.0.0.md) | SUPERSEDED | Measurement evidence behind the export rebuild; retained as history |
 | [CLIENT_REQUEST_INBOX_ROLLOUT.md](CLIENT_REQUEST_INBOX_ROLLOUT.md) | CURRENT | Rollout scope for agencyâ†’client document requests answered through the tracking experience |
 
 ### Operations

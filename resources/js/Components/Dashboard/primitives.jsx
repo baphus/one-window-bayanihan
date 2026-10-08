@@ -1,22 +1,10 @@
 import { useState } from 'react';
 import { Link } from '@inertiajs/react';
-import { Doughnut, Bar } from 'react-chartjs-2';
-import {
-    Chart as ChartJS,
-    CategoryScale,
-    LinearScale,
-    BarElement,
-    ArcElement,
-    Tooltip,
-    Legend,
-} from 'chart.js';
 import KpiCard from '@/Components/ui/KpiCard';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import ActivityItem from '@/Components/Dashboard/ActivityItem';
 import { humanizeStatus } from '@/lib/statusLabels';
 import safeRoute from '@/utils/safeRoute';
-
-ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend);
 
 const numberFormatter = new Intl.NumberFormat('en-US');
 
@@ -138,18 +126,6 @@ export function SectionCard({ title, action, collapsible = false, defaultOpen = 
             )}
             {collapsible && !open ? null : <div className={bodyClassName}>{children}</div>}
         </section>
-    );
-}
-
-/**
- * Collapsible variant of SectionCard. Header is a toggle button;
- * chevron rotates to indicate state. Used for demoted/secondary widgets.
- */
-export function CollapsibleSectionCard({ title, defaultOpen = false, children, dataTour, className = '', bodyClassName = 'p-5' }) {
-    return (
-        <SectionCard title={title} collapsible defaultOpen={defaultOpen} dataTour={dataTour} className={className} bodyClassName={bodyClassName}>
-            {children}
-        </SectionCard>
     );
 }
 
@@ -310,78 +286,6 @@ export function BarList({ items, maxItems = 6 }) {
                     </div>
                 );
             })}
-        </div>
-    );
-}
-
-const doughnutOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: { legend: { display: false } },
-    cutout: '62%',
-};
-
-export function StatusDonut({ items }) {
-    const rows = safeArray(items);
-
-    if (rows.length === 0) return null;
-
-    const chartData = {
-        labels: rows.map((item) => item.label),
-        datasets: [
-            {
-                data: rows.map((item) => Number(item.count ?? 0)),
-                backgroundColor: rows.map((item) => item.hex ?? toneHex(item.tone)),
-                borderWidth: 0,
-            },
-        ],
-    };
-
-    return (
-        <div className="flex items-center gap-5">
-            <div className="h-28 w-28 shrink-0">
-                <Doughnut data={chartData} options={doughnutOptions} />
-            </div>
-            <ul className="min-w-0 flex-1 space-y-1.5">
-                {rows.map((item) => (
-                    <li key={item.status ?? item.label} className="flex items-center justify-between gap-2 text-xs">
-                        <span className="flex min-w-0 items-center gap-1.5">
-                            <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: item.hex ?? toneHex(item.tone) }} />
-                            <span className="truncate font-semibold text-slate-700">{item.label}</span>
-                        </span>
-                        <span className="shrink-0 font-bold text-slate-900">
-                            {formatCount(item.count)}
-                            <span className="ml-1 font-semibold text-slate-400">{item.percent ?? 0}%</span>
-                        </span>
-                    </li>
-                ))}
-            </ul>
-        </div>
-    );
-}
-
-const barOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: { legend: { display: false } },
-    scales: {
-        y: { beginAtZero: true, ticks: { precision: 0, font: { size: 10 } }, grid: { color: '#f1f5f9' } },
-        x: { ticks: { font: { size: 10 } }, grid: { display: false } },
-    },
-};
-
-export function TrendBar({ labels = [], data = [] }) {
-    if (!labels.length) return null;
-
-    return (
-        <div className="h-36">
-            <Bar
-                data={{
-                    labels,
-                    datasets: [{ data, backgroundColor: '#005288', borderRadius: 3, maxBarThickness: 22 }],
-                }}
-                options={barOptions}
-            />
         </div>
     );
 }

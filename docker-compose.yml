@@ -38,6 +38,13 @@ x-app-env: &app-env
   - R2_BUCKET=${R2_BUCKET:-}
   - R2_ENDPOINT=${R2_ENDPOINT:-}
   - R2_PUBLIC_URL=${R2_PUBLIC_URL:-}
+  # Single web/worker layer: the app image serves HTTP via its baked nginx on
+  # 8080, and the dedicated queue/scheduler services below cover background
+  # work. Only the app service runs supervisord (the others override the
+  # command), so disabling both here affects it alone and removes the
+  # duplicate worker/scheduler the baked supervisor would otherwise start.
+  - RUN_QUEUE_WORKER=${RUN_QUEUE_WORKER:-false}
+  - RUN_SCHEDULER=${RUN_SCHEDULER:-false}
 
 # Shared build + runtime for the four PHP services (app, queue, scheduler,
 # migrate), defined once and merged below. migrate uses only php-base: it is
@@ -85,37 +92,13 @@ x-php-hardened: &php-hardened
         memory: 128M
 
 services:
-  # ── Nginx Web Server ──────────────────────────────────────────────────────
-  nginx:
-    image: nginx:1.27-alpine
-    ports:
-      - "${APP_PORT:-80}:80"
-    entrypoint: ["/docker-entrypoint.sh"]
-    command: ["nginx", "-g", "daemon off;"]
-    volumes:
-      # Nginx configuration
-      - ./docker/nginx/conf.d/default.conf:/etc/nginx/conf.d/default.conf:ro
-      # Custom entrypoint for envsubst support
-      - ./docker/nginx/docker-entrypoint.sh:/docker-entrypoint.sh:ro
-    environment:
-      - APP_DOMAIN=${APP_DOMAIN}
-    depends_on:
-      app:
-        condition: service_healthy
-    restart: unless-stopped
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-    networks:
-      - app-network
-
-  # ── PHP-FPM Application ──────────────────────────────────────────────────
+  # ── PHP-FPM Application (baked nginx on 8080 — the single web layer) ──────
   app:
     <<: [*php-base, *php-hardened]
+    ports:
+      - "${APP_PORT:-80}:8080"
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://nginx/up || exit 1"]
+      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:8080/up || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3

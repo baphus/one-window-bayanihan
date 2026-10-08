@@ -1286,7 +1286,7 @@ class ReportsService
             ->orderByDesc('total')
             ->get();
 
-        $resolver = app(AddressNameResolver::class);
+        $resolver = app(PhilippineAddressService::class);
         $aggregated = [];
         foreach ($rows as $row) {
             $name = $resolver->resolve($row->province);
@@ -1730,7 +1730,7 @@ class ReportsService
             ->orderByDesc('total')
             ->get();
 
-        $resolver = app(AddressNameResolver::class);
+        $resolver = app(PhilippineAddressService::class);
         $aggregated = [];
         foreach ($rows as $row) {
             $name = $resolver->resolve($row->city_municipality);
@@ -1802,7 +1802,7 @@ class ReportsService
                 });
             }
 
-            $resolver = app(AddressNameResolver::class);
+            $resolver = app(PhilippineAddressService::class);
 
             return $query->pluck('province')->map(fn ($p) => [
                 'value' => $p,
@@ -1844,7 +1844,7 @@ class ReportsService
                 });
             }
 
-            $resolver = app(AddressNameResolver::class);
+            $resolver = app(PhilippineAddressService::class);
 
             return $query->pluck('city_municipality')->map(fn ($c) => [
                 'value' => $c,

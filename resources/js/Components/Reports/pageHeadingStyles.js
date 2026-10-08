@@ -36,22 +36,9 @@ export const COLORS = {
   },
 };
 
-// Categorical palette (mode-agnostic single source).
-export function paletteFor() {
-  return COLORS.chartPalette;
-}
-
 // Resolve a color for a status slug, falling back to the DB color then neutral.
 export function statusColor(slug, fallbackFromDb) {
   return STATUS_HEX[slug] || fallbackFromDb || NEUTRAL;
-}
-
-// Assign categorical colors in fixed order; a 7th+ category folds to "Other".
-export function categoricalColors(count) {
-  const palette = paletteFor();
-  return Array.from({ length: count }, (_, i) =>
-    i < palette.length ? palette[i] : '#94a3b8',
-  );
 }
 
 // Shared, dark-mode-aware class tokens.

@@ -31,7 +31,7 @@ class TrackingService
 
     public function __construct(
         private readonly OtpService $otpService,
-        private readonly AddressNameResolver $addressResolver,
+        private readonly PhilippineAddressService $addressResolver,
     ) {}
 
     public function findCaseByTracker(string $trackerNumber): ?CaseFile

@@ -114,8 +114,7 @@ class OnboardingService
         // Check if all necessary fields are filled
         $hasEmptyField = false;
         foreach (self::NECESSARY_PROFILE_FIELDS as $field) {
-            $value = $user->$field;
-            if (is_null($value) || $value === '' || $value === []) {
+            if (blank($user->$field)) {
                 $hasEmptyField = true;
                 break;
             }
@@ -123,8 +122,7 @@ class OnboardingService
 
         // Also check emergency_contact (JSON object) separately
         if (! $hasEmptyField) {
-            $ec = $user->emergency_contact;
-            if (is_null($ec) || $ec === [] || (is_array($ec) && empty(array_filter($ec)))) {
+            if (blank($user->emergency_contact)) {
                 $hasEmptyField = true;
             }
         }

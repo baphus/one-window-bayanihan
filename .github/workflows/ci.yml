@@ -150,9 +150,6 @@ jobs:
       - name: Copy Environment Variables
         run: cp .env.example .env && php artisan key:generate
 
-      - name: Build Frontend Assets
-        run: npm run build
-
       # The production entrypoint runs all four of these and refuses to start if
       # any fails. Assert them here so a non-serializable config value fails the
       # pull request instead of the deploy.

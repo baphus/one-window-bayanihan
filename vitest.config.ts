@@ -1,12 +1,10 @@
 /// <reference types="vitest" />
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
-import laravel from 'laravel-vite-plugin';
 import path from 'path';
 
 export default defineConfig({
     plugins: [
-        laravel({ input: ['resources/js/app.tsx'], refresh: true }),
         react(),
     ],
     test: {

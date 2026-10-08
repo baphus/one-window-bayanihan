@@ -1,7 +1,7 @@
 import { CalendarRange, RotateCcw } from 'lucide-react';
 import { useMemo } from 'react';
 import { COLORS } from '@/Components/Reports/pageHeadingStyles';
-import { formatDisplayDate } from '@/lib/dates';
+import { formatDisplayDate } from '@/lib/utils';
 
 export default function DateRangePicker({
   fromDateISO,

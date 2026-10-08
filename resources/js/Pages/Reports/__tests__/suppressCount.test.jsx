@@ -20,13 +20,10 @@ vi.mock('@/Components/ui/KpiCard', () => ({
 
 vi.mock('@/Components/Reports/TopServiceRequestedCard', () => ({ default: () => null }));
 vi.mock('@/Components/Reports/OverviewBanner', () => ({ default: () => null }));
-vi.mock('@/Components/Reports/AttentionSection', () => ({ default: () => null }));
 vi.mock('@/Components/Reports/ClientSnapshotCard', () => ({ default: () => null }));
 vi.mock('@/Components/Reports/AgencyWorkloadChart', () => ({ default: () => null }));
 vi.mock('@/Components/Reports/AvgCompletionCard', () => ({ default: () => null }));
-vi.mock('@/Components/Reports/OverdueReferralsCard', () => ({ default: () => null }));
 vi.mock('@/Components/Reports/DateRangePicker', () => ({ default: () => null }));
-vi.mock('@/Components/Reports/CaseStatusPieChart', () => ({ default: () => null }));
 vi.mock('@/Components/Reports/DateScopeSelect', () => ({ default: () => null }));
 vi.mock('@/Components/Reports/AgencyFilter', () => ({ default: () => null }));
 vi.mock('@/Components/Reports/ReportTabBar', () => ({ default: () => null }));

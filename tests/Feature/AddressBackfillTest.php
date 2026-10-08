@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Services\AddressNameResolver;
+use App\Services\PhilippineAddressService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -11,9 +11,9 @@ use Tests\TestCase;
 /**
  * Covers the PSGC code backfill and, importantly, the resolver it depends on.
  *
- * AddressNameResolver had no test coverage, which is how it went unnoticed that
- * the Dockerfile deleted the lookup table it reads, leaving it silently returning
- * its input inside every container.
+ * PhilippineAddressService::resolve() had no test coverage, which is how it
+ * went unnoticed that the Dockerfile deleted the lookup table it reads,
+ * leaving it silently returning its input inside every container.
  */
 class AddressBackfillTest extends TestCase
 {
@@ -21,7 +21,7 @@ class AddressBackfillTest extends TestCase
 
     public function test_resolver_maps_known_psgc_codes_to_names(): void
     {
-        $resolver = app(AddressNameResolver::class);
+        $resolver = app(PhilippineAddressService::class);
 
         // Region VII is stable reference data. If this fails, the lookup table is
         // missing — the exact condition that produced raw codes in the database.
@@ -32,7 +32,7 @@ class AddressBackfillTest extends TestCase
     {
         // Documents the fallback that made the original failure invisible: an
         // unresolvable code comes back unchanged, indistinguishable from success.
-        $resolver = app(AddressNameResolver::class);
+        $resolver = app(PhilippineAddressService::class);
 
         $this->assertSame('9999999999', $resolver->resolve('9999999999'));
     }
