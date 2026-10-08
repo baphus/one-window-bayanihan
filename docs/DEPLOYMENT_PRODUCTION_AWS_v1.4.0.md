@@ -7,7 +7,7 @@
 > **Supersedes:** `DEPLOYMENT_STAGING_AWS_v1.3.0.md` (and the v1.0–v1.2 chain)
 > **Operative document.** Renamed from STAGING to PRODUCTION: there is no longer a
 > staging environment. v1.1.0 §2 (custom domain cutover) still applies as procedure.
-> **Platform-neutral contract:** `docs/DEPLOYMENT_GUIDE_v3.0.0.md`
+> **Platform-neutral contract:** `docs/DEPLOYMENT_GUIDE_v3.1.0.md`
 
 ## 0. What changed from 1.3.0
 

@@ -57,7 +57,7 @@ export default function Modal({
                         leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
                     >
                         <DialogPanel
-                            className={`relative m-auto flex max-h-[90vh] w-full transform flex-col overflow-y-auto rounded-lg bg-white shadow-xl transition-all owb-modal-animate ${maxWidthClass}`}
+                            className={`relative m-auto flex max-h-[90vh] w-full transform flex-col overflow-y-auto rounded-xl bg-surface-bright shadow-xl transition-all owb-modal-animate ${maxWidthClass}`}
                         >
                             {children}
                         </DialogPanel>

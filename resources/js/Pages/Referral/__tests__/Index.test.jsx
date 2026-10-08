@@ -33,7 +33,7 @@ describe('Referral Index agency filtering', () => {
             caseIssues={[]}
         />);
 
-        expect(screen.getAllByText((_, element) => element?.textContent?.includes('Agency A rejected')).length).toBeGreaterThan(0);
+        expect(screen.getByText(/Agency A rejected/)).toBeInTheDocument();
         expect(screen.queryByText('Other agency rejected')).not.toBeInTheDocument();
         fireEvent.click(screen.getByRole('button', { name: /Rejected/ }));
 

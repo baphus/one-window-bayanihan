@@ -7,9 +7,9 @@ import GettingStartedChecklist from '@/Components/GettingStartedChecklist';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import { formatDisplayDate, getCaseAgeInDays } from '@/lib/utils';
 import { humanizeStatus } from '@/lib/statusLabels';
-import { formatRelativeTime } from '@/lib/relativeTime';
+import { formatRelativeTime, formatTimeAgo } from '@/lib/relativeTime';
 import safeRoute from '@/utils/safeRoute';
-import { getSeverityConfig, normalizeNotification, timeAgo } from '@/lib/notifications';
+import { getSeverityConfig, normalizeNotification } from '@/lib/notifications';
 import {
     ActivityFeed,
     EmptyState,
@@ -477,7 +477,7 @@ function NotificationsBlock() {
                                             {item.title || 'Notification'}
                                         </span>
                                     </div>
-                                    <p className="mt-0.5 text-[11px] text-slate-400">{timeAgo(item.created_at)}</p>
+                                    <p className="mt-0.5 text-[11px] text-slate-400">{formatTimeAgo(item.created_at || '')}</p>
                                 </div>
                                 {isUnread ? (
                                     <button

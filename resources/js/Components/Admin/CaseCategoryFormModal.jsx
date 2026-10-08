@@ -28,7 +28,7 @@ export default function CaseCategoryFormModal({ category, onClose, onBypass }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto owb-modal-animate" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-surface-bright rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto owb-modal-animate" onClick={(e) => e.stopPropagation()}>
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
           <h3 className="text-lg font-semibold text-slate-900">{isEdit ? 'Edit Category' : 'New Category'}</h3>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600">&times;</button>
@@ -36,25 +36,25 @@ export default function CaseCategoryFormModal({ category, onClose, onBypass }) {
         <form onSubmit={handleSubmit} className="px-6 py-4 space-y-4">
           <div>
             <label className="block text-sm font-medium text-slate-700">Name *</label>
-            <input type="text" value={data.name} onChange={(e) => setData('name', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" required maxLength={255} />
+            <input type="text" value={data.name} onChange={(e) => setData('name', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-primary focus:ring-primary text-sm" required maxLength={255} />
             <InputError message={errors.name} className="mt-1" />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700">Description</label>
-            <textarea rows={3} value={data.description} onChange={(e) => setData('description', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+            <textarea rows={3} value={data.description} onChange={(e) => setData('description', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-primary focus:ring-primary text-sm" />
             <InputError message={errors.description} className="mt-1" />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700">Color</label>
             <div className="mt-1 flex items-center gap-3">
               <input type="color" value={data.color || '#0b5384'} onChange={(e) => setData('color', e.target.value)} className="w-10 h-10 rounded border border-slate-300 cursor-pointer" />
-              <input type="text" value={data.color} onChange={(e) => setData('color', e.target.value)} placeholder="#HEX" className="block w-32 rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+              <input type="text" value={data.color} onChange={(e) => setData('color', e.target.value)} placeholder="#HEX" className="block w-32 rounded-md border-slate-300 shadow-sm focus:border-primary focus:ring-primary text-sm" />
             </div>
             <InputError message={errors.color} className="mt-1" />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700">Sort Order</label>
-            <input type="number" min="0" value={data.sort_order} onChange={(e) => setData('sort_order', parseInt(e.target.value, 10) || 0)} className="mt-1 block w-24 rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+            <input type="number" min="0" value={data.sort_order} onChange={(e) => setData('sort_order', parseInt(e.target.value, 10) || 0)} className="mt-1 block w-24 rounded-md border-slate-300 shadow-sm focus:border-primary focus:ring-primary text-sm" />
           </div>
           {isEdit && (
             <div className="flex items-center gap-2">
@@ -64,7 +64,7 @@ export default function CaseCategoryFormModal({ category, onClose, onBypass }) {
           )}
           <div className="flex justify-end gap-3 pt-2">
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50">Cancel</button>
-            <button type="submit" disabled={processing} className="px-4 py-2 text-sm font-medium text-white bg-blue-900 rounded-md hover:bg-blue-800 disabled:opacity-50">
+            <button type="submit" disabled={processing} className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-primary-container disabled:opacity-50">
               {isEdit ? 'Update' : 'Create'}
             </button>
           </div>

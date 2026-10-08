@@ -123,10 +123,10 @@ function CategoryCheckboxDropdown({ categories, selectedIds, onChange, error }) 
         aria-controls={listboxId}
         aria-haspopup="listbox"
         onClick={() => setOpen((v) => !v)}
-        className={`flex h-10 w-full items-center justify-between gap-2 rounded-[3px] border px-3 text-left text-[13px] outline-none transition-colors bg-white ${
+        className={`flex h-10 w-full items-center justify-between gap-2 rounded-md border px-3 text-left text-[13px] outline-none transition-colors bg-white ${
           error
             ? 'border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500'
-            : 'border-slate-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500'
+            : 'border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary/40'
         } ${count === 0 ? 'text-slate-400' : 'text-slate-700'}`}
       >
         <span className="truncate">{summary}</span>
@@ -164,11 +164,11 @@ function CategoryCheckboxDropdown({ categories, selectedIds, onChange, error }) 
                 }}
                 tabIndex={-1}
                 className={`flex cursor-pointer items-center gap-2 px-3 py-2 text-[13px] transition-colors ${
-                  checked ? 'bg-indigo-50 text-slate-900' : 'text-slate-700 hover:bg-slate-50'
+                  checked ? 'bg-primary-fixed text-slate-900' : 'text-slate-700 hover:bg-slate-50'
                 }`}
               >
                 <div className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors ${
-                  checked ? 'border-indigo-600 bg-indigo-600' : 'border-slate-300 bg-white'
+                  checked ? 'border-primary bg-primary' : 'border-outline-variant bg-white'
                 }`}>
                   {checked && (
                     <svg className="h-3 w-3 text-white" viewBox="0 0 12 12" fill="none">
@@ -553,7 +553,7 @@ export default function ReviewIntake({ case: caseFile, categories = [], caseIssu
               <span className="material-symbols-outlined text-[14px]">tag</span>
               {caseFile.case_number}
             </span>
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1 text-[11px] font-bold text-blue-800">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-primary-fixed px-3 py-1 text-[11px] font-bold text-primary">
               <span className="material-symbols-outlined text-[14px]">person</span>
               {caseFile.client_type === 'OFW' ? 'OFW' : 'Next of Kin'}
             </span>
@@ -566,15 +566,15 @@ export default function ReviewIntake({ case: caseFile, categories = [], caseIssu
         {/* ═══ OFW SUBMISSION SECTION ══════════════════════════ */}
         <div className="space-y-4">
           {/* ── Personal Info ──────────────────────────────── */}
-          <div className="bg-white border border-slate-300 shadow-sm rounded-md">
-            <div className="px-5 py-4 bg-slate-50 border-b border-slate-300 flex items-center justify-between">
+          <div className="bg-white border border-outline-variant shadow-sm rounded-md">
+            <div className="px-5 py-4 bg-slate-50 border-b border-outline-variant flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-500">
                   Personal Info
                 </span>
               </div>
               {editingSection !== 'personal' && (
-                <button onClick={openEditPersonal} className="text-[11px] font-bold text-blue-900 hover:text-blue-700 cursor-pointer inline-flex items-center gap-1">
+                <button onClick={openEditPersonal} className="text-[11px] font-bold text-primary hover:text-primary-container cursor-pointer inline-flex items-center gap-1">
                   <span className="material-symbols-outlined text-[14px]">edit</span>
                   Edit
                 </button>
@@ -588,22 +588,22 @@ export default function ReviewIntake({ case: caseFile, categories = [], caseIssu
                       <div>
                         <FieldLabel>First Name *</FieldLabel>
                         <input type="text" value={editPersonal.first_name} onChange={(e) => setEditPersonal({ ...editPersonal, first_name: e.target.value })}
-                          className="h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
+                          className="h-10 w-full rounded-md border border-outline-variant px-3 text-[13px] text-slate-700 outline-none focus:border-primary focus:ring-1 focus:ring-primary/40" />
                       </div>
                       <div>
                         <FieldLabel>Middle Name</FieldLabel>
                         <input type="text" value={editPersonal.middle_name} onChange={(e) => setEditPersonal({ ...editPersonal, middle_name: e.target.value })}
-                          className="h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
+                          className="h-10 w-full rounded-md border border-outline-variant px-3 text-[13px] text-slate-700 outline-none focus:border-primary focus:ring-1 focus:ring-primary/40" />
                       </div>
                       <div>
                         <FieldLabel>Last Name *</FieldLabel>
                         <input type="text" value={editPersonal.last_name} onChange={(e) => setEditPersonal({ ...editPersonal, last_name: e.target.value })}
-                          className="h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
+                          className="h-10 w-full rounded-md border border-outline-variant px-3 text-[13px] text-slate-700 outline-none focus:border-primary focus:ring-1 focus:ring-primary/40" />
                       </div>
                       <div>
                         <FieldLabel>Suffix</FieldLabel>
                         <select value={editPersonal.suffix} onChange={(e) => setEditPersonal({ ...editPersonal, suffix: e.target.value })}
-                          className="h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
+                          className="h-10 w-full rounded-md border border-outline-variant px-3 text-[13px] text-slate-700 outline-none focus:border-primary focus:ring-1 focus:ring-primary/40">
                           {SUFFIX_OPTIONS.map((s) => <option key={s} value={s}>{s || '—'}</option>)}
                         </select>
                       </div>
@@ -614,33 +614,33 @@ export default function ReviewIntake({ case: caseFile, categories = [], caseIssu
                       <div>
                         <FieldLabel>Date of Birth *</FieldLabel>
                         <input type="date" value={editPersonal.date_of_birth} onChange={(e) => setEditPersonal({ ...editPersonal, date_of_birth: e.target.value })}
-                          className="h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
+                          className="h-10 w-full rounded-md border border-outline-variant px-3 text-[13px] text-slate-700 outline-none focus:border-primary focus:ring-1 focus:ring-primary/40" />
                       </div>
                       <div>
                         <FieldLabel>Sex *</FieldLabel>
                         <select value={editPersonal.sex} onChange={(e) => setEditPersonal({ ...editPersonal, sex: e.target.value })}
-                          className="h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
+                          className="h-10 w-full rounded-md border border-outline-variant px-3 text-[13px] text-slate-700 outline-none focus:border-primary focus:ring-1 focus:ring-primary/40">
                           {SEX_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
                         </select>
                       </div>
                       <div>
                         <FieldLabel>Email</FieldLabel>
                         <input type="email" value={editPersonal.email} onChange={(e) => setEditPersonal({ ...editPersonal, email: e.target.value })}
-                          className="h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
+                          className="h-10 w-full rounded-md border border-outline-variant px-3 text-[13px] text-slate-700 outline-none focus:border-primary focus:ring-1 focus:ring-primary/40" />
                       </div>
                       <div>
                         <FieldLabel>Contact Number</FieldLabel>
                         <input type="text" value={editPersonal.contact_number} onChange={(e) => setEditPersonal({ ...editPersonal, contact_number: e.target.value })}
-                          className="h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
+                          className="h-10 w-full rounded-md border border-outline-variant px-3 text-[13px] text-slate-700 outline-none focus:border-primary focus:ring-1 focus:ring-primary/40" />
                       </div>
                     </div>
                   </SubSection>
                   <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
-                    <button onClick={cancelEdit} className="h-9 px-4 rounded-[3px] border border-slate-300 text-[12px] font-bold text-slate-700 hover:bg-slate-50 transition-colors">
+                    <button onClick={cancelEdit} className="h-9 px-4 rounded-md border border-outline-variant text-[12px] font-bold text-slate-700 hover:bg-slate-50 transition-colors">
                       Cancel
                     </button>
                     <button onClick={saveSection} disabled={savingSection || !editPersonal.first_name || !editPersonal.last_name}
-                      className="h-9 px-4 rounded-[3px] bg-blue-900 text-[12px] font-bold text-white hover:bg-blue-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                      className="h-9 px-4 rounded-md bg-primary text-[12px] font-bold text-white hover:bg-primary-container transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                       {savingSection ? 'Saving…' : 'Save'}
                     </button>
                   </div>
@@ -658,11 +658,11 @@ export default function ReviewIntake({ case: caseFile, categories = [], caseIssu
           </div>
 
           {/* ── Address ────────────────────────────────────── */}
-          <div className="bg-white border border-slate-300 shadow-sm rounded-md">
-            <div className="px-5 py-4 bg-slate-50 border-b border-slate-300 flex items-center justify-between">
+          <div className="bg-white border border-outline-variant shadow-sm rounded-md">
+            <div className="px-5 py-4 bg-slate-50 border-b border-outline-variant flex items-center justify-between">
               <span className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-500">Address</span>
               {editingSection !== 'address' && (
-                <button onClick={openEditAddress} className="text-[11px] font-bold text-blue-900 hover:text-blue-700 cursor-pointer inline-flex items-center gap-1">
+                <button onClick={openEditAddress} className="text-[11px] font-bold text-primary hover:text-primary-container cursor-pointer inline-flex items-center gap-1">
                   <span className="material-symbols-outlined text-[14px]">edit</span>
                   Edit
                 </button>
@@ -682,11 +682,11 @@ export default function ReviewIntake({ case: caseFile, categories = [], caseIssu
                     }}
                   />
                   <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
-                    <button onClick={cancelEdit} className="h-9 px-4 rounded-[3px] border border-slate-300 text-[12px] font-bold text-slate-700 hover:bg-slate-50 transition-colors">
+                    <button onClick={cancelEdit} className="h-9 px-4 rounded-md border border-outline-variant text-[12px] font-bold text-slate-700 hover:bg-slate-50 transition-colors">
                       Cancel
                     </button>
                     <button onClick={saveSection} disabled={savingSection}
-                      className="h-9 px-4 rounded-[3px] bg-blue-900 text-[12px] font-bold text-white hover:bg-blue-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                      className="h-9 px-4 rounded-md bg-primary text-[12px] font-bold text-white hover:bg-primary-container transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                       {savingSection ? 'Saving…' : 'Save'}
                     </button>
                   </div>
@@ -698,11 +698,11 @@ export default function ReviewIntake({ case: caseFile, categories = [], caseIssu
           </div>
 
           {/* ── Employment ─────────────────────────────────── */}
-          <div className="bg-white border border-slate-300 shadow-sm rounded-md">
-            <div className="px-5 py-4 bg-slate-50 border-b border-slate-300 flex items-center justify-between">
+          <div className="bg-white border border-outline-variant shadow-sm rounded-md">
+            <div className="px-5 py-4 bg-slate-50 border-b border-outline-variant flex items-center justify-between">
               <span className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-500">Employment</span>
               {editingSection !== 'employment' && (
-                <button onClick={openEditEmployment} className="text-[11px] font-bold text-blue-900 hover:text-blue-700 cursor-pointer inline-flex items-center gap-1">
+                <button onClick={openEditEmployment} className="text-[11px] font-bold text-primary hover:text-primary-container cursor-pointer inline-flex items-center gap-1">
                   <span className="material-symbols-outlined text-[14px]">edit</span>
                   Edit
                 </button>
@@ -715,32 +715,32 @@ export default function ReviewIntake({ case: caseFile, categories = [], caseIssu
                     <div>
                       <FieldLabel>Employer Name</FieldLabel>
                       <input type="text" value={editEmployment.employer_name} onChange={(e) => setEditEmployment({ ...editEmployment, employer_name: e.target.value })}
-                        className="h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
+                        className="h-10 w-full rounded-md border border-outline-variant px-3 text-[13px] text-slate-700 outline-none focus:border-primary focus:ring-1 focus:ring-primary/40" />
                     </div>
                     <div>
                       <FieldLabel>Start Date</FieldLabel>
                       <input type="date" value={editEmployment.start_date} onChange={(e) => setEditEmployment({ ...editEmployment, start_date: e.target.value })}
-                        className="h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
+                        className="h-10 w-full rounded-md border border-outline-variant px-3 text-[13px] text-slate-700 outline-none focus:border-primary focus:ring-1 focus:ring-primary/40" />
                     </div>
                     <div>
                       <FieldLabel>End Date</FieldLabel>
                       <input type="date" value={editEmployment.end_date} onChange={(e) => setEditEmployment({ ...editEmployment, end_date: e.target.value, is_present: !e.target.value })}
                         disabled={editEmployment.is_present}
-                        className="h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 disabled:bg-slate-50 disabled:text-slate-400" />
+                        className="h-10 w-full rounded-md border border-outline-variant px-3 text-[13px] text-slate-700 outline-none focus:border-primary focus:ring-1 focus:ring-primary/40 disabled:bg-slate-50 disabled:text-slate-400" />
                     </div>
                     <div>
                       <FieldLabel>Currently Employed?</FieldLabel>
                       <label className="flex items-center gap-2 h-10 cursor-pointer">
                         <input type="checkbox" checked={editEmployment.is_present}
                           onChange={(e) => setEditEmployment({ ...editEmployment, is_present: e.target.checked, end_date: e.target.checked ? '' : editEmployment.end_date })}
-                          className="rounded border-slate-300 text-blue-900 focus:ring-blue-900 focus:ring-offset-0" />
+                          className="rounded border-outline-variant text-primary focus:ring-primary/40 focus:ring-offset-0" />
                         <span className="text-[13px] text-slate-700">Present (end date unknown)</span>
                       </label>
                     </div>
                     <div>
                       <FieldLabel>Date of Arrival</FieldLabel>
                       <input type="date" value={editEmployment.date_of_arrival} onChange={(e) => setEditEmployment({ ...editEmployment, date_of_arrival: e.target.value })}
-                        className="h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
+                        className="h-10 w-full rounded-md border border-outline-variant px-3 text-[13px] text-slate-700 outline-none focus:border-primary focus:ring-1 focus:ring-primary/40" />
                     </div>
                     <div>
                       <FieldLabel>Last Country</FieldLabel>
@@ -752,11 +752,11 @@ export default function ReviewIntake({ case: caseFile, categories = [], caseIssu
                     </div>
                   </div>
                   <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
-                    <button onClick={cancelEdit} className="h-9 px-4 rounded-[3px] border border-slate-300 text-[12px] font-bold text-slate-700 hover:bg-slate-50 transition-colors">
+                    <button onClick={cancelEdit} className="h-9 px-4 rounded-md border border-outline-variant text-[12px] font-bold text-slate-700 hover:bg-slate-50 transition-colors">
                       Cancel
                     </button>
                     <button onClick={saveSection} disabled={savingSection}
-                      className="h-9 px-4 rounded-[3px] bg-blue-900 text-[12px] font-bold text-white hover:bg-blue-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                      className="h-9 px-4 rounded-md bg-primary text-[12px] font-bold text-white hover:bg-primary-container transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                       {savingSection ? 'Saving…' : 'Save'}
                     </button>
                   </div>
@@ -774,8 +774,8 @@ export default function ReviewIntake({ case: caseFile, categories = [], caseIssu
           </div>
 
           {/* ── Next of Kin ────────────────────────────────── */}
-          <div className="bg-white border border-slate-300 shadow-sm rounded-md">
-            <div className="px-5 py-4 bg-slate-50 border-b border-slate-300 flex items-center justify-between">
+          <div className="bg-white border border-outline-variant shadow-sm rounded-md">
+            <div className="px-5 py-4 bg-slate-50 border-b border-outline-variant flex items-center justify-between">
               <span className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-500">Next of Kin</span>
             </div>
             <div className="p-5">
@@ -794,7 +794,7 @@ export default function ReviewIntake({ case: caseFile, categories = [], caseIssu
                             </span>
                           </div>
                           {!isEditing && (
-                            <button onClick={() => openEditNok(idx)} className="text-[11px] font-bold text-blue-900 hover:text-blue-700 cursor-pointer inline-flex items-center gap-1">
+                            <button onClick={() => openEditNok(idx)} className="text-[11px] font-bold text-primary hover:text-primary-container cursor-pointer inline-flex items-center gap-1">
                               <span className="material-symbols-outlined text-[14px]">edit</span>
                               Edit
                             </button>
@@ -806,27 +806,27 @@ export default function ReviewIntake({ case: caseFile, categories = [], caseIssu
                               <div>
                                 <FieldLabel>First Name</FieldLabel>
                                 <input type="text" value={editNokData.first_name} onChange={(e) => setEditNokData({ ...editNokData, first_name: e.target.value })}
-                                  className="h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
+                                  className="h-10 w-full rounded-md border border-outline-variant px-3 text-[13px] text-slate-700 outline-none focus:border-primary focus:ring-1 focus:ring-primary/40" />
                               </div>
                               <div>
                                 <FieldLabel>Last Name</FieldLabel>
                                 <input type="text" value={editNokData.last_name} onChange={(e) => setEditNokData({ ...editNokData, last_name: e.target.value })}
-                                  className="h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
+                                  className="h-10 w-full rounded-md border border-outline-variant px-3 text-[13px] text-slate-700 outline-none focus:border-primary focus:ring-1 focus:ring-primary/40" />
                               </div>
                               <div>
                                 <FieldLabel>Relationship</FieldLabel>
                                 <input type="text" value={editNokData.relationship} onChange={(e) => setEditNokData({ ...editNokData, relationship: e.target.value })}
-                                  className="h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
+                                  className="h-10 w-full rounded-md border border-outline-variant px-3 text-[13px] text-slate-700 outline-none focus:border-primary focus:ring-1 focus:ring-primary/40" />
                               </div>
                               <div>
                                 <FieldLabel>Contact Number</FieldLabel>
                                 <input type="text" value={editNokData.contact_number} onChange={(e) => setEditNokData({ ...editNokData, contact_number: e.target.value })}
-                                  className="h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
+                                  className="h-10 w-full rounded-md border border-outline-variant px-3 text-[13px] text-slate-700 outline-none focus:border-primary focus:ring-1 focus:ring-primary/40" />
                               </div>
                               <div>
                                 <FieldLabel>Email</FieldLabel>
                                 <input type="email" value={editNokData.email} onChange={(e) => setEditNokData({ ...editNokData, email: e.target.value })}
-                                  className="h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
+                                  className="h-10 w-full rounded-md border border-outline-variant px-3 text-[13px] text-slate-700 outline-none focus:border-primary focus:ring-1 focus:ring-primary/40" />
                               </div>
                             </div>
                             <AddressDropdowns
@@ -840,11 +840,11 @@ export default function ReviewIntake({ case: caseFile, categories = [], caseIssu
                               }}
                             />
                             <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
-                              <button onClick={cancelEdit} className="h-9 px-4 rounded-[3px] border border-slate-300 text-[12px] font-bold text-slate-700 hover:bg-slate-50 transition-colors">
+                              <button onClick={cancelEdit} className="h-9 px-4 rounded-md border border-outline-variant text-[12px] font-bold text-slate-700 hover:bg-slate-50 transition-colors">
                                 Cancel
                               </button>
                               <button onClick={saveSection} disabled={savingSection}
-                                className="h-9 px-4 rounded-[3px] bg-blue-900 text-[12px] font-bold text-white hover:bg-blue-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                                className="h-9 px-4 rounded-md bg-primary text-[12px] font-bold text-white hover:bg-primary-container transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                                 {savingSection ? 'Saving…' : 'Save'}
                               </button>
                             </div>
@@ -871,11 +871,11 @@ export default function ReviewIntake({ case: caseFile, categories = [], caseIssu
           </div>
 
           {/* ── Case Summary ───────────────────────────────── */}
-          <div className="bg-white border border-slate-300 shadow-sm rounded-md">
-            <div className="px-5 py-4 bg-slate-50 border-b border-slate-300 flex items-center justify-between">
+          <div className="bg-white border border-outline-variant shadow-sm rounded-md">
+            <div className="px-5 py-4 bg-slate-50 border-b border-outline-variant flex items-center justify-between">
               <span className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-500">Case Summary</span>
               {editingSection !== 'summary' && (
-                <button onClick={openEditSummary} className="text-[11px] font-bold text-blue-900 hover:text-blue-700 cursor-pointer inline-flex items-center gap-1">
+                <button onClick={openEditSummary} className="text-[11px] font-bold text-primary hover:text-primary-container cursor-pointer inline-flex items-center gap-1">
                   <span className="material-symbols-outlined text-[14px]">edit</span>
                   Edit
                 </button>
@@ -889,14 +889,14 @@ export default function ReviewIntake({ case: caseFile, categories = [], caseIssu
                     onChange={(e) => setEditSummary(e.target.value)}
                     rows={6}
                     placeholder="Describe the case summary…"
-                    className="w-full rounded-[3px] border border-slate-300 px-3 py-2 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 resize-y"
+                    className="w-full rounded-md border border-outline-variant px-3 py-2 text-[13px] text-slate-700 outline-none focus:border-primary focus:ring-1 focus:ring-primary/40 resize-y"
                   />
                   <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
-                    <button onClick={cancelEdit} className="h-9 px-4 rounded-[3px] border border-slate-300 text-[12px] font-bold text-slate-700 hover:bg-slate-50 transition-colors">
+                    <button onClick={cancelEdit} className="h-9 px-4 rounded-md border border-outline-variant text-[12px] font-bold text-slate-700 hover:bg-slate-50 transition-colors">
                       Cancel
                     </button>
                     <button onClick={saveSection} disabled={savingSection}
-                      className="h-9 px-4 rounded-[3px] bg-blue-900 text-[12px] font-bold text-white hover:bg-blue-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                      className="h-9 px-4 rounded-md bg-primary text-[12px] font-bold text-white hover:bg-primary-container transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                       {savingSection ? 'Saving…' : 'Save'}
                     </button>
                   </div>
@@ -910,8 +910,8 @@ export default function ReviewIntake({ case: caseFile, categories = [], caseIssu
           </div>
 
           {/* ── Vulnerability Indicators ───────────────────── */}
-          <div className="bg-white border border-slate-300 shadow-sm rounded-md">
-            <div className="px-5 py-4 bg-slate-50 border-b border-slate-300">
+          <div className="bg-white border border-outline-variant shadow-sm rounded-md">
+            <div className="px-5 py-4 bg-slate-50 border-b border-outline-variant">
               <span className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-500">Vulnerability Indicators</span>
             </div>
             <div className="p-5">
@@ -932,8 +932,8 @@ export default function ReviewIntake({ case: caseFile, categories = [], caseIssu
 
         {/* ═══ CM CLASSIFICATION SECTION ══════════════════════ */}
         <div className="mt-6">
-          <div className="bg-white border border-slate-300 shadow-sm rounded-md">
-            <div className="px-5 py-4 bg-slate-50 border-b border-slate-300">
+          <div className="bg-white border border-outline-variant shadow-sm rounded-md">
+            <div className="px-5 py-4 bg-slate-50 border-b border-outline-variant">
               <span className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-500">
                 Case Manager Classification
               </span>
@@ -959,7 +959,7 @@ export default function ReviewIntake({ case: caseFile, categories = [], caseIssu
                   <select
                     value={caseIssueId}
                     onChange={(e) => setCaseIssueId(e.target.value)}
-                    className="h-10 flex-1 rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                    className="h-10 flex-1 rounded-md border border-outline-variant px-3 text-[13px] text-slate-700 outline-none focus:border-primary focus:ring-1 focus:ring-primary/40"
                   >
                     <option value="">Select an issue…</option>
                     {localIssues.map((issue) => (
@@ -969,14 +969,14 @@ export default function ReviewIntake({ case: caseFile, categories = [], caseIssu
                   <button
                     type="button"
                     onClick={() => { setNewIssueName(''); setShowAddIssue(!showAddIssue); }}
-                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[3px] border border-dashed border-indigo-300 text-indigo-600 transition hover:bg-indigo-50"
+                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-dashed border-primary/50 text-primary transition hover:bg-primary-fixed"
                     title="Add new issue"
                   >
                     <span className="material-symbols-outlined text-[20px]">add</span>
                   </button>
                 </div>
                 {showAddIssue && (
-                  <div className="mt-3 rounded-lg border border-indigo-200 bg-indigo-50 p-3">
+                  <div className="mt-3 rounded-lg border border-outline-variant bg-primary-fixed p-3">
                     <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">New Issue Name</label>
                     <input
                       type="text"
@@ -984,7 +984,7 @@ export default function ReviewIntake({ case: caseFile, categories = [], caseIssu
                       onChange={(e) => setNewIssueName(e.target.value)}
                       onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleQuickAddIssue(); } }}
                       placeholder="Enter new issue name..."
-                      className="h-10 w-full rounded-[3px] border border-slate-300 px-3 py-2 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                      className="h-10 w-full rounded-md border border-outline-variant px-3 py-2 text-[13px] text-slate-700 outline-none focus:border-primary focus:ring-1 focus:ring-primary/40"
                       autoFocus
                     />
                     <div className="mt-2 flex items-center gap-2">
@@ -992,7 +992,7 @@ export default function ReviewIntake({ case: caseFile, categories = [], caseIssu
                         type="button"
                         onClick={handleQuickAddIssue}
                         disabled={addingIssue || !newIssueName.trim()}
-                        className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-[12px] font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-[12px] font-semibold text-white transition hover:bg-primary-container disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         {addingIssue ? 'Adding...' : 'Add'}
                       </button>
@@ -1016,7 +1016,7 @@ export default function ReviewIntake({ case: caseFile, categories = [], caseIssu
         <div className="mt-6 flex items-center justify-between">
           <button
             onClick={() => setRejectOpen(true)}
-            className="px-4 py-2 bg-white text-red-600 border border-red-200 hover:bg-red-50 text-[13px] font-bold rounded-[3px] transition-colors inline-flex items-center gap-2"
+            className="px-4 py-2 bg-white text-red-600 border border-red-200 hover:bg-red-50 text-[13px] font-bold rounded-md transition-colors inline-flex items-center gap-2"
           >
             <span className="material-symbols-outlined text-[16px]">close</span>
             Reject
@@ -1024,7 +1024,7 @@ export default function ReviewIntake({ case: caseFile, categories = [], caseIssu
           <button
             onClick={handlePublish}
             disabled={!canPublish || publishing}
-            className="px-4 py-2 bg-blue-900 text-white hover:bg-blue-800 text-[13px] font-bold rounded-[3px] transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
+            className="px-4 py-2 bg-primary text-white hover:bg-primary-container text-[13px] font-bold rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
           >
             <span className="material-symbols-outlined text-[16px]">check</span>
             {publishing ? 'Publishing…' : 'Publish Case →'}
@@ -1050,7 +1050,7 @@ export default function ReviewIntake({ case: caseFile, categories = [], caseIssu
           onChange={(e) => setRejectReason(e.target.value)}
           placeholder="Reason for rejection…"
           rows={3}
-          className="w-full border border-slate-300 rounded-[3px] px-3 py-2 text-sm text-slate-700 placeholder-slate-400 focus:ring-1 focus:ring-blue-900 outline-none"
+          className="w-full border border-outline-variant rounded-md px-3 py-2 text-sm text-slate-700 placeholder-slate-400 focus:ring-1 focus:ring-primary/40 outline-none"
         />
         {rejectReason.length > 0 && rejectReason.length < 10 && (
           <p className="text-xs text-red-500 mt-1">Reason must be at least 10 characters.</p>

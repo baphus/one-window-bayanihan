@@ -12,7 +12,7 @@
 > Supersedes `ARCHITECTURE_v2.1.0.md` (v2.1.0); its body is retained as history per document
 > versioning policy and carries a dated erratum banner. This is a delta document — everything in v2.1.0 still holds
 > unless restated below. Infrastructure is described by technology and capability,
-> never by hosting vendor — see `DEPLOYMENT_GUIDE_v3.0.0.md` §1.
+> never by hosting vendor — see `DEPLOYMENT_GUIDE_v3.1.0.md` §1.
 
 ## Changelog
 

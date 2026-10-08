@@ -112,12 +112,21 @@ describe('Referral/Show client request permissions', () => {
     expect(screen.getByText('Client question')).toBeInTheDocument();
   });
 
-  it('shows request history to an oversight role without agency creation controls', () => {
-    renderReferral('CASE_MANAGER', { canCreate: false, canReply: false, canTransition: false, canRevokeAccess: true });
+  it('hides the client requests section from case managers', () => {
+    renderReferral('CASE_MANAGER', { canCreate: false, canReply: false, canTransition: false, canRevokeAccess: false });
 
-    expect(screen.getByText('Client question')).toBeInTheDocument();
+    expect(screen.queryByText('Client Requests')).not.toBeInTheDocument();
+    expect(screen.queryByText('Client question')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Request client/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Issue access link|Issue replacement/i })).not.toBeInTheDocument();
+  });
+
+  it('hides the client requests section from non-receiving agencies', () => {
+    state.agencyId = 'other-agency';
+    renderReferral('AGENCY', { canCreate: false, canReply: false, canTransition: false, canRevokeAccess: false });
+    state.agencyId = 'agency-1';
+
+    expect(screen.queryByText('Client Requests')).not.toBeInTheDocument();
+    expect(screen.queryByText('Client question')).not.toBeInTheDocument();
   });
 
   it('previews image attachments and keeps non-image attachments as plain links', () => {

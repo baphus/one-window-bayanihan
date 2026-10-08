@@ -3,7 +3,6 @@ import { useState } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import AppHeader from '@/Components/landing/AppHeader';
 import AppFooter from '@/Components/landing/AppFooter';
-import TrackingNotFoundState from '@/Components/TrackingNotFoundState';
 import ChatBot from '@/Components/ChatBot';
 import PasswordStrengthMeter from '@/Components/PasswordStrengthMeter';
 import UnifiedTimeline from '@/Components/Timeline';
@@ -421,7 +420,7 @@ function ClientRequestPanel({ clientRequestPanel }) {
             </p>
             <Link
               href={route('track.index')}
-              className="mt-5 inline-flex items-center gap-2 bg-blue-900 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-blue-800"
+              className="mt-5 inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-primary-container"
             >
               <span className="material-symbols-outlined text-[17px]">arrow_back</span>
               Back to Tracking
@@ -439,7 +438,7 @@ function ClientRequestPanel({ clientRequestPanel }) {
                 type="button"
                 onClick={handleReplacement}
                 disabled={requestingReplacement}
-                className="mt-5 inline-flex items-center gap-2 bg-blue-900 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60"
+                className="mt-5 inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-primary-container disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <span className="material-symbols-outlined text-[17px]">{requestingReplacement ? 'progress_activity' : 'refresh'}</span>
                 {requestingReplacement ? 'Sending request…' : 'Request a new link'}
@@ -495,7 +494,7 @@ function ClientRequestPanel({ clientRequestPanel }) {
                 <span aria-hidden="true" className="material-symbols-outlined text-[16px] text-slate-400">forum</span>
                 <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">Messages</h2>
                 {request.messages?.length > 0 && (
-                  <span className="ml-auto rounded-full bg-blue-900/10 px-2 py-0.5 text-[10px] font-bold text-blue-900">
+                  <span className="ml-auto rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
                     {request.messages.length} {request.messages.length === 1 ? 'message' : 'messages'}
                   </span>
                 )}
@@ -512,12 +511,12 @@ function ClientRequestPanel({ clientRequestPanel }) {
                         <article key={message.id} className={`flex items-end gap-2 ${isClient ? 'flex-row-reverse' : ''}`}>
                           <span
                             aria-hidden="true"
-                            className={`flex h-7 w-7 shrink-0 select-none items-center justify-center rounded-full text-[11px] font-bold ${isClient ? 'bg-blue-900 text-white' : 'bg-slate-200 text-slate-600'}`}
+                            className={`flex h-7 w-7 shrink-0 select-none items-center justify-center rounded-full text-[11px] font-bold ${isClient ? 'bg-primary text-white' : 'bg-slate-200 text-slate-600'}`}
                           >
                             {senderName.charAt(0)}
                           </span>
                           <div className={`flex max-w-[85%] flex-col ${isClient ? 'items-end' : 'items-start'}`}>
-                            <div className={`rounded-lg px-3.5 py-2.5 text-[13px] leading-relaxed shadow-sm ${isClient ? 'rounded-br-sm bg-blue-900 text-white' : 'rounded-bl-sm border border-slate-200 bg-white text-slate-800'}`}>
+                            <div className={`rounded-xl px-3.5 py-2.5 text-[13px] leading-relaxed shadow-sm ${isClient ? 'rounded-br-sm bg-primary text-white' : 'rounded-bl-sm border border-slate-200 bg-white text-slate-800'}`}>
                               {message.body && <p className="whitespace-pre-wrap">{message.body}</p>}
                               {message.attachments?.length > 0 && (
                                 <ul className={`mt-2 space-y-1.5 ${message.body ? '' : ''}`}>
@@ -525,11 +524,11 @@ function ClientRequestPanel({ clientRequestPanel }) {
                                     <li key={attachment.id}>
                                       <a
                                         href={route('track.request.attachments.download', { attachment: attachment.id })}
-                                        className={`inline-flex max-w-full items-center gap-1.5 rounded-md border px-2 py-1 text-[12px] font-semibold transition-colors ${isClient ? 'border-white/20 bg-white/10 text-blue-100 hover:bg-white/20' : 'border-slate-200 bg-slate-50 text-blue-900 hover:bg-slate-100'}`}
+                                        className={`inline-flex max-w-full items-center gap-1.5 rounded-md border px-2 py-1 text-[12px] font-semibold transition-colors ${isClient ? 'border-white/20 bg-white/10 text-primary-fixed hover:bg-white/20' : 'border-slate-200 bg-slate-50 text-primary hover:bg-slate-100'}`}
                                       >
                                         <span aria-hidden="true" className="material-symbols-outlined shrink-0 text-[14px]">description</span>
                                         <span className="truncate">{attachment.file_name}</span>
-                                        {attachment.size > 0 && <span className={`shrink-0 text-[10px] font-normal ${isClient ? 'text-blue-200' : 'text-slate-400'}`}>{formatFileSize(attachment.size)}</span>}
+                                        {attachment.size > 0 && <span className={`shrink-0 text-[10px] font-normal ${isClient ? 'text-primary-fixed-dim' : 'text-slate-400'}`}>{formatFileSize(attachment.size)}</span>}
                                       </a>
                                     </li>
                                   ))}
@@ -573,7 +572,7 @@ function ClientRequestPanel({ clientRequestPanel }) {
                   {error && <p id="client-request-error" role="alert" className="mt-2 text-[12px] font-semibold text-error">{error}</p>}
 
                   <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-md border border-dashed border-slate-300 bg-slate-50/70 px-3 py-2.5">
-                    <label htmlFor="client-request-files" className="inline-flex cursor-pointer items-center gap-1.5 text-[12px] font-bold text-blue-900 hover:underline">
+                    <label htmlFor="client-request-files" className="inline-flex cursor-pointer items-center gap-1.5 text-[12px] font-bold text-primary hover:underline">
                       <span aria-hidden="true" className="material-symbols-outlined text-[15px]">attach_file</span>
                       Attach documents
                       <input
@@ -613,7 +612,7 @@ function ClientRequestPanel({ clientRequestPanel }) {
 
                   <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3">
                     <p className="text-[11px] text-slate-500">Your reply and any documents will be shared with the agency.</p>
-                    <button type="submit" disabled={replying || (!body.trim() && files.length === 0)} className="inline-flex items-center gap-2 rounded-md bg-blue-900 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60">
+                    <button type="submit" disabled={replying || (!body.trim() && files.length === 0)} className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-primary-container disabled:cursor-not-allowed disabled:opacity-60">
                       <span aria-hidden="true" className="material-symbols-outlined text-[17px]">{replying ? 'progress_activity' : 'send'}</span>
                       {replying ? 'Sending…' : 'Send reply'}
                     </button>
@@ -884,7 +883,16 @@ export default function TrackingShow({
         <Head title="Tracking ID Not Found" />
         <AppHeader />
         <main className="mx-auto w-full max-w-xl px-4 pt-24 pb-12 sm:px-6">
-          <TrackingNotFoundState description="We could not find a case matching this tracking ID. Please verify your ID and try again." />
+          <section className="border-l-[3px] border-red-600 bg-white px-[28px] py-[24px] shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
+            <h1 className="font-headline text-[26px] font-[900] uppercase tracking-[-0.02em] text-red-700">Tracking ID Not Found</h1>
+            <p className="mt-[8px] text-[11px] font-[500] text-on-surface-variant">We could not find a case matching this tracking ID. Please verify your ID and try again.</p>
+            <Link
+              href={route('track.index')}
+              className="mt-4 inline-flex px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-primary-container transition-colors"
+            >
+              &larr; Back to Tracking Search
+            </Link>
+          </section>
         </main>
         <AppFooter />
         <ChatBot />
@@ -934,7 +942,7 @@ export default function TrackingShow({
                       a.status === 'COMPLETED' ? 'bg-emerald-300' :
                       a.status === 'REJECTED' ? 'bg-white/20' :
                       a.status === 'FOR_COMPLIANCE' ? 'bg-amber-300/60' :
-                      a.status === 'PROCESSING' ? 'bg-blue-300/70' :
+                      a.status === 'PROCESSING' ? 'bg-primary-fixed-dim/70' :
                       'bg-white/30'
                     }`}
                   >
@@ -961,7 +969,7 @@ export default function TrackingShow({
             {/* Overview narrative */}
             {caseOverview?.narrative && (
               <section className="rounded-md border border-slate-300 bg-white px-5 py-4 shadow-sm">
-                <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-blue-600">Case summary</h2>
+                <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-primary">Case summary</h2>
                 <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-slate-800">{caseOverview.narrative}</p>
               </section>
             )}
@@ -1017,8 +1025,8 @@ export default function TrackingShow({
           {milestoneTimeline.length > 0 && (
             <aside className="lg:sticky lg:top-24 lg:self-start">
               <section className="rounded-md border border-slate-300 bg-white shadow-sm">
-                <header className="border-b border-slate-300 bg-blue-50/60 px-4 py-3 rounded-t-md">
-                  <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-blue-600">
+                <header className="border-b border-slate-300 bg-info-container/60 px-4 py-3 rounded-t-md">
+                  <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-primary">
                     Complete case history
                   </h2>
                   <p className="mt-0.5 text-[11px] text-slate-400">

@@ -1,119 +1,54 @@
 import { useState } from 'react';
 import { Link, usePage } from '@inertiajs/react';
 import GettingStartedChecklist from '@/Components/GettingStartedChecklist';
-import StatusBadge from '@/Components/ui/StatusBadge';
-import { formatDisplayDate, formatDisplayDateTime } from '@/lib/utils';
+import { formatDisplayDateTime } from '@/lib/utils';
 import safeRoute from '@/utils/safeRoute';
 import {
     ActivityFeed,
-    AgencyScorecard,
     BarList,
-    CaseActivityRow,
     CollapsibleSectionCard,
     EmptyState,
-    EntityList,
     FilterChip,
     MaterialSymbol,
     PageHeader,
-    PriorityReferralRow,
     QuickActions,
     SectionCard,
     StatRow,
-    StatusDonut,
-    TriageStrip,
     ViewAllLink,
     formatCount,
     safeArray,
 } from '@/Components/Dashboard/primitives';
 
-const QUEUE_ROUTES = {
-    openCases: { route: 'cases.index', params: { status: 'OPEN' }, fallback: '/cases?status=OPEN' },
-    pendingReferrals: { route: 'referrals.index', params: { status: 'PENDING' }, fallback: '/referrals?status=PENDING' },
-    processingReferrals: { route: 'referrals.index', params: { status: 'PROCESSING' }, fallback: '/referrals?status=PROCESSING' },
-    forComplianceReferrals: { route: 'referrals.index', params: { status: 'FOR_COMPLIANCE' }, fallback: '/referrals?status=FOR_COMPLIANCE' },
-    overdueReferrals: { route: 'overdue-referrals.index', params: undefined, fallback: '/overdue-referrals' },
-};
-
-function resolveQueueHref(item) {
-    if (item.href) return item.href;
-    const target = QUEUE_ROUTES[item.key];
-    if (!target) return safeRoute('referrals.index', undefined, '/referrals');
-    return safeRoute(target.route, target.params, target.fallback);
-}
-
-const ATTENTION_STATUSES = ['REJECTED', 'FOR_COMPLIANCE'];
-
 const ADMIN_TOOLS = [
-    { label: 'Users', description: 'Roles, verification, access', href: '/admin/users', route: 'admin.users.index', icon: 'group' },
+    { label: 'Users', description: 'Roles, invites, verification, access', href: '/admin/users', route: 'admin.users.index', icon: 'group' },
     { label: 'Agencies', description: 'Partner profiles and activation', href: '/admin/agencies', route: 'admin.agencies.index', icon: 'business' },
     { label: 'Services', description: 'Catalog and requirements', href: '/admin/services', route: 'admin.services.index', icon: 'inventory_2' },
-    { label: 'Audit logs', description: 'Review system changes', href: '/audit-logs', route: 'audit-logs.index', icon: 'history' },
-    { label: 'Sessions', description: 'Monitor signed-in users', href: '/admin/system/active-sessions', route: 'admin.system.active-sessions', icon: 'devices' },
+    { label: 'Categories', description: 'Case category taxonomy', href: '/admin/case-categories', route: 'admin.case-categories.index', icon: 'category' },
+    { label: 'Statuses', description: 'Case status taxonomy', href: '/admin/case-statuses', route: 'admin.case-statuses.index', icon: 'flag' },
+    { label: 'Issues', description: 'Case issue taxonomy', href: '/admin/case-issues', route: 'admin.case-issues.index', icon: 'report_problem' },
+    { label: 'System settings', description: 'Thresholds and chatbot index', href: '/admin/system-settings', route: 'admin.system-settings.index', icon: 'settings' },
+    { label: 'Active sessions', description: 'Signed-in users, terminate access', href: '/admin/system/active-sessions', route: 'admin.system.active-sessions', icon: 'devices' },
+    { label: 'Security', description: 'Password and lockout policy', href: '/admin/system/security', route: 'admin.system.security', icon: 'shield' },
+    { label: 'System logs', description: 'Application and error logs', href: '/admin/system/logs', route: 'admin.system.logs', icon: 'terminal' },
+    { label: 'Maintenance', description: 'Maintenance mode control', href: '/admin/system/maintenance', route: 'admin.system.maintenance', icon: 'construction' },
+    { label: 'Email logs', description: 'Deliverability and resend', href: '/admin/system/email-logs', route: 'admin.system.email-logs.index', icon: 'mail' },
+    { label: 'Data export', description: 'Export system data', href: '/admin/data-export', route: 'admin.data-export.index', icon: 'download' },
+    { label: 'Audit logs', description: 'Full unscoped change trail', href: '/audit-logs', route: 'audit-logs.index', icon: 'history' },
 ];
 
-function buildQueueItems(dashboard, stats) {
-    const supplied = safeArray(dashboard.operationalQueues);
-
-    if (supplied.length > 0) {
-        return supplied.map((item) => {
-            const count = Number(item.count ?? 0);
-            const worstAge = item.worstAgeDays != null ? Number(item.worstAgeDays) : null;
-
-            // Dynamic note: "Oldest Xd · Y total" when severity data present
-            let note;
-            if (worstAge != null) {
-                note = `Oldest ${worstAge}d`;
-                if (count > 0) note += ` · ${count} total`;
-            } else {
-                note = item.note ?? '';
-            }
-
-            // Escalate tone based on severity thresholds
-            let tone = item.tone ?? 'slate';
-            if (item.key === 'overdueReferrals') {
-                if (count > 0) tone = 'rose';
-            } else if (worstAge != null && worstAge >= 7) {
-                tone = 'rose';
-            } else if (worstAge != null && worstAge >= 5 && tone === 'blue') {
-                tone = 'amber';
-            }
-
-            return {
-                ...item,
-                note,
-                tone,
-                worstAgeDays: worstAge,
-                href: resolveQueueHref(item),
-            };
-        });
-    }
-
-    return [
-        { key: 'openCases', label: 'Open cases', count: stats.openCases ?? stats.totalOpenCases ?? 0, note: 'Cases still being handled.', tone: 'blue', href: safeRoute('cases.index', { status: 'OPEN' }, '/cases?status=OPEN') },
-        { key: 'pendingReferrals', label: 'Pending referrals', count: stats.pendingReferrals ?? 0, note: 'Waiting for agency action.', tone: 'amber', href: safeRoute('referrals.index', { status: 'PENDING' }, '/referrals?status=PENDING') },
-        { key: 'processingReferrals', label: 'Processing', count: stats.processingReferrals ?? 0, note: 'Currently being worked by agencies.', tone: 'cyan', href: safeRoute('referrals.index', { status: 'PROCESSING' }, '/referrals?status=PROCESSING') },
-        { key: 'forComplianceReferrals', label: 'For compliance', count: stats.forComplianceReferrals ?? 0, note: 'Need missing requirements.', tone: 'orange', href: safeRoute('referrals.index', { status: 'FOR_COMPLIANCE' }, '/referrals?status=FOR_COMPLIANCE') },
-        { key: 'overdueReferrals', label: 'Overdue', count: stats.overdueReferrals ?? 0, note: 'Past the expected response window.', tone: (stats.overdueReferrals ?? 0) > 0 ? 'rose' : 'slate', href: safeRoute('overdue-referrals.index', undefined, '/overdue-referrals') },
-    ];
-}
-
-function needsAttention(item) {
-    return item.is_overdue || ATTENTION_STATUSES.includes(item.worst_referral_status);
-}
-
-function agingBandTone(bandLabel) {
-    const label = String(bandLabel ?? '');
-    if (label.includes('11')) return 'rose';
-    if (label.includes('6')) return 'orange';
-    if (label.includes('3')) return 'amber';
-    return 'blue';
-}
+const PLATFORM_HEALTH_LINKS = [
+    { label: 'System logs', description: 'Check for errors before they spread.', href: '/admin/system/logs', route: 'admin.system.logs', icon: 'terminal' },
+    { label: 'Email logs', description: 'Deliverability, failures, and resend.', href: '/admin/system/email-logs', route: 'admin.system.email-logs.index', icon: 'mail' },
+    { label: 'Maintenance mode', description: 'Take the system offline for work.', href: '/admin/system/maintenance', route: 'admin.system.maintenance', icon: 'construction' },
+    { label: 'Data export', description: 'Pull records for reporting.', href: '/admin/data-export', route: 'admin.data-export.index', icon: 'download' },
+    { label: 'System settings', description: 'Overdue threshold and chatbot index.', href: '/admin/system-settings', route: 'admin.system-settings.index', icon: 'settings' },
+];
 
 const MODULE_GROUPS = {
-    Cases: ['case', 'case_category', 'case_issue', 'case_status', 'case_document'],
-    Referrals: ['referral', 'referral_comment', 'referral_attachment', 'referral_client_request', 'referral_client_request_item', 'referral_client_message', 'referral_client_access_link', 'referral_service_requirement'],
     Users: ['user', 'auth', 'session', 'mfa', 'security'],
     Agencies: ['agency', 'service', 'service_requirement'],
+    Cases: ['case', 'case_category', 'case_issue', 'case_status', 'case_document'],
+    Referrals: ['referral', 'referral_comment', 'referral_attachment', 'referral_client_request', 'referral_client_request_item', 'referral_client_message', 'referral_client_access_link', 'referral_service_requirement'],
 };
 
 function categorizeModule(mod) {
@@ -124,61 +59,20 @@ function categorizeModule(mod) {
     return 'Other';
 }
 
-function moduleGroupTone(group) {
-    switch (group) {
-        case 'Cases': return 'blue';
-        case 'Referrals': return 'amber';
-        case 'Users': return 'emerald';
-        case 'Agencies': return 'cyan';
-        default: return 'slate';
-    }
-}
-
 export default function AdminDashboard({ dashboard = {} }) {
     const { auth } = usePage().props;
     const firstName = auth?.user?.name?.split(' ')[0] ?? 'Administrator';
     const stats = dashboard.stats ?? dashboard;
 
-    const queueItems = buildQueueItems(dashboard, stats);
-    const recentCases = safeArray(dashboard.recentCases).slice(0, 6);
-    const recentLogs = safeArray(dashboard.recentLogs).slice(0, 6).map((log) => ({
+    const recentLogs = safeArray(dashboard.recentLogs).slice(0, 8).map((log) => ({
         ...log,
         actionType: log.action ?? log.actionType,
         title: log.message ?? 'System activity',
         desc: log.detail ?? '',
         time: log.timestamp ? formatDisplayDateTime(log.timestamp) : log.time,
     }));
-    const topAgencies = safeArray(dashboard.topAgencies).slice(0, 6);
-    const agencyScorecard = safeArray(dashboard.agencyScorecard).slice(0, 5);
-    const scorecardAgencies = agencyScorecard.length > 0
-        ? agencyScorecard
-        : topAgencies.map((a) => ({
-              id: a.id,
-              name: a.name ?? a.agencyName,
-              totalReferrals: a.totalReferrals ?? 0,
-              activeReferrals: a.activeReferrals ?? a.count ?? 0,
-              overdueReferrals: 0,
-              overdueRate: 0,
-              avgDaysToComplete: null,
-          }));
     const usersByRole = safeArray(dashboard.usersByRole);
-    const categories = safeArray(dashboard.casesByCategory).slice(0, 6);
-    const priorityReferrals = safeArray(dashboard.priorityReferrals).slice(0, 5).map((item) => ({
-        ...item,
-        case_number: item.case_number ?? item.caseNo ?? null,
-        client_name: item.client_name ?? item.clientName ?? 'Unnamed client',
-        agency_name: item.agency_name ?? item.agencyName ?? null,
-        age_days: item.age_days ?? item.ageDays ?? null,
-    }));
-    const referralAgingBands = safeArray(dashboard.referralAgingBands);
-    const caseTrends = safeArray(dashboard.caseTrends);
 
-    // ── Client-side feed filter ──
-    const [feedFilter, setFeedFilter] = useState('all');
-    const attentionCount = recentCases.filter(needsAttention).length;
-    const overdueCount = recentCases.filter((c) => c.is_overdue).length;
-
-    // ── Audit log module filter ──
     const [auditFilter, setAuditFilter] = useState('all');
     const auditModuleCounts = recentLogs.reduce((acc, log) => {
         const group = categorizeModule(log.module);
@@ -190,76 +84,51 @@ export default function AdminDashboard({ dashboard = {} }) {
         ? recentLogs
         : recentLogs.filter((log) => categorizeModule(log.module) === auditFilter);
 
-    const filteredCases = recentCases.filter((item) => {
-        if (feedFilter === 'overdue') return item.is_overdue;
-        if (feedFilter === 'attention') return needsAttention(item);
-        return true;
-    });
-
-    // ── KPI trend derivation from caseTrends ──
-    const weeklyCaseDelta = (() => {
-        if (caseTrends.length < 7) return null;
-        const recent7 = caseTrends.slice(-7).reduce((sum, d) => sum + Number(d.count ?? d.total ?? 0), 0);
-        const prev7 = caseTrends.slice(-14, -7).reduce((sum, d) => sum + Number(d.count ?? d.total ?? 0), 0);
-        const delta = recent7 - prev7;
-        return delta !== 0 ? delta : null;
-    })();
-
-    const overdueAgingHint = (() => {
-        if (referralAgingBands.length === 0) return null;
-        const severe = referralAgingBands.reduce((sum, b) => {
-            const label = String(b.band ?? b.label ?? '');
-            return label.includes('11') ? sum + Number(b.count ?? 0) : sum;
-        }, 0);
-        return severe > 0 ? severe : null;
-    })();
+    const activeReferrals = (stats.pendingReferrals ?? 0) + (stats.processingReferrals ?? 0) + (stats.forComplianceReferrals ?? 0);
 
     return (
         <div className="mx-auto max-w-7xl pb-8">
             <GettingStartedChecklist />
 
             <PageHeader
-                eyebrow="Admin overview"
+                eyebrow="System administration"
                 title={`Welcome back, ${firstName}`}
-                subtitle="Monitor queues, track referrals, and manage the system from one place."
+                subtitle="Manage people, agencies, settings, and review what changed across the system."
             >
                 <QuickActions
                     actions={[
-                        { href: '/cases', route: 'cases.index', label: 'Cases', icon: 'folder', count: stats.totalCases, primary: true },
-                        { href: '/referrals', route: 'referrals.index', label: 'Referrals', icon: 'send', count: stats.totalReferrals },
-                        { href: '/overdue-referrals', route: 'overdue-referrals.index', label: 'Overdue', icon: 'warning', count: stats.overdueReferrals },
+                        { href: '/admin/users', route: 'admin.users.index', label: 'Users', icon: 'group', count: stats.totalUsers, primary: true },
+                        { href: '/admin/agencies', route: 'admin.agencies.index', label: 'Agencies', icon: 'business', count: stats.totalAgencies },
+                        { href: '/audit-logs', route: 'audit-logs.index', label: 'Audit logs', icon: 'history' },
                     ]}
                 />
             </PageHeader>
 
-            {/* ── KPI strip with trend-aware descriptions ── */}
+            {/* ── Admin KPIs: identity, directory, and system-wide load ── */}
             <StatRow
                 dataTour="dashboard-stats"
                 stats={[
                     {
-                        title: 'Total cases',
-                        value: stats.totalCases ?? 0,
-                        icon: 'folder',
-                        description: weeklyCaseDelta != null
-                            ? `${weeklyCaseDelta > 0 ? '+' : ''}${weeklyCaseDelta} cases this week`
-                            : 'All non-draft case files in the system.',
-                        trend: weeklyCaseDelta != null ? `${weeklyCaseDelta > 0 ? '+' : ''}${weeklyCaseDelta} this week` : undefined,
+                        title: 'People',
+                        value: stats.totalUsers ?? 0,
+                        icon: 'group',
+                        description: `${formatCount(stats.activeUsers ?? 0)} active · ${formatCount(stats.inactiveUsers ?? 0)} inactive.`,
                     },
                     {
-                        title: 'Total referrals',
-                        value: stats.totalReferrals ?? 0,
-                        icon: 'send',
-                        iconBg: 'bg-amber-50',
-                        iconColor: 'text-amber-700',
-                        description: 'Referrals sent to partner agencies.',
-                    },
-                    {
-                        title: 'Active agencies',
+                        title: 'Agencies',
                         value: stats.activeAgencies ?? stats.totalAgencies ?? 0,
-                        icon: 'account_balance',
+                        icon: 'business',
                         iconBg: 'bg-emerald-50',
                         iconColor: 'text-emerald-700',
-                        description: `${formatCount(stats.inactiveAgencies ?? 0)} inactive agency records.`,
+                        description: `${formatCount(stats.inactiveAgencies ?? 0)} inactive of ${formatCount(stats.totalAgencies ?? 0)} total.`,
+                    },
+                    {
+                        title: 'Open cases',
+                        value: stats.openCases ?? 0,
+                        icon: 'folder',
+                        iconBg: 'bg-amber-50',
+                        iconColor: 'text-amber-700',
+                        description: 'System-wide, across all case managers.',
                     },
                     {
                         title: 'Overdue referrals',
@@ -267,111 +136,52 @@ export default function AdminDashboard({ dashboard = {} }) {
                         icon: 'warning',
                         iconBg: 'bg-rose-50',
                         iconColor: 'text-rose-700',
-                        description: overdueAgingHint != null
-                            ? `${overdueAgingHint} active referrals older than 10 days`
-                            : 'Active referrals older than five days.',
+                        description: 'Past the expected response window.',
                         trend: (stats.overdueReferrals ?? 0) > 0 ? 'Needs action' : undefined,
                     },
                 ]}
             />
 
-            <TriageStrip items={queueItems} dataTour="dashboard-work-queues" />
-
-            {/* ── Referral aging bands ── */}
-            {referralAgingBands.length > 0 ? (
-                <SectionCard
-                    title="Referral aging"
-                    dataTour="dashboard-referral-aging"
-                    bodyClassName="px-5 pt-4 pb-5"
-                >
-                    <BarList
-                        items={referralAgingBands.map((band) => ({
-                            key: band.band ?? band.label ?? band.bandLabel,
-                            label: `${band.band ?? band.label ?? band.bandLabel} days`,
-                            count: band.count ?? band.total ?? 0,
-                            tone: agingBandTone(band.band ?? band.label ?? band.bandLabel),
-                        }))}
-                    />
-                    <p className="mt-3 text-[11px] text-slate-400">Active referrals by age.</p>
-                </SectionCard>
-            ) : null}
-
             <div className="grid gap-6 xl:grid-cols-12">
                 <div className="space-y-6 xl:col-span-8">
-                    {/* ── Attention-aware recent case activity ── */}
+                    {/* ── Security & access ── */}
                     <SectionCard
-                        title="Recent case activity"
-                        dataTour="dashboard-recent-cases"
-                        action={<ViewAllLink href={safeRoute('cases.index', undefined, '/cases')}>View all cases</ViewAllLink>}
-                        bodyClassName="p-0"
+                        title="Security & access"
+                        dataTour="dashboard-security-access"
+                        action={<ViewAllLink href={safeRoute('admin.users.index', undefined, '/admin/users')}>Manage users</ViewAllLink>}
                     >
-                        <div className="flex items-center gap-2 border-b border-slate-100 px-5 pb-3 pt-4">
-                            <FilterChip
-                                label="All"
-                                count={recentCases.length}
-                                active={feedFilter === 'all'}
-                                onClick={() => setFeedFilter('all')}
+                        {usersByRole.length > 0 ? (
+                            <BarList
+                                items={usersByRole.map((role) => ({
+                                    key: role.role ?? role.label,
+                                    label: role.label ?? role.role,
+                                    count: role.count ?? 0,
+                                    tone: 'emerald',
+                                }))}
                             />
-                            <FilterChip
-                                label="Needs attention"
-                                count={attentionCount}
-                                active={feedFilter === 'attention'}
-                                onClick={() => setFeedFilter('attention')}
-                            />
-                            <FilterChip
-                                label="Overdue"
-                                count={overdueCount}
-                                active={feedFilter === 'overdue'}
-                                onClick={() => setFeedFilter('overdue')}
-                            />
+                        ) : (
+                            <p className="text-sm text-slate-500">No role data yet.</p>
+                        )}
+                        <p className="mt-3 text-xs text-slate-500">
+                            {formatCount(stats.verifiedUsers)} of {formatCount(stats.totalUsers)} verified.
+                            {' '}MFA status and signed-in sessions live on the pages below.
+                        </p>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                            <Link
+                                href={safeRoute('admin.system.active-sessions', undefined, '/admin/system/active-sessions')}
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-50"
+                            >
+                                <MaterialSymbol name="devices" className="text-[16px]" />
+                                Active sessions
+                            </Link>
+                            <Link
+                                href={safeRoute('admin.system.security', undefined, '/admin/system/security')}
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-50"
+                            >
+                                <MaterialSymbol name="shield" className="text-[16px]" />
+                                Security policy
+                            </Link>
                         </div>
-                        <EntityList empty={<EmptyState message="No recent cases yet." href={safeRoute('cases.index', undefined, '/cases')} actionLabel="Open cases" />}>
-                            {filteredCases.map((item) => (
-                                <CaseActivityRow
-                                    key={item.id}
-                                    href={safeRoute('cases.show', item.id, `/cases/${item.id}`)}
-                                    caseNumber={item.case_number ?? item.caseNo}
-                                    clientName={item.client_name ?? item.clientName}
-                                    category={item.category}
-                                    caseOwner={item.case_owner ?? item.caseOwner}
-                                    referralCount={item.referral_count ?? 0}
-                                    worstReferralStatus={item.worst_referral_status}
-                                    isOverdue={Boolean(item.is_overdue)}
-                                    maxReferralAgeDays={item.max_referral_age_days}
-                                    updatedAt={item.updated_at ? formatDisplayDate(item.updated_at) : null}
-                                    status={item.status}
-                                />
-                            ))}
-                        </EntityList>
-                    </SectionCard>
-
-                    {/* ── Priority referrals ── */}
-                    <SectionCard
-                        title="Priority referrals"
-                        dataTour="dashboard-priority-referrals"
-                        action={<ViewAllLink href={safeRoute('referrals.index', undefined, '/referrals')}>View referrals</ViewAllLink>}
-                    >
-                        <EntityList
-                            empty={
-                                <EmptyState
-                                    message="No priority referrals right now."
-                                    href={safeRoute('referrals.index', undefined, '/referrals')}
-                                    actionLabel="View referrals"
-                                />
-                            }
-                        >
-                            {priorityReferrals.map((item, idx) => (
-                                <PriorityReferralRow
-                                    key={item.id ?? item.case_number ?? idx}
-                                    href={item.case_id ? safeRoute('cases.show', item.case_id, `/cases/${item.case_id}`) : safeRoute('referrals.index', undefined, '/referrals')}
-                                    caseNumber={item.case_number}
-                                    clientName={item.client_name}
-                                    agencyName={item.agency_name}
-                                    status={item.status}
-                                    ageDays={item.age_days}
-                                />
-                            ))}
-                        </EntityList>
                     </SectionCard>
 
                     {/* ── Recent administrative changes ── */}
@@ -400,12 +210,75 @@ export default function AdminDashboard({ dashboard = {} }) {
                         </div>
                         <ActivityFeed
                             items={filteredLogs}
+                            limit={8}
                             empty={<EmptyState message="No matching activity." />}
                         />
                     </SectionCard>
+
+                    {/* ── Demoted: system-wide case snapshot (glance only, not casework) ── */}
+                    <CollapsibleSectionCard
+                        title="System-wide case snapshot"
+                        dataTour="dashboard-system-snapshot"
+                        defaultOpen={false}
+                    >
+                        <dl className="divide-y divide-slate-100">
+                            <div className="flex items-center justify-between gap-3 py-2.5">
+                                <dt className="text-sm font-semibold text-slate-700">Open cases</dt>
+                                <dd>
+                                    <Link href={safeRoute('cases.index', { status: 'OPEN' }, '/cases?status=OPEN')} className="text-sm font-bold text-primary hover:text-primary/80">
+                                        {formatCount(stats.openCases)}
+                                    </Link>
+                                </dd>
+                            </div>
+                            <div className="flex items-center justify-between gap-3 py-2.5">
+                                <dt className="text-sm font-semibold text-slate-700">Active referrals</dt>
+                                <dd>
+                                    <Link href={safeRoute('referrals.index', undefined, '/referrals')} className="text-sm font-bold text-primary hover:text-primary/80">
+                                        {formatCount(activeReferrals)}
+                                    </Link>
+                                </dd>
+                            </div>
+                            <div className="flex items-center justify-between gap-3 py-2.5">
+                                <dt className="text-sm font-semibold text-slate-700">Overdue referrals</dt>
+                                <dd>
+                                    <Link href={safeRoute('overdue-referrals.index', undefined, '/overdue-referrals')} className="text-sm font-bold text-rose-600 hover:text-rose-500">
+                                        {formatCount(stats.overdueReferrals)}
+                                    </Link>
+                                </dd>
+                            </div>
+                            <div className="flex items-center justify-between gap-3 py-2.5">
+                                <dt className="text-sm font-semibold text-slate-700">Closed cases</dt>
+                                <dd className="text-sm font-bold text-slate-900">{formatCount(stats.closedCases)}</dd>
+                            </div>
+                        </dl>
+                        <p className="mt-3 text-[11px] text-slate-400">Casework belongs to case managers and agencies — this is oversight only.</p>
+                    </CollapsibleSectionCard>
                 </div>
 
                 <aside className="space-y-6 xl:col-span-4">
+                    {/* ── Platform health ── */}
+                    <SectionCard title="Platform health" dataTour="dashboard-platform-health" bodyClassName="p-3">
+                        <div className="grid gap-1">
+                            {PLATFORM_HEALTH_LINKS.map((item) => (
+                                <Link
+                                    key={item.route ?? item.href}
+                                    href={item.route ? safeRoute(item.route, undefined, item.href) : item.href}
+                                    className="flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                                >
+                                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                                        <MaterialSymbol name={item.icon} className="text-[18px]" />
+                                    </span>
+                                    <span className="min-w-0 flex-1">
+                                        <span className="block text-sm font-bold text-slate-900">{item.label}</span>
+                                        <span className="block truncate text-xs text-slate-500">{item.description}</span>
+                                    </span>
+                                    <MaterialSymbol name="chevron_right" className="text-[16px] text-slate-300" />
+                                </Link>
+                            ))}
+                        </div>
+                    </SectionCard>
+
+                    {/* ── Admin tools ── */}
                     <SectionCard title="Admin tools" dataTour="dashboard-admin-tools" bodyClassName="p-3">
                         <div className="grid gap-1">
                             {ADMIN_TOOLS.map((tool) => (
@@ -426,80 +299,6 @@ export default function AdminDashboard({ dashboard = {} }) {
                             ))}
                         </div>
                     </SectionCard>
-
-                    <SectionCard
-                        title="Agency response"
-                        dataTour="dashboard-agency-scorecard"
-                        action={<ViewAllLink href={safeRoute('admin.agencies.index', undefined, '/admin/agencies')}>View agencies</ViewAllLink>}
-                    >
-                        <AgencyScorecard
-                            agencies={scorecardAgencies}
-                            empty={
-                                <EmptyState
-                                    message="No agency activity yet."
-                                    href={safeRoute('admin.agencies.index', undefined, '/admin/agencies')}
-                                    actionLabel="View agencies"
-                                />
-                            }
-                        />
-                        {agencyScorecard.length > 0 ? (
-                            <p className="px-5 pb-3 pt-1 text-[10px] font-medium text-slate-400">
-                                Sorted by overdue rate.
-                            </p>
-                        ) : null}
-                    </SectionCard>
-
-                    <SectionCard title="Referral status">
-                        {safeArray(dashboard.referralStatusDistribution).length > 0 ? (
-                            <StatusDonut items={dashboard.referralStatusDistribution} />
-                        ) : (
-                            <p className="text-sm text-slate-500">Status distribution appears once referrals exist.</p>
-                        )}
-                    </SectionCard>
-
-                    <CollapsibleSectionCard
-                        title="System snapshot"
-                        dataTour="dashboard-system-snapshot"
-                        defaultOpen={false}
-                    >
-                        <div className="space-y-5">
-                            {/* Users by role */}
-                            <div>
-                                <h3 className="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">Users by role</h3>
-                                {usersByRole.length > 0 ? (
-                                    <div className="space-y-1.5">
-                                        {usersByRole.map((role) => (
-                                            <div key={role.role ?? role.label} className="flex items-center justify-between gap-3 text-xs">
-                                                <span className="font-semibold text-slate-700">{role.label ?? role.role}</span>
-                                                <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">{formatCount(role.count)}</span>
-                                            </div>
-                                        ))}
-                                        <p className="pt-1 text-[10px] text-slate-400">
-                                            {formatCount(stats.verifiedUsers)} of {formatCount(stats.totalUsers)} verified.
-                                        </p>
-                                    </div>
-                                ) : (
-                                    <p className="text-xs text-slate-500">No role data yet.</p>
-                                )}
-                            </div>
-                            {/* Case mix */}
-                            <div>
-                                <h3 className="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">Case mix</h3>
-                                {categories.length > 0 ? (
-                                    <BarList
-                                        items={categories.map((category) => ({
-                                            key: category.name,
-                                            label: category.name,
-                                            count: category.count,
-                                            hex: category.color,
-                                        }))}
-                                    />
-                                ) : (
-                                    <p className="text-xs text-slate-500">Category mix appears once cases are filed.</p>
-                                )}
-                            </div>
-                        </div>
-                    </CollapsibleSectionCard>
                 </aside>
             </div>
         </div>

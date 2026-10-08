@@ -1,6 +1,6 @@
+import { Link } from '@inertiajs/react';
 import { HERO_IMAGE } from './appData';
 import LogoMarquee from './LogoMarquee';
-import AppButton from './AppButton';
 
 export default function HeroSection({ title, description, onTrackAction, agencies }) {
   return (
@@ -86,15 +86,13 @@ export default function HeroSection({ title, description, onTrackAction, agencie
             className="animate-fade-in-up flex flex-wrap items-center justify-center gap-4"
             style={{ animationDelay: '0.5s', animationFillMode: 'both' }}
           >
-            <AppButton
-              as="link"
+            <Link
               href={route('intake.index')}
-              variant="mint"
-              icon="edit_note"
-              className="px-6 py-3 text-sm shadow-xl"
+              className="inline-flex items-center justify-center gap-2 rounded-none bg-secondary-container px-6 py-2.5 text-[14px] font-bold text-on-secondary-container transition-all hover:bg-secondary-fixed-dim disabled:cursor-not-allowed disabled:opacity-60 px-6 py-3 text-sm shadow-xl"
             >
+              <span className="material-symbols-outlined">edit_note</span>
               File a Case
-            </AppButton>
+            </Link>
             <button
               onClick={onTrackAction}
               className="inline-flex items-center justify-center gap-2 border border-white/40 bg-white/10 px-6 py-3 text-sm font-bold text-white shadow-xl backdrop-blur-md transition-all hover:-translate-y-0.5 hover:bg-white/20 active:scale-95"

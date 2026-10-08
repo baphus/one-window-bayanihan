@@ -68,8 +68,8 @@ class ReferralClientRequestHistoryTest extends TestCase
                 'canCreate' => false,
                 'canReply' => false,
                 'canTransition' => false,
-                'canRevokeAccess' => true,
-            ]));
+                'canRevokeAccess' => false,
+            ])->where('clientRequestHistory', []));
     }
 
     public function test_show_withholds_client_request_write_permissions_when_case_is_closed(): void

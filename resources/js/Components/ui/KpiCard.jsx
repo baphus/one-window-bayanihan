@@ -1,4 +1,4 @@
-export default function KpiCard({ title, value, accent, suffix = '', icon, trend, description, iconBg = 'bg-blue-50', iconColor = 'text-blue-900' }) {
+export default function KpiCard({ title, value, accent, suffix = '', icon, trend, description, iconBg = 'bg-primary-fixed', iconColor = 'text-primary' }) {
   const iconWrapper = icon && typeof icon === 'string' ? (
     <span className={`p-1.5 rounded-lg ${iconBg}`}>
       <span className={`material-symbols-outlined text-lg ${iconColor}`}>{icon}</span>
@@ -16,7 +16,7 @@ export default function KpiCard({ title, value, accent, suffix = '', icon, trend
         </div>
         <h3 className="text-2xl font-black text-slate-900">{value}</h3>
         {trend && (
-          <span className="mt-1.5 text-[11px] font-bold text-blue-900 bg-blue-50 px-1.5 py-0.5 rounded self-start">
+          <span className="mt-1.5 text-[11px] font-bold text-primary bg-primary-fixed px-1.5 py-0.5 rounded self-start">
             {trend}
           </span>
         )}
