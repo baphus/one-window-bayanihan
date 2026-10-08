@@ -278,8 +278,8 @@
 | LEGAL-012 | Cloud infrastructure with security, privacy, governance satisfied | Render, Supabase, Supabase Storage | ✅ |
 | LEGAL-013 | Formal provider approval as part of deployment governance | Vendor selection documented | 🟡 Partial |
 | LEGAL-014 | Risk assessment + privacy governance review for cloud adoption | PIA required before production | 🔴 |
-| LEGAL-015 | Defined security responsibilities across all infrastructure layers | ARCHITECTURE.md defines boundaries | ✅ |
-| LEGAL-016 | Cloud dependencies documented as operational assumptions | ARCHITECTURE.md §9 | ✅ |
+| LEGAL-015 | Defined security responsibilities across all infrastructure layers | ARCHITECTURE_v2.2.0.md defines boundaries | ✅ |
+| LEGAL-016 | Cloud dependencies documented as operational assumptions | ARCHITECTURE_v2.2.0.md §9 | ✅ |
 
 ### 4.4 Cross-Border Processing & International Data Governance (§6.1.4)
 
@@ -313,8 +313,8 @@
 
 | ID | Requirement | Implementation | Status |
 |---|---|---|---|
-| LEGAL-030 | Infrastructure documented for review, audit, procurement evaluation | ARCHITECTURE.md §9, DEPLOYMENT_GUIDE.md | ✅ |
-| LEGAL-031 | Security controls, vendor dependencies, constraints documented | ARCHITECTURE.md + SECURITY_REQUIREMENTS.md | ✅ |
+| LEGAL-030 | Infrastructure documented for review, audit, procurement evaluation | ARCHITECTURE_v2.2.0.md §9, DEPLOYMENT_GUIDE_v3.1.0.md | ✅ |
+| LEGAL-031 | Security controls, vendor dependencies, constraints documented | ARCHITECTURE_v2.2.0.md + SECURITY_REQUIREMENTS_v2.2.0.md | ✅ |
 | LEGAL-032 | Technology decisions preserve maintainability, auditability | Laravel + React + Inertia standard stack | ✅ |
 
 ### 4.8 AI Governance Requirements (§6.1.8) — If Enabled
@@ -411,7 +411,7 @@
 | DB-035 | Provider usage subject to organizational security governance | Vendor documentation | 🟡 Partial |
 | DB-036 | Provider admin exposure treated as controlled risk | Administrative access tracking | 🟡 Partial |
 | DB-037 | Sensitive data not unnecessarily exposed through vendor tooling | Data minimization principle | ✅ |
-| DB-038 | Managed DB dependencies documented as architectural constraints | ARCHITECTURE.md §9 | ✅ |
+| DB-038 | Managed DB dependencies documented as architectural constraints | ARCHITECTURE_v2.2.0.md §9 | ✅ |
 
 ### 5.10 Reporting Data Controls (§6.2.10)
 

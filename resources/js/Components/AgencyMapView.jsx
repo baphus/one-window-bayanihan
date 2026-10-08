@@ -56,5 +56,3 @@ export default function AgencyMapView({
     <p className="text-sm text-slate-500">No location set</p>
   );
 }
-
-export { getMapLinkUrl };

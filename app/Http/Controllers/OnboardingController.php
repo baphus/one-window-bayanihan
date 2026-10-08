@@ -23,7 +23,7 @@ class OnboardingController extends Controller
      */
     public function skip(Request $request): JsonResponse
     {
-        $this->service->skipOnboarding($request->user());
+        $this->service->markOnboardingComplete($request->user());
 
         return response()->json(['ok' => true]);
     }
@@ -111,7 +111,7 @@ class OnboardingController extends Controller
      */
     public function skipProfile(Request $request)
     {
-        $this->service->skipProfile($request->user());
+        $this->service->markProfileComplete($request->user());
 
         return redirect()->back()->with('success', 'Profile setup skipped.');
     }

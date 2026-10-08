@@ -2,6 +2,7 @@
 
 namespace App\Services\Export;
 
+use App\Casts\EncryptedString;
 use App\Models\CaseFile;
 use App\Models\Client;
 use App\Models\ClientAddress;
@@ -9,10 +10,9 @@ use App\Models\ClientEmployment;
 use App\Models\NextOfKin;
 use App\Models\User;
 use App\Services\AddressNameResolver;
+use App\Support\CategoryFilter;
 use Carbon\CarbonImmutable;
-use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -26,10 +26,7 @@ class DataExportQueries
     /** @return array<int, string> */
     private function categoryFilterIds(array $filters): array
     {
-        $ids = ! empty($filters['category_ids']) ? $filters['category_ids'] : ($filters['category_id'] ?? []);
-        $ids = is_array($ids) ? $ids : ($ids === '' || $ids === null ? [] : [$ids]);
-
-        return array_values(array_unique(array_filter($ids, static fn ($id) => $id !== null && $id !== '')));
+        return CategoryFilter::fromArray($filters)->ids();
     }
 
     /**
@@ -68,12 +65,7 @@ class DataExportQueries
             return $value;
         }
 
-        try {
-            return Crypt::decryptString($value);
-        } catch (DecryptException) {
-            // Value is already plaintext (pre-encryption migration data)
-            return $value;
-        }
+        return EncryptedString::decrypt($value);
     }
 
     private function isAdmin(?User $user): bool

@@ -42,14 +42,6 @@ class OnboardingService
     }
 
     /**
-     * Skip onboarding tour (same as mark complete).
-     */
-    public function skipOnboarding(User $user): void
-    {
-        $this->markOnboardingComplete($user);
-    }
-
-    /**
      * Update the current onboarding step for a user.
      * Pass null to reset the step counter.
      */
@@ -244,13 +236,5 @@ class OnboardingService
         $user->update([
             'profile_completed_at' => now(),
         ]);
-    }
-
-    /**
-     * Skip the profile info prompt (marks complete without filling).
-     */
-    public function skipProfile(User $user): void
-    {
-        $this->markProfileComplete($user);
     }
 }

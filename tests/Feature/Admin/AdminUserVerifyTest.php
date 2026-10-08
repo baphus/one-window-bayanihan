@@ -111,17 +111,14 @@ class AdminUserVerifyTest extends TestCase
         $newEmail = 'changed-'.$target->email;
 
         // Mock OtpService so we don't need real cache/session persistence
-        $this->mock(OtpService::class, function ($mock) use ($newEmail) {
-            $mock->shouldReceive('generate')
-                ->once()
-                ->with($newEmail, 'admin_email_change', \Mockery::any())
-                ->andReturn('123456');
-
-            $mock->shouldReceive('verify')
-                ->once()
-                ->with($newEmail, 'admin_email_change', '123456', \Mockery::any())
-                ->andReturn(true);
-        });
+        $otp = $this->createMock(OtpService::class);
+        $otp->expects($this->once())->method('generate')
+            ->with($newEmail, 'admin_email_change', $this->anything())
+            ->willReturn('123456');
+        $otp->expects($this->once())->method('verify')
+            ->with($newEmail, 'admin_email_change', '123456', $this->anything())
+            ->willReturn(true);
+        $this->app->instance(OtpService::class, $otp);
 
         // Step 1: Send OTP
         $this->actingAs($this->admin)

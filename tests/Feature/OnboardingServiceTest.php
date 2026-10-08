@@ -58,7 +58,7 @@ class OnboardingServiceTest extends TestCase
         ]);
 
         $service = app(OnboardingService::class);
-        $service->skipOnboarding($user);
+        $service->markOnboardingComplete($user);
         $user->refresh();
 
         $this->assertNotNull($user->onboarding_completed_at);

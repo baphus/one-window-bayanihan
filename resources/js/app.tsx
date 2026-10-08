@@ -9,7 +9,7 @@ import ErrorBoundary from '@/Components/ErrorBoundary';
 import ToastProvider from '@/Components/ToastProvider';
 import OnboardingProvider from '@/Onboarding/OnboardingProvider';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { initSentry, pageRequestId } from '@/sentry';
+import { initSentry } from '@/sentry';
 
 const globalWithReactRoots = globalThis as typeof globalThis & {
     __oneWindowReactRoots?: WeakMap<HTMLElement, ReturnType<typeof createRoot>>;
@@ -31,7 +31,8 @@ const queryClient = new QueryClient({
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
 function syncSentryPageContext(props: Record<string, unknown>): void {
-    const requestId = pageRequestId(props.request_id);
+    const rawRequestId = props.request_id;
+    const requestId = typeof rawRequestId === 'string' && rawRequestId.length > 0 ? rawRequestId : undefined;
     if (requestId) {
         Sentry.setTag('request_id', requestId);
     }
@@ -128,7 +129,7 @@ createInertiaApp({
             reactRoots.set(el, root);
         }
         root.render(
-            <ErrorBoundary requestId={pageRequestId(props.initialPage.props.request_id)}>
+            <ErrorBoundary requestId={typeof props.initialPage.props.request_id === 'string' && (props.initialPage.props.request_id as string).length > 0 ? (props.initialPage.props.request_id as string) : undefined}>
                 <AppWithOnboarding App={App} appProps={props} />
             </ErrorBoundary>,
         );

@@ -39,7 +39,6 @@ vi.mock('@sentry/react', () => ({
 
 vi.mock('@/sentry', () => ({
     initSentry: vi.fn(),
-    pageRequestId: vi.fn((value) => value ?? null),
 }));
 
 vi.mock('@/Components/ToastProvider', () => ({

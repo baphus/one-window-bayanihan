@@ -4,15 +4,13 @@ namespace App\Services;
 
 class AddressNameResolver
 {
-    private static ?array $nameByCode = null;
-
     public function resolve(?string $value): string
     {
         if ($value === null || $value === '') {
             return '';
         }
 
-        return self::nameByCode()[$value] ?? $value;
+        return app(PhilippineAddressService::class)->resolveNames([$value])[$value] ?? $value;
     }
 
     public function format(?string $street, ?string $barangay, ?string $municipality, ?string $province, ?string $region): string

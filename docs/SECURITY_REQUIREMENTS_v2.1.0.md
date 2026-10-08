@@ -165,7 +165,7 @@ Layer 6: Data Protection (PII encryption, audit logging, RLS)
 - **Observer:** `AuditObserver` on 10 models for automatic CREATE/UPDATE/DELETE logging
 - **Manual:** Login/logout explicitly logged in auth handlers
 
-See [AUDIT_STRATEGY.md](AUDIT_STRATEGY.md) for full audit design.
+See [AUDIT_STRATEGY_v2.2.0.md](AUDIT_STRATEGY_v2.2.0.md) for full audit design.
 
 ## 8. Error Handling & Monitoring
 

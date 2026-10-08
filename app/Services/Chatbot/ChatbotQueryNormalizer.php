@@ -21,7 +21,7 @@ class ChatbotQueryNormalizer
      * 4. Collapse multiple whitespace into single space
      * 5. Strip control characters (keep newlines as spaces)
      */
-    public function normalize(string $input): string
+    public static function normalize(string $input): string
     {
         $text = trim($input);
 
@@ -38,38 +38,5 @@ class ChatbotQueryNormalizer
         $text = preg_replace('/\s+/u', ' ', $text);
 
         return trim($text);
-    }
-
-    /**
-     * Extract search keywords: strip common filler words that add noise to
-     * retrieval but keep domain-specific terms.
-     *
-     * This is NOT a stop-word removal — it only removes the most generic
-     * English/Filipino filler that every query contains.
-     */
-    public function extractKeywords(string $normalizedMessage): string
-    {
-        $filler = [
-            'ang', 'ng', 'mga', 'sa', 'na', 'pa', 'po', 'ba', 'ka',
-            'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been',
-            'do', 'does', 'did', 'have', 'has', 'had', 'will', 'would',
-            'can', 'could', 'should', 'may', 'might', 'shall',
-            'i', 'you', 'he', 'she', 'it', 'we', 'they',
-            'my', 'your', 'his', 'her', 'its', 'our', 'their',
-            'me', 'him', 'us', 'them',
-            'this', 'that', 'these', 'those',
-            'what', 'which', 'who', 'whom', 'whose',
-            'how', 'when', 'where', 'why',
-            'please', 'tell', 'show', 'give', 'help', 'know',
-        ];
-
-        $words = preg_split('/\s+/u', $normalizedMessage, -1, PREG_SPLIT_NO_EMPTY);
-        if ($words === false) {
-            return $normalizedMessage;
-        }
-
-        $keywords = array_filter($words, fn (string $w) => ! in_array($w, $filler, true));
-
-        return $keywords !== [] ? implode(' ', $keywords) : $normalizedMessage;
     }
 }

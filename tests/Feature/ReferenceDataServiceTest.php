@@ -4,12 +4,12 @@ namespace Tests\Feature;
 
 use App\Models\Agency;
 use App\Models\User;
-use App\Services\DefaultAgencyService;
+use App\Services\ReferenceDataService;
 use Database\Seeders\AgencySeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-class DefaultAgencyServiceTest extends TestCase
+class ReferenceDataServiceTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -21,7 +21,7 @@ class DefaultAgencyServiceTest extends TestCase
 
     public function test_get_default_agency_returns_dmw(): void
     {
-        $service = app(DefaultAgencyService::class);
+        $service = app(ReferenceDataService::class);
         $default = $service->getDefaultAgency();
 
         $this->assertNotNull($default);
@@ -30,7 +30,7 @@ class DefaultAgencyServiceTest extends TestCase
 
     public function test_assign_default_agency_sets_agcy_id(): void
     {
-        $service = app(DefaultAgencyService::class);
+        $service = app(ReferenceDataService::class);
         $user = User::factory()->create(['agcy_id' => null]);
 
         $result = $service->assignDefaultAgency($user);
@@ -42,7 +42,7 @@ class DefaultAgencyServiceTest extends TestCase
 
     public function test_assign_default_agency_does_not_overwrite(): void
     {
-        $service = app(DefaultAgencyService::class);
+        $service = app(ReferenceDataService::class);
         $agency = Agency::where('slug', 'owwa')->first();
         $user = User::factory()->create(['agcy_id' => $agency->id]);
 

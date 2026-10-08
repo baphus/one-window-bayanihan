@@ -1,5 +1,3 @@
-import clsx from 'clsx';
-
 const colors = {
   standard: 'border-slate-200 bg-slate-50 text-slate-600',
   intervention: 'border-purple-200 bg-purple-50 text-purple-700',
@@ -20,11 +18,9 @@ function normalizeType(type) {
 export default function TypeBadge({ type, size = 'sm' }) {
   const normalizedType = normalizeType(type);
 
-  const classes = clsx(
-    'inline-flex items-center gap-1 rounded-[2px] border font-extrabold uppercase tracking-wide',
-    sizes[size] ?? sizes.sm,
-    colors[normalizedType] ?? colors.DEFAULT
-  );
+  const classes =
+    'inline-flex items-center gap-1 rounded-[2px] border font-extrabold uppercase tracking-wide ' +
+    `${sizes[size] ?? sizes.sm} ${colors[normalizedType] ?? colors.DEFAULT}`;
 
   return (
     <span className={classes}>

@@ -133,17 +133,17 @@ class ReferralDocumentUploadTest extends TestCase
         $admin = User::factory()->create(['role' => 'ADMIN']);
 
         // Simulate an object-storage failure for a file that passes validation.
-        $this->mock(StorageService::class, function ($mock) {
-            $mock->shouldReceive('store')->andReturn(new FileStoreResult(
-                path: '',
-                originalName: 'document.pdf',
-                storedName: '',
-                type: 'application/pdf',
-                size: 2048,
-                success: false,
-                error: 'Storage error: simulated outage.',
-            ));
-        });
+        $storage = $this->createMock(StorageService::class);
+        $storage->method('store')->willReturn(new FileStoreResult(
+            path: '',
+            originalName: 'document.pdf',
+            storedName: '',
+            type: 'application/pdf',
+            size: 2048,
+            success: false,
+            error: 'Storage error: simulated outage.',
+        ));
+        $this->app->instance(StorageService::class, $storage);
 
         // A fresh case with no existing referral to the target agency.
         $case = CaseFile::factory()->create([

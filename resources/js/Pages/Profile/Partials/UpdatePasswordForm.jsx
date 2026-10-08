@@ -1,6 +1,6 @@
 import InputLabel from '@/Components/InputLabel';
 import PrimaryButton from '@/Components/PrimaryButton';
-import Section from '@/Components/Section';
+import { CardSection as Section } from '@/Components/ui/CardSection';
 import PasswordInput from '@/Components/PasswordInput';
 import { Transition } from '@headlessui/react';
 import { useForm, usePage } from '@inertiajs/react';

@@ -6,7 +6,6 @@ use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\User;
 use App\Services\MaintenanceService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Mockery;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -50,10 +49,10 @@ class MaintenanceTest extends TestCase
     #[Test]
     public function test_toggle_maintenance_mode(): void
     {
-        $this->app->instance(MaintenanceService::class, Mockery::mock(MaintenanceService::class, function ($mock) {
-            $mock->shouldReceive('getStatus')->once()->andReturn(['active' => false, 'secret' => null, 'retry' => null, 'since' => null]);
-            $mock->shouldReceive('enable')->once()->with('bypass123', 60);
-        }));
+        $mock = $this->createMock(MaintenanceService::class);
+        $mock->expects($this->once())->method('getStatus')->willReturn(['active' => false, 'secret' => null, 'retry' => null, 'since' => null]);
+        $mock->expects($this->once())->method('enable')->with('bypass123', 60);
+        $this->app->instance(MaintenanceService::class, $mock);
 
         $response = $this->actingAs($this->admin)
             ->withHeader('X-Inertia', 'true')
@@ -65,10 +64,10 @@ class MaintenanceTest extends TestCase
         $response->assertStatus(409);
         $response->assertHeader('X-Inertia-Location', '/');
 
-        $this->app->instance(MaintenanceService::class, Mockery::mock(MaintenanceService::class, function ($mock) {
-            $mock->shouldReceive('getStatus')->once()->andReturn(['active' => true, 'secret' => 'bypass123', 'retry' => 60, 'since' => now()->toDateTimeString()]);
-            $mock->shouldReceive('disable')->once();
-        }));
+        $mock = $this->createMock(MaintenanceService::class);
+        $mock->expects($this->once())->method('getStatus')->willReturn(['active' => true, 'secret' => 'bypass123', 'retry' => 60, 'since' => now()->toDateTimeString()]);
+        $mock->expects($this->once())->method('disable');
+        $this->app->instance(MaintenanceService::class, $mock);
 
         $response = $this->actingAs($this->admin)->post(route('admin.system.maintenance.toggle'));
 

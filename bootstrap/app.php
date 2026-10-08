@@ -13,7 +13,6 @@ use App\Http\Middleware\SetPostgresSession;
 use App\Http\Middleware\StripRedirectResponseBody;
 use App\Http\Middleware\VerifyTurnstile;
 use App\Http\Middleware\VerifyTurnstileSession;
-use App\Services\IncidentIdService;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Application;
@@ -25,6 +24,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\ViewErrorBag;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
+use Ramsey\Uuid\Uuid;
 use Sentry\Laravel\Integration;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\HttpException;
@@ -171,7 +171,7 @@ return Application::configure(basePath: dirname(__DIR__))
                 return null;
             }
 
-            $incidentId = IncidentIdService::generateId();
+            $incidentId = method_exists(Uuid::class, 'uuid7') ? Uuid::uuid7()->toString() : Str::uuid()->toString();
             Log::error('Unhandled exception', [
                 'incident_id' => $incidentId,
                 'exception' => $e,

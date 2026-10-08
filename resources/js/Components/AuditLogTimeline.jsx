@@ -1,18 +1,8 @@
 import { useMemo } from 'react';
-import { formatDisplayDateTime } from '@/lib/utils';
+import { formatDisplayDateTime, getCaseAgeInDays } from '@/lib/utils';
 import { getActivityType, getEntityLabel } from '@/lib/audit';
 import AuditLogCard from '@/Components/AuditLogCard';
 import UnifiedTimeline from '@/Components/Timeline';
-
-/**
- * Calculate days elapsed since a given timestamp.
- */
-function daysAgo(timestamp) {
-    const now = new Date();
-    const then = new Date(timestamp);
-    const diffMs = now.getTime() - then.getTime();
-    return Math.max(1, Math.round(diffMs / (1000 * 60 * 60 * 24)));
-}
 
 /**
  * AuditLogTimeline — flat card-based activity feed for client detail pages.
@@ -40,7 +30,7 @@ export default function AuditLogTimeline({ logs = [], client = null }) {
                 changes: Array.isArray(log.changes) ? log.changes : [],
                 actorName: log.actor || '',
                 caseNo: client?.caseFile?.case_number || null,
-                daysSince: daysAgo(timestamp),
+                daysSince: Math.max(1, getCaseAgeInDays(timestamp)),
             };
         });
     }, [logs, client]);

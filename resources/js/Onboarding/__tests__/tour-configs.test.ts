@@ -2,15 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { caseManagerTour } from '../configs/caseManager';
 import { agencyTour } from '../configs/agency';
 import { adminTour } from '../configs/admin';
-import { getTourConfig } from '../index';
 
 describe('Tour configs — role-specific structure', () => {
-    it('getTourConfig returns correct config per role', () => {
-        expect(getTourConfig('CASE_MANAGER')).toBe(caseManagerTour);
-        expect(getTourConfig('AGENCY')).toBe(agencyTour);
-        expect(getTourConfig('ADMIN')).toBe(adminTour);
-        expect(getTourConfig('UNKNOWN')).toBeNull();
-    });
 
     it('all configs target data-tour="dashboard-header" in first step', () => {
         for (const config of [caseManagerTour, agencyTour, adminTour]) {

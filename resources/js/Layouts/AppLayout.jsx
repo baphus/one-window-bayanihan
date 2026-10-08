@@ -7,7 +7,9 @@ import WelcomeModal from '@/Components/WelcomeModal';
 import TourManager from '@/Onboarding/TourManager';
 import { useOnboarding } from '@/Onboarding/OnboardingProvider';
 import { skipOnboarding } from '@/Onboarding/api';
-import { getTourConfig } from '@/Onboarding/index';
+import { caseManagerTour } from '@/Onboarding/configs/caseManager';
+import { agencyTour } from '@/Onboarding/configs/agency';
+import { adminTour } from '@/Onboarding/configs/admin';
 import { parseStepKey } from '@/Onboarding/types';
 import useChecklistVisitTracking from '@/Onboarding/useChecklistVisitTracking';
 import useAutoPageGuide from '@/Onboarding/useAutoPageGuide';
@@ -25,7 +27,7 @@ export default function AppLayout({ title, children }) {
   // Saved welcome-tour position ("<pageIndex>:<stepIndex>"), validated
   // against the role's config bounds. Corrupt or legacy keys resolve to
   // null and the modal falls back to a fresh Start Tour.
-  const tourConfig = getTourConfig(auth.user?.role);
+  const tourConfig = { CASE_MANAGER: caseManagerTour, AGENCY: agencyTour, ADMIN: adminTour }[auth.user?.role] ?? null;
   const savedPosition = parseStepKey(onboarding?.step, tourConfig);
 
   useChecklistVisitTracking();

@@ -6,6 +6,7 @@ use App\Http\Middleware\ContentSecurityPolicy;
 use App\Http\Middleware\SecurityHeaders;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Log\Logger;
 use Illuminate\Support\Facades\Log;
 use Tests\TestCase;
 
@@ -60,11 +61,15 @@ class ScannerHardeningTest extends TestCase
 
     public function test_browser_reporting_api_batches_are_recorded(): void
     {
-        Log::shouldReceive('withContext')->andReturnSelf();
-        Log::shouldReceive('debug')->once()->withArgs(fn ($message, $context) => $message === 'CSP violation reported'
-            && $context['blocked_uri'] === 'inline'
-            && $context['effective_directive'] === 'script-src-elem'
-        );
+        $logger = $this->createMock(Logger::class);
+        $logger->method('withContext')->willReturn($logger);
+        $logger->expects($this->once())->method('debug')
+            ->with(
+                $this->callback(fn ($message) => $message === 'CSP violation reported'),
+                $this->callback(fn ($context) => $context['blocked_uri'] === 'inline'
+                    && $context['effective_directive'] === 'script-src-elem')
+            );
+        Log::swap($logger);
         $this->call('POST', '/api/csp/report', [], [], [], ['CONTENT_TYPE' => 'application/reports+json'], json_encode([
             ['type' => 'csp-violation', 'body' => ['blockedURL' => 'inline', 'effectiveDirective' => 'script-src-elem']],
             ['type' => 'unrelated', 'body' => []],
@@ -73,8 +78,14 @@ class ScannerHardeningTest extends TestCase
 
     public function test_legacy_browser_reports_are_still_recorded(): void
     {
-        Log::shouldReceive('withContext')->andReturnSelf();
-        Log::shouldReceive('debug')->once()->withArgs(fn ($message, $context) => $context['blocked_uri'] === 'inline');
+        $logger = $this->createMock(Logger::class);
+        $logger->method('withContext')->willReturn($logger);
+        $logger->expects($this->once())->method('debug')
+            ->with(
+                $this->anything(),
+                $this->callback(fn ($context) => $context['blocked_uri'] === 'inline')
+            );
+        Log::swap($logger);
         $this->call('POST', '/api/csp/report', [], [], [], ['CONTENT_TYPE' => 'application/csp-report'], json_encode([
             'csp-report' => ['blocked-uri' => 'inline'],
         ]))->assertNoContent();

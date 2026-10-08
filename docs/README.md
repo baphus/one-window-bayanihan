@@ -27,8 +27,7 @@ Companion `.docx` files are noted inline next to their Markdown twin.
   current guidance.
 
 **Versioning policy:** a revised document is written as `NAME_vX.Y.Z.md` and the previous file is
-kept in place, marked SUPERSEDED here. Unversioned legacy copies predate that policy and are
-superseded by every numbered version of the same document. The highest version always wins.
+kept in place, marked SUPERSEDED here. Unversioned legacy copies were removed 2026-10-08; only numbered versions are retained. The highest version always wins.
 
 ## Documentation Index
 
@@ -37,7 +36,8 @@ superseded by every numbered version of the same document. The highest version a
 | Document | Status | Description |
 |----------|--------|-------------|
 | [PROJECT_RULES_v2.1.0.md](PROJECT_RULES_v2.1.0.md) | CURRENT | Domain/business constraints, role rules, coding conventions, and the platform-neutrality rule |
-| [PROJECT_RULES.md](PROJECT_RULES.md) | SUPERSEDED | Unversioned original of the rules above; use `PROJECT_RULES_v2.1.0.md` |
+| Document | Status | Description |
+|----------|--------|-------------|
 | [UI_PATTERNS.md](UI_PATTERNS.md) | CURRENT | Design system, component library, and layout patterns derived from SRS §A3.1/A6.5 (2026-05-28) |
 | [STAGING_DATA_v1.0.0.md](STAGING_DATA_v1.0.0.md) | CURRENT | Deterministic six-month staging demo dataset — how `StagingSeeder` builds, guards, and verifies it |
 | [agents/domain.md](agents/domain.md) | CURRENT | Agent guidance for deriving domain vocabulary; notes that `CONTEXT.md` and `docs/adr/` are not yet present |
@@ -50,7 +50,7 @@ superseded by every numbered version of the same document. The highest version a
 |----------|--------|-------------|
 | [ARCHITECTURE_v2.2.0.md](ARCHITECTURE_v2.2.0.md) | CURRENT | System design â€” request flow, middleware stack, service/controller layering, deployment topology, data flow |
 | [ARCHITECTURE_v2.1.0.md](ARCHITECTURE_v2.1.0.md) | SUPERSEDED | Previous revision of the architecture document |
-| [ARCHITECTURE.md](ARCHITECTURE.md) | SUPERSEDED | Unversioned original (v2.0.0); retained as history |
+| [ARCHITECTURE_v2.1.0.md](ARCHITECTURE_v2.1.0.md) | SUPERSEDED | Previous revision of the architecture document |
 | [ARCHITECTURE_DIAGRAM_v9.6.0.md](ARCHITECTURE_DIAGRAM_v9.6.0.md) | CURRENT | High-level system architecture diagram for reviewers â€” the single current copy (earlier drafts removed) |
 | [FRONTEND_ARCHITECTURE_v1.0.0.md](FRONTEND_ARCHITECTURE_v1.0.0.md) | CURRENT | React/Inertia app shell, providers, page inventory, and frontend module rules |
 
@@ -73,10 +73,10 @@ superseded by every numbered version of the same document. The highest version a
 |----------|--------|-------------|
 | [SECURITY_REQUIREMENTS_v2.2.0.md](SECURITY_REQUIREMENTS_v2.2.0.md) | CURRENT | Auth flow, RBAC, MFA, CSP, rate limiting (reconciled to code truth), and encryption requirements |
 | [SECURITY_REQUIREMENTS_v2.1.0.md](SECURITY_REQUIREMENTS_v2.1.0.md) | SUPERSEDED | Previous revision of the security requirements |
-| [SECURITY_REQUIREMENTS.md](SECURITY_REQUIREMENTS.md) | SUPERSEDED | Unversioned original; retained as history |
+| [SECURITY_REQUIREMENTS_v2.1.0.md](SECURITY_REQUIREMENTS_v2.1.0.md) | SUPERSEDED | Previous revision of the security requirements |
 | [AUDIT_STRATEGY_v2.2.0.md](AUDIT_STRATEGY_v2.2.0.md) | CURRENT | Audit log design â€” append-only enforcement, hash chain, categories, export self-logging, retention and archive |
 | [AUDIT_STRATEGY_v2.1.0.md](AUDIT_STRATEGY_v2.1.0.md) | SUPERSEDED | Previous revision of the audit strategy |
-| [AUDIT_STRATEGY.md](AUDIT_STRATEGY.md) | SUPERSEDED | Unversioned original; retained as history |
+| [AUDIT_STRATEGY_v2.1.0.md](AUDIT_STRATEGY_v2.1.0.md) | SUPERSEDED | Previous revision of the audit strategy |
 | [ROLES_AND_PERMISSIONS_v1.0.0.md](ROLES_AND_PERMISSIONS_v1.0.0.md) | CURRENT | Role model, `CheckRole`/`IpWhitelist`/MFA gates, and the route matrix â€” verified against source code |
 | [MFA_LOGIN_CHALLENGE.md](MFA_LOGIN_CHALLENGE.md) | CURRENT | TOTP/recovery MFA challenge flow at `/login/mfa`. Corrected: there is no `MFA_LOGIN_CHALLENGE_ENABLED` flag â€” the challenge runs for any enrolled user whose role passes `User::isInMfaEnforcedRole()` (all roles in production); enrollment is enforced separately via `config/mfa.php` |
 
@@ -86,8 +86,7 @@ superseded by every numbered version of the same document. The highest version a
 |----------|--------|-------------|
 | [TESTING_STRATEGY_v2.1.0.md](TESTING_STRATEGY_v2.1.0.md) | CURRENT | Test approach, focused commands, and coverage expectations (234 PHPUnit test files: 216 Feature / 18 Unit) |
 | [TESTING_STRATEGY_v2.0.1.md](TESTING_STRATEGY_v2.0.1.md) | SUPERSEDED | Previous revision of the testing strategy |
-| [TESTING_STRATEGY.md](TESTING_STRATEGY.md) | SUPERSEDED | Unversioned original; retained as history |
-| [MANUAL_QA_TEST_CASES.md](MANUAL_QA_TEST_CASES.md) (v1.0.1) | CURRENT | Manual QA script for Case Manager/Agency/Admin flows (auth, dashboards, cases, referrals, exports) |
+| [TESTING_STRATEGY_v2.0.1.md](TESTING_STRATEGY_v2.0.1.md) | SUPERSEDED | Previous revision of the testing strategy |
 | [MANUAL_QA_TEST_CASES_EXPORTS_v1.0.0.md](MANUAL_QA_TEST_CASES_EXPORTS_v1.0.0.md) | CURRENT | Addendum covering the rebuilt report exports â€” limits, small-cell suppression, and the export audit trail |
 
 ### Deployment
@@ -96,16 +95,13 @@ superseded by every numbered version of the same document. The highest version a
 |----------|--------|-------------|
 | [DEPLOYMENT_GUIDE_v3.1.0.md](DEPLOYMENT_GUIDE_v3.1.0.md) | CURRENT | Platform capability contract, environment matrix, deployment models, migration policy, scaling, rollback |
 | [DEPLOYMENT_GUIDE_v3.0.0.md](DEPLOYMENT_GUIDE_v3.0.0.md) | SUPERSEDED | Previous revision of the deployment guide |
-| [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) | SUPERSEDED | Unversioned original; retained as history |
 | [CI_CD_GUIDE_v2.1.0.md](CI_CD_GUIDE_v2.1.0.md) | CURRENT | CI stages and the provider-agnostic deploy-trigger contract, verified against the four workflows |
 | [CI_CD_GUIDE_v2.0.0.md](CI_CD_GUIDE_v2.0.0.md) | SUPERSEDED | Previous revision of the CI/CD guide |
 | [CI_CD_GUIDE.md](CI_CD_GUIDE.md) | SUPERSEDED | Unversioned original; retained as history |
 | [DEPLOYMENT_PRODUCTION_AWS_v1.6.0.md](DEPLOYMENT_PRODUCTION_AWS_v1.6.0.md) | CURRENT | Provider-named production runbook (a provider may be named only in the places allowed by `DEPLOYMENT_GUIDE_v3.1.0.md` Â§12) |
 | [DEPLOYMENT_PRODUCTION_AWS_v1.5.0.md](DEPLOYMENT_PRODUCTION_AWS_v1.5.0.md) | SUPERSEDED | Previous revision of the production runbook |
-| [DEPLOYMENT_PRODUCTION_AWS_v1.4.0.md](DEPLOYMENT_PRODUCTION_AWS_v1.4.0.md) | SUPERSEDED | Older revision of the production runbook |
 | [DEPLOYMENT_STAGING_AWS_v1.3.0.md](DEPLOYMENT_STAGING_AWS_v1.3.0.md) | CURRENT | Provider-named staging environment runbook |
 | [DEPLOYMENT_STAGING_AWS_v1.2.0.md](DEPLOYMENT_STAGING_AWS_v1.2.0.md) | SUPERSEDED | Previous revision of the staging runbook |
-| [DEPLOYMENT_STAGING_AWS_v1.1.0.md](DEPLOYMENT_STAGING_AWS_v1.1.0.md) | SUPERSEDED | Older revision of the staging runbook |
 | [DEPLOYMENT_STAGING_AWS_v1.0.0.md](DEPLOYMENT_STAGING_AWS_v1.0.0.md) | SUPERSEDED | Original staging runbook |
 | [DEPLOYMENT_COSTING_v2.0.0.md](DEPLOYMENT_COSTING_v2.0.0.md) | CURRENT | Provider-named deployment cost baseline (point-in-time pricing snapshot, not a live quote). Supersedes v1.0.0: corrects the AI-chatbot row â€” the chatbot uses tool-based article reading, not pgvector retrieval (`2026_09_16_000001_drop_chatbot_embeddings_table.php`, `.env.example:185`) |
 | [DEPLOYMENT_COSTING_v1.0.0.md](DEPLOYMENT_COSTING_v1.0.0.md) (companion `DEPLOYMENT_COSTING_v1.0.0.docx`) | SUPERSEDED | Superseded by v2.0.0 â€” its pgvector claim is wrong; figures otherwise unchanged |
@@ -254,7 +250,7 @@ Dated plans, specs, findings, and records kept for provenance only â€” not 
 - Added: platform-neutrality rule as a project rule (`PROJECT_RULES_v2.1.0.md` Â§9)
 - Fixed: storage configuration documented as `FILESYSTEM_DISK=object-storage` + `STORAGE_*` (the canonical names in `config/filesystems.php`); legacy `SUPABASE_S3_*` keys noted as fallbacks
 - Fixed: index links now point at the current versioned documents; removed the link to the non-existent `FRONTEND.md`
-- Note: superseded unversioned files are retained as history and still contain vendor names; the compliance artefacts under `docs/compliance/` and `docs/management/` intentionally keep named suppliers as audit evidence
+- Note: the superseded unversioned copies (which still contained vendor names) were removed 2026-10-08; the compliance artefacts under `docs/compliance/` and `docs/management/` intentionally keep named suppliers as audit evidence
 
 ### v2.0.0 (2026-07-11)
 - Consolidated from `docs/` + `documentation/` into single source of truth
