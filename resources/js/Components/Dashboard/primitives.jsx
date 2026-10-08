@@ -29,32 +29,22 @@ export function safeArray(value) {
     return Array.isArray(value) ? value.filter((item) => item !== null && item !== undefined) : [];
 }
 
-const TONE_DOTS = {
-    blue: 'bg-primary',
-    amber: 'bg-amber-500',
-    orange: 'bg-orange-500',
-    cyan: 'bg-cyan-600',
-    emerald: 'bg-emerald-600',
-    rose: 'bg-rose-600',
-    slate: 'bg-slate-400',
-};
-
-const TONE_HEX = {
-    blue: '#005288',
-    amber: '#d97706',
-    orange: '#ea580c',
-    cyan: '#0891b2',
-    emerald: '#059669',
-    rose: '#e11d48',
-    slate: '#94a3b8',
+const TONES = {
+    blue: { dot: 'bg-primary', hex: '#005288' },
+    amber: { dot: 'bg-amber-500', hex: '#d97706' },
+    orange: { dot: 'bg-orange-500', hex: '#ea580c' },
+    cyan: { dot: 'bg-cyan-600', hex: '#0891b2' },
+    emerald: { dot: 'bg-emerald-600', hex: '#059669' },
+    rose: { dot: 'bg-rose-600', hex: '#e11d48' },
+    slate: { dot: 'bg-slate-400', hex: '#94a3b8' },
 };
 
 export function toneDot(tone) {
-    return TONE_DOTS[tone] ?? TONE_DOTS.slate;
+    return TONES[tone]?.dot ?? TONES.slate.dot;
 }
 
 export function toneHex(tone) {
-    return TONE_HEX[tone] ?? TONE_HEX.slate;
+    return TONES[tone]?.hex ?? TONES.slate.hex;
 }
 
 export function MaterialSymbol({ name, className = '' }) {
@@ -123,14 +113,30 @@ export function StatRow({ stats, dataTour }) {
     );
 }
 
-export function SectionCard({ title, action, children, dataTour, className = '', bodyClassName = 'p-5' }) {
+export function SectionCard({ title, action, collapsible = false, defaultOpen = false, children, dataTour, className = '', bodyClassName = 'p-5' }) {
+    const [open, setOpen] = useState(defaultOpen);
+
     return (
         <section data-tour={dataTour} className={`rounded-xl border border-slate-200 bg-white shadow-sm ${className}`}>
-            <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-3">
-                <h2 className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-primary">{title}</h2>
-                {action ?? null}
-            </div>
-            <div className={bodyClassName}>{children}</div>
+            {collapsible ? (
+                <button
+                    type="button"
+                    onClick={() => setOpen((o) => !o)}
+                    className="flex w-full items-center justify-between gap-3 border-b border-slate-100 px-5 py-3 text-left transition-colors hover:bg-slate-50/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
+                >
+                    <h2 className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-primary">{title}</h2>
+                    <MaterialSymbol
+                        name="expand_more"
+                        className={`text-[18px] text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`}
+                    />
+                </button>
+            ) : (
+                <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-3">
+                    <h2 className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-primary">{title}</h2>
+                    {action ?? null}
+                </div>
+            )}
+            {collapsible && !open ? null : <div className={bodyClassName}>{children}</div>}
         </section>
     );
 }
@@ -140,23 +146,10 @@ export function SectionCard({ title, action, children, dataTour, className = '',
  * chevron rotates to indicate state. Used for demoted/secondary widgets.
  */
 export function CollapsibleSectionCard({ title, defaultOpen = false, children, dataTour, className = '', bodyClassName = 'p-5' }) {
-    const [open, setOpen] = useState(defaultOpen);
-
     return (
-        <section data-tour={dataTour} className={`rounded-xl border border-slate-200 bg-white shadow-sm ${className}`}>
-            <button
-                type="button"
-                onClick={() => setOpen((o) => !o)}
-                className="flex w-full items-center justify-between gap-3 border-b border-slate-100 px-5 py-3 text-left transition-colors hover:bg-slate-50/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
-            >
-                <h2 className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-primary">{title}</h2>
-                <MaterialSymbol
-                    name="expand_more"
-                    className={`text-[18px] text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`}
-                />
-            </button>
-            {open ? <div className={bodyClassName}>{children}</div> : null}
-        </section>
+        <SectionCard title={title} collapsible defaultOpen={defaultOpen} dataTour={dataTour} className={className} bodyClassName={bodyClassName}>
+            {children}
+        </SectionCard>
     );
 }
 
@@ -236,11 +229,15 @@ export function TriageStrip({ items, dataTour }) {
     );
 }
 
-export function EntityRow({ href, pill, title, note, badges = [], age, right }) {
+/**
+ * Shared pill + title + note + chevron row shell. EntityRow,
+ * PriorityReferralRow, and CaseActivityRow delegate through here.
+ */
+function RowShell({ href, pill, title, titleExtra, notes, right, align = 'center', padY = 'py-3' }) {
     return (
         <Link
             href={href}
-            className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
+            className={`flex ${align === 'start' ? 'items-start' : 'items-center'} gap-3 px-5 ${padY} transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary`}
         >
             <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
@@ -248,15 +245,32 @@ export function EntityRow({ href, pill, title, note, badges = [], age, right }) 
                         <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">{pill}</span>
                     ) : null}
                     <span className="truncate text-sm font-bold text-slate-900">{title}</span>
+                    {titleExtra ?? null}
                 </div>
-                {note ? <p className="mt-0.5 truncate text-xs text-slate-500">{note}</p> : null}
+                {notes}
             </div>
-            <div className="flex shrink-0 items-center gap-2">
+            <div className={`flex shrink-0 items-center gap-2${align === 'start' ? ' pt-0.5' : ''}`}>
                 {right}
-                {age ? <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{age}</span> : null}
                 <MaterialSymbol name="chevron_right" className="text-[16px] text-slate-300" />
             </div>
         </Link>
+    );
+}
+
+export function EntityRow({ href, pill, title, note, badges = [], age, right }) {
+    return (
+        <RowShell
+            href={href}
+            pill={pill}
+            title={title}
+            notes={note ? <p className="mt-0.5 truncate text-xs text-slate-500">{note}</p> : null}
+            right={
+                <>
+                    {right}
+                    {age ? <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{age}</span> : null}
+                </>
+            }
+        />
     );
 }
 
@@ -447,45 +461,39 @@ export function CaseActivityRow({
     }
 
     return (
-        <Link
+        <RowShell
             href={href}
-            className="flex items-start gap-3 px-5 py-3 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
-        >
-            <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                    {caseNumber ? (
-                        <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">
-                            {caseNumber}
+            pill={caseNumber}
+            title={clientName || 'Unnamed client'}
+            titleExtra={category ? (
+                <span className="text-[11px] font-medium text-slate-400">{category}</span>
+            ) : null}
+            notes={
+                <>
+                    {secondaryParts.length > 0 ? (
+                        <p className="mt-0.5 truncate text-xs text-slate-500">
+                            {secondaryParts.join(' · ')}
+                        </p>
+                    ) : null}
+                    {updatedAt ? (
+                        <p className="mt-0.5 text-[11px] text-slate-400">{updatedAt}</p>
+                    ) : null}
+                </>
+            }
+            right={
+                <>
+                    <StatusBadge status={status} />
+                    {slaLabel ? (
+                        <span
+                            className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${slaClasses[slaTone]}`}
+                        >
+                            {slaLabel}
                         </span>
                     ) : null}
-                    <span className="truncate text-sm font-bold text-slate-900">
-                        {clientName || 'Unnamed client'}
-                    </span>
-                    {category ? (
-                        <span className="text-[11px] font-medium text-slate-400">{category}</span>
-                    ) : null}
-                </div>
-                {secondaryParts.length > 0 ? (
-                    <p className="mt-0.5 truncate text-xs text-slate-500">
-                        {secondaryParts.join(' · ')}
-                    </p>
-                ) : null}
-                {updatedAt ? (
-                    <p className="mt-0.5 text-[11px] text-slate-400">{updatedAt}</p>
-                ) : null}
-            </div>
-            <div className="flex shrink-0 items-center gap-2 pt-0.5">
-                <StatusBadge status={status} />
-                {slaLabel ? (
-                    <span
-                        className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${slaClasses[slaTone]}`}
-                    >
-                        {slaLabel}
-                    </span>
-                ) : null}
-                <MaterialSymbol name="chevron_right" className="text-[16px] text-slate-300" />
-            </div>
-        </Link>
+                </>
+            }
+            align="start"
+        />
     );
 }
 
@@ -522,28 +530,18 @@ export function FilterChip({ label, count, active, onClick }) {
  */
 export function PriorityReferralRow({ href, caseNumber, clientName, agencyName, status, ageDays }) {
     return (
-        <Link
+        <RowShell
             href={href}
-            className="flex items-center gap-3 px-5 py-2.5 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
-        >
-            <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                    {caseNumber ? (
-                        <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">
-                            {caseNumber}
-                        </span>
-                    ) : null}
-                    <span className="truncate text-sm font-bold text-slate-900">{clientName || 'Unnamed'}</span>
-                </div>
+            pill={caseNumber}
+            title={clientName || 'Unnamed'}
+            notes={
                 <p className="mt-0.5 truncate text-xs text-slate-500">
                     {[agencyName, ageDays != null ? `${ageDays}d old` : null].filter(Boolean).join(' · ')}
                 </p>
-            </div>
-            <div className="flex shrink-0 items-center gap-2">
-                <StatusBadge status={status} />
-                <MaterialSymbol name="chevron_right" className="text-[16px] text-slate-300" />
-            </div>
-        </Link>
+            }
+            right={<StatusBadge status={status} />}
+            padY="py-2.5"
+        />
     );
 }
 

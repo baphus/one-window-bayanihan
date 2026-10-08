@@ -490,7 +490,7 @@ class ReferralService
         $receivingAgency = $actor->isAgency()
             && $actor->is_active
             && $actor->agcy_id === $referral->agcy_id;
-        $oversight = $actor->isAdmin() || $actor->isCaseManager();
+        $oversight = $actor->isAdmin();
         $writesAllowed = $receivingAgency && $this->clientRequestService->isClientFacingWriteAllowed($referral);
 
         return [

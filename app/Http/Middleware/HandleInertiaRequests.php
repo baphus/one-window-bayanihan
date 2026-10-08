@@ -134,10 +134,10 @@ class HandleInertiaRequests extends Middleware
             ],
             'passwordRules' => function () {
                 return [
-                    'min_length' => (int) config('password.min_length', 8),
-                    'require_mixed_case' => (bool) config('password.require_mixed_case', true),
-                    'require_numbers' => (bool) config('password.require_numbers', true),
-                    'require_symbols' => (bool) config('password.require_symbols', true),
+                    'min_length' => 8,
+                    'require_mixed_case' => true,
+                    'require_numbers' => true,
+                    'require_symbols' => true,
                 ];
             },
         ];

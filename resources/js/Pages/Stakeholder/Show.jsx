@@ -8,7 +8,7 @@ function AgencyLogo({ agency }) {
 
   if (hasError || !agency.logo_url) {
     return (
-      <div className="h-full w-full flex items-center justify-center bg-blue-100 text-blue-900 text-sm font-bold">
+      <div className="h-full w-full flex items-center justify-center bg-primary-fixed text-primary text-sm font-bold">
         {agency.short?.charAt(0)}
       </div>
     );

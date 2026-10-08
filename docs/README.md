@@ -26,8 +26,10 @@ Companion `.docx` files are noted inline next to their Markdown twin.
 - **HISTORICAL-ARCHIVE** â€” dated plans, specs, findings, and records kept for provenance; not
   current guidance.
 
-**Versioning policy:** a revised document is written as `NAME_vX.Y.Z.md` and the previous file is
-kept in place, marked SUPERSEDED here. Unversioned legacy copies were removed 2026-10-08; only numbered versions are retained. The highest version always wins.
+**Versioning policy:** a revised document is written as `NAME_vX.Y.Z.md` and superseded versioned
+copies are removed — only the highest version is kept. Unversioned legacy copies were removed 2026-10-08.
+The highest version always wins. Exception: `DEPLOYMENT_PRODUCTION_AWS_v1.4.0.md` is retained because
+`DEPLOYMENT_COSTING_v2.0.0.md` §1 baselines its line items on v1.4.0 §8.
 
 ## Documentation Index
 
@@ -49,8 +51,6 @@ kept in place, marked SUPERSEDED here. Unversioned legacy copies were removed 20
 | Document | Status | Description |
 |----------|--------|-------------|
 | [ARCHITECTURE_v2.2.0.md](ARCHITECTURE_v2.2.0.md) | CURRENT | System design â€” request flow, middleware stack, service/controller layering, deployment topology, data flow |
-| [ARCHITECTURE_v2.1.0.md](ARCHITECTURE_v2.1.0.md) | SUPERSEDED | Previous revision of the architecture document |
-| [ARCHITECTURE_v2.1.0.md](ARCHITECTURE_v2.1.0.md) | SUPERSEDED | Previous revision of the architecture document |
 | [ARCHITECTURE_DIAGRAM_v9.6.0.md](ARCHITECTURE_DIAGRAM_v9.6.0.md) | CURRENT | High-level system architecture diagram for reviewers â€” the single current copy (earlier drafts removed) |
 | [FRONTEND_ARCHITECTURE_v1.0.0.md](FRONTEND_ARCHITECTURE_v1.0.0.md) | CURRENT | React/Inertia app shell, providers, page inventory, and frontend module rules |
 
@@ -72,11 +72,7 @@ kept in place, marked SUPERSEDED here. Unversioned legacy copies were removed 20
 | Document | Status | Description |
 |----------|--------|-------------|
 | [SECURITY_REQUIREMENTS_v2.2.0.md](SECURITY_REQUIREMENTS_v2.2.0.md) | CURRENT | Auth flow, RBAC, MFA, CSP, rate limiting (reconciled to code truth), and encryption requirements |
-| [SECURITY_REQUIREMENTS_v2.1.0.md](SECURITY_REQUIREMENTS_v2.1.0.md) | SUPERSEDED | Previous revision of the security requirements |
-| [SECURITY_REQUIREMENTS_v2.1.0.md](SECURITY_REQUIREMENTS_v2.1.0.md) | SUPERSEDED | Previous revision of the security requirements |
 | [AUDIT_STRATEGY_v2.2.0.md](AUDIT_STRATEGY_v2.2.0.md) | CURRENT | Audit log design â€” append-only enforcement, hash chain, categories, export self-logging, retention and archive |
-| [AUDIT_STRATEGY_v2.1.0.md](AUDIT_STRATEGY_v2.1.0.md) | SUPERSEDED | Previous revision of the audit strategy |
-| [AUDIT_STRATEGY_v2.1.0.md](AUDIT_STRATEGY_v2.1.0.md) | SUPERSEDED | Previous revision of the audit strategy |
 | [ROLES_AND_PERMISSIONS_v1.0.0.md](ROLES_AND_PERMISSIONS_v1.0.0.md) | CURRENT | Role model, `CheckRole`/`IpWhitelist`/MFA gates, and the route matrix â€” verified against source code |
 | [MFA_LOGIN_CHALLENGE.md](MFA_LOGIN_CHALLENGE.md) | CURRENT | TOTP/recovery MFA challenge flow at `/login/mfa`. Corrected: there is no `MFA_LOGIN_CHALLENGE_ENABLED` flag â€” the challenge runs for any enrolled user whose role passes `User::isInMfaEnforcedRole()` (all roles in production); enrollment is enforced separately via `config/mfa.php` |
 
@@ -85,8 +81,6 @@ kept in place, marked SUPERSEDED here. Unversioned legacy copies were removed 20
 | Document | Status | Description |
 |----------|--------|-------------|
 | [TESTING_STRATEGY_v2.1.0.md](TESTING_STRATEGY_v2.1.0.md) | CURRENT | Test approach, focused commands, and coverage expectations (234 PHPUnit test files: 216 Feature / 18 Unit) |
-| [TESTING_STRATEGY_v2.0.1.md](TESTING_STRATEGY_v2.0.1.md) | SUPERSEDED | Previous revision of the testing strategy |
-| [TESTING_STRATEGY_v2.0.1.md](TESTING_STRATEGY_v2.0.1.md) | SUPERSEDED | Previous revision of the testing strategy |
 | [MANUAL_QA_TEST_CASES_EXPORTS_v1.0.0.md](MANUAL_QA_TEST_CASES_EXPORTS_v1.0.0.md) | CURRENT | Addendum covering the rebuilt report exports â€” limits, small-cell suppression, and the export audit trail |
 
 ### Deployment
@@ -94,17 +88,11 @@ kept in place, marked SUPERSEDED here. Unversioned legacy copies were removed 20
 | Document | Status | Description |
 |----------|--------|-------------|
 | [DEPLOYMENT_GUIDE_v3.1.0.md](DEPLOYMENT_GUIDE_v3.1.0.md) | CURRENT | Platform capability contract, environment matrix, deployment models, migration policy, scaling, rollback |
-| [DEPLOYMENT_GUIDE_v3.0.0.md](DEPLOYMENT_GUIDE_v3.0.0.md) | SUPERSEDED | Previous revision of the deployment guide |
 | [CI_CD_GUIDE_v2.1.0.md](CI_CD_GUIDE_v2.1.0.md) | CURRENT | CI stages and the provider-agnostic deploy-trigger contract, verified against the four workflows |
-| [CI_CD_GUIDE_v2.0.0.md](CI_CD_GUIDE_v2.0.0.md) | SUPERSEDED | Previous revision of the CI/CD guide |
-| [CI_CD_GUIDE.md](CI_CD_GUIDE.md) | SUPERSEDED | Unversioned original; retained as history |
 | [DEPLOYMENT_PRODUCTION_AWS_v1.6.0.md](DEPLOYMENT_PRODUCTION_AWS_v1.6.0.md) | CURRENT | Provider-named production runbook (a provider may be named only in the places allowed by `DEPLOYMENT_GUIDE_v3.1.0.md` Â§12) |
-| [DEPLOYMENT_PRODUCTION_AWS_v1.5.0.md](DEPLOYMENT_PRODUCTION_AWS_v1.5.0.md) | SUPERSEDED | Previous revision of the production runbook |
 | [DEPLOYMENT_STAGING_AWS_v1.3.0.md](DEPLOYMENT_STAGING_AWS_v1.3.0.md) | CURRENT | Provider-named staging environment runbook |
-| [DEPLOYMENT_STAGING_AWS_v1.2.0.md](DEPLOYMENT_STAGING_AWS_v1.2.0.md) | SUPERSEDED | Previous revision of the staging runbook |
-| [DEPLOYMENT_STAGING_AWS_v1.0.0.md](DEPLOYMENT_STAGING_AWS_v1.0.0.md) | SUPERSEDED | Original staging runbook |
+| [DEPLOYMENT_PRODUCTION_AWS_v1.4.0.md](DEPLOYMENT_PRODUCTION_AWS_v1.4.0.md) | SUPERSEDED | Older revision of the production runbook — retained: `DEPLOYMENT_COSTING_v2.0.0.md` §1 baselines its line items on v1.4.0 §8 |
 | [DEPLOYMENT_COSTING_v2.0.0.md](DEPLOYMENT_COSTING_v2.0.0.md) | CURRENT | Provider-named deployment cost baseline (point-in-time pricing snapshot, not a live quote). Supersedes v1.0.0: corrects the AI-chatbot row â€” the chatbot uses tool-based article reading, not pgvector retrieval (`2026_09_16_000001_drop_chatbot_embeddings_table.php`, `.env.example:185`) |
-| [DEPLOYMENT_COSTING_v1.0.0.md](DEPLOYMENT_COSTING_v1.0.0.md) (companion `DEPLOYMENT_COSTING_v1.0.0.docx`) | SUPERSEDED | Superseded by v2.0.0 â€” its pgvector claim is wrong; figures otherwise unchanged |
 
 ### Compliance, quality & requirements evidence
 
@@ -151,10 +139,7 @@ All entries are CURRENT. Named suppliers appear here deliberately as audit evide
 | Document | Status | Description |
 |----------|--------|-------------|
 | [REDIS_INTEGRATION_v2.1.0.md](REDIS_INTEGRATION_v2.1.0.md) | CURRENT | Redis as cache/queue/session backend â€” provisioning criteria and rollout order (status: Implemented) |
-| [REDIS_INTEGRATION_v2.0.0.md](REDIS_INTEGRATION_v2.0.0.md) | SUPERSEDED | Previous revision of the Redis integration guide |
-| [REDIS_INTEGRATION.md](REDIS_INTEGRATION.md) | SUPERSEDED | Unversioned original; retained as history |
 | [EMAIL_DELIVERY_v2.1.0.md](EMAIL_DELIVERY_v2.1.0.md) | CURRENT | Mail domain requirement, SPF/DKIM/DMARC, transport selection, delivery-event tracking, and the webhook endpoint |
-| [EMAIL_DELIVERY_v2.0.0.md](EMAIL_DELIVERY_v2.0.0.md) | SUPERSEDED | Previous revision of the email delivery guide |
 | [EMAIL_DOMAIN_RESEND.md](EMAIL_DOMAIN_RESEND.md) | SUPERSEDED | Tombstoned 2026-09-15 â€” do not use; replaced by `EMAIL_DELIVERY_v2.1.0.md` |
 | [WARD_REMEDIATION_PLAN.md](WARD_REMEDIATION_PLAN.md) | CURRENT | Static-analysis scanner findings and their remediations, plus the standing pre-production checklist |
 

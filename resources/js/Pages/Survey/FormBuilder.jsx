@@ -41,10 +41,10 @@ function QuestionCard({ index, question, errors, onChange, onMoveUp, onMoveDown,
 
   return (
     <article className="rounded-xl border border-slate-200 bg-white shadow-sm">
-      <div className="h-1 rounded-t-xl bg-blue-900/80" />
+      <div className="h-1 rounded-t-xl bg-primary/80" />
       <div className="p-5 sm:p-6">
         <div className="flex items-start gap-4">
-          <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-blue-900 text-sm font-semibold text-white">
+          <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-white">
             {index + 1}
           </div>
 
@@ -60,7 +60,7 @@ function QuestionCard({ index, question, errors, onChange, onMoveUp, onMoveDown,
                   className={`h-10 w-full rounded-md border px-3 py-2 text-sm text-slate-700 outline-none focus:ring-1 ${
                     errors[`questions.${index}.type`]
                       ? 'border-red-400 focus:border-red-500 focus:ring-red-500'
-                      : 'border-slate-300 focus:border-blue-900 focus:ring-blue-900'
+                      : 'border-slate-300 focus:border-primary focus:ring-primary'
                   }`}
                 >
                   {questionTypes.map((type) => (
@@ -86,7 +86,7 @@ function QuestionCard({ index, question, errors, onChange, onMoveUp, onMoveDown,
                   className={`h-10 w-full rounded-md border px-3 text-sm text-slate-700 outline-none focus:ring-1 ${
                     errors[`questions.${index}.label`]
                       ? 'border-red-400 focus:border-red-500 focus:ring-red-500'
-                      : 'border-slate-300 focus:border-blue-900 focus:ring-blue-900'
+                      : 'border-slate-300 focus:border-primary focus:ring-primary'
                   }`}
                 />
                 <InputError message={errors[`questions.${index}.label`]} className="mt-1.5" />
@@ -107,7 +107,7 @@ function QuestionCard({ index, question, errors, onChange, onMoveUp, onMoveDown,
                         onChange={(e) => updateOption(optIndex, e.target.value)}
                         placeholder={`Option ${optIndex + 1}`}
                         maxLength={255}
-                        className="h-9 flex-1 rounded-md border border-slate-300 px-3 text-sm text-slate-700 outline-none focus:border-blue-900 focus:ring-1 focus:ring-blue-900"
+                        className="h-9 flex-1 rounded-md border border-slate-300 px-3 text-sm text-slate-700 outline-none focus:border-primary focus:ring-1 focus:ring-primary"
                       />
                       <button
                         type="button"
@@ -137,7 +137,7 @@ function QuestionCard({ index, question, errors, onChange, onMoveUp, onMoveDown,
                   type="checkbox"
                   checked={question.is_required !== false}
                   onChange={(e) => onChange('is_required', e.target.checked)}
-                  className="h-4 w-4 rounded border-slate-300 text-blue-900 focus:ring-blue-900"
+                  className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary"
                 />
                 Required
               </label>
@@ -309,7 +309,7 @@ export default function FormBuilder({ form, questionTypes, likertLabels }) {
                   placeholder="e.g. Client Satisfaction Survey"
                   maxLength={255}
                   className={`h-10 w-full rounded-md border px-3 text-sm text-slate-700 outline-none focus:ring-1 ${
-                    errors.title ? 'border-red-400 focus:border-red-500 focus:ring-red-500' : 'border-slate-300 focus:border-blue-900 focus:ring-blue-900'
+                    errors.title ? 'border-red-400 focus:border-red-500 focus:ring-red-500' : 'border-slate-300 focus:border-primary focus:ring-primary'
                   }`}
                 />
                 <InputError message={errors.title} className="mt-1.5" />
@@ -327,7 +327,7 @@ export default function FormBuilder({ form, questionTypes, likertLabels }) {
                   maxLength={1000}
                   rows={3}
                   className={`w-full rounded-md border px-3 py-2 text-sm text-slate-700 outline-none focus:ring-1 ${
-                    errors.description ? 'border-red-400 focus:border-red-500 focus:ring-red-500' : 'border-slate-300 focus:border-blue-900 focus:ring-blue-900'
+                    errors.description ? 'border-red-400 focus:border-red-500 focus:ring-red-500' : 'border-slate-300 focus:border-primary focus:ring-primary'
                   }`}
                 />
                 <InputError message={errors.description} className="mt-1.5" />
@@ -375,7 +375,7 @@ export default function FormBuilder({ form, questionTypes, likertLabels }) {
                     key={type}
                     type="button"
                     onClick={() => addQuestion(type)}
-                    className="inline-flex h-9 items-center rounded-md border border-blue-900 bg-white px-3 text-xs font-semibold text-blue-900 hover:bg-blue-50"
+                    className="inline-flex h-9 items-center rounded-md border border-primary bg-white px-3 text-xs font-semibold text-primary hover:bg-primary-fixed"
                   >
                     + {QUESTION_TYPE_LABELS[type]?.split(' (')[0] || type}
                   </button>
@@ -386,10 +386,10 @@ export default function FormBuilder({ form, questionTypes, likertLabels }) {
 
           {/* Preview Info */}
           {data.questions.length > 0 && (
-            <section className="rounded-xl border border-blue-100 bg-blue-50 shadow-sm">
+            <section className="rounded-xl border border-info-container bg-info-container shadow-sm">
               <div className="px-5 py-4">
-                <h3 className="text-sm font-semibold text-blue-900">Preview Info</h3>
-                <p className="mt-1 text-xs text-blue-700">
+                <h3 className="text-sm font-semibold text-primary">Preview Info</h3>
+                <p className="mt-1 text-xs text-on-info-container">
                   When sent to clients, the form will automatically include: <strong>Client Name</strong>, <strong>Service Name</strong>, and <strong>Date of Evaluation</strong> at the top.
                   Below that, your {data.questions.length} question{data.questions.length !== 1 ? 's' : ''} will appear.
                 </p>
@@ -409,7 +409,7 @@ export default function FormBuilder({ form, questionTypes, likertLabels }) {
               <button
                 type="submit"
                 disabled={processing}
-                className="inline-flex h-10 items-center rounded-md bg-blue-900 px-4 text-sm font-semibold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex h-10 items-center rounded-md bg-primary px-4 text-sm font-semibold text-white hover:bg-primary-container disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {processing ? 'Saving...' : isEditing ? 'Update Form' : 'Save Form'}
               </button>

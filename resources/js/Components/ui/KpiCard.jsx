@@ -4,8 +4,8 @@ export default function KpiCard({
   value,
   suffix = '',
   icon,
-  iconBg = 'bg-blue-50',
-  iconColor = 'text-blue-900',
+  iconBg = 'bg-primary-fixed',
+  iconColor = 'text-primary',
   trend,
   description,
   trailing,
@@ -40,7 +40,7 @@ export default function KpiCard({
         {sideContent}
       </div>
       {trend && (
-        <span className="mt-1.5 text-[11px] font-bold text-blue-900 bg-blue-50 px-1.5 py-0.5 rounded self-start">
+        <span className="mt-1.5 text-[11px] font-bold text-primary bg-primary-fixed px-1.5 py-0.5 rounded self-start">
           {trend}
         </span>
       )}

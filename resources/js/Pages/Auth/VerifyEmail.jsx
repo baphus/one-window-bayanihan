@@ -53,9 +53,9 @@ export default function VerifyEmail({ status }) {
                             </div>
 
                             {status === 'verification-link-sent' && (
-                                <div className="bg-green-50 p-4 border border-green-200 flex items-center gap-3 mb-6">
-                                    <span className="material-symbols-outlined text-green-600 text-[20px]">check_circle</span>
-                                    <p className="text-xs font-semibold text-green-800">
+                                <div className="bg-success-container p-4 border border-success/20 flex items-center gap-3 mb-6">
+                                    <span className="material-symbols-outlined text-success text-[20px]">check_circle</span>
+                                    <p className="text-xs font-semibold text-on-success-container">
                                         A new verification link has been sent to your email address.
                                     </p>
                                 </div>
@@ -63,7 +63,7 @@ export default function VerifyEmail({ status }) {
 
                             <form onSubmit={submit} className="space-y-6">
                                 <button type="submit" disabled={processing}
-                                    className="w-full bg-primary text-on-primary px-8 py-4 text-sm font-bold shadow-xl hover:brightness-110 active:scale-95 transition-all disabled:opacity-60 rounded-none">
+                                    className="w-full bg-primary text-on-primary px-8 py-4 text-sm font-bold shadow-xl hover:brightness-110 active:scale-95 transition-all disabled:opacity-60 rounded-md">
                                     {processing ? 'Sending...' : 'Resend Verification Email'}
                                 </button>
                             </form>

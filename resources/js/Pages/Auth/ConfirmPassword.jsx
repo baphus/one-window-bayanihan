@@ -94,7 +94,7 @@ export default function ConfirmPassword() {
                                 <button
                                     type="submit"
                                     disabled={processing}
-                                    className="w-full bg-primary text-on-primary px-8 py-4 text-sm font-bold shadow-xl hover:brightness-110 active:scale-95 transition-all disabled:opacity-60 rounded-none"
+                                    className="w-full bg-primary text-on-primary px-8 py-4 text-sm font-bold shadow-xl hover:brightness-110 active:scale-95 transition-all disabled:opacity-60 rounded-md"
                                 >
                                     {processing ? 'Confirming...' : 'Confirm'}
                                 </button>

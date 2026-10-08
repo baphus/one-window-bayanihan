@@ -456,13 +456,13 @@ Final production assumption:
 This plan is grounded in the current repository and the highest-version project documents available on 2026-09-01:
 
 - [Project rules](../PROJECT_RULES_v2.1.0.md)
-- [Architecture](../ARCHITECTURE_v2.1.0.md)
+- [Architecture](../ARCHITECTURE_v2.2.0.md)
 - [Data model](../DATA_MODEL.md)
-- [Security requirements](../SECURITY_REQUIREMENTS_v2.1.0.md)
-- [Deployment guide](../DEPLOYMENT_GUIDE_v3.0.0.md)
+- [Security requirements](../SECURITY_REQUIREMENTS_v2.2.0.md)
+- [Deployment guide](../DEPLOYMENT_GUIDE_v3.1.0.md)
 - [Current AWS production runbook](../DEPLOYMENT_PRODUCTION_AWS_v1.6.0.md)
-- [Current deployment costing and service inventory](../DEPLOYMENT_COSTING_v1.0.0.md)
-- [CI/CD guide](../CI_CD_GUIDE_v2.0.0.md)
+- [Current deployment costing and service inventory](../DEPLOYMENT_COSTING_v2.0.0.md)
+- [CI/CD guide](../CI_CD_GUIDE_v2.1.0.md)
 - [System and service profile](../compliance/system-and-service-profile-v1.0.0.md)
 - [External evidence register](../compliance/external-evidence-required-v1.0.0.md)
 - [Business continuity and disaster-recovery plan](../management/bcp-dr-plan.md)

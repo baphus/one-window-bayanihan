@@ -2,6 +2,7 @@ import { useMemo, useCallback, useState, useEffect, useRef } from 'react';
 import { Link, router } from '@inertiajs/react';
 import { formatRelativeTime, formatDateGroup, formatDisplayDateTime } from '@/lib/relativeTime';
 import { ChangesList, CATEGORY_LABELS, actionStyle } from '@/lib/audit';
+import { formatCount } from '@/Components/Dashboard/primitives';
 import { sortTimelineItems } from '@/Components/Timeline';
 import TablePagination from '@/Components/ui/TablePagination';
 
@@ -130,12 +131,12 @@ function TimelineEntry({ log }) {
             <div className={`absolute left-5 top-8 -translate-x-1/2 w-3 h-3 rounded-full ring-4 ring-white ${style.dot} z-10`} />
             
             {/* Card */}
-            <div className="bg-white rounded-lg border border-slate-200 p-4 shadow-sm transition-shadow hover:shadow-md">
+            <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm transition-shadow hover:shadow-md">
                 {/* Row 1 */}
                 <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-2">
                     <div className="flex items-center gap-3 flex-grow">
-                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3/5 h-3/5 text-blue-900/40">
+                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary-fixed flex items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3/5 h-3/5 text-primary/40">
                                 <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
                             </svg>
                         </div>
@@ -259,7 +260,7 @@ function FilterBar({ availableActions, availableModules, availableModulesLabels,
     );
 
     return (
-        <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm mb-6 space-y-4">
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm mb-6 space-y-4">
             <div className="flex flex-wrap gap-4 items-center justify-between">
                 {/* Search */}
                 <div className="relative flex-grow max-w-sm">
@@ -271,7 +272,7 @@ function FilterBar({ availableActions, availableModules, availableModulesLabels,
                         placeholder="Search action, module, actor, or ID..."
                         value={localSearch}
                         onChange={handleSearchChange}
-                        className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-md text-sm focus:ring-primary focus:border-primary"
                     />
                 </div>
                 
@@ -282,18 +283,18 @@ function FilterBar({ availableActions, availableModules, availableModulesLabels,
                             type="date"
                             value={localDateFrom}
                             onChange={(e) => setLocalDateFrom(e.target.value)}
-                            className="py-2 px-3 border border-slate-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500"
+                            className="py-2 px-3 border border-slate-300 rounded-md text-sm focus:ring-primary focus:border-primary"
                         />
                         <span className="text-slate-500 text-sm">to</span>
                         <input
                             type="date"
                             value={localDateTo}
                             onChange={(e) => setLocalDateTo(e.target.value)}
-                            className="py-2 px-3 border border-slate-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500"
+                            className="py-2 px-3 border border-slate-300 rounded-md text-sm focus:ring-primary focus:border-primary"
                         />
                         <button
                             onClick={applyDateFilter}
-                            className="px-3 py-2 bg-blue-900 text-white text-sm font-medium rounded-md hover:bg-blue-800 transition-colors"
+                            className="px-3 py-2 bg-primary text-white text-sm font-medium rounded-md hover:bg-primary-container transition-colors"
                         >
                             Apply
                         </button>
@@ -320,7 +321,7 @@ function FilterBar({ availableActions, availableModules, availableModulesLabels,
                                 title={category === 'system' ? 'Automated and maintenance activity (hidden by default)' : undefined}
                                 className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
                                     isActive
-                                    ? 'bg-indigo-100 border-indigo-200 text-indigo-800'
+                                    ? 'bg-primary-fixed border-primary/20 text-primary'
                                     : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
                                 }`}
                             >
@@ -409,7 +410,7 @@ function PaginationFooter({ pagination, onPageChange, perPage = 15, onPerPageCha
     return (
         <div className="mt-6 flex flex-col md:flex-row items-center justify-between gap-4 rounded-md border border-slate-300 bg-slate-50 px-6 py-4">
             <div className="text-[13px] text-slate-500 text-left">
-                Showing <span className="font-bold text-slate-700">{from ?? 0}–{to ?? 0}</span> of <span className="font-bold text-slate-700">{(total ?? 0).toLocaleString()}</span> records
+                Showing <span className="font-bold text-slate-700">{from ?? 0}–{to ?? 0}</span> of <span className="font-bold text-slate-700">{formatCount(total)}</span> records
             </div>
 
             <div className="flex flex-wrap items-center gap-6">
@@ -419,7 +420,7 @@ function PaginationFooter({ pagination, onPageChange, perPage = 15, onPerPageCha
                         <select
                             value={perPage}
                             onChange={(e) => onPerPageChange(Number(e.target.value))}
-                            className="bg-white border border-slate-300 text-[13px] font-bold text-slate-700 rounded-[2px] pl-3 pr-7 py-1.5 outline-none focus:ring-1 focus:ring-blue-900"
+                            className="bg-white border border-slate-300 text-[13px] font-bold text-slate-700 rounded-md pl-3 pr-7 py-1.5 outline-none focus:ring-1 focus:ring-primary"
                         >
                             {[15, 25, 50, 100].map(size => <option key={size} value={size}>{size}</option>)}
                         </select>

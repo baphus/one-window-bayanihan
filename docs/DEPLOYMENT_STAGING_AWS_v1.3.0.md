@@ -4,7 +4,7 @@
 > **Operative document.** v1.2.0 recorded that the environment had been torn down;
 > this version records the environment that replaced it. v1.1.0 §2 (custom domain
 > cutover) and §3 (application changes) still apply unchanged.
-> **Platform-neutral contract:** `docs/DEPLOYMENT_GUIDE_v3.0.0.md`
+> **Platform-neutral contract:** `docs/DEPLOYMENT_GUIDE_v3.1.0.md`
 
 ## 0. What changed from 1.2.0
 

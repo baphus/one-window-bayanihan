@@ -262,7 +262,7 @@ export function UnifiedTable({
               placeholder={searchPlaceholder}
               value={searchValue}
               onChange={(e) => onSearchChange?.(e.target.value)}
-              className="w-full h-full pl-10 pr-10 bg-white border border-slate-300 rounded-[2px] text-[14px] text-slate-600 placeholder-slate-400 outline-none focus:ring-1 focus:ring-blue-900 transition"
+              className="w-full h-full pl-10 pr-10 bg-white border border-slate-300 rounded-[2px] text-[14px] text-slate-600 placeholder-slate-400 outline-none focus:ring-1 focus:ring-primary transition"
             />
             {searchValue && onSearchClear && (
               <button
@@ -283,7 +283,7 @@ export function UnifiedTable({
                   className="h-[40px] px-4 border border-slate-300 text-[14px] font-bold text-slate-600 rounded-[2px] bg-white flex items-center justify-center gap-2 hover:bg-slate-50 transition-colors whitespace-nowrap relative"
                 >
                   <span className="material-symbols-outlined text-[18px]">tune</span> Filters{activeFilterCount > 0 && (
-                    <span className="ml-1.5 bg-blue-900 text-white text-[10px] font-bold min-w-[18px] h-[18px] px-1 rounded-full inline-flex items-center justify-center leading-none">
+                    <span className="ml-1.5 bg-primary text-white text-[10px] font-bold min-w-[18px] h-[18px] px-1 rounded-full inline-flex items-center justify-center leading-none">
                       {activeFilterCount}
                     </span>
                   )}
@@ -328,13 +328,13 @@ export function UnifiedTable({
               <div className="flex items-center bg-slate-100 rounded-[2px] p-1 border border-slate-300 h-[40px] shrink-0">
                 <button 
                   onClick={() => onViewModeChange('list')}
-                  className={`h-full w-8 flex items-center justify-center rounded-[2px] ${viewMode === 'list' ? 'bg-white shadow-sm border border-slate-300 text-blue-900' : 'text-slate-400 hover:text-slate-600'}`}
+                  className={`h-full w-8 flex items-center justify-center rounded-[2px] ${viewMode === 'list' ? 'bg-white shadow-sm border border-slate-300 text-primary' : 'text-slate-400 hover:text-slate-600'}`}
                 >
                   <span className="material-symbols-outlined text-[18px]">list</span>
                 </button>
                 <button 
                   onClick={() => onViewModeChange('grid')}
-                  className={`h-full w-8 flex items-center justify-center rounded-[2px] ${viewMode === 'grid' ? 'bg-white shadow-sm border border-slate-300 text-blue-900' : 'text-slate-400 hover:text-slate-600'}`}
+                  className={`h-full w-8 flex items-center justify-center rounded-[2px] ${viewMode === 'grid' ? 'bg-white shadow-sm border border-slate-300 text-primary' : 'text-slate-400 hover:text-slate-600'}`}
                 >
                   <span className="material-symbols-outlined text-[18px]">grid_view</span>
                 </button>
@@ -345,7 +345,7 @@ export function UnifiedTable({
             {onNewRecord && (
               <button 
                 onClick={onNewRecord}
-                className="h-[40px] px-5 bg-blue-900 text-white text-[14px] font-bold rounded-[3px] flex items-center gap-2 hover:bg-blue-800 transition-colors ml-2 shadow-sm whitespace-nowrap shrink-0"
+                className="h-[40px] px-5 bg-primary text-white text-[14px] font-bold rounded-[3px] flex items-center gap-2 hover:bg-primary-container transition-colors ml-2 shadow-sm whitespace-nowrap shrink-0"
               >
                 <span className="font-semibold text-[16px]">+</span> {newRecordLabel.replace('+ ', '')}
               </button>
@@ -360,7 +360,7 @@ export function UnifiedTable({
             {activeFilters.map((filter, index) => (
               <div 
                 key={`${filter.key}-${index}`} 
-                className="flex items-center gap-1.5 bg-blue-50 text-blue-900 px-3 py-1 rounded-[2px] font-bold border border-blue-200"
+                className="flex items-center gap-1.5 bg-primary-fixed text-primary px-3 py-1 rounded-[2px] font-bold border border-primary-fixed-dim"
               >
                 {filter.label}: {filter.value}
                 <button 
@@ -374,7 +374,7 @@ export function UnifiedTable({
             {onClearFilters && (
               <button 
                 onClick={onClearFilters}
-                className="font-bold text-blue-900 hover:underline text-[13px]"
+                className="font-bold text-primary hover:underline text-[13px]"
               >
                 Clear All
               </button>
@@ -412,7 +412,7 @@ export function UnifiedTable({
                         <button
                           type="button"
                           onClick={() => handleSortToggle(col.key)}
-                          className="inline-flex items-center gap-1 hover:text-blue-900 transition-colors"
+                          className="inline-flex items-center gap-1 hover:text-primary transition-colors"
                         >
                           <span>{col.title}</span>
                           <span className="material-symbols-outlined text-[15px] leading-none">
@@ -545,7 +545,7 @@ export function UnifiedTable({
               <select 
                 value={rowsPerPage} 
                 onChange={(e) => onRowsPerPageChange?.(Number(e.target.value))}
-                className="bg-white border border-slate-300 text-[13px] font-bold text-slate-700 rounded-[2px] pl-3 pr-7 py-1.5 outline-none focus:ring-1 focus:ring-blue-900"
+                className="bg-white border border-slate-300 text-[13px] font-bold text-slate-700 rounded-[2px] pl-3 pr-7 py-1.5 outline-none focus:ring-1 focus:ring-primary"
               >
                 {rowsPerPageOptions.map(opt => (
                   <option key={opt} value={opt}>{opt}</option>

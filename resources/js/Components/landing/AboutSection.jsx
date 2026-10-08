@@ -1,5 +1,4 @@
 import { Link } from '@inertiajs/react';
-import AppButton from './AppButton';
 import useInView from '@/Hooks/useInView';
 
 export default function AboutSection() {
@@ -12,10 +11,12 @@ export default function AboutSection() {
         <p className="mx-auto mb-8 max-w-2xl text-lg leading-relaxed text-on-surface-variant">
           Are you a government agency or licensed stakeholder? Join our unified platform to streamline referrals and provide faster assistance through coordinated case handling and tracker-based updates.
         </p>
-        <Link href={route('login')}>
-          <AppButton variant="outline" icon="handshake" className="border-2 border-primary px-6 py-3 text-base">
-            Inquire Now
-          </AppButton>
+        <Link
+          href={route('login')}
+          className="inline-flex items-center justify-center gap-2 rounded-none border border-outline-variant px-6 py-2.5 text-[14px] font-bold text-primary transition-all hover:bg-slate-50 border-2 border-primary px-6 py-3 text-base"
+        >
+          <span className="material-symbols-outlined">handshake</span>
+          Inquire Now
         </Link>
       </div>
     </section>

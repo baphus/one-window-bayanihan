@@ -36,8 +36,6 @@
     "@sentry/react": "^10.73.0",
     "chart.js": "^4.5.1",
     "fuse.js": "^7.5.0",
-    "jspdf": "^4.2.1",
-    "jspdf-autotable": "^5.0.7",
     "leaflet": "1.9.4",
     "lucide-react": "^1.14.0",
     "react-chartjs-2": "^5.3.1",
@@ -46,11 +44,15 @@
     "react-markdown": "^10.1.0",
     "rehype-sanitize": "^6.0.0",
     "remark-gfm": "^4.0.1",
+    "unist-util-visit": "^5.1.0",
     "ziggy-js": "^2.6.3",
     "zod": "^4.6.5"
   },
   "trustedDependencies": [
     "@code-yeongyu/comment-checker",
     "core-js"
-  ]
+  ],
+  "overrides": {
+    "shell-quote": "^1.11.0"
+  }
 }

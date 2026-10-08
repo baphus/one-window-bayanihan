@@ -87,7 +87,7 @@ function ExportDialog({ open, onClose, filterValues, defaultDays, maxDays }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-slate-900/40" onClick={onClose} />
-      <div className="relative bg-white rounded-lg shadow-xl border border-slate-200 p-6 w-full max-w-md mx-4 owb-modal-animate">
+      <div className="relative bg-white rounded-xl shadow-xl border border-slate-200 p-6 w-full max-w-md mx-4 owb-modal-animate">
         <h2 className="text-lg font-semibold text-slate-900 mb-1">Export audit logs</h2>
         <p className="text-sm text-slate-500 mb-4">
           Exports a CSV of the current filter selection. An explicit date range is required
@@ -101,7 +101,7 @@ function ExportDialog({ open, onClose, filterValues, defaultDays, maxDays }) {
               type="date"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
-              className="w-full py-2 px-3 border border-slate-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500"
+              className="w-full py-2 px-3 border border-slate-300 rounded-md text-sm focus:ring-primary focus:border-primary"
             />
           </div>
           <div className="flex-1">
@@ -110,7 +110,7 @@ function ExportDialog({ open, onClose, filterValues, defaultDays, maxDays }) {
               type="date"
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
-              className="w-full py-2 px-3 border border-slate-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500"
+              className="w-full py-2 px-3 border border-slate-300 rounded-md text-sm focus:ring-primary focus:border-primary"
             />
           </div>
         </div>
@@ -129,7 +129,7 @@ function ExportDialog({ open, onClose, filterValues, defaultDays, maxDays }) {
           <button
             onClick={handleExport}
             disabled={exporting}
-            className="px-4 py-2 bg-blue-900 rounded-md text-sm font-medium text-white hover:bg-blue-800 inline-flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 bg-primary rounded-md text-sm font-medium text-on-primary hover:bg-primary-container inline-flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <span className="material-symbols-outlined text-[18px]">download</span>
             Export CSV
@@ -190,7 +190,7 @@ export default function AuditLogIndex({
       <div className="max-w-4xl">
         <div data-tour="audit-header" className="mb-8 flex items-start justify-between gap-4">
           <div className="flex items-start gap-3">
-            <div className="hidden sm:flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-900 ring-1 ring-blue-100">
+            <div className="hidden sm:flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-primary-fixed text-primary ring-1 ring-primary/20">
               <span className="material-symbols-outlined text-[24px]">history</span>
             </div>
             <div>

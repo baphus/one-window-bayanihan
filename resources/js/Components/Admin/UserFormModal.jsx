@@ -70,9 +70,9 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-white rounded-lg shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto owb-modal-animate" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-surface-bright rounded-xl shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto owb-modal-animate" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
-        <div className="sticky top-0 z-10 bg-white px-6 py-4 border-b border-slate-200 flex items-center justify-between rounded-t-lg">
+        <div className="sticky top-0 z-10 bg-white px-6 py-4 border-b border-slate-200 flex items-center justify-between rounded-t-xl">
           <div>
             <h3 className="text-lg font-bold text-slate-900">
               {isEdit ? 'Edit User' : isNewUserViaSelectedAgency ? 'Add Focal Person' : isCreateMode ? 'Create User' : 'Invite User'}
@@ -103,14 +103,14 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
                 <button
                   type="button"
                   onClick={() => { setMode('invite'); clearErrors(); setData('password', ''); setData('password_confirmation', ''); }}
-                  className={`flex-1 py-2 transition-colors ${mode === 'invite' ? 'bg-blue-900 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
+                  className={`flex-1 py-2 transition-colors ${mode === 'invite' ? 'bg-primary text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
                 >
                   Invite User
                 </button>
                 <button
                   type="button"
                   onClick={() => { setMode('create'); clearErrors(); }}
-                  className={`flex-1 py-2 transition-colors ${mode === 'create' ? 'bg-blue-900 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
+                  className={`flex-1 py-2 transition-colors ${mode === 'create' ? 'bg-primary text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
                 >
                   Create User
                 </button>
@@ -125,7 +125,7 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
                   type="text"
                   value={data.name}
                   onChange={(e) => setData('name', e.target.value)}
-                  className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+                  className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-primary focus:ring-primary text-sm"
                   placeholder="e.g. Juan Dela Cruz"
                   required
                   maxLength={255}
@@ -141,7 +141,7 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
                 type="email"
                 value={data.email}
                 onChange={(e) => setData('email', e.target.value)}
-                className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+                className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-primary focus:ring-primary text-sm"
                 placeholder="user@example.gov.ph"
                 required
               />
@@ -157,7 +157,7 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
                     type="password"
                     value={data.password}
                     onChange={(e) => setData('password', e.target.value)}
-                    className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+                    className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-primary focus:ring-primary text-sm"
                     placeholder="Minimum 8 characters"
                     required
                     minLength={8}
@@ -171,7 +171,7 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
                     type="password"
                     value={data.password_confirmation}
                     onChange={(e) => setData('password_confirmation', e.target.value)}
-                    className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+                    className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-primary focus:ring-primary text-sm"
                     placeholder="Re-enter password"
                     required
                     minLength={8}
@@ -186,7 +186,7 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
             {isEdit && (
               <div className="flex items-center gap-2 text-sm">
                 <span className="font-medium text-slate-700">Email Verified:</span>
-                <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-bold border ${user?.email_verified_at ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-red-50 text-red-600 border-red-200'}`}>
+                <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-bold border ${user?.email_verified_at ? 'bg-success-container text-on-success-container border-success/20' : 'bg-error-container text-on-error-container border-error/20'}`}>
                   {user?.email_verified_at ? 'Yes' : 'No'}
                 </span>
                 {user?.email_verified_at && (
@@ -212,7 +212,7 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
               {isNewUserViaSelectedAgency ? (
                 <>
                   <div className="mt-1 flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm font-medium text-slate-700">
-                    <span className="inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-bold border bg-amber-100 text-amber-800 border-amber-300">
+                    <span className="inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-bold border bg-warning-container text-on-warning-container border-warning/20">
                       Agency Focal
                     </span>
                     <span className="text-xs text-slate-500">— assigned automatically for this agency</span>
@@ -229,7 +229,7 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
                         setData('agcy_id', '');
                       }
                     }}
-                    className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2 text-sm"
+                    className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-primary focus:ring-primary py-2 text-sm"
                     required
                   >
                     {roleOptions.map((opt) => (
@@ -251,7 +251,7 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
                 <select
                   value={data.agcy_id}
                   onChange={(e) => setData('agcy_id', e.target.value)}
-                  className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2 text-sm"
+                  className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-primary focus:ring-primary py-2 text-sm"
                   required
                 >
                   <option value="">Select agency...</option>
@@ -271,7 +271,7 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
                   role="switch"
                   aria-checked={data.is_active}
                   onClick={() => setData('is_active', !data.is_active)}
-                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-blue-900 focus:ring-offset-1 ${data.is_active ? 'bg-emerald-500' : 'bg-slate-300'}`}
+                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 ${data.is_active ? 'bg-success' : 'bg-slate-300'}`}
                 >
                   <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition ${data.is_active ? 'translate-x-4' : 'translate-x-0'}`} />
                 </button>
@@ -294,7 +294,7 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
                     type="text"
                     value={data.position}
                     onChange={(e) => setData('position', e.target.value)}
-                    className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+                    className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-primary focus:ring-primary text-sm"
                     placeholder={data.role === 'AGENCY' ? 'e.g. Focal Person' : data.role === 'CASE_MANAGER' ? 'e.g. Case Manager II' : 'e.g. IT Administrator'}
                     maxLength={255}
                   />
@@ -306,7 +306,7 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
                     type="text"
                     value={data.department}
                     onChange={(e) => setData('department', e.target.value)}
-                    className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+                    className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-primary focus:ring-primary text-sm"
                     placeholder={data.role === 'AGENCY' ? 'e.g. OFW Assistance Division' : 'e.g. Case Management Unit'}
                     maxLength={255}
                   />
@@ -321,7 +321,7 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
                     type="text"
                     value={data.contact_number}
                     onChange={(e) => setData('contact_number', e.target.value)}
-                    className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+                    className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-primary focus:ring-primary text-sm"
                     placeholder="e.g. 09171234567"
                   />
                   <InputError message={errors.contact_number} className="mt-1" />
@@ -332,7 +332,7 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
                     type="text"
                     value={data.office_location}
                     onChange={(e) => setData('office_location', e.target.value)}
-                    className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+                    className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-primary focus:ring-primary text-sm"
                     placeholder="e.g. 3rd Floor, DMW Bldg, Cebu City"
                     maxLength={500}
                   />
@@ -346,7 +346,7 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
                   value={data.bio}
                   onChange={(e) => setData('bio', e.target.value)}
                   rows={2}
-                  className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm resize-none"
+                  className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-primary focus:ring-primary text-sm resize-none"
                   placeholder="Short description or notes about this user (optional)"
                   maxLength={2000}
                 />
@@ -367,7 +367,7 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
               <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors">
                 Cancel
               </button>
-              <button type="submit" disabled={processing} className="px-5 py-2 text-sm font-bold text-white bg-blue-900 rounded-lg hover:bg-blue-800 disabled:opacity-50 transition-colors">
+              <button type="submit" disabled={processing} className="px-5 py-2 text-sm font-bold text-white bg-primary rounded-lg hover:bg-primary-container disabled:opacity-50 transition-colors">
                 {processing
                   ? (isEdit ? 'Saving...' : isCreateMode ? 'Creating...' : 'Sending Invite...')
                   : (isEdit ? 'Save Changes' : isCreateMode ? 'Create User' : 'Send Invite')

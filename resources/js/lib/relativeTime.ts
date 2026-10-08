@@ -21,6 +21,13 @@ function formatMonthDayYear(date: Date): string {
     }).format(date);
 }
 
+function formatMonthDay(date: Date): string {
+    return new Intl.DateTimeFormat('en-US', {
+        month: 'long',
+        day: 'numeric',
+    }).format(date);
+}
+
 function formatMonthYear(date: Date): string {
     return new Intl.DateTimeFormat('en-US', {
         month: 'long',
@@ -119,6 +126,41 @@ export function formatRelativeTime(iso: string): string {
 }
 
 export { formatDisplayDateTime } from './utils';
+
+export function formatTimeAgo(iso: string): string {
+    const date = parseDate(iso);
+
+    if (!date) {
+        return '—';
+    }
+
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+
+    if (diffMs < 0 && Math.abs(diffMs) > MINUTE_MS) {
+        return formatMonthDay(date);
+    }
+
+    const absDiffMs = Math.abs(diffMs);
+
+    if (absDiffMs < MINUTE_MS) {
+        return 'Just now';
+    }
+
+    if (absDiffMs < HOUR_MS) {
+        return `${Math.floor(absDiffMs / MINUTE_MS)}m ago`;
+    }
+
+    if (absDiffMs < DAY_MS) {
+        return `${Math.floor(absDiffMs / HOUR_MS)}h ago`;
+    }
+
+    if (absDiffMs < WEEK_MS) {
+        return `${Math.floor(absDiffMs / DAY_MS)}d ago`;
+    }
+
+    return formatMonthDay(date);
+}
 
 export function formatDateGroup(iso: string): string {
     const date = parseDate(iso);

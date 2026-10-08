@@ -103,7 +103,7 @@ class ContentSecurityPolicy
      */
     private function getDevPolicy(): string
     {
-        $viteOrigin = config('csp.dev_server_url', 'http://127.0.0.1:5173');
+        $viteOrigin = env('VITE_DEV_SERVER_URL', 'http://127.0.0.1:5173');
         $appOrigin = config('app.url');
 
         // Dev-only origins (localhost HMR endpoints) are scoped to this local
