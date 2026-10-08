@@ -2,7 +2,6 @@ import { useRef, useMemo, useState } from 'react';
 import { Head, useForm, router, usePage } from '@inertiajs/react';
 import AppHeader from '@/Components/landing/AppHeader';
 import AppFooter from '@/Components/landing/AppFooter';
-import AppButton from '@/Components/landing/AppButton';
 import FaqSection from '@/Components/landing/FaqSection';
 import ChatBot from '@/Components/ChatBot';
 import InputError from '@/Components/InputError';
@@ -93,7 +92,7 @@ export default function TrackingPortal() {
           <div className="mx-auto max-w-3xl">
             <div ref={formRef} className={`bg-white p-5 md:p-8 shadow-lg md:shadow-2xl border border-slate-200 rounded-xl owb-reveal ${formVisible ? 'is-visible' : ''}`}>
               <div className="mb-6 flex items-center gap-3 border-b border-slate-200 pb-4">
-                <span className="material-symbols-outlined text-blue-900 text-2xl">confirmation_number</span>
+                <span className="material-symbols-outlined text-primary text-2xl">confirmation_number</span>
                 <h2 className="font-headline text-lg font-bold text-slate-900">Tracking ID Details</h2>
               </div>
 
@@ -108,7 +107,7 @@ export default function TrackingPortal() {
                     value={data.tracker_number}
                     onChange={(e) => handleTrackerChange(e.target.value)}
                     placeholder="Enter Tracking Number"
-                    className="w-full border border-slate-200 bg-white px-4 py-3 md:py-5 pl-12 text-sm md:text-base text-slate-900 placeholder:text-slate-400 focus:border-blue-900 focus:outline-none focus:ring-1 focus:ring-blue-900 md:px-6 md:pl-14 rounded-lg"
+                    className="w-full border border-slate-200 bg-white px-4 py-3 md:py-5 pl-12 text-sm md:text-base text-slate-900 placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary md:px-6 md:pl-14 rounded-md"
                     aria-label="Tracker Number"
                     required
                   />
@@ -121,7 +120,7 @@ export default function TrackingPortal() {
                     value={data.email}
                     onChange={(e) => setData('email', e.target.value)}
                     placeholder="Enter your email address"
-                    className="w-full border border-slate-200 bg-white px-4 py-3 md:py-5 pl-12 text-sm md:text-base text-slate-900 placeholder:text-slate-400 focus:border-blue-900 focus:outline-none focus:ring-1 focus:ring-blue-900 md:px-6 md:pl-14 rounded-lg"
+                    className="w-full border border-slate-200 bg-white px-4 py-3 md:py-5 pl-12 text-sm md:text-base text-slate-900 placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary md:px-6 md:pl-14 rounded-md"
                     aria-label="Email Address"
                     required
                   />
@@ -136,16 +135,16 @@ export default function TrackingPortal() {
                 <button
                   type="submit"
                   disabled={processing}
-                  className="w-full bg-primary text-white rounded-lg px-8 py-4 text-sm font-bold shadow-md hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+                  className="w-full bg-primary text-white rounded-md px-8 py-4 text-sm font-bold shadow-md hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-60 flex items-center justify-center gap-2"
                 >
                   <span className="material-symbols-outlined text-[18px]">search</span>
                   {processing ? 'Sending OTP...' : 'Go to Tracking'}
                 </button>
               </form>
 
-              <div className="mt-8 bg-blue-50/50 border border-blue-100 rounded-lg p-4">
+              <div className="mt-8 bg-info-container/50 border border-info rounded-xl p-4">
                 <div className="flex gap-3">
-                  <span className="material-symbols-outlined text-blue-900 text-[20px] shrink-0">info</span>
+                  <span className="material-symbols-outlined text-primary text-[20px] shrink-0">info</span>
                   <div className="text-sm text-slate-600 leading-relaxed">
                     <p className="font-bold text-slate-900 mb-1">Where can I find my Tracking ID?</p>
                     <p>Tracking IDs (e.g., OWBAP-4Z7K9M2QXT) are typically found on your acknowledgment receipt or sent via SMS/Email after your initial case intake.</p>

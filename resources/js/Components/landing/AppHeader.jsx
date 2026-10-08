@@ -1,6 +1,5 @@
 import { Link, router, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
-import AppButton from './AppButton';
 import safeRoute from '@/utils/safeRoute';
 
 const roleLabels = {
@@ -86,23 +85,22 @@ export default function AppHeader({ minimal }) {
 
             <div className="hidden items-center gap-3 self-center md:flex">
               {!user && (
-                <AppButton
-                  as="link"
+                <Link
                   href={route('intake.index')}
-                  variant="primary"
+                  className="inline-flex items-center justify-center gap-2 rounded-none bg-primary px-6 py-2.5 text-[14px] font-bold text-white transition-all hover:brightness-110 active:scale-95"
                 >
                   File a Case
-                </AppButton>
+                </Link>
               )}
 
               {user ? (
                 <div className="flex items-center gap-3">
-                  <AppButton
+                  <a
                     href={user.role === 'OFW' ? route('ofw.dashboard') : route('dashboard')}
-                    variant="primary"
+                    className="inline-flex items-center justify-center gap-2 rounded-none bg-primary px-6 py-2.5 text-[14px] font-bold text-white transition-all hover:brightness-110 active:scale-95"
                   >
                     {user.role === 'OFW' ? 'My Cases' : 'Dashboard'}
-                  </AppButton>
+                  </a>
 
                   <div className="flex items-center gap-4 border-l border-gray-200 pl-5">
                     <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-primary">
@@ -283,37 +281,29 @@ export default function AppHeader({ minimal }) {
 
               <div className="mt-4 grid gap-2 border-t border-gray-100 pt-3">
                 {!user && (
-                  <AppButton
-                    as="link"
+                  <Link
                     href={route('intake.index')}
-                    variant="primary"
-                    className="w-full"
-                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-none bg-primary px-6 py-2.5 text-[14px] font-bold text-white transition-all hover:brightness-110 active:scale-95"
                   >
                     File a Case
-                  </AppButton>
+                  </Link>
                 )}
 
                 {user ? (
-                  <AppButton
+                  <a
                     href={user.role === 'OFW' ? route('ofw.dashboard') : route('dashboard')}
-                    variant="primary"
-                    className="w-full"
                     onClick={() => setIsMobileMenuOpen(false)}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-none bg-primary px-6 py-2.5 text-[14px] font-bold text-white transition-all hover:brightness-110 active:scale-95"
                   >
                     {user.role === 'OFW' ? 'My Cases' : 'Dashboard'}
-                  </AppButton>
+                  </a>
                 ) : (
                   <Link
                     href={route('login')}
                     onClick={() => setIsMobileMenuOpen(false)}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-none border border-outline-variant px-6 py-2.5 text-[14px] font-bold text-primary transition-all hover:bg-slate-50"
                   >
-                    <AppButton
-                      variant="outline"
-                      className="w-full"
-                    >
-                      Login
-                    </AppButton>
+                    Login
                   </Link>
                 )}
 

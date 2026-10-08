@@ -74,9 +74,9 @@ export default function ServiceFormModal({ service, allAgencies, onClose, onBypa
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-white rounded-lg shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto owb-modal-animate" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-surface-bright rounded-xl shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto owb-modal-animate" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
-        <div className="sticky top-0 z-10 bg-white px-6 py-4 border-b border-slate-200 flex items-center justify-between rounded-t-lg">
+        <div className="sticky top-0 z-10 bg-white px-6 py-4 border-b border-slate-200 flex items-center justify-between rounded-t-xl">
           <div>
             <h3 className="text-lg font-bold text-slate-900">{isEdit ? 'Edit Service' : 'Create New Service'}</h3>
             <p className="text-xs text-slate-500 mt-0.5">
@@ -98,7 +98,7 @@ export default function ServiceFormModal({ service, allAgencies, onClose, onBypa
                 type="text"
                 value={data.name}
                 onChange={(e) => setData('name', e.target.value)}
-                className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+                className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-primary focus:ring-primary text-sm"
                 placeholder="e.g. Legal Assistance, Skills Training, Medical Repatriation"
                 required
                 maxLength={255}
@@ -113,7 +113,7 @@ export default function ServiceFormModal({ service, allAgencies, onClose, onBypa
                 rows={3}
                 value={data.description}
                 onChange={(e) => setData('description', e.target.value)}
-                className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm resize-none"
+                className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-primary focus:ring-primary text-sm resize-none"
                 placeholder="Brief description of what this service provides to OFWs..."
               />
               <InputError message={errors.description} className="mt-1" />
@@ -132,7 +132,7 @@ export default function ServiceFormModal({ service, allAgencies, onClose, onBypa
                   <select
                     value={data.agcy_id}
                     onChange={(e) => setData('agcy_id', e.target.value)}
-                    className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2 text-sm"
+                    className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-primary focus:ring-primary py-2 text-sm"
                     required
                   >
                     <option value="">Select an agency...</option>
@@ -160,7 +160,7 @@ export default function ServiceFormModal({ service, allAgencies, onClose, onBypa
                   max="365"
                   value={data.processing_days}
                   onChange={(e) => setData('processing_days', e.target.value === '' ? '' : Number(e.target.value))}
-                  className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+                  className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-primary focus:ring-primary text-sm"
                   placeholder="e.g. 7"
                 />
                 <p className="mt-1 text-xs text-slate-500">Estimated number of working days to complete this service.</p>
@@ -176,7 +176,7 @@ export default function ServiceFormModal({ service, allAgencies, onClose, onBypa
               <button
                 type="button"
                 onClick={addRequirement}
-                className="text-xs font-bold text-blue-900 hover:text-blue-700 transition-colors"
+                className="text-xs font-bold text-primary hover:text-primary-container transition-colors"
               >
                 + Add Requirement
               </button>
@@ -189,7 +189,7 @@ export default function ServiceFormModal({ service, allAgencies, onClose, onBypa
                 <button
                   type="button"
                   onClick={addRequirement}
-                  className="mt-3 px-3 py-1.5 text-xs font-bold text-blue-900 border border-blue-200 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                  className="mt-3 px-3 py-1.5 text-xs font-bold text-primary border-primary/20 bg-primary-fixed rounded-lg hover:bg-primary-fixed-dim transition-colors"
                 >
                   + Add First Requirement
                 </button>
@@ -208,7 +208,7 @@ export default function ServiceFormModal({ service, allAgencies, onClose, onBypa
                           placeholder="Requirement name (e.g. Valid ID, Contract copy)"
                           value={req.name}
                           onChange={(e) => updateRequirement(req.tempId, 'name', e.target.value)}
-                          className="block w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+                          className="block w-full rounded-lg border-slate-300 shadow-sm focus:border-primary focus:ring-primary text-sm"
                         />
                       </div>
                       <button
@@ -225,14 +225,14 @@ export default function ServiceFormModal({ service, allAgencies, onClose, onBypa
                       placeholder="Description or instructions (optional)"
                       value={req.description}
                       onChange={(e) => updateRequirement(req.tempId, 'description', e.target.value)}
-                      className="block w-full rounded-lg border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm resize-none"
+                      className="block w-full rounded-lg border-slate-300 shadow-sm focus:border-primary focus:ring-primary text-sm resize-none"
                     />
                     <label className="flex items-center gap-2 text-sm text-slate-600 select-none cursor-pointer">
                       <input
                         type="checkbox"
                         checked={req.is_required}
                         onChange={(e) => updateRequirement(req.tempId, 'is_required', e.target.checked)}
-                        className="rounded border-slate-300 text-blue-900 focus:ring-blue-900"
+                        className="rounded border-slate-300 text-primary focus:ring-primary"
                       />
                       <span className="text-xs font-medium">Mandatory requirement</span>
                     </label>
@@ -251,7 +251,7 @@ export default function ServiceFormModal({ service, allAgencies, onClose, onBypa
               <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors">
                 Cancel
               </button>
-              <button type="submit" disabled={processing} className="px-5 py-2 text-sm font-bold text-white bg-blue-900 rounded-lg hover:bg-blue-800 disabled:opacity-50 transition-colors">
+              <button type="submit" disabled={processing} className="px-5 py-2 text-sm font-bold text-white bg-primary rounded-lg hover:bg-primary-container disabled:opacity-50 transition-colors">
                 {processing
                   ? (isEdit ? 'Updating...' : 'Creating...')
                   : (isEdit ? 'Update Service' : 'Create Service')

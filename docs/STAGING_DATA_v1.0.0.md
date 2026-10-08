@@ -10,7 +10,7 @@
 
 ## 2. Safety first
 
-- `guardEnvironment()` refuses every environment outside `config('staging.seeder_allowed_envs')` (default `staging,local`; override `STAGING_SEEDER_ALLOWED_ENVS`). **Never production** — the seeder truncates business tables.
+- `guardEnvironment()` refuses every environment outside `STAGING_SEEDER_ALLOWED_ENVS` (default `staging,local`). **Never production** — the seeder truncates business tables.
 - Run: `php artisan db:seed --class=Database\\Seeders\\StagingSeeder` (staging/local only).
 - Re-runs are clean and identical: all owned tables are `TRUNCATE … RESTART IDENTITY CASCADE` inside **one transaction**; the RNG is a fixed `mt_rand()` stream (seed `20260909`) with identical call order. (`Crypt`/`Hash` ciphertexts differ per run by nature — IV/salt — the logical data is identical.) Same-calendar-day re-runs are byte-identical; no stamp can leak into the future (capped at the anchor).
 

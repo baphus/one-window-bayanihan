@@ -116,7 +116,7 @@ export default function TrackingVerify({ tracker_number, email, hint }) {
         <div className="w-full max-w-md mx-auto">
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-8 text-center">
             <div className="mb-8 flex flex-col items-center gap-4">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-blue-50 border border-blue-100 text-blue-900 shadow-sm">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-info-container border border-info text-primary shadow-sm">
                 <span className="material-symbols-outlined text-[36px]" style={{ fontVariationSettings: "'FILL' 1, 'wght' 400" }}>verified_user</span>
               </div>
               <div>
@@ -142,7 +142,7 @@ export default function TrackingVerify({ tracker_number, email, hint }) {
                     value={digit}
                     onChange={(e) => handleOtpChange(index, e.target.value)}
                     onKeyDown={(e) => handleOtpKeyDown(index, e)}
-                    className="h-14 w-11 border-2 border-slate-200 bg-white text-center text-xl font-bold text-slate-900 focus:border-blue-900 focus:outline-none focus:ring-1 focus:ring-blue-900 rounded-lg transition-colors"
+                    className="h-14 w-11 border-2 border-slate-200 bg-white text-center text-xl font-bold text-slate-900 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary rounded-md transition-colors"
                   />
                 ))}
               </div>
@@ -157,7 +157,7 @@ export default function TrackingVerify({ tracker_number, email, hint }) {
               <button
                 type="submit"
                 disabled={processing}
-                className="w-full bg-blue-900 text-white rounded-lg px-8 py-4 text-sm font-bold shadow-md hover:bg-blue-800 active:scale-[0.98] transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+                className="w-full bg-primary text-white rounded-md px-8 py-4 text-sm font-bold shadow-md hover:bg-primary-container active:scale-[0.98] transition-all disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {processing ? (
                   <>
@@ -182,10 +182,10 @@ export default function TrackingVerify({ tracker_number, email, hint }) {
               >
                 {resendCooldown > 0 ? (
                   <span className="text-slate-400">
-                    Resend code in <span className="text-blue-900">{resendCooldown}s</span>
+                    Resend code in <span className="text-primary">{resendCooldown}s</span>
                   </span>
                 ) : (
-                  <span className="text-blue-900 hover:text-blue-700 underline underline-offset-2">
+                  <span className="text-primary hover:text-primary-container underline underline-offset-2">
                     Resend code
                   </span>
                 )}
@@ -196,7 +196,7 @@ export default function TrackingVerify({ tracker_number, email, hint }) {
           <button
             type="button"
             onClick={() => router.get(route('track.index'))}
-            className="mt-6 flex items-center justify-center gap-2 text-sm font-bold text-slate-500 hover:text-blue-900 mx-auto transition-colors"
+            className="mt-6 flex items-center justify-center gap-2 text-sm font-bold text-slate-500 hover:text-primary mx-auto transition-colors"
           >
             <span className="material-symbols-outlined text-[18px]">arrow_back</span>
             Return to Tracking

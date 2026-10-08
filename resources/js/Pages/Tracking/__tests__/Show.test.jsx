@@ -13,7 +13,6 @@ vi.mock('@inertiajs/react', () => ({
 vi.mock('@/Components/landing/AppHeader', () => ({ default: () => <header /> }));
 vi.mock('@/Components/landing/AppFooter', () => ({ default: () => <footer /> }));
 vi.mock('@/Components/ChatBot', () => ({ default: () => null }));
-vi.mock('@/Components/TrackingNotFoundState', () => ({ default: () => <div /> }));
 
 globalThis.route = (name, params) => `/${name}/${Array.isArray(params) ? params.join('/') : params ?? ''}`;
 

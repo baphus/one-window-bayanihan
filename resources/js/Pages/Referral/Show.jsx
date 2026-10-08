@@ -379,7 +379,7 @@ function ClientRequestsSection({ referral, requests, permissions, isReceivingAge
     const [showCreate, setShowCreate] = useState(false);
     const [selectedRequestId, setSelectedRequestId] = useState(null);
     const createForm = useForm({ type: 'DOCUMENT_REQUEST', title: '', instructions: '', due_at: '', checklist: [''] });
-    const isOversight = isCaseManager || isAdmin || !isReceivingAgency;
+    const isOversight = isAdmin;
     const canCreate = isReceivingAgency && permissions.canCreate;
     const activeRequest = requests.find((request) => request.id === selectedRequestId) ?? requests[0];
     const reloadRequests = () => router.reload({ only: ['clientRequestHistory', 'clientRequestPermissions', 'timeline'], preserveScroll: true });
@@ -1351,6 +1351,7 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                         </CardSection>
                     </div>
 
+                    {(isAdmin || isReceivingAgency) && (
                     <ClientRequestsSection
                         referral={referral}
                         requests={clientRequestHistory}
@@ -1359,6 +1360,7 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                         isCaseManager={isCaseManager}
                         isAdmin={isAdmin}
                     />
+                    )}
                 </div>
 
                 <aside className="lg:col-span-1 xl:col-span-4 space-y-4">

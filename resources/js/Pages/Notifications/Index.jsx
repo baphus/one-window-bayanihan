@@ -14,8 +14,8 @@ import {
 import {
   normalizeNotification,
   getSeverityConfig,
-  formatDetailedTimestamp,
 } from '@/lib/notifications';
+import { formatDisplayDateTime } from '@/lib/utils';
 
 // ─── Notifications Tab ───────────────────────────────────────────────────────
 
@@ -139,7 +139,7 @@ function NotificationsTab({ data, isLoading, error, page, onPageChange, queryCli
                   )}
                   <div className="mt-2 flex items-center justify-between">
                     <span className="text-[11px] text-slate-400">
-                      {formatDetailedTimestamp(item.created_at) || 'Recently'}
+                      {item.created_at ? formatDisplayDateTime(item.created_at) : 'Recently'}
                     </span>
                     <div className="flex items-center gap-2">
                       {item.action_url && (

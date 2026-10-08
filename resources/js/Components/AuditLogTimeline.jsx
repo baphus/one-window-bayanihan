@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 import { formatDisplayDateTime } from '@/lib/utils';
-import { getActivityType, getEntityLabel } from '@/lib/audit';
-import AuditLogCard from '@/Components/AuditLogCard';
+import { ChangesList, getActivityType, getEntityLabel } from '@/lib/audit';
 import UnifiedTimeline from '@/Components/Timeline';
 
 /**
@@ -50,21 +49,31 @@ export default function AuditLogTimeline({ logs = [], client = null }) {
             variant="plain"
             items={entries}
             emptyTitle="No activity recorded yet."
-            renderItem={({ item }) => (
-                <AuditLogCard
-                    type={item.type}
-                    details={item.details}
-                    changes={item.changes}
-                    maxRows={3}
-                    meta={[
-                        item.caseNo && `Case ${item.caseNo}`,
-                        item.entityType,
-                        formatDisplayDateTime(item.timestamp),
-                        item.actorName || 'System',
-                        `${item.daysSince} day${item.daysSince > 1 ? 's' : ''}`,
-                    ]}
-                />
-            )}
+            renderItem={({ item }) => {
+                const metaSegments = [
+                    item.caseNo && `Case ${item.caseNo}`,
+                    item.entityType,
+                    formatDisplayDateTime(item.timestamp),
+                    item.actorName || 'System',
+                    `${item.daysSince} day${item.daysSince > 1 ? 's' : ''}`,
+                ].filter(Boolean);
+                return (
+                    <div className="rounded-[3px] border border-slate-200 bg-slate-50 p-3">
+                        <p className="text-[11px] font-extrabold uppercase tracking-[0.1em] text-blue-900">
+                            {item.type}
+                        </p>
+                        {item.details && (
+                            <p className="mt-1 text-[12px] text-slate-700">{item.details}</p>
+                        )}
+                        <ChangesList changes={item.changes} variant="compact" maxRows={3} />
+                        {metaSegments.length > 0 && (
+                            <p className="mt-1 text-[10px] text-slate-500">
+                                {metaSegments.join(' • ')}
+                            </p>
+                        )}
+                    </div>
+                );
+            }}
         />
     );
 }

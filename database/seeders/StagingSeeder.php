@@ -26,7 +26,7 @@ use Illuminate\Support\Facades\Hash;
  * through AuditChainWriter, then the run gates on php artisan audit:verify.
  *
  * SAFETY: guardEnvironment() refuses anything outside
- * config('staging.seeder_allowed_envs') — never production.
+ * STAGING_SEEDER_ALLOWED_ENVS — never production.
  *
  * Populates every business table using only the Staging/ foundation classes:
  * StagingDataFactory for every random draw, TemporalEngine for every
@@ -279,17 +279,16 @@ class StagingSeeder extends Seeder
     private float $startedAt = 0.0;
 
     /**
-     * Refuse every environment outside config('staging.seeder_allowed_envs')
-     * (default staging,local; override via STAGING_SEEDER_ALLOWED_ENVS).
-     * This seeder truncates business tables — it must never run in prod.
+     * Refuse every environment outside STAGING_SEEDER_ALLOWED_ENVS
+     * (default staging,local). This seeder truncates business tables — it
+     * must never run in prod.
      */
     private function guardEnvironment(): void
     {
-        $allowed = config('staging.seeder_allowed_envs', ['staging', 'local']);
-
-        if (! is_array($allowed) || $allowed === []) {
-            $allowed = ['staging', 'local'];
-        }
+        $allowed = array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) env('STAGING_SEEDER_ALLOWED_ENVS', 'staging,local'))
+        ))) ?: ['staging', 'local'];
 
         if (! app()->environment($allowed)) {
             throw new \RuntimeException(sprintf(

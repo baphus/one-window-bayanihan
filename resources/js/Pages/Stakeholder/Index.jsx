@@ -7,8 +7,8 @@ function AgencyLogo({ agency }) {
 
   if (hasError || !agency.logo_url) {
     return (
-      <div className="w-12 h-12 bg-blue-100 rounded flex items-center justify-center">
-        <span className="text-lg font-bold text-blue-900">{agency.short?.charAt(0)}</span>
+      <div className="w-12 h-12 bg-primary-fixed rounded flex items-center justify-center">
+        <span className="text-lg font-bold text-primary">{agency.short?.charAt(0)}</span>
       </div>
     );
   }
@@ -61,7 +61,7 @@ export default function StakeholderIndex({ agencies }) {
                 <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">Services Offered</p>
                 <div className="flex flex-wrap gap-1">
                   {agency.services.map((svc) => (
-                    <span key={svc.id} className="inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-xs text-blue-700 border border-blue-100">
+                    <span key={svc.id} className="inline-flex rounded-full bg-primary-fixed px-2 py-0.5 text-xs text-primary border border-primary/20">
                       {svc.name}
                     </span>
                   ))}

@@ -110,7 +110,7 @@ CONTACT_RECIPIENT_EMAIL=         # defaults to MAIL_FROM_ADDRESS
 
 `config/mail.php` and `.env.example` are authoritative for the keys this
 deployment actually reads. Credentials are injected as runtime environment
-variables only — never committed (`DEPLOYMENT_GUIDE_v3.0.0.md` §4).
+variables only — never committed (`DEPLOYMENT_GUIDE_v3.1.0.md` §4).
 
 ### 4.1 Before the sending domain is verified
 

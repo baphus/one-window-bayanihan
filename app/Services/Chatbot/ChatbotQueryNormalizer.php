@@ -12,6 +12,26 @@ namespace App\Services\Chatbot;
 class ChatbotQueryNormalizer
 {
     /**
+     * Canonical filler list shared by tokenization and keyword extraction.
+     *
+     * Single source of truth — ChatbotKnowledge::tokens() delegates here so
+     * both lanes filter the exact same words.
+     */
+    private const FILLER_WORDS = [
+        'ang', 'ng', 'mga', 'sa', 'na', 'pa', 'po', 'ba', 'ka',
+        'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been',
+        'do', 'does', 'did', 'have', 'has', 'had', 'will', 'would',
+        'can', 'could', 'should', 'may', 'might', 'shall',
+        'i', 'you', 'he', 'she', 'it', 'we', 'they',
+        'my', 'your', 'his', 'her', 'its', 'our', 'their',
+        'me', 'him', 'us', 'them',
+        'this', 'that', 'these', 'those',
+        'what', 'which', 'who', 'whom', 'whose',
+        'how', 'when', 'where', 'why',
+        'please', 'tell', 'show', 'give', 'help', 'know',
+    ];
+
+    /**
      * Normalize a user query for retrieval and embedding.
      *
      * Steps:
@@ -41,6 +61,23 @@ class ChatbotQueryNormalizer
     }
 
     /**
+     * Canonical tokenizer: normalize, split on non-alphanumeric, drop filler.
+     *
+     * Shared by extractKeywords() and ChatbotKnowledge::tokens() so both
+     * lanes split and filter identically. No length filter and no dedupe —
+     * callers apply those themselves if needed.
+     *
+     * @return list<string>
+     */
+    public static function tokenize(string $text): array
+    {
+        $normalized = (new self)->normalize($text);
+        $words = preg_split('/[^\p{L}\p{N}]+/u', $normalized, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        return array_values(array_filter($words, fn (string $word) => ! in_array($word, self::FILLER_WORDS, true)));
+    }
+
+    /**
      * Extract search keywords: strip common filler words that add noise to
      * retrieval but keep domain-specific terms.
      *
@@ -49,26 +86,7 @@ class ChatbotQueryNormalizer
      */
     public function extractKeywords(string $normalizedMessage): string
     {
-        $filler = [
-            'ang', 'ng', 'mga', 'sa', 'na', 'pa', 'po', 'ba', 'ka',
-            'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been',
-            'do', 'does', 'did', 'have', 'has', 'had', 'will', 'would',
-            'can', 'could', 'should', 'may', 'might', 'shall',
-            'i', 'you', 'he', 'she', 'it', 'we', 'they',
-            'my', 'your', 'his', 'her', 'its', 'our', 'their',
-            'me', 'him', 'us', 'them',
-            'this', 'that', 'these', 'those',
-            'what', 'which', 'who', 'whom', 'whose',
-            'how', 'when', 'where', 'why',
-            'please', 'tell', 'show', 'give', 'help', 'know',
-        ];
-
-        $words = preg_split('/\s+/u', $normalizedMessage, -1, PREG_SPLIT_NO_EMPTY);
-        if ($words === false) {
-            return $normalizedMessage;
-        }
-
-        $keywords = array_filter($words, fn (string $w) => ! in_array($w, $filler, true));
+        $keywords = self::tokenize($normalizedMessage);
 
         return $keywords !== [] ? implode(' ', $keywords) : $normalizedMessage;
     }

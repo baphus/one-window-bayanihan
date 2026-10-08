@@ -2,6 +2,7 @@ import { usePage, router } from '@inertiajs/react';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import rehypeSanitize from 'rehype-sanitize';
 import axios from 'axios';
 import { MessageCircle, X, Send } from 'lucide-react';
 import TurnstileWidget from '@/Components/TurnstileWidget';
@@ -450,6 +451,7 @@ function ChatBotSession({ owner }) {
                                 <div className="chatbot-markdown px-4 py-3">
                                     <ReactMarkdown
                                         remarkPlugins={[remarkGfm]}
+                                        rehypePlugins={[rehypeSanitize]}
                                         components={{
                                             a: ({ children }) => <span>{children}</span>,
                                             img: () => null,

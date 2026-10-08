@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { formatStatusLabel } from '@/lib/utils';
+import { humanizeStatus } from '@/lib/statusLabels';
 import {
   AlertTriangle,
   Archive,
@@ -103,7 +103,7 @@ export default function StatusBadge({
   const Icon = iconOverride ?? icons[normalizedStatus];
   const label =
     labelOverride ??
-    (variant === 'pill' ? titleCase(formatStatusLabel(status)) : formatStatusLabel(status));
+    (variant === 'pill' ? titleCase(humanizeStatus(status)) : humanizeStatus(status));
 
   const sizeClasses = variant === 'pill' ? pillSizes[size] ?? pillSizes.sm : sizes[size] ?? sizes.sm;
   const classes = clsx(

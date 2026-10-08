@@ -98,13 +98,39 @@ return Application::configure(basePath: dirname(__DIR__))
             return null;
         });
 
-        $exceptions->render(function (NotFoundHttpException $e, Request $request) {
-            if ($request->is(['api/*', '*/api/*'])) {
-                return response()->json(['message' => 'Resource not found.'], 404);
-            }
+        $statusPages = [
+            NotFoundHttpException::class => ['status' => 404, 'message' => 'Resource not found.', 'view' => 'Errors/NotFound', 'expectsJson' => false],
+            AccessDeniedHttpException::class => ['status' => 403, 'message' => 'Forbidden.', 'view' => 'Errors/Forbidden', 'expectsJson' => true],
+            AuthenticationException::class => ['status' => 401, 'message' => 'Unauthenticated.', 'redirect' => 'login', 'expectsJson' => true],
+            TooManyRequestsHttpException::class => ['status' => 429, 'message' => 'Too many requests. Please slow down.', 'view' => 'Errors/TooManyRequests', 'expectsJson' => true],
+            MethodNotAllowedHttpException::class => ['status' => 405, 'message' => 'Method not allowed.', 'redirect' => '/', 'expectsJson' => false],
+        ];
 
-            return Inertia::render('Errors/NotFound')->toResponse($request)->setStatusCode(404);
-        });
+        foreach ($statusPages as $class => $page) {
+            $exceptions->render(function (Throwable $e, Request $request) use ($class, $page) {
+                if (! $e instanceof $class) {
+                    return null;
+                }
+
+                $isApi = $request->is(['api/*', '*/api/*'])
+                    || (($page['expectsJson'] ?? false) && $request->expectsJson());
+
+                if ($isApi) {
+                    return response()->json(['message' => $page['message']], $page['status']);
+                }
+
+                if (($page['redirect'] ?? null) === 'login') {
+                    return redirect()->guest(route('login'));
+                }
+
+                if (isset($page['redirect'])) {
+                    return redirect($page['redirect']);
+                }
+
+                return Inertia::render($page['view'])->toResponse($request)->setStatusCode($page['status']);
+            });
+        }
+
         $exceptions->render(function (ValidationException $e, Request $request) {
             if ($request->is(['api/*', '*/api/*']) || $request->expectsJson()) {
                 return response()->json([
@@ -115,40 +141,13 @@ return Application::configure(basePath: dirname(__DIR__))
 
             return null; // Let Inertia handle it
         });
-        $exceptions->render(function (AccessDeniedHttpException $e, Request $request) {
-            if ($request->is(['api/*', '*/api/*']) || $request->expectsJson()) {
-                return response()->json(['message' => 'Forbidden.'], 403);
-            }
 
-            return Inertia::render('Errors/Forbidden')->toResponse($request)->setStatusCode(403);
-        });
-        $exceptions->render(function (AuthenticationException $e, Request $request) {
-            if ($request->is(['api/*', '*/api/*']) || $request->expectsJson()) {
-                return response()->json(['message' => 'Unauthenticated.'], 401);
-            }
-
-            return redirect()->guest(route('login'));
-        });
-        $exceptions->render(function (TooManyRequestsHttpException $e, Request $request) {
-            if ($request->is(['api/*', '*/api/*']) || $request->expectsJson()) {
-                return response()->json(['message' => 'Too many requests. Please slow down.'], 429);
-            }
-
-            return inertia('Errors/TooManyRequests', [])->toResponse($request)->setStatusCode(429);
-        });
         $exceptions->render(function (ModelNotFoundException $e, Request $request) {
             if ($request->is(['api/*', '*/api/*'])) {
                 return response()->json(['message' => 'Resource not found.'], 404);
             }
 
             return null; // Let the default 404 handler take over
-        });
-        $exceptions->render(function (MethodNotAllowedHttpException $e, Request $request) {
-            if ($request->is(['api/*', '*/api/*'])) {
-                return response()->json(['message' => 'Method not allowed.'], 405);
-            }
-
-            return redirect('/');
         });
         $exceptions->render(function (Throwable $e, Request $request) {
             if ($e instanceof HttpException || $e instanceof ValidationException || $e instanceof AuthenticationException) {

@@ -59,7 +59,7 @@ export default function AgencyFormModal({ agency, onClose, onBypass }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto owb-modal-animate" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-surface-bright rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto owb-modal-animate" onClick={(e) => e.stopPropagation()}>
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
           <h3 className="text-lg font-semibold text-slate-900">{isEdit ? 'Edit Agency' : 'New Agency'}</h3>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600">&times;</button>
@@ -67,22 +67,22 @@ export default function AgencyFormModal({ agency, onClose, onBypass }) {
         <form onSubmit={handleSubmit} className="px-6 py-4 space-y-4">
           <div>
             <label className="block text-sm font-medium text-slate-700">Name *</label>
-            <input type="text" value={data.name} onChange={(e) => setData('name', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" required maxLength={255} />
+            <input type="text" value={data.name} onChange={(e) => setData('name', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-primary focus:ring-primary text-sm" required maxLength={255} />
             <InputError message={errors.name} className="mt-1" />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700">Short Name *</label>
-            <input type="text" value={data.short} onChange={(e) => setData('short', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" required maxLength={50} />
+            <input type="text" value={data.short} onChange={(e) => setData('short', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-primary focus:ring-primary text-sm" required maxLength={50} />
             <InputError message={errors.short} className="mt-1" />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700">Description</label>
-            <textarea rows={3} value={data.description} onChange={(e) => setData('description', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+            <textarea rows={3} value={data.description} onChange={(e) => setData('description', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-primary focus:ring-primary text-sm" />
             <InputError message={errors.description} className="mt-1" />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700">Contact Info</label>
-            <input type="text" value={data.contact_info} onChange={(e) => setData('contact_info', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm" />
+            <input type="text" value={data.contact_info} onChange={(e) => setData('contact_info', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-primary focus:ring-primary text-sm" />
             <InputError message={errors.contact_info} className="mt-1" />
           </div>
           <LogoUpload
@@ -97,7 +97,7 @@ export default function AgencyFormModal({ agency, onClose, onBypass }) {
               value={data.map_link}
               onChange={(e) => handleMapLinkChange(e.target.value)}
               placeholder="Paste Google Maps share link..."
-              className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+              className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-primary focus:ring-primary text-sm"
               maxLength={2048}
             />
             {mapPreview && (
@@ -122,13 +122,13 @@ export default function AgencyFormModal({ agency, onClose, onBypass }) {
             </div>
           )}
           {isEdit && agency.is_default && (
-            <p className="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+            <p className="text-xs font-medium text-on-warning-container bg-warning-container border border-warning/20 rounded-md px-3 py-2">
               Default agencies must stay active.
             </p>
           )}
           <div className="flex justify-end gap-3 pt-2">
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50">Cancel</button>
-            <button type="submit" disabled={processing} className="px-4 py-2 text-sm font-medium text-white bg-blue-900 rounded-md hover:bg-blue-800 disabled:opacity-50">
+            <button type="submit" disabled={processing} className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-primary-container disabled:opacity-50">
               {isEdit ? 'Update' : 'Create'}
             </button>
           </div>

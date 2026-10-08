@@ -11,14 +11,14 @@ const MILESTONE_EVENT_CONFIG = {
 const STATUS_CONFIG = {
   IN_PROGRESS: { label: 'In Progress', icon: 'radio_button_checked', bg: 'bg-amber-50 text-amber-700 border-amber-200' },
   RESOLVED: { label: 'Resolved', icon: 'check_circle', bg: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-  BEING_PREPARED: { label: 'Under Preparation', icon: 'layers', bg: 'bg-blue-50 text-blue-700 border-blue-200' },
+  BEING_PREPARED: { label: 'Under Preparation', icon: 'layers', bg: 'bg-info-container text-on-info-container border-info' },
   ARCHIVED: { label: 'Archived', icon: 'archive', bg: 'bg-slate-100 text-slate-600 border-slate-200' },
   UNKNOWN: { label: 'Status Unavailable', icon: 'help_outline', bg: 'bg-slate-100 text-slate-600 border-slate-200' },
 };
 
 const REFERRAL_STATUS_CONFIG = {
   PENDING:        { label: 'Awaiting receipt',    icon: 'schedule',              bg: 'bg-slate-100 text-slate-600 border-slate-200' },
-  PROCESSING:     { label: 'In process',          icon: 'radio_button_checked',  bg: 'bg-blue-50 text-blue-700 border-blue-200' },
+  PROCESSING:     { label: 'In process',          icon: 'radio_button_checked',  bg: 'bg-info-container text-on-info-container border-info' },
   FOR_COMPLIANCE: { label: 'Needs documents',     icon: 'description',           bg: 'bg-amber-50 text-amber-700 border-amber-200' },
   COMPLETED:      { label: 'Completed',           icon: 'check_circle',          bg: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
   REJECTED:       { label: 'Unable to assist',    icon: 'cancel',                bg: 'bg-red-50 text-red-600 border-red-200' },
@@ -50,7 +50,7 @@ function formatStatusLabel(status) {
 function InfoCard({ icon, label, value, tone = 'slate' }) {
   const toneClasses = {
     slate: 'bg-slate-50 text-slate-700 border-slate-200',
-    blue: 'bg-blue-50 text-blue-700 border-blue-200',
+    info: 'bg-info-container text-on-info-container border-info',
     emerald: 'bg-emerald-50 text-emerald-700 border-emerald-200',
     amber: 'bg-amber-50 text-amber-700 border-amber-200',
   }[tone];
@@ -129,7 +129,7 @@ export default function AgencyMilestones({ trackingId, trackedCase, agencyMilest
               <span className="rounded-full border border-white/30 px-3 py-1.5 font-semibold">{trackedCase.caseNo}</span>
             )}
             {milestoneCount > 0 && (
-              <span className="rounded-full border border-emerald-300/50 bg-emerald-500/20 px-3 py-1.5 font-semibold text-emerald-100">{milestoneCount} milestone{milestoneCount !== 1 ? 's' : ''}</span>
+              <span className="rounded-full border border-success/50 bg-success-container px-3 py-1.5 font-semibold text-on-success-container">{milestoneCount} milestone{milestoneCount !== 1 ? 's' : ''}</span>
             )}
           </div>
 
@@ -143,7 +143,7 @@ export default function AgencyMilestones({ trackingId, trackedCase, agencyMilest
             icon="assignment"
             label="Requested services"
             value={agencyMilestones?.requiredServices || 'No service request details were provided.'}
-            tone={agencyMilestones?.requiredServices ? 'blue' : 'slate'}
+            tone={agencyMilestones?.requiredServices ? 'info' : 'slate'}
           />
 
           <InfoCard
@@ -191,7 +191,7 @@ export default function AgencyMilestones({ trackingId, trackedCase, agencyMilest
 
         <section className="space-y-3">
           <h2 className="text-[11px] font-bold uppercase tracking-widest text-slate-500 flex items-center gap-2">
-            <span className="material-symbols-outlined text-[16px] text-blue-600">timeline</span>
+            <span className="material-symbols-outlined text-[16px] text-primary">timeline</span>
             Milestone timeline
           </h2>
 

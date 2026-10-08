@@ -1,4 +1,5 @@
-import MDEditor from '@uiw/react-md-editor';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import { visit } from 'unist-util-visit';
 
@@ -79,21 +80,19 @@ export default function MarkdownRenderer({ content }) {
 
   return (
     <div className="md-renderer">
-      <MDEditor.Markdown
-        source={normalizeHeadings(content)}
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
         rehypePlugins={[[rehypeSanitize, sanitizeSchema], rehypeHeadingLinks]}
-        wrapperElement={{
-          'data-color-mode': 'light',
-        }}
-      />
+      >
+        {normalizeHeadings(content)}
+      </ReactMarkdown>
       <style>{`
         .md-renderer {
           min-width: 0;
           max-width: 100%;
           overflow-wrap: anywhere;
         }
-        .md-renderer .wmde-markdown,
-        .md-renderer .wmde-markdown-color {
+        .md-renderer {
           background-color: transparent !important;
           font-family: 'Public Sans', system-ui, -apple-system, sans-serif;
           font-size: 1rem;
@@ -102,12 +101,12 @@ export default function MarkdownRenderer({ content }) {
         }
 
         /* Headings */
-        .md-renderer .wmde-markdown h1,
-        .md-renderer .wmde-markdown h2,
-        .md-renderer .wmde-markdown h3,
-        .md-renderer .wmde-markdown h4,
-        .md-renderer .wmde-markdown h5,
-        .md-renderer .wmde-markdown h6 {
+        .md-renderer h1,
+        .md-renderer h2,
+        .md-renderer h3,
+        .md-renderer h4,
+        .md-renderer h5,
+        .md-renderer h6 {
           font-family: 'Public Sans', system-ui, -apple-system, sans-serif;
           font-weight: 700;
           letter-spacing: -0.02em;
@@ -116,40 +115,40 @@ export default function MarkdownRenderer({ content }) {
           margin-bottom: 0.75em;
           line-height: 1.3;
         }
-        .md-renderer .wmde-markdown h1 { font-size: 1.625rem; }
-        .md-renderer .wmde-markdown h2 { font-size: 1.375rem; }
-        .md-renderer .wmde-markdown h3 { font-size: 1.15rem; }
-        .md-renderer .wmde-markdown h4 { font-size: 1rem; }
-        .md-renderer .wmde-markdown h5 { font-size: 0.875rem; }
-        .md-renderer .wmde-markdown h6 { font-size: 0.8125rem; }
+        .md-renderer h1 { font-size: 1.625rem; }
+        .md-renderer h2 { font-size: 1.375rem; }
+        .md-renderer h3 { font-size: 1.15rem; }
+        .md-renderer h4 { font-size: 1rem; }
+        .md-renderer h5 { font-size: 0.875rem; }
+        .md-renderer h6 { font-size: 0.8125rem; }
 
-        .md-renderer .wmde-markdown h1:first-child,
-        .md-renderer .wmde-markdown h2:first-child,
-        .md-renderer .wmde-markdown h3:first-child {
+        .md-renderer h1:first-child,
+        .md-renderer h2:first-child,
+        .md-renderer h3:first-child {
           margin-top: 0;
         }
 
         /* Paragraphs */
-        .md-renderer .wmde-markdown p {
+        .md-renderer p {
           margin-bottom: 1.25em;
           line-height: 1.75;
           color: #41474f;
         }
 
         /* Links */
-        .md-renderer .wmde-markdown a {
+        .md-renderer a {
           color: #005288;
           text-decoration: none;
           font-weight: 500;
           border-bottom: 1px solid transparent;
           transition: border-color 0.15s ease;
         }
-        .md-renderer .wmde-markdown a:hover {
+        .md-renderer a:hover {
           border-bottom-color: #005288;
         }
 
         /* Inline code */
-        .md-renderer .wmde-markdown code {
+        .md-renderer code {
           font-family: 'SF Mono', 'Fira Code', 'Fira Mono', Menlo, Consolas, monospace;
           font-size: 0.8125em;
           background-color: #ebeef4;
@@ -160,7 +159,7 @@ export default function MarkdownRenderer({ content }) {
         }
 
         /* Code blocks */
-        .md-renderer .wmde-markdown pre {
+        .md-renderer pre {
           background-color: #181c20 !important;
           border-radius: 0.5rem;
           padding: 1.25rem 1.5rem;
@@ -168,7 +167,7 @@ export default function MarkdownRenderer({ content }) {
           overflow-x: auto;
           border: 1px solid #2d3135;
         }
-        .md-renderer .wmde-markdown pre code {
+        .md-renderer pre code {
           background: none !important;
           color: #eef1f7;
           padding: 0;
@@ -178,7 +177,7 @@ export default function MarkdownRenderer({ content }) {
         }
 
         /* Blockquotes */
-        .md-renderer .wmde-markdown blockquote {
+        .md-renderer blockquote {
           border-left: 3px solid #005288;
           background-color: #f1f4fa;
           margin: 1.5em 0;
@@ -186,44 +185,44 @@ export default function MarkdownRenderer({ content }) {
           border-radius: 0 0.25rem 0.25rem 0;
           color: #41474f;
         }
-        .md-renderer .wmde-markdown blockquote p:last-child {
+        .md-renderer blockquote p:last-child {
           margin-bottom: 0;
         }
 
         /* Lists */
-        .md-renderer .wmde-markdown ul,
-        .md-renderer .wmde-markdown ol {
+        .md-renderer ul,
+        .md-renderer ol {
           padding-left: 1.5em;
           margin-bottom: 1.25em;
           color: #41474f;
         }
-        .md-renderer .wmde-markdown li {
+        .md-renderer li {
           margin-bottom: 0.35em;
           line-height: 1.7;
         }
-        .md-renderer .wmde-markdown li > ul,
-        .md-renderer .wmde-markdown li > ol {
+        .md-renderer li > ul,
+        .md-renderer li > ol {
           margin-top: 0.35em;
           margin-bottom: 0;
         }
 
         /* Task lists */
-        .md-renderer .wmde-markdown .contains-task-list {
+        .md-renderer .contains-task-list {
           list-style: none;
           padding-left: 0;
         }
-        .md-renderer .wmde-markdown .contains-task-list .task-list-item {
+        .md-renderer .contains-task-list .task-list-item {
           display: flex;
           align-items: flex-start;
           gap: 0.5em;
         }
-        .md-renderer .wmde-markdown .contains-task-list .task-list-item input[type="checkbox"] {
+        .md-renderer .contains-task-list .task-list-item input[type="checkbox"] {
           margin-top: 0.35em;
           accent-color: #005288;
         }
 
         /* Horizontal rules */
-        .md-renderer .wmde-markdown hr {
+        .md-renderer hr {
           border: none;
           height: 1px;
           background: #dfe3e8;
@@ -231,7 +230,7 @@ export default function MarkdownRenderer({ content }) {
         }
 
         /* Images */
-        .md-renderer .wmde-markdown img {
+        .md-renderer img {
           max-width: 100%;
           height: auto;
           border-radius: 0.5rem;
@@ -242,14 +241,14 @@ export default function MarkdownRenderer({ content }) {
         }
 
         /* Tables */
-        .md-renderer .wmde-markdown table {
+        .md-renderer table {
           width: 100%;
           border-collapse: collapse;
           margin-bottom: 1.5em;
           font-size: 0.875rem;
           overflow-wrap: anywhere;
         }
-        .md-renderer .wmde-markdown th {
+        .md-renderer th {
           background-color: #f1f4fa;
           font-weight: 600;
           text-align: left;
@@ -260,23 +259,23 @@ export default function MarkdownRenderer({ content }) {
           text-transform: uppercase;
           letter-spacing: 0.04em;
         }
-        .md-renderer .wmde-markdown td {
+        .md-renderer td {
           padding: 0.5rem 0.75rem;
           border: 1px solid #dfe3e8;
           color: #41474f;
         }
-        .md-renderer .wmde-markdown tr:nth-child(even) td {
+        .md-renderer tr:nth-child(even) td {
           background-color: #f7f9ff;
         }
 
         /* Bold / Strong */
-        .md-renderer .wmde-markdown strong {
+        .md-renderer strong {
           font-weight: 700;
           color: #181c20;
         }
 
         /* Inline images shouldn't have borders in flow text */
-        .md-renderer .wmde-markdown p img {
+        .md-renderer p img {
           display: inline-block;
           margin: 0 0.25em;
           border: none;
@@ -285,14 +284,14 @@ export default function MarkdownRenderer({ content }) {
         }
 
         /* Alerts (GitHub blockquote alerts) */
-        .md-renderer .wmde-markdown .markdown-alert {
+        .md-renderer .markdown-alert {
           border-left: 3px solid #005288;
           background: #f1f4fa;
           border-radius: 0 0.25rem 0.25rem 0;
           padding: 1em 1.25em;
           margin: 1.5em 0;
         }
-        .md-renderer .wmde-markdown .markdown-alert-title {
+        .md-renderer .markdown-alert-title {
           font-weight: 700;
           font-size: 0.8125rem;
           text-transform: uppercase;
@@ -301,10 +300,10 @@ export default function MarkdownRenderer({ content }) {
         }
 
         /* Paragraph spacing after block elements */
-        .md-renderer .wmde-markdown h1 + p,
-        .md-renderer .wmde-markdown h2 + p,
-        .md-renderer .wmde-markdown h3 + p,
-        .md-renderer .wmde-markdown h4 + p {
+        .md-renderer h1 + p,
+        .md-renderer h2 + p,
+        .md-renderer h3 + p,
+        .md-renderer h4 + p {
           margin-top: 0;
         }
       `}</style>

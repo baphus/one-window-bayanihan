@@ -143,7 +143,7 @@ function Input({ value, onChange, placeholder, type = 'text', maxLength, minLeng
             required={required}
             min={min}
             max={max}
-            className={`h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 ${readOnly ? 'bg-slate-50' : ''} ${className}`}
+            className={`h-10 w-full rounded-md border border-outline-variant px-3 text-[13px] text-slate-700 outline-none focus:border-primary focus:ring-1 focus:ring-primary/40 ${readOnly ? 'bg-slate-50' : ''} ${className}`}
         />
     );
 }
@@ -154,7 +154,7 @@ function Select({ value, onChange, options, placeholder, required }) {
             value={value}
             onChange={onChange}
             required={required}
-            className="h-10 w-full rounded-[3px] border border-slate-300 px-3 py-2 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+            className="h-10 w-full rounded-md border border-outline-variant px-3 py-2 text-[13px] text-slate-700 outline-none focus:border-primary focus:ring-1 focus:ring-primary/40"
         >
             {placeholder && <option value="">{placeholder}</option>}
             {options.map((opt) => (
@@ -225,10 +225,10 @@ function CategoryCheckboxDropdown({ categories, selectedIds, onChange, error }) 
                 aria-controls={listboxId}
                 aria-haspopup="listbox"
                 onClick={() => setOpen((v) => !v)}
-                className={`flex h-10 w-full items-center justify-between gap-2 rounded-[3px] border px-3 text-left text-[13px] outline-none transition-colors bg-white ${
+                className={`flex h-10 w-full items-center justify-between gap-2 rounded-md border px-3 text-left text-[13px] outline-none transition-colors bg-white ${
                     error
                         ? 'border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500'
-                        : 'border-slate-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500'
+                        : 'border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary/40'
                 } ${count === 0 ? 'text-slate-400' : 'text-slate-700'}`}
             >
                 <span className="truncate">{summary}</span>
@@ -266,11 +266,11 @@ function CategoryCheckboxDropdown({ categories, selectedIds, onChange, error }) 
                                 }}
                                 tabIndex={-1}
                                 className={`flex cursor-pointer items-center gap-2 px-3 py-2 text-[13px] transition-colors ${
-                                    checked ? 'bg-indigo-50 text-slate-900' : 'text-slate-700 hover:bg-slate-50'
+                                    checked ? 'bg-primary-fixed text-slate-900' : 'text-slate-700 hover:bg-slate-50'
                                 }`}
                             >
                                 <div className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors ${
-                                    checked ? 'border-indigo-600 bg-indigo-600' : 'border-slate-300 bg-white'
+                                    checked ? 'border-primary bg-primary' : 'border-outline-variant bg-white'
                                 }`}>
                                     {checked && (
                                         <svg className="h-3 w-3 text-white" viewBox="0 0 12 12" fill="none">
@@ -394,7 +394,7 @@ function CaseSummaryModal({ show, data, caseId, trackingId, categories, caseIssu
                         type="button"
                         onClick={onConfirm}
                         disabled={processing}
-                        className="inline-flex items-center gap-2 h-9 rounded-[3px] bg-indigo-600 px-5 text-[12px] font-bold text-white hover:bg-indigo-700 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                        className="inline-flex items-center gap-2 h-9 rounded-md bg-primary px-5 text-[12px] font-bold text-white hover:bg-primary-container transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                     >
                         <span className="material-symbols-outlined text-[16px]">check_circle</span>
                         {processing ? (isDraft ? 'Publishing...' : 'Creating...') : 'Confirm & Create Case'}
@@ -1762,7 +1762,7 @@ function handleConfirmClient(client) {
             <Head title={existingDraft ? `Editing Draft: ${existingDraft.case_number}` : 'Create New Case'} />
 
             {client && (
-                <div className="mb-4 rounded-lg bg-indigo-50 border border-indigo-200 px-4 py-3 text-sm text-indigo-700">
+                <div className="mb-4 rounded-lg bg-primary-fixed border border-outline-variant px-4 py-3 text-sm text-primary">
                     <strong>Pre-filled</strong> from existing client record: {[client.first_name, client.last_name].filter(Boolean).join(' ')}
                 </div>
             )}
@@ -1773,7 +1773,7 @@ function handleConfirmClient(client) {
                         <h1 className="text-2xl font-bold text-slate-900">{existingDraft ? `Editing Draft: ${existingDraft.case_number}` : 'Create New Case'}</h1>
                         <p className="text-sm text-slate-500 mt-1">{existingDraft ? 'Continue editing your draft case before submitting or publishing.' : 'A guided onboarding flow to register the case with confidence.'}</p>
                     </div>
-                    <Link href={existingDraft ? route('cases.drafts') : route('cases.index')} className="px-4 py-2 text-sm font-medium text-white bg-blue-900 rounded-md hover:bg-blue-800 transition-colors shrink-0">&larr; {existingDraft ? 'Back to Drafts' : 'Back to Cases'}</Link>
+                    <Link href={existingDraft ? route('cases.drafts') : route('cases.index')} className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-primary-container transition-colors shrink-0">&larr; {existingDraft ? 'Back to Drafts' : 'Back to Cases'}</Link>
                 </div>
             </div>
 
@@ -1784,14 +1784,14 @@ function handleConfirmClient(client) {
                     e.preventDefault();
                 }
             }}>
-                <section className="mx-auto flex max-w-6xl overflow-visible rounded-xl border border-slate-300 bg-white shadow-sm">
-                    <div data-tour="case-create-steps" className="w-1/3 min-w-[280px] max-w-[320px] shrink-0 border-r border-slate-300 bg-slate-50/60 p-8">
+                <section className="mx-auto flex max-w-6xl overflow-visible rounded-xl border border-outline-variant bg-white shadow-sm">
+                    <div data-tour="case-create-steps" className="w-1/3 min-w-[280px] max-w-[320px] shrink-0 border-r border-outline-variant bg-slate-50/60 p-8">
                         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
                             <h3 className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-slate-500">Step Guide</h3>
                             <p className="mt-2 text-[14px] font-bold text-slate-800">Step {currentStep} of {STEPS.length}</p>
                             <p className="mt-1 text-[12px] text-slate-500">Estimated time: 3-5 minutes</p>
                             <div className="mt-4 h-2 w-full rounded-full bg-slate-100">
-                                <div className="h-2 rounded-full bg-indigo-600 transition-all" style={{ width: `${stepProgress}%` }} />
+                                <div className="h-2 rounded-full bg-primary transition-all" style={{ width: `${stepProgress}%` }} />
                             </div>
                         </div>
 
@@ -1804,7 +1804,7 @@ function handleConfirmClient(client) {
                                         const isCurrent = currentStep === step.id;
                                         return (
                                             <div key={step.id} className="flex gap-4 group">
-                                                <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 text-[13px] font-extrabold transition-colors ${isCompleted ? 'border-indigo-600 bg-indigo-600 text-white' : isCurrent ? 'border-indigo-600 text-indigo-600 bg-white' : 'border-slate-300 text-slate-400 bg-white'}`}>
+                                                <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 text-[13px] font-extrabold transition-colors ${isCompleted ? 'border-primary bg-primary text-white' : isCurrent ? 'border-primary text-primary bg-white' : 'border-outline-variant text-slate-400 bg-white'}`}>
                                                     {isCompleted ? (
                                                         <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
                                                             <polyline points="20 6 9 17 4 12" />
@@ -1812,7 +1812,7 @@ function handleConfirmClient(client) {
                                                     ) : step.id}
                                                 </div>
                                                 <div className="pt-1">
-                                                    <p className={`text-[14px] font-bold ${isCurrent || isCompleted ? 'text-indigo-600' : 'text-slate-500'}`}>{step.title}</p>
+                                                    <p className={`text-[14px] font-bold ${isCurrent || isCompleted ? 'text-primary' : 'text-slate-500'}`}>{step.title}</p>
                                                     <p className="text-[12px] text-slate-400 mt-1 leading-snug">{step.description}</p>
                                                 </div>
                                             </div>
@@ -1828,21 +1828,21 @@ function handleConfirmClient(client) {
                                 <ul className="mt-3 space-y-2 text-[13px] text-slate-600">
                                     {currentStep === 1 && (
                                         <>
-                                            <li className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-600 shrink-0" /><span>Fill in complete client details.</span></li>
-                                            <li className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-600 shrink-0" /><span>Add work history and next of kin if applicable.</span></li>
+                                            <li className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary shrink-0" /><span>Fill in complete client details.</span></li>
+                                            <li className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary shrink-0" /><span>Add work history and next of kin if applicable.</span></li>
                                         </>
                                     )}
                                     {currentStep === 2 && (
                                         <>
-                                            <li className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-600 shrink-0" /><span>We generate the case number and tracking ID for you.</span></li>
-                                            <li className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-600 shrink-0" /><span>Choose the right client type.</span></li>
-                                            <li className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-600 shrink-0" /><span>Indicate any vulnerability status.</span></li>
+                                            <li className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary shrink-0" /><span>We generate the case number and tracking ID for you.</span></li>
+                                            <li className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary shrink-0" /><span>Choose the right client type.</span></li>
+                                            <li className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary shrink-0" /><span>Indicate any vulnerability status.</span></li>
                                         </>
                                     )}
                                     {currentStep === 3 && (
                                         <>
-                                            <li className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-600 shrink-0" /><span>Capture the key events and timeline.</span></li>
-                                            <li className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 rounded-full bg-indigo-600 shrink-0" /><span>Review summary before final submission.</span></li>
+                                            <li className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary shrink-0" /><span>Capture the key events and timeline.</span></li>
+                                            <li className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary shrink-0" /><span>Review summary before final submission.</span></li>
                                         </>
                                     )}
                                 </ul>
@@ -1853,10 +1853,10 @@ function handleConfirmClient(client) {
 
                     <div className="flex-1 flex flex-col p-8">
                         <div className="flex-1">
-                            <div className="mb-6 rounded-xl border border-slate-200 bg-gradient-to-br from-indigo-50 via-white to-white p-6">
+                            <div className="mb-6 rounded-xl border border-slate-200 bg-gradient-to-br from-primary-fixed via-white to-white p-6">
                                 <div className="flex flex-wrap items-center justify-between gap-4">
                                     <div>
-                                        <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-indigo-600">Step {currentStep}</p>
+                                        <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-primary">Step {currentStep}</p>
                                         <h2 className="text-xl font-bold text-slate-800 mt-2">{STEPS[currentStep - 1].title}</h2>
                                         <p className="text-[13px] text-slate-500 mt-1">{STEPS[currentStep - 1].description}</p>
                                     </div>
@@ -1877,10 +1877,10 @@ function handleConfirmClient(client) {
                                                 </p>
                                                 <div className="mb-6">
                                                     <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1">
-                                                        <label className={`flex cursor-pointer items-center justify-center rounded-md px-6 py-1.5 text-[13px] font-bold transition-all ${clientSource === 'existing' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>
+                                                        <label className={`flex cursor-pointer items-center justify-center rounded-md px-6 py-1.5 text-[13px] font-bold transition-all ${clientSource === 'existing' ? 'bg-white text-primary shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>
                                                             <input type="radio" name="client-source" className="sr-only" checked={clientSource === 'existing'} onChange={handleSwitchToExisting} /> Existing Clients
                                                         </label>
-                                                        <label className={`flex cursor-pointer items-center justify-center rounded-md px-6 py-1.5 text-[13px] font-bold transition-all ${clientSource === 'new' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>
+                                                        <label className={`flex cursor-pointer items-center justify-center rounded-md px-6 py-1.5 text-[13px] font-bold transition-all ${clientSource === 'new' ? 'bg-white text-primary shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>
                                                             <input type="radio" name="client-source" className="sr-only" checked={clientSource === 'new'} onChange={handleSwitchToNew} /> New Client
                                                         </label>
                                                     </div>
@@ -1901,7 +1901,7 @@ function handleConfirmClient(client) {
                                                                     }, 300);
                                                                 }}
                                                                 placeholder="Search clients by name..."
-                                                                className="h-10 w-full rounded-[3px] border border-slate-300 px-3 py-2 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                                className="h-10 w-full rounded-md border border-outline-variant px-3 py-2 text-[13px] text-slate-700 outline-none focus:border-primary focus:ring-1 focus:ring-primary/40"
                                                             />
                                                         </div>
 
@@ -1917,14 +1917,14 @@ function handleConfirmClient(client) {
                                                                 <button
                                                                     type="button"
                                                                     onClick={() => setViewMode('grid')}
-                                                                    className={`flex items-center justify-center rounded-md px-3 py-1 text-[12px] font-bold transition-all ${viewMode === 'grid' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-700'}`}
+                                                                    className={`flex items-center justify-center rounded-md px-3 py-1 text-[12px] font-bold transition-all ${viewMode === 'grid' ? 'bg-white text-primary shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-700'}`}
                                                                 >
                                                                     <span className="material-symbols-outlined text-[16px]">grid_view</span>
                                                                 </button>
                                                                 <button
                                                                     type="button"
                                                                     onClick={() => setViewMode('list')}
-                                                                    className={`flex items-center justify-center rounded-md px-3 py-1 text-[12px] font-bold transition-all ${viewMode === 'list' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-700'}`}
+                                                                    className={`flex items-center justify-center rounded-md px-3 py-1 text-[12px] font-bold transition-all ${viewMode === 'list' ? 'bg-white text-primary shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-700'}`}
                                                                 >
                                                                     <span className="material-symbols-outlined text-[16px]">list</span>
                                                                 </button>
@@ -1955,10 +1955,10 @@ function handleConfirmClient(client) {
                                                                         key={c.id}
                                                                         type="button"
                                                                         onClick={() => handleClientSelect(c)}
-                                                                        className="flex w-full items-center gap-4 rounded-lg border border-slate-200 bg-white px-4 py-3 text-left shadow-sm transition-all hover:border-indigo-400 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                                                        className="flex w-full items-center gap-4 rounded-lg border border-slate-200 bg-white px-4 py-3 text-left shadow-sm transition-all hover:border-primary hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary/40"
                                                                     >
-                                                                        <div className="h-10 w-10 shrink-0 rounded-full overflow-hidden flex items-center justify-center bg-indigo-100">
-                                                                            <span className="text-sm font-semibold text-indigo-700 select-none">
+                                                                        <div className="h-10 w-10 shrink-0 rounded-full overflow-hidden flex items-center justify-center bg-primary-fixed">
+                                                                            <span className="text-sm font-semibold text-primary select-none">
                                                                                 {getInitial(c.first_name)}
                                                                             </span>
                                                                         </div>
@@ -2003,10 +2003,10 @@ function handleConfirmClient(client) {
                                                                         key={c.id}
                                                                         type="button"
                                                                         onClick={() => handleClientSelect(c)}
-                                                                        className="flex w-full items-start gap-4 rounded-lg border border-slate-200 bg-white p-4 text-left shadow-sm transition-all hover:border-indigo-400 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                                                        className="flex w-full items-start gap-4 rounded-lg border border-slate-200 bg-white p-4 text-left shadow-sm transition-all hover:border-primary hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary/40"
                                                                     >
-                                                                        <div className="h-12 w-12 shrink-0 rounded-full overflow-hidden flex items-center justify-center bg-indigo-100">
-                                                                            <span className="text-sm font-semibold text-indigo-700 select-none">
+                                                                        <div className="h-12 w-12 shrink-0 rounded-full overflow-hidden flex items-center justify-center bg-primary-fixed">
+                                                                            <span className="text-sm font-semibold text-primary select-none">
                                                                                 {getInitial(c.first_name)}
                                                                             </span>
                                                                         </div>
@@ -2117,7 +2117,7 @@ function handleConfirmClient(client) {
                                                                     handleClientSelect(emailDupClient);
                                                                     setEmailDupClient(null);
                                                                 }}
-                                                                className="inline-flex items-center rounded-md bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700"
+                                                                className="inline-flex items-center rounded-md bg-warning px-3 py-1.5 text-xs font-semibold text-white hover:bg-on-warning-container"
                                                             >
                                                                 Link existing client
                                                             </button>
@@ -2173,11 +2173,11 @@ function handleConfirmClient(client) {
                                                                 value={data.employment.start_date}
                                                                 onChange={(e) => handleEmploymentChange('start_date', e.target.value)}
                                                                 min={data.client.date_of_birth ? employmentStartFloor(data.client.date_of_birth) : undefined}
-                                                                className="h-10 flex-1 min-w-0 rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                                className="h-10 flex-1 min-w-0 rounded-md border border-outline-variant px-3 text-[13px] text-slate-700 outline-none focus:border-primary focus:ring-1 focus:ring-primary/40"
                                                             />
                                                             <span className="text-[11px] font-bold text-slate-400 shrink-0">to</span>
                                                             {data.employment.is_present ? (
-                                                                <span className="h-10 flex-1 min-w-0 rounded-[3px] border border-slate-200 bg-slate-50 px-3 flex items-center text-[13px] font-medium text-emerald-700">
+                                                                <span className="h-10 flex-1 min-w-0 rounded-md border border-slate-200 bg-slate-50 px-3 flex items-center text-[13px] font-medium text-emerald-700">
                                                                     Present
                                                                 </span>
                                                             ) : (
@@ -2186,7 +2186,7 @@ function handleConfirmClient(client) {
                                                                     value={data.employment.end_date}
                                                                     onChange={(e) => handleEmploymentChange('end_date', e.target.value)}
                                                                     min={data.employment.start_date || undefined}
-                                                                    className="h-10 flex-1 min-w-0 rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                                    className="h-10 flex-1 min-w-0 rounded-md border border-outline-variant px-3 text-[13px] text-slate-700 outline-none focus:border-primary focus:ring-1 focus:ring-primary/40"
                                                                 />
                                                             )}
                                                         </div>
@@ -2202,7 +2202,7 @@ function handleConfirmClient(client) {
                                                                         end_date: checked ? '' : data.employment.end_date,
                                                                     });
                                                                 }}
-                                                                className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                                                className="h-4 w-4 rounded border-outline-variant text-primary focus:ring-primary/40"
                                                             />
                                                             <span className="text-[12px] text-slate-600">Presently employed</span>
                                                         </label>
@@ -2235,7 +2235,7 @@ function handleConfirmClient(client) {
                                                                         name="primary-nok"
                                                                         checked={nok.is_primary}
                                                                         onChange={() => setPrimaryNok(idx)}
-                                                                        className="h-3.5 w-3.5 border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                                                        className="h-3.5 w-3.5 border-outline-variant text-primary focus:ring-primary/40"
                                                                     />
                                                                     Primary
                                                                 </label>
@@ -2286,7 +2286,7 @@ function handleConfirmClient(client) {
                                                                 <button
                                                                     type="button"
                                                                     onClick={() => updateNokAddress(idx, { ...data.address })}
-                                                                    className="mb-3 inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-slate-50 px-3 py-1.5 text-[12px] font-bold text-slate-600 transition hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600"
+                                                                    className="mb-3 inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-slate-50 px-3 py-1.5 text-[12px] font-bold text-slate-600 transition hover:border-primary/50 hover:bg-primary-fixed hover:text-primary"
                                                                 >
                                                                     <span className="material-symbols-outlined text-[14px]">content_copy</span>
                                                                     Same as client address
@@ -2309,7 +2309,7 @@ function handleConfirmClient(client) {
                                                 <button
                                                     type="button"
                                                     onClick={addNok}
-                                                    className="inline-flex items-center gap-2 rounded-md border border-dashed border-slate-300 bg-white px-4 py-2 text-[13px] font-bold text-slate-500 transition hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50"
+                                                    className="inline-flex items-center gap-2 rounded-md border border-dashed border-outline-variant bg-white px-4 py-2 text-[13px] font-bold text-slate-500 transition hover:border-primary hover:text-primary hover:bg-primary-fixed"
                                                 >
                                                     <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                                         <line x1="12" y1="5" x2="12" y2="19" />
@@ -2363,7 +2363,7 @@ function handleConfirmClient(client) {
                                                     <select
                                                         value={data.client_type}
                                                         onChange={(e) => setData('client_type', e.target.value)}
-                                                        className="h-10 w-full rounded-[3px] border border-slate-300 px-3 py-2 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                        className="h-10 w-full rounded-md border border-outline-variant px-3 py-2 text-[13px] text-slate-700 outline-none focus:border-primary focus:ring-1 focus:ring-primary/40"
                                                         required
                                                     >
                                                         <option value="OFW">Overseas Filipino Worker</option>
@@ -2390,7 +2390,7 @@ function handleConfirmClient(client) {
                                                                     setData('selected_nok_index', e.target.value);
                                                                     clearErrors('selected_nok_index', 'next_of_kin.email');
                                                                 }}
-                                                                className="h-10 w-full rounded-[3px] border border-slate-300 px-3 py-2 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                                className="h-10 w-full rounded-md border border-outline-variant px-3 py-2 text-[13px] text-slate-700 outline-none focus:border-primary focus:ring-1 focus:ring-primary/40"
                                                                 required
                                                             >
                                                                 <option value="">Select next of kin...</option>
@@ -2412,14 +2412,14 @@ function handleConfirmClient(client) {
                                             <div className="mt-5 pt-5 border-t border-slate-200">
                                                 {data.client_type === 'NEXT_OF_KIN' ? (
                                                     <Field label="Selected Next of Kin Email Address" required>
-                                                        <div className="flex h-10 w-full items-center rounded-[3px] border border-slate-300 bg-slate-50 px-3 text-[13px] text-slate-700">
+                                                        <div className="flex h-10 w-full items-center rounded-md border border-outline-variant bg-slate-50 px-3 text-[13px] text-slate-700">
                                                             {selectedNok?.email || 'Select a next of kin with an email address'}
                                                         </div>
                                                         <InputError message={errors['next_of_kin.email']} className="mt-1" />
                                                     </Field>
                                                 ) : (
                                                     <Field label="OFW Email Address" required>
-                                                        <div className="flex h-10 w-full items-center rounded-[3px] border border-slate-300 bg-slate-50 px-3 text-[13px] text-slate-700">
+                                                        <div className="flex h-10 w-full items-center rounded-md border border-outline-variant bg-slate-50 px-3 text-[13px] text-slate-700">
                                                             {data.client.email || 'No OFW email address provided'}
                                                         </div>
                                                         <InputError message={errors['client.email']} className="mt-1" />
@@ -2456,7 +2456,7 @@ function handleConfirmClient(client) {
                                                                             const next = checked ? current.filter(v => v !== opt) : [...current, opt];
                                                                             setData('vulnerability_indicator', next.length > 0 ? next.join(', ') : 'None');
                                                                         }}
-                                                                        className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                                                        className="h-4 w-4 rounded border-outline-variant text-primary focus:ring-primary/40"
                                                                     />
                                                                     <span className="text-[13px] text-slate-700">{opt}</span>
                                                                 </label>
@@ -2481,7 +2481,7 @@ function handleConfirmClient(client) {
                                                                                 const next = checked ? current.filter(v => v !== opt) : [...current, opt];
                                                                                 setData('nok_vulnerability_indicator', next.length > 0 ? next.join(', ') : 'None');
                                                                             }}
-                                                                            className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                                                            className="h-4 w-4 rounded border-outline-variant text-primary focus:ring-primary/40"
                                                                         />
                                                                         <span className="text-[13px] text-slate-700">{opt}</span>
                                                                     </label>
@@ -2504,7 +2504,7 @@ function handleConfirmClient(client) {
                                                         <select
                                                             value={data.case_issue_id}
                                                             onChange={(e) => setData('case_issue_id', e.target.value)}
-                                                            className="h-10 flex-1 rounded-[3px] border border-slate-300 px-3 py-2 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                            className="h-10 flex-1 rounded-md border border-outline-variant px-3 py-2 text-[13px] text-slate-700 outline-none focus:border-primary focus:ring-1 focus:ring-primary/40"
                                                             required
                                                         >
                                                             <option value="">Select issue/concern...</option>
@@ -2515,7 +2515,7 @@ function handleConfirmClient(client) {
                                                         <button
                                                             type="button"
                                                             onClick={() => { setNewIssueName(''); setShowAddIssue(!showAddIssue); }}
-                                                            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[3px] border border-dashed border-indigo-300 text-indigo-600 transition hover:bg-indigo-50"
+                                                            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-dashed border-primary/50 text-primary transition hover:bg-primary-fixed"
                                                             title="Add new issue"
                                                         >
                                                             <span className="material-symbols-outlined text-[20px]">add</span>
@@ -2524,7 +2524,7 @@ function handleConfirmClient(client) {
                                                 </Field>
                                             </div>
                                             {showAddIssue && (
-                                                <div className="mt-3 rounded-lg border border-indigo-200 bg-indigo-50 p-3">
+                                                <div className="mt-3 rounded-lg border border-outline-variant bg-primary-fixed p-3">
                                                     <Field label="New Issue Name">
                                                         <input
                                                             type="text"
@@ -2532,7 +2532,7 @@ function handleConfirmClient(client) {
                                                             onChange={(e) => setNewIssueName(e.target.value)}
                                                             onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleQuickAddIssue(); } }}
                                                             placeholder="Enter new issue name..."
-                                                            className="h-10 w-full rounded-[3px] border border-slate-300 px-3 py-2 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                            className="h-10 w-full rounded-md border border-outline-variant px-3 py-2 text-[13px] text-slate-700 outline-none focus:border-primary focus:ring-1 focus:ring-primary/40"
                                                             autoFocus
                                                         />
                                                     </Field>
@@ -2541,7 +2541,7 @@ function handleConfirmClient(client) {
                                                             type="button"
                                                             onClick={handleQuickAddIssue}
                                                             disabled={addingIssue || !newIssueName.trim()}
-                                                            className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-[12px] font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                                            className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-[12px] font-semibold text-white transition hover:bg-primary-container disabled:cursor-not-allowed disabled:opacity-50"
                                                         >
                                                             {addingIssue ? 'Adding...' : 'Add'}
                                                         </button>
@@ -2571,7 +2571,7 @@ function handleConfirmClient(client) {
                                                         value={data.summary}
                                                         onChange={(e) => setData('summary', e.target.value)}
                                                         placeholder="Describe the client situation and reason for opening the case..."
-                                                        className="w-full rounded-[3px] border border-slate-300 px-3 py-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                        className="w-full rounded-md border border-outline-variant px-3 py-3 text-[13px] text-slate-700 outline-none focus:border-primary focus:ring-1 focus:ring-primary/40"
                                                         required
                                                     />
                                                 </Field>
@@ -2589,7 +2589,7 @@ function handleConfirmClient(client) {
                                                         <select
                                                             value={data.case_issue_id}
                                                             onChange={(e) => setData('case_issue_id', e.target.value)}
-                                                            className="h-10 flex-1 rounded-[3px] border border-slate-300 px-3 py-2 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                            className="h-10 flex-1 rounded-md border border-outline-variant px-3 py-2 text-[13px] text-slate-700 outline-none focus:border-primary focus:ring-1 focus:ring-primary/40"
                                                             required
                                                         >
                                                             <option value="">Select issue/concern...</option>
@@ -2600,7 +2600,7 @@ function handleConfirmClient(client) {
                                                         <button
                                                             type="button"
                                                             onClick={() => { setNewIssueName(''); setShowAddIssue(!showAddIssue); }}
-                                                            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[3px] border border-dashed border-indigo-300 text-indigo-600 transition hover:bg-indigo-50"
+                                                            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-dashed border-primary/50 text-primary transition hover:bg-primary-fixed"
                                                             title="Add new issue"
                                                         >
                                                             <span className="material-symbols-outlined text-[20px]">add</span>
@@ -2609,7 +2609,7 @@ function handleConfirmClient(client) {
                                                 </Field>
                                             </div>
                                             {showAddIssue && (
-                                                <div className="mt-3 rounded-lg border border-indigo-200 bg-indigo-50 p-3">
+                                                <div className="mt-3 rounded-lg border border-outline-variant bg-primary-fixed p-3">
                                                     <Field label="New Issue Name">
                                                         <input
                                                             type="text"
@@ -2617,7 +2617,7 @@ function handleConfirmClient(client) {
                                                             onChange={(e) => setNewIssueName(e.target.value)}
                                                             onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleQuickAddIssue(); } }}
                                                             placeholder="Enter new issue name..."
-                                                            className="h-10 w-full rounded-[3px] border border-slate-300 px-3 py-2 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                            className="h-10 w-full rounded-md border border-outline-variant px-3 py-2 text-[13px] text-slate-700 outline-none focus:border-primary focus:ring-1 focus:ring-primary/40"
                                                             autoFocus
                                                         />
                                                     </Field>
@@ -2626,7 +2626,7 @@ function handleConfirmClient(client) {
                                                             type="button"
                                                             onClick={handleQuickAddIssue}
                                                             disabled={addingIssue || !newIssueName.trim()}
-                                                            className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-[12px] font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                                            className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-[12px] font-semibold text-white transition hover:bg-primary-container disabled:cursor-not-allowed disabled:opacity-50"
                                                         >
                                                             {addingIssue ? 'Adding...' : 'Add'}
                                                         </button>
@@ -2649,7 +2649,7 @@ function handleConfirmClient(client) {
                         <div data-tour="case-create-actions" className="mt-8 flex items-center justify-between border-t border-slate-200 pt-6">
                             <div className="flex items-center gap-2">
                                 <button type="button" onClick={handleBack} disabled={currentStep === 1}
-                                    className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-5 py-2.5 text-[13px] font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">
+                                    className="inline-flex items-center gap-2 rounded-md border border-outline-variant bg-white px-5 py-2.5 text-[13px] font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">
                                     <span className="material-symbols-outlined text-[18px]">chevron_left</span> Back
                                 </button>
                                 <div className="flex items-center gap-2">
@@ -2672,7 +2672,7 @@ function handleConfirmClient(client) {
                             {currentStep < 3 ? (
                                 <div className="flex flex-col items-end gap-1">
                                     <button type="button" onClick={handleNext} disabled={!canProceed()}
-                                        className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-5 py-2.5 text-[13px] font-bold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50">
+                                        className="inline-flex items-center gap-2 rounded-md bg-primary px-5 py-2.5 text-[13px] font-bold text-white transition hover:bg-primary-container disabled:cursor-not-allowed disabled:opacity-50">
                                         Next <span className="material-symbols-outlined text-[18px]">chevron_right</span>
                                     </button>
                                     {!canProceed() && getMissingFields().length > 0 && (
@@ -2683,7 +2683,7 @@ function handleConfirmClient(client) {
                                 </div>
                             ) : (
                                 <button type="button" onClick={handleSubmit} disabled={processing || (existingDraft && (hasDirty || autoSaveStatus === 'saving')) || !canSubmit()}
-                                    className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-6 py-2.5 text-[13px] font-bold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50">
+                                    className="inline-flex items-center gap-2 rounded-md bg-primary px-6 py-2.5 text-[13px] font-bold text-white transition hover:bg-primary-container disabled:cursor-not-allowed disabled:opacity-50">
                                     {processing ? (existingDraft ? 'Publishing...' : 'Creating...') : (existingDraft ? 'Publish Draft' : 'Create Case')}
                                 </button>
                             )}

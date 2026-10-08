@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Exceptions\ReferralDocumentUploadException;
+use App\Exceptions\SafeException;
 use App\Http\Requests\StoreMilestoneRequest;
 use App\Http\Requests\StoreReferralCommentRequest;
 use App\Http\Requests\StoreReferralRequest;
@@ -115,7 +115,7 @@ class ReferralController extends Controller
                 $request->hasFile('documents') ? $request->file('documents') : [],
                 $storage,
             );
-        } catch (ReferralDocumentUploadException $e) {
+        } catch (SafeException $e) {
             return back()->withErrors(['documents' => $e->userMessage]);
         }
 
@@ -133,7 +133,9 @@ class ReferralController extends Controller
         $this->authorizeReferralAccess($referral, $request->user());
         $serviceRequirements = $this->referralService->getServiceRequirements($referral->agcy_id);
         $overdueDays = (int) SystemSetting::getValue('referral_overdue_days', 7);
-        $clientRequestHistory = $this->referralService->getClientRequestHistory($referral);
+        $clientRequestHistory = $request->user()->role === 'CASE_MANAGER'
+            ? []
+            : $this->referralService->getClientRequestHistory($referral);
         // Keep the eager-loaded models out of the general referral payload; the
         // service's allow-listed history is the only client-request projection.
         $referral->unsetRelation('clientRequests');
@@ -144,7 +146,9 @@ class ReferralController extends Controller
             'overdueDays' => $overdueDays,
             'timeline' => $this->referralService->getReferralTimeline($referral),
             'clientRequestHistory' => $clientRequestHistory,
-            'clientRequestPermissions' => $this->referralService->getClientRequestPermissions($referral, $request->user()),
+            'clientRequestPermissions' => $request->user()->role === 'CASE_MANAGER'
+                ? ['canCreate' => false, 'canReply' => false, 'canTransition' => false, 'canRevokeAccess' => false]
+                : $this->referralService->getClientRequestPermissions($referral, $request->user()),
             'relatedReferrals' => $this->referralService->getRelatedReferrals($referral, $request->user()),
         ]);
     }
