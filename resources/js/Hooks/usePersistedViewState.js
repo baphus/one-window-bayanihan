@@ -1,27 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
+import useLocalStorage, { readStoredValue, writeStoredValue } from './useLocalStorage';
 
 /**
  * Persist a page's list/grid view mode to localStorage so the user's chosen
  * layout survives navigation. Mirrors the conventions of usePersistedColumns.
  */
 export function usePersistedViewMode(storageKey) {
-  const [viewMode, setViewMode] = useState(() => {
-    try {
-      return localStorage.getItem(storageKey) || 'list';
-    } catch {
-      return 'list';
-    }
-  });
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(storageKey, viewMode);
-    } catch {
-      /* storage unavailable — ignore */
-    }
-  }, [storageKey, viewMode]);
-
-  return [viewMode, setViewMode];
+  return useLocalStorage(storageKey, 'list');
 }
 
 /**
@@ -48,12 +33,7 @@ export function usePersistedFilters(storageKey, filters, applyFilters) {
     if (restoredRef.current) return;
     restoredRef.current = true;
 
-    let saved = null;
-    try {
-      saved = JSON.parse(localStorage.getItem(storageKey) || 'null');
-    } catch {
-      saved = null;
-    }
+    const saved = readStoredValue(storageKey, null);
     if (!saved || typeof saved !== 'object' || Array.isArray(saved)) return;
 
     const { page: _page, per_page: _perPage, ...rest } = saved;
@@ -67,10 +47,6 @@ export function usePersistedFilters(storageKey, filters, applyFilters) {
 
   useEffect(() => {
     if (filters === undefined) return;
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(filters));
-    } catch {
-      /* storage unavailable — ignore */
-    }
+    writeStoredValue(storageKey, filters);
   }, [storageKey, filters]);
 }

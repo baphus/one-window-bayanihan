@@ -41,9 +41,6 @@ $reportFailure = function (array $context = []) {
     };
 };
 
-Schedule::command('helpcenter:sync')->hourly()->withoutOverlapping()
-    ->onFailure($reportFailure(['command' => 'helpcenter:sync']));
-
 Schedule::command('logs:cleanup')->dailyAt('03:00')->withoutOverlapping()
     ->onFailure($reportFailure(['command' => 'logs:cleanup']));
 
@@ -62,7 +59,3 @@ Schedule::command('storage:cleanup-orphans')->daily()->withoutOverlapping()
 // Permanently delete soft-deleted cases older than the retention window.
 Schedule::command('cases:purge-trashed')->dailyAt('02:00')->withoutOverlapping()
     ->onFailure($reportFailure(['command' => 'cases:purge-trashed']));
-
-// Prune old generated documents (completed > 30 days, failed > 7 days).
-Schedule::command('documents:prune')->dailyAt('03:30')->withoutOverlapping()
-    ->onFailure($reportFailure(['command' => 'documents:prune']));

@@ -39,7 +39,6 @@ vi.mock('@sentry/react', () => ({
 
 vi.mock('@/sentry', () => ({
     initSentry: vi.fn(),
-    pageRequestId: vi.fn((value) => value ?? null),
 }));
 
 vi.mock('@/Components/ToastProvider', () => ({
@@ -48,11 +47,6 @@ vi.mock('@/Components/ToastProvider', () => ({
 
 vi.mock('@/Onboarding/OnboardingProvider', () => ({
     default: ({ children }: { children: ReactNode }) => children,
-}));
-
-vi.mock('@tanstack/react-query', () => ({
-    QueryClient: class QueryClient {},
-    QueryClientProvider: ({ children }: { children: ReactNode }) => children,
 }));
 
 beforeEach(() => {

@@ -1,6 +1,29 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { parsePhoneNumber } from 'libphonenumber-js';
 import phoneCodes from '@/data/phone-codes.json';
+
+// Lightweight E.164 normalization: digits only, 7–15 digits total.
+// Returns the E.164 value when the input looks like a real number,
+// otherwise the raw input so nothing the user typed is ever lost.
+function toE164(input, dialCode) {
+    const text = String(input ?? '').trim();
+    if (text === '') {
+        return { value: '', valid: true };
+    }
+    const dialDigits = String(dialCode).replace(/\D/g, '');
+    let digits = text.replace(/\D/g, '');
+    if (digits === '') {
+        return { value: text, valid: false };
+    }
+    if (!text.startsWith('+') && !digits.startsWith(dialDigits)) {
+        digits = `${dialDigits}${digits.replace(/^0+/, '')}`;
+    }
+    const valid = digits.length >= 7 && digits.length <= 15;
+    return { value: valid ? `+${digits}` : text, valid };
+}
+
+function dialOf(country) {
+    return phoneCodes.find((c) => c.code === country)?.dial_code ?? '';
+}
 
 export default function PhoneInput({
     value,
@@ -39,18 +62,9 @@ export default function PhoneInput({
                 setInternalError('');
                 return '';
             }
-            try {
-                const phoneNumber = parsePhoneNumber(input, country);
-                if (phoneNumber && phoneNumber.isValid()) {
-                    setInternalError('');
-                    return phoneNumber.number; // E.164 format
-                }
-                setInternalError('Invalid phone number');
-                return input;
-            } catch {
-                // Graceful fallback when parsePhoneNumber cannot handle the input
-                return input;
-            }
+            const { value, valid } = toE164(input, dialOf(country));
+            setInternalError(valid ? '' : 'Invalid phone number');
+            return value;
         },
         [],
     );
@@ -58,19 +72,10 @@ export default function PhoneInput({
     // Emit the E.164 value to the parent or fall back to raw input
     const emitValue = useCallback(
         (input, country) => {
-            try {
-                const phoneNumber = parsePhoneNumber(input, country);
-                if (phoneNumber && phoneNumber.isValid()) {
-                    isUpdatingRef.current = true;
-                    onChange(phoneNumber.number);
-                    return phoneNumber.number;
-                }
-            } catch {
-                // fall through
-            }
+            const { value } = toE164(input, dialOf(country));
             isUpdatingRef.current = true;
-            onChange(input);
-            return input;
+            onChange(value);
+            return value;
         },
         [onChange],
     );
@@ -84,16 +89,12 @@ export default function PhoneInput({
 
             // Re-validate the current input against the new country
             if (rawInput && rawInput.trim()) {
-                try {
-                    const phoneNumber = parsePhoneNumber(rawInput, newCountry);
-                    if (phoneNumber && phoneNumber.isValid()) {
-                        setInternalError('');
-                        emitValue(rawInput, newCountry);
-                    } else {
-                        setInternalError('Invalid phone number');
-                    }
-                } catch {
+                const { valid } = toE164(rawInput, dialOf(newCountry));
+                if (valid) {
                     setInternalError('');
+                    emitValue(rawInput, newCountry);
+                } else {
+                    setInternalError('Invalid phone number');
                 }
             } else {
                 setInternalError('');

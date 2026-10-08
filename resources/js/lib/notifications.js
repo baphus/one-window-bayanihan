@@ -359,4 +359,3 @@ export function buildFallbackMessage(shortName, { caseRef, actor, detail } = {})
   if (parts.length > 0) return `You have a new update ${parts.join(' ')}.`.replace(' :', ':');
   return 'You have a new update. Open this notification to view details.';
 }
-

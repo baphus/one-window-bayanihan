@@ -17,6 +17,24 @@ class MfaPendingState
 
     public const MARKER_KEY = 'mfa_authenticated';
 
+    /**
+     * Routes that must remain accessible without a valid MFA session marker
+     * or enrollment — profile/MFA management, auth, and password routes.
+     */
+    public const EXEMPT_ROUTES = [
+        'profile.edit',
+        'profile.update',
+        'profile.destroy',
+        'profile.email-change.*',
+        'profile.mfa.*',
+        'login',
+        'login.*',
+        'logout',
+        'password.*',
+        'register',
+        'verification.*',
+    ];
+
     public function clear(Request $request): void
     {
         $request->session()->forget([

@@ -10,6 +10,7 @@ use Illuminate\Mail\Events\MessageSent;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\SendQueuedMailable;
 use Illuminate\Mail\SentMessage;
+use Illuminate\Queue\SyncQueue;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
@@ -221,8 +222,21 @@ class EmailLoggingTest extends TestCase
     {
         $jobUuid = (string) Str::uuid();
 
-        // Mock Queue::retry() since SyncQueue doesn't support it
-        Queue::shouldReceive('retry')->once()->with($jobUuid);
+        // SyncQueue has no retry(); swap a recording subclass since the
+        // controller ignores the return value.
+        $queue = new class extends SyncQueue
+        {
+            /** @var array<int, string> */
+            public array $retried = [];
+
+            public function retry(string $id): int
+            {
+                $this->retried[] = $id;
+
+                return 1;
+            }
+        };
+        Queue::swap($queue);
 
         $log = EmailLog::create([
             'to_email' => 'resend@example.com',
@@ -237,5 +251,6 @@ class EmailLoggingTest extends TestCase
             ->post("/admin/system/email-logs/{$log->id}/resend");
 
         $response->assertStatus(302); // redirect back
+        $this->assertSame([$jobUuid], $queue->retried);
     }
 }

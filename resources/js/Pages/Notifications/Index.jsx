@@ -1,6 +1,6 @@
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, router } from '@inertiajs/react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import useJsonPoll, { JSON_HEADERS } from '@/Hooks/useJsonPoll';
 import { useState } from 'react';
 import {
   Bell,
@@ -19,7 +19,7 @@ import { formatDisplayDateTime } from '@/lib/utils';
 
 // ─── Notifications Tab ───────────────────────────────────────────────────────
 
-function NotificationsTab({ data, isLoading, error, page, onPageChange, queryClient, markReadMutation, markAllReadMutation }) {
+function NotificationsTab({ data, isLoading, error, page, onPageChange, onRetry, markReadMutation, markAllReadMutation }) {
   const items = data?.data ?? [];
   const normalized = items.map(normalizeNotification);
   const unreadItems = normalized.filter((n) => !n.is_read);
@@ -49,7 +49,7 @@ function NotificationsTab({ data, isLoading, error, page, onPageChange, queryCli
         <p className="text-sm font-semibold text-slate-700">Failed to load notifications</p>
         <p className="text-xs text-slate-400 mt-1 mb-4">{error.message}</p>
         <button
-          onClick={() => queryClient.invalidateQueries({ queryKey: ['notifications-page'] })}
+          onClick={onRetry}
           className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
         >
           <Loader2 className="w-3.5 h-3.5" />
@@ -139,7 +139,7 @@ function NotificationsTab({ data, isLoading, error, page, onPageChange, queryCli
                   )}
                   <div className="mt-2 flex items-center justify-between">
                     <span className="text-[11px] text-slate-400">
-                      {item.created_at ? formatDisplayDateTime(item.created_at) : 'Recently'}
+                      {formatDisplayDateTime(item.created_at) || 'Recently'}
                     </span>
                     <div className="flex items-center gap-2">
                       {item.action_url && (
@@ -214,58 +214,47 @@ function NotificationsTab({ data, isLoading, error, page, onPageChange, queryCli
 // ─── Main Page ───────────────────────────────────────────────────────────────
 
 export default function NotificationsIndex() {
-  const queryClient = useQueryClient();
-
   const [notifPage, setNotifPage] = useState(1);
 
-  // ── Data fetching ──
-  const { data: notifData, isLoading: notifLoading, error: notifError } = useQuery({
-    queryKey: ['notifications-page', notifPage],
-    queryFn: async () => {
-      const res = await fetch(route('notifications.index', { per_page: 20, page: notifPage }), {
-        headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-      });
-      if (!res.ok) throw new Error(`Failed: ${res.status}`);
-      return res.json();
-    },
-    refetchInterval: 60000,
-    staleTime: 30000,
-  });
+  // ── Data fetching (polls every 60s, refetches on page change) ──
+  const { data: notifData, isLoading: notifLoading, error: notifError, reload } = useJsonPoll(
+    route('notifications.index', { per_page: 20, page: notifPage }),
+  );
 
   // ── Mutations ──
-  const markReadMutation = useMutation({
-    mutationFn: (rawId) =>
-      fetch(route('notifications.mark-as-read', rawId), {
-        method: 'PATCH',
-        headers: {
-          Accept: 'application/json',
-          'X-Requested-With': 'XMLHttpRequest',
-          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
-        },
-      }).then((r) => { if (!r.ok) throw new Error(); return r.json(); }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications-page'] });
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
-      queryClient.invalidateQueries({ queryKey: ['notifications', 'unread-count'] });
-    },
-  });
+  const [marking, setMarking] = useState(false);
 
-  const markAllReadMutation = useMutation({
-    mutationFn: () =>
-      fetch(route('notifications.mark-all-read'), {
-        method: 'PATCH',
-        headers: {
-          Accept: 'application/json',
-          'X-Requested-With': 'XMLHttpRequest',
-          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
-        },
-      }).then((r) => { if (!r.ok) throw new Error(); return r.json(); }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications-page'] });
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
-      queryClient.invalidateQueries({ queryKey: ['notifications', 'unread-count'] });
-    },
-  });
+  const patchNotification = (url) =>
+    fetch(url, {
+      method: 'PATCH',
+      headers: {
+        ...JSON_HEADERS,
+        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+      },
+    }).then((r) => { if (!r.ok) throw new Error(); return r.json(); });
+
+  const markRead = async (rawId) => {
+    setMarking(true);
+    try {
+      await patchNotification(route('notifications.mark-as-read', rawId));
+      await reload();
+    } finally {
+      setMarking(false);
+    }
+  };
+
+  const markAllRead = async () => {
+    setMarking(true);
+    try {
+      await patchNotification(route('notifications.mark-all-read'));
+      await reload();
+    } finally {
+      setMarking(false);
+    }
+  };
+
+  const markReadMutation = { mutate: markRead, isPending: marking };
+  const markAllReadMutation = { mutate: markAllRead, isPending: marking };
 
   // ── Handlers ──
   const goToPage = (page) => {
@@ -293,7 +282,7 @@ export default function NotificationsIndex() {
             error={notifError}
             page={notifPage}
             onPageChange={goToPage}
-            queryClient={queryClient}
+            onRetry={reload}
             markReadMutation={markReadMutation}
             markAllReadMutation={markAllReadMutation}
           />

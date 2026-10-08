@@ -23,9 +23,6 @@ import { formatRelativeTime } from '@/lib/relativeTime';
  *     actor, agency, type, icon }
  */
 
-export const TIMELINE_SORT_DESC = 'desc';
-export const TIMELINE_SORT_ASC = 'asc';
-
 /** Read the event date from any of the backend shapes (never changed server-side). */
 export function resolveTimelineDate(item) {
     if (!item || typeof item !== 'object') return null;
@@ -43,9 +40,9 @@ function parseTimelineTime(value) {
  * 'desc' (default) puts the most recent event first; items without a
  * parseable date keep their relative order at the end.
  */
-export function sortTimelineItems(items, sortOrder = TIMELINE_SORT_DESC) {
+export function sortTimelineItems(items, sortOrder = 'desc') {
     if (!Array.isArray(items)) return [];
-    const direction = sortOrder === TIMELINE_SORT_ASC ? 1 : -1;
+    const direction = sortOrder === 'asc' ? 1 : -1;
     return items
         .map((item, index) => ({ item, index }))
         .sort((a, b) => {
@@ -62,26 +59,6 @@ export function sortTimelineItems(items, sortOrder = TIMELINE_SORT_DESC) {
             return a.index - b.index;
         })
         .map((entry) => entry.item);
-}
-
-/** Relative date label ("Today", "3 days ago"). Never throws on bad input. */
-export function formatTimelineRelative(value) {
-    if (!value) return '';
-    try {
-        return formatRelativeTime(value);
-    } catch {
-        return '';
-    }
-}
-
-/** Absolute date label ("January 2, 2026, 03:04 PM"). Never throws on bad input. */
-export function formatTimelineAbsolute(value) {
-    if (!value) return '';
-    try {
-        return formatDisplayDateTime(value);
-    } catch {
-        return '';
-    }
 }
 
 /** Short ledger date ("02 Jan 2026"). */
@@ -211,8 +188,24 @@ function SpineRow({ item, config, showRelative, showAbsolute, formatRelative, fo
         return renderItem({ item, config });
     }
     const dateValue = resolveTimelineDate(item);
-    const relative = showRelative ? (formatRelative ?? formatTimelineRelative)(dateValue) : '';
-    const absolute = showAbsolute ? (formatAbsolute ?? formatTimelineAbsolute)(dateValue) : '';
+    const safeRelative = (v) => {
+        if (!v) return '';
+        try {
+            return formatRelativeTime(v);
+        } catch {
+            return '';
+        }
+    };
+    const safeAbsolute = (v) => {
+        if (!v) return '';
+        try {
+            return formatDisplayDateTime(v);
+        } catch {
+            return '';
+        }
+    };
+    const relative = showRelative ? (formatRelative ?? safeRelative)(dateValue) : '';
+    const absolute = showAbsolute ? (formatAbsolute ?? safeAbsolute)(dateValue) : '';
     const dateTime = toDateTimeAttr(dateValue);
 
     return (
@@ -291,7 +284,6 @@ function LedgerRow({ item, style, renderItem }) {
  * @param {node}   [props.filters]      Optional filter controls rendered above the list
  * @param {node}   [props.resultCount]  Optional "Showing X of Y" line above the list
  * @param {node}   [props.footerActions] Optional actions rendered below the list (e.g. + Add Milestone)
- * @param {node}   [props.headerActions] Deprecated alias of footerActions (kept for older callers)
  * @param {string} [props.emptyTitle]   Empty-state message
  * @param {string} [props.emptyIcon]    Empty-state Material Symbol
  * @param {node}   [props.emptyAction]  Optional action inside the empty state
@@ -299,7 +291,7 @@ function LedgerRow({ item, style, renderItem }) {
  */
 export default function UnifiedTimeline({
     items = [],
-    sortOrder = TIMELINE_SORT_DESC,
+    sortOrder = 'desc',
     eventConfig = {},
     variant = 'spine',
     showRelative = true,
@@ -309,7 +301,6 @@ export default function UnifiedTimeline({
     filters = null,
     resultCount = null,
     footerActions = null,
-    headerActions = null,
     emptyTitle = 'No timeline events recorded.',
     emptyIcon = 'history',
     emptyAction = null,
@@ -318,8 +309,7 @@ export default function UnifiedTimeline({
     listClassName = '',
 }) {
     const sorted = useMemo(() => sortTimelineItems(items, sortOrder), [items, sortOrder]);
-    // Deprecated alias: older callers pass headerActions for the same slot.
-    const footer = footerActions ?? headerActions;
+    const footer = footerActions;
 
     if (sorted.length === 0) {
         return (

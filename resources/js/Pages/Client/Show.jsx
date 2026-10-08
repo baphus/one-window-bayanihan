@@ -5,7 +5,7 @@ import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import { CardSection, MetaTile, InfoCell, SubsectionCard } from '@/Components/ui/CardSection';
 import AuditLogTimeline from '@/Components/AuditLogTimeline';
 import ProfilePictureUpload from '@/Components/ProfilePictureUpload';
-import CaseManagerAvatar from '@/Components/CaseManagerAvatar';
+import UserAvatar from '@/Components/ui/UserAvatar';
 import { formatDisplayDate } from '@/lib/utils';
 
 export default function ClientShow({ client, cases: casesProp, auditLogs }) {
@@ -57,7 +57,7 @@ export default function ClientShow({ client, cases: casesProp, auditLogs }) {
                                     },
                                     { key: 'type', title: 'Type', render: (row) => row.client_type === 'OFW' ? 'OFW' : 'Next of Kin' },
                                     { key: 'status', title: 'Status', render: (row) => <StatusBadge status={row.status} /> },
-                                    { key: 'manager', title: 'Manager', render: (row) => <CaseManagerAvatar user={row.user} size="sm" /> },
+                                    { key: 'manager', title: 'Manager', render: (row) => <UserAvatar user={row.user} size="sm" fallbackSrc="/images/bayanihan-logo.svg" tooltip /> },
                                     { key: 'date_filed', title: 'Date Filed', render: (row) => formatDisplayDate(row.created_at) },
                                     { key: 'referrals', title: 'Referrals', render: (row) => row.referrals_count ?? row.referrals?.length ?? 0 },
                                     {
@@ -169,7 +169,7 @@ export default function ClientShow({ client, cases: casesProp, auditLogs }) {
                             <UnifiedTable
                                 columns={[
                                     { key: 'caseManager', title: 'Case Manager', render: (row) => (
-                                        <CaseManagerAvatar user={client.caseFile?.user} size="sm" />
+                                        <UserAvatar user={client.caseFile?.user} size="sm" fallbackSrc="/images/bayanihan-logo.svg" tooltip />
                                     )},
                                     { key: 'agency', title: 'Agency', render: (row) => (
                                         <div className="flex items-center gap-2">

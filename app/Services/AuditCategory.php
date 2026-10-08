@@ -27,7 +27,7 @@ final class AuditCategory
 
     public const ALL = [self::SECURITY, self::DATA, self::ADMIN, self::SYSTEM];
 
-    public static function for(string $module, string $action, ?string $userId): string
+    public static function for(string $module, string $action, ?string $userId, bool $backfill = false): string
     {
         if (self::isSecurity($module, $action)) {
             return self::SECURITY;
@@ -35,7 +35,9 @@ final class AuditCategory
 
         // Unattributed writes from the console are automated/maintenance
         // activity (seeders, scheduled jobs), whatever entity they touch.
-        if ($userId === null && app()->runningInConsole()) {
+        // Backfill rows carry no runtime context, so unattributed rows are
+        // always treated as system activity.
+        if ($userId === null && ($backfill || app()->runningInConsole())) {
             return self::SYSTEM;
         }
 
@@ -48,15 +50,7 @@ final class AuditCategory
      */
     public static function forBackfill(string $module, string $action, ?string $userId): string
     {
-        if (self::isSecurity($module, $action)) {
-            return self::SECURITY;
-        }
-
-        if ($userId === null) {
-            return self::SYSTEM;
-        }
-
-        return self::moduleCategory($module);
+        return self::for($module, $action, $userId, true);
     }
 
     /** Security when the module is a security surface OR the action is a security event. */

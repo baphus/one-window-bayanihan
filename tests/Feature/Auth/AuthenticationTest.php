@@ -4,6 +4,7 @@ namespace Tests\Feature\Auth;
 
 use App\Models\User;
 use App\Services\MfaService;
+use Illuminate\Cache\Repository;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
@@ -176,7 +177,9 @@ class AuthenticationTest extends TestCase
         $this->assertFalse($service->verifyTotp($user, $code));
         $other = $this->createMfaUser();
         $otherCode = $google2fa->getCurrentOtp($other->mfa_secret);
-        Cache::shouldReceive('add')->once()->andThrow(new \RuntimeException('cache unavailable'));
+        $cache = $this->createMock(Repository::class);
+        $cache->expects($this->once())->method('add')->willThrowException(new \RuntimeException('cache unavailable'));
+        Cache::swap($cache);
         $this->assertFalse($service->verifyTotp($other, $otherCode));
     }
 

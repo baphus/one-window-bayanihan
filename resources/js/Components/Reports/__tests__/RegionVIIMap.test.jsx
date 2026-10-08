@@ -98,13 +98,14 @@ describe('choroplethFill', () => {
 });
 
 describe('RegionVIIMap', () => {
-  it('renders only Cebu and Bohol, dropping the other two provinces', () => {
+  it('renders only Cebu and Bohol, dropping the other two provinces', async () => {
     expect(RENDERED_PROVINCE_IDS).toEqual(['cebu', 'bohol']);
 
     const onProvinceClick = vi.fn();
     render(<RegionVIIMap provinces={provinces} onProvinceClick={onProvinceClick} />);
 
-    expect(screen.getByTestId('leaflet-map')).toBeInTheDocument();
+    // The leaflet chunk loads on demand; wait for it before reading the layers.
+    await screen.findByTestId('leaflet-map');
 
     // Boundary layer carries Cebu + Bohol areas only.
     const renderedKinds = new Set(
@@ -118,11 +119,11 @@ describe('RegionVIIMap', () => {
     expect(screen.queryByText(/Siquijor/)).toBeNull();
   });
 
-  it('renders the real boundary layer with count badges and legend', () => {
+  it('renders the real boundary layer with count badges and legend', async () => {
     const onProvinceClick = vi.fn();
     render(<RegionVIIMap provinces={provinces} onProvinceClick={onProvinceClick} />);
 
-    expect(screen.getByTestId('leaflet-map')).toBeInTheDocument();
+    await screen.findByTestId('leaflet-map');
     expect(captured.geojson.data.features.length).toBeGreaterThan(50);
 
     // Highest count gets the darkest step; zero gets gray.
@@ -141,9 +142,10 @@ describe('RegionVIIMap', () => {
     expect(screen.getByText('Fewer → more cases')).toBeInTheDocument();
   });
 
-  it('binds name-plus-count tooltips and routes clicks to the filter', () => {
+  it('binds name-plus-count tooltips and routes clicks to the filter', async () => {
     const onProvinceClick = vi.fn();
     render(<RegionVIIMap provinces={provinces} onProvinceClick={onProvinceClick} />);
+    await screen.findByTestId('leaflet-map');
 
     const layer = { bindTooltip: vi.fn(), on: vi.fn() };
     captured.geojson.onEachFeature({ properties: { province: 'bohol', name: 'Candijay' } }, layer);
@@ -157,8 +159,9 @@ describe('RegionVIIMap', () => {
     expect(onProvinceClick).toHaveBeenCalledWith('072200000');
   });
 
-  it('outlines the selected province', () => {
+  it('outlines the selected province', async () => {
     render(<RegionVIIMap provinces={provinces} selectedProvince="072200000" onProvinceClick={() => {}} />);
+    await screen.findByTestId('leaflet-map');
     expect(captured.geojson.style({ properties: { province: 'cebu' } }).weight).toBe(3);
     expect(captured.geojson.style({ properties: { province: 'bohol' } }).weight).toBe(1);
   });
@@ -177,7 +180,7 @@ describe('RegionVIIMap', () => {
 describe('GeographicMapSection', () => {
   const provinceOptions = [{ value: '072200000', label: 'Cebu' }];
 
-  it('renders the map plus a keyboard-accessible list with the same counts', () => {
+  it('renders the map plus a keyboard-accessible list with the same counts', async () => {
     lazyState.geo = { labels: ['Cebu', 'Bohol'], data: [12, 5] };
     lazyState.map = undefined;
     const setProvince = vi.fn();
@@ -191,7 +194,7 @@ describe('GeographicMapSection', () => {
       />,
     );
 
-    expect(screen.getByTestId('leaflet-map')).toBeInTheDocument();
+    await screen.findByTestId('leaflet-map');
     const list = screen.getByRole('list', { name: 'Cases by province' });
     expect(within(list).getByText('Cebu')).toBeInTheDocument();
     expect(within(list).getByText('12 cases')).toBeInTheDocument();
@@ -210,7 +213,7 @@ describe('GeographicMapSection', () => {
     expect(screen.getByText('9 cases')).toBeInTheDocument();
   });
 
-  it('drops out-of-scope provinces from the map and the list', () => {
+  it('drops out-of-scope provinces from the map and the list', async () => {
     lazyState.geo = undefined;
     lazyState.map = {
       provinces: [
@@ -222,6 +225,7 @@ describe('GeographicMapSection', () => {
     };
     render(<GeographicMapSection provinceOptions={[]} />);
 
+    await screen.findByTestId('leaflet-map', undefined, { timeout: 5000 });
     const list = screen.getByRole('list', { name: 'Cases by province' });
     expect(within(list).getByText('Cebu')).toBeInTheDocument();
     expect(within(list).getByText('Bohol')).toBeInTheDocument();
@@ -230,7 +234,7 @@ describe('GeographicMapSection', () => {
     expect(captured.markers).toHaveLength(2);
   });
 
-  it('keeps hover, badge, and list counts equal to the payload, including zero', () => {
+  it('keeps hover, badge, and list counts equal to the payload, including zero', async () => {
     lazyState.geo = undefined;
     lazyState.map = {
       provinces: [
@@ -241,6 +245,7 @@ describe('GeographicMapSection', () => {
     render(<GeographicMapSection provinceOptions={[]} />);
 
     // Marker badges carry the exact payload counts.
+    await screen.findByTestId('leaflet-map', undefined, { timeout: 5000 });
     expect(captured.markers[0].icon.html).toContain('>12<');
     expect(captured.markers[1].icon.html).toContain('>0<');
 

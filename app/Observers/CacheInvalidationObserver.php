@@ -11,7 +11,6 @@ use App\Models\Milestone;
 use App\Models\Referral;
 use App\Models\Service;
 use App\Models\ServiceRequirement;
-use App\Models\SurveyInvitation;
 use App\Models\User;
 use App\Services\ReferenceDataService;
 use App\Services\ReferralService;
@@ -26,7 +25,7 @@ use Illuminate\Support\Facades\Cache;
  * Registered in AppServiceProvider alongside AuditObserver for models that
  * affect cached reference data, stats, or shared props.
  *
- * NOTE: SurveyInvitation and Milestone models must also be
+ * NOTE: the Milestone model must also be
  * registered to observe this observer in AppServiceProvider.
  */
 class CacheInvalidationObserver
@@ -69,7 +68,6 @@ class CacheInvalidationObserver
             $model instanceof Referral => $this->invalidateReferral($model),
             $model instanceof Service,
             $model instanceof ServiceRequirement => $this->invalidateService(),
-            $model instanceof SurveyInvitation => $this->invalidateSurvey(),
             $model instanceof Milestone => $this->invalidateMilestone($model),
             default => null,
         };
@@ -160,11 +158,6 @@ class CacheInvalidationObserver
     private function invalidateService(): void
     {
         ReferenceDataService::invalidateAgencies(); // services tree is part of agency cache
-    }
-
-    private function invalidateSurvey(): void
-    {
-        // Survey dashboard stats will expire via TTL (180s)
     }
 
     private function invalidateMilestone(Milestone $milestone): void

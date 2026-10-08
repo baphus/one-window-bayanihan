@@ -231,13 +231,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->get('/agencies/{agency}', [AdminAgencyController::class, 'show'])
         ->name('agencies.show');
 
-    // Onboarding routes
-    Route::get('/onboarding/state', [OnboardingController::class, 'state'])->name('onboarding.state');
-    Route::post('/onboarding/skip', [OnboardingController::class, 'skip'])->name('onboarding.skip');
-    Route::post('/onboarding/complete', [OnboardingController::class, 'complete'])->name('onboarding.complete');
-    Route::post('/onboarding/replay', [OnboardingController::class, 'replay'])->name('onboarding.replay');
-    Route::post('/onboarding/step', [OnboardingController::class, 'updateStep'])->name('onboarding.step');
-    Route::post('/onboarding/guide-seen', [OnboardingController::class, 'markGuideSeen'])->name('onboarding.guide-seen');
+    // Onboarding routes (getting-started checklist + profile prompt only —
+    // the guided tour is retired)
     Route::post('/onboarding/checklist/mark', [OnboardingController::class, 'markChecklistItem'])->name('onboarding.checklist.mark');
     Route::post('/onboarding/checklist/dismiss', [OnboardingController::class, 'dismissChecklist'])->name('onboarding.checklist.dismiss');
     Route::post('/onboarding/skip-profile', [OnboardingController::class, 'skipProfile'])->name('onboarding.skip-profile');

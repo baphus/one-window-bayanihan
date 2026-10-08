@@ -1,8 +1,7 @@
 import InputLabel from '@/Components/InputLabel';
 import PrimaryButton from '@/Components/PrimaryButton';
-import Section from '@/Components/Section';
+import { CardSection as Section } from '@/Components/ui/CardSection';
 import PasswordInput from '@/Components/PasswordInput';
-import { Transition } from '@headlessui/react';
 import { useForm, usePage } from '@inertiajs/react';
 import { useRef, useEffect, useMemo } from 'react';
 import { makeUpdatePasswordSchema } from '@/Schemas/profileSchemas';
@@ -107,17 +106,11 @@ export default function UpdatePasswordForm({ className = '', onDirtyChange, onBy
                 <div className="flex items-center gap-4">
                     <PrimaryButton disabled={processing}>Save</PrimaryButton>
 
-                    <Transition
-                        show={recentlySuccessful}
-                        enter="transition ease-in-out"
-                        enterFrom="opacity-0"
-                        leave="transition ease-in-out"
-                        leaveTo="opacity-0"
-                    >
-                        <p className="text-sm text-gray-600">
+                    {recentlySuccessful && (
+                        <p className="text-sm text-gray-600 transition-opacity ease-in-out">
                             Saved.
                         </p>
-                    </Transition>
+                    )}
                 </div>
             </form>
         </Section>

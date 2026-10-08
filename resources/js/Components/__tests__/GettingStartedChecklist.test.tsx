@@ -21,7 +21,6 @@ vi.mock('ziggy-js', () => ({
 const apiMocks = vi.hoisted(() => ({
     dismissChecklist: vi.fn(() => Promise.resolve()),
     markChecklistItem: vi.fn(() => Promise.resolve()),
-    markGuideSeen: vi.fn(() => Promise.resolve()),
 }));
 vi.mock('@/Onboarding/api', () => apiMocks);
 
@@ -41,7 +40,7 @@ function renderChecklist(role: string, state?: Partial<TourState>) {
     };
 
     return render(
-        <OnboardingProvider onboardingRequired={false} onboardingState={onboardingState}>
+        <OnboardingProvider onboardingState={onboardingState}>
             <GettingStartedChecklist />
         </OnboardingProvider>,
     );

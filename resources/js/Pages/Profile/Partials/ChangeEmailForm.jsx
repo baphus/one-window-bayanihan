@@ -3,7 +3,7 @@ import { router, usePage } from '@inertiajs/react';
 import PrimaryButton from '@/Components/PrimaryButton';
 import InputLabel from '@/Components/InputLabel';
 import TextInput from '@/Components/TextInput';
-import Section from '@/Components/Section';
+import { CardSection as Section } from '@/Components/ui/CardSection';
 
 export default function ChangeEmailForm({
     initialStep,

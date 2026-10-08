@@ -22,16 +22,6 @@ class HandleInertiaRequests extends Middleware
         return parent::version($request);
     }
 
-    private function getOnboardingRequired(Request $request): bool
-    {
-        $user = $request->user();
-        if (! $user || $user->role === 'OFW') {
-            return false;
-        }
-
-        return app(OnboardingService::class)->isOnboardingRequired($user);
-    }
-
     private function getProfileIncomplete(Request $request): bool
     {
         $user = $request->user();
@@ -107,7 +97,6 @@ class HandleInertiaRequests extends Middleware
                         'id', 'name', 'email', 'role', 'agcy_id', 'avatar_url',
                         'is_active', 'contact_number', 'position', 'department',
                         'office_location', 'bio', 'timezone',
-                        'onboarding_completed_at', 'onboarding_step',
                         'profile_completed_at',
                     ]),
                     'agency' => $this->getCachedUserAgency($request),
@@ -118,7 +107,6 @@ class HandleInertiaRequests extends Middleware
             ],
             'intake_queue_count' => fn () => $this->getIntakeQueueCount($request),
             'just_published' => $request->session()->get('just_published'),
-            'onboarding_required' => fn () => $this->getOnboardingRequired($request),
             'onboarding' => fn () => $request->user() && $request->user()->role !== 'OFW'
                 ? app(OnboardingService::class)->getOnboardingState($request->user())
                 : null,

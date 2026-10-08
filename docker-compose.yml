@@ -14,71 +14,68 @@
 #   The local PostgreSQL can be disabled by setting DB_HOST to your Supabase host
 # ============================================================================
 
-# Shared fragments (ignored by Compose — `x-` prefix). Anchors dedupe the four
-# PHP services (app/queue/scheduler/migrate); aliases below are byte-equivalent
-# to the previously inlined blocks.
-x-common:
-  build: &php-build
+# Shared environment for the four PHP services (app, queue, scheduler,
+# migrate), defined once and aliased below. APP_URL is included for all four:
+# it is only read where URLs are generated, so sharing it keeps one list
+# instead of two near-identical anchors drifting out of sync.
+x-app-env: &app-env
+  - APP_ENV=${APP_ENV:-production}
+  - APP_DEBUG=${APP_DEBUG:-false}
+  - APP_URL=${APP_URL:-http://localhost}
+  - DB_HOST=${DB_HOST:-db}
+  - DB_PORT=${DB_PORT:-5432}
+  - DB_DATABASE=${DB_DATABASE:-one_window}
+  - DB_USERNAME=${DB_USERNAME:-postgres}
+  - DB_PASSWORD=${DB_PASSWORD:-secret}
+  - REDIS_HOST=${REDIS_HOST:-redis}
+  - CACHE_STORE=${CACHE_STORE:-redis}
+  - QUEUE_CONNECTION=${QUEUE_CONNECTION:-redis}
+  - SESSION_DRIVER=${SESSION_DRIVER:-database}
+  - FILESYSTEM_DISK=${FILESYSTEM_DISK:-object-storage}
+  # R2 overrides - set FILESYSTEM_DISK=r2 to activate
+  - R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID:-}
+  - R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY:-}
+  - R2_BUCKET=${R2_BUCKET:-}
+  - R2_ENDPOINT=${R2_ENDPOINT:-}
+  - R2_PUBLIC_URL=${R2_PUBLIC_URL:-}
+
+# Shared build + runtime for the four PHP services (app, queue, scheduler,
+# migrate), defined once and merged below. migrate uses only php-base: it is
+# a one-shot runner, so it must NOT inherit restart/deploy from php-hardened
+# (restarting an exited-zero one-shot would loop it).
+x-php-base: &php-base
+  build:
     context: .
     dockerfile: Dockerfile
     target: app
-  env-file: &php-env-file
+  env_file:
     - .env
-  # Full env (app + migrate include APP_URL).
-  env-app: &php-env-app
-    - APP_ENV=${APP_ENV:-production}
-    - APP_DEBUG=${APP_DEBUG:-false}
-    - APP_URL=${APP_URL:-http://localhost}
-    - DB_HOST=${DB_HOST:-db}
-    - DB_PORT=${DB_PORT:-5432}
-    - DB_DATABASE=${DB_DATABASE:-one_window}
-    - DB_USERNAME=${DB_USERNAME:-postgres}
-    - DB_PASSWORD=${DB_PASSWORD:-secret}
-    - REDIS_HOST=${REDIS_HOST:-redis}
-    - CACHE_STORE=${CACHE_STORE:-redis}
-    - QUEUE_CONNECTION=${QUEUE_CONNECTION:-redis}
-    - SESSION_DRIVER=${SESSION_DRIVER:-database}
-    - FILESYSTEM_DISK=${FILESYSTEM_DISK:-object-storage}
-    # R2 overrides — set FILESYSTEM_DISK=r2 to activate
-    - R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID:-}
-    - R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY:-}
-    - R2_BUCKET=${R2_BUCKET:-}
-    - R2_ENDPOINT=${R2_ENDPOINT:-}
-    - R2_PUBLIC_URL=${R2_PUBLIC_URL:-}
-  # Worker env (queue + scheduler omit APP_URL, as before).
-  env-worker: &php-env-worker
-    - APP_ENV=${APP_ENV:-production}
-    - APP_DEBUG=${APP_DEBUG:-false}
-    - DB_HOST=${DB_HOST:-db}
-    - DB_PORT=${DB_PORT:-5432}
-    - DB_DATABASE=${DB_DATABASE:-one_window}
-    - DB_USERNAME=${DB_USERNAME:-postgres}
-    - DB_PASSWORD=${DB_PASSWORD:-secret}
-    - REDIS_HOST=${REDIS_HOST:-redis}
-    - CACHE_STORE=${CACHE_STORE:-redis}
-    - QUEUE_CONNECTION=${QUEUE_CONNECTION:-redis}
-    - SESSION_DRIVER=${SESSION_DRIVER:-database}
-    - FILESYSTEM_DISK=${FILESYSTEM_DISK:-object-storage}
-    # R2 overrides — set FILESYSTEM_DISK=r2 to activate
-    - R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID:-}
-    - R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY:-}
-    - R2_BUCKET=${R2_BUCKET:-}
-    - R2_ENDPOINT=${R2_ENDPOINT:-}
-    - R2_PUBLIC_URL=${R2_PUBLIC_URL:-}
-  depends: &php-depends
+  environment: *app-env
+  depends_on:
     db:
       condition: service_healthy
     redis:
       condition: service_healthy
-  security-opt: &php-security-opt
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "10m"
+      max-file: "3"
+  networks:
+    - app-network
+
+# Long-lived hardening for app/queue/scheduler only (not migrate).
+x-php-hardened: &php-hardened
+  security_opt:
     - no-new-privileges:true
-  cap-drop: &php-cap-drop
+  cap_drop:
     - ALL
-  cap-add: &php-cap-add
+  cap_add:
     - FOWNER
     - SETGID
     - SETUID
-  deploy: &php-deploy
+  restart: unless-stopped
+  deploy:
     resources:
       limits:
         cpus: '1'
@@ -86,13 +83,6 @@ x-common:
       reservations:
         cpus: '0.25'
         memory: 128M
-  logging: &default-logging
-    driver: "json-file"
-    options:
-      max-size: "10m"
-      max-file: "3"
-  network: &default-network
-    - app-network
 
 services:
   # ── Nginx Web Server ──────────────────────────────────────────────────────
@@ -113,70 +103,40 @@ services:
       app:
         condition: service_healthy
     restart: unless-stopped
-    logging: *default-logging
-    networks: *default-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - app-network
 
   # ── PHP-FPM Application ──────────────────────────────────────────────────
   app:
-    build: *php-build
-    env_file: *php-env-file
-    environment: *php-env-app
-    security_opt: *php-security-opt
-    cap_drop: *php-cap-drop
-    cap_add: *php-cap-add
-    depends_on: *php-depends
-    restart: unless-stopped
-    deploy: *php-deploy
+    <<: [*php-base, *php-hardened]
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://nginx/up || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 30s
-    logging: *default-logging
-    networks: *default-network
 
   # ── Queue Worker ──────────────────────────────────────────────────────────
   queue:
-    build: *php-build
-    env_file: *php-env-file
-    environment: *php-env-worker
-    security_opt: *php-security-opt
-    cap_drop: *php-cap-drop
-    cap_add: *php-cap-add
-    depends_on: *php-depends
-    restart: unless-stopped
-    deploy: *php-deploy
+    <<: [*php-base, *php-hardened]
     command: php artisan queue:listen --tries=3 --timeout=90
-    logging: *default-logging
-    networks: *default-network
 
   # ── Scheduler ─────────────────────────────────────────────────────────────
   scheduler:
-    build: *php-build
-    env_file: *php-env-file
-    environment: *php-env-worker
-    security_opt: *php-security-opt
-    cap_drop: *php-cap-drop
-    cap_add: *php-cap-add
-    depends_on: *php-depends
-    restart: unless-stopped
-    deploy: *php-deploy
+    <<: [*php-base, *php-hardened]
     command: php artisan schedule:work
-    logging: *default-logging
-    networks: *default-network
 
   # ── Migration Runner (one-shot, profile-based) ───────────────────────────
   migrate:
-    build: *php-build
-    env_file: *php-env-file
-    environment: *php-env-app
-    depends_on: *php-depends
+    <<: *php-base
     command: php artisan migrate --force --no-interaction
-    networks: *default-network
     profiles:
       - migrate
-    logging: *default-logging
 
   # ── PostgreSQL Database ───────────────────────────────────────────────────
   # For local development. In production, point DB_HOST to your Supabase host.
@@ -197,8 +157,13 @@ services:
       retries: 5
       start_period: 10s
     restart: unless-stopped
-    logging: *default-logging
-    networks: *default-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - app-network
 
   # ── Redis ─────────────────────────────────────────────────────────────────
   # In-memory store for cache, queue, and sessions.
@@ -229,8 +194,13 @@ services:
         reservations:
           cpus: '0.1'
           memory: 64M
-    logging: *default-logging
-    networks: *default-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - app-network
 
 networks:
   app-network:

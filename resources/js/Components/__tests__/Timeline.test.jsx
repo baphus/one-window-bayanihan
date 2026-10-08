@@ -59,16 +59,6 @@ describe('UnifiedTimeline bottom-up ordering', () => {
         expect(screen.getByRole('button', { name: '+ Add Milestone' })).toBeInTheDocument();
     });
 
-    it('still honors the deprecated headerActions alias', () => {
-        render(
-            <UnifiedTimeline
-                items={[OLDEST]}
-                headerActions={<button type="button">+ Add Milestone</button>}
-            />,
-        );
-        expect(screen.getByRole('button', { name: '+ Add Milestone' })).toBeInTheDocument();
-    });
-
     it('renders audit cards newest-first through the plain variant', () => {        const { container } = render(
             <UnifiedTimeline
                 variant="plain"

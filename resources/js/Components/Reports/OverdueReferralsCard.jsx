@@ -1,5 +1,5 @@
 import { Link } from '@inertiajs/react';
-import MetricCard from '@/Components/Reports/MetricCard';
+import KpiCard from '@/Components/ui/KpiCard';
 import { useLazyProp } from '@/Hooks/useLazyProp';
 
 function getHref(name) {
@@ -20,10 +20,9 @@ export default function OverdueReferralsCard({ role }) {
   const href = getHref('overdue-referrals.index');
 
   const card = (
-    <MetricCard
-      label="Overdue Referrals"
+    <KpiCard
+      title="Overdue Referrals"
       value={isLoading ? '—' : count}
-      accent="border-l-[#c0392b]"
       valueTone="text-rose-700 dark:text-rose-400"
       description={isLoading ? 'Loading overdue count…' : 'Referrals past the follow-up threshold'}
       trailing={!isLoading && count > 0 ? <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.14em] text-rose-700 dark:bg-rose-950/40 dark:text-rose-200">Action</span> : null}

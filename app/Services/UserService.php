@@ -17,7 +17,7 @@ use Illuminate\Support\Str;
 class UserService
 {
     public function __construct(
-        private readonly DefaultAgencyService $defaultAgencies,
+        private readonly ReferenceDataService $referenceData,
     ) {}
 
     public function createUser(array $data, ?string $actorId = null): User
@@ -238,7 +238,7 @@ class UserService
         $agcyId = $data['agcy_id'] ?? null;
 
         if (! $agcyId && ($data['role'] ?? null) === 'AGENCY') {
-            $agcyId = $this->defaultAgencies->getDefaultAgency()?->id;
+            $agcyId = $this->referenceData->getDefaultAgency()?->id;
         }
 
         return $agcyId;

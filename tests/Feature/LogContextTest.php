@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Http\Middleware\LogContext;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Log\Logger;
 use Illuminate\Support\Facades\Log;
 use Tests\TestCase;
 
@@ -14,13 +15,14 @@ class LogContextTest extends TestCase
 
     public function test_middleware_adds_request_id_to_context(): void
     {
-        Log::shouldReceive('withContext')
-            ->once()
-            ->withArgs(fn (array $context): bool => isset($context['request_id']) &&
+        $logger = $this->createMock(Logger::class);
+        $logger->expects($this->once())->method('withContext')
+            ->with($this->callback(fn (array $context): bool => isset($context['request_id']) &&
                 isset($context['method']) &&
                 isset($context['url']) &&
                 isset($context['ip'])
-            );
+            ));
+        Log::swap($logger);
 
         $this->get('/login');
     }
@@ -31,14 +33,15 @@ class LogContextTest extends TestCase
             'role' => 'CASE_MANAGER',
         ]);
 
-        Log::shouldReceive('withContext')
-            ->once()
-            ->withArgs(fn (array $context): bool => isset($context['request_id']) &&
+        $logger = $this->createMock(Logger::class);
+        $logger->expects($this->once())->method('withContext')
+            ->with($this->callback(fn (array $context): bool => isset($context['request_id']) &&
                 isset($context['user_id']) &&
                 $context['user_id'] === $user->id &&
                 isset($context['user_role']) &&
                 $context['user_role'] === 'CASE_MANAGER'
-            );
+            ));
+        Log::swap($logger);
 
         $this->actingAs($user)->get('/dashboard');
     }

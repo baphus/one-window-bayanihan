@@ -1,5 +1,5 @@
 import React from 'react';
-import Section from '@/Components/Section';
+import { CardSection as Section } from '@/Components/ui/CardSection';
 import ToggleSwitch from '@/Components/ui/ToggleSwitch';
 
 const TOGGLES = [

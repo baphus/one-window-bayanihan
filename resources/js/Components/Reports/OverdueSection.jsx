@@ -1,5 +1,6 @@
 import { AlertTriangle, Clock } from 'lucide-react';
 import { useLazyProp } from '@/Hooks/useLazyProp';
+import { getCaseAgeInDays } from '@/lib/utils';
 import { COLORS, pageHeadingStyles } from '@/Components/Reports/pageHeadingStyles';
 import ChartSkeleton from '@/Components/Reports/ChartSkeleton';
 import { Link } from '@inertiajs/react';
@@ -40,9 +41,7 @@ export default function OverdueSection() {
       {referrals.length > 0 && (
         <div className="space-y-2">
           {referrals.slice(0, 5).map((ref) => {
-            const daysOpen = ref.created_at
-              ? Math.floor((Date.now() - new Date(ref.created_at).getTime()) / (1000 * 60 * 60 * 24))
-              : 0;
+            const daysOpen = getCaseAgeInDays(ref.created_at ?? '');
             return (
               <div key={ref.id} className="flex items-center justify-between border-b border-slate-100 pb-2 last:border-0">
                 <div className="flex items-center gap-2 min-w-0">

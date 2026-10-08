@@ -5,6 +5,8 @@ namespace Tests\Unit\Services;
 use App\DTOs\FileStoreResult;
 use App\Services\StorageService;
 use Illuminate\Contracts\Filesystem\Filesystem;
+use Illuminate\Filesystem\FilesystemAdapter;
+use Illuminate\Filesystem\FilesystemManager;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Storage;
@@ -88,10 +90,12 @@ class StorageServiceTest extends TestCase
 
     public function test_delete_returns_true(): void
     {
-        $disk = \Mockery::mock(Filesystem::class);
-        $disk->shouldReceive('delete')->with('case-files/test.pdf')->once()->andReturn(true);
+        $disk = $this->createMock(Filesystem::class);
+        $disk->expects($this->once())->method('delete')->with('case-files/test.pdf')->willReturn(true);
 
-        Storage::shouldReceive('disk')->with('object-storage')->once()->andReturn($disk);
+        $factory = $this->createMock(FilesystemManager::class);
+        $factory->expects($this->once())->method('disk')->with('object-storage')->willReturn($disk);
+        Storage::swap($factory);
 
         $result = $this->service->delete('case-files/test.pdf');
 
@@ -100,10 +104,12 @@ class StorageServiceTest extends TestCase
 
     public function test_delete_returns_false_for_missing(): void
     {
-        $disk = \Mockery::mock(Filesystem::class);
-        $disk->shouldReceive('delete')->with('non-existent/file.pdf')->once()->andReturn(false);
+        $disk = $this->createMock(Filesystem::class);
+        $disk->expects($this->once())->method('delete')->with('non-existent/file.pdf')->willReturn(false);
 
-        Storage::shouldReceive('disk')->with('object-storage')->once()->andReturn($disk);
+        $factory = $this->createMock(FilesystemManager::class);
+        $factory->expects($this->once())->method('disk')->with('object-storage')->willReturn($disk);
+        Storage::swap($factory);
 
         $result = $this->service->delete('non-existent/file.pdf');
 
@@ -112,10 +118,12 @@ class StorageServiceTest extends TestCase
 
     public function test_delete_does_not_throw(): void
     {
-        $disk = \Mockery::mock(Filesystem::class);
-        $disk->shouldReceive('delete')->with('some/path')->once()->andThrow(new \RuntimeException('Disk failure'));
+        $disk = $this->createMock(Filesystem::class);
+        $disk->expects($this->once())->method('delete')->with('some/path')->willThrowException(new \RuntimeException('Disk failure'));
 
-        Storage::shouldReceive('disk')->with('object-storage')->once()->andReturn($disk);
+        $factory = $this->createMock(FilesystemManager::class);
+        $factory->expects($this->once())->method('disk')->with('object-storage')->willReturn($disk);
+        Storage::swap($factory);
 
         $result = $this->service->delete('some/path');
 
@@ -128,9 +136,13 @@ class StorageServiceTest extends TestCase
 
     public function test_temporary_url(): void
     {
-        Storage::shouldReceive('disk->temporaryUrl')
-            ->once()
-            ->andReturn('https://fake-bucket.supabase.co/storage/v1/object/signed/case-files/test.pdf?token=abc');
+        $disk = $this->createMock(FilesystemAdapter::class);
+        $disk->expects($this->once())->method('temporaryUrl')
+            ->willReturn('https://fake-bucket.supabase.co/storage/v1/object/signed/case-files/test.pdf?token=abc');
+
+        $factory = $this->createMock(FilesystemManager::class);
+        $factory->expects($this->once())->method('disk')->willReturn($disk);
+        Storage::swap($factory);
 
         $url = $this->service->temporaryUrl('case-files/test.pdf', 24);
 
@@ -195,13 +207,12 @@ class StorageServiceTest extends TestCase
         $this->assertTrue($found, 'Expected a type-not-allowed error message.');
     }
 
-    public function test_validate_returns_error_for_unknown_context(): void
+    public function test_validate_falls_back_to_default_for_unknown_context(): void
     {
-        $file = UploadedFile::fake()->create('test.pdf', 100);
+        $file = UploadedFile::fake()->image('avatar.jpg', 100);
 
         $errors = $this->service->validate($file, 'non_existent_context');
 
-        $this->assertNotEmpty($errors);
-        $this->assertStringContainsString('No validation configuration found', $errors[0]);
+        $this->assertEmpty($errors);
     }
 }

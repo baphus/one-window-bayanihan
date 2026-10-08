@@ -135,6 +135,19 @@ class ReferenceDataService
         );
     }
 
+    public function assignDefaultAgency(User $user): User
+    {
+        if ($user->agcy_id === null) {
+            $default = $this->getDefaultAgency();
+            if ($default) {
+                $user->agcy_id = $default->id;
+                $user->save();
+            }
+        }
+
+        return $user;
+    }
+
     /**
      * All active agencies (full data for public welcome page).
      */

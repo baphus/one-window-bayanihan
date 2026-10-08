@@ -14,7 +14,7 @@ vi.mock('@/Hooks/useReportFilters', () => ({
   }),
 }));
 
-vi.mock('@/Components/Reports/MetricCard', () => ({
+vi.mock('@/Components/ui/KpiCard', () => ({
   default: ({ label, value }) => <article data-testid={`metric-${label}`}>{value}</article>,
 }));
 

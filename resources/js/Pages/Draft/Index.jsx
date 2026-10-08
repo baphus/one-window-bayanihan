@@ -5,26 +5,11 @@ import ConfirmDialog from '@/Components/ui/ConfirmDialog';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import { RowContextMenu, RowContextMenuItem } from '@/Components/ui/RowContextMenu';
 import { formatDisplayDate } from '@/lib/utils';
+import { formatRelativeTime } from '@/lib/relativeTime';
 import { Delete } from 'lucide-react';
 import TableLoadingOverlay from '@/Components/ui/TableLoadingOverlay';
 import useTableVisitLoading from '@/Hooks/useTableVisitLoading';
 import { useToast } from '@/Hooks/useToast';
-
-function timeAgo(dateStr) {
-  if (!dateStr) return '—';
-  const now = new Date();
-  const date = new Date(dateStr);
-  if (Number.isNaN(date.getTime())) return '—';
-  const diffMs = now - date;
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMins / 60);
-  const diffDays = Math.floor(diffHours / 24);
-  if (diffMins < 1) return 'Just now';
-  if (diffMins < 60) return `${diffMins} min ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 30) return `${diffDays}d ago`;
-  return formatDisplayDate(dateStr);
-}
 
 function ageColor(dateStr) {
   if (!dateStr) return 'bg-slate-100 text-slate-500';
@@ -265,7 +250,7 @@ export default function DraftIndex({ drafts, filters: initialFilters = {} }) {
                         <span
                           className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold leading-none ${ageColor(draft.updated_at)}`}
                         >
-                          {timeAgo(draft.updated_at)}
+                          {formatRelativeTime(draft.updated_at)}
                         </span>
                       </td>
                       <td className="px-5 py-4 text-right">

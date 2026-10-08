@@ -300,13 +300,13 @@ class ReportsExportControlsTest extends TestCase
         $this->assertSame(3, $result['cases']);
         $this->assertSame(3, $result['referrals']);
         $this->assertFalse($result['exceeds']);
-        $this->assertSame((int) config('reports.export_preflight_max_rows'), $result['limit']);
+        $this->assertSame((int) config('reports.export_row_cap'), $result['limit']);
     }
 
     #[Test]
     public function preflight_flags_a_range_that_is_too_large_to_serve(): void
     {
-        config(['reports.export_preflight_max_rows' => 2]);
+        config(['reports.export_row_cap' => 2]);
 
         $admin = User::factory()->create(['role' => 'ADMIN']);
         $this->seedCases($admin, 3);
@@ -318,7 +318,7 @@ class ReportsExportControlsTest extends TestCase
     public function pdf_and_excel_carry_separate_preflight_limits(): void
     {
         config([
-            'reports.export_preflight_max_rows' => 2,
+            'reports.export_row_cap' => 2,
             'reports.pdf_preflight_max_rows' => 500,
         ]);
 
@@ -333,7 +333,7 @@ class ReportsExportControlsTest extends TestCase
     #[Test]
     public function an_oversized_export_is_refused_with_an_actionable_message(): void
     {
-        config(['reports.export_preflight_max_rows' => 1]);
+        config(['reports.export_row_cap' => 1]);
 
         $admin = User::factory()->create(['role' => 'ADMIN']);
         $this->seedCases($admin, 3);
@@ -373,7 +373,7 @@ class ReportsExportControlsTest extends TestCase
     #[Test]
     public function a_blocked_export_is_still_recorded(): void
     {
-        config(['reports.export_preflight_max_rows' => 1]);
+        config(['reports.export_row_cap' => 1]);
 
         $admin = User::factory()->create(['role' => 'ADMIN']);
         $this->seedCases($admin, 3);

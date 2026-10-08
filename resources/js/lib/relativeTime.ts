@@ -125,6 +125,8 @@ export function formatRelativeTime(iso: string): string {
     return formatMonthDayYear(date);
 }
 
+export { formatDisplayDateTime } from './utils';
+
 export function formatTimeAgo(iso: string): string {
     const date = parseDate(iso);
 
@@ -159,8 +161,6 @@ export function formatTimeAgo(iso: string): string {
 
     return formatMonthDay(date);
 }
-
-export { formatDisplayDateTime } from './utils';
 
 export function formatDateGroup(iso: string): string {
     const date = parseDate(iso);

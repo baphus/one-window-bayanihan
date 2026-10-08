@@ -41,7 +41,7 @@ class ChatbotQueryNormalizer
      * 4. Collapse multiple whitespace into single space
      * 5. Strip control characters (keep newlines as spaces)
      */
-    public function normalize(string $input): string
+    public static function normalize(string $input): string
     {
         $text = trim($input);
 

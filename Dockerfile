@@ -94,7 +94,7 @@ COPY . .
 COPY --from=node-build /build/public/build public/build
 
 # ── Install PHP dependencies (production only) ──
-RUN composer install --no-dev --optimize-autoloader --no-interaction --prefer-source \
+RUN composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist \
     && rm -rf /root/.composer/cache
 
 RUN composer audit --no-interaction 2>&1 | tee /tmp/composer-audit.log

@@ -182,7 +182,7 @@ class ReportsExportService
 
         $limit = $format === 'pdf'
             ? (int) config('reports.pdf_preflight_max_rows', 30000)
-            : (int) config('reports.export_preflight_max_rows', 6000);
+            : (int) config('reports.export_row_cap', 6000);
 
         return [
             'format' => $format,
