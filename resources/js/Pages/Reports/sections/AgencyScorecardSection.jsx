@@ -1,11 +1,11 @@
 import ReportLazySection from '@/Components/Reports/ReportLazySection';
-import TableSkeleton from '@/Components/Reports/TableSkeleton';
+import ChartSkeleton from '@/Components/Reports/ChartSkeleton';
 
 export default function AgencyScorecardSection({ pageHeadingStyles, role }) {
   return (
     <ReportLazySection
       lazyKey="agencyScorecard"
-      skeleton={<TableSkeleton rowCount={5} />}
+      skeleton={<ChartSkeleton />}
       emptyMessage="No agency data available."
     >
       {(data) => (

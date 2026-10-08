@@ -9,7 +9,6 @@ use App\Models\Client;
 use App\Models\User;
 use App\Services\CaseService;
 use App\Services\MaintenanceService;
-use App\Services\SecuritySettingsService;
 use App\Services\SessionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
@@ -19,7 +18,7 @@ use Tests\TestCase;
 
 /**
  * Regression tests for the service-level audit writes added in T3–T6 of the
- * audit-coverage-gaps plan (SecuritySettingsService, CaseService::deleteDraft,
+ * audit-coverage-gaps plan (SecuritySettingsController, CaseService::deleteDraft,
  * SessionService::terminate, MaintenanceService::enable/disable).
  *
  * These paths have no observable model event to rely on (draft deletion runs
@@ -38,9 +37,9 @@ class AuditCoverageGapsTest extends TestCase
         $admin = User::factory()->create(['role' => 'ADMIN']);
         $this->actingAs($admin);
 
-        (new SecuritySettingsService)->update([
+        $this->post(route('admin.system.security.update'), [
             'two_factor_required' => true,
-        ]);
+        ])->assertRedirect();
 
         $this->assertDatabaseHas('audit_logs', [
             'module' => 'security_settings',

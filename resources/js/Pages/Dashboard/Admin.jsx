@@ -6,7 +6,6 @@ import safeRoute from '@/utils/safeRoute';
 import {
     ActivityFeed,
     BarList,
-    CollapsibleSectionCard,
     EmptyState,
     FilterChip,
     MaterialSymbol,
@@ -216,9 +215,10 @@ export default function AdminDashboard({ dashboard = {} }) {
                     </SectionCard>
 
                     {/* ── Demoted: system-wide case snapshot (glance only, not casework) ── */}
-                    <CollapsibleSectionCard
+                    <SectionCard
                         title="System-wide case snapshot"
                         dataTour="dashboard-system-snapshot"
+                        collapsible
                         defaultOpen={false}
                     >
                         <dl className="divide-y divide-slate-100">
@@ -252,7 +252,7 @@ export default function AdminDashboard({ dashboard = {} }) {
                             </div>
                         </dl>
                         <p className="mt-3 text-[11px] text-slate-400">Casework belongs to case managers and agencies — this is oversight only.</p>
-                    </CollapsibleSectionCard>
+                    </SectionCard>
                 </div>
 
                 <aside className="space-y-6 xl:col-span-4">

@@ -34,10 +34,11 @@ class BackfillAuditCategories extends Command
             DB::statement("SET LOCAL app.allow_audit_mutations = 'true'");
 
             foreach ($triples as $triple) {
-                $category = AuditCategory::forBackfill(
+                $category = AuditCategory::for(
                     (string) $triple->module,
                     (string) $triple->action,
-                    $triple->unattributed ? null : 'attributed'
+                    $triple->unattributed ? null : 'attributed',
+                    true
                 );
 
                 if ($this->option('dry-run')) {

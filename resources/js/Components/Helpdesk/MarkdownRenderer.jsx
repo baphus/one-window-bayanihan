@@ -1,7 +1,6 @@
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
-import { visit } from 'unist-util-visit';
 
 // Extend the default sanitize schema to allow aria-hidden and tabIndex on
 // anchor elements so our custom plugin's attributes survive sanitization.
@@ -16,9 +15,16 @@ const sanitizeSchema = {
 // Rehype plugin: mark heading anchor links as aria-hidden so axe does not
 // flag them for missing accessible names (the heading text itself provides
 // the accessible name for the section).
+// ponytail: hand-rolled tree walk; unist-util-visit did exactly this for one call site.
+function walkHast(node, visit) {
+  visit(node);
+  for (const child of node?.children ?? []) walkHast(child, visit);
+}
+
 function rehypeHeadingLinks() {
   return (tree) => {
-    visit(tree, 'element', (node) => {
+    walkHast(tree, (node) => {
+      if (node?.type !== 'element') return;
       if (
         node.tagName === 'a' &&
         node.properties?.href?.startsWith('#') &&

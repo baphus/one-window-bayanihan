@@ -45,13 +45,9 @@ final class AuditCategory
     }
 
     /**
-     * Backfill variant: historical rows carry no runtime context, so
-     * unattributed non-security rows are treated as system activity.
+     * Backfill rows carry no runtime context, so unattributed rows are
+     * always treated as system activity — pass $backfill=true.
      */
-    public static function forBackfill(string $module, string $action, ?string $userId): string
-    {
-        return self::for($module, $action, $userId, true);
-    }
 
     /** Security when the module is a security surface OR the action is a security event. */
     private static function isSecurity(string $module, string $action): bool

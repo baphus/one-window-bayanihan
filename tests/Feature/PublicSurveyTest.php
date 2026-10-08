@@ -250,16 +250,16 @@ class PublicSurveyTest extends TestCase
                 referralId: $referral->id, clientName: 'Client', clientEmail: 'client@example.test', serviceName: 'Service', surveyFormId: $form->id,
             );
             $this->assertNotNull($created);
-            $this->assertSame($referral->case_id, $created->invitation->case_id);
-            $this->assertSame($referral->agcy_id, $created->invitation->agency_id);
-            $this->assertSame($referral->id, $created->invitation->referral_id);
-            $this->assertSame($form->id, $created->invitation->survey_form_id);
-            $this->assertSame('Client', $created->invitation->client_name);
-            $this->assertSame('client@example.test', $created->invitation->client_email);
-            $this->assertSame('Service', $created->invitation->service_name);
-            $this->assertNull($created->invitation->token);
-            $this->assertSame(hash('sha256', $created->rawToken), $created->invitation->token_hash);
-            $this->assertTrue($created->invitation->expires_at->equalTo(now()->addDays(30)));
+            $this->assertSame($referral->case_id, $created['invitation']->case_id);
+            $this->assertSame($referral->agcy_id, $created['invitation']->agency_id);
+            $this->assertSame($referral->id, $created['invitation']->referral_id);
+            $this->assertSame($form->id, $created['invitation']->survey_form_id);
+            $this->assertSame('Client', $created['invitation']->client_name);
+            $this->assertSame('client@example.test', $created['invitation']->client_email);
+            $this->assertSame('Service', $created['invitation']->service_name);
+            $this->assertNull($created['invitation']->token);
+            $this->assertSame(hash('sha256', $created['rawToken']), $created['invitation']->token_hash);
+            $this->assertTrue($created['invitation']->expires_at->equalTo(now()->addDays(30)));
         } finally {
             Carbon::setTestNow();
         }
@@ -380,7 +380,7 @@ class PublicSurveyTest extends TestCase
             referralId: $referral->id, clientName: 'Client Name', clientEmail: 'client@example.test', serviceName: 'Service', surveyFormId: $form->id,
         );
 
-        return [$created->invitation->load('surveyForm.questions'), $created->rawToken];
+        return [$created['invitation']->load('surveyForm.questions'), $created['rawToken']];
     }
 
     private function deliveryReferral(): Referral

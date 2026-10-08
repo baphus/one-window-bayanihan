@@ -9,7 +9,6 @@ use App\Http\Requests\UpdateDraftRequest;
 use App\Models\CaseFile;
 use App\Models\Client;
 use App\Models\SystemSetting;
-use App\Services\AddressNameResolver;
 use App\Services\CaseService;
 use App\Services\Export\DataExportQueries;
 use App\Services\Export\DataExportService;
@@ -29,7 +28,7 @@ class CaseController extends Controller
         private readonly PhilippineAddressService $addressService,
         private readonly TrackingService $trackingService,
         private readonly ReferenceDataService $referenceData,
-        private readonly AddressNameResolver $addressNames,
+        private readonly PhilippineAddressService $addressNames,
         private readonly DataExportQueries $exportQueries,
         private readonly DataExportService $exportService,
         private readonly OnboardingService $onboardingService,

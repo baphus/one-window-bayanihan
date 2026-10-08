@@ -63,7 +63,6 @@ export function UnifiedTable({
   isLoading = false,
   onRowContextMenu,
 }) {
-  const ENABLE_ROW_CONTEXT_MENU = true;
   const isColumnSortable = (col) => {
     if (!col || typeof col !== 'object') return false;
     return col.sortable ?? (col.key?.toLowerCase() !== "actions" && col.title?.toUpperCase() !== "ACTIONS");
@@ -430,8 +429,8 @@ export function UnifiedTable({
                 {sortedData.map((row) => (
                   <tr
                     key={keyExtractor(row)}
-                    className={`hover:bg-slate-100 transition-colors group ${ENABLE_ROW_CONTEXT_MENU && onRowContextMenu ? 'cursor-context-menu' : ''}`}
-                    onContextMenu={ENABLE_ROW_CONTEXT_MENU && onRowContextMenu ? (e) => onRowContextMenu(e, row) : undefined}
+                    className={`hover:bg-slate-100 transition-colors group ${onRowContextMenu ? 'cursor-context-menu' : ''}`}
+                    onContextMenu={onRowContextMenu ? (e) => onRowContextMenu(e, row) : undefined}
                   >
                     {selectable && (
                       <td className="px-5 py-4">

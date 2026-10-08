@@ -9,10 +9,8 @@ use Illuminate\Support\Facades\Log;
 /**
  * Shared Cloudflare Turnstile verification.
  *
- * Both VerifyTurnstile (per-request, redirect failures) and
- * VerifyTurnstileSession (once-per-session, JSON failures) verify tokens
- * against the same endpoint; only the failure rendering differs, so it
- * stays in the middleware.
+ * VerifyTurnstile renders failures per request type; only the failure
+ * rendering differs, so it stays in the middleware.
  */
 class TurnstileVerifier
 {

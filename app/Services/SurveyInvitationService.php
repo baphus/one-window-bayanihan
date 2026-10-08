@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\DTOs\CreatedSurveyInvitation;
 use App\Models\Referral;
 use App\Models\SurveyForm;
 use App\Models\SurveyInvitation;
@@ -16,6 +15,8 @@ class SurveyInvitationService
 {
     /**
      * Create invitation with generated token, expires in 30 days.
+     *
+     * @return array{invitation: SurveyInvitation, rawToken: string}|null
      */
     public function createInvitation(
         string $referralId,
@@ -23,7 +24,7 @@ class SurveyInvitationService
         string $clientEmail,
         string $serviceName,
         ?string $surveyFormId = null,
-    ): ?CreatedSurveyInvitation {
+    ): ?array {
         $rawToken = Str::random(64);
         $invitation = DB::transaction(function () use ($referralId, $clientName, $clientEmail, $serviceName, $surveyFormId, $rawToken): ?SurveyInvitation {
             $referral = Referral::query()->lockForUpdate()->findOrFail($referralId);
@@ -55,7 +56,7 @@ class SurveyInvitationService
             ]);
         });
 
-        return $invitation ? new CreatedSurveyInvitation($invitation, $rawToken) : null;
+        return $invitation ? ['invitation' => $invitation, 'rawToken' => $rawToken] : null;
     }
 
     /**

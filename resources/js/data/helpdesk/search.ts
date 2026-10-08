@@ -1,4 +1,3 @@
-import Fuse from "fuse.js";
 import type { HelpdeskArticle } from "./types";
 import { articles } from "./articles";
 import { categories } from "./categories";
@@ -6,17 +5,12 @@ import { tags } from "./tags";
 
 // ---------------------------------------------------------------------------
 // SearchableArticle — flat version of HelpdeskArticle with resolved names
-// so Fuse.js can search across them.
+// so search can match across them.
 // ---------------------------------------------------------------------------
 export interface SearchableArticle extends HelpdeskArticle {
   categoryName: string;
   tagNames: string[];
 }
-
-// ---------------------------------------------------------------------------
-// Lazy-initialised Fuse index
-// ---------------------------------------------------------------------------
-let _index: Fuse<SearchableArticle> | null = null;
 
 function buildSearchableArticles(): SearchableArticle[] {
   return articles.map((article) => ({
@@ -30,23 +24,16 @@ function buildSearchableArticles(): SearchableArticle[] {
 }
 
 /**
- * Build (or rebuild) the Fuse search index from the current articles,
- * categories and tags. Returns the Fuse instance for advanced usage.
+ * Build the searchable article list. Kept as a named export for callers
+ * that pre-resolve the corpus; searchArticles builds it lazily per call
+ * (ponytail: corpus is small and static — no index cache until profiling says so).
  */
-export function buildSearchIndex(): Fuse<SearchableArticle> {
-  _index = new Fuse(buildSearchableArticles(), {
-    keys: ["title", "excerpt", "content", "categoryName", "tagNames"],
-    threshold: 0.4,
-    distance: 100,
-  });
-  return _index;
+export function buildSearchIndex(): SearchableArticle[] {
+  return buildSearchableArticles();
 }
 
-function ensureIndex(): Fuse<SearchableArticle> {
-  if (!_index) {
-    return buildSearchIndex();
-  }
-  return _index;
+function haystack(article: SearchableArticle): string {
+  return `${article.title} ${article.excerpt} ${article.content} ${article.categoryName} ${article.tagNames.join(" ")}`.toLowerCase();
 }
 
 /**
@@ -60,14 +47,31 @@ export function searchArticles(
   query: string,
   limit: number = 20,
 ): HelpdeskArticle[] {
-  const trimmed = query.trim();
+  const trimmed = query.trim().toLowerCase();
 
   if (!trimmed) {
     return articles.slice(0, limit);
   }
 
-  const index = ensureIndex();
-  return index
-    .search(trimmed, { limit })
-    .map((result) => articles.find((a) => a.id === result.item.id)!);
+  const terms = trimmed.split(/\s+/);
+  const matchesAll = (text: string) => terms.every((term) => text.includes(term));
+
+  return (
+    buildSearchableArticles()
+      .filter((article) => matchesAll(haystack(article)))
+      // Title hits first, then excerpt/category/tags, then body-only hits.
+      .sort((left, right) => {
+        const rank = (article: SearchableArticle) =>
+          matchesAll(article.title.toLowerCase())
+            ? 0
+            : matchesAll(
+                `${article.excerpt} ${article.categoryName} ${article.tagNames.join(" ")}`.toLowerCase(),
+              )
+              ? 1
+              : 2;
+        return rank(left) - rank(right);
+      })
+      .slice(0, limit)
+      .map((result) => articles.find((a) => a.id === result.id)!)
+  );
 }

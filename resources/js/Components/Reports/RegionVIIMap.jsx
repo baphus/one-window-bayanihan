@@ -1,5 +1,5 @@
-import { Suspense, lazy, useMemo } from 'react';
-import { REGION_VII_PROVINCES } from '@/data/regionVIIBoundaries';
+import { useMemo } from 'react';
+import { REGION_VII_GEOJSON, REGION_VII_PROVINCES } from '@/data/regionVIIBoundaries';
 
 /**
  * Rendered scope: Cebu + Bohol only. Since the Negros Island Region
@@ -48,29 +48,35 @@ export function choroplethFill(count, max) {
   return CHOROPLETH_STEPS[index];
 }
 
-// Leaflet (~150KB with styles) loads only when the map actually mounts,
-// keeping it out of the initial bundle.
-const RegionVIIMapLeaflet = lazy(() => import('./RegionVIIMapLeaflet'));
+// Static SVG projection: 1 degree = 100 units, north up.
+const [[SOUTH, WEST], [NORTH, EAST]] = REGION_VII_BOUNDS;
+const VIEW_W = Math.round((EAST - WEST) * 100);
+const VIEW_H = Math.round((NORTH - SOUTH) * 100);
 
-// Same box as the loaded map so there is no layout shift while leaflet loads.
-function MapLoading() {
-  return (
-    <div
-      role="status"
-      aria-label="Loading map"
-      className="h-full w-full animate-pulse bg-slate-100 dark:bg-slate-800"
-    />
-  );
+function project([lng, lat]) {
+  return [(lng - WEST) * 100, (NORTH - lat) * 100];
+}
+
+function ringPoints(ring) {
+  return ring.map((coord) => project(coord).join(',')).join(' ');
+}
+
+function featurePolygons(feature) {
+  const { type, coordinates } = feature.geometry ?? {};
+  if (type === 'Polygon') return coordinates;
+  if (type === 'MultiPolygon') return coordinates.flat();
+  return [];
 }
 
 /**
- * Real interactive choropleth of DMW Region VII (Cebu + Bohol).
+ * Static SVG choropleth of DMW Region VII (Cebu + Bohol).
  * Boundaries are genuine simplified PSGC municipal polygons grouped by
  * parent province; each municipality is shaded by its province's case
- * count from the payload. Rendered without raster tiles so the map works
- * fully offline.
+ * count from the payload. No map library, no tiles — works fully offline.
  *
  * provinces: [{ id, name, count, value }] already matched to Region VII.
+ * The keyboard-accessible province list in GeographicMapSection carries
+ * the same counts and filter actions; the SVG is the visual layer.
  */
 export default function RegionVIIMap({ provinces = [], selectedProvince, onProvinceClick }) {
   const renderedMetas = useMemo(
@@ -78,17 +84,91 @@ export default function RegionVIIMap({ provinces = [], selectedProvince, onProvi
     [],
   );
 
+  const counts = useMemo(() => {
+    const table = {};
+    provinces.forEach((province) => {
+      table[province.id] = Number(province.count ?? 0);
+    });
+    return table;
+  }, [provinces]);
+
+  const max = useMemo(() => Math.max(0, ...Object.values(counts)), [counts]);
+
+  const renderedFeatures = useMemo(
+    () => REGION_VII_GEOJSON.features.filter((feature) =>
+      RENDERED_PROVINCE_IDS.includes(feature?.properties?.province),
+    ),
+    [],
+  );
+
+  const isSelected = (province) =>
+    Boolean(selectedProvince) &&
+    [province.value, province.id, province.name].includes(selectedProvince);
+
+  const selectById = (id) => {
+    const province = provinces.find((item) => item.id === id);
+    onProvinceClick?.(province?.value ?? id);
+  };
+
   return (
     <div>
       <div className="h-[340px] w-full overflow-hidden rounded-[3px] border border-slate-200 dark:border-slate-700">
-        <Suspense fallback={<MapLoading />}>
-          <RegionVIIMapLeaflet
-            provinces={provinces}
-            selectedProvince={selectedProvince}
-            onProvinceClick={onProvinceClick}
-            renderedMetas={renderedMetas}
-          />
-        </Suspense>
+        <svg
+          data-testid="region-vii-map"
+          role="img"
+          aria-label="Map of Cebu and Bohol shaded by case count"
+          viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
+          className="h-full w-full"
+          style={{ background: '#eaf2f8' }}
+        >
+          {renderedMetas.map((meta) => {
+            const province = provinces.find((item) => item.id === meta.id);
+            const count = counts[meta.id] ?? 0;
+            const selected = province ? isSelected(province) : false;
+            const [cx, cy] = project([meta.center[1], meta.center[0]]);
+            return (
+              <g
+                key={meta.id}
+                data-testid={`province-${meta.id}`}
+                onClick={() => selectById(meta.id)}
+                style={{ cursor: 'pointer' }}
+              >
+                <title>{`${province?.name ?? meta.name} — ${count} cases`}</title>
+                {renderedFeatures
+                  .filter((feature) => feature?.properties?.province === meta.id)
+                  .flatMap((feature, featureIndex) =>
+                    featurePolygons(feature).map((ring, ringIndex) => (
+                      <polygon
+                        key={`${featureIndex}-${ringIndex}`}
+                        data-feature
+                        data-province={meta.id}
+                        points={ringPoints(ring)}
+                        fill={choroplethFill(count, max)}
+                        fillOpacity={count > 0 ? 0.85 : 0.45}
+                        stroke={selected ? '#0b5a8c' : '#ffffff'}
+                        strokeWidth={selected ? 0.8 : 0.3}
+                      />
+                    )),
+                  )}
+                <g data-testid={`badge-${meta.id}`}>
+                  <circle cx={cx} cy={cy} r={7} fill={selected ? '#0b5a8c' : '#ffffff'} stroke="#0b5a8c" strokeWidth={1} />
+                  <text
+                    x={cx}
+                    y={cy}
+                    textAnchor="middle"
+                    dominantBaseline="central"
+                    fontSize={6}
+                    fontWeight={900}
+                    fontFamily="Arial, sans-serif"
+                    fill={selected ? '#ffffff' : '#0b5a8c'}
+                  >
+                    {count}
+                  </text>
+                </g>
+              </g>
+            );
+          })}
+        </svg>
       </div>
       <div
         className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-base font-bold text-slate-700 dark:text-slate-200 md:text-lg"
