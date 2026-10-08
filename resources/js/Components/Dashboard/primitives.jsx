@@ -258,6 +258,45 @@ export function EntityList({ children, empty }) {
     return <div className="divide-y divide-slate-100">{rows}</div>;
 }
 
+export function DashboardTable({ columns, rows, empty }) {
+    return (
+        <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-slate-200 text-left">
+                <thead className="bg-slate-50">
+                    <tr>
+                        {columns.map((column) => (
+                            <th
+                                key={column.key}
+                                scope="col"
+                                className={`whitespace-nowrap px-5 py-3 text-[11px] font-extrabold uppercase tracking-[0.14em] text-slate-500 ${column.className ?? ''}`}
+                            >
+                                {column.label}
+                            </th>
+                        ))}
+                    </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                    {rows.length === 0 ? (
+                        <tr>
+                            <td colSpan={columns.length}>{empty}</td>
+                        </tr>
+                    ) : (
+                        rows.map((row) => (
+                            <tr key={row.key} className="transition-colors hover:bg-slate-50">
+                                {columns.map((column) => (
+                                    <td key={column.key} className={`whitespace-nowrap px-5 py-3 text-sm text-slate-600 ${column.cellClassName ?? ''}`}>
+                                        {row[column.key]}
+                                    </td>
+                                ))}
+                            </tr>
+                        ))
+                    )}
+                </tbody>
+            </table>
+        </div>
+    );
+}
+
 export function BarList({ items, maxItems = 6 }) {
     const rows = safeArray(items).slice(0, maxItems);
     const maxValue = Math.max(...rows.map((item) => Number(item.count ?? 0)), 1);

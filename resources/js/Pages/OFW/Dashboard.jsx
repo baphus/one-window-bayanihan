@@ -2,6 +2,7 @@ import { Link, usePage } from '@inertiajs/react';
 import { Hourglass } from 'lucide-react';
 import OfwLayout from '@/Layouts/OfwLayout';
 import StatusBadge from '@/Components/ui/StatusBadge';
+import { DashboardTable } from '@/Components/Dashboard/primitives';
 import safeRoute from '@/utils/safeRoute';
 
 // Laravel paginator labels are server-escaped strings limited to page
@@ -218,10 +219,32 @@ export default function Dashboard({ cases, caseStats }) {
                 {caseList.length === 0 ? (
                     <EmptyState />
                 ) : (
-                    <div className="mt-3 space-y-2">
-                        {caseList.map((caseItem) => (
-                            <CaseCard key={caseItem.id} caseItem={caseItem} />
-                        ))}
+                    <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                        <DashboardTable
+                            columns={[
+                                { key: 'trackingId', label: 'Tracking ID' },
+                                { key: 'caseNumber', label: 'Case number' },
+                                { key: 'summary', label: 'Request' },
+                                { key: 'status', label: 'Status' },
+                                { key: 'submitted', label: 'Submitted' },
+                                { key: 'action', label: '', className: 'text-right', cellClassName: 'text-right' },
+                            ]}
+                            rows={caseList.map((caseItem) => {
+                                const isUnderReview = caseItem.status === 'DRAFT' && caseItem.source === 'self_filed';
+                                const href = route('ofw.case.show', caseItem.id);
+
+                                return {
+                                    key: caseItem.id,
+                                    trackingId: <Link href={href} className="font-bold text-primary hover:text-primary-container">{caseItem.tracker_number ?? caseItem.case_number}</Link>,
+                                    caseNumber: caseItem.case_number ?? 'Pending',
+                                    summary: <span className="block max-w-sm truncate">{caseItem.summary ?? 'No summary provided'}</span>,
+                                    status: <StatusBadge variant="pill" status={caseItem.status} showIcon={isUnderReview} label={isUnderReview ? 'Under Review' : undefined} icon={isUnderReview ? Hourglass : undefined} />,
+                                    submitted: formatDate(caseItem.created_at),
+                                    action: <Link href={href} className="font-bold text-primary hover:text-primary-container">View</Link>,
+                                };
+                            })}
+                            empty={<EmptyState />}
+                        />
                     </div>
                 )}
             </section>

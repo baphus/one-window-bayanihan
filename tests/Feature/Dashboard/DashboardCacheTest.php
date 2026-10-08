@@ -84,6 +84,35 @@ class DashboardCacheTest extends TestCase
         $this->assertFalse(Cache::has('dashboard:admin_recent_logs'));
     }
 
+    public function test_agency_dashboard_provides_separate_pending_processing_and_overdue_queues(): void
+    {
+        $agency = Agency::factory()->create();
+        $agencyUser = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agency->id]);
+        $client = Client::factory()->create();
+
+        $pending = Referral::factory()->pending()->create([
+            'agcy_id' => $agency->id,
+            'case_id' => CaseFile::factory()->create(['client_id' => $client->id])->id,
+        ]);
+        $processing = Referral::factory()->processing()->create([
+            'agcy_id' => $agency->id,
+            'case_id' => CaseFile::factory()->create(['client_id' => $client->id])->id,
+        ]);
+        $overdue = Referral::factory()->pending()->create([
+            'agcy_id' => $agency->id,
+            'case_id' => CaseFile::factory()->create(['client_id' => $client->id])->id,
+            'created_at' => now()->subDays(6),
+        ]);
+        Referral::factory()->processing()->create();
+
+        $dashboard = app(DashboardService::class)->getAgencyData($agencyUser);
+
+        $this->assertContains($pending->id, array_column($dashboard['pendingReferrals'], 'id'));
+        $this->assertContains($processing->id, array_column($dashboard['processingReferrals'], 'id'));
+        $this->assertContains($overdue->id, array_column($dashboard['overdueReferrals'], 'id'));
+        $this->assertNotContains($processing->id, array_column($dashboard['pendingReferrals'], 'id'));
+    }
+
     public function test_case_write_invalidates_dashboard_caches(): void
     {
         $manager = User::factory()->create(['role' => 'CASE_MANAGER']);

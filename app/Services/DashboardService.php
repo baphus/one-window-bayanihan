@@ -197,7 +197,7 @@ class DashboardService
                         r.required_services
                     ) AS service_names,
                     r.created_at,
-                    a.name AS agency_name, c.case_number, cl.first_name, cl.last_name,
+                    a.name AS agency_name, c.case_number, c.tracker_number, cl.first_name, cl.last_name,
                     EXTRACT(EPOCH FROM (NOW() - r.created_at))/86400 AS age_days,
                     CASE
                         WHEN r.status = 'REJECTED' THEN 100 + EXTRACT(EPOCH FROM (NOW() - r.created_at))/86400
@@ -222,6 +222,7 @@ class DashboardService
             'id' => $row->id,
             'case_id' => $row->case_id,
             'case_number' => $row->case_number ?? 'N/A',
+            'tracking_number' => $row->tracker_number ?? null,
             'client_name' => trim(($row->first_name ?? '').' '.($row->last_name ?? '')) ?: 'Unnamed',
             'service' => $row->service_names ?: 'Service not specified',
             'agency_name' => $includeAgency ? ($row->agency_name ?? 'N/A') : null,
@@ -257,7 +258,7 @@ class DashboardService
                     r.required_services
                 ) AS service_names,
                 r.created_at,
-                a.name AS agency_name, c.case_number, cl.first_name, cl.last_name,
+                a.name AS agency_name, c.case_number, c.tracker_number, cl.first_name, cl.last_name,
                 EXTRACT(EPOCH FROM (NOW() - r.created_at))/86400 AS age_days
             FROM referrals r
             LEFT JOIN agencies a ON a.id = r.agcy_id
@@ -272,6 +273,7 @@ class DashboardService
             'id' => $row->id,
             'case_id' => $row->case_id,
             'case_number' => $row->case_number ?? 'N/A',
+            'tracking_number' => $row->tracker_number ?? null,
             'client_name' => trim(($row->first_name ?? '').' '.($row->last_name ?? '')) ?: 'Unnamed',
             'service' => $row->service_names ?: 'Service not specified',
             'agency_name' => null,
@@ -939,6 +941,9 @@ class DashboardService
         $pendingReferralsList = CacheHelper::safeRemember('dashboard:agency_pending_referrals:'.$agencyId, 60, function () use ($agencyId) {
             return $this->buildAgencyReferralListSQL($agencyId, 'PENDING', false, 5);
         });
+        $processingReferralsList = CacheHelper::safeRemember('dashboard:agency_processing_referrals:'.$agencyId, 60, function () use ($agencyId) {
+            return $this->buildAgencyReferralListSQL($agencyId, 'PROCESSING', false, 5);
+        });
         $overdueReferralsList = CacheHelper::safeRemember('dashboard:agency_overdue_referrals:'.$agencyId, 60, function () use ($agencyId) {
             return $this->buildAgencyReferralListSQL($agencyId, null, true, 5);
         });
@@ -1027,7 +1032,7 @@ class DashboardService
         return [
             'totalReferrals' => $totalReferrals,
             'pendingReferrals' => $pendingReferralsList,
-            'processingReferrals' => $processingReferrals,
+            'processingReferrals' => $processingReferralsList,
             'forComplianceReferrals' => $forComplianceReferrals,
             'completedReferrals' => $completedReferrals,
             'rejectedReferrals' => $rejectedReferrals,

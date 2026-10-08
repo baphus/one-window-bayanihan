@@ -1,15 +1,14 @@
 import { Link, usePage } from '@inertiajs/react';
+import { Bar, Pie } from 'react-chartjs-2';
+import { ArcElement, BarElement, CategoryScale, Chart as ChartJS, Legend, LinearScale, Tooltip } from 'chart.js';
 import GettingStartedChecklist from '@/Components/GettingStartedChecklist';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import { humanizeStatus } from '@/lib/statusLabels';
 import { formatRelativeTime } from '@/lib/relativeTime';
 import safeRoute from '@/utils/safeRoute';
 import {
-    ActivityFeed,
-    BarList,
     EmptyState,
-    EntityList,
-    EntityRow,
+    DashboardTable,
     PageHeader,
     QuickActions,
     SectionCard,
@@ -17,21 +16,35 @@ import {
     formatCount,
     safeArray,
     toneDot,
+    toneHex,
 } from '@/Components/Dashboard/primitives';
 
+ChartJS.register(ArcElement, BarElement, CategoryScale, Legend, LinearScale, Tooltip);
+
 const OVERDUE_DAYS = 5;
+const REFERRAL_STATUSES = ['PENDING', 'PROCESSING', 'FOR_COMPLIANCE', 'COMPLETED', 'REJECTED'];
+const STATUS_TONES = {
+    PENDING: 'amber',
+    PROCESSING: 'blue',
+    FOR_COMPLIANCE: 'orange',
+    COMPLETED: 'emerald',
+    REJECTED: 'rose',
+};
 
 function toAgeDays(value, fallback = 0) {
     if (value === undefined || value === null) {
         return fallback;
     }
+
     const parsed = Number(value);
+
     return Number.isFinite(parsed) && parsed >= 0 ? Math.floor(parsed) : fallback;
 }
 
 function AgeFlag({ days }) {
     const parsed = toAgeDays(days, 0);
     const overdue = parsed >= OVERDUE_DAYS;
+
     return (
         <span
             className={
@@ -49,43 +62,155 @@ function formatReferredAt(iso) {
     if (!iso) {
         return '';
     }
+
     const date = new Date(iso);
+
     if (Number.isNaN(date.getTime())) {
         return '';
     }
+
     const short = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(date);
+
     return `${short} · ${formatRelativeTime(iso)}`;
 }
 
 function referralNote(item) {
     const stamp = formatReferredAt(item.referred_at);
+
     return [item.service, stamp || null].filter(Boolean).join(' · ');
 }
 
-function PulseStat({ label, value }) {
+function ReferralQueue({ title, referrals, emptyMessage, href, dataTour }) {
+    const columns = [
+        { key: 'tracking', label: 'Tracking ID' },
+        { key: 'client', label: 'Client' },
+        { key: 'service', label: 'Service' },
+        { key: 'status', label: 'Status' },
+        { key: 'age', label: 'Age', className: 'text-right', cellClassName: 'text-right' },
+        { key: 'action', label: '', className: 'text-right', cellClassName: 'text-right' },
+    ];
+    const rows = referrals.map((item) => {
+        const referralHref = item.href ?? safeRoute('referrals.show', item.id, `/referrals/${item.id}`);
+
+        return {
+            key: item.id,
+            tracking: (
+                <Link href={referralHref} className="font-bold text-primary hover:text-primary-container">
+                    {item.tracking_number ?? item.case_number}
+                </Link>
+            ),
+            client: <span className="font-semibold text-slate-900">{item.client_name}</span>,
+            service: <span className="block max-w-xs truncate">{item.service}</span>,
+            status: <StatusBadge status={item.status} label={humanizeStatus(item.status)} />,
+            age: <AgeFlag days={item.age_days} />,
+            action: (
+                <Link href={referralHref} className="font-bold text-primary hover:text-primary-container">
+                    Open
+                </Link>
+            ),
+        };
+    });
+
     return (
-        <div className="rounded-lg bg-slate-50 px-3 py-2.5">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{label}</p>
-            <p className="mt-0.5 text-lg font-black text-slate-900">{value}</p>
+        <SectionCard title={title} dataTour={dataTour} action={<ViewAllLink href={href} />} bodyClassName="">
+            <DashboardTable
+                columns={columns}
+                rows={rows}
+                empty={<EmptyState message={emptyMessage} href={safeRoute('referrals.index', undefined, '/referrals')} actionLabel="Open referrals" />}
+            />
+        </SectionCard>
+    );
+}
+
+function ReferralStatusChart({ distribution }) {
+    const slices = REFERRAL_STATUSES.map((status) => {
+        const item = distribution.find((entry) => entry.status === status) ?? {};
+
+        return {
+            status,
+            label: humanizeStatus(status),
+            count: Number(item.count ?? 0),
+            color: toneHex(STATUS_TONES[status]),
+        };
+    }).filter((slice) => slice.count > 0);
+
+    if (slices.length === 0) {
+        return <p className="text-sm text-slate-500">Status data appears once referrals are assigned to your agency.</p>;
+    }
+
+    return (
+        <div>
+            <div className="h-48">
+                <Pie
+                    data={{
+                        labels: slices.map((slice) => slice.label),
+                        datasets: [{
+                            data: slices.map((slice) => slice.count),
+                            backgroundColor: slices.map((slice) => slice.color),
+                            borderColor: '#ffffff',
+                            borderWidth: 2,
+                        }],
+                    }}
+                    options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }}
+                />
+            </div>
+            <ul className="mt-3 space-y-2">
+                {slices.map((slice) => (
+                    <li key={slice.status} className="flex items-center justify-between gap-3 text-xs">
+                        <span className="flex min-w-0 items-center gap-2 font-semibold text-slate-700">
+                            <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: slice.color }} />
+                            <span className="truncate">{slice.label}</span>
+                        </span>
+                        <span className="shrink-0 font-black text-slate-900">{formatCount(slice.count)}</span>
+                    </li>
+                ))}
+            </ul>
         </div>
     );
 }
 
-const QUEUE_ORDER = ['newReferrals', 'pendingReferrals', 'processingReferrals', 'forComplianceReferrals', 'overdueReferrals', 'returnedReferrals'];
+function ServiceDemandChart({ services }) {
+    if (services.length === 0) {
+        return <p className="text-sm text-slate-500">Service demand appears once services are added to referrals.</p>;
+    }
+
+    return (
+        <div className="h-64">
+            <Bar
+                data={{
+                    labels: services.map((service) => service.serviceName),
+                    datasets: [{
+                        data: services.map((service) => Number(service.totalCount ?? 0)),
+                        backgroundColor: '#005288',
+                        borderRadius: 4,
+                        maxBarThickness: 24,
+                    }],
+                }}
+                options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { beginAtZero: true, ticks: { precision: 0, font: { size: 10 } }, grid: { color: '#f1f5f9' } },
+                        y: { ticks: { font: { size: 10 } }, grid: { display: false } },
+                    },
+                }}
+            />
+        </div>
+    );
+}
 
 export default function AgencyDashboard({ dashboard = {} }) {
     const { auth } = usePage().props;
     const firstName = auth?.user?.name?.split(' ')[0] ?? 'there';
-
     const pendingReferrals = safeArray(dashboard.pendingReferrals).slice(0, 5);
+    const processingReferrals = safeArray(dashboard.processingReferrals).slice(0, 5);
     const overdueReferrals = safeArray(dashboard.overdueReferrals).slice(0, 5);
     const serviceDemand = safeArray(dashboard.serviceDemand).slice(0, 6);
-    const pulse = dashboard.feedbackPulse ?? {};
-    const hasPulse = Boolean(pulse.hasData);
-
-    const queueCells = QUEUE_ORDER.map((key) => safeArray(dashboard.workQueue).find((item) => item.key === key))
-        .filter(Boolean)
-        .map((item) => (item.key === 'returnedReferrals' ? { ...item, tone: 'slate' } : item));
+    const queueCells = ['pendingReferrals', 'processingReferrals', 'overdueReferrals']
+        .map((key) => safeArray(dashboard.workQueue).find((item) => item.key === key))
+        .filter(Boolean);
 
     return (
         <div className="mx-auto max-w-7xl pb-8">
@@ -94,23 +219,22 @@ export default function AgencyDashboard({ dashboard = {} }) {
             <PageHeader
                 eyebrow="Agency focal"
                 title={`Welcome back, ${firstName}`}
-                subtitle="Referrals assigned to your agency, ordered by what needs action first."
+                subtitle="Keep referral work moving with one focused view of your agency queue."
             >
                 <QuickActions
                     actions={[
                         { href: '/referrals', route: 'referrals.index', label: 'Open referrals', icon: 'send', primary: true },
                         { href: '/overdue-referrals', route: 'overdue-referrals.index', label: 'Overdue', icon: 'warning' },
-                        { href: '/surveys', route: 'survey.responses.index', label: 'Surveys', icon: 'reviews' },
                         { href: '/reports', route: 'reports.index', label: 'Reports', icon: 'bar_chart' },
                     ]}
                 />
             </PageHeader>
 
-            <SectionCard title="My referrals" dataTour="dashboard-work-queue" bodyClassName="">
-                <div data-tour="dashboard-stats" className="grid grid-cols-2 gap-px overflow-hidden rounded-b-xl bg-slate-100 sm:grid-cols-3 lg:grid-cols-6">
+            <SectionCard title="Referral queue" dataTour="dashboard-work-queue" bodyClassName="">
+                <div data-tour="dashboard-stats" className="grid gap-px overflow-hidden rounded-b-xl bg-slate-100 sm:grid-cols-3">
                     {queueCells.map((item, index) => {
                         const count = Number(item.count ?? 0);
-                        const urgent = count > 0 && (item.tone === 'rose' || item.tone === 'orange');
+                        const urgent = count > 0 && item.tone === 'rose';
 
                         return (
                             <Link
@@ -137,85 +261,45 @@ export default function AgencyDashboard({ dashboard = {} }) {
             </SectionCard>
 
             <div className="mt-6 grid gap-6 xl:grid-cols-12">
-                <div className="space-y-6 xl:col-span-8">
-                    <SectionCard
+                <div className="xl:col-span-8">
+                    <ReferralQueue
                         title="Pending referrals"
                         dataTour="dashboard-agency-referrals"
-                        action={<ViewAllLink href={safeRoute('referrals.index', { status: 'PENDING' }, '/referrals?status=PENDING')} />}
-                        bodyClassName=""
-                    >
-                        <EntityList empty={<EmptyState message="No pending referrals." href={safeRoute('referrals.index', undefined, '/referrals')} actionLabel="Open referrals" />}>
-                            {pendingReferrals.map((item) => (
-                                <EntityRow
-                                    key={item.id}
-                                    href={item.href ?? safeRoute('referrals.show', item.id, `/referrals/${item.id}`)}
-                                    pill={item.case_number}
-                                    title={item.client_name}
-                                    note={referralNote(item)}
-                                    age={<AgeFlag days={item.age_days} />}
-                                />
-                            ))}
-                        </EntityList>
-                    </SectionCard>
-
-                    <SectionCard
-                        title="Overdue referrals"
-                        action={<ViewAllLink href={safeRoute('overdue-referrals.index', undefined, '/overdue-referrals')} />}
-                        bodyClassName=""
-                    >
-                        <EntityList empty={<EmptyState message="Nothing is late." href={safeRoute('overdue-referrals.index', undefined, '/overdue-referrals')} actionLabel="Check overdue" />}>
-                            {overdueReferrals.map((item) => (
-                                <EntityRow
-                                    key={item.id}
-                                    href={item.href ?? safeRoute('referrals.show', item.id, `/referrals/${item.id}`)}
-                                    pill={item.case_number}
-                                    title={item.client_name}
-                                    note={referralNote(item)}
-                                    age={<AgeFlag days={item.age_days} />}
-                                    right={<StatusBadge status={item.status} label={humanizeStatus(item.status)} />}
-                                />
-                            ))}
-                        </EntityList>
-                    </SectionCard>
-
-                    <SectionCard title="Recent activity">
-                        <ActivityFeed items={dashboard.recentActivity} limit={6} />
+                        referrals={pendingReferrals}
+                        emptyMessage="No pending referrals."
+                        href={safeRoute('referrals.index', { status: 'PENDING' }, '/referrals?status=PENDING')}
+                    />
+                </div>
+                <div className="xl:col-span-4">
+                    <SectionCard title="Referrals by status">
+                        <ReferralStatusChart distribution={safeArray(dashboard.referralStatusDistribution)} />
                     </SectionCard>
                 </div>
+            </div>
 
-                <div className="space-y-6 xl:col-span-4">
-                    <SectionCard title="Services applied">
-                        {serviceDemand.length > 0 ? (
-                            <BarList
-                                items={serviceDemand.map((item) => ({
-                                    key: item.serviceId ?? item.serviceName,
-                                    label: item.serviceName,
-                                    count: item.totalCount,
-                                    detail: `${item.activeCount} active · ${item.completionRate}% completion`,
-                                    tone: 'blue',
-                                }))}
-                            />
-                        ) : (
-                            <p className="text-sm text-slate-500">Applied services appear once your services are added to referrals.</p>
-                        )}
-                    </SectionCard>
-
-                    <SectionCard title="Client feedback" action={<ViewAllLink href={safeRoute('survey.responses.index', undefined, '/surveys')} />}>
-                        {hasPulse ? (
-                            <div className="space-y-3">
-                                <div className="grid grid-cols-2 gap-2">
-                                    <PulseStat label="Response" value={`${formatCount(pulse.responseRate)}%`} />
-                                    <PulseStat label="Rating" value={pulse.avgRating ?? '—'} />
-                                </div>
-                                <p className="text-xs text-slate-500">
-                                    {formatCount(pulse.totalSubmitted)} of {formatCount(pulse.totalSent)} invitations answered.
-                                </p>
-                            </div>
-                        ) : (
-                            <p className="text-sm text-slate-500">Feedback signals appear once clients respond to invitations.</p>
-                        )}
+            <div className="mt-6 grid gap-6 xl:grid-cols-12">
+                <div className="xl:col-span-8">
+                    <ReferralQueue
+                        title="Processing referrals"
+                        referrals={processingReferrals}
+                        emptyMessage="No referrals are currently being processed."
+                        href={safeRoute('referrals.index', { status: 'PROCESSING' }, '/referrals?status=PROCESSING')}
+                    />
+                </div>
+                <div className="xl:col-span-4">
+                    <SectionCard title="Most used services">
+                        <ServiceDemandChart services={serviceDemand} />
                     </SectionCard>
                 </div>
+            </div>
+
+            <div className="mt-6">
+                <ReferralQueue
+                    title="Overdue referrals"
+                    referrals={overdueReferrals}
+                    emptyMessage="Nothing is overdue."
+                    href={safeRoute('overdue-referrals.index', undefined, '/overdue-referrals')}
+                />
             </div>
         </div>
     );

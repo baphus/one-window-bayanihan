@@ -12,6 +12,7 @@ import safeRoute from '@/utils/safeRoute';
 import { getSeverityConfig, normalizeNotification } from '@/lib/notifications';
 import {
     ActivityFeed,
+    DashboardTable,
     EmptyState,
     EntityList,
     EntityRow,
@@ -494,7 +495,7 @@ function buildNeedsYou(dashboard) {
         return {
             key: `ref-${item.id}`,
             href: pick(item.href, safeRoute('referrals.show', item.id, `/referrals/${item.id}`)),
-            pill: pick(item.case_number, item.caseNumber),
+            trackingId: pick(item.tracking_number, item.trackerNumber, item.tracker_number, item.case_number, item.caseNumber),
             title: pick(item.client_name, item.clientName, 'Unnamed'),
             note: pick(item.agency_name, item.agencyName, item.service),
             status,
@@ -510,7 +511,7 @@ function buildNeedsYou(dashboard) {
         return {
             key: `case-${item.id}`,
             href: pick(item.href, safeRoute('cases.show', item.id, `/cases/${item.id}`)),
-            pill: pick(item.trackerNumber, item.tracker_number, item.caseNo, item.case_number),
+            trackingId: pick(item.trackerNumber, item.tracker_number, item.caseNo, item.case_number),
             title: pick(item.clientName, item.client_name, 'Unnamed'),
             note: pick(item.reason, referralNote ? humanizeStatus(referralNote) : undefined),
             status,
@@ -526,22 +527,31 @@ function buildNeedsYou(dashboard) {
 
 function NeedsYouBlock({ dashboard }) {
     const rows = useMemo(() => buildNeedsYou(dashboard), [dashboard]);
+    const columns = [
+        { key: 'trackingId', label: 'Tracking ID' },
+        { key: 'client', label: 'Client' },
+        { key: 'detail', label: 'Detail' },
+        { key: 'status', label: 'Status' },
+        { key: 'age', label: 'Age', className: 'text-right', cellClassName: 'text-right' },
+        { key: 'action', label: '', className: 'text-right', cellClassName: 'text-right' },
+    ];
+    const tableRows = rows.map((row) => ({
+        key: row.key,
+        trackingId: <Link href={row.href} className="font-bold text-primary hover:text-primary-container">{row.trackingId}</Link>,
+        client: <span className="font-semibold text-slate-900">{row.title}</span>,
+        detail: row.note,
+        status: <StatusBadge status={row.status} label={humanizeStatus(row.status)} />,
+        age: <AgeFlag days={row.age} />,
+        action: <Link href={row.href} className="font-bold text-primary hover:text-primary-container">Open</Link>,
+    }));
 
     return (
         <SectionCard title="Needs You" dataTour="dashboard-needs-you" bodyClassName="">
-            <EntityList empty={<EmptyState message="Nothing is late." href={safeRoute('overdue-referrals.index', undefined, '/overdue-referrals')} actionLabel="Check overdue" />}>
-                {rows.map((row) => (
-                    <EntityRow
-                        key={row.key}
-                        href={row.href}
-                        pill={row.pill}
-                        title={row.title}
-                        note={row.note}
-                        age={<AgeFlag days={row.age} />}
-                        right={<StatusBadge status={row.status} label={humanizeStatus(row.status)} />}
-                    />
-                ))}
-            </EntityList>
+            <DashboardTable
+                columns={columns}
+                rows={tableRows}
+                empty={<EmptyState message="Nothing needs attention." href={safeRoute('overdue-referrals.index', undefined, '/overdue-referrals')} actionLabel="Check overdue" />}
+            />
         </SectionCard>
     );
 }
@@ -558,6 +568,30 @@ function IntakeQueueBlock({ dashboard }) {
                 .slice(0, 5),
         [dashboard],
     );
+    const columns = [
+        { key: 'trackingId', label: 'Tracking ID' },
+        { key: 'client', label: 'Client' },
+        { key: 'source', label: 'Source' },
+        { key: 'filed', label: 'Filed' },
+        { key: 'status', label: 'Status' },
+        { key: 'action', label: '', className: 'text-right', cellClassName: 'text-right' },
+    ];
+    const rows = intakes.map((item) => {
+        const id = item.id;
+        const filed = createdAtOf(item);
+        const isPortal = pick(item.source, item.channel) === 'self_filed';
+        const href = safeRoute('cases.review-intake', id, `/cases/${id}/review-intake`);
+
+        return {
+            key: id,
+            trackingId: <Link href={href} className="font-bold text-primary hover:text-primary-container">{pick(item.trackerNumber, item.tracker_number, item.caseNo, item.case_number)}</Link>,
+            client: <span className="font-semibold text-slate-900">{pick(item.clientName, item.client_name, 'Unnamed client')}</span>,
+            source: isPortal ? 'Portal' : 'Draft',
+            filed: filed ? formatDisplayDate(String(filed)) : '—',
+            status: <StatusBadge status={pick(item.status, 'DRAFT')} label={humanizeStatus(pick(item.status, 'DRAFT'))} />,
+            action: <Link href={href} className="font-bold text-primary hover:text-primary-container">Review</Link>,
+        };
+    });
 
     return (
         <SectionCard
@@ -566,45 +600,7 @@ function IntakeQueueBlock({ dashboard }) {
             action={<ViewAllLink href={safeRoute('cases.intake-queue', undefined, '/cases/intake-queue')}>View all</ViewAllLink>}
             bodyClassName=""
         >
-            <EntityList empty={<EmptyState message="No pending intakes." />}>
-                {intakes.map((item) => {
-                    const id = item.id;
-                    const filed = createdAtOf(item);
-                    const ageDays = filed ? getCaseAgeInDays(String(filed)) : null;
-                    const isPortal = pick(item.source, item.channel) === 'self_filed';
-                    return (
-                        <div
-                            key={id}
-                            className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-slate-50"
-                        >
-                            <div className="min-w-0 flex-1">
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">
-                                        {isPortal ? 'Portal' : 'Draft'}
-                                    </span>
-                                    <span className="truncate text-sm font-bold text-slate-900">
-                                        {pick(item.clientName, item.client_name, 'Unnamed client')}
-                                    </span>
-                                </div>
-                                <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-500">
-                                    {filed ? <span>Filed {formatDisplayDate(String(filed))}</span> : null}
-                                    {ageDays !== null ? <AgeFlag days={ageDays} /> : null}
-                                </p>
-                            </div>
-                            <div className="flex shrink-0 items-center gap-2">
-                                <StatusBadge status={pick(item.status, 'DRAFT')} label={humanizeStatus(pick(item.status, 'DRAFT'))} />
-                                <Link
-                                    href={safeRoute('cases.review-intake', id, `/cases/${id}/review-intake`)}
-                                    className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-primary px-3 py-1.5 text-xs font-bold text-primary transition-colors hover:bg-primary hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-                                >
-                                    Review
-                                    <MaterialSymbol name="arrow_forward" className="text-[14px]" />
-                                </Link>
-                            </div>
-                        </div>
-                    );
-                })}
-            </EntityList>
+            <DashboardTable columns={columns} rows={rows} empty={<EmptyState message="No pending intakes." />} />
         </SectionCard>
     );
 }

@@ -145,7 +145,11 @@ class CacheInvalidationObserver
         Cache::forget('dashboard:cm_no_referral_count');
         Cache::forget('dashboard:cm_recent_activity');
         Cache::forget('dashboard:admin_recent_logs');
-        Cache::forget('dashboard:agency_recent_activity:'.$referral->agcy_id);
+        $agencyDashboardKey = 'dashboard:agency_';
+        $agencyId = $referral->agcy_id;
+        foreach (['counts', 'aging_bands', 'pending_referrals', 'processing_referrals', 'overdue_referrals', 'service_demand', 'feedback_pulse', 'queue_counts', 'recent_activity'] as $key) {
+            Cache::forget($agencyDashboardKey.$key.':'.$agencyId);
+        }
         Cache::forget('stakeholder:agencies_list');
         // Agency-specific keys cleared via pattern (agcy_id may not be reliably available)
 
