@@ -29,54 +29,47 @@ jobs:
     name: Code Quality & Security
     runs-on: ubuntu-latest
 
-    # NOTE: repeated setup steps below are YAML anchors defined once here
-    # (&checkout, &setup-php, ...) and aliased (*checkout, ...) in the other
-    # jobs. A composite action would need a new file outside this workflow;
-    # anchors keep the dedupe review-obvious in this file alone.
+    # NOTE: setup steps are repeated explicitly in each job below. GitHub's
+    # workflow parser does not support YAML anchors/aliases, so &/* reuse
+    # fails validation with "Unexpected value 'uses'".
     steps:
-      - &checkout uses: actions/checkout@v5
+      - name: Checkout
+        uses: actions/checkout@v5
 
-      - &setup-php
-        name: Setup PHP
+      - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
           extensions: pdo, pdo_pgsql, sockets
           coverage: none
 
-      - &setup-node
-        name: Setup Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
           node-version: '24'
 
-      - &composer-cache-dir
-        name: Get Composer Cache Directory
+      - name: Get Composer Cache Directory
         id: composer-cache
         run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
 
-      - &composer-cache
-        name: Cache Composer Dependencies
+      - name: Cache Composer Dependencies
         uses: actions/cache@v5
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
           key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
           restore-keys: ${{ runner.os }}-composer-
 
-      - &composer-install
-        name: Install PHP Dependencies
+      - name: Install PHP Dependencies
         run: composer install --no-interaction --no-progress
 
-      - &node-cache
-        name: Cache Node Dependencies
+      - name: Cache Node Dependencies
         uses: actions/cache@v5
         with:
           path: node_modules
           key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
           restore-keys: ${{ runner.os }}-node-
 
-      - &node-install
-        name: Install Node Dependencies
+      - name: Install Node Dependencies
         run: npm ci
 
       - name: Run PHP CS Fixer (Pint)
@@ -131,21 +124,44 @@ jobs:
           - 5432:5432
 
     steps:
-      - *checkout
+      - name: Checkout
+        uses: actions/checkout@v5
 
-      - *setup-php
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo, pdo_pgsql, sockets
+          coverage: none
 
-      - *setup-node
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24'
 
-      - *composer-cache-dir
+      - name: Get Composer Cache Directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
 
-      - *composer-cache
+      - name: Cache Composer Dependencies
+        uses: actions/cache@v5
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
 
-      - *composer-install
+      - name: Install PHP Dependencies
+        run: composer install --no-interaction --no-progress
 
-      - *node-cache
+      - name: Cache Node Dependencies
+        uses: actions/cache@v5
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: ${{ runner.os }}-node-
 
-      - *node-install
+      - name: Install Node Dependencies
+        run: npm ci
 
       - name: Copy Environment Variables
         run: cp .env.example .env && php artisan key:generate
@@ -210,13 +226,23 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - *checkout
+      - name: Checkout
+        uses: actions/checkout@v5
 
-      - *setup-node
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24'
 
-      - *node-cache
+      - name: Cache Node Dependencies
+        uses: actions/cache@v5
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: ${{ runner.os }}-node-
 
-      - *node-install
+      - name: Install Node Dependencies
+        run: npm ci
 
       - name: Run Frontend Tests
         run: npm run test:run
