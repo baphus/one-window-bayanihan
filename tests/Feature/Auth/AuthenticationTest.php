@@ -165,7 +165,7 @@ class AuthenticationTest extends TestCase
         $this->assertNull(session('mfa_pending'));
     }
 
-    public function test_totp_replay_and_cache_failure_are_rejected(): void
+    public function test_totp_replay_is_rejected_even_when_the_cache_is_unavailable(): void
     {
         $user = $this->createMfaUser();
         /** @var Google2FA $google2fa */
@@ -173,14 +173,59 @@ class AuthenticationTest extends TestCase
         $code = $google2fa->getCurrentOtp($user->mfa_secret);
         $service = app(MfaService::class);
 
-        $this->assertTrue($service->verifyTotp($user, $code));
-        $this->assertFalse($service->verifyTotp($user, $code));
+        /*
+         * A dead cache used to mean "reject the login", on the grounds that the
+         * cache was the only thing stopping a replay. That turned a cache blip
+         * into a full lockout and, worse, meant the replay guard could be
+         * silently erased by any cache:clear.
+         *
+         * The guard now lives in users.mfa_last_totp_counter: a fresh code must
+         * still be accepted when the cache is down, and a reused one must still
+         * be refused.
+         */
         $other = $this->createMfaUser();
         $otherCode = $google2fa->getCurrentOtp($other->mfa_secret);
+
         $cache = $this->createMock(Repository::class);
-        $cache->expects($this->once())->method('add')->willThrowException(new \RuntimeException('cache unavailable'));
+        $cache->method('add')->willReturn(true);
+        $cache->method('get')->willReturn(null);
+        $cache->method('increment')->willReturn(1);
         Cache::swap($cache);
-        $this->assertFalse($service->verifyTotp($other, $otherCode));
+
+        // verifyTotp() no longer persists anything itself — that used to happen
+        // outside the row lock in completeChallenge(). Replay protection is
+        // only sound if the read and the write share the same lock, so the
+        // test drives the locked path exactly as production does.
+        $fingerprint = hash('sha256', (string) $other->password);
+
+        $this->assertNotNull(
+            $service->completeChallenge($other->id, $fingerprint, $otherCode, false),
+            'a valid code must not be blocked by a cache failure'
+        );
+        $this->assertNull(
+            $service->completeChallenge($other->id, $fingerprint, $otherCode, false),
+            'a replayed code must still be refused with no cache'
+        );
+
+        unset($user, $code);
+    }
+
+    public function test_a_used_totp_code_is_refused_even_from_a_fresh_process(): void
+    {
+        $user = $this->createMfaUser();
+        /** @var Google2FA $google2fa */
+        $google2fa = app('pragmarx.google2fa');
+        $code = $google2fa->getCurrentOtp($user->mfa_secret);
+        $service = app(MfaService::class);
+        $fingerprint = hash('sha256', (string) $user->password);
+
+        $this->assertNotNull($service->completeChallenge($user->id, $fingerprint, $code, false));
+
+        // The counter lives in the row, so it survives a cache flush that the
+        // cache-only guard could not.
+        Cache::flush();
+
+        $this->assertNull($service->completeChallenge($user->id, $fingerprint, $code, false));
     }
 
     public function test_pending_login_is_invalidated_when_password_or_account_changes(): void

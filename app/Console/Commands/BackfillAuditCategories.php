@@ -2,12 +2,15 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\BypassesAuditAppendOnly;
 use App\Services\AuditCategory;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
 class BackfillAuditCategories extends Command
 {
+    use BypassesAuditAppendOnly;
+
     protected $signature = 'audit:backfill-categories {--dry-run : Report counts without updating}';
 
     protected $description = 'Assign a category to audit log entries created before category stamping existed';
@@ -30,9 +33,7 @@ class BackfillAuditCategories extends Command
 
         $updated = 0;
 
-        DB::transaction(function () use ($triples, &$updated) {
-            DB::statement("SET LOCAL app.allow_audit_mutations = 'true'");
-
+        $this->withAuditMutationsAllowed(function () use ($triples, &$updated) {
             foreach ($triples as $triple) {
                 $category = AuditCategory::for(
                     (string) $triple->module,

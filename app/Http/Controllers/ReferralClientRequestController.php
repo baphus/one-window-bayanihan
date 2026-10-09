@@ -290,7 +290,29 @@ class ReferralClientRequestController extends Controller
     {
         $clientRequest = $this->sessionRequest($request);
         if ($clientRequest) {
-            $this->notifyAgency($clientRequest, 'replacement_requested', 'Client');
+            // One replacement notification per client request, ever. Without
+            // this the OFW could press the button again on every page load and
+            // the whole agency inbox would fill with identical rows; the
+            // per-IP throttle does not stop a phone switching between mobile
+            // data and wifi.
+            $alreadyRequested = CaseNotification::query()
+                ->where('type', 'client_request_replacement_requested')
+                ->where('data->request_id', $clientRequest->id)
+                ->exists();
+
+            if (! $alreadyRequested) {
+                CaseNotification::create([
+                    'case_id' => $clientRequest->referral?->case_id,
+                    'client_email' => $clientRequest->referral?->caseFile?->client?->email,
+                    'type' => 'client_request_replacement_requested',
+                    'title' => 'Client asked for a replacement',
+                    'message' => "The client asked for a replacement for '{$clientRequest->title}'.",
+                    'data' => ['request_id' => $clientRequest->id, 'referral_id' => $clientRequest->referral_id],
+                    'related_url' => null,
+                ]);
+
+                $this->notifyAgency($clientRequest, 'replacement_requested', 'Client');
+            }
         }
 
         return $this->capabilityResponse(

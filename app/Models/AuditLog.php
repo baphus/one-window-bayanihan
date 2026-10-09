@@ -136,6 +136,15 @@ class AuditLog extends Model
         // the chain for all subsequent rows. Runs under the advisory lock
         // taken in save(), so the predecessor cannot change before insert.
         static::creating(function (self $auditLog) {
+            // Chain insertion order: the lock is taken here, in the caller's
+            // transaction, rather than in a save() override that opened its own
+            // nested transaction. A savepoint-wrapped advisory lock was held
+            // until the OUTER transaction committed, so a long case write
+            // blocked every other process's audit insert for its whole
+            // duration, and an exception inside the savepoint could roll the
+            // audit row back while the surrounding work still committed.
+            DB::statement("SELECT pg_advisory_xact_lock(hashtext('audit_log_chain'))");
+
             // chain_seq is the insertion-order key (timestamps are only
             // second-precision and UUIDs don't sort by time).
             $lastLog = AuditLog::orderBy('chain_seq', 'desc')->first();
@@ -170,24 +179,24 @@ class AuditLog extends Model
         return hash('sha256', $content);
     }
 
-    /**
-     * Serialize chain construction: concurrent inserts must not both read
-     * the same predecessor. The transactional advisory lock releases at
-     * commit; inside an outer transaction it is held until that commits,
-     * which is acceptable at this write volume.
+    /*
+     * Chain construction note (no save() override on purpose):
+     *
+     * The serialising advisory lock is taken in the `creating` hook above, in
+     * whatever transaction the caller already has open. An earlier version
+     * overrode save() to wrap each insert in its own DB::transaction() +
+     * pg_advisory_xact_lock(). Two things were wrong with that: a nested
+     * transaction in Laravel is a savepoint, so the xact lock was held until
+     * the OUTER transaction committed (a long case write therefore blocked
+     * every other process's audit insert for its whole duration), and an
+     * exception inside the savepoint could roll the audit row back while the
+     * surrounding work still committed.
+     *
+     * The lock is still a single DB-wide mutex, held to the end of the caller's
+     * transaction. That is inherent to a hash chain whose predecessor must be
+     * read before the insert. If audit writes ever become the throughput
+     * ceiling, the fix is to move them onto the queue, not to weaken the lock.
      */
-    public function save(array $options = [])
-    {
-        if ($this->exists) {
-            return parent::save($options);
-        }
-
-        return DB::transaction(function () use ($options) {
-            DB::statement("SELECT pg_advisory_xact_lock(hashtext('audit_log_chain'))");
-
-            return parent::save($options);
-        });
-    }
 
     public function user()
     {
@@ -200,6 +209,10 @@ class AuditLog extends Model
             ->whereIn('module', ['referral', 'referrals', 'REFERRAL']);
     }
 
+    /**
+     * Columns an activity feed renders. Callers own their own limit() — a
+     * truncation hidden in a scope looks like a complete list.
+     */
     public function scopeWithUser($query)
     {
         return $query->select([
@@ -215,6 +228,10 @@ class AuditLog extends Model
         ])->with('user:id,name');
     }
 
+    /**
+     * Audit rows touching one client, optionally their case and referrals.
+     * No limit here — the caller decides how many it wants.
+     */
     public function scopeForClient($query, string $clientId, ?string $caseId = null, array $referralIds = [])
     {
         return $query->where(function ($q) use ($clientId, $caseId, $referralIds) {
@@ -235,7 +252,6 @@ class AuditLog extends Model
                 });
             }
         })
-            ->orderBy('timestamp', 'desc')
-            ->limit(50);
+            ->orderBy('timestamp', 'desc');
     }
 }
