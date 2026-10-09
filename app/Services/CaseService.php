@@ -33,7 +33,6 @@ class CaseService
 {
     public function __construct(
         private readonly NotificationService $notificationService,
-        private readonly ReferralService $referralService,
         private readonly PhilippineAddressService $addressService,
         private readonly CaseEventRecorder $eventRecorder,
         private readonly CaseNumberGenerator $caseNumbers,
