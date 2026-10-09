@@ -138,7 +138,7 @@ class SendOtpTest extends TestCase
             'email' => $this->email,
         ]);
 
-        $cachedOtp = Cache::get("otp:track:{$this->email}");
+        $cachedOtp = Cache::get("otp:track:{$this->email}:{$this->trackerNumber}");
         $this->assertNotNull($cachedOtp);
         $this->assertMatchesRegularExpression('/^\d{6}$/', $cachedOtp);
     }
@@ -172,13 +172,13 @@ class SendOtpTest extends TestCase
         ]);
 
         // FR-PORT-003: Verify OTP has 5-min TTL (OtpService default)
-        $cachedOtp = Cache::get("otp:track:{$this->email}");
+        $cachedOtp = Cache::get("otp:track:{$this->email}:{$this->trackerNumber}");
         $this->assertNotNull($cachedOtp);
 
         // Inspect the ArrayStore's internal expiration timestamp
         $store = Cache::getStore();
         $all = $store->all();
-        $key = "otp:track:{$this->email}";
+        $key = "otp:track:{$this->email}:{$this->trackerNumber}";
         $this->assertArrayHasKey($key, $all);
 
         $expiresAt = $all[$key]['expiresAt'];

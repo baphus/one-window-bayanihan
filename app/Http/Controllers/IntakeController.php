@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\SafeException;
 use App\Http\Requests\Intake\CheckDuplicateIntakeRequest;
 use App\Http\Requests\Intake\VerifyIntakeEmailRequest;
 use App\Http\Requests\StoreIntakeRequest;
@@ -197,10 +198,16 @@ class IntakeController extends Controller
             ], 409);
         }
 
-        $case = $this->intakeService->createIntakeCase(
-            $request->validated(),
-            $verifiedEmail,
-        );
+        try {
+            $case = $this->intakeService->createIntakeCase(
+                $request->validated(),
+                $verifiedEmail,
+            );
+        } catch (SafeException $e) {
+            return response()->json([
+                'error' => $e->userMessage,
+            ], 409);
+        }
 
         // Keep verified email in session for potential account creation
         // (IntakeRegistrationController will clear it after use)

@@ -427,6 +427,29 @@ class ReportsMetricsTest extends TestCase
     }
 
     #[Test]
+    public function vulnerability_distribution_counts_null_indicators_as_none(): void
+    {
+        CaseFile::factory()->create([
+            'user_id' => $this->managerA->id,
+            'status' => 'OPEN',
+            'vulnerability_indicator' => null,
+            'nok_vulnerability_indicator' => null,
+        ]);
+        CaseFile::factory()->create([
+            'user_id' => $this->managerA->id,
+            'status' => 'OPEN',
+            'vulnerability_indicator' => 'PWD',
+            'nok_vulnerability_indicator' => null,
+        ]);
+
+        $distribution = $this->service->getVulnerabilityDistribution($this->managerA->id, 'CASE_MANAGER');
+
+        $combined = array_combine($distribution['labels'], array_map('intval', $distribution['data']));
+        $this->assertSame(1, $combined['PWD']);
+        $this->assertSame(1, $combined['None']);
+    }
+
+    #[Test]
     public function rejection_reason_distribution_groups_rejected_referrals(): void
     {
         $case = CaseFile::factory()->create(['user_id' => $this->managerA->id, 'status' => 'OPEN']);

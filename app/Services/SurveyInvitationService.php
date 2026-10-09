@@ -65,10 +65,7 @@ class SurveyInvitationService
      */
     public function validateToken(string $token): SurveyInvitation
     {
-        $hash = hash('sha256', $token);
-        $invitation = SurveyInvitation::where(function ($query) use ($hash, $token) {
-            $query->where('token_hash', $hash)->orWhere('token', $token);
-        })
+        $invitation = SurveyInvitation::where('token_hash', hash('sha256', $token))
             ->with('surveyForm.questions')
             ->first();
 

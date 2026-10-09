@@ -15,10 +15,7 @@ class RegisterViaInviteController extends Controller
 {
     public function show(string $token)
     {
-        $invite = UserInvite::where('token', $token)
-            ->whereNull('consumed_at')
-            ->whereNull('cancelled_at')
-            ->first();
+        $invite = $this->findByToken($token);
 
         if (! $invite) {
             abort(404, 'This invitation link is invalid.');
@@ -40,10 +37,7 @@ class RegisterViaInviteController extends Controller
 
     public function store(Request $request, string $token)
     {
-        $invite = UserInvite::where('token', $token)
-            ->whereNull('consumed_at')
-            ->whereNull('cancelled_at')
-            ->first();
+        $invite = $this->findByToken($token);
 
         if (! $invite || $invite->isExpired()) {
             abort(410, 'This invitation has expired or is invalid.');
@@ -83,5 +77,13 @@ class RegisterViaInviteController extends Controller
 
         return redirect()->route('login')
             ->with('success', 'Registration complete! Please log in with your credentials.');
+    }
+
+    private function findByToken(string $token): ?UserInvite
+    {
+        return UserInvite::where('token_hash', hash('sha256', $token))
+            ->whereNull('consumed_at')
+            ->whereNull('cancelled_at')
+            ->first();
     }
 }

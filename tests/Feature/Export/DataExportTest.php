@@ -3,8 +3,10 @@
 namespace Tests\Feature\Export;
 
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Jobs\GenerateSystemReport;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Bus;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -48,14 +50,21 @@ class DataExportTest extends TestCase
     }
 
     #[Test]
-    public function admin_export_returns_excel_download(): void
+    public function admin_export_dispatches_queued_job(): void
     {
+        Bus::fake();
+
         $admin = User::factory()->create(['role' => 'ADMIN']);
 
         $response = $this->actingAs($admin)->get(route('admin.data-export.export'));
 
-        $response->assertStatus(200);
-        $response->assertHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        $response->assertHeader('Content-Disposition');
+        $response->assertRedirect();
+        $response->assertSessionHas('info');
+        Bus::assertDispatched(GenerateSystemReport::class);
+        $this->assertDatabaseHas('generated_documents', [
+            'user_id' => $admin->id,
+            'type' => 'admin_full_export',
+            'status' => 'pending',
+        ]);
     }
 }

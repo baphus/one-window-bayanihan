@@ -67,7 +67,7 @@ class TrackValidationTest extends TestCase
         ]);
 
         $response->assertOk();
-        $this->assertNotNull(Cache::get('otp:track:'.$email));
+        $this->assertNotNull(Cache::get('otp:track:'.$email.':'.$case->tracker_number));
     }
 
     public function test_verify_otp_rejects_empty_payload(): void

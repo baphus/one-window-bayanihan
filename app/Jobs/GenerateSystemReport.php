@@ -4,7 +4,6 @@ namespace App\Jobs;
 
 use App\Models\GeneratedDocument;
 use App\Models\User;
-use App\Services\Export\ColumnMaps;
 use App\Services\Export\DataExportQueries;
 use App\Services\Export\DataExportService;
 use App\Services\Reports\ReportsExportService;
@@ -89,7 +88,7 @@ class GenerateSystemReport implements ShouldQueue
 
             @unlink($tempPath ?? null);
 
-            $this->fail($e);
+            throw $e;
         }
     }
 
@@ -105,31 +104,7 @@ class GenerateSystemReport implements ShouldQueue
         // Rebuild the user from criteria so queries are scoped correctly.
         $user = User::findOrFail($this->criteria['user_id']);
 
-        $tableQueryMap = [
-            'cases' => fn () => $queries->getCases($user),
-            'clients' => fn () => $queries->getClients($user),
-            'referrals' => fn () => $queries->getReferrals($user),
-            'users' => fn () => $queries->getUsers($user),
-            'agencies' => fn () => $queries->getAgencies(),
-            'services' => fn () => $queries->getServices(),
-            'milestones' => fn () => $queries->getMilestones($user),
-            'next_of_kin' => fn () => $queries->getNextOfKins($user),
-            'case_documents' => fn () => $queries->getCaseDocuments($user),
-            'client_addresses' => fn () => $queries->getClientAddresses($user),
-            'client_employments' => fn () => $queries->getClientEmployments($user),
-            'case_categories' => fn () => $queries->getCaseCategories(),
-            'case_statuses' => fn () => $queries->getCaseStatuses(),
-        ];
-
-        $sheets = [];
-        foreach (ColumnMaps::getAllTables() as $table) {
-            $data = isset($tableQueryMap[$table]) ? $tableQueryMap[$table]() : collect();
-            $sheets[] = [
-                'title' => ucfirst($table),
-                'columnMap' => ColumnMaps::getMap($table),
-                'rows' => $data,
-            ];
-        }
+        $sheets = $queries->fullExportSheets($user);
 
         $dataExportService->generateMultiSheetToFile($sheets, $tempPath);
     }

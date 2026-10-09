@@ -70,15 +70,16 @@ class AdminUserPasswordTest extends TestCase
 
     public function test_invite_registration_rejects_weak_password(): void
     {
+        $rawToken = Str::random(64);
         $invite = UserInvite::create([
             'email' => 'register@example.com',
             'role' => 'CASE_MANAGER',
-            'token' => Str::random(64),
+            'token_hash' => hash('sha256', $rawToken),
             'expires_at' => now()->addDays(7),
             'created_by' => User::factory()->create(['role' => 'ADMIN'])->id,
         ]);
 
-        $response = $this->post("/invite/{$invite->token}", [
+        $response = $this->post("/invite/{$rawToken}", [
             'name' => 'Test User',
             'password' => 'weak',
             'password_confirmation' => 'weak',
@@ -89,15 +90,16 @@ class AdminUserPasswordTest extends TestCase
 
     public function test_invite_registration_accepts_strong_password(): void
     {
+        $rawToken = Str::random(64);
         $invite = UserInvite::create([
             'email' => 'register2@example.com',
             'role' => 'CASE_MANAGER',
-            'token' => Str::random(64),
+            'token_hash' => hash('sha256', $rawToken),
             'expires_at' => now()->addDays(7),
             'created_by' => User::factory()->create(['role' => 'ADMIN'])->id,
         ]);
 
-        $response = $this->post("/invite/{$invite->token}", [
+        $response = $this->post("/invite/{$rawToken}", [
             'name' => 'Test User',
             'password' => 'P@ssw0rd!',
             'password_confirmation' => 'P@ssw0rd!',
@@ -111,15 +113,16 @@ class AdminUserPasswordTest extends TestCase
 
     public function test_invite_registration_rejects_password_without_symbol(): void
     {
+        $rawToken = Str::random(64);
         $invite = UserInvite::create([
             'email' => 'register3@example.com',
             'role' => 'CASE_MANAGER',
-            'token' => Str::random(64),
+            'token_hash' => hash('sha256', $rawToken),
             'expires_at' => now()->addDays(7),
             'created_by' => User::factory()->create(['role' => 'ADMIN'])->id,
         ]);
 
-        $response = $this->post("/invite/{$invite->token}", [
+        $response = $this->post("/invite/{$rawToken}", [
             'name' => 'Test User',
             'password' => 'Password1',
             'password_confirmation' => 'Password1',

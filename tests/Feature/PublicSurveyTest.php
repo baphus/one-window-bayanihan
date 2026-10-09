@@ -30,7 +30,7 @@ class PublicSurveyTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_hash_and_legacy_links_render_only_allowlisted_public_props(): void
+    public function test_hash_link_renders_only_allowlisted_public_props_and_legacy_is_rejected(): void
     {
         [$invitation, $token] = $this->invitation();
         $response = $this->get(route('survey.public.show', $token));
@@ -48,8 +48,9 @@ class PublicSurveyTest extends TestCase
         $legacy = $this->invitation()[0];
         $legacyToken = 'legacy-token';
         $legacy->forceFill(['token' => $legacyToken, 'token_hash' => null])->save();
+        // Plaintext-only legacy links are no longer accepted (hash-only lookup).
         $this->get(route('survey.public.show', $legacyToken))->assertInertia(
-            fn (Assert $page) => $page->component('Survey/PublicForm')
+            fn (Assert $page) => $page->component('Survey/PublicFormError')
         );
     }
 

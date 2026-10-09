@@ -38,7 +38,6 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->append(SetPostgresSession::class);
         $middleware->append(LogContext::class);
         $middleware->append(SecurityHeaders::class);
 
@@ -64,6 +63,7 @@ return Application::configure(basePath: dirname(__DIR__))
                 CheckMfaEnrolled::class,
                 HandleInertiaRequests::class,
                 AddLinkHeadersForPreloadedAssets::class,
+                SetPostgresSession::class,
             ],
         );
 

@@ -72,14 +72,14 @@ class TrackingService
             && $binding['email'] !== '';
     }
 
-    public function generateOtp(string $identifier, string $purpose = 'track'): string
+    public function generateOtp(string $identifier, string $purpose = 'track', ?string $sessionId = null): string
     {
-        return $this->otpService->generate($identifier, $purpose);
+        return $this->otpService->generate($identifier, $purpose, $sessionId);
     }
 
-    public function verifyOtp(string $identifier, string $otp, string $purpose = 'track'): bool
+    public function verifyOtp(string $identifier, string $otp, string $purpose = 'track', ?string $sessionId = null): bool
     {
-        return $this->otpService->verify($identifier, $purpose, $otp);
+        return $sessionId !== null && $this->otpService->verify($identifier, $purpose, $otp, $sessionId);
     }
 
     /**
