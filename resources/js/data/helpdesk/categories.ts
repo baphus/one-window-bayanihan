@@ -134,7 +134,7 @@ export const categories: HelpdeskCategory[] = [
     name: "Service Quality & Feedback",
     slug: "service-quality-feedback",
     description:
-      "SERVQUAL questionnaires, client feedback collection, and feedback dashboards.",
+      "Client survey forms, feedback collection, and survey responses.",
     parentId: "cat-3",
     icon: "reviews",
     sortOrder: 2,

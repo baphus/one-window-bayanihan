@@ -41,12 +41,12 @@ function ClientCard({ client, onSelect }) {
             className="group flex w-full items-center gap-3.5 rounded-xl border border-slate-200/80 bg-white px-4 py-3 text-left transition-all duration-150 hover:border-primary/30 hover:bg-primary/[0.02] hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/40 focus:ring-offset-1"
         >
             {/* ── Circular avatar ── */}
-            <span className="relative h-11 w-11 shrink-0 rounded-circle overflow-hidden flex-shrink-0">
+            <span className="relative h-11 w-11 shrink-0 rounded-full overflow-hidden flex-shrink-0">
                 {client.avatar_url ? (
                     <img
                         src={client.avatar_url}
                         alt={fullName}
-                        className="absolute inset-0 h-full w-full rounded-circle object-cover border border-slate-200"
+                        className="absolute inset-0 h-full w-full rounded-full object-cover border border-slate-200"
                         onError={(e) => {
                             e.target.style.display = 'none';
                             e.target.parentElement.querySelector('.avatar-fallback')?.classList.remove('hidden');
@@ -54,7 +54,7 @@ function ClientCard({ client, onSelect }) {
                     />
                 ) : null}
                 <span
-                    className={`avatar-fallback ${client.avatar_url ? 'hidden' : ''} absolute inset-0 h-full w-full rounded-circle flex items-center justify-center text-white font-semibold text-[13px] select-none ${avatarBg}`}
+                    className={`avatar-fallback ${client.avatar_url ? 'hidden' : ''} absolute inset-0 h-full w-full rounded-full flex items-center justify-center text-white font-semibold text-[13px] select-none ${avatarBg}`}
                     aria-hidden="true"
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="absolute w-3/5 h-3/5 text-white/20">
@@ -114,9 +114,8 @@ export default function ExistingClientModal({ show, onClose, onSelect }) {
     // Debounced search
     const performSearch = useCallback((searchTerm) => {
         setLoading(true);
-        const url = searchTerm.trim()
-            ? `/api/clients?q=${encodeURIComponent(searchTerm.trim())}`
-            : '/api/clients';
+        const trimmed = searchTerm.trim();
+        const url = route('api.clients.index', trimmed ? { q: trimmed } : {});
 
         axios.get(url)
             .then((res) => {
@@ -162,9 +161,8 @@ export default function ExistingClientModal({ show, onClose, onSelect }) {
 
     return (
         <Modal show={show} onClose={onClose} maxWidth="2xl">
-            <div className="flex flex-col">
-                {/* ── Header ── */}
-                <div className="flex items-center justify-between px-6 pt-6 pb-0">
+            <div className="flex max-h-[85vh] min-h-0 flex-col overflow-hidden">
+                <div className="flex shrink-0 items-center justify-between px-6 pt-6">
                     <div>
                         <h2 className="text-[15px] font-bold text-slate-900 tracking-tight">
                             Select Existing Client
@@ -183,8 +181,7 @@ export default function ExistingClientModal({ show, onClose, onSelect }) {
                     </button>
                 </div>
 
-                {/* ── Search ── */}
-                <div className="relative px-6 pt-4 pb-3">
+                <div className="relative shrink-0 px-6 pt-4 pb-3">
                     <span className="absolute left-[2.25rem] top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
                         <span className="material-symbols-outlined text-[18px]">search</span>
                     </span>
@@ -209,11 +206,10 @@ export default function ExistingClientModal({ show, onClose, onSelect }) {
                     )}
                 </div>
 
-                {/* ── Divider ── */}
-                <div className="border-t border-slate-100 mx-6" />
+                <div className="mx-6 shrink-0 border-t border-slate-100" />
 
-                {/* ── Results ── */}
-                <div className="px-6 pb-5 pt-3">
+                {/* Results — sole scroll region */}
+                <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-5 pt-3 owb-scroll-wide">
                     {loading ? (
                         <div className="flex items-center justify-center py-14">
                             <div className="flex items-center gap-2.5 text-slate-400">
@@ -236,8 +232,7 @@ export default function ExistingClientModal({ show, onClose, onSelect }) {
                                 {clients.length} client{clients.length !== 1 ? 's' : ''}
                             </p>
 
-                            {/* Card grid */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[400px] overflow-y-auto pr-1 owb-scroll-wide">
+                            <div className="grid gap-2 pr-1 sm:grid-cols-2">
                                 {clients.map((client) => (
                                     <ClientCard
                                         key={client.id}

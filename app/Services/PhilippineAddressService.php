@@ -158,6 +158,28 @@ class PhilippineAddressService
         return $result;
     }
 
+    public function resolve(?string $value): string
+    {
+        if ($value === null || $value === '') {
+            return '';
+        }
+
+        return self::load()['codeToName'][$value] ?? $value;
+    }
+
+    public function format(?string $street, ?string $barangay, ?string $municipality, ?string $province, ?string $region): string
+    {
+        $parts = array_filter([
+            $street ?? '',
+            $this->resolve($barangay),
+            $this->resolve($municipality),
+            $this->resolve($province),
+            $this->resolve($region),
+        ]);
+
+        return implode(', ', $parts);
+    }
+
     public function resolveAddressToCodes(array $address): array
     {
         $result = [

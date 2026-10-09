@@ -1,4 +1,5 @@
 import { Link } from '@inertiajs/react';
+import safeRoute from '@/utils/safeRoute';
 
 export function readTimeMinutes(article) {
   const wordCount = (article?.content || '').split(/\s+/).filter(Boolean).length;
@@ -9,7 +10,7 @@ export default function ArticleListRow({ article, meta }) {
   return (
     <li className="border-b border-slate-200 last:border-b-0">
       <Link
-        href={`/help/${article.slug}`}
+        href={safeRoute('helpdesk.show', article.slug, `/help/${article.slug}`)}
         className="group flex min-w-0 items-baseline justify-between gap-4 px-1 py-3 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
       >
         <span className="min-w-0">

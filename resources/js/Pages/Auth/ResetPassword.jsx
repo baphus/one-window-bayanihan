@@ -100,7 +100,7 @@ export default function ResetPassword({ token, email }) {
                                             type="email"
                                             value={data.email}
                                             readOnly
-                                            className="w-full border border-outline-variant bg-surface-container/50 px-4 py-3 pl-12 text-sm text-on-surface-variant/70 cursor-not-allowed rounded-none"
+                                            className="w-full border border-outline-variant bg-surface-container/50 px-4 py-3 pl-12 text-sm text-on-surface-variant/70 cursor-not-allowed rounded-md"
                                         />
                                     </div>
                                     {errors.email && (
@@ -133,7 +133,7 @@ export default function ResetPassword({ token, email }) {
                                 <button
                                     type="submit"
                                     disabled={processing}
-                                    className="w-full bg-primary text-on-primary px-8 py-4 text-sm font-bold shadow-xl hover:brightness-110 active:scale-95 transition-all disabled:opacity-60 rounded-none"
+                                    className="w-full bg-primary text-on-primary px-8 py-4 text-sm font-bold shadow-xl hover:brightness-110 active:scale-95 transition-all disabled:opacity-60 rounded-md"
                                 >
                                     {processing ? 'Resetting...' : 'Reset Password'}
                                 </button>

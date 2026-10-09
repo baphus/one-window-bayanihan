@@ -15,6 +15,7 @@ use App\Services\ReferralClientAccessService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Log\Logger;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -29,12 +30,15 @@ class ReferralInboxSecurityRemediationTest extends TestCase
     {
         $token = 'known-opaque-token-value';
 
-        Log::shouldReceive('withContext')->once()->withArgs(function (array $context) use ($token): bool {
-            $this->assertStringNotContainsString($token, $context['url']);
-            $this->assertStringContainsString('/track/request/[redacted]', $context['url']);
+        $logger = $this->createMock(Logger::class);
+        $logger->expects($this->once())->method('withContext')
+            ->with($this->callback(function (array $context) use ($token): bool {
+                $this->assertStringNotContainsString($token, $context['url']);
+                $this->assertStringContainsString('/track/request/[redacted]', $context['url']);
 
-            return true;
-        });
+                return true;
+            }));
+        Log::swap($logger);
 
         $exchangeRoute = app('router')->getRoutes()->getByName('track.request.exchange');
         $this->assertNotNull($exchangeRoute);

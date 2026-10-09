@@ -16,6 +16,7 @@ class CaseStatusUpdated extends Notification implements ShouldQueue
         public readonly CaseFile $case,
         public readonly string $oldStatus,
         public readonly string $newStatus,
+        public readonly ?string $actorName = null,
     ) {}
 
     public function via(object $notifiable): array
@@ -42,16 +43,47 @@ class CaseStatusUpdated extends Notification implements ShouldQueue
             ]);
     }
 
+    /**
+     * Staff inbox payload with a readable title, actor, and deep link.
+     *
+     * @return array<string, mixed>
+     */
     public function toDatabase(object $notifiable): array
     {
+        $caseNumber = $this->case->case_number ?? $this->case->id;
+        $old = $this->humanizeStatus($this->oldStatus);
+        $new = $this->humanizeStatus($this->newStatus);
+
+        $message = "Case {$caseNumber} status changed from {$old} to {$new}";
+        if ($this->actorName !== null && $this->actorName !== '') {
+            $message .= " by {$this->actorName}";
+        }
+
         return [
             'type' => 'case_status_updated',
+            'title' => "Case {$caseNumber} is now {$new}",
+            'message' => $message,
+            'case_number' => $caseNumber,
+            'actor_name' => $this->actorName,
+            'url' => route('cases.show', $this->case->id),
             'case_id' => $this->case->id,
-            'case_number' => $this->case->case_number,
             'old_status' => $this->oldStatus,
             'new_status' => $this->newStatus,
-            'message' => "Case status changed from {$this->oldStatus} to {$this->newStatus}",
-            'url' => route('cases.show', $this->case->id),
         ];
+    }
+
+    /**
+     * Keep array/broadcast serialization identical to the database payload.
+     *
+     * @return array<string, mixed>
+     */
+    public function toArray(object $notifiable): array
+    {
+        return $this->toDatabase($notifiable);
+    }
+
+    private function humanizeStatus(string $status): string
+    {
+        return ucwords(strtolower(str_replace('_', ' ', $status)));
     }
 }

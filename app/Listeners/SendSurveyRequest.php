@@ -82,7 +82,7 @@ class SendSurveyRequest implements ShouldQueueAfterCommit
             return;
         }
 
-        $invitation = $created->invitation;
+        $invitation = $created['invitation'];
         Log::info('Survey invitation created', [
             'invitation_id' => $invitation->id,
             'referral_id' => $referral->id,
@@ -91,6 +91,6 @@ class SendSurveyRequest implements ShouldQueueAfterCommit
         ]);
 
         // Queue the survey request email
-        Mail::to($caseFile->client->email)->queue(new SurveyRequestMail($invitation, $created->rawToken));
+        Mail::to($caseFile->client->email)->queue(new SurveyRequestMail($invitation, $created['rawToken']));
     }
 }

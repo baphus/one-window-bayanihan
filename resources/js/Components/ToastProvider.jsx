@@ -1,7 +1,11 @@
-import { useEffect, useContext } from 'react';
+import { useEffect, useContext, useState, useCallback, useRef } from 'react';
 import { usePage } from '@inertiajs/react';
-import { ToastProviderInner, useToast, ToastContext } from '@/Hooks/useToast.jsx';
+import { useToast, ToastContext } from '@/Hooks/useToast.jsx';
 import AppToast from '@/Components/ui/AppToast';
+
+let toastId = 0;
+
+const EXIT_ANIMATION_MS = 300;
 
 function ToastStack() {
   const { toasts, removeToast } = useContext(ToastContext);
@@ -58,10 +62,68 @@ export function FlashMessageWatcher() {
 }
 
 export default function ToastProvider({ children }) {
+  const [toasts, setToasts] = useState([]);
+  const timersRef = useRef({});
+
+  const removeToast = useCallback((id) => {
+    setToasts((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, exiting: true } : t)),
+    );
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+      delete timersRef.current[id];
+    }, EXIT_ANIMATION_MS);
+    clearTimeout(timersRef.current[id]);
+    delete timersRef.current[id];
+  }, []);
+
+  const addToast = useCallback((message, tone = 'info', duration = 4000) => {
+    const id = ++toastId;
+    setToasts((prev) => [...prev, { id, message, tone, exiting: false }]);
+    timersRef.current[id] = setTimeout(() => removeToast(id), duration);
+    return id;
+  }, [removeToast]);
+
+  const toast = useCallback(
+    (message, tone = 'info', duration) => addToast(message, tone, duration),
+    [addToast],
+  );
+
+  toast.success = useCallback(
+    (msg, duration) => addToast(msg, 'success', duration),
+    [addToast],
+  );
+
+  toast.error = useCallback(
+    (msg, duration) => addToast(msg, 'error', duration),
+    [addToast],
+  );
+
+  toast.info = useCallback(
+    (msg, duration) => addToast(msg, 'info', duration),
+    [addToast],
+  );
+
+  toast.warning = useCallback(
+    (msg, duration) => addToast(msg, 'warning', duration),
+    [addToast],
+  );
+
+  toast.dismiss = useCallback((id) => {
+    if (id) {
+      removeToast(id);
+    } else {
+      setToasts((prev) =>
+        prev.map((t) => ({ ...t, exiting: true })),
+      );
+      setTimeout(() => setToasts([]), EXIT_ANIMATION_MS);
+    }
+  }, [removeToast]);
+
   return (
-    <ToastProviderInner>
+    <ToastContext.Provider value={{ toasts, toast, removeToast }}>
       <ToastStack />
       {children}
-    </ToastProviderInner>
+    </ToastContext.Provider>
   );
 }

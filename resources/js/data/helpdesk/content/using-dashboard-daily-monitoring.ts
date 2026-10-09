@@ -1,6 +1,6 @@
 const content = `# Using the Dashboard for Daily Monitoring
 
-The dashboard is a daily snapshot for Case Managers. It helps prioritize work, but it should not be treated as a real-time alert feed. Refresh when you need current counts.
+The dashboard is a daily snapshot scoped to your role — Case Managers see their own caseload, Agency Focal Persons see their agency's referrals, and Admins see everything. It helps prioritize work, but it should not be treated as a real-time alert feed. Refresh when you need current counts.
 
 ![Case Manager dashboard](/assets/helpdesk/dashboard-cm.png)
 
@@ -22,9 +22,13 @@ For each active case, ask whether the summary is complete, the category and issu
 
 ## Referral monitoring
 
-Detailed work happens on referral pages. Prioritize old **PENDING** referrals, **FOR_COMPLIANCE** referrals, and active referrals near the overdue cutoff. Overdue logic excludes terminal **COMPLETED** and **REJECTED** referrals and commonly uses the **referral_overdue_days** setting, defaulting to 7 days.
+Detailed work happens on referral pages. Prioritize old **PENDING** referrals, **FOR_COMPLIANCE** referrals, and active referrals near the overdue cutoff. Overdue logic excludes terminal **COMPLETED** and **REJECTED** referrals and uses the **referral_overdue_days** setting (default 7 days, adjustable by an administrator). The dedicated **Overdue Referrals** page lists exactly these items and can send reminders.
 
 ![Referrals index](/assets/helpdesk/referrals-index.png)
+
+## Where to go next
+
+From the sidebar, **Cases** covers the index, drafts, intake queue (self-filed cases awaiting accept/reject), and trash; **Clients** and **Stakeholders** open their registries; **Overdue Referrals** and **Survey Responses** surface follow-ups and client feedback.
 
 ## End-of-day closeout
 

@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Bar } from 'react-chartjs-2';
 import { Briefcase } from 'lucide-react';
-import MetricCard from '@/Components/Reports/MetricCard';
+import KpiCard from '@/Components/ui/KpiCard';
 import countries from '@/data/countries.json';
 
 const countryNameByCode = Object.fromEntries(countries.map((c) => [c.code, c.name]));
@@ -59,20 +59,18 @@ export default function EmploymentAnalytics({
   return (
     <section className="space-y-4">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <MetricCard
-          label="Employed Clients"
+        <KpiCard
+          title="Employed Clients"
           value={`${totalEmployed}`}
-          accent="border-l-primary"
           trailing={
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
               <Briefcase className="h-4 w-4 text-primary" />
             </div>
           }
         />
-        <MetricCard
-          label="Occupation Types"
+        <KpiCard
+          title="Occupation Types"
           value={`${totalPositions}`}
-          accent="border-l-[#6366f1]"
           trailing={
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-50">
               <Briefcase className="h-4 w-4 text-indigo-500" />

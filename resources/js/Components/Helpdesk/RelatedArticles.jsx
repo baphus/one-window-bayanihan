@@ -1,4 +1,5 @@
 import { Link } from '@inertiajs/react';
+import safeRoute from '@/utils/safeRoute';
 
 export default function RelatedArticles({ currentArticle, allArticles = [] }) {
   if (!currentArticle || !allArticles.length) return null;
@@ -24,7 +25,7 @@ export default function RelatedArticles({ currentArticle, allArticles = [] }) {
         {related.map((article) => (
           <Link
             key={article.id}
-            href={`/help/${article.slug}`}
+            href={safeRoute('helpdesk.show', article.slug, `/help/${article.slug}`)}
             className="group block border-b border-slate-200 py-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary last:border-0"
           >
             <h4 className="font-headline text-sm font-medium text-slate-700 transition-colors group-hover:text-primary">

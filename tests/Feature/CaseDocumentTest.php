@@ -104,9 +104,9 @@ class CaseDocumentTest extends TestCase
             ->getJson(route('cases.documents.show', [$this->case->id, $document->id]))
             ->assertOk();
 
-        $this->mock(StorageService::class, function ($mock): void {
-            $mock->shouldReceive('temporaryUrl')->once()->andReturn('https://storage.test/document.pdf');
-        });
+        $storage = $this->createMock(StorageService::class);
+        $storage->expects($this->once())->method('temporaryUrl')->willReturn('https://storage.test/document.pdf');
+        $this->app->instance(StorageService::class, $storage);
 
         $this->actingAs($otherManager)
             ->get(route('cases.documents.download', [$this->case->id, $document->id]))
@@ -316,18 +316,18 @@ class CaseDocumentTest extends TestCase
     {
         Storage::fake('object-storage');
 
-        $this->mock(StorageService::class, function ($mock) {
-            $mock->shouldReceive('validate')->andReturn([]);
-            $mock->shouldReceive('temporaryUrl')->andReturn('https://example.com/file.pdf');
-            $mock->shouldReceive('store')->andReturn(new FileStoreResult(
-                path: 'case-documents/test/document.pdf',
-                originalName: 'document.pdf',
-                storedName: 'uuid-document.pdf',
-                type: 'application/pdf',
-                size: 2048,
-                success: true,
-            ));
-        });
+        $storage = $this->createMock(StorageService::class);
+        $storage->method('validate')->willReturn([]);
+        $storage->method('temporaryUrl')->willReturn('https://example.com/file.pdf');
+        $storage->method('store')->willReturn(new FileStoreResult(
+            path: 'case-documents/test/document.pdf',
+            originalName: 'document.pdf',
+            storedName: 'uuid-document.pdf',
+            type: 'application/pdf',
+            size: 2048,
+            success: true,
+        ));
+        $this->app->instance(StorageService::class, $storage);
 
         $file = UploadedFile::fake()->create('document.pdf', 2048);
 
@@ -365,18 +365,18 @@ class CaseDocumentTest extends TestCase
 
         // Mock StorageService to bypass deep MIME inspection (empty-content
         // fake uploads are detected as application/x-empty)
-        $this->mock(StorageService::class, function ($mock) {
-            $mock->shouldReceive('validate')->andReturn([]);
-            $mock->shouldReceive('temporaryUrl')->andReturn('https://example.com/file.pdf');
-            $mock->shouldReceive('store')->andReturn(new FileStoreResult(
-                path: 'case-documents/test/document.pdf',
-                originalName: 'document.pdf',
-                storedName: 'uuid-document.pdf',
-                type: 'application/pdf',
-                size: 2048,
-                success: true,
-            ));
-        });
+        $storage = $this->createMock(StorageService::class);
+        $storage->method('validate')->willReturn([]);
+        $storage->method('temporaryUrl')->willReturn('https://example.com/file.pdf');
+        $storage->method('store')->willReturn(new FileStoreResult(
+            path: 'case-documents/test/document.pdf',
+            originalName: 'document.pdf',
+            storedName: 'uuid-document.pdf',
+            type: 'application/pdf',
+            size: 2048,
+            success: true,
+        ));
+        $this->app->instance(StorageService::class, $storage);
 
         $file = UploadedFile::fake()->create('document.pdf', 2048);
 

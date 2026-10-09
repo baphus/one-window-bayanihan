@@ -24,6 +24,10 @@ class UpdateCaseRequest extends FormRequest
             $this->merge(['category_ids' => null]);
         }
 
+        if ($this->has('case_issue_id') && $this->case_issue_id === '') {
+            $this->merge(['case_issue_id' => null]);
+        }
+
         foreach (['vulnerability_indicator', 'nok_vulnerability_indicator'] as $field) {
             if ($this->has($field)) {
                 $raw = $this->input($field);
@@ -38,10 +42,11 @@ class UpdateCaseRequest extends FormRequest
     {
         return [
             'status' => ['nullable', Rule::in(['OPEN', 'CLOSED', 'ARCHIVED'])],
-            'client_type' => ['required', Rule::in(CaseFile::CLIENT_TYPES)],
+            'client_type' => ['nullable', Rule::in(CaseFile::CLIENT_TYPES)],
             'vulnerability_indicator' => ['nullable', 'string', 'max:255', new VulnerabilityRule],
             'nok_vulnerability_indicator' => ['nullable', 'string', 'max:255', new VulnerabilityRule],
             'summary' => ['nullable', 'string', 'max:5000'],
+            'case_issue_id' => ['nullable', 'string', 'exists:case_issues,id'],
             // Category fields are optional on partial edits; existing assignments
             // remain unchanged when neither field is submitted.
             'category_id' => ['bail', 'nullable', 'string', 'uuid', Rule::exists('case_categories', 'id')->where('is_active', true)],

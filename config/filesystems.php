@@ -57,18 +57,16 @@ return [
 
         /*
          * Generic S3-compatible object storage (default for file uploads).
-         * Backward-compatible: falls back to SUPABASE_S3_* env vars when
-         * the generic STORAGE_* vars are not set.
          */
         'object-storage' => [
-            'driver' => env('STORAGE_DRIVER', env('SUPABASE_S3_DRIVER', 's3')),
-            'key' => env('STORAGE_ACCESS_KEY', env('SUPABASE_S3_ACCESS_KEY')),
-            'secret' => env('STORAGE_SECRET_KEY', env('SUPABASE_S3_SECRET_KEY')),
-            'region' => env('STORAGE_REGION', env('SUPABASE_S3_REGION', 'ap-southeast-1')),
-            'bucket' => env('STORAGE_BUCKET', env('SUPABASE_S3_BUCKET', 'case-files')),
-            'endpoint' => env('STORAGE_ENDPOINT', env('SUPABASE_S3_ENDPOINT')),
-            'root' => env('STORAGE_ROOT', env('SUPABASE_S3_ROOT', storage_path('app/storage'))),
-            'url' => env('STORAGE_URL', env('SUPABASE_S3_URL')),
+            'driver' => env('STORAGE_DRIVER', 's3'),
+            'key' => env('STORAGE_ACCESS_KEY'),
+            'secret' => env('STORAGE_SECRET_KEY'),
+            'region' => env('STORAGE_REGION', 'ap-southeast-1'),
+            'bucket' => env('STORAGE_BUCKET', 'case-files'),
+            'endpoint' => env('STORAGE_ENDPOINT'),
+            'root' => env('STORAGE_ROOT', storage_path('app/storage')),
+            'url' => env('STORAGE_URL'),
             // Path-style suits MinIO and Supabase S3. Amazon Lightsail buckets are
             // addressed virtual-hosted style, so this must be switchable rather
             // than hardcoded. Default stays true to preserve existing behaviour.
@@ -99,26 +97,6 @@ return [
         ],
 
         /*
-         * Legacy supabase-specific disk alias. References the same
-         * object-storage configuration. Kept for backward compatibility.
-         */
-        'supabase' => [
-            'driver' => env('SUPABASE_S3_DRIVER', 's3'),
-            'key' => env('SUPABASE_S3_ACCESS_KEY'),
-            'secret' => env('SUPABASE_S3_SECRET_KEY'),
-            'region' => env('SUPABASE_S3_REGION', 'ap-southeast-1'),
-            'bucket' => env('SUPABASE_S3_BUCKET', 'case-files'),
-            'endpoint' => env('SUPABASE_S3_ENDPOINT'),
-            'root' => env('SUPABASE_S3_ROOT', storage_path('app/supabase')),
-            'url' => env('SUPABASE_S3_URL', '/supabase-storage'),
-            'use_path_style_endpoint' => true,
-            'visibility' => 'private',
-            'serve' => true,
-            'throw' => false,
-            'report' => false,
-        ],
-
-        /*
          * Immutable audit log archive bundles (audit:archive / audit:prune).
          * Inherits from the active FILESYSTEM_DISK unless explicitly overridden
          * via AUDIT_ARCHIVE_* env vars. When FILESYSTEM_DISK is r2 or
@@ -126,7 +104,7 @@ return [
          * local/testing default to an on-disk root.
          */
         'audit-archives' => [
-            'driver' => env('AUDIT_ARCHIVE_DRIVER', in_array(env('FILESYSTEM_DISK', 'local'), ['r2', 'object-storage', 'supabase']) ? 's3' : 'local'),
+            'driver' => env('AUDIT_ARCHIVE_DRIVER', in_array(env('FILESYSTEM_DISK', 'local'), ['r2', 'object-storage']) ? 's3' : 'local'),
             'root' => env('AUDIT_ARCHIVE_ROOT', 'audit-archives'),
             'key' => env('AUDIT_ARCHIVE_ACCESS_KEY', env('STORAGE_ACCESS_KEY', env('R2_ACCESS_KEY_ID'))),
             'secret' => env('AUDIT_ARCHIVE_SECRET_KEY', env('STORAGE_SECRET_KEY', env('R2_SECRET_ACCESS_KEY'))),

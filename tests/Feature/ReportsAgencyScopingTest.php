@@ -200,10 +200,12 @@ class ReportsAgencyScopingTest extends TestCase
         );
 
         $this->assertSame([
-            'kpis', 'referralStatusDistribution', 'referralTrends',
+            'kpis', 'referralStatusDistribution', 'rejectionReasonDistribution', 'referralTrends',
             'avgReferralCompletion', 'cycleTimeDistribution', 'agencyScorecard',
             'categoryDistribution', 'caseStatusDistribution', 'genderDistribution',
             'ageGroupDistribution', 'clientTypeDistribution', 'geographicMapData',
+            'caseSourceDistribution', 'closedCasesOverTime', 'reopenedStats',
+            'caseEventActorDistribution', 'agencyFirstResponse', 'clientRequestTypeDistribution',
             'role',
         ], array_keys($payload));
         $this->assertSame(0, $payload['kpis']['totalReferrals']);

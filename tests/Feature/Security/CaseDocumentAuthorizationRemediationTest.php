@@ -34,9 +34,9 @@ class CaseDocumentAuthorizationRemediationTest extends TestCase
         $this->actingAs($other)->getJson(route('cases.documents.index', $case->id))->assertOk();
         $this->actingAs($other)->getJson(route('cases.documents.show', [$case->id, $document->id]))->assertOk();
 
-        $this->mock(StorageService::class, function ($mock): void {
-            $mock->shouldReceive('temporaryUrl')->once()->andReturn('https://storage.test/document.pdf');
-        });
+        $storage = $this->createMock(StorageService::class);
+        $storage->expects($this->once())->method('temporaryUrl')->willReturn('https://storage.test/document.pdf');
+        $this->app->instance(StorageService::class, $storage);
 
         $this->actingAs($other)->get(route('cases.documents.download', [$case->id, $document->id]))->assertRedirect('https://storage.test/document.pdf');
     }
@@ -61,9 +61,9 @@ class CaseDocumentAuthorizationRemediationTest extends TestCase
         $case = CaseFile::factory()->create(['user_id' => $owner->id]);
         $document = $this->document($case, $owner->id);
 
-        $this->mock(StorageService::class, function ($mock): void {
-            $mock->shouldReceive('temporaryUrl')->twice()->andReturn('https://storage.test/document.pdf');
-        });
+        $storage = $this->createMock(StorageService::class);
+        $storage->expects($this->exactly(2))->method('temporaryUrl')->willReturn('https://storage.test/document.pdf');
+        $this->app->instance(StorageService::class, $storage);
 
         $this->actingAs($owner)
             ->get(route('cases.documents.download', [$case->id, $document->id]))

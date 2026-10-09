@@ -219,7 +219,12 @@ class OfwProfileService
         foreach ($fields as $field) {
             $oldValue = $row->{$field};
             if ($oldValue instanceof DateTimeInterface) {
-                $oldValue = $oldValue->toDateString();
+                // DateTimeInterface has no toDateString(); Carbon (what the
+                // Eloquent date casts actually return) does. Fall back to a
+                // plain Y-m-d format for any other implementation.
+                $oldValue = method_exists($oldValue, 'toDateString')
+                    ? $oldValue->toDateString()
+                    : $oldValue->format('Y-m-d');
             }
 
             $newValue = $this->normalize($source[$field] ?? null);

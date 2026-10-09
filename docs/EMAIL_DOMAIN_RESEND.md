@@ -1,3 +1,8 @@
+> **SUPERSEDED by `docs/EMAIL_DELIVERY_v2.1.0.md` — retained as history; do not use.**
+> **Status:** Tombstoned 2026-09-15.
+> See `EMAIL_DELIVERY_v2.1.0.md` for the current transport-selection rule.
+> No other content below has been modified.
+
 # MVP Email Sending: Domain and Resend Requirement
 
 > **Status:** Required before MVP production deployment  

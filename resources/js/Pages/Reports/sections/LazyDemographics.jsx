@@ -1,8 +1,11 @@
 import { useMemo } from 'react';
 import { useLazyProp } from '@/Hooks/useLazyProp';
+import { Doughnut } from 'react-chartjs-2';
+import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 import ChartSkeleton from '@/Components/Reports/ChartSkeleton';
-import SvgPieChart from '@/Components/Reports/SvgPieChart';
 import { COLORS, pageHeadingStyles } from '@/Components/Reports/pageHeadingStyles';
+
+ChartJS.register(ArcElement, Tooltip, Legend);
 
 function toPieFormat(distribution) {
   if (!distribution || !distribution.labels) return [];
@@ -24,7 +27,22 @@ function PieColumn({ title, data, fallback = 'No data available.' }) {
       {data && data.length > 0 ? (
         <div className="flex items-center gap-4">
           <div className="h-16 w-16 shrink-0">
-            <SvgPieChart data={data} className="w-16 h-16" />
+            <Doughnut
+              data={{
+                labels: data.map((item) => item.label),
+                datasets: [{
+                  data: data.map((item) => item.count),
+                  backgroundColor: data.map((item) => item.hex),
+                  borderWidth: 0,
+                }],
+              }}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false }, tooltip: { enabled: true } },
+                cutout: '50%',
+              }}
+            />
           </div>
           <div className="space-y-1">
             {data.map((item) => (

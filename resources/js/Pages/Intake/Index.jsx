@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useMemo, Fragment } from 'react';
-import { Head, usePage } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import AppHeader from '@/Components/landing/AppHeader';
 import AppFooter from '@/Components/landing/AppFooter';
 import TurnstileWidget from '@/Components/TurnstileWidget';
@@ -11,6 +11,7 @@ import SearchableSelect from '@/Components/SearchableSelect';
 import PasswordStrengthMeter from '@/Components/PasswordStrengthMeter';
 import { DEFAULT_OCCUPATIONS } from '@/data/defaultOccupations';
 import { getTurnstileError } from '@/lib/turnstile';
+import safeRoute from '@/utils/safeRoute';
 
 // Mirrors IntakeRegistrationController: Password::min(8)->mixedCase()->numbers().
 // (No symbol requirement — the shared `passwordRules` prop must not be used here.)
@@ -170,7 +171,6 @@ export default function IntakeIndex({ occupationOptions, existingClient, skipVer
   const [turnstileToken, setTurnstileToken] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [otpHint, setOtpHint] = useState('');
-  const [debugOtp, setDebugOtp] = useState(null);
   const [duplicateMessage, setDuplicateMessage] = useState('');
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [submittedCase, setSubmittedCase] = useState(null);
@@ -214,7 +214,6 @@ export default function IntakeIndex({ occupationOptions, existingClient, skipVer
     setDuplicateMessage('');
     setOtpSent(false);
     setOtpHint('');
-    setDebugOtp(null);
     setTurnstileToken('');
     updateField('otp', '');
     goBack();
@@ -236,7 +235,6 @@ export default function IntakeIndex({ occupationOptions, existingClient, skipVer
       if (res.ok && json?.sent) {
         setOtpSent(true);
         setOtpHint(json.hint);
-        setDebugOtp(json.debug_otp);
       } else if (res.status === 429) {
         setErrors({ email: 'Too many verification codes requested. Please wait a minute and try again.' });
       } else {
@@ -422,7 +420,6 @@ export default function IntakeIndex({ occupationOptions, existingClient, skipVer
                   processing={processing}
                   otpSent={otpSent}
                   otpHint={otpHint}
-                  debugOtp={debugOtp}
                   duplicateMessage={duplicateMessage}
                   turnstile={turnstile}
                   turnstileToken={turnstileToken}
@@ -461,7 +458,7 @@ export default function IntakeIndex({ occupationOptions, existingClient, skipVer
 
 // --- Step Components ---
 
-function EmailStep({ formData, updateField, errors, processing, otpSent, otpHint, debugOtp, duplicateMessage, turnstile, turnstileToken, setTurnstileToken, onSendOtp, onVerifyOtp, onBackToEmail, onBack }) {
+function EmailStep({ formData, updateField, errors, processing, otpSent, otpHint, duplicateMessage, turnstile, turnstileToken, setTurnstileToken, onSendOtp, onVerifyOtp, onBackToEmail, onBack }) {
   const [turnstileStatus, setTurnstileStatus] = useState('idle');
 
   if (duplicateMessage) {
@@ -523,11 +520,6 @@ function EmailStep({ formData, updateField, errors, processing, otpSent, otpHint
           <p className="text-sm text-slate-600">
             A verification code has been sent to <strong>{otpHint}</strong>
           </p>
-          {debugOtp && (
-            <div className="rounded bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800">
-              Debug OTP: <strong>{debugOtp}</strong>
-            </div>
-          )}
           <div>
             <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Verification Code</label>
             <input
@@ -572,14 +564,17 @@ function EmailStep({ formData, updateField, errors, processing, otpSent, otpHint
 function PersonalStep({ formData, updateField, errors, identityLocked = false, onNext, onBack }) {
   const [stepErrors, setStepErrors] = useState({});
   const now = new Date();
-  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  // Applicants must be 15–100 years old (ISO date strings compare chronologically).
+  const dobMax = `${now.getFullYear() - 15}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const dobMin = `${now.getFullYear() - 100}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
   const validate = () => {
     const errs = {};
     if (!formData.client.first_name.trim()) errs.first_name = 'Please provide your first name.';
     if (!formData.client.last_name.trim()) errs.last_name = 'Please provide your last name.';
     if (!identityLocked && !formData.client.date_of_birth) errs.date_of_birth = 'Please provide your date of birth.';
-    if (formData.client.date_of_birth && formData.client.date_of_birth > today) errs.date_of_birth = 'Date of birth cannot be in the future.';
+    if (formData.client.date_of_birth && formData.client.date_of_birth > dobMax) errs.date_of_birth = 'Applicant must be at least 15 years old.';
+    else if (formData.client.date_of_birth && formData.client.date_of_birth < dobMin) errs.date_of_birth = 'Applicant cannot be over 100 years old.';
     if (!formData.client.contact_number.trim()) errs.contact_number = 'Please provide your contact number.';
     if (!identityLocked && !formData.client.sex) errs.sex = 'Please select your sex.';
     setStepErrors(errs);
@@ -628,7 +623,7 @@ function PersonalStep({ formData, updateField, errors, identityLocked = false, o
         </div>
         <div>
           <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Date of Birth *</label>
-          <input type="date" value={formData.client.date_of_birth} max={today} disabled={identityLocked} title={identityLocked ? 'Locked — from your profile' : undefined} onChange={e => { updateField('client.date_of_birth', e.target.value); clearError('date_of_birth'); }}
+          <input type="date" value={formData.client.date_of_birth} max={dobMax} min={dobMin} disabled={identityLocked} title={identityLocked ? 'Locked — from your profile' : undefined} onChange={e => { updateField('client.date_of_birth', e.target.value); clearError('date_of_birth'); }}
             className={`w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none ${identityLocked ? 'disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed' : ''} ${stepErrors.date_of_birth ? 'border-error' : ''}`} />
           {stepErrors.date_of_birth && <p className="mt-1 text-xs text-error">{stepErrors.date_of_birth}</p>}
         </div>
@@ -1117,7 +1112,7 @@ function IntakeSuccess({ caseNumber, trackerNumber, email }) {
 
       if (res.ok && json?.success) {
         // Account created — redirect to OFW portal
-        window.location.href = json.redirect || route('ofw.dashboard');
+        router.visit(json.redirect || route('ofw.dashboard'));
       } else if (res.status === 422) {
         if (json?.errors) {
           setRegisterErrors(json.errors);
@@ -1273,7 +1268,7 @@ function IntakeSuccess({ caseNumber, trackerNumber, email }) {
               <span className="material-symbols-outlined text-[18px]">search</span>
               Track Your Case
             </a>
-            <a href="/" className="inline-flex items-center justify-center gap-2 border border-outline-variant px-6 py-3.5 text-sm font-medium text-slate-600 hover:bg-slate-50">
+            <a href={safeRoute('home', undefined, '/')} className="inline-flex items-center justify-center gap-2 border border-outline-variant px-6 py-3.5 text-sm font-medium text-slate-600 hover:bg-slate-50">
               Return to Home
             </a>
           </div>

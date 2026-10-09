@@ -1,37 +1,15 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { usePage } from '@inertiajs/react';
-import { Bar } from 'react-chartjs-2';
 import ChartSkeleton from '@/Components/Reports/ChartSkeleton';
 import SectionAccordion from '@/Components/Reports/SectionAccordion';
-import PhilippinesMap from '@/Components/Reports/PhilippinesMap';
-import { COLORS, cardShell } from '@/Components/Reports/pageHeadingStyles';
+import RegionVIIMap, { matchRegionVII, RENDERED_PROVINCE_IDS } from '@/Components/Reports/RegionVIIMap';
+import { cardShell } from '@/Components/Reports/pageHeadingStyles';
 import { useLazyProp } from '@/Hooks/useLazyProp';
 
-const barOptions = {
-  responsive: true,
-  maintainAspectRatio: false,
-  indexAxis: 'y',
-  plugins: { legend: { display: false } },
-  scales: {
-    x: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 10 } }, grid: { color: 'rgba(148,163,184,0.15)' } },
-    y: { ticks: { font: { size: 10 } }, grid: { display: false } },
-  },
-};
-
-const REGION_VII = {
-  cebu: { id: 'cebu', name: 'Cebu' },
-  bohol: { id: 'bohol', name: 'Bohol' },
-  'negros-oriental': { id: 'negros-oriental', name: 'Negros Oriental' },
-  siquijor: { id: 'siquijor', name: 'Siquijor' },
-};
-
+// Region VII matching lives in RegionVIIMap; this alias keeps the
+// province-list builders below unchanged.
 function provinceMapId(nameOrId) {
-  const text = String(nameOrId ?? '').toLowerCase();
-  if (text.includes('cebu')) return 'cebu';
-  if (text.includes('bohol')) return 'bohol';
-  if (text.includes('negros oriental')) return 'negros-oriental';
-  if (text.includes('siquijor')) return 'siquijor';
-  return text.replace(/\s+/g, '-');
+  return matchRegionVII(nameOrId) ?? String(nameOrId ?? '').toLowerCase().replace(/\s+/g, '-');
 }
 
 function normalizeProvinceValue(name, provinceOptions = []) {
@@ -75,70 +53,53 @@ function toProvinceList(source, provinceOptions = [], filterRegionVII = false) {
   return filterRegionVII ? provinces.filter((province) => REGION_VII[province.id]) : provinces;
 }
 
-function toBarData(provinces) {
-  if (!provinces?.length) return null;
-
-  return {
-    labels: provinces.map((province) => province.name),
-    datasets: [{
-      label: 'Cases',
-      data: provinces.map((province) => province.count),
-      backgroundColor: provinces.map((_, index) => COLORS.chartPalette[index % COLORS.chartPalette.length]),
-      borderRadius: 3,
-      barThickness: 18,
-    }],
-  };
-}
-
 function GeographicPanel({ geoData, province, onProvinceClick, provinceOptions = [] }) {
-  const [view, setView] = useState('map');
   const page = usePage();
   const mapData = page.props.geographicMapData;
 
   const allProvinces = useMemo(() => toProvinceList(mapData || geoData, provinceOptions, false), [geoData, mapData, provinceOptions]);
-  const mapProvinces = useMemo(() => allProvinces.filter((province) => REGION_VII[province.id]), [allProvinces]);
-  const barData = useMemo(() => toBarData(allProvinces), [allProvinces]);
+  // Rendered scope is Cebu + Bohol only (see RENDERED_PROVINCE_IDS).
+  const mapProvinces = useMemo(
+    () => allProvinces.filter((province) => RENDERED_PROVINCE_IDS.includes(province.id)),
+    [allProvinces],
+  );
 
-  if (!allProvinces.length) {
+  if (!mapProvinces.length) {
     return <p className="py-8 text-center text-[13px] text-slate-400 dark:text-slate-500">No geographic data available.</p>;
   }
 
   return (
     <article className={`${cardShell} p-4`}>
-      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="inline-flex overflow-hidden rounded-[2px] border border-slate-200 bg-slate-50 text-[10px] font-extrabold uppercase tracking-[0.14em] dark:border-slate-700 dark:bg-slate-800">
-          <button
-            type="button"
-            onClick={() => setView('map')}
-            className={`px-3 py-1.5 ${view === 'map' ? 'bg-white text-primary dark:bg-slate-900 dark:text-primary-fixed-dim' : 'text-slate-500 dark:text-slate-400'}`}
-          >
-            Map
-          </button>
-          <button
-            type="button"
-            onClick={() => setView('bar')}
-            className={`px-3 py-1.5 ${view === 'bar' ? 'bg-white text-primary dark:bg-slate-900 dark:text-primary-fixed-dim' : 'text-slate-500 dark:text-slate-400'}`}
-          >
-            Bar chart
-          </button>
-        </div>
-      </div>
-
-      {view === 'map' ? (
-        mapProvinces.length > 0 ? (
-          <PhilippinesMap
-            provinces={mapProvinces}
-            selectedProvince={province}
-            onProvinceClick={onProvinceClick}
-          />
-        ) : (
-          <p className="py-8 text-center text-[13px] text-slate-400 dark:text-slate-500">No geographic data available.</p>
-        )
-      ) : (
-        <div className="h-64">
-          {barData ? <Bar data={barData} options={barOptions} /> : <p className="py-8 text-center text-[13px] text-slate-400 dark:text-slate-500">No geographic data available.</p>}
-        </div>
-      )}
+      <RegionVIIMap
+        provinces={mapProvinces}
+        selectedProvince={province}
+        onProvinceClick={onProvinceClick}
+      />
+      <ul aria-label="Cases by province" className="mt-4 divide-y divide-slate-100 dark:divide-slate-800">
+        {mapProvinces.map((item) => {
+          const selected = province && [item.value, item.id, item.name].includes(province);
+          return (
+            <li key={item.id}>
+              <button
+                type="button"
+                onClick={() => onProvinceClick?.(item.value ?? item.id)}
+                aria-pressed={Boolean(selected)}
+                aria-label={`${item.name} ${item.count} cases — filter to this province`}
+                className={`flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left text-sm font-bold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary ${
+                  selected
+                    ? 'bg-primary/10 text-primary'
+                    : 'text-slate-800 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800'
+                }`}
+              >
+                <span>{item.name}</span>
+                <span className="shrink-0 font-black text-slate-900 dark:text-slate-100">
+                  {item.count} {item.count === 1 ? 'case' : 'cases'}
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
     </article>
   );
 }

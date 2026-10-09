@@ -59,7 +59,7 @@ class VerifyOtpTest extends TestCase
             'email' => $this->email,
         ]);
 
-        $otp = Cache::get("otp:track:{$this->email}");
+        $otp = Cache::get("otp:track:{$this->email}:{$trackerNumber}");
         $this->assertNotNull($otp, 'OTP should be cached after sendOtp');
         $this->assertMatchesRegularExpression('/^\d{6}$/', $otp);
 
@@ -138,7 +138,7 @@ class VerifyOtpTest extends TestCase
         $otp = $this->sendOtp($case->tracker_number);
 
         // Remove OTP from cache to simulate expiry
-        Cache::forget("otp:track:{$this->email}");
+        Cache::forget("otp:track:{$this->email}:{$case->tracker_number}");
 
         // ACT — use the previously-valid OTP (now expired)
         $response = $this->post(route('track.verify-otp'), [

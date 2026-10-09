@@ -1,5 +1,9 @@
 # Comprehensive Compliance Remediation Plan
 
+> **HISTORICAL - archived artifact retained for provenance; written 2026-07-09.**
+> Not current guidance - do not follow it as a procedure or spec.
+> See `docs/README.md` for current documentation.
+
 **Goal:** Achieve ISO 27001:2022 / 27002:2022 / 20000-1:2018 / ISO 9001:2015 certification readiness by addressing ALL remaining technical, documentation, governance, and organizational gaps.
 
 **Status:** Phase 1–3 (P0/P1/P2 code-level items) are ✅ COMPLETED. This plan covers everything still open.

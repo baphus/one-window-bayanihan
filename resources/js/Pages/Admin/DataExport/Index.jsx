@@ -1,5 +1,5 @@
 import AppLayout from '@/Layouts/AppLayout';
-import { Head } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { FileDown } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
@@ -36,8 +36,13 @@ export default function DataExportIndex({ tables }) {
     const handleExport = () => {
         if (exporting) return;
         setExporting(true);
-        window.open(route('admin.data-export.export'));
-        timeoutRef.current = window.setTimeout(() => setExporting(false), 3000);
+        // Queued export: the server responds with a redirect + flash toast
+        // while the workbook generates in the background.
+        router.get(route('admin.data-export.export'), {}, {
+            onFinish: () => {
+                timeoutRef.current = window.setTimeout(() => setExporting(false), 3000);
+            },
+        });
     };
 
     return (
@@ -58,7 +63,7 @@ export default function DataExportIndex({ tables }) {
                     className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-900 rounded-md hover:bg-blue-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     <FileDown className="w-4 h-4" />
-                    Export All Data as Excel
+                    {exporting ? 'Export queued…' : 'Export All Data as Excel'}
                 </button>
             </div>
 

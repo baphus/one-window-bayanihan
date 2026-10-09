@@ -4,15 +4,6 @@ export type ClientType = 'Overseas Filipino Worker' | 'Next of Kin';
 
 export type ReferralActorRole = 'Agency Focal' | 'Case Manager' | 'System';
 
-export type MockUserRole = 'System Admin' | 'Case Manager' | 'Agency';
-
-export type MockAuthUser = {
-    email: string;
-    password: string;
-    role: MockUserRole;
-    name: string;
-};
-
 export type ReferralActor = {
     id: string;
     name: string;
@@ -43,41 +34,6 @@ export type AddressParts = {
     barangayCode: string;
     barangayName: string;
     streetAddress: string;
-};
-
-export type ClientPersona = {
-    ofwName: string;
-    ofwBirth: string;
-    gender: string;
-    ofwEmail: string;
-    ofwContact: string;
-    ofwAddress: AddressParts;
-    kinName: string;
-    kinContact: string;
-    kinEmail: string;
-    kinAddress: AddressParts;
-    lastCountry: string;
-    lastJob: string;
-    arrivalDate: string;
-};
-
-export type ExistingClientProfile = {
-    firstName: string;
-    lastName: string;
-    middleName: string;
-    suffix: string;
-    dateOfBirth: string;
-    sex: string;
-    contactNumber: string;
-    email: string;
-    address: AddressParts;
-    employmentHistory: Array<{
-        employer: string;
-        position: string;
-        country: string;
-        startDate: string;
-        endDate: string;
-    }>;
 };
 
 export type CaseManagerAgency = {

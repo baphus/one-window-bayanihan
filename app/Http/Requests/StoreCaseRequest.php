@@ -4,6 +4,8 @@ namespace App\Http\Requests;
 
 use App\Models\CaseFile;
 use App\Rules\ClientNotFromUnacceptedIntake;
+use App\Rules\EmploymentStartAtWorkingAge;
+use App\Rules\ServedRegion;
 use App\Rules\VulnerabilityRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -85,6 +87,10 @@ class StoreCaseRequest extends FormRequest
         // Drafts require nothing — just save whatever progress exists
         $r = $this->boolean('is_draft') ? 'nullable' : 'required';
 
+        // Clients must be 15–100 years old.
+        $dobMax = now()->subYears(15)->toDateString();
+        $dobMin = now()->subYears(100)->toDateString();
+
         return [
             'is_draft' => ['nullable', 'boolean'],
             'client_type' => [$r, 'string', Rule::in(CaseFile::CLIENT_TYPES)],
@@ -102,7 +108,7 @@ class StoreCaseRequest extends FormRequest
             'client.last_name' => [$r, 'string', 'max:255'],
             'client.middle_name' => ['nullable', 'string', 'max:255'],
             'client.suffix' => ['nullable', 'string', 'max:50'],
-            'client.date_of_birth' => [$r, 'date', 'before_or_equal:today'],
+            'client.date_of_birth' => [$r, 'date', 'before_or_equal:'.$dobMax, 'after_or_equal:'.$dobMin],
             'client.sex' => [$r, 'string', 'max:50'],
             'client.email' => [$r, 'email', 'max:255'],
             'client.contact_number' => [$r, 'string', 'max:50'],
@@ -116,7 +122,7 @@ class StoreCaseRequest extends FormRequest
             'next_of_kin.*.phone_number' => ['required_with:next_of_kin', 'string', 'max:50'],
             'next_of_kin.*.email' => ['required_with:next_of_kin', 'email', 'max:255'],
             'next_of_kin.*.full_address' => ['nullable', 'string'],
-            'next_of_kin.*.nok_address.region' => ['required_with:next_of_kin', 'string', 'max:255'],
+            'next_of_kin.*.nok_address.region' => ['required_with:next_of_kin', 'string', 'max:255', new ServedRegion],
             'next_of_kin.*.nok_address.province' => ['nullable', 'string', 'max:255'],
             'next_of_kin.*.nok_address.city_municipality' => ['required_with:next_of_kin', 'string', 'max:255'],
             'next_of_kin.*.nok_address.barangay' => ['required_with:next_of_kin', 'string', 'max:255'],
@@ -125,9 +131,11 @@ class StoreCaseRequest extends FormRequest
             'selected_client_id' => ['nullable', 'string', 'exists:clients,id', new ClientNotFromUnacceptedIntake],
             'selected_nok_index' => ['nullable', 'integer', 'min:0'],
 
+            'confirm_duplicate_client' => ['nullable', 'boolean'],
+
             'consent' => ['nullable', 'boolean'],
 
-            'address.region' => [$r, 'string', 'max:255'],
+            'address.region' => [$r, 'string', 'max:255', new ServedRegion],
             'address.province' => ['nullable', 'string', 'max:255'],
             'address.city_municipality' => [$r, 'string', 'max:255'],
             'address.barangay' => [$r, 'string', 'max:255'],
@@ -136,8 +144,8 @@ class StoreCaseRequest extends FormRequest
             'employment.employer_name' => [$r, 'string', 'max:255'],
             'employment.position' => ['nullable', 'string', 'max:255'],
             'employment.country' => ['nullable', 'string', 'max:255'],
-            'employment.start_date' => [$r, 'date', 'after_or_equal:client.date_of_birth'],
-            'employment.end_date' => [$r === 'required' ? 'required_unless:employment.is_present,true' : 'nullable', 'nullable', 'date', 'after_or_equal:employment.start_date'],
+            'employment.start_date' => [$r, 'date', 'after_or_equal:client.date_of_birth', 'before_or_equal:today', new EmploymentStartAtWorkingAge($this->input('client.date_of_birth'))],
+            'employment.end_date' => [$r === 'required' ? 'required_unless:employment.is_present,true' : 'nullable', 'nullable', 'date', 'after_or_equal:employment.start_date', 'before_or_equal:today'],
             'employment.is_present' => ['nullable', 'boolean'],
             'employment.last_country' => [$r, 'string', 'max:255'],
             'employment.last_position' => [$r, 'string', 'max:255'],

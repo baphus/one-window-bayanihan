@@ -5,9 +5,11 @@ namespace App\Services;
 use App\Enums\AuditAction;
 use App\Enums\AuditModule;
 use App\Events\ReferralCompleted;
+use App\Exceptions\SafeException;
 use App\Helpers\CacheHelper;
 use App\Models\Agency;
 use App\Models\AuditLog;
+use App\Models\CaseDocument;
 use App\Models\CaseFile;
 use App\Models\Milestone;
 use App\Models\Referral;
@@ -18,81 +20,49 @@ use App\Models\ReferralComment;
 use App\Models\ReferralServiceRequirement;
 use App\Models\Service;
 use App\Models\User;
-use App\Notifications\MilestoneAdded;
-use App\Notifications\PeerReferralCreated;
-use App\Notifications\ReferralCreated;
-use App\Notifications\ReferralStatusChanged;
+use App\Services\Referral\ReferralNotifier;
+use App\Services\Referral\ReferralStatsCache;
+use App\Services\Referral\ReferralStatusMachine;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
 
 class ReferralService
 {
-    public const REFERRAL_STATS_CACHE_VERSION_KEY = 'stats:referrals:version';
-
-    /**
-     * Allowed referral status transitions, keyed by the current status.
-     *
-     * Self-transitions are allowed so that duplicate requests become
-     * idempotent no-ops instead of re-firing notifications.
-     *
-     * @var array<string, array<int, string>>
-     */
-    private const STATUS_TRANSITIONS = [
-        'PENDING' => ['PENDING', 'PROCESSING', 'FOR_COMPLIANCE', 'REJECTED'],
-        'PROCESSING' => ['PROCESSING', 'FOR_COMPLIANCE', 'COMPLETED', 'REJECTED'],
-        'FOR_COMPLIANCE' => ['FOR_COMPLIANCE', 'PROCESSING', 'COMPLETED', 'REJECTED'],
-        'COMPLETED' => ['COMPLETED'],
-        'REJECTED' => ['REJECTED'],
-    ];
+    public const REFERRAL_STATS_CACHE_VERSION_KEY = ReferralStatsCache::REFERRAL_STATS_CACHE_VERSION_KEY;
 
     public function __construct(
-        private readonly NotificationService $notificationService,
         private readonly CaseEventRecorder $eventRecorder,
         private readonly ReferralClientRequestService $clientRequestService,
+        private readonly ReferralMessageService $messageService,
+        private readonly ReferralNotifier $notifier,
+        private readonly ReferralStatusMachine $statusMachine,
     ) {}
 
     public static function referralStatsCacheKey(?string $userAgencyId, ?string $userRole, ?string $userId): string
     {
-        $version = (int) Cache::rememberForever(self::REFERRAL_STATS_CACHE_VERSION_KEY, static fn () => 1);
-
-        return 'stats:referrals:v'.$version.':'.($userRole ?? 'all').':'.($userAgencyId ?? 'global').':'.($userId ?? 'global');
+        return ReferralStatsCache::referralStatsCacheKey($userAgencyId, $userRole, $userId);
     }
 
     public static function invalidateReferralStats(): void
     {
-        Cache::increment(self::REFERRAL_STATS_CACHE_VERSION_KEY);
+        ReferralStatsCache::invalidateReferralStats();
     }
 
     public function createReferral(array $data, string $userId): Referral
     {
         $referral = DB::transaction(function () use ($data, $userId) {
             $referral = Referral::create([
-                'required_services' => $data['required_services'] ?? '',
+                'required_services' => '',
                 'notes' => $data['notes'] ?? null,
                 'status' => 'PENDING',
                 'case_id' => $data['case_id'],
                 'agcy_id' => $data['agcy_id'],
             ]);
-
-            // Attach selected services by name lookup
-            if (! empty($data['services']) && is_array($data['services'])) {
-                $serviceIds = Service::whereIn('name', $data['services'])
-                    ->where('agcy_id', $data['agcy_id'])
-                    ->pluck('id');
-                $referral->services()->sync($serviceIds);
-
-                // Copy requirements for each attached service
-                foreach ($serviceIds as $serviceId) {
-                    $service = Service::find($serviceId);
-                    if ($service) {
-                        $this->copyServiceRequirements($referral, $service);
-                    }
-                }
-            }
 
             // Reload services so event recorder and timeline reflect actual service names
             $referral->load('services');
@@ -101,50 +71,71 @@ class ReferralService
 
             // Audit logging is handled by AuditObserver::created() — no manual log needed.
 
-            // Notify agency users about the new referral
-            $agencyUsers = User::where('agcy_id', $referral->agcy_id)
-                ->where('is_active', true)
-                ->get();
-            Notification::send($agencyUsers, new ReferralCreated($referral));
-
-            // Notify peer agencies already involved in this case
-            $peerReferrals = Referral::where('case_id', $referral->case_id)
-                ->where('id', '!=', $referral->id)
-                ->where('is_deleted', false)
-                ->where('agcy_id', '!=', $referral->agcy_id)
-                ->whereIn('status', ['PENDING', 'PROCESSING', 'FOR_COMPLIANCE'])
-                ->get();
-
-            if ($peerReferrals->isNotEmpty()) {
-                $peerAgencyIds = $peerReferrals->pluck('agcy_id')->unique()->values();
-                $peerUsers = User::whereIn('agcy_id', $peerAgencyIds)
-                    ->where('is_active', true)
-                    ->get();
-
-                if ($peerUsers->isNotEmpty()) {
-                    Notification::send($peerUsers, new PeerReferralCreated($referral, $peerReferrals->first()));
-                }
-            }
-
-            // Also create OFW notification for the case client
-            if ($referral->caseFile && $referral->caseFile->client && $referral->caseFile->client->email) {
-                $this->notificationService->notifyOfw(
-                    $referral->caseFile,
-                    $referral->caseFile->client->email,
-                    'referral_created',
-                    'New Referral',
-                    'A new referral has been created for your case.',
-                    ['referral_id' => $referral->id, 'status' => $referral->status],
-                    route('track.show', $referral->caseFile->tracker_number ?? $referral->case_id),
-                );
-            }
+            $this->notifier->notifyCreated($referral, $userId);
 
             return $referral->load(['agency', 'caseFile', 'milestones']);
         });
 
-        TrackingService::invalidateTrackingCache($data['case_id']);
-
         return $referral;
+    }
+
+    /**
+     * Create a referral plus its uploaded case documents atomically.
+     *
+     * The referral row, the stored files, and the case-document rows share one
+     * database transaction (nested service transactions join it via savepoints),
+     * so a failed upload rolls everything back. Already-stored files are
+     * deleted from object storage so no orphans remain.
+     *
+     * @param  array<string, mixed>  $data  Validated referral attributes.
+     * @param  array<int, UploadedFile>|UploadedFile|null  $files  Uploaded documents.
+     *
+     * @throws SafeException
+     */
+    public function createReferralWithDocuments(array $data, string $userId, array|UploadedFile|null $files, StorageService $storage): Referral
+    {
+        $files = is_array($files) ? $files : ($files instanceof UploadedFile ? [$files] : []);
+        $storedPaths = [];
+
+        try {
+            return DB::transaction(function () use ($data, $userId, $files, $storage, &$storedPaths) {
+                $referral = $this->createReferral($data, $userId);
+
+                foreach ($files as $file) {
+                    $result = $storage->store($file, 'case-documents/'.$referral->case_id);
+
+                    if (! $result->success) {
+                        throw new SafeException(
+                            'REFERRAL_DOCUMENT_UPLOAD_FAILED',
+                            $result->error ?? 'Failed to store file.',
+                        );
+                    }
+
+                    $storedPaths[] = $result->path;
+
+                    CaseDocument::create([
+                        'file_name' => $result->originalName,
+                        'file_path' => $result->path,
+                        'file_type' => $result->type,
+                        'size' => $result->size,
+                        'case_id' => $referral->case_id,
+                        'referral_id' => $referral->id,
+                        'user_id' => $userId,
+                        'category' => 'referral',
+                    ]);
+                }
+
+                return $referral;
+            });
+        } catch (SafeException $e) {
+            // Roll back the object-storage side; the DB transaction is rolled
+            // back automatically.
+            foreach ($storedPaths as $path) {
+                $storage->delete($path);
+            }
+
+            throw $e;
+        }
     }
 
     public function getReferralStats(?string $userAgencyId = null, ?string $userRole = null, ?string $userId = null): array
@@ -333,9 +324,9 @@ class ReferralService
      * Get all other referrals on the same case (excluding the current one).
      * Shows which agencies are involved in supporting this case.
      */
-    public function getRelatedReferrals(Referral $referral): Collection
+    public function getRelatedReferrals(Referral $referral, ?User $actor = null): Collection
     {
-        return Referral::where('case_id', $referral->case_id)
+        $relatedReferrals = Referral::where('case_id', $referral->case_id)
             ->where('id', '!=', $referral->id)
             ->with([
                 'agency',
@@ -345,6 +336,18 @@ class ReferralService
             ])
             ->orderBy('created_at', 'asc')
             ->get();
+
+        $unreadCounts = $actor !== null
+            ? $this->messageService->unreadCountsByReferral($relatedReferrals->pluck('id')->all(), $actor)
+            : [];
+
+        foreach ($relatedReferrals as $item) {
+            $canMessage = $actor !== null && $this->messageService->canAccessThread($item, $actor);
+            $item->setAttribute('can_message', $canMessage);
+            $item->setAttribute('unread_count', $canMessage ? ($unreadCounts[$item->id] ?? 0) : 0);
+        }
+
+        return $relatedReferrals;
     }
 
     /**
@@ -424,7 +427,7 @@ class ReferralService
         $receivingAgency = $actor->isAgency()
             && $actor->is_active
             && $actor->agcy_id === $referral->agcy_id;
-        $oversight = $actor->isAdmin() || $actor->isCaseManager();
+        $oversight = $actor->isAdmin();
         $writesAllowed = $receivingAgency && $this->clientRequestService->isClientFacingWriteAllowed($referral);
 
         return [
@@ -452,7 +455,7 @@ class ReferralService
         })->toArray();
     }
 
-    public function addService(Referral $referral, string $serviceId): Referral
+    public function addService(Referral $referral, string $serviceId, string $userId): Referral
     {
         if ($referral->status === 'COMPLETED') {
             throw new \InvalidArgumentException('Cannot modify services on a completed referral.');
@@ -462,12 +465,31 @@ class ReferralService
             ->where('agcy_id', $referral->agcy_id)
             ->firstOrFail();
 
-        $referral->services()->syncWithoutDetaching([$service->id]);
+        return DB::transaction(function () use ($referral, $service, $userId) {
+            $alreadyAttached = $referral->services()->where('services.id', $service->id)->exists();
 
-        // Copy global service requirements to per-referral requirements
-        $this->copyServiceRequirements($referral, $service);
+            $referral->services()->syncWithoutDetaching([$service->id]);
 
-        return $referral->load('services');
+            // Copy global service requirements to per-referral requirements
+            $this->copyServiceRequirements($referral, $service);
+
+            $this->syncRequiredServicesText($referral);
+
+            if (! $alreadyAttached) {
+                $actorName = User::whereKey($userId)->value('name');
+
+                $milestone = Milestone::create([
+                    'title' => "Service assigned: {$service->name}",
+                    'description' => $actorName !== null ? "Added by {$actorName}" : null,
+                    'refr_id' => $referral->id,
+                    'user_id' => $userId,
+                ]);
+
+                $this->eventRecorder->milestoneAdded($referral, $milestone, $userId);
+            }
+
+            return $referral->load('services');
+        });
     }
 
     /**
@@ -512,7 +534,20 @@ class ReferralService
 
         $referral->services()->detach($serviceId);
 
+        $this->syncRequiredServicesText($referral);
+
         return $referral->load('services');
+    }
+
+    /**
+     * Recompute the legacy `required_services` text from the pivot so all
+     * downstream readers (notifications, emails, reports, exports, PDFs)
+     * stay consistent after any service mutation.
+     */
+    private function syncRequiredServicesText(Referral $referral): void
+    {
+        $names = $referral->services()->orderBy('name')->pluck('name');
+        $referral->forceFill(['required_services' => $names->implode(', ')])->save();
     }
 
     public function addRequirement(Referral $referral, string $serviceId, array $data): ReferralServiceRequirement
@@ -568,23 +603,45 @@ class ReferralService
         $requirement->delete();
     }
 
-    public function updateStatus(string $id, string $status, ?string $decision, ?string $decisionComment, string $userId): Referral
+    public function updateStatus(string $id, string $status, ?string $decision, ?string $decisionComment, string $userId, ?string $rejectionReason = null): Referral
     {
         $changed = false;
         $caseId = null;
 
-        $referral = DB::transaction(function () use ($id, $status, $decision, $decisionComment, $userId, &$changed, &$caseId) {
+        $referral = DB::transaction(function () use ($id, $status, $decision, $decisionComment, $userId, $rejectionReason, &$changed, &$caseId) {
             // Row lock serializes concurrent updates so a second duplicate
             // request observes the new status and short-circuits below.
             $referral = Referral::whereKey($id)->lockForUpdate()->firstOrFail();
             $oldStatus = $referral->status;
 
-            $this->assertAllowedTransition($oldStatus, $status);
+            $this->statusMachine->assertAllowedTransition($oldStatus, $status);
+
+            // New rejections must carry a reason (mirrors the request rule so
+            // direct service callers cannot bypass it); idempotent
+            // REJECTED→REJECTED no-ops keep whatever reason is stored.
+            if ($status === 'REJECTED' && $oldStatus !== 'REJECTED') {
+                $effectiveReason = $rejectionReason ?? $referral->rejection_reason;
+
+                if ($effectiveReason === null) {
+                    throw new \InvalidArgumentException('A rejection reason is required to reject a referral.');
+                }
+
+                $effectiveComment = $decisionComment ?? $referral->decision_comment;
+
+                if ($effectiveReason === 'OTHER' && mb_strlen(trim((string) $effectiveComment)) < 10) {
+                    throw new \InvalidArgumentException('A decision comment of at least 10 characters is required when the rejection reason is Other.');
+                }
+            }
 
             $referral->update([
                 'status' => $status,
                 'decision' => $decision ?? $referral->decision,
                 'decision_comment' => $decisionComment ?? $referral->decision_comment,
+                // Preserve the stored reason when the caller sends none; a
+                // stale reason must never survive a move out of REJECTED.
+                'rejection_reason' => $status === 'REJECTED'
+                    ? ($rejectionReason ?? $referral->rejection_reason)
+                    : null,
             ]);
             // Audit logging is handled by AuditObserver::updated() — no manual log needed.
 
@@ -599,33 +656,7 @@ class ReferralService
 
             $this->eventRecorder->referralStatusChanged($referral, $oldStatus, $status, $userId);
 
-            // Notify case manager about the status change
-            if ($referral->caseFile) {
-                $caseManager = User::find($referral->caseFile->user_id);
-                if ($caseManager) {
-                    Notification::send(
-                        [$caseManager],
-                        new ReferralStatusChanged($referral, $oldStatus, $status),
-                    );
-                }
-
-                // Also create OFW notification
-                if ($referral->caseFile->client && $referral->caseFile->client->email) {
-                    $this->notificationService->notifyOfw(
-                        $referral->caseFile,
-                        $referral->caseFile->client->email,
-                        'referral_status_changed',
-                        'Referral Status Updated',
-                        "Referral status changed from {$oldStatus} to {$status}.",
-                        [
-                            'referral_id' => $referral->id,
-                            'old_status' => $oldStatus,
-                            'new_status' => $status,
-                        ],
-                        route('track.show', $referral->caseFile->tracker_number ?? $referral->case_id),
-                    );
-                }
-            }
+            $this->notifier->notifyStatusChanged($referral, $oldStatus, $status, $userId, $rejectionReason);
 
             // Dispatch ReferralCompleted event for feedback request
             if ($status === 'COMPLETED' && $oldStatus !== 'COMPLETED') {
@@ -636,26 +667,10 @@ class ReferralService
         });
 
         if ($changed && $caseId !== null) {
-            TrackingService::invalidateTrackingCache($caseId, $id);
+            Cache::forget(TrackingService::trackingMilestonesCacheKey($caseId, $id));
         }
 
         return $referral;
-    }
-
-    /**
-     * Reject any status change that is not part of the referral workflow.
-     *
-     * @throws \InvalidArgumentException
-     */
-    private function assertAllowedTransition(string $from, string $to): void
-    {
-        $allowed = self::STATUS_TRANSITIONS[$from] ?? [];
-
-        if (! in_array($to, $allowed, true)) {
-            throw new \InvalidArgumentException(
-                "Cannot change referral status from {$from} to {$to}."
-            );
-        }
     }
 
     public function addMilestone(string $referralId, string $title, ?string $description, string $userId, ?array $requirements = null): Milestone
@@ -683,41 +698,13 @@ class ReferralService
 
             // Audit logging is handled by AuditObserver::created() — no manual log needed.
 
-            // Dispatch notifications for the milestone (already loaded above)
-            if ($referral && $referral->caseFile) {
-                $caseManager = User::find($referral->caseFile->user_id);
-                $agencyUsers = User::where('agcy_id', $referral->agcy_id)
-                    ->where('is_active', true)
-                    ->get();
-
-                $notifyUsers = collect();
-                if ($caseManager) {
-                    $notifyUsers->push($caseManager);
-                }
-                foreach ($agencyUsers as $au) {
-                    $notifyUsers->push($au);
-                }
-
-                $clientEmail = $referral->caseFile->client?->email ?? '';
-
-                $this->notificationService->notifyAll(
-                    $referral->caseFile,
-                    $notifyUsers->unique('id')->all(),
-                    $clientEmail,
-                    new MilestoneAdded($milestone, $referral),
-                    'milestone_added',
-                    'New Milestone Added',
-                    "New milestone '{$title}' added to referral.",
-                    ['referral_id' => $referralId, 'milestone_id' => $milestone->id, 'milestone_title' => $title],
-                    route('referrals.show', $referral->id),
-                );
-            }
+            $this->notifier->notifyMilestone($referral, $milestone, $title, $userId);
 
             return $milestone->load('user');
         });
 
         if ($caseId !== null) {
-            TrackingService::invalidateTrackingCache($caseId, $referralId);
+            Cache::forget(TrackingService::trackingMilestonesCacheKey($caseId, $referralId));
         }
 
         return $milestone;
@@ -826,27 +813,58 @@ class ReferralService
             $query->where('status', strtoupper($statusFilter));
         }
 
-        // Sort
+        // Sort — joins instead of correlated per-row subqueries so the
+        // planner scans the joined tables once rather than once per row.
+        // The milestone subquery reads the table directly (DB::table, no
+        // model scopes) to match the original raw-SQL semantics exactly.
         $sortBy = $filters['sort_by'] ?? 'most_stale';
-        $query->orderBy(
-            match ($sortBy) {
-                'status' => 'status',
-                'client_name' => DB::raw('(SELECT CONCAT(first_name, \' \', last_name) FROM clients WHERE clients.id = (SELECT client_id FROM cases WHERE cases.id = referrals.case_id))'),
-                default => DB::raw('EXTRACT(EPOCH FROM (NOW() - COALESCE(
-                    (SELECT MAX(created_at) FROM milestones WHERE refr_id = referrals.id),
-                    GREATEST(referrals.updated_at, referrals.created_at)
-                )))'),
-            },
-            match ($sortBy) {
-                'status' => 'asc',
-                default => 'desc',
-            },
-        );
+        $latestMilestones = fn (): \Illuminate\Database\Query\Builder => DB::table('milestones')
+            ->select('refr_id')
+            ->selectRaw('MAX(created_at) AS max_created_at')
+            ->groupBy('refr_id');
+        $query->select('referrals.*');
+        if ($sortBy === 'client_name') {
+            $query
+                ->leftJoin('cases', 'cases.id', '=', 'referrals.case_id')
+                ->leftJoin('clients', 'clients.id', '=', 'cases.client_id')
+                ->orderByRaw("CONCAT(clients.first_name, ' ', clients.last_name) DESC");
+        } elseif ($sortBy === 'status') {
+            $query->orderBy('referrals.status', 'asc');
+        } else {
+            $query
+                ->leftJoinSub(
+                    $latestMilestones(),
+                    'latest_milestones',
+                    'latest_milestones.refr_id',
+                    '=',
+                    'referrals.id'
+                )
+                ->orderByRaw('EXTRACT(EPOCH FROM (NOW() - COALESCE(latest_milestones.max_created_at, GREATEST(referrals.updated_at, referrals.created_at)))) DESC');
+        }
 
         // Stats and pagination intentionally derive from the same scoped and
-        // filtered query. Stats must not be limited to the current page.
-        $allReferrals = (clone $query)->get();
-        $perPage = (int) ($filters['per_page'] ?? 15);
+        // filtered query. Stats must not be limited to the current page, so
+        // they run as one conditional-aggregate query instead of hydrating
+        // every matching row into memory. select() (not selectRaw) resets the
+        // referrals.* column list the sort branch above added.
+        $statsRow = (clone $query)->toBase()->reorder()->select([
+            DB::raw('COUNT(*) AS total'),
+            DB::raw("COUNT(*) FILTER (WHERE referrals.status = 'PENDING') AS pending_count"),
+            DB::raw("COUNT(*) FILTER (WHERE referrals.status = 'PROCESSING') AS processing_count"),
+            DB::raw("COUNT(*) FILTER (WHERE referrals.status = 'FOR_COMPLIANCE') AS for_compliance_count"),
+            DB::raw('COUNT(*) FILTER (WHERE EXTRACT(EPOCH FROM (NOW() - COALESCE(latest_activity.max_created_at, GREATEST(referrals.updated_at, referrals.created_at)))) / 86400 < 15) AS mild_count'),
+            DB::raw('COUNT(*) FILTER (WHERE EXTRACT(EPOCH FROM (NOW() - COALESCE(latest_activity.max_created_at, GREATEST(referrals.updated_at, referrals.created_at)))) / 86400 BETWEEN 15 AND 29) AS moderate_count'),
+            DB::raw('COUNT(*) FILTER (WHERE EXTRACT(EPOCH FROM (NOW() - COALESCE(latest_activity.max_created_at, GREATEST(referrals.updated_at, referrals.created_at)))) / 86400 >= 30) AS severe_count'),
+        ])
+            ->leftJoinSub(
+                $latestMilestones(),
+                'latest_activity',
+                'latest_activity.refr_id',
+                '=',
+                'referrals.id'
+            )
+            ->first();
+        $perPage = max(1, min((int) ($filters['per_page'] ?? 15), 100));
         $referrals = $query->paginate($perPage);
 
         // Transform each referral to enrich with computed attributes
@@ -896,32 +914,17 @@ class ReferralService
 
         $referrals->setCollection($transformed);
 
-        // Aggregate stats
-        $allItems = $allReferrals->map(function (Referral $referral) use ($now) {
-            $latestMilestone = $referral->milestones->first();
-            $lastActivityDate = $latestMilestone
-                ? $latestMilestone->created_at
-                : ($referral->updated_at ?? $referral->created_at);
-            $daysSinceLastActivity = (int) $lastActivityDate->diffInDays($now);
-
-            return [
-                'status' => $referral->status,
-                'severity' => match (true) {
-                    $daysSinceLastActivity >= 30 => 'severe',
-                    $daysSinceLastActivity >= 15 => 'moderate',
-                    default => 'mild',
-                },
-            ];
-        });
-        $total = $allItems->count();
+        // Aggregate stats — computed by the single conditional-aggregate
+        // query above; no rows are hydrated for stats.
+        $total = (int) ($statsRow->total ?? 0);
         $stats = [
             'total' => $total,
-            'mild_count' => $allItems->where('severity', 'mild')->count(),
-            'moderate_count' => $allItems->where('severity', 'moderate')->count(),
-            'severe_count' => $allItems->where('severity', 'severe')->count(),
-            'pending_count' => $allItems->where('status', 'PENDING')->count(),
-            'processing_count' => $allItems->where('status', 'PROCESSING')->count(),
-            'for_compliance_count' => $allItems->where('status', 'FOR_COMPLIANCE')->count(),
+            'mild_count' => (int) ($statsRow->mild_count ?? 0),
+            'moderate_count' => (int) ($statsRow->moderate_count ?? 0),
+            'severe_count' => (int) ($statsRow->severe_count ?? 0),
+            'pending_count' => (int) ($statsRow->pending_count ?? 0),
+            'processing_count' => (int) ($statsRow->processing_count ?? 0),
+            'for_compliance_count' => (int) ($statsRow->for_compliance_count ?? 0),
         ];
 
         // Determine bottleneck
@@ -1094,23 +1097,41 @@ class ReferralService
             'actor' => $createLog?->user?->name ?? $referral->caseFile?->user?->name ?? 'System',
         ]);
 
-        // 2. Status changes from AuditLog (observer-created, module='referral')
-        $statusLogs = AuditLog::with('user')
-            ->where('module', 'referral')
-            ->where('entity_id', $referral->id)
+        // 2. Status changes from AuditLog (observer-created, module='referral').
+        //    The status-change predicate runs in SQL (jsonb) so the full log
+        //    history is never hydrated into PHP for filtering.
+        $statusLogs = AuditLog::forReferral($referral->id)
+            ->withUser()
             ->where('action', 'UPDATE')
+            ->whereRaw("(old_value->>'status' IS DISTINCT FROM new_value->>'status')")
             ->orderBy('timestamp')
-            ->get()
-            ->filter(fn (AuditLog $log) => ($log->old_value['status'] ?? null) !== ($log->new_value['status'] ?? null));
+            ->get();
 
         foreach ($statusLogs as $log) {
+            // Timeline is metadata-only: surface only the controlled-vocabulary
+            // `status` key. Never include free-text fields (decision_comment,
+            // private_note, description, etc.) or the raw audit description.
+            $oldStatus = self::extractTimelineStatus($log->old_value);
+            $newStatus = self::extractTimelineStatus($log->new_value);
+            $oldLabel = $oldStatus !== null ? self::humanizeReferralStatus($oldStatus) : null;
+            $newLabel = $newStatus !== null ? self::humanizeReferralStatus($newStatus) : null;
+
+            $title = 'Referral status updated';
+            $description = '';
+
+            if ($newLabel !== null) {
+                $title = "Referral status updated to {$newLabel}";
+
+                if ($oldLabel !== null) {
+                    $description = "Changed from {$oldLabel} to {$newLabel}";
+                }
+            }
+
             $events->push([
                 'id' => 'status-'.$log->id,
                 'type' => 'referral_status',
-                // The audit row may include internal free text or additional
-                // fields beside status. Keep this timeline metadata-only.
-                'title' => 'Referral status updated',
-                'description' => '',
+                'title' => $title,
+                'description' => $description,
                 'timestamp' => $log->timestamp->toISOString(),
                 'actor' => $log->user?->name ?? 'System',
             ]);
@@ -1177,12 +1198,68 @@ class ReferralService
         return $events->sortBy('timestamp')->values()->toArray();
     }
 
+    /**
+     * Paginated audit trail for a referral (newest first).
+     *
+     * SQL-side filtering via scopes: no PHP filter(fn). latest('timestamp')
+     * is used because audit_logs has no created_at column.
+     */
+    public function getReferralAuditLogs(string $referralId, int $perPage = 25): LengthAwarePaginator
+    {
+        return AuditLog::forReferral($referralId)
+            ->withUser()
+            ->latest('timestamp')
+            ->paginate($perPage);
+    }
+
     public function getAttachmentVersions(string $referralId, string $versionGroupId)
     {
         return ReferralAttachment::where('referral_id', $referralId)
             ->where('version_group_id', $versionGroupId)
-            ->with('user')
             ->orderBy('created_at', 'desc')
             ->get();
+    }
+
+    /**
+     * Extract the controlled-vocabulary referral status from an audit
+     * old_value/new_value payload. Payloads may be arrays (Eloquent cast)
+     * or raw JSON strings. Only the `status` key is used; anything else
+     * (free text, notes, diffs) is ignored so it can never leak into
+     * the timeline.
+     */
+    private static function extractTimelineStatus(mixed $value): ?string
+    {
+        if (is_string($value)) {
+            $decoded = json_decode($value, true);
+
+            if (! is_array($decoded)) {
+                return null;
+            }
+
+            $value = $decoded;
+        }
+
+        if (! is_array($value)) {
+            return null;
+        }
+
+        $status = $value['status'] ?? null;
+
+        if (! is_string($status) || trim($status) === '') {
+            return null;
+        }
+
+        $normalized = strtoupper(trim($status));
+
+        if (! in_array($normalized, ['PENDING', 'PROCESSING', 'FOR_COMPLIANCE', 'COMPLETED', 'REJECTED'], true)) {
+            return null;
+        }
+
+        return $normalized;
+    }
+
+    private static function humanizeReferralStatus(string $status): string
+    {
+        return ucwords(strtolower(str_replace('_', ' ', $status)));
     }
 }

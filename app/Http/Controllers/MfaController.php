@@ -101,6 +101,16 @@ class MfaController extends Controller
 
     public function disable(Request $request): JsonResponse
     {
+        if (function_exists('app')) {
+            try {
+                if (app()->isProduction()) {
+                    return response()->json(['message' => 'Two-factor authentication cannot be disabled in production.'], 403);
+                }
+            } catch (\Throwable $e) {
+                // Fall through to normal behaviour when app context is unavailable.
+            }
+        }
+
         $request->validate([
             'password' => ['required', 'string'],
         ]);

@@ -14,10 +14,16 @@ class UserInvite extends Model
         'role',
         'agcy_id',
         'token',
+        'token_hash',
         'expires_at',
         'created_by',
         'consumed_at',
         'cancelled_at',
+    ];
+
+    protected $hidden = [
+        'token',
+        'token_hash',
     ];
 
     protected $casts = [

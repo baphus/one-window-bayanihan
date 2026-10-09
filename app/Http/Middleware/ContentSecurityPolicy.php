@@ -54,6 +54,9 @@ class ContentSecurityPolicy
             // Production/staging: enforce the nonce-based policy.
             if (! $response->headers->has('Content-Security-Policy')) {
                 $response->headers->set('Content-Security-Policy', $this->getPolicy($nonce));
+                if ($reportUri = config('csp.report_uri')) {
+                    $response->headers->set('Reporting-Endpoints', 'csp="'.url($reportUri).'"');
+                }
             }
         }
 
@@ -71,18 +74,24 @@ class ContentSecurityPolicy
         $reportUri = config('csp.report_uri', '');
 
         $policy = "default-src 'self'; "
-            ."script-src 'self' 'nonce-{$nonce}' https://challenges.cloudflare.com; "
+            // Trust nonce-bearing entry points and the scripts they load (Vite
+            // imports/prefetch and Turnstile), not arbitrary same-origin files.
+            ."script-src 'nonce-{$nonce}' 'strict-dynamic' https://challenges.cloudflare.com; "
+            ."script-src-attr 'none'; "
+            ."worker-src 'self'; "
             ."style-src 'self' 'unsafe-inline' https://fonts.bunny.net https://fonts.googleapis.com; "
             ."img-src 'self' data: blob: https://res.cloudinary.com; "
             ."connect-src 'self' wss: https://challenges.cloudflare.com; "
             ."frame-src 'self' https://challenges.cloudflare.com https://www.google.com https://maps.google.com; "
             ."object-src 'none'; "
-            ."base-uri 'self'; "
+            ."base-uri 'none'; "
+            ."frame-ancestors 'none'; "
             ."form-action 'self'; "
             ."font-src 'self' data: https://fonts.bunny.net https://fonts.gstatic.com https://fonts.googleapis.com";
 
         if ($reportUri) {
-            $policy .= "; report-uri {$reportUri}";
+            // Keep report-uri for browsers without Reporting API support.
+            $policy .= "; report-uri {$reportUri}; report-to csp";
         }
 
         return $policy;
@@ -97,11 +106,18 @@ class ContentSecurityPolicy
         $viteOrigin = env('VITE_DEV_SERVER_URL', 'http://127.0.0.1:5173');
         $appOrigin = config('app.url');
 
+        // Dev-only origins (localhost HMR endpoints) are scoped to this local
+        // policy, which is only served when app()->environment('local').
+        // Production/staging use getPolicy() and never see these origins.
+        $devConnectOrigins = app()->environment('local')
+            ? 'http://localhost:8000 http://127.0.0.1:8000 wss: '.$viteOrigin.' ws://127.0.0.1:5173'
+            : $viteOrigin;
+
         return "default-src 'self'; "
             ."script-src 'self' 'unsafe-inline' 'unsafe-eval' {$viteOrigin} https://challenges.cloudflare.com; "
             ."style-src 'self' 'unsafe-inline' https://fonts.bunny.net https://fonts.googleapis.com; "
             ."img-src 'self' data: blob: https://res.cloudinary.com; "
-            ."connect-src 'self' {$appOrigin} http://localhost:8000 http://127.0.0.1:8000 wss: {$viteOrigin} ws://127.0.0.1:5173 https://challenges.cloudflare.com; "
+            ."connect-src 'self' {$appOrigin} {$devConnectOrigins} https://challenges.cloudflare.com; "
             ."worker-src 'self' blob:; "
             ."frame-src 'self' https://challenges.cloudflare.com https://www.google.com https://maps.google.com; "
             ."object-src 'none'; "

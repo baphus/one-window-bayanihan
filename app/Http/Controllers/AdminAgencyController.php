@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\AuditAction;
 use App\Enums\AuditModule;
 use App\Helpers\CacheHelper;
+use App\Http\Controllers\Concerns\ResolvesPerPage;
 use App\Models\Agency;
 use App\Models\AuditLog;
 use App\Models\User;
@@ -16,6 +17,8 @@ use Inertia\Inertia;
 
 class AdminAgencyController extends Controller
 {
+    use ResolvesPerPage;
+
     public function index(Request $request)
     {
         $filters = $request->only(['search', 'status', 'is_default']);
@@ -40,7 +43,7 @@ class AdminAgencyController extends Controller
             $query->where('is_default', $request->boolean('is_default'));
         }
 
-        $perPage = min((int) ($request->per_page ?? 15), 100);
+        $perPage = $this->perPage($request, 15);
         $agencies = $query->orderBy('name')->paginate($perPage);
 
         return Inertia::render('Admin/Agency/Index', [
@@ -233,7 +236,7 @@ class AdminAgencyController extends Controller
             'users',
         ]);
 
-        $perPage = min((int) ($request->per_page ?? 15), 100);
+        $perPage = $this->perPage($request, 15);
         $referrals = $agency->referrals()
             ->with(['caseFile.client'])
             ->latest()

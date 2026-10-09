@@ -1,6 +1,6 @@
 const content = `# Managing Overdue Referrals
 
-Overdue referrals are active referrals older than the configured cutoff. The default setting is commonly **referral_overdue_days = 7**. Terminal **COMPLETED** and **REJECTED** referrals are excluded.
+Overdue referrals are active referrals older than the configured cutoff. The cutoff is the **referral_overdue_days** system setting (default 7 days, adjustable by an administrator). Terminal **COMPLETED** and **REJECTED** referrals are excluded. Open them from the dedicated **Overdue Referrals** page, which also offers a send-reminders action.
 
 ![Referrals index](/assets/helpdesk/referrals-index.png)
 

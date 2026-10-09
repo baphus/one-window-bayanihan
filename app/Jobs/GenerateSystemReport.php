@@ -4,12 +4,12 @@ namespace App\Jobs;
 
 use App\Models\GeneratedDocument;
 use App\Models\User;
-use App\Services\Export\ColumnMaps;
 use App\Services\Export\DataExportQueries;
 use App\Services\Export\DataExportService;
 use App\Services\Reports\ReportsExportService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
@@ -18,13 +18,29 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
-class GenerateSystemReport implements ShouldQueue
+class GenerateSystemReport implements ShouldBeUnique, ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public int $tries = 1;
+    public int $tries = 3;
 
     public int $timeout = 300;
+
+    /**
+     * Two clicks on "export" used to queue two jobs that each held the whole
+     * dataset in memory at the same time. One per document record is enough.
+     */
+    public int $uniqueFor = 3600;
+
+    public function uniqueId(): string
+    {
+        return $this->documentId;
+    }
+
+    public function backoff(): array
+    {
+        return [30, 120, 600];
+    }
 
     /**
      * @param  string  $documentId  UUID of the pre-created GeneratedDocument record.
@@ -41,6 +57,7 @@ class GenerateSystemReport implements ShouldQueue
     public function handle(
         ReportsExportService $reportsExportService,
         DataExportService $dataExportService,
+        DataExportQueries $queries,
     ): void {
         $document = GeneratedDocument::find($this->documentId);
 
@@ -55,7 +72,7 @@ class GenerateSystemReport implements ShouldQueue
 
             match ($this->type) {
                 'system_report_pdf' => $this->generatePdf($reportsExportService, $tempPath),
-                'admin_full_export' => $this->generateAdminExport($dataExportService, $tempPath),
+                'admin_full_export' => $this->generateAdminExport($dataExportService, $queries, $tempPath),
                 default => throw new \InvalidArgumentException("Unknown report type: {$this->type}"),
             };
 
@@ -83,7 +100,7 @@ class GenerateSystemReport implements ShouldQueue
 
             @unlink($tempPath ?? null);
 
-            $this->fail($e);
+            throw $e;
         }
     }
 
@@ -94,39 +111,12 @@ class GenerateSystemReport implements ShouldQueue
         $pdf->save($tempPath);
     }
 
-    private function generateAdminExport(DataExportService $dataExportService, string $tempPath): void
+    private function generateAdminExport(DataExportService $dataExportService, DataExportQueries $queries, string $tempPath): void
     {
         // Rebuild the user from criteria so queries are scoped correctly.
         $user = User::findOrFail($this->criteria['user_id']);
 
-        $queries = new DataExportQueries;
-
-        $tableQueryMap = [
-            'cases' => fn () => $queries->getCases($user),
-            'clients' => fn () => $queries->getClients($user),
-            'referrals' => fn () => $queries->getReferrals($user),
-            'users' => fn () => $queries->getUsers($user),
-            'agencies' => fn () => $queries->getAgencies(),
-            'services' => fn () => $queries->getServices(),
-            'milestones' => fn () => $queries->getMilestones($user),
-            'next_of_kin' => fn () => $queries->getNextOfKins($user),
-            'feedback' => fn () => $queries->getFeedbacks($user),
-            'case_documents' => fn () => $queries->getCaseDocuments($user),
-            'client_addresses' => fn () => $queries->getClientAddresses($user),
-            'client_employments' => fn () => $queries->getClientEmployments($user),
-            'case_categories' => fn () => $queries->getCaseCategories(),
-            'case_statuses' => fn () => $queries->getCaseStatuses(),
-        ];
-
-        $sheets = [];
-        foreach (ColumnMaps::getAllTables() as $table) {
-            $data = isset($tableQueryMap[$table]) ? $tableQueryMap[$table]() : collect();
-            $sheets[] = [
-                'title' => ucfirst($table),
-                'columnMap' => ColumnMaps::getMap($table),
-                'rows' => $data,
-            ];
-        }
+        $sheets = $queries->fullExportSheets($user);
 
         $dataExportService->generateMultiSheetToFile($sheets, $tempPath);
     }

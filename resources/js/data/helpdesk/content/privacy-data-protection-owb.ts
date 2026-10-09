@@ -6,10 +6,10 @@ One Window Bayanihan handles sensitive OFW and family-assistance information. Us
 
 ## Built-in safeguards
 
-- Role-based access control limits pages and actions by role: CASE_MANAGER, AGENCY, and ADMIN.
-- Audit logs record significant actions for accountability.
-- Data is stored in PostgreSQL/Supabase-backed infrastructure configured for the deployment.
-- File access uses storage controls such as temporary URLs where implemented.
+- Role-based access control limits pages and actions by role: CASE_MANAGER, AGENCY, ADMIN, and OFW. Reads of case data are gated by role — staff roles see what their duties require, and OFW users see only their own cases under /my-cases.
+- Audit logs record significant actions for accountability, chained with SHA-256 hashes so tampering can be detected.
+- Data is stored in PostgreSQL 17 infrastructure configured for the deployment.
+- Files live in S3-compatible object storage; access is granted through the StorageService as short-lived temporary URLs, never as permanent public links.
 - Sensitive settings may be stored encrypted by the application.
 
 These safeguards support privacy operations, but they do not replace user responsibility. Authorized access must still be necessary, proportionate, and work-related.

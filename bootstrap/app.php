@@ -7,14 +7,10 @@ use App\Http\Middleware\ContentSecurityPolicy;
 use App\Http\Middleware\EnsureMfaChallenge;
 use App\Http\Middleware\EnsureMfaSession;
 use App\Http\Middleware\HandleInertiaRequests;
-use App\Http\Middleware\IpWhitelist;
 use App\Http\Middleware\LogContext;
 use App\Http\Middleware\SecurityHeaders;
 use App\Http\Middleware\SetPostgresSession;
-use App\Http\Middleware\StripRedirectResponseBody;
 use App\Http\Middleware\VerifyTurnstile;
-use App\Http\Middleware\VerifyTurnstileSession;
-use App\Services\IncidentIdService;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Application;
@@ -26,6 +22,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\ViewErrorBag;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
+use Ramsey\Uuid\Uuid;
 use Sentry\Laravel\Integration;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\HttpException;
@@ -41,10 +38,8 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->append(SetPostgresSession::class);
         $middleware->append(LogContext::class);
         $middleware->append(SecurityHeaders::class);
-        $middleware->append(StripRedirectResponseBody::class);
 
         // Use browser-provided origin metadata for CSRF protection. Besides
         // rejecting cross-origin writes, this prevents Laravel from emitting
@@ -68,14 +63,14 @@ return Application::configure(basePath: dirname(__DIR__))
                 CheckMfaEnrolled::class,
                 HandleInertiaRequests::class,
                 AddLinkHeadersForPreloadedAssets::class,
+                SetPostgresSession::class,
             ],
         );
 
         $middleware->alias([
             'role' => CheckRole::class,
-            'ip.whitelist' => IpWhitelist::class,
             'turnstile' => VerifyTurnstile::class,
-            'turnstile.session' => VerifyTurnstileSession::class,
+            'turnstile.session' => VerifyTurnstile::class,
             'mfa.pending' => EnsureMfaChallenge::class,
         ]);
     })
@@ -100,13 +95,39 @@ return Application::configure(basePath: dirname(__DIR__))
             return null;
         });
 
-        $exceptions->render(function (NotFoundHttpException $e, Request $request) {
-            if ($request->is(['api/*', '*/api/*'])) {
-                return response()->json(['message' => 'Resource not found.'], 404);
-            }
+        $statusPages = [
+            NotFoundHttpException::class => ['status' => 404, 'message' => 'Resource not found.', 'view' => 'Errors/NotFound', 'expectsJson' => false],
+            AccessDeniedHttpException::class => ['status' => 403, 'message' => 'Forbidden.', 'view' => 'Errors/Forbidden', 'expectsJson' => true],
+            AuthenticationException::class => ['status' => 401, 'message' => 'Unauthenticated.', 'redirect' => 'login', 'expectsJson' => true],
+            TooManyRequestsHttpException::class => ['status' => 429, 'message' => 'Too many requests. Please slow down.', 'view' => 'Errors/TooManyRequests', 'expectsJson' => true],
+            MethodNotAllowedHttpException::class => ['status' => 405, 'message' => 'Method not allowed.', 'redirect' => '/', 'expectsJson' => false],
+        ];
 
-            return Inertia::render('Errors/NotFound')->toResponse($request)->setStatusCode(404);
-        });
+        foreach ($statusPages as $class => $page) {
+            $exceptions->render(function (Throwable $e, Request $request) use ($class, $page) {
+                if (! $e instanceof $class) {
+                    return null;
+                }
+
+                $isApi = $request->is(['api/*', '*/api/*'])
+                    || (($page['expectsJson'] ?? false) && $request->expectsJson());
+
+                if ($isApi) {
+                    return response()->json(['message' => $page['message']], $page['status']);
+                }
+
+                if (($page['redirect'] ?? null) === 'login') {
+                    return redirect()->guest(route('login'));
+                }
+
+                if (isset($page['redirect'])) {
+                    return redirect($page['redirect']);
+                }
+
+                return Inertia::render($page['view'])->toResponse($request)->setStatusCode($page['status']);
+            });
+        }
+
         $exceptions->render(function (ValidationException $e, Request $request) {
             if ($request->is(['api/*', '*/api/*']) || $request->expectsJson()) {
                 return response()->json([
@@ -117,40 +138,13 @@ return Application::configure(basePath: dirname(__DIR__))
 
             return null; // Let Inertia handle it
         });
-        $exceptions->render(function (AccessDeniedHttpException $e, Request $request) {
-            if ($request->is(['api/*', '*/api/*']) || $request->expectsJson()) {
-                return response()->json(['message' => 'Forbidden.'], 403);
-            }
 
-            return Inertia::render('Errors/Forbidden')->toResponse($request)->setStatusCode(403);
-        });
-        $exceptions->render(function (AuthenticationException $e, Request $request) {
-            if ($request->is(['api/*', '*/api/*']) || $request->expectsJson()) {
-                return response()->json(['message' => 'Unauthenticated.'], 401);
-            }
-
-            return redirect()->guest(route('login'));
-        });
-        $exceptions->render(function (TooManyRequestsHttpException $e, Request $request) {
-            if ($request->is(['api/*', '*/api/*']) || $request->expectsJson()) {
-                return response()->json(['message' => 'Too many requests. Please slow down.'], 429);
-            }
-
-            return inertia('Errors/TooManyRequests', [])->toResponse($request)->setStatusCode(429);
-        });
         $exceptions->render(function (ModelNotFoundException $e, Request $request) {
             if ($request->is(['api/*', '*/api/*'])) {
                 return response()->json(['message' => 'Resource not found.'], 404);
             }
 
             return null; // Let the default 404 handler take over
-        });
-        $exceptions->render(function (MethodNotAllowedHttpException $e, Request $request) {
-            if ($request->is(['api/*', '*/api/*'])) {
-                return response()->json(['message' => 'Method not allowed.'], 405);
-            }
-
-            return redirect('/');
         });
         $exceptions->render(function (Throwable $e, Request $request) {
             if ($e instanceof HttpException || $e instanceof ValidationException || $e instanceof AuthenticationException) {
@@ -173,7 +167,7 @@ return Application::configure(basePath: dirname(__DIR__))
                 return null;
             }
 
-            $incidentId = IncidentIdService::generateId();
+            $incidentId = method_exists(Uuid::class, 'uuid7') ? Uuid::uuid7()->toString() : Str::uuid()->toString();
             Log::error('Unhandled exception', [
                 'incident_id' => $incidentId,
                 'exception' => $e,

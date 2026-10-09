@@ -243,7 +243,6 @@ class ReferralStatusChangedMailTest extends TestCase
         $referral = $referralService->createReferral([
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
-            'required_services' => 'Passport assistance',
         ], $caseManager->id);
 
         Notification::fake();
@@ -275,7 +274,6 @@ class ReferralStatusChangedMailTest extends TestCase
         $referral = $referralService->createReferral([
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
-            'required_services' => 'Passport assistance',
         ], $caseManager->id);
 
         $referralService->updateStatus($referral->id, 'PROCESSING', 'ACCEPT', null, $caseManager->id);
@@ -305,13 +303,15 @@ class ReferralStatusChangedMailTest extends TestCase
         $referral = $referralService->createReferral([
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
-            'required_services' => 'Passport assistance',
         ], $caseManager->id);
 
         $referralService->updateStatus($referral->id, 'PROCESSING', 'ACCEPT', null, $caseManager->id);
 
         Mail::assertQueued(ClientUpdateMail::class, function (ClientUpdateMail $mail) {
-            return str_contains($mail->message, 'Referral status changed from PENDING to PROCESSING');
+            // Client copy is plain language: no internal status codes.
+            return str_contains($mail->message, 'has started working on your case')
+                && ! str_contains($mail->message, 'PENDING')
+                && ! str_contains($mail->message, 'PROCESSING');
         });
     }
 
@@ -337,7 +337,6 @@ class ReferralStatusChangedMailTest extends TestCase
         $referral = $referralService->createReferral([
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
-            'required_services' => 'Passport assistance',
         ], $caseManager->id);
 
         $referralService->updateStatus($referral->id, 'PROCESSING', 'ACCEPT', null, $caseManager->id);
@@ -368,7 +367,6 @@ class ReferralStatusChangedMailTest extends TestCase
         $referral = $referralService->createReferral([
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
-            'required_services' => 'Passport assistance',
         ], $caseManager->id);
 
         Notification::fake();

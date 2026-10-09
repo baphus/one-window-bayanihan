@@ -2,28 +2,18 @@
 
 namespace App\Services;
 
+use App\Enums\AuditAction;
 use Illuminate\Support\Facades\Artisan;
 
 class MaintenanceService
 {
     public function getStatus(): array
     {
-        $path = storage_path('framework/down');
-        $isDown = file_exists($path);
-        $secret = null;
-        $retry = null;
-
-        if ($isDown) {
-            $data = json_decode(file_get_contents($path), true) ?: [];
-            $secret = $data['secret'] ?? null;
-            $retry = $data['retry'] ?? null;
-        }
-
         return [
-            'active' => $isDown,
-            'secret' => $secret,
-            'retry' => $retry,
-            'since' => $isDown ? date('Y-m-d H:i:s', filemtime($path)) : null,
+            'active' => app()->maintenanceMode()->active(),
+            'secret' => null,
+            'retry' => null,
+            'since' => null,
         ];
     }
 
@@ -32,6 +22,13 @@ class MaintenanceService
         if ($this->getStatus()['active']) {
             throw new \RuntimeException('Maintenance mode is already enabled.');
         }
+
+        SecurityAuditLogger::log(
+            'maintenance',
+            'Maintenance mode was enabled',
+            null,
+            AuditAction::UPDATE->value,
+        );
 
         $params = ['--secret' => $secret];
 
@@ -47,6 +44,13 @@ class MaintenanceService
         if (! $this->getStatus()['active']) {
             throw new \RuntimeException('Maintenance mode is not enabled.');
         }
+
+        SecurityAuditLogger::log(
+            'maintenance',
+            'Maintenance mode was disabled',
+            null,
+            AuditAction::UPDATE->value,
+        );
 
         Artisan::call('up');
     }

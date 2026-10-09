@@ -32,8 +32,10 @@ class CaseUpdatedTest extends TestCase
         $this->assertSame($case->id, $data['case_id']);
         $this->assertSame($case->case_number, $data['case_number']);
         $this->assertSame('Test User', $data['updated_by']);
+        $this->assertSame('Test User', $data['actor_name']);
         $this->assertSame($changes, $data['changes']);
-        $this->assertSame('Case updated by Test User', $data['message']);
+        $this->assertSame('Case CASE-2026-001 updated by Test User', $data['title']);
+        $this->assertSame('Case CASE-2026-001 updated by Test User', $data['message']);
         $this->assertSame(route('cases.show', $case->id), $data['url']);
     }
 

@@ -8,7 +8,7 @@ function AgencyLogo({ agency }) {
 
   if (hasError || !agency.logo_url) {
     return (
-      <div className="flex h-14 w-14 items-center justify-center rounded-circle bg-primary/10">
+      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
         <span className="text-lg font-bold text-primary">{agency.short?.charAt(0)}</span>
       </div>
     );
@@ -34,7 +34,7 @@ function AgencyCard({ agency }) {
   return (
     <div className="h-full border border-outline-variant/30 bg-surface-container-lowest p-4 text-left shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
       <div className="mb-3 flex items-center gap-3">
-        <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-circle bg-white shadow-sm">
+        <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white shadow-sm">
           <AgencyLogo agency={agency} />
         </div>
         <div className="min-w-0">
@@ -115,10 +115,10 @@ export default function PartnersSection({ agencies }) {
             </div>
             {desktopPages > 1 && (
               <>
-                <button type="button" onClick={goPrev} className="absolute left-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-circle bg-black/55 text-white transition-colors hover:bg-black/70" aria-label="Previous agencies">
+                <button type="button" onClick={goPrev} className="absolute left-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/55 text-white transition-colors hover:bg-black/70" aria-label="Previous agencies">
                   <span className="material-symbols-outlined" aria-hidden="true">chevron_left</span>
                 </button>
-                <button type="button" onClick={goNext} className="absolute right-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-circle bg-black/55 text-white transition-colors hover:bg-black/70" aria-label="Next agencies">
+                <button type="button" onClick={goNext} className="absolute right-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/55 text-white transition-colors hover:bg-black/70" aria-label="Next agencies">
                   <span className="material-symbols-outlined" aria-hidden="true">chevron_right</span>
                 </button>
               </>
@@ -151,10 +151,10 @@ export default function PartnersSection({ agencies }) {
             </div>
             {total > 1 && (
               <>
-                <button type="button" onClick={() => setActivePage((p) => (p - 1 + mobilePages) % mobilePages)} className="absolute left-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-circle bg-black/55 text-white transition-colors hover:bg-black/70" aria-label="Previous agency">
+                <button type="button" onClick={() => setActivePage((p) => (p - 1 + mobilePages) % mobilePages)} className="absolute left-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/55 text-white transition-colors hover:bg-black/70" aria-label="Previous agency">
                   <span className="material-symbols-outlined" aria-hidden="true">chevron_left</span>
                 </button>
-                <button type="button" onClick={() => setActivePage((p) => (p + 1) % mobilePages)} className="absolute right-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-circle bg-black/55 text-white transition-colors hover:bg-black/70" aria-label="Next agency">
+                <button type="button" onClick={() => setActivePage((p) => (p + 1) % mobilePages)} className="absolute right-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/55 text-white transition-colors hover:bg-black/70" aria-label="Next agency">
                   <span className="material-symbols-outlined" aria-hidden="true">chevron_right</span>
                 </button>
               </>

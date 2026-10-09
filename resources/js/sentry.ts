@@ -50,10 +50,3 @@ export function initSentry(): void {
         Sentry.setTag('request_id', requestId);
     }
 }
-
-/**
- * Read the backend request ID for the current Inertia page, if one was shared.
- */
-export function pageRequestId(requestId: unknown): string | undefined {
-    return typeof requestId === 'string' && requestId.length > 0 ? requestId : undefined;
-}

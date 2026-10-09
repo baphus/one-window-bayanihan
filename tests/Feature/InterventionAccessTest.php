@@ -169,6 +169,8 @@ class InterventionAccessTest extends TestCase
             route('referrals.update-status', $this->referral),
             [
                 'status' => 'REJECTED',
+                'decision' => 'REJECT',
+                'rejection_reason' => 'OUTSIDE_MANDATE',
             ],
         );
 
@@ -178,6 +180,62 @@ class InterventionAccessTest extends TestCase
         $this->assertDatabaseHas('referrals', [
             'id' => $this->referral->id,
             'status' => 'PROCESSING',
+        ]);
+    }
+
+    #[Test]
+    public function agency_rejection_without_reason_is_refused(): void
+    {
+        $agencyUser = User::factory()->create([
+            'role' => 'AGENCY',
+            'agcy_id' => $this->dmw->id,
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAs($agencyUser)->patch(
+            route('referrals.update-status', $this->referral),
+            [
+                'status' => 'REJECTED',
+                'decision' => 'REJECT',
+            ],
+        );
+
+        $response->assertRedirect();
+        $response->assertSessionHasErrors('rejection_reason');
+
+        $this->assertDatabaseHas('referrals', [
+            'id' => $this->referral->id,
+            'status' => 'PROCESSING',
+            'rejection_reason' => null,
+        ]);
+    }
+
+    #[Test]
+    public function agency_rejection_with_reason_succeeds(): void
+    {
+        $agencyUser = User::factory()->create([
+            'role' => 'AGENCY',
+            'agcy_id' => $this->dmw->id,
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAs($agencyUser)->patch(
+            route('referrals.update-status', $this->referral),
+            [
+                'status' => 'REJECTED',
+                'decision' => 'REJECT',
+                'decision_comment' => 'Outside our mandate.',
+                'rejection_reason' => 'OUTSIDE_MANDATE',
+            ],
+        );
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success');
+
+        $this->assertDatabaseHas('referrals', [
+            'id' => $this->referral->id,
+            'status' => 'REJECTED',
+            'rejection_reason' => 'OUTSIDE_MANDATE',
         ]);
     }
 

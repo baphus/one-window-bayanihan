@@ -10,14 +10,46 @@ use Illuminate\Support\Facades\Log;
 /**
  * Accept CSP violation reports sent by the browser.
  *
- * Enforced policies can still report blocked resource loads through report-uri.
+ * Accept both legacy report-uri payloads and Reporting API report-to batches.
  */
 class CspViolationController extends Controller
 {
     public function report(Request $request): JsonResponse
     {
-        $violation = $request->input('csp-report', $request->all());
+        // application/csp-report is not recognized as JSON by Request::isJson().
+        // Decode explicitly so legacy browsers and application/reports+json work.
+        $payload = json_decode($request->getContent(), true);
+        if (! is_array($payload)) {
+            return response()->json(null, 204);
+        }
 
+        if (array_is_list($payload)) {
+            foreach (array_slice($payload, 0, 20) as $report) {
+                if (! is_array($report) || ($report['type'] ?? null) !== 'csp-violation' || ! is_array($report['body'] ?? null)) {
+                    continue;
+                }
+
+                $body = $report['body'];
+                $this->logViolation($request, [
+                    'blocked-uri' => $body['blockedURL'] ?? null,
+                    'effective-directive' => $body['effectiveDirective'] ?? null,
+                    'original-policy' => $body['originalPolicy'] ?? null,
+                    'document-uri' => $body['documentURL'] ?? null,
+                    'referrer' => $body['referrer'] ?? null,
+                    'source-file' => $body['sourceFile'] ?? null,
+                    'line-number' => $body['lineNumber'] ?? null,
+                    'column-number' => $body['columnNumber'] ?? null,
+                ]);
+            }
+        } elseif (is_array($payload['csp-report'] ?? null)) {
+            $this->logViolation($request, $payload['csp-report']);
+        }
+
+        return response()->json(null, 204);
+    }
+
+    private function logViolation(Request $request, array $violation): void
+    {
         Log::debug('CSP violation reported', [
             'blocked_uri' => $violation['blocked-uri'] ?? null,
             'violated_directive' => $violation['violated-directive'] ?? null,
@@ -31,7 +63,5 @@ class CspViolationController extends Controller
             'user_agent' => $request->userAgent(),
             'ip' => $request->ip(),
         ]);
-
-        return response()->json(null, 204);
     }
 }

@@ -29,6 +29,10 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Single-caller guard, kept here by design: deploy.yml is reusable and has no
+  # `confirm` input, so folding this check in would add an input plus a job to
+  # the shared workflow for one caller's benefit. Revisit if a second caller
+  # appears.
   guard:
     name: Confirm intent
     runs-on: ubuntu-latest

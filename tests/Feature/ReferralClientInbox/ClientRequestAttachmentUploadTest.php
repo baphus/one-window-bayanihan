@@ -146,9 +146,9 @@ class ClientRequestAttachmentUploadTest extends ReferralClientInboxTestCase
 
         $attachment = ReferralClientMessageAttachment::first();
 
-        $this->mock(StorageService::class, function ($mock): void {
-            $mock->shouldReceive('temporaryUrl')->once()->andReturn('https://storage.test/client-request.pdf');
-        });
+        $storage = $this->createMock(StorageService::class);
+        $storage->expects($this->once())->method('temporaryUrl')->willReturn('https://storage.test/client-request.pdf');
+        $this->app->instance(StorageService::class, $storage);
 
         $this->actingAs($context['agencyUser'])
             ->get(route('referrals.client-requests.attachments.download', [$context['referral']->id, $attachment->id]))

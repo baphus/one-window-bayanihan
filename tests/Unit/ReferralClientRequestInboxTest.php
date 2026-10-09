@@ -74,11 +74,15 @@ class ReferralClientRequestInboxTest extends TestCase
 
         $this->assertSame([
             'type' => 'referral_client_request_client_reply',
+            'title' => 'Client responded: Documents needed',
+            'message' => "Client responded: 'Documents needed' (status: Client Responded)",
+            'case_number' => null,
+            'actor_name' => null,
+            'url' => '/referrals/referral-id/client-requests',
             'request_id' => 'request-id',
             'referral_id' => 'referral-id',
-            'title' => 'Documents needed',
+            'request_title' => 'Documents needed',
             'status' => 'CLIENT_RESPONDED',
-            'url' => '/referrals/referral-id/client-requests',
         ], $payload);
         $this->assertArrayNotHasKey('token', $payload);
         $this->assertArrayNotHasKey('body', $payload);

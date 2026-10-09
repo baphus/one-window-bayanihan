@@ -117,6 +117,13 @@ class ReportsController extends Controller
             'agencyWorkload' => Inertia::defer(fn () => $data['agencyWorkload'] ?? null),
             'referralTrends' => Inertia::defer(fn () => $data['referralTrends'] ?? null),
             'avgReferralCompletion' => Inertia::defer(fn () => $data['avgReferralCompletion'] ?? null),
+            'rejectionReasonDistribution' => Inertia::defer(fn () => $data['rejectionReasonDistribution'] ?? null),
+            'caseSourceDistribution' => Inertia::defer(fn () => $data['caseSourceDistribution'] ?? null),
+            'closedCasesOverTime' => Inertia::defer(fn () => $data['closedCasesOverTime'] ?? null),
+            'reopenedStats' => Inertia::defer(fn () => $data['reopenedStats'] ?? null),
+            'caseEventActorDistribution' => Inertia::defer(fn () => $data['caseEventActorDistribution'] ?? null),
+            'agencyFirstResponse' => Inertia::defer(fn () => $data['agencyFirstResponse'] ?? null),
+            'clientRequestTypeDistribution' => Inertia::defer(fn () => $data['clientRequestTypeDistribution'] ?? null),
         ]);
     }
 

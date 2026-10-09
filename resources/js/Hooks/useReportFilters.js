@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { router } from '@inertiajs/react';
-import { getQuickRangeDates } from '@/Components/Reports/DateRangePicker';
+import { getQuickRangeDates } from '@/lib/dates';
 
 const QUICK_RANGE_OPTIONS = ['7_DAYS', '14_DAYS', '30_DAYS', '6_MONTHS', '1_YEAR'];
 

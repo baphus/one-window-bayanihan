@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\CacheHelper;
 use App\Models\User;
 use App\Services\DashboardService;
 use App\Services\ReportsService;
@@ -43,9 +44,11 @@ class DashboardController extends Controller
 
         $data['role'] = $user->role;
 
-        // getCaseTrends() is heavy — only the case manager dashboard renders it
-        if (! in_array($user->role, ['AGENCY', 'ADMIN'], true)) {
-            $data['caseTrends'] = $reportsService->getCaseTrends();
+        // getCaseTrends() is heavy — skip for agency dashboards which don't render it.
+        if ($user->role !== 'AGENCY') {
+            $data['caseTrends'] = CacheHelper::safeRemember('dashboard:admin_case_trends', 300, function () use ($reportsService) {
+                return $reportsService->getCaseTrends();
+            });
         }
 
         // referralStatusDistribution comes role-scoped from DashboardService;

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Security;
 
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use PHPUnit\Framework\Attributes\Test;
@@ -9,6 +10,8 @@ use Tests\TestCase;
 
 class TurnstileValidationTest extends TestCase
 {
+    use RefreshDatabase;
+
     #[Test]
     public function it_allows_request_when_turnstile_disabled(): void
     {
@@ -144,7 +147,9 @@ class TurnstileValidationTest extends TestCase
     {
         config(['turnstile.enabled' => true]);
 
-        $response = $this->post(route('chatbot.message'), [
+        // The chatbot frontend posts API-style (axios JSON), so the failure
+        // renders as JSON, not a redirect.
+        $response = $this->postJson(route('chatbot.message'), [
             'message' => 'hi',
         ]);
 

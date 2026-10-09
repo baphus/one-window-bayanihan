@@ -1,5 +1,9 @@
 # AWS Staging Deployment — Design Spec
 
+> **HISTORICAL - archived artifact retained for provenance; written 2026-07-27.**
+> Not current guidance - do not follow it as a procedure or spec.
+> See `docs/README.md` for current documentation.
+
 > **Version:** 1.0.0 | **Date:** 2026-07-27 | **Status:** Awaiting approval
 > **Scope:** Staging deployment of One Window Bayanihan to AWS, shaped for
 > promotion to production.

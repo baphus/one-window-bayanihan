@@ -13,17 +13,17 @@
 | SRS ID | Requirement | Implementation | Verification | Status |
 |---|---|---|---|---|
 | FR-AUTH-001 | Require authentication for admin users | `auth` and `verified` middleware on all protected route groups | Route list, middleware coverage | ✅ |
-| FR-AUTH-002 | OTP MFA for admin access | `LoginOtpController` + `OtpService` (6-digit, 5-min TTL) | Integration test, manual flow | ✅ |
+| FR-AUTH-002 | OTP MFA for admin access | TOTP MFA challenge after password login — `MfaChallengeController` (`POST /login/mfa/totp`, `/login/mfa/recovery`, `routes/auth.php:31-37`); `OtpService` (6-digit, 5-min TTL) is used only for email-change verification, public case intake, and tracking OTP, not for login | `AuthenticationTest` (mfa.challenge routes), `MfaControllerTest` | ✅ |
 | FR-AUTH-003 | Tracker + OTP for OFW tracking | `TrackController` — `/track/send-otp`, `/track/verify-otp` | Integration test, manual | ✅ |
-| FR-AUTH-004 | Role-based feature restriction | Spatie `laravel-permission`, `role:` middleware | Route permissions test | ✅ |
+| FR-AUTH-004 | Role-based feature restriction | `users.role` string(50) column checked by `role:` middleware (`app/Http/Middleware/CheckRole.php`) — no RBAC package | Route permissions test | ✅ |
 | FR-AUTH-005 | Lane-based access for agencies | Service layer filtered by `agcy_id` | Feature test | ✅ |
-| FR-AUTH-006 | IP whitelist for admin backend | `IpWhitelist` middleware on `/admin/*` routes | `IpWhitelistMiddlewareTest` | ✅ |
+| FR-AUTH-006 | ~~IP whitelist for admin backend~~ (removed — admin routes rely on `role:ADMIN` + MFA enforcement) | — | — | ➖ |
 | FR-AUTH-007 | Session timeout | `session.lifetime` config (120 min default) | Manual check | ✅ |
-| FR-AUTH-008 | Rate-limit failed auth | `throttle:login` (6/min), `throttle:otp` (3/min) | Route middleware test | ✅ |
+| FR-AUTH-008 | Rate-limit failed auth | `throttle:login` (10/min), `throttle:otp` (5/min), `throttle:totp-challenge` (3/min) — limiters defined in `AppServiceProvider.php:112-129` | Route middleware test | ✅ |
 | FR-AUTH-009 | Reject invalid credentials | Laravel authentication validation | Auth test | ✅ |
-| FR-AUTH-010 | Reject expired/invalid OTP | `OtpService::validate()` checks expiry + single-use | Test | ✅ |
+| FR-AUTH-010 | Reject expired/invalid OTP | `OtpService::verify()` checks expiry + single-use | Test | ✅ |
 | FR-AUTH-011 | Deny unauthorized function access | Role middleware + authorization gates | Auth test | ✅ |
-| FR-AUTH-012 | Auth events in audit log | `AuditLog` model event listener on auth attempts | `AuditEventViewTest` | ✅ |
+| FR-AUTH-012 | Auth events in audit log | Auth event listeners on `Login`/`Logout`/`Failed` (`AppServiceProvider.php:287-289`) | `LogSuccessfulLoginTest`, `AuditSecurityEventsTest` | ✅ |
 
 ### 1.2 Administrative & User Management (SRS §4.2)
 
@@ -159,10 +159,10 @@
 
 | SRS ID | Requirement | Implementation | Verification | Status |
 |---|---|---|---|---|
-| FR-FBK-001 | OFW feedback after closure | `FeedbackController` + `feedback` table | Route check | ✅ |
-| FR-FBK-002 | SERVQUAL evaluation | `feedback_servqual_responses` + `servqual_configs` tables | Schema check | ✅ |
-| FR-FBK-003 | Feedback linked to case | `feedback.case_id` FK | Schema check | ✅ |
-| FR-FBK-004 | Feedback available for reporting | `feedbacks.index` route | Route check | ✅ |
+| FR-FBK-001 | OFW feedback after closure | `PublicSurveyController` + `survey_invitations` table (Gen 1 `feedback` table dropped `2026_09_16_000002`) | Route check | ✅ |
+| FR-FBK-002 | SERVQUAL evaluation | `survey_forms`/`survey_questions` per-agency questionnaires (Gen 1 `feedback_servqual_responses` + `servqual_configs` dropped `2026_09_16_000002`) | Schema check | ✅ |
+| FR-FBK-003 | Feedback linked to case | `survey_invitations.case_id` FK | Schema check | ✅ |
+| FR-FBK-004 | Feedback available for reporting | `survey.responses.index` route | Route check | ✅ |
 | FR-FBK-005 | Reject invalid submissions | Form Request validation | Validation test | ✅ |
 | FR-FBK-006 | No confidential data in feedback | Feedback form is public-facing | Design review | ✅ |
 
@@ -242,7 +242,7 @@
 | BR-007 | Append-only milestones/audit | No update/delete routes | `CaseReferralGuardTest` | ✅ |
 | BR-008 | DMW-only case closure | Role check + terminal-state validation | `CaseReferralGuardTest` | ✅ |
 | BR-009 | OTP MFA | `OtpService` for all auth | Integration test | ✅ |
-| BR-010 | IP whitelist admin backend | `IpWhitelist` middleware | `IpWhitelistMiddlewareTest` | ✅ |
+| BR-010 | ~~IP whitelist admin backend~~ (removed — admin routes rely on `role:ADMIN` + MFA enforcement) | — | — | ➖ |
 | BR-011 | Privacy-safe public tracking | TrackController hides internal data | Manual QA | ✅ |
 | BR-012 | Duplicate flagging | Name + DOB matching needed | 🔴 Not Done |
 
@@ -278,8 +278,8 @@
 | LEGAL-012 | Cloud infrastructure with security, privacy, governance satisfied | Render, Supabase, Supabase Storage | ✅ |
 | LEGAL-013 | Formal provider approval as part of deployment governance | Vendor selection documented | 🟡 Partial |
 | LEGAL-014 | Risk assessment + privacy governance review for cloud adoption | PIA required before production | 🔴 |
-| LEGAL-015 | Defined security responsibilities across all infrastructure layers | ARCHITECTURE.md defines boundaries | ✅ |
-| LEGAL-016 | Cloud dependencies documented as operational assumptions | ARCHITECTURE.md §9 | ✅ |
+| LEGAL-015 | Defined security responsibilities across all infrastructure layers | ARCHITECTURE_v2.2.0.md defines boundaries | ✅ |
+| LEGAL-016 | Cloud dependencies documented as operational assumptions | ARCHITECTURE_v2.2.0.md §9 | ✅ |
 
 ### 4.4 Cross-Border Processing & International Data Governance (§6.1.4)
 
@@ -313,8 +313,8 @@
 
 | ID | Requirement | Implementation | Status |
 |---|---|---|---|
-| LEGAL-030 | Infrastructure documented for review, audit, procurement evaluation | ARCHITECTURE.md §9, DEPLOYMENT_GUIDE.md | ✅ |
-| LEGAL-031 | Security controls, vendor dependencies, constraints documented | ARCHITECTURE.md + SECURITY_REQUIREMENTS.md | ✅ |
+| LEGAL-030 | Infrastructure documented for review, audit, procurement evaluation | ARCHITECTURE_v2.2.0.md §9, DEPLOYMENT_GUIDE_v3.1.0.md | ✅ |
+| LEGAL-031 | Security controls, vendor dependencies, constraints documented | ARCHITECTURE_v2.2.0.md + SECURITY_REQUIREMENTS_v2.2.0.md | ✅ |
 | LEGAL-032 | Technology decisions preserve maintainability, auditability | Laravel + React + Inertia standard stack | ✅ |
 
 ### 4.8 AI Governance Requirements (§6.1.8) — If Enabled
@@ -411,7 +411,7 @@
 | DB-035 | Provider usage subject to organizational security governance | Vendor documentation | 🟡 Partial |
 | DB-036 | Provider admin exposure treated as controlled risk | Administrative access tracking | 🟡 Partial |
 | DB-037 | Sensitive data not unnecessarily exposed through vendor tooling | Data minimization principle | ✅ |
-| DB-038 | Managed DB dependencies documented as architectural constraints | ARCHITECTURE.md §9 | ✅ |
+| DB-038 | Managed DB dependencies documented as architectural constraints | ARCHITECTURE_v2.2.0.md §9 | ✅ |
 
 ### 5.10 Reporting Data Controls (§6.2.10)
 

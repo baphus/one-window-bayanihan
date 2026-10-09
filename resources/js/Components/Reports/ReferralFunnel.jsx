@@ -1,6 +1,6 @@
 import { Bar } from 'react-chartjs-2';
 import { statusColor } from './pageHeadingStyles';
-import { formatStatusLabel } from '@/lib/utils';
+import { humanizeStatus } from '@/lib/statusLabels';
 
 // Ordered referral pipeline funnel (Pending -> Processing -> For Compliance ->
 // Completed; Rejected is a de-emphasized terminal). Honors the status toggle
@@ -22,7 +22,7 @@ export default function ReferralFunnel({ distribution, hidden = [], height = 220
   });
 
   const order = FUNNEL_ORDER.filter((s) => s in map && !hidden.includes(s));
-  const labels = order.map(formatStatusLabel);
+  const labels = order.map(humanizeStatus);
   const values = order.map((s) => map[s]);
   const colors = order.map((s) => statusColor(s));
 

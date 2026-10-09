@@ -11,7 +11,6 @@ use App\Models\User;
 use App\Services\StorageService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
-use Mockery;
 use Tests\TestCase;
 
 class CleanupOrphanedFilesTest extends TestCase
@@ -57,8 +56,8 @@ class CleanupOrphanedFilesTest extends TestCase
             'deleted_at' => now()->subDays(2),
         ]);
 
-        $mock = Mockery::mock(StorageService::class);
-        $mock->shouldReceive('delete')->once()->with('case-files/old.pdf')->andReturn(true);
+        $mock = $this->createMock(StorageService::class);
+        $mock->expects($this->once())->method('delete')->with('case-files/old.pdf')->willReturn(true);
         $this->instance(StorageService::class, $mock);
 
         $exitCode = Artisan::call('storage:cleanup-orphans');
@@ -79,8 +78,8 @@ class CleanupOrphanedFilesTest extends TestCase
             'deleted_at' => now()->subHour(),
         ]);
 
-        $mock = Mockery::mock(StorageService::class);
-        $mock->shouldNotReceive('delete');
+        $mock = $this->createMock(StorageService::class);
+        $mock->expects($this->never())->method('delete');
         $this->instance(StorageService::class, $mock);
 
         $exitCode = Artisan::call('storage:cleanup-orphans');
@@ -101,8 +100,8 @@ class CleanupOrphanedFilesTest extends TestCase
             'deleted_at' => now()->subDays(2),
         ]);
 
-        $mock = Mockery::mock(StorageService::class);
-        $mock->shouldNotReceive('delete');
+        $mock = $this->createMock(StorageService::class);
+        $mock->expects($this->never())->method('delete');
         $this->instance(StorageService::class, $mock);
 
         $exitCode = Artisan::call('storage:cleanup-orphans', ['--dry-run' => true]);
@@ -139,8 +138,8 @@ class CleanupOrphanedFilesTest extends TestCase
             'deleted_at' => now()->subDays(2),
         ]);
 
-        $mock = Mockery::mock(StorageService::class);
-        $mock->shouldNotReceive('delete');
+        $mock = $this->createMock(StorageService::class);
+        $mock->expects($this->never())->method('delete');
         $this->instance(StorageService::class, $mock);
 
         $exitCode = Artisan::call('storage:cleanup-orphans');
@@ -160,8 +159,8 @@ class CleanupOrphanedFilesTest extends TestCase
             'is_deleted' => false,
         ]);
 
-        $mock = Mockery::mock(StorageService::class);
-        $mock->shouldNotReceive('delete');
+        $mock = $this->createMock(StorageService::class);
+        $mock->expects($this->never())->method('delete');
         $this->instance(StorageService::class, $mock);
 
         $exitCode = Artisan::call('storage:cleanup-orphans');

@@ -5,8 +5,6 @@ namespace App\Listeners;
 use App\Helpers\SecurityHelper;
 use App\Models\EmailLog;
 use Illuminate\Mail\Events\MessageSent;
-use Illuminate\Mail\SendQueuedMailable;
-use Illuminate\Notifications\SendQueuedNotifications;
 use Illuminate\Queue\Events\JobFailed;
 
 class EmailEventSubscriber
@@ -151,51 +149,49 @@ class EmailEventSubscriber
             return null;
         }
 
-        $command = SecurityHelper::safeUnserialize($command, [
-            SendQueuedMailable::class,
-            SendQueuedNotifications::class,
-        ]);
+        $command = SecurityHelper::unserializeWithoutClasses($command);
 
         if ($command === null) {
             return null;
         }
 
+        $commandProperties = SecurityHelper::serializedObjectProperties($command);
+        $commandClass = $commandProperties['__PHP_Incomplete_Class_Name'] ?? null;
+
+        if ($commandProperties === null || ! is_string($commandClass)) {
+            return null;
+        }
+
         // Handle SendQueuedMailable
-        if ($command instanceof SendQueuedMailable) {
-            $mailable = $command->mailable;
+        if ($commandClass === 'Illuminate\\Mail\\SendQueuedMailable') {
+            $mailable = $commandProperties['mailable'] ?? null;
+            $mailableProperties = SecurityHelper::serializedObjectProperties($mailable);
+
+            if ($mailableProperties === null) {
+                return null;
+            }
 
             $to = '';
-            foreach ($mailable->to as $recipient) {
+            foreach (($mailableProperties['to'] ?? []) as $recipient) {
                 $to = $recipient['address'] ?? $recipient[0] ?? '';
                 break;
             }
 
             return [
                 'to_email' => $to ?: '(unknown)',
-                'subject' => $mailable->subject ?? class_basename($mailable),
-                'mailable_type' => get_class($mailable),
+                'subject' => $mailableProperties['subject'] ?? class_basename($mailableProperties['__PHP_Incomplete_Class_Name'] ?? 'Mailable'),
+                'mailable_type' => $mailableProperties['__PHP_Incomplete_Class_Name'] ?? 'Illuminate\\Mail\\Mailable',
             ];
         }
 
         // Handle queued notifications
-        if ($command instanceof SendQueuedNotifications) {
-            $notification = $command->notification;
-            $notifiables = $command->notifiables;
-
-            $to = '';
-            if (! empty($notifiables)) {
-                $notifiable = is_array($notifiables) ? $notifiables[0] : $notifiables;
-                if (method_exists($notifiable, 'routeNotificationFor')) {
-                    $to = $notifiable->routeNotificationFor('mail', $notification) ?? '';
-                }
-            }
+        if ($commandClass === 'Illuminate\\Notifications\\SendQueuedNotifications') {
+            $notificationProperties = SecurityHelper::serializedObjectProperties($commandProperties['notification'] ?? null);
 
             return [
-                'to_email' => is_string($to) ? $to : (is_array($to) ? ($to[0] ?? '(unknown)') : '(unknown)'),
-                'subject' => method_exists($notification, 'toMail')
-                    ? class_basename($notification)
-                    : get_class($notification),
-                'mailable_type' => get_class($notification),
+                'to_email' => '(unknown)',
+                'subject' => class_basename($notificationProperties['__PHP_Incomplete_Class_Name'] ?? 'Notification'),
+                'mailable_type' => $notificationProperties['__PHP_Incomplete_Class_Name'] ?? 'Illuminate\\Notifications\\Notification',
             ];
         }
 

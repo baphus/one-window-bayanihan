@@ -75,7 +75,7 @@ class ServiceLifecycleTest extends ReferralClientInboxTestCase
         $service->sendAgencyMessage($context['clientRequest'], $context['agencyUser'], 'No longer allowed.');
     }
 
-    public function test_other_agency_is_denied_but_case_manager_can_read(): void
+    public function test_other_agency_is_denied_and_case_manager_is_denied(): void
     {
         $context = $this->context();
         $service = app(ReferralClientRequestService::class);
@@ -93,7 +93,35 @@ class ServiceLifecycleTest extends ReferralClientInboxTestCase
             $this->assertTrue(true);
         }
 
-        // Case Manager now has full read access to all referral data (same as ADMIN).
-        $service->assertCanRead($context['referral'], $otherManager);
+        // Case managers have no client-request access: read, reply,
+        // transition, and revoke are all denied (receiving agency or ADMIN only).
+        try {
+            $service->assertCanRead($context['referral'], $otherManager);
+            $this->fail('Case manager should be denied read access.');
+        } catch (AuthorizationException) {
+            $this->assertTrue(true);
+        }
+
+        try {
+            $service->sendAgencyMessage($context['clientRequest'], $otherManager, 'No access.');
+            $this->fail('Case manager should be denied reply access.');
+        } catch (AuthorizationException) {
+            $this->assertTrue(true);
+        }
+
+        try {
+            $service->complete($context['clientRequest'], $otherManager);
+            $this->fail('Case manager should be denied transition access.');
+        } catch (AuthorizationException) {
+            $this->assertTrue(true);
+        }
+
+        $link = $this->issue($context)['link'];
+        try {
+            $service->revokeAccessLink($link, $otherManager);
+            $this->fail('Case manager should be denied revoke access.');
+        } catch (AuthorizationException) {
+            $this->assertTrue(true);
+        }
     }
 }

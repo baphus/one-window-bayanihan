@@ -2,13 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\RejectIntakeRequest;
 use App\Http\Requests\StoreCaseRequest;
 use App\Http\Requests\UpdateCaseRequest;
 use App\Http\Requests\UpdateDraftRequest;
 use App\Models\CaseFile;
 use App\Models\Client;
 use App\Models\SystemSetting;
-use App\Services\AddressNameResolver;
 use App\Services\CaseService;
 use App\Services\Export\DataExportQueries;
 use App\Services\Export\DataExportService;
@@ -28,7 +28,10 @@ class CaseController extends Controller
         private readonly PhilippineAddressService $addressService,
         private readonly TrackingService $trackingService,
         private readonly ReferenceDataService $referenceData,
-        private readonly AddressNameResolver $addressNames,
+        private readonly PhilippineAddressService $addressNames,
+        private readonly DataExportQueries $exportQueries,
+        private readonly DataExportService $exportService,
+        private readonly OnboardingService $onboardingService,
     ) {}
 
     public function index(Request $request)
@@ -36,11 +39,17 @@ class CaseController extends Controller
         $filterKeys = ['status', 'search', 'client_type', 'vulnerability_indicator', 'user_id', 'agcy_id', 'category_id', 'category_ids', 'case_issue_id', 'age_min_days', 'referral_state', 'date_from', 'date_to', 'sort', 'direction', 'per_page'];
         $categoryFilters = CategoryFilter::fromRequest($request)->toArray();
 
+        $listing = $request->validate([
+            'sort' => ['sometimes', 'string', 'in:case_number,tracker_number,client_type,status,created_at'],
+            'direction' => ['sometimes', 'string', 'in:asc,desc'],
+            'per_page' => ['sometimes', 'integer', 'min:10', 'max:100'],
+        ]);
+
         $cases = $this->caseService->getCases(
             array_merge($request->only($filterKeys), $categoryFilters),
-            $request->input('sort', 'created_at'),
-            $request->input('direction', 'desc'),
-            (int) $request->input('per_page', 15)
+            $listing['sort'] ?? 'created_at',
+            $listing['direction'] ?? 'desc',
+            (int) ($listing['per_page'] ?? 15)
         );
 
         return Inertia::render('Case/Index', [
@@ -82,17 +91,23 @@ class CaseController extends Controller
 
     public function store(StoreCaseRequest $request)
     {
+        $validated = $request->validated();
+
         $case = $this->caseService->createCase(
-            $request->validated(),
+            $validated,
             $request->user()->id,
         );
 
-        $isDraft = $request->validated()['is_draft'] ?? true;
+        $isDraft = $validated['is_draft'] ?? true;
 
         if (! $isDraft) {
-            $case = $this->caseService->publishDraft($case->id, $request->user()->id);
+            $case = $this->caseService->publishDraft(
+                $case->id,
+                $request->user()->id,
+                (bool) ($validated['confirm_duplicate_client'] ?? false),
+            );
 
-            app(OnboardingService::class)
+            $this->onboardingService
                 ->markChecklistItemQuietly($request->user(), 'create-first-case');
 
             return redirect()
@@ -120,17 +135,7 @@ class CaseController extends Controller
         $categories = $this->referenceData->getActiveCategories();
         $caseIssues = $this->referenceData->getActiveIssues();
 
-        // Resolve draft address names to codes for cascade dropdown pre-population
-        $draftResolvedAddress = [];
-        $draftData = $case->draft_client_data;
-        if (! empty($draftData['address'])) {
-            $region = $draftData['address']['region'] ?? '';
-            if (! empty($region) && preg_match('/[a-zA-Z]/', $region)) {
-                $draftResolvedAddress = $this->addressService->resolveAddressToCodes($draftData['address']);
-            } else {
-                $draftResolvedAddress = $draftData['address'];
-            }
-        }
+        $draftResolvedAddress = $this->resolveDraftAddressForCascade($case->draft_client_data);
 
         return Inertia::render('Case/Create', [
             'existingDraft' => $case,
@@ -154,17 +159,8 @@ class CaseController extends Controller
         $categories = $this->referenceData->getActiveCategories();
         $caseIssues = $this->referenceData->getActiveIssues();
 
-        // Resolve draft address names to codes for cascade dropdown pre-population
-        $draftResolvedAddress = [];
         $draftData = $case->draft_client_data;
-        if (! empty($draftData['address'])) {
-            $region = $draftData['address']['region'] ?? '';
-            if (! empty($region) && preg_match('/[a-zA-Z]/', $region)) {
-                $draftResolvedAddress = $this->addressService->resolveAddressToCodes($draftData['address']);
-            } else {
-                $draftResolvedAddress = $draftData['address'];
-            }
-        }
+        $draftResolvedAddress = $this->resolveDraftAddressForCascade($draftData);
 
         // draftResolvedAddress carries PSGC *codes* so the cascade dropdowns can
         // pre-select. The review screen also needs human-readable *names*, and
@@ -220,10 +216,15 @@ class CaseController extends Controller
 
         $trackingData = $this->trackingService->buildTrackingData($case);
 
+        $categories = $this->referenceData->getActiveCategories();
+        $caseIssues = $this->referenceData->getActiveIssues();
+
         return Inertia::render('Case/Show', [
             'case' => $case,
             'overdueDays' => $overdueDays,
             'milestoneTimeline' => $trackingData['milestoneTimeline'],
+            'categories' => $categories,
+            'caseIssues' => $caseIssues,
         ]);
     }
 
@@ -257,9 +258,13 @@ class CaseController extends Controller
     {
         $this->authorizeCaseAccess($case, $request->user());
 
-        $case = $this->caseService->publishDraft($case->id, $request->user()->id);
+        $case = $this->caseService->publishDraft(
+            $case->id,
+            $request->user()->id,
+            $request->boolean('confirm_duplicate_client'),
+        );
 
-        app(OnboardingService::class)
+        $this->onboardingService
             ->markChecklistItemQuietly($request->user(), 'create-first-case');
 
         return redirect()
@@ -310,12 +315,17 @@ class CaseController extends Controller
     public function intakeQueue(Request $request)
     {
         $filters = $request->only(['search']);
-        $sort = $request->query('sort', 'created_at');
-        $direction = $request->query('direction', 'asc');
+        $listing = $request->validate([
+            'sort' => ['sometimes', 'string', 'in:created_at,client_name,vulnerability_indicator'],
+            'direction' => ['sometimes', 'string', 'in:asc,desc'],
+            'per_page' => ['sometimes', 'integer', 'min:10', 'max:100'],
+        ]);
+        $sort = $listing['sort'] ?? 'created_at';
+        $direction = $listing['direction'] ?? 'asc';
 
         $cases = $this->caseService->getIntakeQueue(
             $filters,
-            (int) $request->input('per_page', 15),
+            (int) ($listing['per_page'] ?? 15),
             $sort,
             $direction,
         );
@@ -329,15 +339,11 @@ class CaseController extends Controller
         ]);
     }
 
-    public function rejectIntake(Request $request, string $id)
+    public function rejectIntake(RejectIntakeRequest $request, string $id)
     {
-        $request->validate([
-            'deletion_reason' => ['required', 'string', 'min:10'],
-        ]);
-
         $this->caseService->rejectIntake(
             $id,
-            $request->input('deletion_reason'),
+            $request->validated()['deletion_reason'],
             $request->user()->id,
         );
 
@@ -365,8 +371,8 @@ class CaseController extends Controller
             'age_min_days', 'referral_state', 'date_from', 'date_to',
         ]), CategoryFilter::fromRequest($request)->toArray()));
 
-        $queries = new DataExportQueries;
-        $exportService = new DataExportService;
+        $queries = $this->exportQueries;
+        $exportService = $this->exportService;
 
         $data = $queries->getCasesExport($user, $filters);
 
@@ -402,7 +408,7 @@ class CaseController extends Controller
             'age_min_days', 'referral_state', 'date_from', 'date_to',
         ]), CategoryFilter::fromRequest($request)->toArray()));
 
-        $count = (new DataExportQueries)->countCasesExport($user, $filters);
+        $count = $this->exportQueries->countCasesExport($user, $filters);
 
         return response()->json(['count' => $count]);
     }
@@ -514,6 +520,27 @@ class CaseController extends Controller
         return redirect()
             ->route('cases.trash')
             ->with('success', 'Case restored successfully.');
+    }
+
+    /**
+     * Resolve draft address names to PSGC codes for cascade dropdown
+     * pre-population. Returns the address as-is when it already holds codes.
+     */
+    private function resolveDraftAddressForCascade(?array $draftClientData): array
+    {
+        $address = $draftClientData['address'] ?? null;
+
+        if (empty($address) || ! is_array($address)) {
+            return [];
+        }
+
+        $region = $address['region'] ?? '';
+
+        if (! empty($region) && preg_match('/[a-zA-Z]/', $region)) {
+            return $this->addressService->resolveAddressToCodes($address);
+        }
+
+        return $address;
     }
 
     private function authorizeCaseAccess($case, $user)

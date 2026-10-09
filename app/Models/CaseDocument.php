@@ -13,6 +13,16 @@ class CaseDocument extends Model
 {
     use HasFactory, SoftDeleteFlag, UsesUuid;
 
+    public static array $auditExclude = [
+        'id', 'created_at', 'updated_at', 'deleted_at', 'deleted_by',
+        'case_id', 'uploaded_by', 'file_path', 'storage_disk',
+    ];
+
+    public function getAuditModuleName(): string
+    {
+        return 'case_document';
+    }
+
     protected $fillable = [
         'file_name',
         'file_path',

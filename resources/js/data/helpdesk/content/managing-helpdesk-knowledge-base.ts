@@ -1,6 +1,6 @@
 const content = `# Managing the Helpdesk Knowledge Base
 
-One Window Bayanihan helpdesk articles are maintained as static TypeScript markdown files in \`resources/js/data/assets/helpdesk/content\`. There is no runtime helpdesk CMS in the current application, so publishing changes requires editing the article file and, for new articles, registering it in the helpdesk article index maintained by the development team.
+One Window Bayanihan helpdesk articles are maintained as static TypeScript markdown files in \`resources/js/data/helpdesk/content\`. There is no runtime helpdesk CMS in the current application, so publishing changes requires editing the article file and, for new articles, registering it in the helpdesk article index maintained by the development team. Published articles are served under **/help** (landing page at \`/help\`, search at \`/help/search\`, articles at \`/help/{slug}\`) — not under \`/helpdesk\`.
 
 ![Helpdesk index](/assets/helpdesk/helpdesk-index.png)
 
@@ -18,9 +18,11 @@ Article body...
 export default content;
 \`\`\`
 
+The chatbot helpdesk service parses each file by its first and last backtick, takes the first \`#\` line as the title, and splits the body on \`##\` sections — keep that H1/H2 structure intact.
+
 ## Updating an existing article
 
-1. Find the article file under \`resources/js/data/assets/helpdesk/content\`.
+1. Find the article file under \`resources/js/data/helpdesk/content\`.
 2. Edit the markdown inside the template string only.
 3. Keep headings clear and scannable.
 4. Use exact role names, status names, and field names shown in the application.
@@ -50,9 +52,11 @@ Recommended file naming:
 
 Before publishing, confirm that the article:
 
-- Uses current route/page names such as Admin/User, Agency, Service, Security, ActiveSessions, CaseCategory, CaseIssue, CaseStatus, DataExport, Maintenance, EmailLogs, LogViewer, and OverdueReferrals.
+- Uses current route/page names such as \`/help\`, \`/help/search\`, \`/help/{slug}\`, Admin/User, Agency, Service, Security, ActiveSessions, CaseCategory, CaseIssue, CaseStatus, DataExport, Maintenance, EmailLogs, LogViewer, and OverdueReferrals.
+- Uses exact role names: CASE_MANAGER, AGENCY, ADMIN, OFW.
 - Uses exact case statuses: DRAFT, OPEN, CLOSED, ARCHIVED.
 - Uses exact referral statuses: PENDING, PROCESSING, FOR_COMPLIANCE, COMPLETED, REJECTED.
+- Describes sign-in as password plus optional authenticator-app MFA challenge (never an email OTP at login), and email OTP only for intake verification, tracking, and email change.
 - Does not describe features that are not present in the application.
 - Does not expose secrets, credentials, private URLs, or personal data in examples.
 

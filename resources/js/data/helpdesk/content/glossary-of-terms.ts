@@ -10,21 +10,29 @@ const content = `# Glossary of Terms
 
 **AGENCY** — Partner agency focal role. Agency users process referrals assigned to their agency and add updates or milestones as allowed.
 
+**OFW** — Client account role. OFW users file requests through intake, track cases, and manage their own cases, notifications, and profile under /my-cases.
+
 ## Case terms
 
 **Case File** — The main record for an assistance request. It may include OFW information, client type, address, vulnerability details, employment details, issue, summary, receiving parties, next-of-kin information, documents, notes, and referrals.
 
-**Case Number** — Internal case identifier used by staff.
+**Case Number** — Internal case identifier in the format OWB-YYYYMM-NNNNN, used by staff.
 
-**Tracker Number** — Public tracking identifier used by clients to check progress without logging in.
+**Tracker Number** — Public tracking identifier in the format OWBAP-XXXXXXXXXX, used by clients to check progress without logging in.
 
-**DRAFT** — Case status for a case being prepared and not yet fully opened.
+**Intake** — The self-filing flow at /intake: email verification (verify-email), duplicate check (check-duplicate), submission (submit), with an optional account step (/intake/register). Filing is blocked when the email already has an active case.
+
+**Tracking OTP** — The one-time code emailed to the registered address during tracking. The portal flow is tracker number + email → send-otp → verify-otp → track.show; delivery is email-only.
+
+**DRAFT** — Case status for a case being prepared and not yet fully opened. Lifecycle: DRAFT → Published → OPEN → CLOSED → Archived.
 
 **OPEN** — Case status for active work.
 
 **CLOSED** — Case status for completed case handling.
 
 **ARCHIVED** — Case status for retained historical records.
+
+**my-cases** — The authenticated OFW portal (/my-cases) for viewing one's cases, notifications, agency milestones, and profile.
 
 ## Referral terms
 
@@ -36,9 +44,11 @@ const content = `# Glossary of Terms
 
 **FOR_COMPLIANCE** — Additional requirement, document, or action is needed before the referral can proceed.
 
-**COMPLETED** — Agency action has been completed.
+**COMPLETED** — Agency action has been completed. Completion triggers a survey invitation for client feedback.
 
 **REJECTED** — Referral was not accepted or cannot be processed as sent.
+
+**ReferralClientRequest** — A secure client-request channel on the tracking side (/track/request) where clients and agencies exchange messages, replacements, and attachments through expiring access links.
 
 ## Admin terms
 
@@ -50,28 +60,25 @@ const content = `# Glossary of Terms
 
 **Data Export** — Admin function for generating or reviewing exports.
 
-**Audit Log** — Record of significant system actions, filterable by action, module, user, date range, search, and page size.
+**Audit Log** — Record of significant system actions, filterable by action, module, user, date range, search, and page size. Entries are chained with SHA-256 hashes (each row stores the previous row's digest) so tampering can be detected.
 
 **Soft Delete Flag** — Records are marked deleted with fields such as deletion flags and timestamps instead of being physically removed.
 
-**Supabase/PostgreSQL** — Database platform used by the project deployment.
+**PostgreSQL 17** — Relational database used by the deployment.
 
-**Temporary URL** — Time-limited storage link used for controlled file access where supported.
+**S3-Compatible Object Storage** — File storage backend for case documents and attachments, accessed through short-lived temporary URLs issued by the StorageService.
+
+**Temporary URL** — Time-limited storage link used for controlled file access.
 
 ## Feedback & security terms
 
-> [!NOTE] Pending human review
-> The definitions below were added with the feedback and account-security features and are awaiting terminology sign-off.
+**Survey Form** — The per-agency questionnaire clients answer after a completed referral. Each agency keeps one active form; questions use the Likert, Rating, Text, Radio, and Checkbox types.
 
-**SERVQUAL** — A standard service-quality survey model measuring five dimensions: Tangibles, Reliability, Responsiveness, Assurance, and Empathy. Client feedback forms are built on it.
+**Survey Invitation** — The personal, expiring link (**/survey/{token}**) emailed to a client after a referral is completed, used to submit the survey without logging in. Each link can be submitted once and expires after 30 days.
 
-**Feedback Invitation** — The personal, expiring link emailed to a client after a service is completed, used to submit feedback without logging in. The questions are snapshotted into the invitation when it is sent.
+**Response Rate** — Submitted surveys divided by invitations sent, shown on the Survey Responses page.
 
-**Expectation / Perception** — The two ratings a client gives per SERVQUAL question: the minimum service level they expected, and the level they actually experienced.
-
-**Response Rate** — Submitted feedback divided by invitations sent, shown on feedback dashboards.
-
-**MFA (Multi-Factor Authentication)** — An extra sign-in step using a 6-digit code from an authenticator app, enabled per user on the Profile page.
+**MFA (Multi-Factor Authentication)** — An extra sign-in step using TOTP: a time-based 6-digit code from an authenticator app, enabled per user on the Profile page.
 
 **Recovery Code** — A backup code generated when MFA is enabled, used to sign in if the authenticator device is unavailable.
 `;

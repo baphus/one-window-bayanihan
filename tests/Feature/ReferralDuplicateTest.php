@@ -43,7 +43,6 @@ class ReferralDuplicateTest extends TestCase
         $response1 = $this->actingAs($this->caseManager)->post(route('referrals.store'), [
             'case_id' => $this->case->id,
             'agcy_id' => $this->agencyA->id,
-            'services' => ['Test Service'],
             'notes' => 'First referral to Agency A',
         ]);
         $response1->assertRedirect();
@@ -53,7 +52,6 @@ class ReferralDuplicateTest extends TestCase
         $response2 = $this->actingAs($this->caseManager)->post(route('referrals.store'), [
             'case_id' => $this->case->id,
             'agcy_id' => $this->agencyB->id,
-            'services' => ['Another Service'],
             'notes' => 'Second referral to Agency B',
         ]);
         $response2->assertRedirect();
@@ -67,7 +65,6 @@ class ReferralDuplicateTest extends TestCase
         $this->actingAs($this->caseManager)->post(route('referrals.store'), [
             'case_id' => $this->case->id,
             'agcy_id' => $this->agencyA->id,
-            'services' => ['Test Service'],
             'notes' => 'First referral',
         ]);
         $this->assertEquals(1, Referral::where('case_id', $this->case->id)->count());
@@ -76,7 +73,6 @@ class ReferralDuplicateTest extends TestCase
         $response2 = $this->actingAs($this->caseManager)->post(route('referrals.store'), [
             'case_id' => $this->case->id,
             'agcy_id' => $this->agencyA->id,
-            'services' => ['Another Service'],
             'notes' => 'Duplicate referral attempt',
         ]);
 
@@ -98,7 +94,6 @@ class ReferralDuplicateTest extends TestCase
         $response = $this->actingAs($this->caseManager)->post(route('referrals.store'), [
             'case_id' => $this->case->id,
             'agcy_id' => $this->agencyA->id,
-            'services' => ['Another Service'],
             'notes' => 'Re-referral after rejection',
         ]);
 
@@ -118,7 +113,6 @@ class ReferralDuplicateTest extends TestCase
         $response = $this->actingAs($this->caseManager)->post(route('referrals.store'), [
             'case_id' => $this->case->id,
             'agcy_id' => $this->agencyA->id,
-            'services' => ['Another Service'],
             'notes' => 'Re-referral after completion',
         ]);
 
@@ -138,7 +132,6 @@ class ReferralDuplicateTest extends TestCase
         $response = $this->actingAs($this->caseManager)->post(route('referrals.store'), [
             'case_id' => $this->case->id,
             'agcy_id' => $this->agencyA->id,
-            'services' => ['Another Service'],
             'notes' => 'Duplicate while active',
         ]);
 

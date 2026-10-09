@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { writeStoredValue } from './useLocalStorage';
 
 const STORAGE_KEY_PREFIX = 'owb_draft_backup';
 const BACKUP_VERSION = 1;
@@ -70,7 +71,7 @@ export default function useLocalStorageDraft({ formData, userId, enabled = true 
           savedAt: new Date().toISOString(),
           data: formData,
         };
-        localStorage.setItem(storageKey, JSON.stringify(backup));
+        writeStoredValue(storageKey, backup);
         setHasLocalBackup(true);
         setLocalBackup(backup);
       } catch (e) {

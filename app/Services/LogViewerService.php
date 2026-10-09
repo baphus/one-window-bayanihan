@@ -2,8 +2,17 @@
 
 namespace App\Services;
 
+use SplFileObject;
+
 class LogViewerService
 {
+    /**
+     * Upper bound on raw lines scanned per request so a huge log
+     * directory cannot exhaust memory/time. ponytail: raise only
+     * alongside pagination of the download endpoint.
+     */
+    private const MAX_SCANNED_LINES = 200000;
+
     public function getAvailableDates(): array
     {
         $files = glob(storage_path('logs/laravel-*.log'));
@@ -69,43 +78,61 @@ class LogViewerService
         }
 
         $entries = [];
+        $total = 0;
+        $offset = ($page - 1) * $perPage;
+        $end = $offset + $perPage;
+        $scanned = 0;
+        $levelFilter = $level !== null ? strtolower($level) : null;
         foreach ($files as $file) {
             preg_match('/laravel-(\d{4}-\d{2}-\d{2})\.log/', $file, $m);
             $date = $m[1] ?? '';
-            $lines = file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+            try {
+                $handle = new SplFileObject($file, 'r');
+            } catch (\RuntimeException) {
+                continue;
+            }
 
-            foreach ($lines as $line) {
-                if (preg_match('/^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\] (\w+)\.(\w+):\s?(.*)/', $line, $m)) {
-                    $entry = [
+            while (! $handle->eof()) {
+                $line = trim((string) $handle->fgets());
+                if ($line === '') {
+                    continue;
+                }
+                if (++$scanned > self::MAX_SCANNED_LINES) {
+                    break 2;
+                }
+                if (! preg_match('/^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\] (\w+)\.(\w+):\s?(.*)/', $line, $m)) {
+                    continue;
+                }
+                if ($levelFilter !== null && strtolower($m[3]) !== $levelFilter) {
+                    continue;
+                }
+
+                $message = $m[4];
+
+                // Redact PII from log messages
+                if ($redact) {
+                    $message = preg_replace('/[\w.+-]+@[\w-]+\.[\w.-]+/', '***@***.***', $message);
+                    $message = preg_replace('/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/', '***.***.***.***', $message);
+                }
+
+                if ($search && stripos($message, $search) === false) {
+                    continue;
+                }
+
+                if ($total >= $offset && $total < $end) {
+                    $entries[] = [
                         'timestamp' => $m[1],
                         'environment' => $m[2],
                         'level' => strtolower($m[3]),
-                        'message' => $m[4],
+                        'message' => $message,
                         'date' => $date,
                     ];
-
-                    // Redact PII from log messages
-                    if ($redact) {
-                        $entry['message'] = preg_replace('/[\w.+-]+@[\w-]+\.[\w.-]+/', '***@***.***', $entry['message']);
-                        $entry['message'] = preg_replace('/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/', '***.***.***.***', $entry['message']);
-                    }
-
-                    if ($level && strtolower($entry['level']) !== strtolower($level)) {
-                        continue;
-                    }
-
-                    if ($search && stripos($entry['message'], $search) === false) {
-                        continue;
-                    }
-
-                    $entries[] = $entry;
                 }
+                $total++;
             }
         }
 
-        $total = count($entries);
-        $offset = ($page - 1) * $perPage;
-        $paginated = array_slice($entries, $offset, $perPage);
+        $paginated = $entries;
 
         return [
             'entries' => $paginated,

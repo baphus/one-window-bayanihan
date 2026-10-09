@@ -13,6 +13,8 @@ abstract class TestCase extends BaseTestCase
     {
         parent::setUp();
 
+        $this->withoutVite();
+
         $this->app->bind(CloudinaryAvatarService::class, fn () => new class extends CloudinaryAvatarService
         {
             public function __construct() {}

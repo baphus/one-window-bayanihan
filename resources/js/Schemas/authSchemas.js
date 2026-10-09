@@ -1,11 +1,11 @@
 import { z } from 'zod';
-import createPasswordSchema from '@/utils/createPasswordSchema';
+import createPasswordSchema, { withPasswordConfirmation } from '@/utils/createPasswordSchema';
 
 /**
  * Registration schema — password uses server-defined rules.
  */
 export function makeRegisterSchema(rules) {
-  return z.object({
+  return withPasswordConfirmation(z.object({
     name: z
       .string()
       .min(1, 'Name is required.')
@@ -18,17 +18,14 @@ export function makeRegisterSchema(rules) {
     password_confirmation: z
       .string()
       .min(1, 'Please confirm your password.'),
-  }).refine((data) => data.password === data.password_confirmation, {
-    message: 'Passwords do not match.',
-    path: ['password_confirmation'],
-  });
+  }));
 }
 
 /**
  * Password reset schema — password uses server-defined rules.
  */
 export function makeResetPasswordSchema(rules) {
-  return z.object({
+  return withPasswordConfirmation(z.object({
     email: z
       .string()
       .min(1, 'Email is required.')
@@ -40,10 +37,7 @@ export function makeResetPasswordSchema(rules) {
     token: z
       .string()
       .min(1, 'Reset token is required.'),
-  }).refine((data) => data.password === data.password_confirmation, {
-    message: 'Passwords do not match.',
-    path: ['password_confirmation'],
-  });
+  }));
 }
 
 /**

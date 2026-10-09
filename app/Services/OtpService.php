@@ -44,19 +44,23 @@ class OtpService
 
         $cachedOtp = Cache::get($key);
 
-        // Check if max attempts exceeded — invalidate OTP
-        $attempts = Cache::get($attemptsKey, 0);
+        // Check if max attempts exceeded — invalidate OTP. The counter is
+        // incremented atomically below, so concurrent guesses cannot slip
+        // past the limit through a read-modify-write race.
+        $attempts = (int) Cache::get($attemptsKey, 0);
         if ($attempts >= self::MAX_ATTEMPTS) {
             Cache::forget($key);
 
             return false;
         }
 
-        $cached = $cachedOtp;
-
-        if (! $cached || $cached !== $otp) {
-            // Increment failed-attempt counter
-            Cache::put($attemptsKey, $attempts + 1, now()->addMinutes(self::TTL_MINUTES));
+        if (! is_string($cachedOtp) || ! hash_equals($cachedOtp, $otp)) {
+            // Increment failed-attempt counter atomically. increment() creates
+            // the key when missing without a TTL, so set the expiry on first
+            // use to match the OTP lifetime.
+            if (Cache::increment($attemptsKey) === 1) {
+                Cache::put($attemptsKey, 1, now()->addMinutes(self::TTL_MINUTES));
+            }
 
             return false;
         }

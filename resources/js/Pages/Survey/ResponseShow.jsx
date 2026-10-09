@@ -22,7 +22,7 @@ function ResponseItem({ response }) {
       case 'likert':
         return (
           <div className="flex items-center gap-2">
-            <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-blue-100 text-sm font-bold text-blue-800">
+            <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-primary-fixed text-sm font-bold text-primary">
               {response.answer}
             </span>
             <span className="text-sm text-slate-700">{LIKERT_LABELS[response.answer] || response.answer}</span>

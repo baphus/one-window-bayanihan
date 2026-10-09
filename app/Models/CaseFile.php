@@ -43,6 +43,11 @@ class CaseFile extends Model
         return 'case';
     }
 
+    public function getAuditEntityLabel(): ?string
+    {
+        return $this->case_number;
+    }
+
     /**
      * Cases a client may access through self-service surfaces (public tracking
      * and the OFW portal).
@@ -58,6 +63,66 @@ class CaseFile extends Model
         return $query->where(function (Builder $q) {
             $q->where('status', '!=', 'DRAFT')
                 ->orWhere('source', self::SOURCE_SELF_FILED);
+        });
+    }
+
+    /**
+     * Live (non-deleted) cases. Task 2.2: query-builder replacement for the
+     * raw client-stats SQL in ClientController::getClientStats.
+     */
+    public function scopeLive(Builder $query): Builder
+    {
+        return $query->where('cases.is_deleted', false);
+    }
+
+    /**
+     * Cases that count toward directory tiles (excludes drafts + archived).
+     */
+    public function scopeWithVisibleStatus(Builder $query): Builder
+    {
+        return $query->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED']);
+    }
+
+    /**
+     * Open cases only (clients_with_open_cases tile).
+     */
+    public function scopeWithOpenStatus(Builder $query): Builder
+    {
+        return $query->where('cases.status', 'OPEN');
+    }
+
+    /**
+     * Restrict to cases referred to the given agency. Null = no restriction.
+     * All values are bound parameters (no string interpolation).
+     */
+    public function scopeForAgency(Builder $query, ?string $agencyId): Builder
+    {
+        if ($agencyId === null || $agencyId === '') {
+            return $query;
+        }
+
+        return $query->whereHas('referrals', function (Builder $referrals) use ($agencyId) {
+            $referrals->where('agcy_id', $agencyId)->where('is_deleted', false);
+        });
+    }
+
+    /**
+     * Filter by client type (OFW / NEXT_OF_KIN tiles).
+     */
+    public function scopeOfClientType(Builder $query, string $clientType): Builder
+    {
+        return $query->where('cases.client_type', $clientType);
+    }
+
+    /**
+     * Vulnerability tiles: LIKE match on either indicator column.
+     * Patterns are bound parameters via Eloquent.
+     */
+    public function scopeWithVulnerabilityMarker(Builder $query, string $marker): Builder
+    {
+        return $query->where(function (Builder $q) use ($marker) {
+            $q->where('cases.vulnerability_indicator', 'LIKE', '%'.$marker.'%')
+                ->orWhere('cases.nok_vulnerability_indicator', 'LIKE', '%'.$marker.'%');
         });
     }
 

@@ -1,58 +1,61 @@
+import { useState } from 'react';
 import { Link, usePage } from '@inertiajs/react';
 import GettingStartedChecklist from '@/Components/GettingStartedChecklist';
-import StatusBadge from '@/Components/ui/StatusBadge';
-import { formatDisplayDate, formatDisplayDateTime } from '@/lib/utils';
+import { formatDisplayDateTime } from '@/lib/utils';
+import safeRoute from '@/utils/safeRoute';
 import {
-    ActivityFeed,
     BarList,
+    DashboardTable,
     EmptyState,
-    EntityList,
-    EntityRow,
+    FilterChip,
     MaterialSymbol,
     PageHeader,
     QuickActions,
     SectionCard,
     StatRow,
-    StatusDonut,
-    TriageStrip,
     ViewAllLink,
     formatCount,
     safeArray,
 } from '@/Components/Dashboard/primitives';
 
-const QUEUE_ROUTES = {
-    openCases: '/cases?status=OPEN',
-    pendingReferrals: '/referrals?status=PENDING',
-    processingReferrals: '/referrals?status=PROCESSING',
-    forComplianceReferrals: '/referrals?status=FOR_COMPLIANCE',
-    overdueReferrals: '/overdue-referrals',
-};
-
 const ADMIN_TOOLS = [
-    { label: 'Users', description: 'Roles, verification, access', href: '/admin/users', icon: 'group' },
-    { label: 'Agencies', description: 'Partner profiles and activation', href: '/admin/agencies', icon: 'business' },
-    { label: 'Services', description: 'Catalog and requirements', href: '/admin/services', icon: 'inventory_2' },
-    { label: 'Audit logs', description: 'Review system changes', href: '/audit-logs', icon: 'history' },
-    { label: 'Sessions', description: 'Monitor signed-in users', href: '/admin/system/active-sessions', icon: 'devices' },
+    { label: 'Users', description: 'Roles, invites, verification, access', href: '/admin/users', route: 'admin.users.index', icon: 'group' },
+    { label: 'Agencies', description: 'Partner profiles and activation', href: '/admin/agencies', route: 'admin.agencies.index', icon: 'business' },
+    { label: 'Services', description: 'Catalog and requirements', href: '/admin/services', route: 'admin.services.index', icon: 'inventory_2' },
+    { label: 'Categories', description: 'Case category taxonomy', href: '/admin/case-categories', route: 'admin.case-categories.index', icon: 'category' },
+    { label: 'Statuses', description: 'Case status taxonomy', href: '/admin/case-statuses', route: 'admin.case-statuses.index', icon: 'flag' },
+    { label: 'Issues', description: 'Case issue taxonomy', href: '/admin/case-issues', route: 'admin.case-issues.index', icon: 'report_problem' },
+    { label: 'System settings', description: 'Thresholds and chatbot index', href: '/admin/system-settings', route: 'admin.system-settings.index', icon: 'settings' },
+    { label: 'Active sessions', description: 'Signed-in users, terminate access', href: '/admin/system/active-sessions', route: 'admin.system.active-sessions', icon: 'devices' },
+    { label: 'Security', description: 'Password and lockout policy', href: '/admin/system/security', route: 'admin.system.security', icon: 'shield' },
+    { label: 'System logs', description: 'Application and error logs', href: '/admin/system/logs', route: 'admin.system.logs', icon: 'terminal' },
+    { label: 'Maintenance', description: 'Maintenance mode control', href: '/admin/system/maintenance', route: 'admin.system.maintenance', icon: 'construction' },
+    { label: 'Email logs', description: 'Deliverability and resend', href: '/admin/system/email-logs', route: 'admin.system.email-logs.index', icon: 'mail' },
+    { label: 'Data export', description: 'Export system data', href: '/admin/data-export', route: 'admin.data-export.index', icon: 'download' },
+    { label: 'Audit logs', description: 'Full unscoped change trail', href: '/audit-logs', route: 'audit-logs.index', icon: 'history' },
 ];
 
-function buildQueueItems(dashboard, stats) {
-    const supplied = safeArray(dashboard.operationalQueues);
+const PLATFORM_HEALTH_LINKS = [
+    { label: 'System logs', description: 'Check for errors before they spread.', href: '/admin/system/logs', route: 'admin.system.logs', icon: 'terminal' },
+    { label: 'Email logs', description: 'Deliverability, failures, and resend.', href: '/admin/system/email-logs', route: 'admin.system.email-logs.index', icon: 'mail' },
+    { label: 'Maintenance mode', description: 'Take the system offline for work.', href: '/admin/system/maintenance', route: 'admin.system.maintenance', icon: 'construction' },
+    { label: 'Data export', description: 'Pull records for reporting.', href: '/admin/data-export', route: 'admin.data-export.index', icon: 'download' },
+    { label: 'System settings', description: 'Overdue threshold and chatbot index.', href: '/admin/system-settings', route: 'admin.system-settings.index', icon: 'settings' },
+];
 
-    if (supplied.length > 0) {
-        return supplied.map((item) => ({
-            ...item,
-            href: item.href ?? QUEUE_ROUTES[item.key] ?? '/referrals',
-        }));
+const MODULE_GROUPS = {
+    Users: ['user', 'auth', 'session', 'mfa', 'security'],
+    Agencies: ['agency', 'service', 'service_requirement'],
+    Cases: ['case', 'case_category', 'case_issue', 'case_status', 'case_document'],
+    Referrals: ['referral', 'referral_comment', 'referral_attachment', 'referral_client_request', 'referral_client_request_item', 'referral_client_message', 'referral_client_access_link', 'referral_service_requirement'],
+};
+
+function categorizeModule(mod) {
+    const lower = String(mod ?? '').toLowerCase();
+    for (const [group, modules] of Object.entries(MODULE_GROUPS)) {
+        if (modules.includes(lower)) return group;
     }
-
-    return [
-        { key: 'openCases', label: 'Open cases', count: stats.openCases ?? stats.totalOpenCases ?? 0, note: 'Cases still being handled.', tone: 'blue', href: '/cases?status=OPEN' },
-        { key: 'pendingReferrals', label: 'Pending referrals', count: stats.pendingReferrals ?? 0, note: 'Waiting for agency action.', tone: 'amber', href: '/referrals?status=PENDING' },
-        { key: 'processingReferrals', label: 'Processing', count: stats.processingReferrals ?? 0, note: 'Currently being worked by agencies.', tone: 'cyan', href: '/referrals?status=PROCESSING' },
-        { key: 'forComplianceReferrals', label: 'For compliance', count: stats.forComplianceReferrals ?? 0, note: 'Need missing requirements.', tone: 'orange', href: '/referrals?status=FOR_COMPLIANCE' },
-        { key: 'overdueReferrals', label: 'Overdue', count: stats.overdueReferrals ?? 0, note: 'Past the expected response window.', tone: 'rose', href: '/overdue-referrals' },
-    ];
+    return 'Other';
 }
 
 export default function AdminDashboard({ dashboard = {} }) {
@@ -60,87 +63,241 @@ export default function AdminDashboard({ dashboard = {} }) {
     const firstName = auth?.user?.name?.split(' ')[0] ?? 'Administrator';
     const stats = dashboard.stats ?? dashboard;
 
-    const queueItems = buildQueueItems(dashboard, stats);
-    const recentCases = safeArray(dashboard.recentCases).slice(0, 6);
-    const recentLogs = safeArray(dashboard.recentLogs).slice(0, 6).map((log) => ({
+    const recentLogs = safeArray(dashboard.recentLogs).slice(0, 8).map((log) => ({
         ...log,
         actionType: log.action ?? log.actionType,
         title: log.message ?? 'System activity',
         desc: log.detail ?? '',
         time: log.timestamp ? formatDisplayDateTime(log.timestamp) : log.time,
     }));
-    const topAgencies = safeArray(dashboard.topAgencies).slice(0, 6);
     const usersByRole = safeArray(dashboard.usersByRole);
-    const categories = safeArray(dashboard.casesByCategory).slice(0, 6);
+
+    const [auditFilter, setAuditFilter] = useState('all');
+    const auditModuleCounts = recentLogs.reduce((acc, log) => {
+        const group = categorizeModule(log.module);
+        acc[group] = (acc[group] ?? 0) + 1;
+        return acc;
+    }, {});
+    const auditModuleGroups = Object.keys(auditModuleCounts).sort();
+    const filteredLogs = auditFilter === 'all'
+        ? recentLogs
+        : recentLogs.filter((log) => categorizeModule(log.module) === auditFilter);
+
+    const activeReferrals = (stats.pendingReferrals ?? 0) + (stats.processingReferrals ?? 0) + (stats.forComplianceReferrals ?? 0);
 
     return (
         <div className="mx-auto max-w-7xl pb-8">
             <GettingStartedChecklist />
 
             <PageHeader
-                eyebrow="Admin overview"
+                eyebrow="System administration"
                 title={`Welcome back, ${firstName}`}
-                subtitle="Monitor queues, track referrals, and manage the system from one place."
+                subtitle="Manage people, agencies, settings, and review what changed across the system."
             >
                 <QuickActions
                     actions={[
-                        { href: '/cases', label: 'Cases', icon: 'folder', count: stats.totalCases, primary: true },
-                        { href: '/referrals', label: 'Referrals', icon: 'send', count: stats.totalReferrals },
-                        { href: '/overdue-referrals', label: 'Overdue', icon: 'warning', count: stats.overdueReferrals },
+                        { href: '/admin/users', route: 'admin.users.index', label: 'Users', icon: 'group', count: stats.totalUsers, primary: true },
+                        { href: '/admin/agencies', route: 'admin.agencies.index', label: 'Agencies', icon: 'business', count: stats.totalAgencies },
+                        { href: '/audit-logs', route: 'audit-logs.index', label: 'Audit logs', icon: 'history' },
                     ]}
                 />
             </PageHeader>
 
+            {/* ── Admin KPIs: identity, directory, and system-wide load ── */}
             <StatRow
                 dataTour="dashboard-stats"
                 stats={[
-                    { title: 'Total cases', value: stats.totalCases ?? 0, icon: 'folder', description: 'All non-draft case files in the system.' },
-                    { title: 'Total referrals', value: stats.totalReferrals ?? 0, icon: 'send', iconBg: 'bg-amber-50', iconColor: 'text-amber-700', description: 'Referrals sent to partner agencies.' },
-                    { title: 'Active agencies', value: stats.activeAgencies ?? stats.totalAgencies ?? 0, icon: 'account_balance', iconBg: 'bg-emerald-50', iconColor: 'text-emerald-700', description: `${formatCount(stats.inactiveAgencies ?? 0)} inactive agency records.` },
-                    { title: 'Overdue referrals', value: stats.overdueReferrals ?? 0, icon: 'warning', iconBg: 'bg-rose-50', iconColor: 'text-rose-700', description: 'Active referrals older than five days.' },
+                    {
+                        title: 'People',
+                        value: stats.totalUsers ?? 0,
+                        icon: 'group',
+                        description: `${formatCount(stats.activeUsers ?? 0)} active · ${formatCount(stats.inactiveUsers ?? 0)} inactive.`,
+                    },
+                    {
+                        title: 'Agencies',
+                        value: stats.activeAgencies ?? stats.totalAgencies ?? 0,
+                        icon: 'business',
+                        iconBg: 'bg-emerald-50',
+                        iconColor: 'text-emerald-700',
+                        description: `${formatCount(stats.inactiveAgencies ?? 0)} inactive of ${formatCount(stats.totalAgencies ?? 0)} total.`,
+                    },
+                    {
+                        title: 'Open cases',
+                        value: stats.openCases ?? 0,
+                        icon: 'folder',
+                        iconBg: 'bg-amber-50',
+                        iconColor: 'text-amber-700',
+                        description: 'System-wide, across all case managers.',
+                    },
+                    {
+                        title: 'Overdue referrals',
+                        value: stats.overdueReferrals ?? 0,
+                        icon: 'warning',
+                        iconBg: 'bg-rose-50',
+                        iconColor: 'text-rose-700',
+                        description: 'Past the expected response window.',
+                        trend: (stats.overdueReferrals ?? 0) > 0 ? 'Needs action' : undefined,
+                    },
                 ]}
             />
 
-            <TriageStrip items={queueItems} dataTour="dashboard-work-queues" />
-
             <div className="grid gap-6 xl:grid-cols-12">
                 <div className="space-y-6 xl:col-span-8">
+                    {/* ── Security & access ── */}
                     <SectionCard
-                        title="Recent case activity"
-                        dataTour="dashboard-recent-cases"
-                        action={<ViewAllLink href="/cases">View all cases</ViewAllLink>}
-                        bodyClassName=""
+                        title="Security & access"
+                        dataTour="dashboard-security-access"
+                        action={<ViewAllLink href={safeRoute('admin.users.index', undefined, '/admin/users')}>Manage users</ViewAllLink>}
                     >
-                        <EntityList empty={<EmptyState message="No recent cases yet." href="/cases" actionLabel="Open cases" />}>
-                            {recentCases.map((item) => (
-                                <EntityRow
-                                    key={item.id}
-                                    href={`/cases/${item.id}`}
-                                    pill={item.case_number ?? item.caseNo}
-                                    title={item.client_name ?? item.clientName ?? 'Unnamed client'}
-                                    note={[item.category, item.case_owner ?? item.caseOwner, item.last_activity ?? (item.updated_at ? `Updated ${formatDisplayDate(item.updated_at)}` : null)].filter(Boolean).join(' · ')}
-                                    right={<StatusBadge status={item.status} />}
-                                />
-                            ))}
-                        </EntityList>
+                        {usersByRole.length > 0 ? (
+                            <BarList
+                                items={usersByRole.map((role) => ({
+                                    key: role.role ?? role.label,
+                                    label: role.label ?? role.role,
+                                    count: role.count ?? 0,
+                                    tone: 'emerald',
+                                }))}
+                            />
+                        ) : (
+                            <p className="text-sm text-slate-500">No role data yet.</p>
+                        )}
+                        <p className="mt-3 text-xs text-slate-500">
+                            {formatCount(stats.verifiedUsers)} of {formatCount(stats.totalUsers)} verified.
+                            {' '}MFA status and signed-in sessions live on the pages below.
+                        </p>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                            <Link
+                                href={safeRoute('admin.system.active-sessions', undefined, '/admin/system/active-sessions')}
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-50"
+                            >
+                                <MaterialSymbol name="devices" className="text-[16px]" />
+                                Active sessions
+                            </Link>
+                            <Link
+                                href={safeRoute('admin.system.security', undefined, '/admin/system/security')}
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-50"
+                            >
+                                <MaterialSymbol name="shield" className="text-[16px]" />
+                                Security policy
+                            </Link>
+                        </div>
                     </SectionCard>
 
+                    {/* ── Recent administrative changes ── */}
                     <SectionCard
                         title="Recent administrative changes"
                         dataTour="dashboard-recent-activity"
-                        action={<ViewAllLink href="/audit-logs">View audit logs</ViewAllLink>}
+                        action={<ViewAllLink href={safeRoute('audit-logs.index', undefined, '/audit-logs')}>View audit logs</ViewAllLink>}
+                        bodyClassName="p-0"
                     >
-                        <ActivityFeed items={recentLogs} />
+                        <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-5 pb-3 pt-4">
+                            <FilterChip
+                                label="All"
+                                count={recentLogs.length}
+                                active={auditFilter === 'all'}
+                                onClick={() => setAuditFilter('all')}
+                            />
+                            {auditModuleGroups.map((group) => (
+                                <FilterChip
+                                    key={group}
+                                    label={group}
+                                    count={auditModuleCounts[group] ?? 0}
+                                    active={auditFilter === group}
+                                    onClick={() => setAuditFilter(group)}
+                                />
+                            ))}
+                        </div>
+                        <DashboardTable
+                            columns={[
+                                { key: 'time', label: 'Time' },
+                                { key: 'module', label: 'Module' },
+                                { key: 'activity', label: 'Activity' },
+                            ]}
+                            rows={filteredLogs.map((log) => ({
+                                key: log.id,
+                                time: log.time,
+                                module: categorizeModule(log.module),
+                                activity: (
+                                    <span className="block max-w-xl truncate font-semibold text-slate-900" title={log.desc || log.title}>
+                                        {log.title}
+                                    </span>
+                                ),
+                            }))}
+                            empty={<EmptyState message="No matching activity." />}
+                        />
+                    </SectionCard>
+
+                    {/* ── Demoted: system-wide case snapshot (glance only, not casework) ── */}
+                    <SectionCard
+                        title="System-wide case snapshot"
+                        dataTour="dashboard-system-snapshot"
+                        collapsible
+                        defaultOpen={false}
+                    >
+                        <dl className="divide-y divide-slate-100">
+                            <div className="flex items-center justify-between gap-3 py-2.5">
+                                <dt className="text-sm font-semibold text-slate-700">Open cases</dt>
+                                <dd>
+                                    <Link href={safeRoute('cases.index', { status: 'OPEN' }, '/cases?status=OPEN')} className="text-sm font-bold text-primary hover:text-primary/80">
+                                        {formatCount(stats.openCases)}
+                                    </Link>
+                                </dd>
+                            </div>
+                            <div className="flex items-center justify-between gap-3 py-2.5">
+                                <dt className="text-sm font-semibold text-slate-700">Active referrals</dt>
+                                <dd>
+                                    <Link href={safeRoute('referrals.index', undefined, '/referrals')} className="text-sm font-bold text-primary hover:text-primary/80">
+                                        {formatCount(activeReferrals)}
+                                    </Link>
+                                </dd>
+                            </div>
+                            <div className="flex items-center justify-between gap-3 py-2.5">
+                                <dt className="text-sm font-semibold text-slate-700">Overdue referrals</dt>
+                                <dd>
+                                    <Link href={safeRoute('overdue-referrals.index', undefined, '/overdue-referrals')} className="text-sm font-bold text-rose-600 hover:text-rose-500">
+                                        {formatCount(stats.overdueReferrals)}
+                                    </Link>
+                                </dd>
+                            </div>
+                            <div className="flex items-center justify-between gap-3 py-2.5">
+                                <dt className="text-sm font-semibold text-slate-700">Closed cases</dt>
+                                <dd className="text-sm font-bold text-slate-900">{formatCount(stats.closedCases)}</dd>
+                            </div>
+                        </dl>
+                        <p className="mt-3 text-[11px] text-slate-400">Casework belongs to case managers and agencies — this is oversight only.</p>
                     </SectionCard>
                 </div>
 
                 <aside className="space-y-6 xl:col-span-4">
+                    {/* ── Platform health ── */}
+                    <SectionCard title="Platform health" dataTour="dashboard-platform-health" bodyClassName="p-3">
+                        <div className="grid gap-1">
+                            {PLATFORM_HEALTH_LINKS.map((item) => (
+                                <Link
+                                    key={item.route ?? item.href}
+                                    href={item.route ? safeRoute(item.route, undefined, item.href) : item.href}
+                                    className="flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                                >
+                                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                                        <MaterialSymbol name={item.icon} className="text-[18px]" />
+                                    </span>
+                                    <span className="min-w-0 flex-1">
+                                        <span className="block text-sm font-bold text-slate-900">{item.label}</span>
+                                        <span className="block truncate text-xs text-slate-500">{item.description}</span>
+                                    </span>
+                                    <MaterialSymbol name="chevron_right" className="text-[16px] text-slate-300" />
+                                </Link>
+                            ))}
+                        </div>
+                    </SectionCard>
+
+                    {/* ── Admin tools ── */}
                     <SectionCard title="Admin tools" dataTour="dashboard-admin-tools" bodyClassName="p-3">
                         <div className="grid gap-1">
                             {ADMIN_TOOLS.map((tool) => (
                                 <Link
-                                    key={tool.href}
-                                    href={tool.href}
+                                    key={tool.route ?? tool.href}
+                                    href={tool.route ? safeRoute(tool.route, undefined, tool.href) : tool.href}
                                     className="flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                                 >
                                     <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
@@ -154,63 +311,6 @@ export default function AdminDashboard({ dashboard = {} }) {
                                 </Link>
                             ))}
                         </div>
-                    </SectionCard>
-
-                    <SectionCard title="Referral status">
-                        {safeArray(dashboard.referralStatusDistribution).length > 0 ? (
-                            <StatusDonut items={dashboard.referralStatusDistribution} />
-                        ) : (
-                            <p className="text-sm text-slate-500">Status distribution appears once referrals exist.</p>
-                        )}
-                    </SectionCard>
-
-                    <SectionCard title="Agency load">
-                        {topAgencies.length > 0 ? (
-                            <BarList
-                                items={topAgencies.map((agency) => ({
-                                    key: agency.id ?? agency.name,
-                                    label: agency.name ?? agency.agencyName,
-                                    count: agency.activeReferrals ?? agency.count ?? 0,
-                                    detail: `${formatCount(agency.totalReferrals ?? 0)} total referrals`,
-                                    tone: 'blue',
-                                }))}
-                            />
-                        ) : (
-                            <p className="text-sm text-slate-500">Agency load appears once referrals are assigned.</p>
-                        )}
-                    </SectionCard>
-
-                    <SectionCard title="Users by role">
-                        {usersByRole.length > 0 ? (
-                            <div className="space-y-2">
-                                {usersByRole.map((role) => (
-                                    <div key={role.role ?? role.label} className="flex items-center justify-between gap-3 text-sm">
-                                        <span className="font-semibold text-slate-800">{role.label ?? role.role}</span>
-                                        <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-bold text-primary">{formatCount(role.count)}</span>
-                                    </div>
-                                ))}
-                                <p className="pt-1 text-xs text-slate-400">
-                                    {formatCount(stats.verifiedUsers)} of {formatCount(stats.totalUsers)} users verified.
-                                </p>
-                            </div>
-                        ) : (
-                            <p className="text-sm text-slate-500">No role data yet.</p>
-                        )}
-                    </SectionCard>
-
-                    <SectionCard title="Case mix">
-                        {categories.length > 0 ? (
-                            <BarList
-                                items={categories.map((category) => ({
-                                    key: category.name,
-                                    label: category.name,
-                                    count: category.count,
-                                    hex: category.color,
-                                }))}
-                            />
-                        ) : (
-                            <p className="text-sm text-slate-500">Category mix appears once cases are filed.</p>
-                        )}
                     </SectionCard>
                 </aside>
             </div>

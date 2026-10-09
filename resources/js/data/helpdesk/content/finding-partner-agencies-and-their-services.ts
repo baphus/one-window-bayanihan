@@ -21,7 +21,7 @@ Use **Back to Partner Agencies** to return to the directory.
 
 1. Find the service that matches your need — for example legal assistance, welfare support, or repatriation help.
 2. Read its **Requirements** and gather the documents in advance. Complete requirements are the single biggest factor in fast processing.
-3. Note the agency name. When a DMW case manager opens your case, they will refer you to the matching agency — knowing it beforehand helps the conversation.
+3. Note the agency name. If you file through the **[intake form](/intake)**, mentioning the matching agency helps the conversation; otherwise your DMW case manager will refer you to the right agency as part of your case.
 
 > The directory shows what agencies offer, but referrals are created by DMW case managers as part of your case — you don't apply to agencies directly through this site. If you're unsure which service fits your situation, ask at intake or use the help chatbot.
 

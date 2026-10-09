@@ -104,7 +104,7 @@ Ensure critical business functions of the One Window Bayanihan system can contin
 
 ## Related Documents
 
-- Backup and Restore Procedure (`docs/DEPLOYMENT_GUIDE.md`)
+- Backup and Restore Procedure (`docs/DEPLOYMENT_GUIDE_v3.1.0.md`)
 - Incident Response Procedure (`docs/procedures/incident-response.md`)
 - Service Catalogue (`docs/management/service-catalogue.md`)
-- Deployment Guide (`docs/DEPLOYMENT_GUIDE.md`)
+- Deployment Guide (`docs/DEPLOYMENT_GUIDE_v3.1.0.md`)

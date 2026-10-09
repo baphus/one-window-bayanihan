@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, router } from '@inertiajs/react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-
-const NOTIFICATIONS_KEYS = ['ofw-notifications'];
+import useJsonPoll from '@/Hooks/useJsonPoll';
+import safeRoute from '@/utils/safeRoute';
 
 async function fetchJson(url, options = {}) {
     const { headers: optionHeaders = {}, ...rest } = options;
@@ -36,40 +35,27 @@ function formatTimestamp(value) {
 export default function OfwNotificationBell() {
     const [open, setOpen] = useState(false);
     const wrapperRef = useRef(null);
-    const queryClient = useQueryClient();
 
     // One query — the list endpoint also reports the unread count in meta.
-    const { data: listData, isLoading, error } = useQuery({
-        queryKey: NOTIFICATIONS_KEYS,
-        queryFn: () => fetchJson('/my-cases/notifications'),
-        refetchInterval: 60000,
-        staleTime: 30000,
-    });
+    const { data: listData, isLoading, error, reload } = useJsonPoll('/my-cases/notifications');
 
     const notifications = listData?.data ?? [];
     const unreadCount = error ? 0 : (listData?.meta?.unread ?? 0);
 
-    const markReadMutation = useMutation({
-        mutationFn: (id) =>
-            fetchJson(`/my-cases/notifications/${id}/read`, {
-                method: 'PATCH',
-                headers: {
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
-                },
-            }),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_KEYS });
-        },
-    });
+    const markRead = (id) =>
+        fetchJson(`/my-cases/notifications/${id}/read`, {
+            method: 'PATCH',
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+            },
+        }).then(reload);
 
     // Keep the badge fresh after every Inertia navigation (the layout persists
     // between OFW pages, so a mount-only fetch would go stale).
     useEffect(() => {
-        const off = router.on('success', () => {
-            queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_KEYS });
-        });
+        const off = router.on('success', reload);
         return off;
-    }, [queryClient]);
+    }, [reload]);
 
     // Close on outside click
     useEffect(() => {
@@ -97,7 +83,7 @@ export default function OfwNotificationBell() {
         setOpen(false);
         if (!item.action_url) return;
         if (!item.read_at) {
-            markReadMutation.mutate(item.id);
+            markRead(item.id);
         }
         router.visit(item.action_url);
     }
@@ -206,7 +192,7 @@ export default function OfwNotificationBell() {
                     </div>
 
                     <Link
-                        href="/my-cases/notifications"
+                        href={safeRoute('ofw.notifications', undefined, '/my-cases/notifications')}
                         onClick={() => setOpen(false)}
                         className="flex items-center justify-center gap-1.5 border-t border-slate-100 px-4 py-3 text-[11px] font-bold text-primary transition-colors hover:bg-slate-50"
                     >

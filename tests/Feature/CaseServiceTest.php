@@ -56,14 +56,17 @@ class CaseServiceTest extends TestCase
         $case->client_id = $client->id;
         $case->save();
 
-        $auditCount = AuditLog::count();
-
         $service = app(CaseService::class);
         $service->deleteDraft($case->id, $user->id);
 
         $this->assertDatabaseMissing('cases', ['id' => $case->id]);
         $this->assertDatabaseMissing('clients', ['id' => $client->id]);
-        $this->assertEquals($auditCount, AuditLog::count());
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'DELETE',
+            'module' => 'case',
+            'entity_id' => $case->id,
+            'user_id' => $user->id,
+        ]);
     }
 
     public function test_user_cannot_delete_another_users_draft(): void
@@ -133,7 +136,7 @@ class CaseServiceTest extends TestCase
         $this->assertDatabaseMissing('next_of_kin', ['id' => $nextOfKin->id]);
     }
 
-    public function test_delete_draft_does_not_create_audit_log(): void
+    public function test_delete_draft_creates_audit_log(): void
     {
         $user = User::factory()->create();
         $case = CaseFile::factory()->create([
@@ -144,12 +147,15 @@ class CaseServiceTest extends TestCase
         $case->client_id = $client->id;
         $case->save();
 
-        $beforeCount = AuditLog::count();
-
         $service = app(CaseService::class);
         $service->deleteDraft($case->id, $user->id);
 
-        $this->assertEquals($beforeCount, AuditLog::count());
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'DELETE',
+            'module' => 'case',
+            'entity_id' => $case->id,
+            'user_id' => $user->id,
+        ]);
     }
 
     public function test_user_can_get_own_drafts(): void

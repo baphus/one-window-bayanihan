@@ -39,18 +39,18 @@ class ErrorBoundary extends React.Component {
       }
 
       return (
-        <div className="flex min-h-screen items-center justify-center bg-gray-100">
+        <div className="flex min-h-screen items-center justify-center bg-surface">
           <div className="rounded-lg bg-white p-8 shadow-md text-center max-w-md">
-            <h1 className="text-xl font-semibold text-gray-900 mb-2">Something went wrong</h1>
-            <p className="text-gray-600 mb-6">An unexpected error occurred. Please try reloading the page.</p>
+            <h1 className="text-xl font-semibold text-on-surface mb-2">Something went wrong</h1>
+            <p className="text-on-surface-variant mb-6">An unexpected error occurred. Please try reloading the page.</p>
             <button
               onClick={() => window.location.reload()}
-              className="rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 transition-colors"
+              className="rounded-md bg-primary px-4 py-2 text-sm font-bold text-on-primary hover:bg-primary-container transition-colors"
             >
               Reload Page
             </button>
             {this.props.incidentId && (
-              <p className="text-xs text-gray-400 mt-8">Ref: {this.props.incidentId}</p>
+              <p className="text-xs text-on-surface-variant/60 mt-8">Ref: {this.props.incidentId}</p>
             )}
           </div>
         </div>

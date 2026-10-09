@@ -1,7 +1,11 @@
 import { useMemo, useCallback, useState, useEffect, useRef } from 'react';
 import { Link, router } from '@inertiajs/react';
-import { formatRelativeTime, formatDateGroup, formatTimeAgo } from '@/lib/relativeTime';
-import { ChangesTable, CATEGORY_LABELS, actionStyle } from '@/lib/audit';
+import { formatRelativeTime, formatDateGroup } from '@/lib/relativeTime';
+import { formatDisplayDateTime } from '@/lib/utils';
+import { ChangesList, CATEGORY_LABELS, actionStyle } from '@/lib/audit';
+import { formatCount } from '@/Components/Dashboard/primitives';
+import { sortTimelineItems } from '@/Components/Timeline';
+import TablePagination from '@/Components/ui/TablePagination';
 
 /**
  * @param {Object} props
@@ -12,7 +16,7 @@ import { ChangesTable, CATEGORY_LABELS, actionStyle } from '@/lib/audit';
  * @param {Object[]} [props.availableModules=[]] - Available modules for filter dropdown
  * @param {Object} [props.availableModulesLabels={}] - Maps module -> human label for filter dropdown
  * @param {Object} [props.filterValues={}] - Current filter state
- * @param {Object} [props.pagination] - Pagination info with total, currentPage, totalPages
+ * @param {Object} [props.pagination] - Pagination info: total, currentPage, totalPages, from, to, perPage
  * @param {Function} [props.onPageChange] - Callback for page change
  */
 export function AuditTimeline({
@@ -32,7 +36,8 @@ export function AuditTimeline({
         const groups = {};
         const groupOrder = [];
 
-        logs.forEach(log => {
+        // Newest-first ordering enforced with the shared timeline sorter.
+        sortTimelineItems(logs).forEach(log => {
             const groupLabel = formatDateGroup(log.timestamp);
             if (!groups[groupLabel]) {
                 groups[groupLabel] = [];
@@ -101,7 +106,14 @@ export function AuditTimeline({
                 </div>
             )}
 
-            {pagination && <Pagination pagination={pagination} onPageChange={onPageChange} />}
+            {pagination && (
+                <PaginationFooter
+                    pagination={pagination}
+                    onPageChange={onPageChange}
+                    perPage={filterValues?.per_page ?? pagination.perPage}
+                    onPerPageChange={(n) => onFilterChange({ ...filterValues, per_page: n })}
+                />
+            )}
         </div>
     );
 }
@@ -120,12 +132,12 @@ function TimelineEntry({ log }) {
             <div className={`absolute left-5 top-8 -translate-x-1/2 w-3 h-3 rounded-full ring-4 ring-white ${style.dot} z-10`} />
             
             {/* Card */}
-            <div className="bg-white rounded-lg border border-slate-200 p-4 shadow-sm transition-shadow hover:shadow-md">
+            <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm transition-shadow hover:shadow-md">
                 {/* Row 1 */}
                 <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-2">
                     <div className="flex items-center gap-3 flex-grow">
-                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3/5 h-3/5 text-blue-900/40">
+                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary-fixed flex items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3/5 h-3/5 text-primary/40">
                                 <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
                             </svg>
                         </div>
@@ -139,7 +151,7 @@ function TimelineEntry({ log }) {
                             {log.action}
                         </span>
                         <div className="text-xs text-slate-500 whitespace-nowrap">
-                            {formatTimeAgo(log.timestamp)}
+                            <span>{formatDisplayDateTime(log.timestamp)}</span>
                         </div>
                     </div>
                 </div>
@@ -152,10 +164,10 @@ function TimelineEntry({ log }) {
                     </p>
                 </div>
 
-                {/* Row 3: Always-visible changes table */}
+                {/* Row 3: Always-visible changes list */}
                 {changes.length > 0 && (
                     <div className="ml-11 mt-3">
-                        <ChangesTable changes={changes} />
+                        <ChangesList changes={changes} />
                     </div>
                 )}
 
@@ -249,7 +261,7 @@ function FilterBar({ availableActions, availableModules, availableModulesLabels,
     );
 
     return (
-        <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm mb-6 space-y-4">
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm mb-6 space-y-4">
             <div className="flex flex-wrap gap-4 items-center justify-between">
                 {/* Search */}
                 <div className="relative flex-grow max-w-sm">
@@ -258,10 +270,10 @@ function FilterBar({ availableActions, availableModules, availableModulesLabels,
                     </span>
                     <input
                         type="text"
-                        placeholder="Search logs..."
+                        placeholder="Search action, module, actor, or ID..."
                         value={localSearch}
                         onChange={handleSearchChange}
-                        className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-md text-sm focus:ring-primary focus:border-primary"
                     />
                 </div>
                 
@@ -272,18 +284,18 @@ function FilterBar({ availableActions, availableModules, availableModulesLabels,
                             type="date"
                             value={localDateFrom}
                             onChange={(e) => setLocalDateFrom(e.target.value)}
-                            className="py-2 px-3 border border-slate-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500"
+                            className="py-2 px-3 border border-slate-300 rounded-md text-sm focus:ring-primary focus:border-primary"
                         />
                         <span className="text-slate-500 text-sm">to</span>
                         <input
                             type="date"
                             value={localDateTo}
                             onChange={(e) => setLocalDateTo(e.target.value)}
-                            className="py-2 px-3 border border-slate-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500"
+                            className="py-2 px-3 border border-slate-300 rounded-md text-sm focus:ring-primary focus:border-primary"
                         />
                         <button
                             onClick={applyDateFilter}
-                            className="px-3 py-2 bg-blue-900 text-white text-sm font-medium rounded-md hover:bg-blue-800 transition-colors"
+                            className="px-3 py-2 bg-primary text-white text-sm font-medium rounded-md hover:bg-primary-container transition-colors"
                         >
                             Apply
                         </button>
@@ -310,7 +322,7 @@ function FilterBar({ availableActions, availableModules, availableModulesLabels,
                                 title={category === 'system' ? 'Automated and maintenance activity (hidden by default)' : undefined}
                                 className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
                                     isActive
-                                    ? 'bg-indigo-100 border-indigo-200 text-indigo-800'
+                                    ? 'bg-primary-fixed border-primary/20 text-primary'
                                     : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
                                 }`}
                             >
@@ -390,70 +402,33 @@ function FilterBar({ availableActions, availableModules, availableModulesLabels,
     );
 }
 
-function Pagination({ pagination, onPageChange }) {
-    if (!pagination || pagination.totalPages <= 1) return null;
-    
-    const { currentPage, totalPages, total } = pagination;
-    
-    // Simple page array generation
-    let pages = [];
-    for (let i = 1; i <= totalPages; i++) {
-        if (i === 1 || i === totalPages || (i >= currentPage - 1 && i <= currentPage + 1)) {
-            pages.push(i);
-        } else if (pages[pages.length - 1] !== '...') {
-            pages.push('...');
-        }
-    }
+function PaginationFooter({ pagination, onPageChange, perPage = 15, onPerPageChange }) {
+    if (!pagination) return null;
+    if (!pagination.total) return null;
+
+    const { currentPage, totalPages, total, from, to } = pagination;
 
     return (
-        <div className="flex items-center justify-between border-t border-slate-200 bg-white px-4 py-3 sm:px-6 rounded-lg shadow-sm mt-6">
-            <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-                <div>
-                    <p className="text-sm text-slate-700">
-                        Showing <span className="font-medium">{total ? total : 'results'}</span> results
-                    </p>
-                </div>
-                <div>
-                    <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
-                        <button
-                            onClick={() => onPageChange(currentPage - 1)}
-                            disabled={currentPage === 1}
-                            className="relative inline-flex items-center rounded-l-md px-2 py-2 text-slate-400 ring-1 ring-inset ring-slate-300 hover:bg-slate-50 disabled:opacity-50 focus:z-20 focus:outline-offset-0"
+        <div className="mt-6 flex flex-col md:flex-row items-center justify-between gap-4 rounded-md border border-slate-300 bg-slate-50 px-6 py-4">
+            <div className="text-[13px] text-slate-500 text-left">
+                Showing <span className="font-bold text-slate-700">{from ?? 0}–{to ?? 0}</span> of <span className="font-bold text-slate-700">{formatCount(total)}</span> records
+            </div>
+
+            <div className="flex flex-wrap items-center gap-6">
+                {onPerPageChange && (
+                    <div className="flex items-center gap-3">
+                        <label className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Rows per page:</label>
+                        <select
+                            value={perPage}
+                            onChange={(e) => onPerPageChange(Number(e.target.value))}
+                            className="bg-white border border-slate-300 text-[13px] font-bold text-slate-700 rounded-md pl-3 pr-7 py-1.5 outline-none focus:ring-1 focus:ring-primary"
                         >
-                            <span className="sr-only">Previous</span>
-                            <span className="material-symbols-outlined text-[20px]">chevron_left</span>
-                        </button>
-                        
-                        {pages.map((p, i) => (
-                            p === '...' ? (
-                                <span key={i} className="relative inline-flex items-center px-4 py-2 text-sm font-semibold text-slate-700 ring-1 ring-inset ring-slate-300 focus:outline-offset-0">
-                                    ...
-                                </span>
-                            ) : (
-                                <button
-                                    key={i}
-                                    onClick={() => onPageChange(p)}
-                                    className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold focus:z-20 focus:outline-offset-0 ${
-                                        p === currentPage
-                                        ? 'z-10 bg-blue-900 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-900'
-                                        : 'text-slate-900 ring-1 ring-inset ring-slate-300 hover:bg-slate-50'
-                                    }`}
-                                >
-                                    {p}
-                                </button>
-                            )
-                        ))}
-                        
-                        <button
-                            onClick={() => onPageChange(currentPage + 1)}
-                            disabled={currentPage === totalPages}
-                            className="relative inline-flex items-center rounded-r-md px-2 py-2 text-slate-400 ring-1 ring-inset ring-slate-300 hover:bg-slate-50 disabled:opacity-50 focus:z-20 focus:outline-offset-0"
-                        >
-                            <span className="sr-only">Next</span>
-                            <span className="material-symbols-outlined text-[20px]">chevron_right</span>
-                        </button>
-                    </nav>
-                </div>
+                            {[15, 25, 50, 100].map(size => <option key={size} value={size}>{size}</option>)}
+                        </select>
+                    </div>
+                )}
+
+                <TablePagination currentPage={currentPage} totalPages={totalPages} onPageChange={onPageChange} />
             </div>
         </div>
     );

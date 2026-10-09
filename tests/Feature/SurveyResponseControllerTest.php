@@ -159,7 +159,7 @@ class SurveyResponseControllerTest extends TestCase
             referralId: $referral->id, clientName: 'Private Client', clientEmail: $client->email,
             serviceName: 'Service', surveyFormId: $form->id,
         );
-        $invitation = $created->invitation;
+        $invitation = $created['invitation'];
         if ($submitted) {
             $invitation->update(['submitted_at' => now()]);
             SurveyResponse::create(['survey_invitation_id' => $invitation->id, 'survey_question_id' => $question->id, 'answer' => 'Yes']);

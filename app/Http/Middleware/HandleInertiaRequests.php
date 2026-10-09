@@ -19,17 +19,7 @@ class HandleInertiaRequests extends Middleware
             return '';
         }
 
-        return parent::version($request);
-    }
-
-    private function getOnboardingRequired(Request $request): bool
-    {
-        $user = $request->user();
-        if (! $user || $user->role === 'OFW') {
-            return false;
-        }
-
-        return app(OnboardingService::class)->isOnboardingRequired($user);
+        return parent::version($request) ?? '';
     }
 
     private function getProfileIncomplete(Request $request): bool
@@ -107,7 +97,6 @@ class HandleInertiaRequests extends Middleware
                         'id', 'name', 'email', 'role', 'agcy_id', 'avatar_url',
                         'is_active', 'contact_number', 'position', 'department',
                         'office_location', 'bio', 'timezone',
-                        'onboarding_completed_at', 'onboarding_step',
                         'profile_completed_at',
                     ]),
                     'agency' => $this->getCachedUserAgency($request),
@@ -118,7 +107,6 @@ class HandleInertiaRequests extends Middleware
             ],
             'intake_queue_count' => fn () => $this->getIntakeQueueCount($request),
             'just_published' => $request->session()->get('just_published'),
-            'onboarding_required' => fn () => $this->getOnboardingRequired($request),
             'onboarding' => fn () => $request->user() && $request->user()->role !== 'OFW'
                 ? app(OnboardingService::class)->getOnboardingState($request->user())
                 : null,
@@ -135,18 +123,23 @@ class HandleInertiaRequests extends Middleware
                 'enabled' => config('ai-chatbot.enabled', false),
                 'provider' => config('ai-chatbot.provider', 'gemini'),
                 'assistant_name' => config('ai-chatbot.assistant_name', 'Bayani'),
-                'suggestions' => app(ChatbotSuggestionService::class)->getSuggestions($request->user()?->role),
+                'suggestions' => fn () => config('ai-chatbot.enabled', false)
+                    ? app(ChatbotSuggestionService::class)->getSuggestions($request->user()?->role)
+                    : [],
             ],
             'turnstile' => [
                 'enabled' => (bool) config('turnstile.enabled', false),
                 'site_key' => config('turnstile.site_key', ''),
             ],
+            'addresses' => [
+                'served_regions' => config('addresses.served_regions', []),
+            ],
             'passwordRules' => function () {
                 return [
-                    'min_length' => (int) config('password.min_length', 8),
-                    'require_mixed_case' => (bool) config('password.require_mixed_case', true),
-                    'require_numbers' => (bool) config('password.require_numbers', true),
-                    'require_symbols' => (bool) config('password.require_symbols', true),
+                    'min_length' => 8,
+                    'require_mixed_case' => true,
+                    'require_numbers' => true,
+                    'require_symbols' => true,
                 ];
             },
         ];

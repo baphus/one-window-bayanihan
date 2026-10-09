@@ -1,27 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
+import useLocalStorage, { readStoredValue, writeStoredValue } from './useLocalStorage';
 
 /**
  * Persist a page's list/grid view mode to localStorage so the user's chosen
  * layout survives navigation. Mirrors the conventions of usePersistedColumns.
  */
 export function usePersistedViewMode(storageKey) {
-  const [viewMode, setViewMode] = useState(() => {
-    try {
-      return localStorage.getItem(storageKey) || 'list';
-    } catch {
-      return 'list';
-    }
-  });
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(storageKey, viewMode);
-    } catch {
-      /* storage unavailable — ignore */
-    }
-  }, [storageKey, viewMode]);
-
-  return [viewMode, setViewMode];
+  return useLocalStorage(storageKey, 'list');
 }
 
 /**
@@ -33,6 +18,14 @@ export function usePersistedViewMode(storageKey) {
  */
 export function usePersistedFilters(storageKey, filters, applyFilters) {
   const restoredRef = useRef(false);
+  // Latest-callback refs: the restore below must run exactly once on mount
+  // (it reads pre-persist storage before the persist effect overwrites it),
+  // so it can't list the per-render `filters`/`applyFilters` values as deps.
+  // The refs preserve that mount-once behavior without a lint suppression.
+  const filtersRef = useRef(filters);
+  filtersRef.current = filters;
+  const applyFiltersRef = useRef(applyFilters);
+  applyFiltersRef.current = applyFilters;
 
   // Restore first: read the old saved value before the persist effect below
   // overwrites it with the current (usually empty) filter state.
@@ -40,30 +33,20 @@ export function usePersistedFilters(storageKey, filters, applyFilters) {
     if (restoredRef.current) return;
     restoredRef.current = true;
 
-    let saved = null;
-    try {
-      saved = JSON.parse(localStorage.getItem(storageKey) || 'null');
-    } catch {
-      saved = null;
-    }
+    const saved = readStoredValue(storageKey, null);
     if (!saved || typeof saved !== 'object' || Array.isArray(saved)) return;
 
     const { page: _page, per_page: _perPage, ...rest } = saved;
     const cleaned = Object.fromEntries(
       Object.entries(rest).filter(([, v]) => v != null && v !== ''),
     );
-    if (JSON.stringify(cleaned) !== JSON.stringify(filters ?? {})) {
-      applyFilters(cleaned);
+    if (JSON.stringify(cleaned) !== JSON.stringify(filtersRef.current ?? {})) {
+      applyFiltersRef.current(cleaned);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [storageKey]);
 
   useEffect(() => {
     if (filters === undefined) return;
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(filters));
-    } catch {
-      /* storage unavailable — ignore */
-    }
+    writeStoredValue(storageKey, filters);
   }, [storageKey, filters]);
 }

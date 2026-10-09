@@ -1,5 +1,4 @@
-import clsx from 'clsx';
-import { formatStatusLabel } from '@/lib/utils';
+import { humanizeStatus } from '@/lib/statusLabels';
 import {
   AlertTriangle,
   Archive,
@@ -88,7 +87,7 @@ function StatusIcon({ icon: Icon, size, variant }) {
         ? 'h-[11px] w-[11px]'
         : 'h-[10px] w-[10px]';
 
-  return <Icon className={clsx(iconSize, 'shrink-0')} />;
+  return <Icon className={`${iconSize} shrink-0`} />;
 }
 
 export default function StatusBadge({
@@ -103,15 +102,12 @@ export default function StatusBadge({
   const Icon = iconOverride ?? icons[normalizedStatus];
   const label =
     labelOverride ??
-    (variant === 'pill' ? titleCase(formatStatusLabel(status)) : formatStatusLabel(status));
+    (variant === 'pill' ? titleCase(humanizeStatus(status)) : humanizeStatus(status));
 
   const sizeClasses = variant === 'pill' ? pillSizes[size] ?? pillSizes.sm : sizes[size] ?? sizes.sm;
-  const classes = clsx(
-    'inline-flex items-center gap-1 border',
-    sizeClasses,
-    variantClasses[variant] ?? variantClasses.sharp,
-    colors[normalizedStatus] ?? colors.DEFAULT
-  );
+  const classes =
+    'inline-flex items-center gap-1 border ' +
+    `${sizeClasses} ${variantClasses[variant] ?? variantClasses.sharp} ${colors[normalizedStatus] ?? colors.DEFAULT}`;
 
   return (
     <span className={classes}>

@@ -18,23 +18,9 @@ return [
     // Top-level shorthand for simple byte-size checks in FormRequest rules
     'max_size' => (int) env('FILE_UPLOAD_MAX_SIZE', 20480),
 
-    // Per-context configs for StorageService::validate()
+    // Default config for StorageService::validate(). Every upload context
+    // falls back to this when no context-specific block exists.
     'default' => [
-        'mimes' => ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx'],
-        'max_size' => (int) env('FILE_UPLOAD_MAX_SIZE', 20480),
-    ],
-
-    'referral_attachment' => [
-        'mimes' => ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx'],
-        'max_size' => (int) env('FILE_UPLOAD_MAX_SIZE', 20480),
-    ],
-
-    'case_document' => [
-        'mimes' => ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx'],
-        'max_size' => (int) env('FILE_UPLOAD_MAX_SIZE', 20480),
-    ],
-
-    'client_request_document' => [
         'mimes' => ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx'],
         'max_size' => (int) env('FILE_UPLOAD_MAX_SIZE', 20480),
     ],

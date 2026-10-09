@@ -4,8 +4,6 @@ namespace App\Casts;
 
 use Carbon\Carbon;
 use Illuminate\Contracts\Database\Eloquent\CastsAttributes;
-use Illuminate\Contracts\Encryption\DecryptException;
-use Illuminate\Support\Facades\Crypt;
 
 class EncryptedDate implements CastsAttributes
 {
@@ -17,15 +15,10 @@ class EncryptedDate implements CastsAttributes
      */
     public function get($model, string $key, $value, array $attributes): ?Carbon
     {
-        if ($value === null) {
-            return null;
-        }
+        $decrypted = (new EncryptedString)->get($model, $key, $value, $attributes);
 
-        try {
-            $decrypted = Crypt::decryptString($value);
-        } catch (DecryptException) {
-            // Value is plaintext — existing data before encryption migration
-            $decrypted = $value;
+        if ($decrypted === null) {
+            return null;
         }
 
         return Carbon::parse($decrypted);
@@ -44,6 +37,6 @@ class EncryptedDate implements CastsAttributes
             $value = $value->format('Y-m-d');
         }
 
-        return Crypt::encryptString((string) $value);
+        return (new EncryptedString)->set($model, $key, (string) $value, $attributes);
     }
 }

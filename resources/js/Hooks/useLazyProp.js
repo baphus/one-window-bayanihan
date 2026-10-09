@@ -10,7 +10,7 @@ import { usePage } from '@inertiajs/react';
  * skeletal placeholders while waiting.
  *
  * @param {string} key — The prop key to observe (e.g. 'agencyScorecard')
- * @returns {[any, boolean, any]} [data, isLoading, error]
+ * @returns {[any, boolean]} [data, isLoading]
  */
 export function useLazyProp(key) {
   const { props } = usePage();
@@ -18,7 +18,6 @@ export function useLazyProp(key) {
   const hasData = value !== undefined;
 
   const [isLoading, setIsLoading] = useState(!hasData);
-  const [error, setError] = useState(null);
 
   useEffect(() => {
     if (hasData) {
@@ -26,5 +25,5 @@ export function useLazyProp(key) {
     }
   }, [hasData]);
 
-  return [value, isLoading, error];
+  return [value, isLoading];
 }

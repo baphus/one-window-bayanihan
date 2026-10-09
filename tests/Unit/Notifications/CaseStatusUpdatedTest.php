@@ -24,12 +24,14 @@ class CaseStatusUpdatedTest extends TestCase
 
         $this->assertSame([
             'type' => 'case_status_updated',
-            'case_id' => $case->id,
+            'title' => 'Case CASE-2026-0001 is now Closed',
+            'message' => 'Case CASE-2026-0001 status changed from Open to Closed',
             'case_number' => $case->case_number,
+            'actor_name' => null,
+            'url' => route('cases.show', $case->id),
+            'case_id' => $case->id,
             'old_status' => 'open',
             'new_status' => 'closed',
-            'message' => 'Case status changed from open to closed',
-            'url' => route('cases.show', $case->id),
         ], $notification->toDatabase((object) []));
     }
 

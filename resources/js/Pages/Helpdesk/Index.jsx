@@ -13,6 +13,7 @@ import {
 } from '@/data/helpdesk/categories';
 import { resolvePopularArticles } from '@/data/helpdesk/popular';
 import { audienceEntries } from '@/data/helpdesk/audiences';
+import safeRoute from '@/utils/safeRoute';
 
 function sortByPublishedDesc(a, b) {
   return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime();
@@ -23,7 +24,7 @@ function findCategoryBySlug(slug) {
 }
 
 function handleSearch(q) {
-  router.visit('/help/search?q=' + encodeURIComponent(q));
+  router.visit(safeRoute('helpdesk.search', { q }, '/help/search?q=' + encodeURIComponent(q)));
 }
 
 // ---------------------------------------------------------------------------
@@ -88,7 +89,7 @@ function LandingView({ categoryTree }) {
           {categoryTree.map((category) => (
             <Link
               key={category.id}
-              href={`/help?category=${category.slug}`}
+                href={safeRoute('helpdesk.index', { category: category.slug }, `/help?category=${category.slug}`)}
               className="group min-w-0 border border-slate-200 bg-white p-5 transition-colors hover:border-primary/40 hover:bg-surface-container-low focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               <div className="flex items-center gap-3">
@@ -149,7 +150,7 @@ function CategoryView({ category, categoryTree }) {
 
   const breadcrumbItems = isSubcategory
     ? [
-        { label: parent?.name || 'Category', href: `/help?category=${parent?.slug}` },
+        { label: parent?.name || 'Category', href: safeRoute('helpdesk.index', { category: parent?.slug }, `/help?category=${parent?.slug}`) },
         { label: category.name },
       ]
     : [{ label: category.name }];
@@ -235,7 +236,7 @@ function CategoryView({ category, categoryTree }) {
                 <div className="mb-3 flex items-baseline justify-between gap-3">
                   <h2 id={`subcategory-${sub.id}`} className="font-headline text-lg font-bold text-slate-900">
                     <Link
-                      href={`/help?category=${sub.slug}`}
+                      href={safeRoute('helpdesk.index', { category: sub.slug }, `/help?category=${sub.slug}`)}
                       className="transition-colors hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                     >
                       {sub.name}

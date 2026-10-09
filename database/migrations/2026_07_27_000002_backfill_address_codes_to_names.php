@@ -1,6 +1,6 @@
 <?php
 
-use App\Services\AddressNameResolver;
+use App\Services\PhilippineAddressService;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 
@@ -37,7 +37,7 @@ return new class extends Migration
 
     public function up(): void
     {
-        $resolver = app(AddressNameResolver::class);
+        $resolver = app(PhilippineAddressService::class);
 
         // Guard: prove the lookup table is readable before touching data. Region
         // 07 (Central Visayas) is stable reference data.

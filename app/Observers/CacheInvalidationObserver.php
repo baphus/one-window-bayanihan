@@ -11,7 +11,6 @@ use App\Models\Milestone;
 use App\Models\Referral;
 use App\Models\Service;
 use App\Models\ServiceRequirement;
-use App\Models\SurveyInvitation;
 use App\Models\User;
 use App\Services\ReferenceDataService;
 use App\Services\ReferralService;
@@ -26,7 +25,7 @@ use Illuminate\Support\Facades\Cache;
  * Registered in AppServiceProvider alongside AuditObserver for models that
  * affect cached reference data, stats, or shared props.
  *
- * NOTE: SurveyInvitation and Milestone models must also be
+ * NOTE: the Milestone model must also be
  * registered to observe this observer in AppServiceProvider.
  */
 class CacheInvalidationObserver
@@ -69,7 +68,6 @@ class CacheInvalidationObserver
             $model instanceof Referral => $this->invalidateReferral($model),
             $model instanceof Service,
             $model instanceof ServiceRequirement => $this->invalidateService(),
-            $model instanceof SurveyInvitation => $this->invalidateSurvey(),
             $model instanceof Milestone => $this->invalidateMilestone($model),
             default => null,
         };
@@ -124,10 +122,10 @@ class CacheInvalidationObserver
         Cache::forget('dashboard:cm_priority_cases');
         Cache::forget('dashboard:cm_aging_open_count');
         Cache::forget('dashboard:cm_no_referral_count');
-
-        // Invalidate tracking cache for this specific case
-        if ($case) {
-            Cache::forget('tracking:data:'.$case->id);
+        Cache::forget('dashboard:cm_recent_activity');
+        Cache::forget('dashboard:admin_recent_logs');
+        if ($case !== null) {
+            Cache::forget("audit_case_number:{$case->getKey()}");
         }
     }
 
@@ -145,22 +143,25 @@ class CacheInvalidationObserver
         Cache::forget('dashboard:cm_priority_cases');
         Cache::forget('dashboard:cm_aging_open_count');
         Cache::forget('dashboard:cm_no_referral_count');
+        Cache::forget('dashboard:cm_recent_activity');
+        Cache::forget('dashboard:admin_recent_logs');
+        $agencyDashboardKey = 'dashboard:agency_';
+        $agencyId = $referral->agcy_id;
+        foreach (['counts', 'aging_bands', 'pending_referrals', 'processing_referrals', 'overdue_referrals', 'service_demand', 'feedback_pulse', 'queue_counts', 'recent_activity'] as $key) {
+            Cache::forget($agencyDashboardKey.$key.':'.$agencyId);
+        }
         Cache::forget('stakeholder:agencies_list');
         // Agency-specific keys cleared via pattern (agcy_id may not be reliably available)
 
         // Client-facing tracking pages read fresh DB state — never serve stale
-        // referral status to a tracked OFW.
-        TrackingService::invalidateTrackingCache($referral->case_id, $referral->id);
+        // referral status to a tracked OFW. The agency-milestones read model
+        // is still cached, so its key is invalidated here.
+        Cache::forget(TrackingService::trackingMilestonesCacheKey($referral->case_id, $referral->id));
     }
 
     private function invalidateService(): void
     {
         ReferenceDataService::invalidateAgencies(); // services tree is part of agency cache
-    }
-
-    private function invalidateSurvey(): void
-    {
-        // Survey dashboard stats will expire via TTL (180s)
     }
 
     private function invalidateMilestone(Milestone $milestone): void
@@ -174,7 +175,7 @@ class CacheInvalidationObserver
             ?? $milestone->clientRequest?->referral?->case_id;
 
         if ($caseId !== null) {
-            TrackingService::invalidateTrackingCache($caseId, $milestone->refr_id);
+            Cache::forget(TrackingService::trackingMilestonesCacheKey($caseId, $milestone->refr_id));
         }
     }
 }

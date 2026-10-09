@@ -1,0 +1,17 @@
+# Dependabot keeps npm dependencies current. The only ignore below is a
+# documented accepted risk, kept in sync with scripts/npm-audit-filter.mjs:
+# braces has no patched release (latest 3.0.3 is itself flagged by
+# GHSA-vfj7-8cjw-p6xm) and only surfaces via Tailwind v3's build-time
+# content-glob scanning. If a patched braces (>3.0.3) is ever published,
+# Dependabot will propose it normally and the CI audit gate will start
+# failing on the old advisory until the lockfile is updated.
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    ignore:
+      - dependency-name: "braces"
+        versions:
+          - "<=3.0.3"

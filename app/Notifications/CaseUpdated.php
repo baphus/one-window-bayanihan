@@ -42,16 +42,35 @@ class CaseUpdated extends Notification implements ShouldQueue
             ]);
     }
 
+    /**
+     * Staff inbox payload with a readable title and actor alias.
+     *
+     * @return array<string, mixed>
+     */
     public function toDatabase(object $notifiable): array
     {
+        $caseNumber = $this->case->case_number ?? $this->case->id;
+
         return [
             'type' => 'case_updated',
+            'title' => "Case {$caseNumber} updated by {$this->updatedBy}",
+            'message' => "Case {$caseNumber} updated by {$this->updatedBy}",
+            'case_number' => $caseNumber,
+            'actor_name' => $this->updatedBy,
+            'url' => route('cases.show', $this->case->id),
             'case_id' => $this->case->id,
-            'case_number' => $this->case->case_number,
             'updated_by' => $this->updatedBy,
             'changes' => $this->changes,
-            'message' => "Case updated by {$this->updatedBy}",
-            'url' => route('cases.show', $this->case->id),
         ];
+    }
+
+    /**
+     * Keep array/broadcast serialization identical to the database payload.
+     *
+     * @return array<string, mixed>
+     */
+    public function toArray(object $notifiable): array
+    {
+        return $this->toDatabase($notifiable);
     }
 }

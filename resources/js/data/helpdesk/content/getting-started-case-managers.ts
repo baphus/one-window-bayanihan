@@ -1,21 +1,17 @@
 const content = `# Getting Started for Case Managers
 
-This tutorial is for users with the **CASE_MANAGER** role. Case Managers handle intake, prepare case records, publish drafts, create referrals to partner agencies, and monitor progress until a case can be closed or archived.
+This tutorial is for users with the **CASE_MANAGER** role. Case Managers handle intake, prepare case records, publish drafts, create referrals to partner agencies, and monitor progress until a case can be closed or archived. (The platform has four roles in total: **CASE_MANAGER**, **AGENCY**, **ADMIN**, and **OFW**.)
 
-## 1. Sign in with OTP verification
+## 1. Sign in with your email and password
 
 ![Login page](/assets/helpdesk/login-page.png)
 
 1. Open the One Window Bayanihan login page.
 2. Enter your registered **email address** and **password**.
-3. Submit the login form and check the OTP/MFA screen.
-4. Enter the one-time password sent for your account.
+3. If MFA is enabled on your account, enter the 6-digit code from your authenticator app on the MFA challenge screen (or a recovery code if you don't have your device).
+4. Staff accounts are created by invitation — an administrator invites you and you register through the invite link. There is no open self-registration.
 
-![OTP verification](/assets/helpdesk/login-otp.png)
-
-> **Important:** OTP codes expire after **5 minutes**. If the code is rejected because it expired, request a new code and use the most recent one.
-
-After verification, the system opens your Case Manager dashboard.
+After sign-in, the system opens your Case Manager dashboard.
 
 ## 2. Understand the Case Manager dashboard
 

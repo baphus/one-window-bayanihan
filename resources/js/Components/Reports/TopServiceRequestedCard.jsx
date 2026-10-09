@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import MetricCard from '@/Components/Reports/MetricCard';
+import KpiCard from '@/Components/ui/KpiCard';
 import { useLazyProp } from '@/Hooks/useLazyProp';
 
 export default function TopServiceRequestedCard({ role }) {
@@ -19,10 +19,9 @@ export default function TopServiceRequestedCard({ role }) {
   if (role && role !== 'CASE_MANAGER') return null;
 
   return (
-    <MetricCard
-      label="Top Service Requested"
+    <KpiCard
+      title="Top Service Requested"
       value={isLoading ? '—' : value}
-      accent="border-l-[#d9663b]"
       description={isLoading ? 'Loading top service…' : null}
       trailing={!isLoading && count > 0 ? <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">{count} requests this period</span> : null}
     />

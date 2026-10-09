@@ -101,11 +101,9 @@ class EmailChangeTest extends TestCase
     {
         $this->actingAs($this->user);
 
-        $this->mock(OtpService::class, function ($mock) {
-            $mock->shouldReceive('verify')
-                ->once()
-                ->andReturn(true);
-        });
+        $otp = $this->createMock(OtpService::class);
+        $otp->expects($this->once())->method('verify')->willReturn(true);
+        $this->app->instance(OtpService::class, $otp);
 
         $response = $this->post(route('profile.email-change.verify-otp'), [
             'new_email' => 'new@example.com',
@@ -132,11 +130,9 @@ class EmailChangeTest extends TestCase
     {
         $this->actingAs($this->user);
 
-        $this->mock(OtpService::class, function ($mock) {
-            $mock->shouldReceive('verify')
-                ->once()
-                ->andReturn(false);
-        });
+        $otp = $this->createMock(OtpService::class);
+        $otp->expects($this->once())->method('verify')->willReturn(false);
+        $this->app->instance(OtpService::class, $otp);
 
         $response = $this
             ->from(route('profile.edit'))

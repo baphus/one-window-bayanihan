@@ -29,8 +29,12 @@ jobs:
     name: Code Quality & Security
     runs-on: ubuntu-latest
 
+    # NOTE: setup steps are repeated explicitly in each job below. GitHub's
+    # workflow parser does not support YAML anchors/aliases, so &/* reuse
+    # fails validation with "Unexpected value 'uses'".
     steps:
-      - uses: actions/checkout@v5
+      - name: Checkout
+        uses: actions/checkout@v5
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -75,7 +79,24 @@ jobs:
         run: composer audit
 
       - name: Run NPM Audit
-        run: npm audit --audit-level=high
+        # Filtered gate (see scripts/npm-audit-filter.mjs): braces GHSA-vfj7-8cjw-p6xm
+        # is unpatchable on Tailwind v3 (latest braces 3.0.3 still flagged; only
+        # fix is breaking tailwind 3 -> 4) and build-time-only, so it is
+        # allowlisted. Any other high/critical advisory still fails the build.
+        run: node scripts/npm-audit-filter.mjs
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.x'
+
+      - name: Install Ward
+        run: |
+          go install github.com/eljakani/ward@v0.4.2
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Run Ward security scan
+        run: ward scan . --output json,sarif --baseline .ward-baseline.json --fail-on high
 
       - name: Run TypeScript Check
         run: npm run typecheck
@@ -103,7 +124,8 @@ jobs:
           - 5432:5432
 
     steps:
-      - uses: actions/checkout@v5
+      - name: Checkout
+        uses: actions/checkout@v5
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -143,9 +165,6 @@ jobs:
 
       - name: Copy Environment Variables
         run: cp .env.example .env && php artisan key:generate
-
-      - name: Build Frontend Assets
-        run: npm run build
 
       # The production entrypoint runs all four of these and refuses to start if
       # any fails. Assert them here so a non-serializable config value fails the
@@ -207,7 +226,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v5
+      - name: Checkout
+        uses: actions/checkout@v5
 
       - name: Setup Node.js
         uses: actions/setup-node@v5

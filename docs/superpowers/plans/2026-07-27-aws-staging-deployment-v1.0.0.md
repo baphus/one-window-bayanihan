@@ -1,5 +1,9 @@
 # AWS Staging Deployment Implementation Plan
 
+> **HISTORICAL - archived artifact retained for provenance; written 2026-07-27.**
+> Not current guidance - do not follow it as a procedure or spec.
+> See `docs/README.md` for current documentation.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Deploy One Window Bayanihan and all its features to a publicly reachable AWS staging environment over HTTPS, with no domain name required.

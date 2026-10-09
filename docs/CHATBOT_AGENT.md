@@ -1,3 +1,6 @@
+> **SUPERSEDED - see `CHATBOT_PIPELINE_v1.0.0.md`.**
+> Retained as history. Do not use for new work; it does not reflect the current system.
+
 # Helpdesk chatbot
 
 The chatbot uses the installed Laravel AI SDK to search helpdesk articles, read

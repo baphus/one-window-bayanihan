@@ -21,18 +21,18 @@ class CaseDocumentUploadValidationTest extends TestCase
 
         $this->actingAs($user);
 
-        $this->mock(StorageService::class, function ($mock) {
-            $mock->shouldReceive('validate')->andReturn([]);
-            $mock->shouldReceive('store')->andReturn(new FileStoreResult(
-                path: 'case-documents/test/document.pdf',
-                originalName: 'document.pdf',
-                storedName: 'uuid-document.pdf',
-                type: 'application/pdf',
-                size: 1024,
-                success: true,
-            ));
-            $mock->shouldReceive('temporaryUrl')->andReturn(null);
-        });
+        $storage = $this->createMock(StorageService::class);
+        $storage->method('validate')->willReturn([]);
+        $storage->method('store')->willReturn(new FileStoreResult(
+            path: 'case-documents/test/document.pdf',
+            originalName: 'document.pdf',
+            storedName: 'uuid-document.pdf',
+            type: 'application/pdf',
+            size: 1024,
+            success: true,
+        ));
+        $storage->method('temporaryUrl')->willReturn(null);
+        $this->app->instance(StorageService::class, $storage);
 
         $file = UploadedFile::fake()->create('document.pdf', 100, 'application/pdf');
 

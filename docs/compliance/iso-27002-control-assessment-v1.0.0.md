@@ -2,15 +2,17 @@
 
 | Field | Value |
 |---|---|
-| Version | v1.0.0 · Date 2026-07-08 |
+| Version | v1.1.0 · Date 2026-07-08 |
 | Standard | ISO/IEC 27002:2022 (93 controls in 4 themes) |
 | Basis | Repository evidence at commit `b8a7211`. Read-only. Findings referenced as TECH-nnn (see technical findings report). |
+| Re-verification | 2026-10-03 — control-by-control re-check against the working tree (HEAD `054e61a`). Every referenced path re-resolved. Remediated TECH findings are annotated in place with the date and the resolving evidence; the original gap statement is retained as the assessment record. Nothing was deleted. |
 | Evidence-strength scale | Strong / Moderate / Weak / None / External-evidence-required (EER) |
 
 ## Changelog
 | Version | Date | Author | Change |
 |---|---|---|---|
 | v1.0.0 | 2026-07-08 | Alignment assessment | Initial 27002 control-by-control assessment. |
+| v1.1.0 | 2026-10-03 | Citation re-verification | Re-resolved every path and re-checked every TECH status. Corrected 5.15/5.16/5.17/5.18 (registration, revocation and MFA now enforced), 5.24–5.30 (backup/BCP artifacts exist), 5.37 (backup + BCP/DR runbooks exist), 8.2/8.5/8.8/8.12/8.13/8.15/8.16/8.20–8.22/8.24/8.25/8.26/8.29/8.31/8.32/8.33 (PR-gated CI, hash chain, CSP, health gate, PII encryption), the `instructions.md` citation (file does not exist), and the "TECH-005 resolved" claim (it is still OPEN in the deployed config). No control status was raised to a stronger rating than the current evidence supports; no gap removed. |
 
 > Physical controls (7.x) and most people controls (6.x) **cannot be inferred from application code** and are marked EER. Do not read technical presence as organizational conformity.
 

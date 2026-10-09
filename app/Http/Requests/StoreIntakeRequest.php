@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests;
 
+use App\Rules\EmploymentStartAtWorkingAge;
+use App\Rules\ServedRegion;
 use App\Rules\VulnerabilityRule;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -59,15 +61,19 @@ class StoreIntakeRequest extends FormRequest
      */
     public function rules(): array
     {
+        // Applicants must be 15–100 years old.
+        $dobMax = now()->subYears(15)->toDateString();
+        $dobMin = now()->subYears(100)->toDateString();
+
         return [
             'client.first_name' => ['required', 'string', 'max:255'],
             'client.last_name' => ['required', 'string', 'max:255'],
             'client.middle_name' => ['nullable', 'string', 'max:255'],
             'client.suffix' => ['nullable', 'string', 'max:20'],
-            'client.date_of_birth' => ['required', 'date', 'before_or_equal:today'],
+            'client.date_of_birth' => ['required', 'date', 'before_or_equal:'.$dobMax, 'after_or_equal:'.$dobMin],
             'client.sex' => ['nullable', 'string', 'in:Male,Female,male,female,MALE,FEMALE'],
             'client.contact_number' => ['required', 'string', 'max:20'],
-            'address.region' => ['required', 'string'],
+            'address.region' => ['required', 'string', new ServedRegion],
             'address.province' => ['nullable', 'string'],
             'address.city_municipality' => ['required', 'string'],
             'address.barangay' => ['required', 'string'],
@@ -75,8 +81,8 @@ class StoreIntakeRequest extends FormRequest
             'employment.employer_name' => ['nullable', 'string', 'max:255'],
             'employment.position' => ['nullable', 'string', 'max:255'],
             'employment.country' => ['nullable', 'string', 'max:100'],
-            'employment.start_date' => ['nullable', 'date', 'after_or_equal:client.date_of_birth'],
-            'employment.end_date' => ['nullable', 'date', 'after_or_equal:employment.start_date'],
+            'employment.start_date' => ['nullable', 'date', 'after_or_equal:client.date_of_birth', 'before_or_equal:today', new EmploymentStartAtWorkingAge($this->input('client.date_of_birth'))],
+            'employment.end_date' => ['nullable', 'date', 'after_or_equal:employment.start_date', 'before_or_equal:today'],
             'employment.is_present' => ['nullable', 'boolean'],
             'employment.last_country' => ['nullable', 'string', 'max:100'],
             'employment.last_position' => ['nullable', 'string', 'max:255'],
@@ -90,7 +96,7 @@ class StoreIntakeRequest extends FormRequest
             'next_of_kin.*.relationship' => ['nullable', 'string', 'max:100'],
             'next_of_kin.*.phone_number' => ['nullable', 'string', 'max:50'],
             'next_of_kin.*.email' => ['nullable', 'string', 'email', 'max:255'],
-            'next_of_kin.*.region' => ['nullable', 'string'],
+            'next_of_kin.*.region' => ['nullable', 'string', new ServedRegion],
             'next_of_kin.*.province' => ['nullable', 'string'],
             'next_of_kin.*.city_municipality' => ['nullable', 'string'],
             'next_of_kin.*.barangay' => ['nullable', 'string'],

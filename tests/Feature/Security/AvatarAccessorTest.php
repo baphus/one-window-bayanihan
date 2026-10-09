@@ -5,6 +5,8 @@ namespace Tests\Feature\Security;
 use App\Models\Agency;
 use App\Models\Client;
 use App\Models\User;
+use Illuminate\Filesystem\FilesystemAdapter;
+use Illuminate\Filesystem\FilesystemManager;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -75,13 +77,23 @@ class AvatarAccessorTest extends TestCase
     //  Accessor returns signed temporary URL
     // -----------------------------------------------
 
+    private function swapStorageTemporaryUrl(string $expectedUrl, ?string $expectedPath = null): void
+    {
+        $disk = $this->createMock(FilesystemAdapter::class);
+        $disk->expects($this->once())->method('temporaryUrl')
+            ->with($expectedPath ?? $this->anything(), $this->anything())
+            ->willReturn($expectedUrl);
+
+        $factory = $this->createMock(FilesystemManager::class);
+        $factory->method('disk')->willReturn($disk);
+        Storage::swap($factory);
+    }
+
     public function test_user_avatar_url_returns_signed_temporary_url(): void
     {
         $expectedUrl = 'http://localhost/storage/avatars/user-test.jpg?expires=1234567890&signature=abc123';
 
-        Storage::shouldReceive('disk->temporaryUrl')
-            ->once()
-            ->andReturn($expectedUrl);
+        $this->swapStorageTemporaryUrl($expectedUrl);
 
         $user = User::factory()->create(['avatar_url' => 'avatars/user-test.jpg']);
 
@@ -96,9 +108,7 @@ class AvatarAccessorTest extends TestCase
     {
         $expectedUrl = 'http://localhost/storage/profile-pictures/client-test.jpg?expires=1234567890&signature=abc123';
 
-        Storage::shouldReceive('disk->temporaryUrl')
-            ->once()
-            ->andReturn($expectedUrl);
+        $this->swapStorageTemporaryUrl($expectedUrl);
 
         $client = Client::factory()->create(['avatar_url' => 'profile-pictures/client-test.jpg']);
 
@@ -113,9 +123,7 @@ class AvatarAccessorTest extends TestCase
     {
         $expectedUrl = 'http://localhost/storage/logos/agency-test.jpg?expires=1234567890&signature=abc123';
 
-        Storage::shouldReceive('disk->temporaryUrl')
-            ->once()
-            ->andReturn($expectedUrl);
+        $this->swapStorageTemporaryUrl($expectedUrl);
 
         $agency = Agency::factory()->create(['logo_url' => 'logos/agency-test.jpg']);
 
@@ -159,10 +167,7 @@ class AvatarAccessorTest extends TestCase
         $legacyPath = '/storage/logos/legacy-logo.png';
         $expectedUrl = 'http://localhost/storage/logos/legacy-logo.png?expires=1234567890&signature=abc123';
 
-        Storage::shouldReceive('disk->temporaryUrl')
-            ->once()
-            ->with('logos/legacy-logo.png', \Mockery::any())
-            ->andReturn($expectedUrl);
+        $this->swapStorageTemporaryUrl($expectedUrl, 'logos/legacy-logo.png');
 
         $agency = Agency::factory()->create(['logo_url' => $legacyPath]);
 

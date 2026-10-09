@@ -126,7 +126,7 @@ export default function MfaChallenge() {
                                                 autoComplete="one-time-code"
                                                 value={code}
                                                 onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                                                className="w-full border border-outline-variant bg-surface-container px-4 py-3 pl-12 text-sm font-mono tracking-[0.5em] text-center focus:border-primary focus:outline-none rounded-none"
+                                                className="w-full border border-outline-variant bg-surface-container px-4 py-3 pl-12 text-sm font-mono tracking-[0.5em] text-center focus:border-primary focus:outline-none rounded-md"
                                                 placeholder="000000"
                                                 maxLength={6}
                                                 required
@@ -140,7 +140,7 @@ export default function MfaChallenge() {
                                     <button
                                         type="submit"
                                         disabled={processing || code.length !== 6}
-                                        className="w-full bg-primary text-on-primary px-8 py-4 text-sm font-bold shadow-xl hover:brightness-110 active:scale-95 transition-all disabled:opacity-60 rounded-none"
+                                        className="w-full bg-primary text-on-primary px-8 py-4 text-sm font-bold shadow-xl hover:brightness-110 active:scale-95 transition-all disabled:opacity-60 rounded-md"
                                     >
                                         {processing ? 'Verifying...' : 'Verify'}
                                     </button>
@@ -164,7 +164,7 @@ export default function MfaChallenge() {
                                                 autoComplete="off"
                                                 value={code}
                                                 onChange={(e) => setCode(e.target.value.trim().slice(0, 20))}
-                                                className="w-full border border-outline-variant bg-surface-container px-4 py-3 pl-12 text-sm font-mono focus:border-primary focus:outline-none rounded-none"
+                                                className="w-full border border-outline-variant bg-surface-container px-4 py-3 pl-12 text-sm font-mono focus:border-primary focus:outline-none rounded-md"
                                                 placeholder="Enter your recovery code"
                                                 required
                                             />
@@ -177,7 +177,7 @@ export default function MfaChallenge() {
                                     <button
                                         type="submit"
                                         disabled={processing || !code}
-                                        className="w-full bg-primary text-on-primary px-8 py-4 text-sm font-bold shadow-xl hover:brightness-110 active:scale-95 transition-all disabled:opacity-60 rounded-none"
+                                        className="w-full bg-primary text-on-primary px-8 py-4 text-sm font-bold shadow-xl hover:brightness-110 active:scale-95 transition-all disabled:opacity-60 rounded-md"
                                     >
                                         {processing ? 'Verifying...' : 'Verify Recovery Code'}
                                     </button>

@@ -14,7 +14,7 @@ class EncryptedString implements CastsAttributes
      * Falls back to returning the raw value for existing plaintext data
      * that hasn't been through the data encryption migration yet.
      */
-    public function get($model, string $key, $value, array $attributes): ?string
+    public static function decrypt(?string $value): ?string
     {
         if ($value === null) {
             return null;
@@ -26,6 +26,17 @@ class EncryptedString implements CastsAttributes
             // Value is plaintext — existing data before encryption migration
             return $value;
         }
+    }
+
+    /**
+     * Decrypt the stored ciphertext.
+     *
+     * Falls back to returning the raw value for existing plaintext data
+     * that hasn't been through the data encryption migration yet.
+     */
+    public function get($model, string $key, $value, array $attributes): ?string
+    {
+        return self::decrypt($value);
     }
 
     /**

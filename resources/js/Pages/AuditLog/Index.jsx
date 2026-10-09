@@ -77,7 +77,9 @@ function ExportDialog({ open, onClose, filterValues, defaultDays, maxDays }) {
     setError('');
     if (exporting) return;
     setExporting(true);
-    window.location.href = `/audit-logs/export?${params.toString()}`;
+    // File downloads must use a full navigation (Inertia visits can't
+    // receive blobs) — but the URL itself comes from the named route.
+    window.location.href = `${route('audit-logs.export')}?${params.toString()}`;
     timeoutRef.current = window.setTimeout(clearPending, SAFETY_TIMEOUT_MS);
     onClose();
   };
@@ -85,7 +87,7 @@ function ExportDialog({ open, onClose, filterValues, defaultDays, maxDays }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-slate-900/40" onClick={onClose} />
-      <div className="relative bg-white rounded-lg shadow-xl border border-slate-200 p-6 w-full max-w-md mx-4 owb-modal-animate">
+      <div className="relative bg-white rounded-xl shadow-xl border border-slate-200 p-6 w-full max-w-md mx-4 owb-modal-animate">
         <h2 className="text-lg font-semibold text-slate-900 mb-1">Export audit logs</h2>
         <p className="text-sm text-slate-500 mb-4">
           Exports a CSV of the current filter selection. An explicit date range is required
@@ -99,7 +101,7 @@ function ExportDialog({ open, onClose, filterValues, defaultDays, maxDays }) {
               type="date"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
-              className="w-full py-2 px-3 border border-slate-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500"
+              className="w-full py-2 px-3 border border-slate-300 rounded-md text-sm focus:ring-primary focus:border-primary"
             />
           </div>
           <div className="flex-1">
@@ -108,7 +110,7 @@ function ExportDialog({ open, onClose, filterValues, defaultDays, maxDays }) {
               type="date"
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
-              className="w-full py-2 px-3 border border-slate-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500"
+              className="w-full py-2 px-3 border border-slate-300 rounded-md text-sm focus:ring-primary focus:border-primary"
             />
           </div>
         </div>
@@ -127,7 +129,7 @@ function ExportDialog({ open, onClose, filterValues, defaultDays, maxDays }) {
           <button
             onClick={handleExport}
             disabled={exporting}
-            className="px-4 py-2 bg-blue-900 rounded-md text-sm font-medium text-white hover:bg-blue-800 inline-flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 bg-primary rounded-md text-sm font-medium text-on-primary hover:bg-primary-container inline-flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <span className="material-symbols-outlined text-[18px]">download</span>
             Export CSV
@@ -168,40 +170,27 @@ export default function AuditLogIndex({
     router.get(url.toString(), {}, withLoading({ preserveState: true, preserveScroll: true, only: ['logs', 'filterValues', 'activeCategories'] }));
   }, [withLoading]);
 
-  const handleCursorChange = useCallback((cursorUrl) => {
-    if (!cursorUrl) return;
-    router.get(cursorUrl, {}, withLoading({ preserveState: true, preserveScroll: true, only: ['logs'] }));
-  }, [withLoading]);
-
-  const handlePerPageChange = useCallback((event) => {
-    handleFilterChange({ ...(filterValues ?? {}), per_page: event.target.value });
+  const handlePageChange = useCallback((page) => {
+    handleFilterChange({ ...(filterValues ?? {}), page });
   }, [filterValues, handleFilterChange]);
 
-  /* Cursor pagination has no numeric page/current page metadata. */
-  const pagination = null;
-  /*
-    const url = new URL(window.location);
-    url.searchParams.set('page', page);
-    router.get(url.toString(), {}, withLoading({ preserveState: true, preserveScroll: true, only: ['logs'] }));
-  }, [withLoading]);
-
-  const pagination = {
+  /* Numeric (offset) pagination metadata served by the paginator. */
+  const pagination = logs ? {
     total: logs.total,
     currentPage: logs.current_page,
     totalPages: logs.last_page,
     from: logs.from,
     to: logs.to,
     perPage: logs.per_page,
-  };
-  */
+  } : null;
 
   return (
     <AppLayout title={viewTitle}>
       <Head title={viewTitle} />
-      <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-4xl">
         <div data-tour="audit-header" className="mb-8 flex items-start justify-between gap-4">
           <div className="flex items-start gap-3">
-            <div className="hidden sm:flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-900 ring-1 ring-blue-100">
+            <div className="hidden sm:flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-primary-fixed text-primary ring-1 ring-primary/20">
               <span className="material-symbols-outlined text-[24px]">history</span>
             </div>
             <div>
@@ -241,22 +230,9 @@ export default function AuditLogIndex({
             activeCategories={activeCategories ?? []}
             filterValues={filterValues ?? {}}
             onFilterChange={handleFilterChange}
+            pagination={pagination}
+            onPageChange={handlePageChange}
           />
-          <div className="mt-6 flex items-center justify-between gap-4 text-sm text-slate-600">
-            <label className="flex items-center gap-2">
-              <span>Per page</span>
-              <select value={filterValues?.per_page ?? logs.per_page ?? 15} onChange={handlePerPageChange}
-                className="rounded-md border border-slate-300 bg-white px-2 py-1">
-                {[15, 25, 50, 100].map(size => <option key={size} value={size}>{size}</option>)}
-              </select>
-            </label>
-            <div className="flex gap-2">
-              <button type="button" disabled={!logs.prev_page_url} onClick={() => handleCursorChange(logs.prev_page_url)}
-                className="rounded-md border border-slate-300 px-3 py-1.5 disabled:cursor-not-allowed disabled:opacity-40">Previous</button>
-              <button type="button" disabled={!logs.next_page_url} onClick={() => handleCursorChange(logs.next_page_url)}
-                className="rounded-md border border-slate-300 px-3 py-1.5 disabled:cursor-not-allowed disabled:opacity-40">Next</button>
-            </div>
-          </div>
           {tableLoading && <TableLoadingOverlay variant="list" />}
         </div>
       </div>

@@ -35,7 +35,7 @@ Ensure the One Window Bayanihan system has sufficient capacity to meet current a
 
 | Endpoint | Daily Requests (est.) | Peak Rate |
 |----------|----------------------|-----------|
-| Login + OTP | 500 | 10/min |
+| Login (+ MFA challenge) | 500 | 10/min login, 3/min MFA challenge |
 | Case CRUD | 1,000 | 20/min |
 | Referral CRUD | 500 | 10/min |
 | Tracking (public) | 200 | 5/min |

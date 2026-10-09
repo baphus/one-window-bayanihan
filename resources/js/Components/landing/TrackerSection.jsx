@@ -1,5 +1,4 @@
 import { router } from '@inertiajs/react';
-import AppButton from './AppButton';
 import useInView from '@/Hooks/useInView';
 
 export default function TrackerSection() {
@@ -19,14 +18,14 @@ export default function TrackerSection() {
           Have a tracking number? Check the real-time status of your referral and see which agency is handling your case.
         </p>
         <div ref={ctaRef} className={`owb-reveal ${ctaVisible ? 'is-visible' : ''}`}>
-          <AppButton
-            variant="outline"
-            icon="search"
-            className="border-2 border-white px-8 py-3 text-base text-white hover:bg-white/10"
+          <button
+            type="button"
             onClick={() => router.get(route('track.index'))}
+            className="inline-flex items-center justify-center gap-2 rounded-none border border-outline-variant px-6 py-2.5 text-[14px] font-bold text-primary transition-all hover:bg-slate-50 border-2 border-white px-8 py-3 text-base text-white hover:bg-white/10"
           >
+            <span className="material-symbols-outlined">search</span>
             Go to Tracking Page
-          </AppButton>
+          </button>
         </div>
       </div>
     </section>

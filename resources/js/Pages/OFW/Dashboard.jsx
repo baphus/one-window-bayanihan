@@ -2,6 +2,19 @@ import { Link, usePage } from '@inertiajs/react';
 import { Hourglass } from 'lucide-react';
 import OfwLayout from '@/Layouts/OfwLayout';
 import StatusBadge from '@/Components/ui/StatusBadge';
+import { DashboardTable } from '@/Components/Dashboard/primitives';
+import safeRoute from '@/utils/safeRoute';
+
+// Laravel paginator labels are server-escaped strings limited to page
+// numbers plus &laquo; / &raquo; / &hellip; entities — decode them as text
+// instead of injecting them with dangerouslySetInnerHTML.
+function paginationLabel(label) {
+    return String(label ?? '')
+        .replace(/&laquo;/g, '«')
+        .replace(/&raquo;/g, '»')
+        .replace(/&hellip;/g, '…')
+        .replace(/<[^>]*>/g, '');
+}
 
 function formatDate(dateStr) {
     if (!dateStr) return '—';
@@ -36,7 +49,7 @@ function CaseCard({ caseItem }) {
         >
             <div className="flex items-start gap-4">
                 {/* Status icon tile */}
-                <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-circle ${tile.className}`}>
+                <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${tile.className}`}>
                     <span className="material-symbols-outlined text-[22px]" aria-hidden="true">{tile.icon}</span>
                 </span>
 
@@ -133,7 +146,7 @@ function EmptyState() {
                 You haven't filed any cases yet. Start by filing a new case and a Case Manager will review it.
             </p>
             <Link
-                href="/intake"
+                href={safeRoute('intake.index', undefined, '/intake')}
                 className="mt-6 inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-container"
             >
                 <span className="material-symbols-outlined text-[18px]">add_circle</span>
@@ -172,7 +185,7 @@ export default function Dashboard({ cases, caseStats }) {
                         </Link>
                         {caseList.length > 0 && (
                             <Link
-                                href="/intake"
+                                href={safeRoute('intake.index', undefined, '/intake')}
                                 className="inline-flex items-center gap-1.5 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-primary shadow-sm transition-colors hover:bg-primary-fixed"
                             >
                                 <span className="material-symbols-outlined text-[18px]">add</span>
@@ -206,10 +219,32 @@ export default function Dashboard({ cases, caseStats }) {
                 {caseList.length === 0 ? (
                     <EmptyState />
                 ) : (
-                    <div className="mt-3 space-y-2">
-                        {caseList.map((caseItem) => (
-                            <CaseCard key={caseItem.id} caseItem={caseItem} />
-                        ))}
+                    <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                        <DashboardTable
+                            columns={[
+                                { key: 'trackingId', label: 'Tracking ID' },
+                                { key: 'caseNumber', label: 'Case number' },
+                                { key: 'summary', label: 'Request' },
+                                { key: 'status', label: 'Status' },
+                                { key: 'submitted', label: 'Submitted' },
+                                { key: 'action', label: '', className: 'text-right', cellClassName: 'text-right' },
+                            ]}
+                            rows={caseList.map((caseItem) => {
+                                const isUnderReview = caseItem.status === 'DRAFT' && caseItem.source === 'self_filed';
+                                const href = route('ofw.case.show', caseItem.id);
+
+                                return {
+                                    key: caseItem.id,
+                                    trackingId: <Link href={href} className="font-bold text-primary hover:text-primary-container">{caseItem.tracker_number ?? caseItem.case_number}</Link>,
+                                    caseNumber: caseItem.case_number ?? 'Pending',
+                                    summary: <span className="block max-w-sm truncate">{caseItem.summary ?? 'No summary provided'}</span>,
+                                    status: <StatusBadge variant="pill" status={caseItem.status} showIcon={isUnderReview} label={isUnderReview ? 'Under Review' : undefined} icon={isUnderReview ? Hourglass : undefined} />,
+                                    submitted: formatDate(caseItem.created_at),
+                                    action: <Link href={href} className="font-bold text-primary hover:text-primary-container">View</Link>,
+                                };
+                            })}
+                            empty={<EmptyState />}
+                        />
                     </div>
                 )}
             </section>
@@ -217,21 +252,28 @@ export default function Dashboard({ cases, caseStats }) {
             {/* Pagination links */}
             {cases?.links && cases.links.length > 3 && (
                 <nav className="mt-8 flex items-center justify-center gap-1" aria-label="Pagination">
-                    {cases.links.map((link, index) => (
-                        <Link
-                            key={index}
-                            href={link.url ?? '#'}
-                            className={`rounded px-3 py-1.5 text-sm ${
-                                link.active
-                                    ? 'bg-primary font-semibold text-white'
-                                    : link.url
-                                      ? 'text-slate-600 hover:bg-slate-100'
-                                      : 'cursor-not-allowed text-slate-300'
-                            }`}
-                            preserveScroll
-                            dangerouslySetInnerHTML={{ __html: link.label }}
-                        />
-                    ))}
+                    {cases.links.map((link) => {
+                        // Paginator labels are unique per control (Previous /
+                        // page numbers / Next), so the decoded text is a
+                        // stable key — unlike the array index.
+                        const label = paginationLabel(link.label);
+                        return (
+                            <Link
+                                key={label}
+                                href={link.url ?? '#'}
+                                className={`rounded px-3 py-1.5 text-sm ${
+                                    link.active
+                                        ? 'bg-primary font-semibold text-white'
+                                        : link.url
+                                          ? 'text-slate-600 hover:bg-slate-100'
+                                          : 'cursor-not-allowed text-slate-300'
+                                }`}
+                                preserveScroll
+                            >
+                                {label}
+                            </Link>
+                        );
+                    })}
                 </nav>
             )}
         </OfwLayout>

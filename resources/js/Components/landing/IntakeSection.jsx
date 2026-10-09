@@ -1,5 +1,4 @@
 import { router } from '@inertiajs/react';
-import AppButton from './AppButton';
 import useInView from '@/Hooks/useInView';
 
 export default function IntakeSection() {
@@ -21,14 +20,14 @@ export default function IntakeSection() {
           If you are a distressed Overseas Filipino Worker, you can file a case request online. Our Case Managers will review your submission and coordinate with partner agencies to help you.
         </p>
         <div ref={ctaRef} className={`owb-reveal ${ctaVisible ? 'is-visible' : ''}`}>
-          <AppButton
-            variant="primary"
-            icon="edit_note"
-            className="px-8 py-3 text-base"
+          <button
+            type="button"
             onClick={() => router.get(route('intake.index'))}
+            className="inline-flex items-center justify-center gap-2 rounded-none bg-primary px-6 py-2.5 text-[14px] font-bold text-white transition-all hover:brightness-110 active:scale-95 px-8 py-3 text-base"
           >
+            <span className="material-symbols-outlined">edit_note</span>
             File a Case
-          </AppButton>
+          </button>
         </div>
       </div>
     </section>

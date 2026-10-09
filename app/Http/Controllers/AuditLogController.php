@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\AuditAction;
 use App\Enums\AuditModule;
 use App\Helpers\CacheHelper;
+use App\Http\Controllers\Concerns\ResolvesPerPage;
 use App\Models\AuditLog;
 use App\Models\CaseFile;
 use App\Models\Milestone;
@@ -20,6 +21,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class AuditLogController extends Controller
 {
+    use ResolvesPerPage;
+
     /** Categories shown when the viewer applies no explicit category filter. */
     public const DEFAULT_CATEGORIES = [AuditCategory::SECURITY, AuditCategory::DATA, AuditCategory::ADMIN];
 
@@ -31,13 +34,14 @@ class AuditLogController extends Controller
 
         $query = $this->buildFilteredQuery($request, $user)->with('user');
 
-        // Make cursor boundaries deterministic when events share a timestamp.
+        // Deterministic ordering so offset pages never shift between requests.
         $query->orderBy('timestamp', 'desc')->orderBy('id', 'desc');
 
         $perPage = $this->perPage($request, 15);
-        // Cursor links must carry the active filters and page size; omit only
-        // the current cursor, which the paginator replaces for each link.
-        $logs = $query->cursorPaginate($perPage)->appends($request->except('cursor'));
+        // Offset pagination with numeric pages, matching the cases table.
+        // Page links must carry the active filters and page size; the
+        // paginator supplies the `page` (and omits any stale cursor) itself.
+        $logs = $query->paginate($perPage)->appends($request->except(['page', 'cursor']));
 
         $this->presentLogs($logs, $formatter);
 
@@ -241,18 +245,45 @@ class AuditLogController extends Controller
             $q->where('timestamp', '<=', $request->input('date_to').' 23:59:59');
         });
 
-        $query->when($request->filled('search'), function ($q) use ($request) {
-            $search = $request->input('search');
-            // Stored descriptions may contain legacy free text. Searching them
-            // would let a viewer infer protected values even though the safe
-            // response contract no longer returns those descriptions.
-            $q->where(function ($safeMetadata) use ($search) {
-                $safeMetadata->where('action', 'ILIKE', "%{$search}%")
-                    ->orWhere('module', 'ILIKE', "%{$search}%");
-            });
-        });
+        $query->when($request->filled('search'), fn ($q) => $this->applyAuditSearch($q, (string) $request->input('search')));
 
         return $query;
+    }
+
+    /**
+     * Constrain an audit-log query to rows matching the keyword search.
+     *
+     * Only safe, visible metadata is searched: the raw action verb, the raw
+     * module spelling, the actor's name, and the entity identifier (resolved
+     * case number or raw UUID prefix). Stored descriptions may contain legacy
+     * free text; searching them would let a viewer infer protected values even
+     * though the safe response contract no longer returns those descriptions.
+     * Used by the main audit page (viewer and export).
+     */
+    private function applyAuditSearch($query, string $search): void
+    {
+        $query->where(function ($safeMetadata) use ($search) {
+            $safeMetadata
+                ->where('action', 'ILIKE', "%{$search}%")
+                ->orWhere('module', 'ILIKE', "%{$search}%")
+                // Actor name, via the audit row's user relation.
+                ->orWhereHas('user', fn ($u) => $u->where('name', 'ILIKE', "%{$search}%"))
+                // Resolved case number for CASE-module rows: entity_id
+                // points into cases, so match the human-readable number.
+                // Constrained to the already-scoped audit rows via whereColumn.
+                ->orWhere(function ($caseSearch) use ($search) {
+                    $caseSearch->whereIn('module', AuditModule::CASE->aliases())
+                        ->whereExists(function ($exists) use ($search) {
+                            $exists->selectRaw('1')
+                                ->from('cases')
+                                ->whereColumn('cases.id', 'audit_logs.entity_id')
+                                ->where('cases.case_number', 'ILIKE', "%{$search}%");
+                        });
+                })
+                // Raw UUID prefix match on the entity identifier (covers
+                // referral/milestone short IDs and full UUIDs).
+                ->orWhereRaw('audit_logs.entity_id::text ILIKE ?', ["%{$search}%"]);
+        });
     }
 
     /**
@@ -322,13 +353,6 @@ class AuditLogController extends Controller
         }
 
         return $parsed !== false && $parsed->format('Y-m-d') === $value;
-    }
-
-    private function perPage(Request $request, int $default): int
-    {
-        $requested = (int) $request->input('per_page', $default);
-
-        return in_array($requested, [15, 25, 50, 100], true) ? $requested : $default;
     }
 
     /**
@@ -424,7 +448,7 @@ class AuditLogController extends Controller
 
         $query->with('user')->orderBy('timestamp', 'desc');
 
-        $perPage = min((int) $request->input('per_page', 50), 100);
+        $perPage = $this->perPage($request, 50);
         $logs = $query->cursorPaginate($perPage);
 
         $formatter = app(AuditLogFormatter::class);
@@ -481,7 +505,7 @@ class AuditLogController extends Controller
 
         $query->with('user')->orderBy('timestamp', 'desc');
 
-        $perPage = min((int) $request->input('per_page', 50), 100);
+        $perPage = $this->perPage($request, 50);
         $logs = $query->cursorPaginate($perPage);
 
         $formatter = app(AuditLogFormatter::class);

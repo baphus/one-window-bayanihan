@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { FileDown, FileSpreadsheet } from 'lucide-react';
 
 const btnClass =
-  'inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-md border border-emerald-700 bg-emerald-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed';
+  'inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-md border border-success bg-success px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-success/90 focus:outline-none focus:ring-2 focus:ring-success focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed';
 
 // Keep the buttons disabled until the browser finishes handling the export.
 // For file downloads the page stays open, so `window` focus (fires when the

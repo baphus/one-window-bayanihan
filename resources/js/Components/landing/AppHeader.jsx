@@ -1,6 +1,6 @@
 import { Link, router, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
-import AppButton from './AppButton';
+import safeRoute from '@/utils/safeRoute';
 
 const roleLabels = {
   CASE_MANAGER: 'Case Manager',
@@ -10,8 +10,8 @@ const roleLabels = {
 };
 
 const navLinks = [
-  { name: 'Home', href: '/', exact: true },
-  { name: 'Help Center', href: '/help', exact: false },
+  { name: 'Home', href: '/', route: 'home', exact: true },
+  { name: 'Help Center', href: '/help', route: 'helpdesk.index', exact: false },
   { name: 'Track Your Case', href: '/track', exact: false },
   { name: 'Partners', href: '/partners', exact: false },
   { name: 'Contact', href: '/contact', exact: false },
@@ -46,7 +46,7 @@ export default function AppHeader({ minimal }) {
       }`}
     >
       <div className="mx-auto flex h-[76px] w-full max-w-7xl items-stretch justify-between px-4 md:px-8">
-        <Link href="/" className="flex min-w-0 items-center gap-3 self-center">
+        <Link href={safeRoute('home', undefined, '/')} className="flex min-w-0 items-center gap-3 self-center">
           <div className="flex h-[44px] w-[44px] items-center justify-center overflow-hidden bg-white">
             <img
               src="/logo.png"
@@ -56,7 +56,7 @@ export default function AppHeader({ minimal }) {
           </div>
 
           <div className="flex flex-col">
-            <span className="text-[18px] font-bold tracking-tight text-blue-950 leading-tight" style={{ fontFamily: "'Outfit', sans-serif" }}>One Window Bayanihan</span>
+            <span className="text-[18px] font-bold tracking-tight text-blue-950 leading-tight" style={{ fontFamily: "'Outfit', sans-serif" }}>One Window Bayanihan <span className="ml-1 align-middle text-xs font-semibold tracking-normal text-on-surface-variant">Region VII</span></span>
             <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-500">Assistance Program</span>
           </div>
         </Link>
@@ -70,7 +70,7 @@ export default function AppHeader({ minimal }) {
                 return (
                   <Link
                     key={link.name}
-                    href={link.href}
+                    href={link.route ? safeRoute(link.route, undefined, link.href) : link.href}
                     className={`flex items-center px-4 text-[14px] font-label transition-colors duration-200 ${
                       active
                         ? 'border-b-2 border-primary font-bold text-primary'
@@ -85,26 +85,25 @@ export default function AppHeader({ minimal }) {
 
             <div className="hidden items-center gap-3 self-center md:flex">
               {!user && (
-                <AppButton
-                  as="link"
+                <Link
                   href={route('intake.index')}
-                  variant="primary"
+                  className="inline-flex items-center justify-center gap-2 rounded-none bg-primary px-6 py-2.5 text-[14px] font-bold text-white transition-all hover:brightness-110 active:scale-95"
                 >
                   File a Case
-                </AppButton>
+                </Link>
               )}
 
               {user ? (
                 <div className="flex items-center gap-3">
-                  <AppButton
+                  <a
                     href={user.role === 'OFW' ? route('ofw.dashboard') : route('dashboard')}
-                    variant="primary"
+                    className="inline-flex items-center justify-center gap-2 rounded-none bg-primary px-6 py-2.5 text-[14px] font-bold text-white transition-all hover:brightness-110 active:scale-95"
                   >
                     {user.role === 'OFW' ? 'My Cases' : 'Dashboard'}
-                  </AppButton>
+                  </a>
 
                   <div className="flex items-center gap-4 border-l border-gray-200 pl-5">
-                    <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-circle bg-primary">
+                    <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-primary">
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3/5 h-3/5 text-white/50">
                         <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
                       </svg>
@@ -233,7 +232,7 @@ export default function AppHeader({ minimal }) {
               <button
                 type="button"
                 aria-label="Close menu"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-circle border border-gray-200 text-slate-600 transition hover:bg-slate-50 hover:text-primary"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 text-slate-600 transition hover:bg-slate-50 hover:text-primary"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 <svg
@@ -282,37 +281,29 @@ export default function AppHeader({ minimal }) {
 
               <div className="mt-4 grid gap-2 border-t border-gray-100 pt-3">
                 {!user && (
-                  <AppButton
-                    as="link"
+                  <Link
                     href={route('intake.index')}
-                    variant="primary"
-                    className="w-full"
-                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-none bg-primary px-6 py-2.5 text-[14px] font-bold text-white transition-all hover:brightness-110 active:scale-95"
                   >
                     File a Case
-                  </AppButton>
+                  </Link>
                 )}
 
                 {user ? (
-                  <AppButton
+                  <a
                     href={user.role === 'OFW' ? route('ofw.dashboard') : route('dashboard')}
-                    variant="primary"
-                    className="w-full"
                     onClick={() => setIsMobileMenuOpen(false)}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-none bg-primary px-6 py-2.5 text-[14px] font-bold text-white transition-all hover:brightness-110 active:scale-95"
                   >
                     {user.role === 'OFW' ? 'My Cases' : 'Dashboard'}
-                  </AppButton>
+                  </a>
                 ) : (
                   <Link
                     href={route('login')}
                     onClick={() => setIsMobileMenuOpen(false)}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-none border border-outline-variant px-6 py-2.5 text-[14px] font-bold text-primary transition-all hover:bg-slate-50"
                   >
-                    <AppButton
-                      variant="outline"
-                      className="w-full"
-                    >
-                      Login
-                    </AppButton>
+                    Login
                   </Link>
                 )}
 

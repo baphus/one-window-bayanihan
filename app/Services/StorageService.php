@@ -5,6 +5,7 @@ namespace App\Services;
 use App\DTOs\FileStoreResult;
 use App\Services\Contracts\MalwareScannerInterface;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -115,6 +116,12 @@ class StorageService
         try {
             return Storage::disk($this->disk)->delete($path);
         } catch (\Throwable $e) {
+            Log::warning('StorageService: failed to delete file', [
+                'disk' => $this->disk,
+                'path' => $path,
+                'exception' => $e->getMessage(),
+            ]);
+
             return false;
         }
     }
@@ -134,6 +141,12 @@ class StorageService
                 now()->addHours($ttlHours)
             );
         } catch (\Throwable $e) {
+            Log::warning('StorageService: failed to generate temporary URL', [
+                'disk' => $this->disk,
+                'path' => $path,
+                'exception' => $e->getMessage(),
+            ]);
+
             return null;
         }
     }
@@ -164,7 +177,7 @@ class StorageService
     public function validate(UploadedFile $file, string $context = 'default'): array
     {
         $errors = [];
-        $config = config('file-uploads.'.$context);
+        $config = config('file-uploads.'.$context) ?? config('file-uploads.default');
 
         if ($config === null) {
             return ["No validation configuration found for context: '{$context}'."];
@@ -181,17 +194,15 @@ class StorageService
 
         // Server-side MIME content-sniffing check (defense in depth — augments extension check above)
         if (! empty($allowedTypes)) {
-            // Build a flat list of allowed MIME types from the allowed extensions
-            $allowedMimes = $config['allowed_mime_types'] ?? [];
-            if (empty($allowedMimes)) {
-                foreach ($allowedTypes as $ext) {
-                    $ext = strtolower($ext);
-                    if (isset(self::EXTENSION_MIME_MAP[$ext])) {
-                        $allowedMimes = array_merge($allowedMimes, self::EXTENSION_MIME_MAP[$ext]);
-                    }
+            // Allowed MIME types are derived from the allowed extensions
+            $allowedMimes = [];
+            foreach ($allowedTypes as $ext) {
+                $ext = strtolower($ext);
+                if (isset(self::EXTENSION_MIME_MAP[$ext])) {
+                    $allowedMimes = array_merge($allowedMimes, self::EXTENSION_MIME_MAP[$ext]);
                 }
-                $allowedMimes = array_unique($allowedMimes);
             }
+            $allowedMimes = array_unique($allowedMimes);
 
             if (! empty($allowedMimes)) {
                 $finfo = new \finfo(FILEINFO_MIME_TYPE);

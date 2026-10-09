@@ -121,22 +121,6 @@ class ColumnMaps
             ['key' => 'updated_at',        'label' => 'Updated At',        'type' => 'date'],
         ],
 
-        'feedback' => [
-            ['key' => 'case_number',        'label' => 'Case Number',               'type' => 'string'],
-            ['key' => 'client_name',        'label' => 'Client Name',               'type' => 'string'],
-            ['key' => 'agency_name',        'label' => 'Agency',                    'type' => 'string'],
-            ['key' => 'service_name',       'label' => 'Service',                   'type' => 'string'],
-            ['key' => 'referral_status',    'label' => 'Referral Status',           'type' => 'status'],
-            ['key' => 'overall_rating',     'label' => 'Overall Rating (1–5)',      'type' => 'string'],
-            ['key' => 'tangibles_avg',      'label' => 'Tangibles',                 'type' => 'string'],
-            ['key' => 'reliability_avg',    'label' => 'Reliability',               'type' => 'string'],
-            ['key' => 'responsiveness_avg', 'label' => 'Responsiveness',            'type' => 'string'],
-            ['key' => 'assurance_avg',      'label' => 'Assurance',                 'type' => 'string'],
-            ['key' => 'empathy_avg',        'label' => 'Empathy',                   'type' => 'string'],
-            ['key' => 'comments',           'label' => 'Comments / Remarks',        'type' => 'string'],
-            ['key' => 'submitted_at',       'label' => 'Date Submitted',            'type' => 'date'],
-        ],
-
         'case_documents' => [
             ['key' => 'id',         'label' => 'ID',         'type' => 'uuid'],
             ['key' => 'file_name',  'label' => 'File Name',  'type' => 'string'],

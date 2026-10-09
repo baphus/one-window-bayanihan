@@ -1,6 +1,6 @@
-import clsx from 'clsx';
 import { Link } from '@inertiajs/react';
 import { formatDisplayDate } from '@/lib/utils';
+import safeRoute from '@/utils/safeRoute';
 
 export default function ArticleCard({
   article,
@@ -12,7 +12,7 @@ export default function ArticleCard({
   if (variant === 'compact') {
     return (
       <Link
-        href={`/help/${article.slug}`}
+        href={safeRoute('helpdesk.show', article.slug, `/help/${article.slug}`)}
         className="group block border-b border-slate-200 py-3 last:border-0"
       >
         <h4 className="font-headline text-sm font-semibold text-slate-800 transition-colors group-hover:text-primary">
@@ -27,11 +27,10 @@ export default function ArticleCard({
 
   return (
     <Link
-      href={`/help/${article.slug}`}
-      className={clsx(
-        'group block rounded-lg border border-slate-200 bg-white p-5 transition-all hover:border-primary hover:bg-surface-container-low',
-        variant === 'featured' && 'border-l-4 border-l-primary'
-      )}
+      href={safeRoute('helpdesk.show', article.slug, `/help/${article.slug}`)}
+      className={`group block rounded-lg border border-slate-200 bg-white p-5 transition-all hover:border-primary hover:bg-surface-container-low${
+        variant === 'featured' ? ' border-l-4 border-l-primary' : ''
+      }`}
     >
       <div className="flex items-start gap-3">
         {categoryIcon && (

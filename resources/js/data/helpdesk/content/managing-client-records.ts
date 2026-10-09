@@ -16,13 +16,13 @@ Access is scoped by role:
 
 The search box matches **first name, last name, middle name, email, contact number**, and the case's **case number or tracker number** — so a client can be found from whatever detail you have on hand.
 
-Narrow results with the filters: **Client Type**, **Sex**, **Case Status**, **Vulnerability**, **Category**, **Issue/Concern**, and **Referred To** (agency). Results can be sorted and paginated, and **Export Excel** downloads the current filtered list.
+Narrow results with the filters: **Client Type**, **Sex**, **Case Status**, **Vulnerability**, **Category**, **Issue/Concern**, and **Referred To** (agency). Results can be sorted and paginated, and **Export Excel** downloads the current filtered list after an export-count pre-check confirms the size is within limits.
 
 ## The client details page
 
 Opening a client shows:
 
-- **Client Information** — identity and contact details, with the client's photo (staff can upload or replace it).
+- **Client Information** — identity and contact details, with the client's photo (staff can upload, replace, or remove the avatar from the client details page).
 - **Case Summary** — the client's case at a glance, linked to the full case record.
 - **Addresses** — each recorded address.
 - **Employment History** — employer and position records relevant to the case.

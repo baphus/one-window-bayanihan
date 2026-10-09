@@ -1,6 +1,6 @@
+import { Link } from '@inertiajs/react';
 import { HERO_IMAGE } from './appData';
 import LogoMarquee from './LogoMarquee';
-import AppButton from './AppButton';
 
 export default function HeroSection({ title, description, onTrackAction, agencies }) {
   return (
@@ -19,9 +19,9 @@ export default function HeroSection({ title, description, onTrackAction, agencie
       <div className="relative z-10 flex flex-1 items-center px-4 pt-28 pb-16 md:px-8 md:pt-32">
         <div className="mx-auto flex w-full max-w-5xl flex-col items-center gap-6">
 
-          {/* Emblem row — DMW and Bagong Pilipinas centered side-by-side */}
+          {/* Emblem row — DMW, Bagong Pilipinas, and CTU partnership */}
           <div
-            className="animate-fade-in-up flex w-full items-center justify-center gap-6 px-4 sm:gap-10 sm:px-8"
+            className="animate-fade-in-up flex w-full items-center justify-center gap-5 px-4 sm:gap-8 sm:px-8"
             style={{ animationDelay: '0.1s', animationFillMode: 'both' }}
           >
             {/* DMW Seal */}
@@ -42,6 +42,21 @@ export default function HeroSection({ title, description, onTrackAction, agencie
                 src="/images/landing/logo-bagong-pilipinas.webp"
                 alt="Bagong Pilipinas Official Logo"
                 className="relative h-14 w-14 rounded-full object-contain drop-shadow-2xl sm:h-20 sm:w-20 lg:h-24 lg:w-24"
+              />
+            </div>
+
+            {/* Divider */}
+            <div className="hidden sm:block h-14 w-px flex-shrink-0 bg-white/15 lg:h-20" />
+
+            {/* CTU Partnership */}
+            <div className="relative flex flex-shrink-0 flex-col items-center gap-1.5">
+              <span className="text-[8px] font-bold uppercase tracking-[0.2em] text-white/35 sm:text-[9px]">
+                In partnership with
+              </span>
+              <img
+                src="/images/landing/ctu_no_bg.png"
+                alt="Cebu Technological University Official Seal"
+                className="h-10 w-10 rounded-full object-contain drop-shadow-lg sm:h-14 sm:w-14 lg:h-16 lg:w-16"
               />
             </div>
           </div>
@@ -71,15 +86,13 @@ export default function HeroSection({ title, description, onTrackAction, agencie
             className="animate-fade-in-up flex flex-wrap items-center justify-center gap-4"
             style={{ animationDelay: '0.5s', animationFillMode: 'both' }}
           >
-            <AppButton
-              as="link"
+            <Link
               href={route('intake.index')}
-              variant="mint"
-              icon="edit_note"
-              className="px-6 py-3 text-sm shadow-xl"
+              className="inline-flex items-center justify-center gap-2 rounded-none bg-secondary-container px-6 py-2.5 text-[14px] font-bold text-on-secondary-container transition-all hover:bg-secondary-fixed-dim disabled:cursor-not-allowed disabled:opacity-60 px-6 py-3 text-sm shadow-xl"
             >
+              <span className="material-symbols-outlined">edit_note</span>
               File a Case
-            </AppButton>
+            </Link>
             <button
               onClick={onTrackAction}
               className="inline-flex items-center justify-center gap-2 border border-white/40 bg-white/10 px-6 py-3 text-sm font-bold text-white shadow-xl backdrop-blur-md transition-all hover:-translate-y-0.5 hover:bg-white/20 active:scale-95"

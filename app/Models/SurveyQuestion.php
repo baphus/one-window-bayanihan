@@ -38,6 +38,16 @@ class SurveyQuestion extends Model
         5 => 'Strongly Agree',
     ];
 
+    public static array $auditExclude = [
+        'id', 'created_at', 'updated_at', 'deleted_at', 'deleted_by',
+        'survey_form_id',
+    ];
+
+    public function getAuditModuleName(): string
+    {
+        return 'survey_question';
+    }
+
     protected $fillable = [
         'survey_form_id',
         'type',

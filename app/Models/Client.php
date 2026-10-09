@@ -14,6 +14,13 @@ class Client extends Model
 {
     use HasAvatar, HasFactory, SoftDeleteFlag, UsesUuid;
 
+    /**
+     * Rows returned by relatedAuditLogs(). Kept on the model because the scope
+     * no longer carries a hidden limit — the caller that renders the timeline
+     * decides how many rows it shows.
+     */
+    public const RELATED_AUDIT_LOG_LIMIT = 50;
+
     public static array $auditExclude = [
         'id', 'created_at', 'updated_at', 'deleted_at', 'deleted_by',
         'email', 'contact_number', 'date_of_birth', 'sex',
@@ -181,28 +188,15 @@ class Client extends Model
 
     public function relatedAuditLogs()
     {
-        $query = AuditLog::where(function ($q) {
-            $q->where('entity_id', $this->id)
-                ->whereIn('module', ['clients', 'client']);
+        // Was a hand-written near-copy of AuditLog::scopeForClient() — the same
+        // module-name list, the same three orWhere branches, one of them easy to
+        // miss when a module is renamed. The scope owns that filter now.
+        $referralIds = $this->caseFile
+            ? $this->caseFile->referrals()->pluck('id')->all()
+            : [];
 
-            if ($this->caseFile) {
-                $q->orWhere(function ($sub) {
-                    $sub->where('entity_id', $this->caseFile->id)
-                        ->whereIn('module', ['CASE', 'cases', 'case_files', 'case']);
-                });
-
-                $referralIds = $this->caseFile->referrals()->pluck('id');
-                if ($referralIds->isNotEmpty()) {
-                    $q->orWhere(function ($sub) use ($referralIds) {
-                        $sub->whereIn('entity_id', $referralIds)
-                            ->whereIn('module', ['REFERRAL', 'referrals', 'referral']);
-                    });
-                }
-            }
-        })
-            ->orderBy('timestamp', 'desc')
-            ->limit(50);
-
-        return $query->get();
+        return AuditLog::forClient($this->id, $this->caseFile?->id, $referralIds)
+            ->limit(self::RELATED_AUDIT_LOG_LIMIT)
+            ->get();
     }
 }

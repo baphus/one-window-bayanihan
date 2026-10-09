@@ -10,6 +10,7 @@ use App\Models\ReferralClientRequest;
 use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use LogicException;
@@ -319,7 +320,7 @@ class ReferralClientRequestService
         $isReceivingAgency = $actor->role === 'AGENCY' && $actor->is_active && $actor->agcy_id === $referral->agcy_id;
         $referral->loadMissing('caseFile');
 
-        if (! $isReceivingAgency && $actor->role !== 'CASE_MANAGER' && $actor->role !== 'ADMIN') {
+        if (! $isReceivingAgency && $actor->role !== 'ADMIN') {
             throw new AuthorizationException('You may not revoke this access link.');
         }
     }
@@ -329,7 +330,6 @@ class ReferralClientRequestService
         $referral->loadMissing('caseFile');
 
         return ($actor->role === 'AGENCY' && $actor->is_active && $actor->agcy_id === $referral->agcy_id)
-            || $actor->role === 'CASE_MANAGER'
             || $actor->role === 'ADMIN';
     }
 
@@ -382,7 +382,7 @@ class ReferralClientRequestService
     {
         $referral->loadMissing('caseFile');
         if ($referral->case_id) {
-            TrackingService::invalidateTrackingCache($referral->case_id, $referral->id);
+            Cache::forget(TrackingService::trackingMilestonesCacheKey($referral->case_id, $referral->id));
         }
     }
 }

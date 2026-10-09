@@ -43,6 +43,10 @@ class ReferralFactory extends Factory
 
     public function rejected(): static
     {
-        return $this->state(['status' => 'REJECTED']);
+        return $this->state([
+            'status' => 'REJECTED',
+            'decision' => 'REJECT',
+            'rejection_reason' => 'INCOMPLETE_REQUIREMENTS',
+        ]);
     }
 }

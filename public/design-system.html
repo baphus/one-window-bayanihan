@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>One Window Bayanihan — Design System Showcase</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@600;700;800&family=Public+Sans:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0">
+<style>
+:root{
+  --primary:#005288; --primary-container:#003a63; --primary-fixed:#d0e4ff; --primary-fixed-dim:#9ccaff; --on-primary:#fff;
+  --secondary:#006b5e; --background:#f7f9ff; --surface:#f9fafc; --surface-bright:#fff;
+  --surface-low:#f1f4fa; --surface-container:#ebeef4; --surface-high:#e5e8ee;
+  --on-surface:#181c20; --on-surface-variant:#41474f;
+  --outline:#727780; --outline-variant:#c1c7d1;
+  --error:#ba1a1a; --error-container:#ffdad6; --on-error-container:#93000a;
+  --success:#2e7d46; --success-container:#d3efdc; --on-success-container:#0f3d1f;
+  --warning:#9a5b00; --warning-container:#ffe5b8; --on-warning-container:#4a2c00;
+  --info:#2f6fb0; --info-container:#d0e4ff; --on-info-container:#001d35;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Public Sans',sans-serif;background:var(--surface);color:var(--on-surface);line-height:1.6}
+.wrap{max-width:1100px;margin:0 auto;padding:40px 24px 80px}
+.hero{background:var(--primary);color:#fff;border-radius:16px;padding:40px;margin-bottom:32px}
+.hero h1{font-family:Outfit,sans-serif;font-size:32px;font-weight:800;letter-spacing:-.02em}
+.hero p{opacity:.85;margin-top:8px;max-width:640px}
+section{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:28px;margin-bottom:24px;box-shadow:0 1px 2px rgb(0 0 0/.05)}
+h2{font-family:Outfit,sans-serif;font-size:20px;font-weight:800;margin-bottom:4px}
+.sub{color:#64748b;font-size:14px;margin-bottom:20px}
+.eyebrow{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.14em;color:var(--primary);margin:24px 0 12px}
+.eyebrow:first-of-type{margin-top:0}
+.swatches{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.swatch{border:1px solid #e2e8f0;border-radius:8px;overflow:hidden}
+.swatch .c{height:56px}
+.swatch .t{padding:8px 10px;font-size:12px}.swatch .t b{display:block;font-size:12px}.swatch .t code{color:#64748b;font-size:11px}
+.type-row{padding:12px 0;border-bottom:1px solid #f1f5f9}
+.btn{display:inline-flex;align-items:center;justify-content:center;border-radius:6px;padding:8px 16px;font-size:14px;font-weight:700;border:1px solid transparent;cursor:pointer;margin:0 8px 8px 0}
+.btn-primary{background:var(--primary);color:#fff}.btn-primary:hover{background:var(--primary-container)}
+.btn-secondary{background:#fff;border-color:var(--outline-variant);color:var(--on-surface)}.btn-secondary:hover{background:var(--surface-low)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn:focus-visible,.input:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+.input{width:100%;max-width:360px;border:1px solid var(--outline-variant);border-radius:6px;padding:8px 12px;font-size:14px;font-family:inherit}
+.input:focus{border-color:var(--primary);box-shadow:0 0 0 2px rgb(0 82 136/.25);outline:none}
+label.fl{display:block;font-size:13px;font-weight:700;margin:12px 0 4px}
+.err{color:var(--error);font-size:13px;margin-top:4px}
+.card{border:1px solid #e2e8f0;border-radius:12px;background:#fff;box-shadow:0 1px 2px rgb(0 0 0/.05);padding:20px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.kpi .tile{display:inline-flex;background:var(--primary-fixed);color:var(--primary);border-radius:8px;padding:6px}
+.kpi .val{font-size:24px;font-weight:800}.kpi .lbl{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:#94a3b8}
+.kpi .trend{display:inline-block;background:var(--primary-fixed);color:var(--primary);font-size:11px;font-weight:700;border-radius:4px;padding:2px 6px;margin-top:6px}
+table.demo{width:100%;border-collapse:collapse;font-size:14px}
+table.demo th{background:#f8fafc;text-align:left;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#64748b;padding:12px 16px;border-bottom:1px solid #cbd5e1}
+table.demo td{padding:12px 16px;border-bottom:1px solid #e2e8f0}
+table.demo tr:hover td{background:#f1f5f9}
+.badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;border:1px solid;border-radius:2px;padding:3px 8px;margin:0 6px 6px 0}
+.b-open{background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8}.b-done{background:#ecfdf5;border-color:#a7f3d0;color:#047857}
+.b-pend{background:#fffbeb;border-color:#fde68a;color:#b45309}.b-rej{background:#fef2f2;border-color:#fecaca;color:#b91c1c}
+.b-neut{background:#f8fafc;border-color:#e2e8f0;color:#475569}
+.pill{border-radius:9999px;font-weight:600;text-transform:none;letter-spacing:0}
+.toast{border-radius:8px;padding:12px 16px;font-size:14px;font-weight:600;margin-bottom:8px;border:1px solid;display:flex;gap:8px;align-items:center}
+.t-ok{background:var(--success-container);border-color:var(--success);color:var(--on-success-container)}
+.t-err{background:var(--error-container);border-color:var(--error);color:var(--on-error-container)}
+.t-warn{background:var(--warning-container);border-color:var(--warning);color:var(--on-warning-container)}
+.t-info{background:var(--info-container);border-color:var(--info);color:var(--on-info-container)}
+.pager{display:flex;gap:6px;align-items:center;margin-top:12px}
+.pager button{width:30px;height:30px;border-radius:2px;border:1px solid transparent;background:none;font-weight:700;font-size:13px;color:#334155;cursor:pointer}
+.pager button.cur{background:var(--primary);color:#fff}
+.skel{border-radius:4px;background:linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f0 75%);background-size:200% 100%;animation:sh 1.4s infinite;height:16px;margin-bottom:8px}
+@keyframes sh{to{background-position:-200% 0}}
+.empty{text-align:center;padding:32px;color:#64748b}
+.modal-bg{background:rgb(0 0 0/.35);border-radius:12px;padding:32px;display:flex;justify-content:center}
+.modal{background:#fff;border-radius:12px;box-shadow:0 20px 40px rgb(0 0 0/.2);padding:24px;max-width:420px;width:100%}
+.modal h3{font-family:Outfit;font-size:18px;margin-bottom:8px}.modal p{font-size:14px;color:#475569;margin-bottom:16px}
+.nav-demo{display:flex;gap:4px;background:var(--surface);border:1px solid #e2e8f0;border-radius:8px;padding:8px}
+.nav-demo span{padding:8px 14px;border-radius:6px;font-size:14px;font-weight:600;color:#475569}
+.nav-demo span.on{background:var(--primary-fixed);color:var(--primary)}
+code.tok{background:#f1f5f9;padding:1px 6px;border-radius:4px;font-size:12px}
+footer{color:#94a3b8;font-size:12px;text-align:center;margin-top:32px}
+@media(max-width:640px){.hero{padding:28px 20px}.hero h1{font-size:24px}section{padding:20px 16px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hero">
+    <h1>One Window Bayanihan — Design System</h1>
+    <p>Unified tokens and components. Brand <code>primary #005288</code> · body Public Sans · display Outfit · Material Symbols icons. Full contract in <code>design.md</code>.</p>
+  </div>
+
+  <section><h2>Color tokens</h2><p class="sub">From <code class="tok">tailwind.config.js</code>. Success / warning / info added in the unification pass.</p>
+    <div class="eyebrow">Brand &amp; surface</div>
+    <div class="swatches">
+      <div class="swatch"><div class="c" style="background:#005288"></div><div class="t"><b>primary</b><code>#005288</code></div></div>
+      <div class="swatch"><div class="c" style="background:#003a63"></div><div class="t"><b>primary-container</b><code>#003a63 · hover</code></div></div>
+      <div class="swatch"><div class="c" style="background:#d0e4ff"></div><div class="t"><b>primary-fixed</b><code>#d0e4ff · tints</code></div></div>
+      <div class="swatch"><div class="c" style="background:#006b5e"></div><div class="t"><b>secondary</b><code>#006b5e</code></div></div>
+      <div class="swatch"><div class="c" style="background:#f9fafc;border-bottom:1px solid #e2e8f0"></div><div class="t"><b>surface</b><code>#f9fafc · shell</code></div></div>
+      <div class="swatch"><div class="c" style="background:#fff;border-bottom:1px solid #e2e8f0"></div><div class="t"><b>surface-bright</b><code>#ffffff · cards</code></div></div>
+      <div class="swatch"><div class="c" style="background:#181c20"></div><div class="t"><b>on-surface</b><code>#181c20 · text</code></div></div>
+      <div class="swatch"><div class="c" style="background:#c1c7d1"></div><div class="t"><b>outline-variant</b><code>#c1c7d1 · borders</code></div></div>
+    </div>
+    <div class="eyebrow">Semantic</div>
+    <div class="swatches">
+      <div class="swatch"><div class="c" style="background:#ba1a1a"></div><div class="t"><b>error</b><code>#ba1a1a</code></div></div>
+      <div class="swatch"><div class="c" style="background:#2e7d46"></div><div class="t"><b>success ★ new</b><code>#2e7d46</code></div></div>
+      <div class="swatch"><div class="c" style="background:#9a5b00"></div><div class="t"><b>warning ★ new</b><code>#9a5b00</code></div></div>
+      <div class="swatch"><div class="c" style="background:#2f6fb0"></div><div class="t"><b>info ★ new</b><code>#2f6fb0</code></div></div>
+    </div>
+  </section>
+
+  <section><h2>Typography</h2><p class="sub">Outfit for display only · Public Sans everywhere else · sentence-case buttons.</p>
+    <div class="type-row" style="font-family:Outfit;font-size:30px;font-weight:800;letter-spacing:-.02em">Page title — Outfit ExtraBold 30px</div>
+    <div class="type-row" style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.14em;color:#005288">Section eyebrow — 11px uppercase primary</div>
+    <div class="type-row" style="font-size:14px;color:#475569">Body copy — 14px Public Sans, line-height 1.6. Short labels and plain words.</div>
+    <div class="type-row" style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#64748b">Table header — 12px uppercase slate</div>
+    <div class="type-row" style="font-size:24px;font-weight:800">Metric value — 24px black</div>
+  </section>
+
+  <section><h2>Buttons</h2><p class="sub"><code class="tok">PrimaryButton</code> · <code class="tok">SecondaryButton</code> — 40px target, 2px primary focus ring.</p>
+    <button class="btn btn-primary">Save changes</button>
+    <button class="btn btn-secondary">Cancel</button>
+    <button class="btn btn-primary" disabled>Disabled</button>
+    <p class="sub" style="margin:8px 0 0">Do: one primary action per view. Don't: uppercase labels, grey-on-grey.</p>
+  </section>
+
+  <section><h2>Inputs &amp; form states</h2><p class="sub"><code class="tok">TextInput</code> + <code class="tok">InputError</code>.</p>
+    <label class="fl" for="d1">Full name</label><input id="d1" class="input" value="Maria Santos">
+    <label class="fl" for="d2">Email (with error)</label><input id="d2" class="input" value="maria@" style="border-color:var(--error)">
+    <div class="err">Enter a valid email address.</div>
+  </section>
+
+  <section><h2>Cards &amp; KPIs</h2><p class="sub"><code class="tok">CardSection</code> · <code class="tok">KpiCard</code> · <code class="tok">cardShell</code> — rounded-xl, shadow-sm.</p>
+    <div class="kpis">
+      <div class="card kpi"><span class="lbl">Open cases</span><div style="display:flex;justify-content:space-between;align-items:start"><span class="val">128</span><span class="tile"><span class="material-symbols-outlined">folder_open</span></span></div><span class="trend">+12 this week</span></div>
+      <div class="card kpi"><span class="lbl">Pending referrals</span><div style="display:flex;justify-content:space-between;align-items:start"><span class="val">34</span><span class="tile"><span class="material-symbols-outlined">forward</span></span></div><span class="trend">Needs review</span></div>
+      <div class="card kpi"><span class="lbl">Resolved</span><div style="display:flex;justify-content:space-between;align-items:start"><span class="val">512</span><span class="tile"><span class="material-symbols-outlined">check_circle</span></span></div></div>
+    </div>
+  </section>
+
+  <section><h2>Table</h2><p class="sub"><code class="tok">UnifiedTable</code> — header slate-50, current page primary, skeleton loading, inbox / search_off empties.</p>
+    <table class="demo"><thead><tr><th>Case</th><th>Status</th><th>Updated</th></tr></thead>
+    <tbody><tr><td><b>C-2026-0142</b></td><td><span class="badge b-open">● Open</span></td><td>Oct 7, 2026</td></tr>
+    <tr><td><b>C-2026-0141</b></td><td><span class="badge b-pend">● Pending</span></td><td>Oct 6, 2026</td></tr>
+    <tr><td><b>C-2026-0140</b></td><td><span class="badge b-done">● Completed</span></td><td>Oct 5, 2026</td></tr></tbody></table>
+    <div class="pager"><button>‹</button><button class="cur">1</button><button>2</button><button>3</button><button>›</button></div>
+  </section>
+
+  <section><h2>Badges</h2><p class="sub"><code class="tok">StatusBadge</code> — sharp default, pill variant; always icon + label, never color alone.</p>
+    <span class="badge b-open">● Open</span><span class="badge b-done">● Completed</span><span class="badge b-pend">● Pending</span><span class="badge b-rej">● Rejected</span><span class="badge b-neut">● Draft</span><br>
+    <span class="badge pill b-open">Open</span><span class="badge pill b-done">Completed</span><span class="badge pill b-pend">Pending</span>
+  </section>
+
+  <section><h2>Toasts</h2><p class="sub"><code class="tok">AppToast</code> via <code class="tok">ToastProvider</code> — top-right stack, auto-dismiss.</p>
+    <div class="toast t-ok">✓ Case saved successfully.</div>
+    <div class="toast t-err">✕ Could not submit — check the highlighted fields.</div>
+    <div class="toast t-warn">⚠ 2 recovery codes remaining.</div>
+    <div class="toast t-info">ℹ New agency reply on C-2026-0142.</div>
+  </section>
+
+  <section><h2>Modal</h2><p class="sub"><code class="tok">Modal</code> · <code class="tok">ConfirmDialog</code> — rounded-xl panel, 90vh max.</p>
+    <div class="modal-bg"><div class="modal"><h3>Archive this case?</h3><p>Archived cases stay searchable but leave the active queue. You can restore them later.</p>
+    <button class="btn btn-secondary">Keep case</button><button class="btn btn-primary">Archive</button></div></div>
+  </section>
+
+  <section><h2>Nav · Empty · Loading</h2><p class="sub">Sidebar active = primary tint · empties use inbox / search_off · stable-size skeletons.</p>
+    <div class="nav-demo"><span class="on">Dashboard</span><span>Cases</span><span>Referrals</span><span>Reports</span></div>
+    <div class="empty"><span class="material-symbols-outlined" style="font-size:40px;color:#cbd5e1">inbox</span><p><b>No records yet</b></p><p style="font-size:13px">Data will appear here once it is available.</p></div>
+    <div class="skel" style="width:60%"></div><div class="skel" style="width:90%"></div><div class="skel" style="width:75%"></div>
+  </section>
+
+  <footer>One Window Bayanihan · Design System v1.0 · tokens live in <code>tailwind.config.js</code>, contract in <code>design.md</code></footer>
+</div>
+</body>
+</html>

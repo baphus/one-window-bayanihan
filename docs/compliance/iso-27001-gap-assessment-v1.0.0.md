@@ -2,15 +2,17 @@
 
 | Field | Value |
 |---|---|
-| Version | v1.0.0 · Date 2026-07-08 |
+| Version | v1.1.0 · Date 2026-07-08 |
 | Standard | ISO/IEC 27001:2022 (Clauses 4–10, ISMS requirements) |
 | Basis | Repository evidence at commit `b8a7211`. Read-only. |
+| Re-verification | 2026-10-03 — every referenced path re-resolved against the working tree (HEAD `054e61a`). No finding was deleted; where a cited gap has since been remediated it is annotated with the date and the resolving evidence, and where it could not be confirmed it is marked UNVERIFIED. |
 | Key limitation | ISO 27001 Clauses 4–10 are **management-system** requirements. They are satisfied by governance artifacts, records, and management activity — **not** by source code. Most are therefore *Not verifiable from the repository* and are marked as such. A low score here is an **evidence limitation**, not confirmed organizational non-conformity. |
 
 ## Changelog
 | Version | Date | Author | Change |
 |---|---|---|---|
 | v1.0.0 | 2026-07-08 | Alignment assessment | Initial ISO 27001 clause-by-clause gap assessment. |
+| v1.1.0 | 2026-10-03 | Citation re-verification | Re-resolved every referenced path against the working tree. Corrected the Clause 5.3 role list (four roles, not three); cited the exact location of the `SECURITY_REQUIREMENTS.md` gaps table and of `PROJECT_RULES.md` §5; added dated status notes to 7.5 (TECH-010/023 still open residuals) and 9.1 (TECH-016 now PARTIAL — Sentry wired, alert routing unevidenced). No status changed to "Implemented"; no finding removed. |
 
 ## Status legend
 Implemented · Partially implemented · Not implemented · Not applicable · **Not verifiable from repository (NVR)**
@@ -29,12 +31,12 @@ Implemented · Partially implemented · Not implemented · Not applicable · **N
 
 ## Clause 5 — Leadership
 | 5.1 | Leadership & commitment | NVR | No evidence (requires management records). |
-| 5.2 | Information security policy | **Not implemented** | No top-level InfoSec policy. `docs/PROJECT_RULES.md` §5 is engineering principles only. |
-| 5.3 | Roles, responsibilities, authorities | Partially | Technical roles exist (ADMIN/CASE_MANAGER/AGENCY); no assigned ISMS roles (ISM, risk owner, DPO). |
+| 5.2 | Information security policy | **Not implemented** | No top-level InfoSec policy. `docs/PROJECT_RULES.md:170` (§5 *Security Principles*) is engineering principles only. |
+| 5.3 | Roles, responsibilities, authorities | Partially | Technical roles exist (`CASE_MANAGER`, `ADMIN`, `AGENCY`, `OFW` — `users.role` is a plain `string(50)`, not an enum; `role:` middleware counts in `routes/web.php`: CASE_MANAGER ×8, ADMIN ×3, AGENCY ×2, OFW ×1); no assigned ISMS roles (ISM, risk owner, DPO). |
 
 ## Clause 6 — Planning
 | 6.1.1 | Actions to address risks/opportunities | Not implemented | No risk-management framework (this assessment seeds one). |
-| 6.1.2 | Information security risk assessment | Not implemented | No documented methodology/criteria. `docs/SECURITY_REQUIREMENTS.md` has an ad-hoc "gaps" table only. |
+| 6.1.2 | Information security risk assessment | Not implemented | No documented methodology/criteria. `docs/SECURITY_REQUIREMENTS.md:214` (§11 *Known Gaps / Future Work*) is an ad-hoc "gaps" table only. |
 | 6.1.3 | Risk treatment & **Statement of Applicability** | Not implemented | No SoA. |
 | 6.2 | Information security objectives | Not implemented | No measurable security objectives. |
 | 6.3 | Planning of changes | Partially | CI/CD exists; no documented change-planning for the ISMS. |
@@ -44,7 +46,7 @@ Implemented · Partially implemented · Not implemented · Not applicable · **N
 | 7.2 | Competence | NVR | No training/competence records. |
 | 7.3 | Awareness | NVR | No awareness programme evidence. |
 | 7.4 | Communication | NVR | — |
-| 7.5 | Documented information | **Partially (with defect)** | Rich `docs/` set exists (strength), **but** it contradicts the code and is stale (TECH-010, TECH-023) → fails 7.5.3 control of documented information. |
+| 7.5 | Documented information | **Partially (with defect)** | Rich `docs/` set exists (strength), **but** it contradicts the code and is stale (TECH-010, TECH-023) → fails 7.5.3 control of documented information. *Status 2026-10-03: still open — TECH-010 and TECH-023 are both PARTIAL, not resolved. Core claims (RBAC, RLS, headers, password reset, table inventory) are reconciled; residuals are five stale "2026-05-28" doc headers and `docs/TESTING_STRATEGY.md:6,15,32` still documenting a `playwright.config.ts` / `npm run test:e2e` harness that does not exist in the tree.* |
 
 ## Clause 8 — Operation
 | 8.1 | Operational planning & control | Partially | Strong technical operational controls (auth, RLS, uploads, rate limits) — see ISO 27002 assessment. Not tied to an ISMS operating procedure. |
@@ -52,7 +54,7 @@ Implemented · Partially implemented · Not implemented · Not applicable · **N
 | 8.3 | Risk treatment (operational) | Partially | Many controls implemented ad hoc; no treatment plan traceability. |
 
 ## Clause 9 — Performance evaluation
-| 9.1 | Monitoring, measurement, analysis, evaluation | Partially/Weak | Audit logging + rate limiting present; no centralized monitoring/alerting (TECH-016); availability target stated but unmeasured. |
+| 9.1 | Monitoring, measurement, analysis, evaluation | Partially/Weak | Audit logging + rate limiting present; availability target stated but unmeasured. *No centralized monitoring/alerting (TECH-016) — Status 2026-10-03: PARTIAL, not resolved. Error tracking is now wired (`sentry/sentry-laravel` in `composer.json:25`, integrated at `bootstrap/app.php:191`); alert routing, on-call and log-retention beyond the container's `json-file` rotation are still not evidenced in the repository.* |
 | 9.2 | Internal audit | Not implemented | No internal audit programme. |
 | 9.3 | Management review | Not implemented | No management-review records. |
 
@@ -63,6 +65,8 @@ Implemented · Partially implemented · Not implemented · Not applicable · **N
 ---
 
 ## Summary — ISO 27001 readiness
+
+> Scores below are the original point-in-time assessment (2026-07-08, commit `b8a7211`) and have **not** been re-scored at the 2026-10-03 re-verification. The clause-level status notes above are current; the maturity numbers are not.
 
 | Dimension | Maturity (0–5) | Rationale |
 |---|---|---|

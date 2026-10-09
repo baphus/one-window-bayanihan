@@ -34,7 +34,7 @@ export default function RegisterViaInvite({ invite }) {
         if (score <= 2) return { score, label: 'Weak', color: 'bg-red-500' };
         if (score <= 3) return { score, label: 'Fair', color: 'bg-amber-500' };
         if (score <= 4) return { score, label: 'Good', color: 'bg-blue-500' };
-        return { score, label: 'Strong', color: 'bg-green-500' };
+        return { score, label: 'Strong', color: 'bg-success' };
     };
 
     const strength = getPasswordStrength();
@@ -94,7 +94,7 @@ export default function RegisterViaInvite({ invite }) {
                                         type="email"
                                         value={invite.email}
                                         readOnly
-                                        className="w-full border border-outline-variant bg-surface-container/50 px-4 py-3 pl-12 text-sm text-on-surface-variant/70 cursor-not-allowed rounded-none"
+                                        className="w-full border border-outline-variant bg-surface-container/50 px-4 py-3 pl-12 text-sm text-on-surface-variant/70 cursor-not-allowed rounded-md"
                                     />
                                 </div>
                             </div>
@@ -123,7 +123,7 @@ export default function RegisterViaInvite({ invite }) {
                                         type="text"
                                         value={data.name}
                                         onChange={(e) => setData('name', e.target.value)}
-                                        className="w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none rounded-none"
+                                        className="w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none rounded-md"
                                         required
                                     />
                                     {errors.name && <p className="mt-1 text-xs font-semibold text-error">{errors.name}</p>}
@@ -138,7 +138,7 @@ export default function RegisterViaInvite({ invite }) {
                                             type={showPassword ? 'text' : 'password'}
                                             value={data.password}
                                             onChange={(e) => setData('password', e.target.value)}
-                                            className="w-full border border-outline-variant bg-surface-container px-4 py-3 pl-12 pr-12 text-sm focus:border-primary focus:outline-none rounded-none"
+                                            className="w-full border border-outline-variant bg-surface-container px-4 py-3 pl-12 pr-12 text-sm focus:border-primary focus:outline-none rounded-md"
                                             required
                                         />
                                         <button type="button" onClick={() => setShowPassword(!showPassword)}
@@ -168,7 +168,7 @@ export default function RegisterViaInvite({ invite }) {
                                         type="password"
                                         value={data.password_confirmation}
                                         onChange={(e) => setData('password_confirmation', e.target.value)}
-                                        className="w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none rounded-none"
+                                        className="w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none rounded-md"
                                         required
                                     />
                                     {errors.password_confirmation && <p className="mt-1 text-xs font-semibold text-error">{errors.password_confirmation}</p>}
@@ -182,23 +182,23 @@ export default function RegisterViaInvite({ invite }) {
                                         <div>
                                             <label className="mb-1 block text-xs font-bold text-on-surface-variant">Position</label>
                                             <input type="text" value={data.position} onChange={(e) => setData('position', e.target.value)}
-                                                className="w-full border border-outline-variant bg-surface-container px-4 py-2.5 text-sm focus:border-primary focus:outline-none rounded-none" />
+                                                className="w-full border border-outline-variant bg-surface-container px-4 py-2.5 text-sm focus:border-primary focus:outline-none rounded-md" />
                                         </div>
                                         <div>
                                             <label className="mb-1 block text-xs font-bold text-on-surface-variant">Department</label>
                                             <input type="text" value={data.department} onChange={(e) => setData('department', e.target.value)}
-                                                className="w-full border border-outline-variant bg-surface-container px-4 py-2.5 text-sm focus:border-primary focus:outline-none rounded-none" />
+                                                className="w-full border border-outline-variant bg-surface-container px-4 py-2.5 text-sm focus:border-primary focus:outline-none rounded-md" />
                                         </div>
                                         <div>
                                             <label className="mb-1 block text-xs font-bold text-on-surface-variant">Contact Number</label>
                                             <input type="text" value={data.contact_number} onChange={(e) => setData('contact_number', e.target.value)}
-                                                className="w-full border border-outline-variant bg-surface-container px-4 py-2.5 text-sm focus:border-primary focus:outline-none rounded-none" />
+                                                className="w-full border border-outline-variant bg-surface-container px-4 py-2.5 text-sm focus:border-primary focus:outline-none rounded-md" />
                                         </div>
                                     </div>
                                 </div>
 
                                 <button type="submit" disabled={processing}
-                                    className="w-full bg-primary text-on-primary px-8 py-4 text-sm font-bold shadow-xl hover:brightness-110 active:scale-95 transition-all disabled:opacity-60 rounded-none">
+                                    className="w-full bg-primary text-on-primary px-8 py-4 text-sm font-bold shadow-xl hover:brightness-110 active:scale-95 transition-all disabled:opacity-60 rounded-md">
                                     {processing ? 'Creating Account...' : 'Complete Registration'}
                                 </button>
                             </form>

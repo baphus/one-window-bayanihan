@@ -123,7 +123,7 @@ export default function ForgotPassword({ status }) {
                                             value={email}
                                             onChange={(e) => { setEmail(e.target.value); setErrorMsg(''); }}
                                             placeholder="you@agency.gov.ph"
-                                            className="w-full border border-outline-variant bg-surface-container px-4 py-3 pl-12 text-sm focus:border-primary focus:outline-none rounded-none"
+                                            className="w-full border border-outline-variant bg-surface-container px-4 py-3 pl-12 text-sm focus:border-primary focus:outline-none rounded-md"
                                             required
                                         />
                                     </div>
@@ -147,7 +147,7 @@ export default function ForgotPassword({ status }) {
                                 <button
                                     type="submit"
                                     disabled={processing || (turnstile?.enabled && !turnstileToken)}
-                                    className="w-full bg-primary text-on-primary px-8 py-4 text-sm font-bold shadow-xl hover:brightness-110 active:scale-95 transition-all disabled:opacity-60 rounded-none"
+                                    className="w-full bg-primary text-on-primary px-8 py-4 text-sm font-bold shadow-xl hover:brightness-110 active:scale-95 transition-all disabled:opacity-60 rounded-md"
                                 >
                                     {processing ? 'Sending...' : 'Send Password Reset Link'}
                                 </button>

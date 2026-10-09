@@ -25,8 +25,6 @@ class GeneratedDocument extends Model
     protected function casts(): array
     {
         return [
-            'created_at' => 'datetime',
-            'updated_at' => 'datetime',
             'file_size' => 'integer',
         ];
     }

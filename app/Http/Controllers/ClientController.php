@@ -3,25 +3,30 @@
 namespace App\Http\Controllers;
 
 use App\Helpers\CacheHelper;
+use App\Http\Controllers\Concerns\ResolvesPerPage;
 use App\Http\Requests\ProfilePictureRequest;
-use App\Models\Agency;
 use App\Models\AuditLog;
-use App\Models\CaseFile;
 use App\Models\Client;
-use App\Models\Referral;
 use App\Models\User;
 use App\Services\AuditLogFormatter;
+use App\Services\CaseService;
 use App\Services\CloudinaryAvatarService;
 use App\Services\Export\DataExportQueries;
 use App\Services\Export\DataExportService;
 use App\Services\ReferenceDataService;
 use App\Support\CategoryFilter;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class ClientController extends Controller
 {
+    use ResolvesPerPage;
+
+    public function __construct(
+        private readonly DataExportQueries $exportQueries,
+        private readonly DataExportService $exportService,
+    ) {}
+
     public function index(Request $request)
     {
         $user = $request->user();
@@ -147,7 +152,7 @@ class ClientController extends Controller
         $direction = $request->input('direction', 'desc');
         $direction = in_array(strtolower($direction), ['asc', 'desc']) ? $direction : 'desc';
 
-        $perPage = min((int) $request->input('per_page', 15), 100);
+        $perPage = $this->perPage($request, 15);
 
         $clients = $clients->orderBy($sort, $direction)->paginate($perPage);
 
@@ -167,91 +172,9 @@ class ClientController extends Controller
         $cacheKey = 'client_stats:'.$user?->id;
 
         return CacheHelper::safeRemember($cacheKey, 30, function () use ($user) {
-            // Clients hidden from the listing must not be counted by the tile
-            // above it, or the directory shows N rows and claims N+1 total. The
-            // other tiles are already safe: they all filter to cases with a
-            // status NOT IN ('DRAFT','ARCHIVED'), which no unaccepted intake has.
-            $excludeUnacceptedIntake = "NOT EXISTS (
-                    SELECT 1 FROM cases cp
-                    WHERE cp.client_id = %s
-                      AND cp.source = '".CaseFile::SOURCE_SELF_FILED."'
-                      AND cp.status = 'DRAFT'
-                ) OR EXISTS (
-                    SELECT 1 FROM cases cr
-                    WHERE cr.client_id = %s
-                      AND cr.is_deleted = false
-                      AND cr.deleted_at IS NULL
-                      AND (cr.source <> '".CaseFile::SOURCE_SELF_FILED."' OR cr.status <> 'DRAFT')
-                )";
-
-            // Single query with conditional aggregation — replaces 10 separate count queries
-            $totalClientsExpression = $user?->isAdmin()
-                ? '(SELECT COUNT(*) FROM clients WHERE is_deleted = false AND ('.sprintf($excludeUnacceptedIntake, 'clients.id', 'clients.id').'))'
-                : 'COUNT(DISTINCT CASE WHEN ('.sprintf($excludeUnacceptedIntake, 'cl.id', 'cl.id').') THEN cl.id END)';
-            $sql = "SELECT
-                {$totalClientsExpression} AS total_clients,
-                COUNT(DISTINCT CASE WHEN c.client_type = 'OFW' AND c.status NOT IN ('DRAFT','ARCHIVED') THEN cl.id END) AS ofw_clients,
-                COUNT(DISTINCT CASE WHEN c.client_type = '".CaseFile::CLIENT_TYPE_NEXT_OF_KIN."' AND c.status NOT IN ('DRAFT','ARCHIVED') THEN cl.id END) AS nok_clients,
-                COUNT(DISTINCT CASE WHEN c.status NOT IN ('DRAFT','ARCHIVED') AND (c.vulnerability_indicator LIKE '%PWD%' OR c.nok_vulnerability_indicator LIKE '%PWD%') THEN cl.id END) AS vuln_pwd,
-                COUNT(DISTINCT CASE WHEN c.status NOT IN ('DRAFT','ARCHIVED') AND (c.vulnerability_indicator LIKE '%Senior Citizen%' OR c.nok_vulnerability_indicator LIKE '%Senior Citizen%') THEN cl.id END) AS vuln_senior,
-                COUNT(DISTINCT CASE WHEN c.status NOT IN ('DRAFT','ARCHIVED') AND (c.vulnerability_indicator LIKE '%Solo Parent%' OR c.nok_vulnerability_indicator LIKE '%Solo Parent%') THEN cl.id END) AS vuln_solo,
-                COUNT(DISTINCT CASE WHEN c.status NOT IN ('DRAFT','ARCHIVED') AND (c.vulnerability_indicator LIKE '%Indigenous Person%' OR c.nok_vulnerability_indicator LIKE '%Indigenous Person%') THEN cl.id END) AS vuln_indigenous,
-                COUNT(DISTINCT CASE WHEN c.status = 'OPEN' THEN cl.id END) AS open_cases
-            FROM clients cl
-            JOIN cases c ON c.client_id = cl.id AND c.is_deleted = false
-            WHERE cl.is_deleted = false";
-
-            $bindings = [];
-
-            if ($user?->isAgency() && ! $user->agcy_id) {
-                return [
-                    'total_clients' => 0,
-                    'ofw_clients' => 0,
-                    'nok_clients' => 0,
-                    'vulnerability_counts' => ['PWD' => 0, 'Senior Citizen' => 0, 'Solo Parent' => 0, 'Indigenous Person' => 0],
-                    'clients_with_open_cases' => 0,
-                    'total_referrals' => 0,
-                ];
-            }
-
-            // AGENCY users see only cases with referrals to their agency; ADMIN and CASE_MANAGER see all
-            if ($user && $user->isAgency() && $user->agcy_id) {
-                $sql .= ' AND c.id IN (SELECT ref.case_id FROM referrals ref WHERE ref.agcy_id = ? AND ref.is_deleted = false)';
-                $bindings[] = $user->agcy_id;
-            } elseif ($user && $user->isAgency() && ! $user->agcy_id) {
-                $sql .= ' AND 1 = 0';
-            }
-
-            $row = DB::selectOne($sql, $bindings);
-
-            // Referrals count (separate query — different base table)
-            $refSql = 'SELECT COUNT(*) AS total FROM referrals r
-                JOIN cases c ON r.case_id = c.id AND c.is_deleted = false
-                WHERE r.is_deleted = false';
-            $refBindings = [];
-
-            if ($user && $user->isAgency() && $user->agcy_id) {
-                $refSql .= ' AND r.agcy_id = ?';
-                $refBindings[] = $user->agcy_id;
-            } elseif ($user && $user->isAgency() && ! $user->agcy_id) {
-                $refSql .= ' AND 1 = 0';
-            }
-
-            $refRow = DB::selectOne($refSql, $refBindings);
-
-            return [
-                'total_clients' => (int) ($row->total_clients ?? 0),
-                'ofw_clients' => (int) ($row->ofw_clients ?? 0),
-                'nok_clients' => (int) ($row->nok_clients ?? 0),
-                'vulnerability_counts' => [
-                    'PWD' => (int) ($row->vuln_pwd ?? 0),
-                    'Senior Citizen' => (int) ($row->vuln_senior ?? 0),
-                    'Solo Parent' => (int) ($row->vuln_solo ?? 0),
-                    'Indigenous Person' => (int) ($row->vuln_indigenous ?? 0),
-                ],
-                'clients_with_open_cases' => (int) ($row->open_cases ?? 0),
-                'total_referrals' => (int) ($refRow->total ?? 0),
-            ];
+            // Task 2.2: stats query lives in CaseService (Eloquent/query-builder,
+            // bound parameters). The controller only handles HTTP + caching.
+            return app(CaseService::class)->getClientDirectoryStats($user);
         });
     }
 
@@ -260,6 +183,7 @@ class ClientController extends Controller
         $client = Client::with([
             'addresses',
             'employments',
+            'nextOfKin',
         ])->findOrFail($id);
 
         // Same rule as the directory listing: an unaccepted self-filed intake is
@@ -269,7 +193,8 @@ class ClientController extends Controller
         $user = $request->user();
         $caseQuery = $client->caseFiles()
             ->where('cases.is_deleted', false)
-            ->with(['user']);
+            ->with(['user', 'category', 'caseIssue'])
+            ->withCount(['referrals' => fn ($q) => $q->where('is_deleted', false)]);
 
         // ADMIN/CASE_MANAGER: all cases. AGENCY: own referral cases only.
         if ($user?->isAgency()) {
@@ -290,7 +215,11 @@ class ClientController extends Controller
             }
         }]);
 
-        $case = $caseQuery->latest('cases.created_at')->latest('cases.id')->first();
+        $cases = $caseQuery->orderBy('cases.created_at', 'desc')
+            ->orderBy('cases.id', 'desc')
+            ->get();
+
+        $case = $cases->first();
         // Admin and CASE_MANAGER may view any client even without an associated case file.
         // Agency access remains limited to clients with a referral to their agency.
         if (! $case && ! $user->isAdmin() && ! $user->isCaseManager()) {
@@ -300,34 +229,37 @@ class ClientController extends Controller
         // The relationship is explicitly replaced with the authorized case;
         // never serialize Client::caseFile's global latest case here.
         $client->setRelation('caseFile', $case);
+        $client->setRelation('cases', $cases);
+
+        // Audit logs scoped to all authorized cases + their referrals/milestones.
+        $caseIds = $cases->pluck('id');
+        $allReferralIds = $cases->flatMap->referrals->pluck('id');
+        $allMilestoneIds = $cases->flatMap->referrals->flatMap->milestones->pluck('id');
 
         $auditLogs = AuditLog::with('user')
-            ->where(function ($q) use ($client) {
-                // Direct client changes
+            ->where(function ($q) use ($client, $caseIds, $allReferralIds, $allMilestoneIds) {
                 // Direct client changes (from AuditObserver on Client model)
                 $q->whereIn('module', ['clients', 'client'])->where('entity_id', $client->id);
 
-                // Case file changes if client has case (from AuditObserver + CaseService)
-                if ($client->caseFile) {
-                    $q->orWhere(function ($q2) use ($client) {
-                        $q2->whereIn('module', ['CASE', 'cases', 'case_files', 'case'])->where('entity_id', $client->caseFile->id);
+                // Case file changes across all authorized cases
+                if ($caseIds->isNotEmpty()) {
+                    $q->orWhere(function ($q2) use ($caseIds) {
+                        $q2->whereIn('module', ['CASE', 'cases', 'case_files', 'case'])->whereIn('entity_id', $caseIds);
                     });
+                }
 
-                    // Referral changes (from AuditObserver + ReferralService)
-                    $referralIds = $client->caseFile->referrals->pluck('id');
-                    if ($referralIds->isNotEmpty()) {
-                        $q->orWhere(function ($q2) use ($referralIds) {
-                            $q2->whereIn('module', ['REFERRAL', 'referrals', 'referral'])->whereIn('entity_id', $referralIds);
-                        });
+                // Referral changes (from AuditObserver + ReferralService)
+                if ($allReferralIds->isNotEmpty()) {
+                    $q->orWhere(function ($q2) use ($allReferralIds) {
+                        $q2->whereIn('module', ['REFERRAL', 'referrals', 'referral'])->whereIn('entity_id', $allReferralIds);
+                    });
+                }
 
-                        // Milestone changes (from ReferralService)
-                        $milestoneIds = $client->caseFile->referrals->flatMap->milestones->pluck('id');
-                        if ($milestoneIds->isNotEmpty()) {
-                            $q->orWhere(function ($q2) use ($milestoneIds) {
-                                $q2->whereIn('module', ['MILESTONE', 'milestones', 'milestone'])->whereIn('entity_id', $milestoneIds);
-                            });
-                        }
-                    }
+                // Milestone changes (from ReferralService)
+                if ($allMilestoneIds->isNotEmpty()) {
+                    $q->orWhere(function ($q2) use ($allMilestoneIds) {
+                        $q2->whereIn('module', ['MILESTONE', 'milestones', 'milestone'])->whereIn('entity_id', $allMilestoneIds);
+                    });
                 }
             })
             ->orderBy('timestamp', 'desc')
@@ -343,6 +275,7 @@ class ClientController extends Controller
 
         return Inertia::render('Client/Show', [
             'client' => $client,
+            'cases' => $cases,
             'auditLogs' => $formattedLogs,
         ]);
     }
@@ -391,8 +324,8 @@ class ClientController extends Controller
             'search', 'sex', 'client_type', 'vulnerability_indicator', 'case_status', 'category_id', 'case_issue_id', 'agcy_id', 'date_from', 'date_to',
         ]), CategoryFilter::fromRequest($request)->toArray()));
 
-        $queries = new DataExportQueries;
-        $exportService = new DataExportService;
+        $queries = $this->exportQueries;
+        $exportService = $this->exportService;
 
         $data = $queries->getClientsExport($user, $filters);
 
@@ -426,7 +359,7 @@ class ClientController extends Controller
             'search', 'sex', 'client_type', 'vulnerability_indicator', 'case_status', 'category_id', 'case_issue_id', 'agcy_id', 'date_from', 'date_to',
         ]), CategoryFilter::fromRequest($request)->toArray()));
 
-        $count = (new DataExportQueries)->countClientsExport($user, $filters);
+        $count = $this->exportQueries->countClientsExport($user, $filters);
 
         return response()->json(['count' => $count]);
     }

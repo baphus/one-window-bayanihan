@@ -132,7 +132,7 @@ export default function Login({ status, canResetPassword }) {
                                                 type="email"
                                                 value={email}
                                                 onChange={(e) => { setEmail(e.target.value); setLoginError(''); }}
-                                                className="w-full border border-outline-variant bg-surface-container px-4 py-3 pl-12 text-sm focus:border-primary focus:outline-none rounded-none"
+                                                className="w-full border border-outline-variant bg-surface-container px-4 py-3 pl-12 text-sm focus:border-primary focus:outline-none rounded-md"
                                                 required
                                             />
                                         </div>
@@ -161,7 +161,7 @@ export default function Login({ status, canResetPassword }) {
                                             type="checkbox"
                                             checked={remember}
                                             onChange={(e) => setRemember(e.target.checked)}
-                                            className="h-4 w-4 border-outline-variant bg-surface-container text-primary focus:ring-primary rounded-none"
+                                            className="h-4 w-4 border-outline-variant bg-surface-container text-primary focus:ring-primary rounded-md"
                                         />
                                         <label htmlFor="remember" className="text-xs font-bold uppercase tracking-widest text-on-surface-variant cursor-pointer select-none">
                                             Remember Me
@@ -173,7 +173,7 @@ export default function Login({ status, canResetPassword }) {
                                     <button
                                         type="submit"
                                         disabled={processing}
-                                        className="w-full bg-primary text-on-primary px-8 py-4 text-sm font-bold shadow-xl hover:brightness-110 active:scale-95 transition-all disabled:opacity-60 rounded-none"
+                                        className="w-full bg-primary text-on-primary px-8 py-4 text-sm font-bold shadow-xl hover:brightness-110 active:scale-95 transition-all disabled:opacity-60 rounded-md"
                                     >
                                         {processing ? 'Verifying...' : 'Sign In'}
                                     </button>

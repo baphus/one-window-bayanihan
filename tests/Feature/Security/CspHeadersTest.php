@@ -25,14 +25,15 @@ class CspHeadersTest extends TestCase
         $policy = $response->headers->get('Content-Security-Policy');
 
         $this->assertStringContainsString("default-src 'self'", $policy);
-        $this->assertStringContainsString("script-src 'self' 'nonce-", $policy);
+        $this->assertStringContainsString("script-src 'nonce-", $policy);
+        $this->assertStringContainsString("'strict-dynamic'", $policy);
         $this->assertStringContainsString("style-src 'self' 'unsafe-inline' https://fonts.bunny.net https://fonts.googleapis.com", $policy);
         $this->assertStringContainsString("img-src 'self' data:", $policy);
         $this->assertStringContainsString('wss:', $policy);
         $this->assertStringContainsString("form-action 'self'", $policy);
         $this->assertStringContainsString("font-src 'self' data: https://fonts.bunny.net https://fonts.gstatic.com", $policy);
         $this->assertStringContainsString("object-src 'none'", $policy);
-        $this->assertStringContainsString("base-uri 'self'", $policy);
+        $this->assertStringContainsString("base-uri 'none'", $policy);
         $this->assertStringNotContainsString("'unsafe-eval'", $policy);
     }
 

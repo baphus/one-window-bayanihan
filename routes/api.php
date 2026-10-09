@@ -1,7 +1,6 @@
 <?php
 
 use App\Http\Controllers\Api\CspViolationController;
-use App\Http\Controllers\Api\PhilippineAddressController;
 use App\Http\Controllers\Api\ReadinessController;
 use App\Http\Controllers\Api\ResendWebhookController;
 use Illuminate\Support\Facades\Route;
@@ -13,18 +12,6 @@ use Illuminate\Support\Facades\Route;
 Route::get('/readyz', ReadinessController::class)
     ->middleware('throttle:readiness')
     ->name('monitoring.readyz');
-
-// Public address lookup endpoints (PSGC government data — no auth required).
-// The limiter must stay named: these are the lookups the OFW intake wizard
-// cascades through, and an inline limit would share one counter with
-// /intake/submit and reject the filer's submission. See AppServiceProvider.
-Route::middleware('throttle:address-lookup')->group(function () {
-    Route::get('/address/regions', [PhilippineAddressController::class, 'regions']);
-    Route::get('/address/provinces', [PhilippineAddressController::class, 'provinces']);
-    Route::get('/address/cities', [PhilippineAddressController::class, 'cities']);
-    Route::get('/address/barangays', [PhilippineAddressController::class, 'barangays']);
-    Route::get('/address/resolve', [PhilippineAddressController::class, 'resolve']);
-});
 
 // CSP violation reporting endpoint
 Route::post('/csp/report', [CspViolationController::class, 'report'])

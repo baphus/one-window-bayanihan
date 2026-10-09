@@ -56,7 +56,7 @@ class LoginRequest extends FormRequest
         }
 
         if (Hash::needsRehash($user->password)) {
-            $user->forceFill(['password' => $this->string('password')->toString()])->save();
+            $user->forceFill(['password' => Hash::make($this->string('password')->toString())])->save();
             $user->refresh();
         }
 

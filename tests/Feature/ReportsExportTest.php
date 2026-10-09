@@ -200,10 +200,10 @@ class ReportsExportTest extends TestCase
             'last_position' => 'Welder',
         ]);
 
-        // Verify the export endpoint returns an Excel stream
+        // Verify the export endpoint queues the workbook job
         $response = $this->actingAs($admin)->get(route('admin.data-export.export'));
-        $response->assertOk();
-        $response->assertHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        $response->assertRedirect();
+        $response->assertSessionHas('info');
 
         // Verify employment data via the queries layer directly
         $queries = new DataExportQueries;

@@ -8,10 +8,16 @@ The **Reports** page turns operational data into charts for workload and perform
 
 Sections are collapsible and load as you open them. They include **Cases Over Time**, **Case Trends (12 Months)**, **Referral Trends**, **Referral Aging** (how long active referrals have been waiting), **Referrals by Agency**, **Case Issue Distribution**, **Demographics** (gender, client type, age group), **Vulnerability Indicators**, **Geographic Distribution** and **City/Municipality Distribution**, and **Employment Analytics**. Each answers a different question: how many cases are active, where referrals slow down, which issues are common, and how agencies are performing.
 
+## Filters, limits, and access
+
+Date filters accept a range of at most 366 days. The Reports page itself is rate-limited per viewer, and what you see is scoped to your role — agencies see their own activity, admins see everything. Figures are computed with database-level date functions, so large ranges can take a moment; exports run synchronously with a server time cap.
+
 ## Exports
 
 - **Export PDF** — a formatted snapshot of the report for circulation.
 - **Export Excel** — the underlying figures for further analysis.
+
+Both exports first run an export-count pre-check: if the filtered range matches more records than the export limit, the export is refused and you are told to narrow the date range or filters. Every attempt — completed or blocked — is audit-logged.
 
 Exports may contain sensitive aggregate and case information depending on filters. Store files securely and delete local copies when no longer needed — see *Privacy and Data Protection in OWB*.
 

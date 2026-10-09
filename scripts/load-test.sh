@@ -91,7 +91,6 @@ run_test() {
 echo "--- Endpoint Tests ---"
 run_test "Home/Landing"    "/"
 run_test "Login page"      "/login"
-run_test "Public API"      "/api/addresses/provinces"
 
 echo "--- Results Summary ---"
 echo "Test completed at $(date)"

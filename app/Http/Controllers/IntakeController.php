@@ -2,13 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\SafeException;
+use App\Http\Requests\Intake\CheckDuplicateIntakeRequest;
+use App\Http\Requests\Intake\VerifyIntakeEmailRequest;
 use App\Http\Requests\StoreIntakeRequest;
 use App\Models\Client;
-use App\Models\SystemSetting;
 use App\Services\IntakeService;
 use App\Services\PhilippineAddressService;
 use App\Services\ReferenceDataService;
-use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 class IntakeController extends Controller
@@ -118,13 +119,11 @@ class IntakeController extends Controller
     /**
      * Send OTP to verify OFW email ownership.
      */
-    public function verifyEmail(Request $request)
+    public function verifyEmail(VerifyIntakeEmailRequest $request)
     {
-        $request->validate([
-            'email' => ['required', 'string', 'email', 'max:255'],
-        ]);
+        $validated = $request->validated();
 
-        $email = strtolower(trim($request->input('email')));
+        $email = strtolower(trim($validated['email']));
 
         $otp = $this->intakeService->generateOtp($email);
 
@@ -133,30 +132,22 @@ class IntakeController extends Controller
             ? substr($emailParts[0], 0, 2).str_repeat('*', strlen($emailParts[0]) - 2).'@'.$emailParts[1]
             : $email;
 
-        $debugOtp = (SystemSetting::getValue('debug_tracking_otp_enabled', false) && app()->environment('local', 'testing'))
-            ? $otp
-            : null;
-
         return response()->json([
             'sent' => true,
             'hint' => $hint,
-            'debug_otp' => $debugOtp,
         ]);
     }
 
     /**
      * Verify the OTP and check for duplicates.
      */
-    public function checkDuplicate(Request $request)
+    public function checkDuplicate(CheckDuplicateIntakeRequest $request)
     {
-        $request->validate([
-            'email' => ['required', 'string', 'email'],
-            'otp' => ['required', 'string', 'size:6'],
-        ]);
+        $validated = $request->validated();
 
-        $email = strtolower(trim($request->input('email')));
+        $email = strtolower(trim($validated['email']));
 
-        $verified = $this->intakeService->verifyOtp($email, $request->input('otp'));
+        $verified = $this->intakeService->verifyOtp($email, $validated['otp']);
 
         if (! $verified) {
             return response()->json([
@@ -207,10 +198,16 @@ class IntakeController extends Controller
             ], 409);
         }
 
-        $case = $this->intakeService->createIntakeCase(
-            $request->validated(),
-            $verifiedEmail,
-        );
+        try {
+            $case = $this->intakeService->createIntakeCase(
+                $request->validated(),
+                $verifiedEmail,
+            );
+        } catch (SafeException $e) {
+            return response()->json([
+                'error' => $e->userMessage,
+            ], 409);
+        }
 
         // Keep verified email in session for potential account creation
         // (IntakeRegistrationController will clear it after use)

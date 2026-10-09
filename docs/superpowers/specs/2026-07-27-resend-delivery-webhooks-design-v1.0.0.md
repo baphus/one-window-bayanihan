@@ -1,5 +1,9 @@
 # Resend Transport + Delivery-State Webhooks — Design
 
+> **HISTORICAL - archived artifact retained for provenance; written 2026-07-27.**
+> Not current guidance - do not follow it as a procedure or spec.
+> See `docs/README.md` for current documentation.
+
 > **Version:** 1.0.0 | **Date:** 2026-07-27 | **Status:** Approved for implementation
 > **Related:** `docs/EMAIL_DELIVERY_v2.0.0.md` (requirements), `docs/SECURITY_REQUIREMENTS_v2.1.0.md`
 

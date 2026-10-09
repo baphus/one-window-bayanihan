@@ -4,8 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\ProfileUpdateRequest;
 use App\Services\CloudinaryAvatarService;
-use App\Services\DefaultAgencyService;
 use App\Services\OnboardingService;
+use App\Services\ReferenceDataService;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -27,7 +27,7 @@ class ProfileController extends Controller
             'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
             'status' => session('status'),
             'mfaEnabled' => $request->user()->mfa_enabled_at !== null,
-            'defaultAgency' => app(DefaultAgencyService::class)->getDefaultAgency(),
+            'defaultAgency' => app(ReferenceDataService::class)->getDefaultAgency(),
             'notificationPrefs' => $request->user()->notifications_config ?? [
                 'email_on_case_assigned' => true,
                 'email_on_case_status_change' => true,

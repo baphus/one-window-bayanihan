@@ -1,5 +1,9 @@
 # Role Dashboards Redesign — Design Document
 
+> **HISTORICAL - archived artifact retained for provenance; written 2026-07-11.**
+> Not current guidance - do not follow it as a procedure or spec.
+> See `docs/README.md` for current documentation.
+
 **Version:** v1.0.0
 **Date:** 2026-07-11
 **Status:** Approved for implementation (autonomous session; assumptions listed below)

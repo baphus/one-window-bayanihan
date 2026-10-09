@@ -4,6 +4,8 @@ namespace App\Http\Requests;
 
 use App\Models\CaseFile;
 use App\Rules\ClientNotFromUnacceptedIntake;
+use App\Rules\EmploymentStartAtWorkingAge;
+use App\Rules\ServedRegion;
 use App\Rules\VulnerabilityRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -60,6 +62,10 @@ class UpdateDraftRequest extends FormRequest
 
     public function rules(): array
     {
+        // Clients must be 15–100 years old.
+        $dobMax = now()->subYears(15)->toDateString();
+        $dobMin = now()->subYears(100)->toDateString();
+
         return [
             'is_draft' => ['nullable', 'boolean'],
             'client_type' => ['nullable', Rule::in(CaseFile::CLIENT_TYPES)],
@@ -77,7 +83,7 @@ class UpdateDraftRequest extends FormRequest
             'client.last_name' => ['nullable', 'string', 'max:255'],
             'client.middle_name' => ['nullable', 'string', 'max:255'],
             'client.suffix' => ['nullable', 'string', 'max:50'],
-            'client.date_of_birth' => ['nullable', 'date', 'before_or_equal:today'],
+            'client.date_of_birth' => ['nullable', 'date', 'before_or_equal:'.$dobMax, 'after_or_equal:'.$dobMin],
             'client.sex' => ['nullable', 'string', 'max:50'],
             'client.email' => ['nullable', 'email', 'max:255'],
             'client.contact_number' => ['nullable', 'string', 'max:50'],
@@ -91,7 +97,7 @@ class UpdateDraftRequest extends FormRequest
             'next_of_kin.*.phone_number' => ['nullable', 'string', 'max:50'],
             'next_of_kin.*.email' => ['nullable', 'email', 'max:255'],
             'next_of_kin.*.full_address' => ['nullable', 'string'],
-            'next_of_kin.*.nok_address.region' => ['nullable', 'string', 'max:255'],
+            'next_of_kin.*.nok_address.region' => ['nullable', 'string', 'max:255', new ServedRegion],
             'next_of_kin.*.nok_address.province' => ['nullable', 'string', 'max:255'],
             'next_of_kin.*.nok_address.city_municipality' => ['nullable', 'string', 'max:255'],
             'next_of_kin.*.nok_address.barangay' => ['nullable', 'string', 'max:255'],
@@ -102,7 +108,7 @@ class UpdateDraftRequest extends FormRequest
 
             'consent' => ['nullable', 'boolean'],
 
-            'address.region' => ['nullable', 'string', 'max:255'],
+            'address.region' => ['nullable', 'string', 'max:255', new ServedRegion],
             'address.province' => ['nullable', 'string', 'max:255'],
             'address.city_municipality' => ['nullable', 'string', 'max:255'],
             'address.barangay' => ['nullable', 'string', 'max:255'],
@@ -111,8 +117,8 @@ class UpdateDraftRequest extends FormRequest
             'employment.employer_name' => ['nullable', 'string', 'max:255'],
             'employment.position' => ['nullable', 'string', 'max:255'],
             'employment.country' => ['nullable', 'string', 'max:255'],
-            'employment.start_date' => ['nullable', 'date', 'after_or_equal:client.date_of_birth'],
-            'employment.end_date' => ['nullable', 'date', 'after_or_equal:employment.start_date'],
+            'employment.start_date' => ['nullable', 'date', 'after_or_equal:client.date_of_birth', 'before_or_equal:today', new EmploymentStartAtWorkingAge($this->input('client.date_of_birth'))],
+            'employment.end_date' => ['nullable', 'date', 'after_or_equal:employment.start_date', 'before_or_equal:today'],
             'employment.last_country' => ['nullable', 'string', 'max:255'],
             'employment.last_position' => ['nullable', 'string', 'max:255'],
             'employment.date_of_arrival' => ['nullable', 'date', 'after_or_equal:client.date_of_birth'],

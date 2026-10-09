@@ -14,11 +14,13 @@ use Tests\TestCase;
  * Laravel's unnamed `throttle:N,1` middleware resolves a guest's key as
  * sha1(domain|ip) — the route plays no part. Every public route declared with an
  * inline limit therefore shares ONE counter per visitor, and the tightest limit
- * among them caps the sum of all of them. `/intake/submit` was declared
- * `throttle:5,1`, so the five address-dropdown lookups the wizard itself issues
- * (region → province → city → barangay, twice over: once for the filer's address
- * and again for the next of kin) exhausted the budget before the filer ever
- * pressed Submit. Every real submission returned 429.
+ * among them caps the sum of all of them.
+ *
+ * (History: the intake wizard used to cascade through five public
+ * /api/address/* lookups that shared the same inline budget, so every real
+ * submission returned 429. The wizard now reads the bundled
+ * philippine-addresses.ts instead, and the orphaned endpoints were removed —
+ * but the named-limiter isolation below stays, guarding the remaining steps.)
  *
  * These tests keep ThrottleRequests enabled on purpose — the sibling
  * IntakeSubmissionTest disables it, which is exactly why the defect survived.
@@ -63,21 +65,6 @@ class IntakeSubmitThrottleTest extends TestCase
             'summary' => 'I need help with unpaid wages from my employer for the past 3 months.',
             'consent' => true,
         ];
-    }
-
-    #[Test]
-    public function test_address_lookups_do_not_consume_the_intake_submit_budget(): void
-    {
-        // What the wizard's Address and Next-of-Kin steps do on their own.
-        foreach (range(1, 10) as $ignored) {
-            $this->getJson('/api/address/regions')->assertOk();
-        }
-
-        $response = $this->withSession(['intake_verified_email' => 'throttle-probe@example.com'])
-            ->postJson('/intake/submit', $this->validIntakeData());
-
-        $response->assertOk();
-        $response->assertJson(['success' => true]);
     }
 
     #[Test]

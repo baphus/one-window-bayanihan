@@ -1,8 +1,10 @@
 const content = `# Email Logs and Resending Failed Emails
 
-The platform sends operational email constantly — sign-in OTPs, tracking notifications, feedback invitations. When a client says "I never got the email," the **Email Logs** page (System → Email Logs, admin only) is where you find out what happened.
+The platform sends operational email constantly — tracking notifications, feedback invitations, user invites, and case/referral updates. (Sign-in uses password plus optional authenticator — no login codes are emailed.) When someone says "I never got the email," the **Email Logs** page (System → Email Logs, admin only) is where you find out what happened.
 
 ![Email logs](/assets/helpdesk/email-logs.png)
+
+Delivery status is updated through the mail provider webhook (\`POST /webhooks/resend\`), so the log reflects actual delivery outcomes, not just queueing.
 
 ## Reading the log
 
@@ -18,7 +20,7 @@ Failed emails have a **resend** action:
 
 Notes:
 - Only **failed** emails can be resent; already-sent messages are not re-deliverable from here ("Only failed emails can be resent.").
-- A few legacy email types can't be reconstructed automatically — the page will say **"Cannot resend this email type automatically."** In that case, trigger the action again from its source (for example, re-sending an OTP from the login page).
+- A few legacy email types can't be reconstructed automatically — the page will say **"Cannot resend this email type automatically."** In that case, trigger the action again from its source.
 
 ## Troubleshooting checklist
 

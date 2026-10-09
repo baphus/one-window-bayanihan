@@ -14,7 +14,7 @@ function UnavailableState() {
       </p>
       <Link
         href={route('track.index')}
-        className="mt-5 inline-flex items-center gap-2 bg-blue-900 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-blue-800"
+        className="mt-5 inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-primary-container"
       >
         <span aria-hidden="true" className="material-symbols-outlined text-[17px]">arrow_back</span>
         Back to Tracking

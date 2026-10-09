@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\AuditAction;
 use App\Enums\AuditModule;
 use App\Helpers\CacheHelper;
+use App\Mail\CaseCreatedMail;
 use App\Mail\IntakePublishedMail;
 use App\Mail\IntakeRejectedMail;
 use App\Models\AuditLog;
@@ -25,13 +26,13 @@ use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class CaseService
 {
     public function __construct(
         private readonly NotificationService $notificationService,
-        private readonly ReferralService $referralService,
         private readonly PhilippineAddressService $addressService,
         private readonly CaseEventRecorder $eventRecorder,
         private readonly CaseNumberGenerator $caseNumbers,
@@ -104,81 +105,7 @@ class CaseService
 
             if ($isExistingClient) {
                 $client = Client::findOrFail($data['selected_client_id']);
-
-                if (! empty($data['address'])) {
-                    $address = $client->addresses()->first();
-                    $resolvedAddress = $this->resolveAddressNames($data['address']);
-                    if ($address) {
-                        $address->update($resolvedAddress);
-                    } else {
-                        $client->addresses()->create($resolvedAddress);
-                    }
-                }
-
-                if (! empty($data['employment'])) {
-                    $employment = $client->employments()->first();
-                    if ($employment) {
-                        $employment->update([
-                            'employer_name' => $data['employment']['employer_name'] ?? null,
-                            'position' => $data['employment']['position'] ?? null,
-                            'country' => $data['employment']['country'] ?? null,
-                            'start_date' => $data['employment']['start_date'] ?? null,
-                            'end_date' => ! empty($data['employment']['is_present']) ? null : ($data['employment']['end_date'] ?? null),
-                            'last_country' => $data['employment']['last_country'] ?? null,
-                            'last_position' => $this->normalizePosition($data['employment']['last_position'] ?? null),
-                            'date_of_arrival' => $data['employment']['date_of_arrival'] ?? null,
-                        ]);
-                    } else {
-                        $client->employments()->create([
-                            'employer_name' => $data['employment']['employer_name'] ?? null,
-                            'position' => $data['employment']['position'] ?? null,
-                            'country' => $data['employment']['country'] ?? null,
-                            'start_date' => $data['employment']['start_date'] ?? null,
-                            'end_date' => ! empty($data['employment']['is_present']) ? null : ($data['employment']['end_date'] ?? null),
-                            'last_country' => $data['employment']['last_country'] ?? null,
-                            'last_position' => $this->normalizePosition($data['employment']['last_position'] ?? null),
-                            'date_of_arrival' => $data['employment']['date_of_arrival'] ?? null,
-                        ]);
-                    }
-                }
-
-                if (array_key_exists('next_of_kin', $data) && is_array($data['next_of_kin'])) {
-                    $nokList = $data['next_of_kin'];
-
-                    // Handle old single-object format (backward compat): update first NOK or create
-                    if (isset($nokList['first_name'])) {
-                        $nok = $client->nextOfKin()->first();
-                        $normalized = $this->normalizeNokData($nokList);
-                        if ($nok) {
-                            $nok->update($normalized);
-                        } else {
-                            $client->nextOfKin()->create($normalized);
-                        }
-                    } else {
-                        // Multi-NOK array format: run sync algorithm
-                        $existingIds = $client->nextOfKin()->pluck('id')->toArray();
-                        $incomingIds = array_filter(array_column($nokList, 'id'));
-                        $idsToDelete = array_diff($existingIds, $incomingIds);
-
-                        if (! empty($idsToDelete)) {
-                            $client->nextOfKin()->whereIn('id', $idsToDelete)->each(fn ($n) => $n->delete());
-                        }
-
-                        foreach ($nokList as $nokData) {
-                            $normalized = $this->normalizeNokData($nokData);
-                            if (! empty($nokData['id'])) {
-                                $nok = $client->nextOfKin()->find($nokData['id']);
-                                if ($nok) {
-                                    $nok->update($normalized);
-                                }
-                            } else {
-                                $client->nextOfKin()->create($normalized);
-                            }
-                        }
-                    }
-
-                    $this->ensureSinglePrimary($client->id);
-                }
+                $this->syncExistingClientData($client, $data);
             }
 
             if (isset($client)) {
@@ -198,7 +125,11 @@ class CaseService
             throw new AuthorizationException('You do not own this draft.');
         }
 
-        DB::transaction(function () use ($case) {
+        DB::transaction(function () use ($case, $userId) {
+            $caseId = $case->id;
+            $caseNumber = $case->case_number ?? null;
+            $clientName = trim(($case->client->first_name ?? '').' '.($case->client->last_name ?? ''));
+
             CaseFile::withoutEvents(function () use ($case) {
                 $client = $case->client;
 
@@ -208,16 +139,40 @@ class CaseService
 
                 // If the client is orphaned (no other cases reference it via client_id), delete it fully
                 if ($client && ! $client->caseFiles()->exists()) {
-                    // Must delete child records first (FK onDelete restrict on all)
-                    $client->addresses()->each(fn ($a) => $a->forceDelete());
-                    $client->employments()->each(fn ($e) => $e->forceDelete());
-                    $client->nextOfKin()->each(fn ($n) => $n->forceDelete());
+                    // Must delete child records first (FK onDelete restrict on all).
+                    // Single-statement deletes: model events are already suppressed
+                    // by the surrounding withoutEvents block.
+                    $client->addresses()->forceDelete();
+                    $client->employments()->forceDelete();
+                    $client->nextOfKin()->forceDelete();
 
                     $client->forceDelete();
                 }
 
                 $case->forceDelete();
             });
+
+            // Manual DELETE audit: the deletion above runs inside withoutEvents
+            // so the observer never fires. Written here — inside the transaction
+            // but outside withoutEvents — so it commits atomically with the delete.
+            $request = request();
+            AuditLog::create([
+                'action' => AuditAction::DELETE->value,
+                'module' => AuditModule::CASE->value,
+                'entity_id' => $caseId,
+                'description' => sprintf(
+                    'Draft case %s for %s was permanently deleted',
+                    $caseNumber ?? 'N/A',
+                    $clientName !== '' ? $clientName : 'unknown client',
+                ),
+                'user_id' => $userId,
+                'timestamp' => now(),
+                'ip_address' => $request?->ip() ?? 'cli',
+                'user_agent' => $request?->userAgent() ?? 'cli',
+                'request_id' => $request?->attributes->get('correlation_id')
+                    ?? $request?->header('X-Request-ID')
+                    ?? (string) Str::uuid(),
+            ]);
         });
     }
 
@@ -246,7 +201,7 @@ class CaseService
                     'nok_vulnerability_indicator' => $data['nok_vulnerability_indicator'] ?? $case->nok_vulnerability_indicator,
                     'summary' => $data['summary'] ?? $case->summary,
                     'category_id' => $categoryMutation === null ? $case->category_id : $this->primaryCategoryId($categoryIds, $case->category_id, $categoryMutation['legacy']),
-                    'case_issue_id' => $data['case_issue_id'] ?? $case->case_issue_id,
+                    'case_issue_id' => array_key_exists('case_issue_id', $data) ? $data['case_issue_id'] : $case->case_issue_id,
                 ];
 
                 $draftClientData = $case->draft_client_data ?? [];
@@ -308,81 +263,7 @@ class CaseService
             // NOTE: This runs outside withoutEvents so that UsesUuid auto-generates IDs for new records
             if (! empty($data['selected_client_id'])) {
                 $client = Client::findOrFail($data['selected_client_id']);
-
-                if (! empty($data['address'])) {
-                    $address = $client->addresses()->first();
-                    $resolvedAddress = $this->resolveAddressNames($data['address']);
-                    if ($address) {
-                        $address->update($resolvedAddress);
-                    } else {
-                        $client->addresses()->create($resolvedAddress);
-                    }
-                }
-
-                if (! empty($data['employment'])) {
-                    $employment = $client->employments()->first();
-                    if ($employment) {
-                        $employment->update([
-                            'employer_name' => $data['employment']['employer_name'] ?? null,
-                            'position' => $data['employment']['position'] ?? null,
-                            'country' => $data['employment']['country'] ?? null,
-                            'start_date' => $data['employment']['start_date'] ?? null,
-                            'end_date' => ! empty($data['employment']['is_present']) ? null : ($data['employment']['end_date'] ?? null),
-                            'last_country' => $data['employment']['last_country'] ?? null,
-                            'last_position' => $this->normalizePosition($data['employment']['last_position'] ?? null),
-                            'date_of_arrival' => $data['employment']['date_of_arrival'] ?? null,
-                        ]);
-                    } else {
-                        $client->employments()->create([
-                            'employer_name' => $data['employment']['employer_name'] ?? null,
-                            'position' => $data['employment']['position'] ?? null,
-                            'country' => $data['employment']['country'] ?? null,
-                            'start_date' => $data['employment']['start_date'] ?? null,
-                            'end_date' => ! empty($data['employment']['is_present']) ? null : ($data['employment']['end_date'] ?? null),
-                            'last_country' => $data['employment']['last_country'] ?? null,
-                            'last_position' => $this->normalizePosition($data['employment']['last_position'] ?? null),
-                            'date_of_arrival' => $data['employment']['date_of_arrival'] ?? null,
-                        ]);
-                    }
-                }
-
-                if (array_key_exists('next_of_kin', $data) && is_array($data['next_of_kin'])) {
-                    $nokList = $data['next_of_kin'];
-
-                    // Handle old single-object format (backward compat): update first NOK or create
-                    if (isset($nokList['first_name'])) {
-                        $nok = $client->nextOfKin()->first();
-                        $normalized = $this->normalizeNokData($nokList);
-                        if ($nok) {
-                            $nok->update($normalized);
-                        } else {
-                            $client->nextOfKin()->create($normalized);
-                        }
-                    } else {
-                        // Multi-NOK array format: run sync algorithm
-                        $existingIds = $client->nextOfKin()->pluck('id')->toArray();
-                        $incomingIds = array_filter(array_column($nokList, 'id'));
-                        $idsToDelete = array_diff($existingIds, $incomingIds);
-
-                        if (! empty($idsToDelete)) {
-                            $client->nextOfKin()->whereIn('id', $idsToDelete)->each(fn ($n) => $n->delete());
-                        }
-
-                        foreach ($nokList as $nokData) {
-                            $normalized = $this->normalizeNokData($nokData);
-                            if (! empty($nokData['id'])) {
-                                $nok = $client->nextOfKin()->find($nokData['id']);
-                                if ($nok) {
-                                    $nok->update($normalized);
-                                }
-                            } else {
-                                $client->nextOfKin()->create($normalized);
-                            }
-                        }
-                    }
-
-                    $this->ensureSinglePrimary($client->id);
-                }
+                $this->syncExistingClientData($client, $data);
             }
 
             // No AuditLog creation — draft updates are transient
@@ -428,7 +309,7 @@ class CaseService
             $query->orderBy($sortColumn, $direction);
         }
 
-        return $query->paginate($perPage);
+        return $query->paginate(min(max($perPage, 1), 100));
     }
 
     public function rejectIntake(string $id, string $reason, string $userId): CaseFile
@@ -460,10 +341,10 @@ class CaseService
             // Mark intake submission notification as read
             $this->notificationService->markIntakeNotificationsAsRead($case);
 
-            // Notify OFW about the rejection via email
+            // Notify OFW about the rejection via email (after commit — never on rollback)
             $clientEmail = $case->client?->email;
             if ($clientEmail) {
-                Mail::to($clientEmail)->queue(new IntakeRejectedMail($case, $reason));
+                DB::afterCommit(fn () => Mail::to($clientEmail)->queue(new IntakeRejectedMail($case, $reason)));
             }
 
             return $case;
@@ -537,7 +418,7 @@ class CaseService
         }
 
         return $query->orderBy('updated_at', 'desc')
-            ->paginate($perPage);
+            ->paginate(min(max($perPage, 1), 100));
     }
 
     /**
@@ -575,17 +456,16 @@ class CaseService
         }
     }
 
-    public function publishDraft(string $id, string $userId): CaseFile
+    public function publishDraft(string $id, string $userId, bool $confirmDuplicateClient = false): CaseFile
     {
-        return DB::transaction(function () use ($id, $userId) {
+        return DB::transaction(function () use ($id, $userId, $confirmDuplicateClient) {
             $case = CaseFile::where('status', 'DRAFT')->lockForUpdate()->findOrFail($id);
 
-            // Self-filed cases have no owner yet — allow any CM/ADMIN to publish
-            if ($case->source === CaseFile::SOURCE_SELF_FILED && $case->user_id === null) {
-                $case->user_id = $userId;
-                $case->intake_reviewed_by = $userId;
-                $case->save();
-            } elseif ($case->user_id !== $userId) {
+            // Self-filed cases have no owner yet — allow any CM/ADMIN to publish.
+            // Ownership assignment is deferred into the withoutEvents block so
+            // its save() does not emit a noisy UPDATE audit row.
+            $isSelfFiledOwnership = $case->source === CaseFile::SOURCE_SELF_FILED && $case->user_id === null;
+            if (! $isSelfFiledOwnership && $case->user_id !== $userId) {
                 throw new AuthorizationException('You do not own this draft.');
             }
 
@@ -593,85 +473,52 @@ class CaseService
             // Capture the draft state for a lifecycle PUBLISH event. Category
             // validation must not masquerade as that event in the audit trail.
             $old = $case->toArray();
-            $this->revalidatePublishedCategories($case);
-            $this->assertDraftCompleteForPublishing($case);
-            $finalCategoryIds = $this->sortedCategoryIds(
-                $case->categories()->pluck('case_categories.id')->all()
-            );
 
-            // Create client from draft_client_data if no client_id exists (new-client draft)
-            if (empty($case->client_id) && ! empty($case->draft_client_data)) {
-                $draftData = $case->draft_client_data;
+            // ── Suppress all model-observer events during the publish transition ──
+            // Intermediate Eloquent saves/creates each fire AuditObserver,
+            // producing 3-10 noise rows.  Wrapping in withoutEvents silences
+            // them so a single enriched PUBLISH row at the end is the only
+            // audit trail entry for the entire transition.
+            $client = null;
+            $draftClientData = $case->draft_client_data;
+            $isNewClient = empty($case->client_id) && ! empty($draftClientData);
 
-                $client = Client::create([
-                    'first_name' => $draftData['first_name'] ?? '',
-                    'last_name' => $draftData['last_name'] ?? '',
-                    'middle_name' => $draftData['middle_name'] ?? null,
-                    'suffix' => $draftData['suffix'] ?? null,
-                    'date_of_birth' => $draftData['date_of_birth'] ?? null,
-                    'sex' => ! empty($draftData['sex']) ? strtoupper($draftData['sex']) : null,
-                    'email' => $draftData['email'] ?? null,
-                    'contact_number' => $draftData['contact_number'] ?? null,
-                ]);
-
-                if (! empty($draftData['address'])) {
-                    $resolvedAddress = $this->resolveAddressNames($draftData['address']);
-                    ClientAddress::create(array_merge(
-                        ['client_id' => $client->id],
-                        $resolvedAddress,
-                    ));
+            CaseFile::withoutEvents(function () use ($case, $userId, $isSelfFiledOwnership, $confirmDuplicateClient, $isNewClient, $draftClientData, &$client) {
+                // Assign ownership for self-filed intakes (suppressed save)
+                if ($isSelfFiledOwnership) {
+                    $case->user_id = $userId;
+                    $case->intake_reviewed_by = $userId;
+                    $case->save();
                 }
 
-                if (! empty($draftData['employment'])) {
-                    ClientEmployment::create([
-                        'client_id' => $client->id,
-                        'employer_name' => $draftData['employment']['employer_name'] ?? null,
-                        'position' => $draftData['employment']['position'] ?? null,
-                        'country' => $draftData['employment']['country'] ?? null,
-                        'start_date' => $draftData['employment']['start_date'] ?? null,
-                        'end_date' => ! empty($draftData['employment']['is_present']) ? null : ($draftData['employment']['end_date'] ?? null),
-                        'last_country' => $draftData['employment']['last_country'] ?? null,
-                        'last_position' => $this->normalizePosition($draftData['employment']['last_position'] ?? null),
-                        'date_of_arrival' => $draftData['employment']['date_of_arrival'] ?? null,
-                    ]);
+                // Revalidate categories — may update category_id (suppressed save)
+                $this->revalidatePublishedCategories($case);
+                $this->assertDraftCompleteForPublishing($case);
+
+                // Create client from draft_client_data if no client_id exists
+                if ($isNewClient) {
+                    $this->assertNoDuplicateClient($draftClientData, $confirmDuplicateClient);
+
+                    // Creates client + address/employment/NOK without firing
+                    // observers. UUIDs are set explicitly because withoutEvents
+                    // suppresses the creating event that UsesUuid hooks into.
+                    $client = $this->createClientFromDraftQuietly($draftClientData);
+
+                    $case->client_id = $client->id;
+                    $case->consent_given_at = ! empty($draftClientData['consent']) ? now() : null;
+                    $case->save();
+                } elseif (! empty($case->client_id) && ! empty($draftClientData)) {
+                    // A self-filed intake already has a client, created by
+                    // IntakeService at submission. Apply reviewer corrections
+                    // from draft_client_data onto the existing client row
+                    // without observer noise.
+                    Client::withoutEvents(fn () => $this->applyDraftClientData($case));
+                    $client = $case->client;
                 }
 
-                if (! empty($draftData['next_of_kin'])) {
-                    $nokRecords = $draftData['next_of_kin'];
-
-                    // Handle old single-object format (backward compat)
-                    if (isset($nokRecords['first_name'])) {
-                        $nokRecords = [$nokRecords];
-                    }
-
-                    foreach ($nokRecords as $nokData) {
-                        if (! empty($nokData['first_name'])) {
-                            NextOfKin::create(array_merge(
-                                ['client_id' => $client->id],
-                                $this->normalizeNokData($nokData),
-                            ));
-                        }
-                    }
-
-                    $this->ensureSinglePrimary($client->id);
-                }
-
-                $case->client_id = $client->id;
-                $case->consent_given_at = ! empty($draftData['consent']) ? now() : null;
-                $case->save();
-            } elseif (! empty($case->client_id) && ! empty($case->draft_client_data)) {
-                // A self-filed intake already has a client, created by
-                // IntakeService at submission. Without this branch the block
-                // above is skipped entirely, so any correction a case manager
-                // makes on the review screen lands in draft_client_data and
-                // never reaches the clients row. That is how a case could open
-                // with clients.sex still NULL even after the reviewer set it.
-                $this->applyDraftClientData($case);
-            }
-
-            $case->update([
-                'status' => 'OPEN',
-            ]);
+                $case->update(['status' => 'OPEN']);
+            });
+            // ── End event suppression ──
 
             $this->eventRecorder->caseOpened($case, $userId);
 
@@ -680,30 +527,58 @@ class CaseService
                 $description .= ' — '.$case->summary;
             }
 
+            $finalCategoryIds = $this->sortedCategoryIds(
+                $case->categories()->pluck('case_categories.id')->all()
+            );
+
+            // Build an enriched PUBLISH audit row.  This is the only audit
+            // entry for the entire publish transition — all intermediate
+            // observer noise was suppressed above.
+            $request = request();
+
             AuditLog::create([
                 'action' => AuditAction::PUBLISH->value,
                 'module' => AuditModule::CASE->value,
                 'entity_id' => $case->id,
                 'description' => $description,
-                // Include the final category set on the lifecycle event. A
-                // draft's category pivot can have changed without producing
-                // its own audit row before publication.
                 'old_value' => [
                     'status' => $old['status'] ?? 'DRAFT',
                     'category_ids' => $finalCategoryIds,
                 ],
                 'new_value' => [
-                    'status' => $case->status,
                     'case_number' => $case->case_number,
+                    'tracker_number' => $case->tracker_number,
+                    'status' => $case->status,
+                    'client_type' => $case->client_type,
+                    'summary' => $case->summary,
                     'category_ids' => $finalCategoryIds,
+                    'category_names' => CaseCategory::whereIn('id', $finalCategoryIds)->pluck('name')->all(),
+                    'case_issue' => $case->caseIssue?->name,
+                    'client' => $client ? [
+                        'first_name' => $client->first_name,
+                        'last_name' => $client->last_name,
+                        'middle_name' => $client->middle_name,
+                        'suffix' => $client->suffix,
+                        'sex' => $client->sex,
+                        'date_of_birth' => $client->date_of_birth?->toDateString(),
+                        'contact_number' => $client->contact_number,
+                    ] : null,
+                    'next_of_kin_count' => $client ? $client->nextOfKin()->count() : 0,
                 ],
                 'user_id' => $userId,
                 'timestamp' => now(),
+                'ip_address' => $request?->ip() ?? 'cli',
+                'user_agent' => $request?->userAgent() ?? 'cli',
+                'request_id' => $request?->attributes->get('correlation_id')
+                    ?? $request?->header('X-Request-ID')
+                    ?? (string) Str::uuid(),
             ]);
 
             // Notify OFW when their self-filed intake is accepted/published
             if ($case->source === CaseFile::SOURCE_SELF_FILED) {
-                $clientEmail = $case->client?->email;
+                $clientEmail = ! empty($draftClientData['email'] ?? null)
+                    ? $draftClientData['email']
+                    : ($client?->email ?? $case->client?->email ?? null);
 
                 if ($clientEmail) {
                     $this->notificationService->notifyOfw(
@@ -723,12 +598,154 @@ class CaseService
                         false,
                     );
 
-                    Mail::to($clientEmail)->queue(new IntakePublishedMail($case));
+                    DB::afterCommit(fn () => Mail::to($clientEmail)->queue(new IntakePublishedMail($case)));
+                }
+            } else {
+                // Notify OFW when a case manager creates a case for them.
+                $clientEmail = ! empty($draftClientData['email'] ?? null)
+                    ? $draftClientData['email']
+                    : ($client?->email ?? $case->client?->email ?? null);
+
+                if ($clientEmail) {
+                    $this->notificationService->notifyOfw(
+                        $case,
+                        $clientEmail,
+                        'case_created',
+                        'Case Created',
+                        "A case has been created for you. Your tracker number is {$case->tracker_number}. A Case Manager has been assigned to coordinate your case.",
+                        [
+                            'case_number' => $case->case_number,
+                            'tracker_number' => $case->tracker_number,
+                        ],
+                        route('track.show', $case->tracker_number),
+                        // The dedicated CaseCreatedMail below is the client's
+                        // creation email; skip the generic ClientUpdateMail so
+                        // they do not receive two emails for this event.
+                        false,
+                    );
+
+                    DB::afterCommit(fn () => Mail::to($clientEmail)->queue(new CaseCreatedMail($case)));
                 }
             }
 
             return $case->load(['client.addresses', 'client.employments', 'client.nextOfKin', 'user', 'category', 'categories', 'caseIssue']);
         });
+    }
+
+    /**
+     * Create a client record (and related child records) from draft_client_data
+     * without firing model-observer events.
+     *
+     * UUIDs are set explicitly because withoutEvents suppresses the creating
+     * event that UsesUuid hooks into. Each child model is also wrapped in its
+     * own withoutEvents call so no AuditObserver rows are emitted.
+     */
+    private function createClientFromDraftQuietly(array $draftData): Client
+    {
+        $client = new Client;
+        $client->id = (string) Str::uuid();
+        $client->fill([
+            'first_name' => $draftData['first_name'] ?? '',
+            'last_name' => $draftData['last_name'] ?? '',
+            'middle_name' => $draftData['middle_name'] ?? null,
+            'suffix' => $draftData['suffix'] ?? null,
+            'date_of_birth' => $draftData['date_of_birth'] ?? null,
+            'sex' => ! empty($draftData['sex']) ? strtoupper($draftData['sex']) : null,
+            'email' => $draftData['email'] ?? null,
+            'contact_number' => $draftData['contact_number'] ?? null,
+        ]);
+        Client::withoutEvents(fn () => $client->save());
+
+        if (! empty($draftData['address'])) {
+            $resolvedAddress = $this->resolveAddressNames($draftData['address']);
+            $address = new ClientAddress;
+            $address->id = (string) Str::uuid();
+            $address->fill(array_merge(
+                ['client_id' => $client->id],
+                $resolvedAddress,
+            ));
+            ClientAddress::withoutEvents(fn () => $address->save());
+        }
+
+        if (! empty($draftData['employment'])) {
+            $employment = new ClientEmployment;
+            $employment->id = (string) Str::uuid();
+            $employment->fill([
+                'client_id' => $client->id,
+                'employer_name' => $draftData['employment']['employer_name'] ?? null,
+                'position' => $draftData['employment']['position'] ?? null,
+                'country' => $draftData['employment']['country'] ?? null,
+                'start_date' => $draftData['employment']['start_date'] ?? null,
+                'end_date' => ! empty($draftData['employment']['is_present']) ? null : ($draftData['employment']['end_date'] ?? null),
+                'last_country' => $draftData['employment']['last_country'] ?? null,
+                'last_position' => $this->normalizePosition($draftData['employment']['last_position'] ?? null),
+                'date_of_arrival' => $draftData['employment']['date_of_arrival'] ?? null,
+            ]);
+            ClientEmployment::withoutEvents(fn () => $employment->save());
+        }
+
+        if (! empty($draftData['next_of_kin'])) {
+            $nokRecords = $draftData['next_of_kin'];
+
+            // Handle old single-object format (backward compat)
+            if (isset($nokRecords['first_name'])) {
+                $nokRecords = [$nokRecords];
+            }
+
+            NextOfKin::withoutEvents(function () use ($client, $nokRecords) {
+                foreach ($nokRecords as $nokData) {
+                    if (! empty($nokData['first_name'])) {
+                        $nok = new NextOfKin;
+                        $nok->id = (string) Str::uuid();
+                        $nok->fill(array_merge(
+                            ['client_id' => $client->id],
+                            $this->normalizeNokData($nokData),
+                        ));
+                        $nok->save();
+                    }
+                }
+
+                $this->ensureSinglePrimary($client->id);
+            });
+        }
+
+        return $client;
+    }
+
+    /**
+     * Stop a CM-created "new client" draft from publishing into a clients row
+     * that duplicates an existing, searchable record — the same person as
+     * another case, usually because the Case Manager never used the client
+     * picker. Email is a strong identifier: the self-filing flow already treats
+     * it as the join key, and the picker / profile editing use it as the
+     * searchable contact. An explicit `confirm_duplicate_client` override is
+     * the escape hatch for the legitimate edge cases (shared inboxes, same
+     * email across client types, data-entry corrections).
+     *
+     * @throws ValidationException when a non-deleted client already uses the email
+     */
+    private function assertNoDuplicateClient(array $draftData, bool $confirmDuplicateClient = false): void
+    {
+        if ($confirmDuplicateClient) {
+            return;
+        }
+
+        $email = $draftData['email'] ?? null;
+        if ($email === null || trim($email) === '') {
+            return;
+        }
+
+        $existing = Client::where('is_deleted', false)
+            ->whereRaw('LOWER(TRIM(email)) = ?', [strtolower(trim($email))])
+            ->first();
+
+        if (! $existing) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'duplicate_client' => 'A client record already exists for this email ('.$existing->email.'). Link the existing client record instead, or confirm you are intentionally creating a new client record.',
+        ]);
     }
 
     private function assertDraftCompleteForPublishing(CaseFile $case): void
@@ -920,7 +937,6 @@ class CaseService
         Cache::forget('stats:cases');
         Cache::forget('dashboard:cm_cases_by_category');
         Cache::forget('dashboard:admin_cases_by_category');
-        Cache::forget('tracking:data:'.$case->id);
         ReportsService::invalidateAll();
     }
 
@@ -1010,6 +1026,7 @@ class CaseService
         }
 
         // Role-based scoping — restrict which cases the current user can see
+        /** @var User|null $user */
         $user = auth()->user();
         if ($user && $user->role !== 'ADMIN' && $user->role !== 'CASE_MANAGER') {
             $query->where(function ($q) use ($user) {
@@ -1147,7 +1164,7 @@ class CaseService
 
             $updateData = [
                 'status' => $newStatus,
-                'client_type' => $data['client_type'],
+                'client_type' => $data['client_type'] ?? $case->client_type,
                 'vulnerability_indicator' => $data['vulnerability_indicator'] ?? null,
                 'nok_vulnerability_indicator' => $data['nok_vulnerability_indicator'] ?? null,
                 'summary' => $data['summary'] ?? null,
@@ -1199,8 +1216,8 @@ class CaseService
                     if ($updateStatusChanged && $updateOldStatus === 'DRAFT') {
                         $this->notificationService->markIntakeNotificationsAsRead($updateCase);
                     }
-                } catch (\Throwable) {
-                    report('Failed to send case update notification');
+                } catch (\Throwable $e) {
+                    report($e, ['context' => 'Failed to send case update notification']);
                 }
             });
 
@@ -1347,8 +1364,8 @@ class CaseService
             DB::afterCommit(function () use ($case, $oldStatus, $userId) {
                 try {
                     $this->dispatchStatusChangeNotification($case, $oldStatus, $case->status, $userId);
-                } catch (\Throwable) {
-                    report('Failed to send status change notification');
+                } catch (\Throwable $e) {
+                    report($e, ['context' => 'Failed to send status change notification']);
                 }
             });
 
@@ -1427,13 +1444,43 @@ class CaseService
             $case,
             $notifyUsers,
             $clientEmail,
-            new CaseStatusUpdated($case, $oldStatus, $newStatus),
+            new CaseStatusUpdated($case, $oldStatus, $newStatus, $updatedBy),
             'case_status_updated',
-            'Case Status Updated',
-            "Case #{$case->case_number} status changed from {$oldStatus} to {$newStatus}",
+            "Your case is now {$this->ofwCaseStatusLabel($newStatus)}",
+            $this->ofwCaseStatusMessage($case, $newStatus),
             ['old_status' => $oldStatus, 'new_status' => $newStatus],
             route('cases.show', $case->id),
         );
+    }
+
+    /**
+     * Client-facing label for a case status. Plain language only —
+     * internal status codes never reach the client.
+     */
+    private function ofwCaseStatusLabel(string $status): string
+    {
+        return match (strtoupper($status)) {
+            'OPEN' => 'in progress',
+            'CLOSED' => 'resolved',
+            'ARCHIVED' => 'archived',
+            default => 'updated',
+        };
+    }
+
+    /**
+     * Client-facing body for a case status change. Plain language only —
+     * internal status codes never reach the client.
+     */
+    private function ofwCaseStatusMessage(CaseFile $case, string $status): string
+    {
+        $caseNumber = $case->case_number ?? '';
+
+        return match (strtoupper($status)) {
+            'OPEN' => "Your case {$caseNumber} is now in progress. Your case manager is coordinating the help you need.",
+            'CLOSED' => "Your case {$caseNumber} has been resolved. Thank you for trusting the Bayanihan team.",
+            'ARCHIVED' => "Your case {$caseNumber} has been filed for safekeeping. Contact us if you need help again.",
+            default => "There is an update on your case {$caseNumber}. Open your case to read the details.",
+        };
     }
 
     private function resolveAddressNames(array $address): array
@@ -1459,6 +1506,91 @@ class CaseService
         }
 
         return $address;
+    }
+
+    /**
+     * Sync address, employment, and next-of-kin onto an existing client.
+     *
+     * Shared by createCaseInternal and updateDraft (existing-client mode).
+     * NOK uses the soft-delete sync algorithm: rows keep their ids,
+     * missing rows are soft-deleted, and exactly one primary remains.
+     */
+    public function syncExistingClientData(Client $client, array $data): void
+    {
+        if (! empty($data['address'])) {
+            $address = $client->addresses()->first();
+            $resolvedAddress = $this->resolveAddressNames($data['address']);
+            if ($address) {
+                $address->update($resolvedAddress);
+            } else {
+                $client->addresses()->create($resolvedAddress);
+            }
+        }
+
+        if (! empty($data['employment'])) {
+            $employment = $client->employments()->first();
+            if ($employment) {
+                $employment->update([
+                    'employer_name' => $data['employment']['employer_name'] ?? null,
+                    'position' => $data['employment']['position'] ?? null,
+                    'country' => $data['employment']['country'] ?? null,
+                    'start_date' => $data['employment']['start_date'] ?? null,
+                    'end_date' => ! empty($data['employment']['is_present']) ? null : ($data['employment']['end_date'] ?? null),
+                    'last_country' => $data['employment']['last_country'] ?? null,
+                    'last_position' => $this->normalizePosition($data['employment']['last_position'] ?? null),
+                    'date_of_arrival' => $data['employment']['date_of_arrival'] ?? null,
+                ]);
+            } else {
+                $client->employments()->create([
+                    'employer_name' => $data['employment']['employer_name'] ?? null,
+                    'position' => $data['employment']['position'] ?? null,
+                    'country' => $data['employment']['country'] ?? null,
+                    'start_date' => $data['employment']['start_date'] ?? null,
+                    'end_date' => ! empty($data['employment']['is_present']) ? null : ($data['employment']['end_date'] ?? null),
+                    'last_country' => $data['employment']['last_country'] ?? null,
+                    'last_position' => $this->normalizePosition($data['employment']['last_position'] ?? null),
+                    'date_of_arrival' => $data['employment']['date_of_arrival'] ?? null,
+                ]);
+            }
+        }
+
+        if (array_key_exists('next_of_kin', $data) && is_array($data['next_of_kin'])) {
+            $nokList = $data['next_of_kin'];
+
+            // Handle old single-object format (backward compat): update first NOK or create
+            if (isset($nokList['first_name'])) {
+                $nok = $client->nextOfKin()->first();
+                $normalized = $this->normalizeNokData($nokList);
+                if ($nok) {
+                    $nok->update($normalized);
+                } else {
+                    $client->nextOfKin()->create($normalized);
+                }
+            } else {
+                // Multi-NOK array format: run sync algorithm
+                $existingIds = $client->nextOfKin()->pluck('id')->toArray();
+                $incomingIds = array_filter(array_column($nokList, 'id'));
+                $idsToDelete = array_diff($existingIds, $incomingIds);
+
+                if (! empty($idsToDelete)) {
+                    $client->nextOfKin()->whereIn('id', $idsToDelete)->each(fn ($n) => $n->delete());
+                }
+
+                foreach ($nokList as $nokData) {
+                    $normalized = $this->normalizeNokData($nokData);
+                    if (! empty($nokData['id'])) {
+                        $nok = $client->nextOfKin()->find($nokData['id']);
+                        if ($nok) {
+                            $nok->update($normalized);
+                        }
+                    } else {
+                        $client->nextOfKin()->create($normalized);
+                    }
+                }
+            }
+
+            $this->ensureSinglePrimary($client->id);
+        }
     }
 
     private function normalizeNokData(array $data): array
@@ -1502,7 +1634,7 @@ class CaseService
         return $result;
     }
 
-    private function ensureSinglePrimary(string $clientId): void
+    public function ensureSinglePrimary(string $clientId): void
     {
         $noks = NextOfKin::where('client_id', $clientId)
             ->whereNull('deleted_at')
@@ -1603,6 +1735,105 @@ class CaseService
                 'category_breakdown' => $categoryBreakdown,
             ];
         });
+    }
+
+    /**
+     * Client directory stats (Task 2.2).
+     *
+     * Eloquent/query-builder replacement for the two DB::selectOne raw queries
+     * previously in ClientController::getClientStats. Same result shape:
+     * total/ofw/nok clients, per-marker vulnerability counts, open-case
+     * client count, and total referrals. All constraints are bound parameters.
+     */
+    public function getClientDirectoryStats(?User $user): array
+    {
+        if ($user?->isAgency() && ! $user->agcy_id) {
+            return [
+                'total_clients' => 0,
+                'ofw_clients' => 0,
+                'nok_clients' => 0,
+                'vulnerability_counts' => ['PWD' => 0, 'Senior Citizen' => 0, 'Solo Parent' => 0, 'Indigenous Person' => 0],
+                'clients_with_open_cases' => 0,
+                'total_referrals' => 0,
+            ];
+        }
+
+        $agencyId = ($user?->isAgency() && $user->agcy_id) ? $user->agcy_id : null;
+
+        $totalClients = $user?->isAdmin()
+            ? Client::where('is_deleted', false)->withoutUnacceptedIntake()->count()
+            : $this->countDistinctClientsWithCases($agencyId, function ($q) {
+                // No extra case constraint: any live case qualifies (matches the
+                // COUNT DISTINCT ... THEN cl.id join in the legacy query).
+            }, function ($clients) {
+                // Legacy parity: the non-admin COUNT(DISTINCT CASE WHEN ...)
+                // applied the unaccepted-intake exclusion too, or the tile
+                // counts filers the listing hides.
+                $clients->withoutUnacceptedIntake();
+            });
+
+        $ofwClients = $this->countDistinctClientsWithCases($agencyId, function ($q) {
+            $q->withVisibleStatus()->ofClientType(CaseFile::CLIENT_TYPE_OFW);
+        });
+
+        $nokClients = $this->countDistinctClientsWithCases($agencyId, function ($q) {
+            $q->withVisibleStatus()->ofClientType(CaseFile::CLIENT_TYPE_NEXT_OF_KIN);
+        });
+
+        $vulnerabilityCounts = [];
+        foreach (['PWD', 'Senior Citizen', 'Solo Parent', 'Indigenous Person'] as $marker) {
+            $vulnerabilityCounts[$marker] = $this->countDistinctClientsWithCases($agencyId, function ($q) use ($marker) {
+                $q->withVisibleStatus()->withVulnerabilityMarker($marker);
+            });
+        }
+
+        $clientsWithOpenCases = $this->countDistinctClientsWithCases($agencyId, function ($q) {
+            $q->withOpenStatus();
+        });
+
+        $totalReferrals = Referral::where('is_deleted', false)
+            ->whereHas('caseFile', function ($q) {
+                $q->live();
+            })
+            ->when($agencyId, function ($q) use ($agencyId) {
+                $q->where('agcy_id', $agencyId);
+            })
+            ->count();
+
+        return [
+            'total_clients' => (int) $totalClients,
+            'ofw_clients' => (int) $ofwClients,
+            'nok_clients' => (int) $nokClients,
+            'vulnerability_counts' => [
+                'PWD' => (int) $vulnerabilityCounts['PWD'],
+                'Senior Citizen' => (int) $vulnerabilityCounts['Senior Citizen'],
+                'Solo Parent' => (int) $vulnerabilityCounts['Solo Parent'],
+                'Indigenous Person' => (int) $vulnerabilityCounts['Indigenous Person'],
+            ],
+            'clients_with_open_cases' => (int) $clientsWithOpenCases,
+            'total_referrals' => (int) $totalReferrals,
+        ];
+    }
+
+    /**
+     * Distinct clients having at least one live case matching the given
+     * constraints (plus agency scope). Equivalent to
+     * COUNT(DISTINCT CASE WHEN ... THEN cl.id END) over the clients/cases join.
+     */
+    private function countDistinctClientsWithCases(?string $agencyId, callable $constraints, ?callable $clientConstraints = null): int
+    {
+        $clients = Client::where('clients.is_deleted', false);
+
+        if ($clientConstraints !== null) {
+            $clientConstraints($clients);
+        }
+
+        return $clients
+            ->whereHas('caseFiles', function ($q) use ($agencyId, $constraints) {
+                $q->live()->forAgency($agencyId);
+                $constraints($q);
+            })
+            ->count();
     }
 
     /**

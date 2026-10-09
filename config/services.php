@@ -14,10 +14,6 @@ return [
     |
     */
 
-    'postmark' => [
-        'key' => env('POSTMARK_API_KEY'),
-    ],
-
     'resend' => [
         'key' => env('RESEND_API_KEY'),
 
@@ -26,31 +22,20 @@ return [
         'webhook_secret' => env('RESEND_WEBHOOK_SECRET'),
     ],
 
-    'ses' => [
-        'key' => env('AWS_ACCESS_KEY_ID'),
-        'secret' => env('AWS_SECRET_ACCESS_KEY'),
-        'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
-    ],
-
-    'slack' => [
-        'notifications' => [
-            'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),
-            'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
-        ],
-    ],
-
-    'supabase' => [
-        'url' => env('SUPABASE_URL'),
-        'key' => env('SUPABASE_KEY'),
-        'service_key' => env('SUPABASE_SERVICE_KEY', env('SUPABASE_KEY')),
-    ],
-
     'psgc' => [
         'api_base' => env('PSGC_API_BASE', 'https://psgc.cloud/api'),
     ],
 
     'cloudinary' => [
         'url' => env('CLOUDINARY_URL'),
+    ],
+
+    'malware' => [
+        'scanner' => env('MALWARE_SCANNER', 'null'),
+        // When true, an unreachable ClamAV daemon (or unexpected response)
+        // logs a warning and treats the file as clean so uploads keep working.
+        // Set to false in environments where unscanned uploads must be blocked.
+        'fail_open' => env('MALWARE_FAIL_OPEN', true),
     ],
 
 ];

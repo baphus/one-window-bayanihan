@@ -20,7 +20,7 @@ import CropImageModal from '@/Components/CropImageModal';
 
 export default function Edit({ mustVerifyEmail, status, mfaEnabled, defaultAgency, notificationPrefs }) {
     const user = usePage().props.auth.user;
-    const { email_change_step, email_change_hint, email_change_debug_otp } = usePage().props;
+    const { email_change_step, email_change_hint } = usePage().props;
 
     const { data, setData, patch, errors, processing, setError, clearErrors } = useForm({
         name: user.name,
@@ -215,7 +215,6 @@ export default function Edit({ mustVerifyEmail, status, mfaEnabled, defaultAgenc
                 <ChangeEmailForm
                     initialStep={email_change_step || 'start'}
                     hint={email_change_hint || ''}
-                    debugOtp={email_change_debug_otp}
                 />
 
                 {/* Update Password */}

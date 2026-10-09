@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\CaseFile;
 use App\Models\CaseNotification;
+use App\Models\Referral;
 use App\Services\TrackingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -67,7 +68,7 @@ class OfwDashboardController extends Controller
             abort(403);
         }
 
-        $trackingData = $this->trackingService->buildTrackingData($case);
+        $trackingData = $this->trackingService->buildTrackingData($case, forOfwPortal: true);
 
         // Spread the tracking payload top-level, mirroring TrackController's
         // contract for Tracking/Show so OFW/CaseDetail receives trackingId,
@@ -76,6 +77,37 @@ class OfwDashboardController extends Controller
         return Inertia::render('OFW/CaseDetail', array_merge($trackingData, [
             'case' => $case,
         ]));
+    }
+
+    /**
+     * Agency milestone updates for one of the OFW's referrals.
+     *
+     * Authenticated equivalent of the public `track.milestones` route. The
+     * public route requires the anonymous /track OTP session binding, which a
+     * logged-in OFW never has; "View all updates" from the case detail page
+     * therefore links here instead.
+     */
+    public function agencyMilestones(string $caseId, string $referralId)
+    {
+        $user = request()->user();
+
+        $case = CaseFile::query()->clientVisible()->findOrFail($caseId);
+
+        // Same ownership check as show(): the case must belong to this OFW's client.
+        if ($case->client_id !== $user->client_id) {
+            abort(403);
+        }
+
+        $referral = Referral::query()->whereKey($referralId)->first();
+
+        if (! $referral || $referral->case_id !== $case->id) {
+            abort(404);
+        }
+
+        return Inertia::render('Tracking/AgencyMilestones', array_merge(
+            $this->trackingService->buildAgencyMilestonesData($case, $referral),
+            ['backUrl' => route('ofw.case.show', $case->id)],
+        ));
     }
 
     /**

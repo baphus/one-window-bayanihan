@@ -2,18 +2,23 @@ import { Head, Link } from '@inertiajs/react';
 import AppHeader from '@/Components/landing/AppHeader';
 import AppFooter from '@/Components/landing/AppFooter';
 import ChatBot from '@/Components/ChatBot';
+import UnifiedTimeline from '@/Components/Timeline';
+
+const MILESTONE_EVENT_CONFIG = {
+  milestone_added: { dot: 'bg-emerald-50 border-emerald-200 text-emerald-600', icon: 'flag_circle' },
+};
 
 const STATUS_CONFIG = {
   IN_PROGRESS: { label: 'In Progress', icon: 'radio_button_checked', bg: 'bg-amber-50 text-amber-700 border-amber-200' },
   RESOLVED: { label: 'Resolved', icon: 'check_circle', bg: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-  BEING_PREPARED: { label: 'Under Preparation', icon: 'layers', bg: 'bg-blue-50 text-blue-700 border-blue-200' },
+  BEING_PREPARED: { label: 'Under Preparation', icon: 'layers', bg: 'bg-info-container text-on-info-container border-info' },
   ARCHIVED: { label: 'Archived', icon: 'archive', bg: 'bg-slate-100 text-slate-600 border-slate-200' },
   UNKNOWN: { label: 'Status Unavailable', icon: 'help_outline', bg: 'bg-slate-100 text-slate-600 border-slate-200' },
 };
 
 const REFERRAL_STATUS_CONFIG = {
   PENDING:        { label: 'Awaiting receipt',    icon: 'schedule',              bg: 'bg-slate-100 text-slate-600 border-slate-200' },
-  PROCESSING:     { label: 'In process',          icon: 'radio_button_checked',  bg: 'bg-blue-50 text-blue-700 border-blue-200' },
+  PROCESSING:     { label: 'In process',          icon: 'radio_button_checked',  bg: 'bg-info-container text-on-info-container border-info' },
   FOR_COMPLIANCE: { label: 'Needs documents',     icon: 'description',           bg: 'bg-amber-50 text-amber-700 border-amber-200' },
   COMPLETED:      { label: 'Completed',           icon: 'check_circle',          bg: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
   REJECTED:       { label: 'Unable to assist',    icon: 'cancel',                bg: 'bg-red-50 text-red-600 border-red-200' },
@@ -45,7 +50,7 @@ function formatStatusLabel(status) {
 function InfoCard({ icon, label, value, tone = 'slate' }) {
   const toneClasses = {
     slate: 'bg-slate-50 text-slate-700 border-slate-200',
-    blue: 'bg-blue-50 text-blue-700 border-blue-200',
+    info: 'bg-info-container text-on-info-container border-info',
     emerald: 'bg-emerald-50 text-emerald-700 border-emerald-200',
     amber: 'bg-amber-50 text-amber-700 border-amber-200',
   }[tone];
@@ -65,11 +70,14 @@ function InfoCard({ icon, label, value, tone = 'slate' }) {
   );
 }
 
-export default function AgencyMilestones({ trackingId, trackedCase, agencyMilestones }) {
+export default function AgencyMilestones({ trackingId, trackedCase, agencyMilestones, backUrl }) {
   const config = STATUS_CONFIG[trackedCase?.status] ?? STATUS_CONFIG.UNKNOWN;
   const milestoneCount = agencyMilestones?.milestoneCount ?? 0;
   const milestones = agencyMilestones?.milestones ?? [];
   const latestUpdate = agencyMilestones?.latestUpdate;
+  // backUrl is supplied by the authenticated OFW portal (ofw.case.milestones);
+  // the public tracking flow falls back to the session-bound track.show route.
+  const backHref = backUrl ?? route('track.show', { tracker_number: trackingId });
 
   return (
     <div className="min-h-screen bg-slate-50 font-body text-slate-800">
@@ -79,7 +87,7 @@ export default function AgencyMilestones({ trackingId, trackedCase, agencyMilest
       <main className="mx-auto w-full max-w-7xl px-4 pt-8 pb-12 sm:px-6 lg:px-8 space-y-8">
         <div className="flex flex-wrap items-center justify-between gap-3 pt-20">
           <Link
-            href={route('track.show', { tracker_number: trackingId })}
+            href={backHref}
             className="inline-flex items-center gap-2 text-sm font-semibold text-primary hover:text-primary/80 transition-colors"
           >
             <span className="material-symbols-outlined text-[18px]">arrow_back</span>
@@ -121,7 +129,7 @@ export default function AgencyMilestones({ trackingId, trackedCase, agencyMilest
               <span className="rounded-full border border-white/30 px-3 py-1.5 font-semibold">{trackedCase.caseNo}</span>
             )}
             {milestoneCount > 0 && (
-              <span className="rounded-full border border-emerald-300/50 bg-emerald-500/20 px-3 py-1.5 font-semibold text-emerald-100">{milestoneCount} milestone{milestoneCount !== 1 ? 's' : ''}</span>
+              <span className="rounded-full border border-success/50 bg-success-container px-3 py-1.5 font-semibold text-on-success-container">{milestoneCount} milestone{milestoneCount !== 1 ? 's' : ''}</span>
             )}
           </div>
 
@@ -135,7 +143,7 @@ export default function AgencyMilestones({ trackingId, trackedCase, agencyMilest
             icon="assignment"
             label="Requested services"
             value={agencyMilestones?.requiredServices || 'No service request details were provided.'}
-            tone={agencyMilestones?.requiredServices ? 'blue' : 'slate'}
+            tone={agencyMilestones?.requiredServices ? 'info' : 'slate'}
           />
 
           <InfoCard
@@ -183,7 +191,7 @@ export default function AgencyMilestones({ trackingId, trackedCase, agencyMilest
 
         <section className="space-y-3">
           <h2 className="text-[11px] font-bold uppercase tracking-widest text-slate-500 flex items-center gap-2">
-            <span className="material-symbols-outlined text-[16px] text-blue-600">timeline</span>
+            <span className="material-symbols-outlined text-[16px] text-primary">timeline</span>
             Milestone timeline
           </h2>
 
@@ -197,26 +205,10 @@ export default function AgencyMilestones({ trackingId, trackedCase, agencyMilest
             </article>
           ) : (
             <article className="rounded-md border border-slate-300 bg-white p-6 shadow-sm sm:p-8">
-              <div className="relative">
-                <div className="absolute left-[13px] top-2 bottom-2 w-px bg-slate-200" />
-                <div className="space-y-6">
-                  {milestones.map((milestone) => (
-                    <div key={`${milestone.date}-${milestone.title}`} className="relative flex gap-4 items-start">
-                      <div className="z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 text-emerald-600 shadow-sm">
-                        <span className="material-symbols-outlined text-[14px]">flag_circle</span>
-                      </div>
-                      <div className="min-w-0 flex-1 pt-0.5">
-                        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                          <span className="text-[11px] font-bold uppercase tracking-tight text-slate-500">{formatHumanDate(milestone.date)}</span>
-                          <span className="text-[11px] font-semibold text-slate-400">{milestone.by}</span>
-                        </div>
-                        <h3 className="mt-1 text-sm font-bold text-slate-900 leading-snug">{milestone.title}</h3>
-                        {milestone.description && <p className="mt-1 text-sm leading-relaxed text-slate-600 max-w-prose">{milestone.description}</p>}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <UnifiedTimeline
+                items={milestones.map((milestone) => ({ ...milestone, actor: milestone.by }))}
+                eventConfig={MILESTONE_EVENT_CONFIG}
+              />
             </article>
           )}
         </section>

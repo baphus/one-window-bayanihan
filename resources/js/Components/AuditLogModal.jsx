@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { formatDisplayDateTime } from '@/lib/utils';
-import { getActivityType } from '@/lib/audit';
-import AuditLogCard from '@/Components/AuditLogCard';
+import { ChangesList, getActivityType } from '@/lib/audit';
 
 /**
  * AuditLogModal — full-screen modal displaying paginated audit log entries
@@ -113,7 +112,7 @@ export default function AuditLogModal({ show, onClose, entityType, entityId, tit
             className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4"
             onClick={handleBackdropClick}
         >
-            <div className="w-full max-w-2xl max-h-[85vh] flex flex-col rounded-lg border border-slate-200 bg-white shadow-lg owb-modal-animate">
+            <div className="w-full max-w-2xl max-h-[85vh] flex flex-col rounded-xl border border-slate-200 bg-surface-bright shadow-xl owb-modal-animate">
                 {/* Header */}
                 <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-5 py-3.5">
                     <div className="flex items-center gap-2.5">
@@ -149,7 +148,7 @@ export default function AuditLogModal({ show, onClose, entityType, entityId, tit
                                         type="button"
                                         onClick={handleLoadMore}
                                         disabled={loadingMore}
-                                        className="px-4 py-1.5 text-[11px] font-bold text-blue-900 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 transition-colors disabled:opacity-50"
+                                        className="px-4 py-1.5 text-[11px] font-bold text-primary bg-primary-fixed border border-primary/20 rounded-md hover:bg-primary-fixed-dim transition-colors disabled:opacity-50"
                                     >
                                         {loadingMore ? 'Loading...' : 'Load More'}
                                     </button>
@@ -174,22 +173,37 @@ function LogEntry({ log }) {
     const actor = log.actor || 'System';
     // Human module label; falls back to the raw module only if unformatted.
     const module = log.formatted_module || log.module || '';
+    const metaSegments = [module, timestamp && formatDisplayDateTime(timestamp), actor].filter(Boolean);
 
     return (
-        <AuditLogCard
-            type={activityType}
-            details={description}
-            changes={changes}
-            maxRows={5}
-            meta={[module, timestamp && formatDisplayDateTime(timestamp), actor]}
-        />
+        <div className="rounded-[3px] border border-slate-200 bg-slate-50 p-3">
+            {/* Activity type — uppercase blue badge */}
+            <p className="text-[11px] font-extrabold uppercase tracking-[0.1em] text-blue-900">
+                {activityType}
+            </p>
+
+            {/* Details narrative */}
+            {description && (
+                <p className="mt-1 text-[12px] text-slate-700">{description}</p>
+            )}
+
+            {/* Changes list */}
+            <ChangesList changes={changes} variant="compact" maxRows={5} />
+
+            {/* Metadata line */}
+            {metaSegments.length > 0 && (
+                <p className="mt-1 text-[10px] text-slate-500">
+                    {metaSegments.join(' • ')}
+                </p>
+            )}
+        </div>
     );
 }
 
 function LoadingState() {
     return (
         <div className="flex flex-col items-center justify-center py-12">
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-blue-900" />
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-primary" />
             <p className="mt-3 text-[12px] text-slate-500">Loading audit log…</p>
         </div>
     );

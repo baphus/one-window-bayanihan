@@ -12,7 +12,7 @@ export default function ResponsiveNavLink({
             className={`flex w-full items-start border-l-4 py-2 pe-4 ps-3 ${
                 active
                     ? 'border-primary bg-primary-fixed text-primary focus:border-primary-container focus:bg-primary-fixed focus:text-primary-container'
-                    : 'border-transparent text-gray-600 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-800 focus:border-gray-300 focus:bg-gray-50 focus:text-gray-800'
+                    : 'border-transparent text-on-surface-variant hover:border-outline-variant hover:bg-surface-container-low hover:text-on-surface focus:border-outline-variant focus:bg-surface-container-low focus:text-on-surface'
             } text-base font-medium transition duration-150 ease-in-out focus:outline-none ${className}`}
         >
             {children}

@@ -12,6 +12,17 @@ class SurveyInvitation extends Model
 {
     use HasFactory, UsesUuid;
 
+    public static array $auditExclude = [
+        'id', 'created_at', 'updated_at', 'deleted_at', 'deleted_by',
+        'survey_form_id', 'case_id', 'agency_id', 'referral_id',
+        'token', 'token_hash',
+    ];
+
+    public function getAuditModuleName(): string
+    {
+        return 'survey_invitation';
+    }
+
     protected $hidden = [
         'token',
         'token_hash',

@@ -1,6 +1,6 @@
 import InputError from '@/Components/InputError';
 import TextInput from '@/Components/TextInput';
-import Section from '@/Components/Section';
+import { CardSection as Section } from '@/Components/ui/CardSection';
 import { useRef, useEffect } from 'react';
 
 const timezones = [

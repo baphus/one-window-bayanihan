@@ -133,8 +133,8 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "${DB_NAME:-}" ]; then
-            echo "::warning::LIGHTSAIL_DB_NAME not set — skipping pre-deploy snapshot"
-            exit 0
+            echo "::error::LIGHTSAIL_DB_NAME is required for production deployments; refusing to deploy without a pre-deploy snapshot"
+            exit 1
           fi
           SNAP="${DB_NAME}-predeploy-$(date -u +%Y%m%d%H%M%S)"
           aws lightsail create-relational-database-snapshot \
@@ -319,6 +319,13 @@ jobs:
             }' > "$RUNNER_TEMP/deployment.json"
           # Never cat this file — it contains the database password and API keys.
           jq 'del(.containers.app.environment)' "$RUNNER_TEMP/deployment.json"
+          jq -e --arg expected "$IMAGE_TAG" \
+            '.containers.app.environment.SENTRY_RELEASE == $expected' \
+            "$RUNNER_TEMP/deployment.json" >/dev/null || {
+            echo "::error::deployment payload SENTRY_RELEASE does not match IMAGE_TAG"
+            exit 1
+          }
+          echo "SENTRY_RELEASE verified: $IMAGE_TAG"
 
       - name: Deploy to Lightsail
         run: |
@@ -392,8 +399,8 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "${MONITORING_READINESS_TOKEN:-}" ]; then
-            echo "::warning::MONITORING_READINESS_TOKEN not set — deep readiness gate skipped"
-            exit 0
+            echo "::error::MONITORING_READINESS_TOKEN is required; refusing to declare deployment healthy without the deep readiness gate"
+            exit 1
           fi
           # The scheduler heartbeat needs a tick before it can be fresh.
           sleep 75

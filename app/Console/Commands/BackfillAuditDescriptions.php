@@ -2,15 +2,17 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\BypassesAuditAppendOnly;
 use App\Models\AuditLog;
 use App\Services\AuditLogFormatter;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\DB;
 use Throwable;
 
 class BackfillAuditDescriptions extends Command
 {
+    use BypassesAuditAppendOnly;
+
     protected $signature = 'audit:backfill-descriptions {--dry-run : Preview without updating} {--chunk-size=100 : Records per chunk} {--since= : Only backfill logs since this date (Y-m-d)}';
 
     protected $description = 'Backfill human-readable descriptions for existing audit logs';
@@ -46,10 +48,9 @@ class BackfillAuditDescriptions extends Command
 
         $this->output->progressStart($total);
 
-        // Allow AUDIT_LOG UPDATEs (append-only trigger checks this session variable)
-        DB::statement("SET app.allow_audit_mutations = 'true'");
-
-        try {
+        // Allow AUDIT_LOG UPDATEs (append-only trigger checks this variable).
+        // Transaction-scoped, so the flag cannot outlive this command.
+        $this->withAuditMutationsAllowed(function () use ($query, $chunkSize, $formatter, $total, &$processed, &$successful) {
             $query->orderBy('id')->chunkById($chunkSize, function ($logs) use ($formatter, &$processed, &$successful, $total) {
                 foreach ($logs as $log) {
                     $processed++;
@@ -71,9 +72,7 @@ class BackfillAuditDescriptions extends Command
 
                 $this->line(sprintf('Backfilled %d of %d descriptions...', $successful, $total));
             });
-        } finally {
-            DB::statement("SET app.allow_audit_mutations = ''");
-        }
+        });
 
         $this->output->progressFinish();
 

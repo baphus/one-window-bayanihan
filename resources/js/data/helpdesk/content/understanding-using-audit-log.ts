@@ -6,7 +6,17 @@ The audit log is the system record of important activity in One Window Bayanihan
 
 ## Who can see audit logs
 
-Administrators can review the full audit log. Case managers see only entries for their own cases and those cases' referrals. Agency accounts do not have access to the audit log. This protects sensitive case data while still allowing operational traceability.
+Reads are scoped by role:
+
+- **ADMIN** — full log plus CSV export.
+- **CASE_MANAGER** — entries for their own cases and those cases' referrals.
+- **AGENCY** — entries for their agency's referrals and the cases those referrals belong to.
+
+Export is ADMIN-only. Per-case and per-referral audit views are available from the record itself.
+
+## Tamper-evidence
+
+The log is append-only and hash-chained: each entry links to the previous entry's hash, and a chain digest covers the sequence. Administrators have a chain-repair tool for integrity maintenance. If you suspect tampering, escalate to the system administrator rather than editing anything.
 
 ## Activity categories
 
@@ -59,9 +69,7 @@ Audit entries show who performed an action and when the system recorded it. They
 
 ## Exporting audit logs
 
-Administrators can export the current filter selection as a CSV file using the Export button. An explicit date range is required — the dialog pre-fills the last 30 days, and the range cannot exceed the retention window. Every export (including rejected attempts) is itself recorded in the audit log, so extraction of audit data is always attributable.
-
-Entries older than the retention window are archived to immutable monthly bundles before being removed from the live log; contact the system administrator if you need archived history.
+Administrators can export the current filter selection as a CSV file using the Export button. Every export is itself recorded in the audit log, so extraction of audit data is always attributable.
 
 ## Good practices
 

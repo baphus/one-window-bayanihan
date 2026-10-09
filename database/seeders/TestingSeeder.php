@@ -14,10 +14,8 @@ namespace Database\Seeders;
  * │   5. cases                      (FK → clients.id, case_categories.id, case_issues.id, users.id)
  * │   6. referrals                  (FK → cases.id, agencies.id)
  * │   7. he geomilestones                 (FK → referrals.id, users.id)
- * │   8. feedback                   (FK → cases.id, agencies.id, referrals.id; UNIQUE case+agency+referral)
- * │   9. feedback_servqual_responses (FK → feedback.id)
- * │  10. alerts                     (FK → users.id)
- * │  11. audit_logs                 (FK → users.id)
+ * │   8. alerts                     (FK → users.id)
+ * │   9. audit_logs                 (FK → users.id)
  * │
  * │ Total rows: ~4000
  * │ Works on: PostgreSQL
@@ -26,6 +24,7 @@ namespace Database\Seeders;
  * └─────────────────────────────────────────────────────────────────────────────
  */
 
+use App\Models\AuditLog;
 use App\Models\CaseFile;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
@@ -175,11 +174,6 @@ class TestingSeeder extends Seeder
             $firstServicePerAgency[$agency->id] = $name ?? 'General Assistance';
         }
 
-        $servqualSettings = DB::table('system_settings')
-            ->where('key', 'default_servqual_questions')
-            ->value('value');
-        $servqualQuestions = json_decode($servqualSettings ?? '[]', true);
-
         // ---------------------------------------------------------------------
         // Filipino name pools
         // ---------------------------------------------------------------------
@@ -295,21 +289,6 @@ class TestingSeeder extends Seeder
         ];
 
         $relationships = ['Spouse', 'Parent', 'Sibling', 'Child'];
-
-        $feedbackComments = [
-            'Maayos ang serbisyo ng ahensya. Salamat po!',
-            'Mabilis ang processing ng mga documents.',
-            'Magalang at matulungin ang mga staff.',
-            'Sana po mapabilis pa ang proseso.',
-            'Satisfied naman ako sa assistance na natanggap.',
-            'Mabagal minsan ang response pero okay naman ang resulta.',
-            'Malaking tulong ito sa mga OFW na katulad ko.',
-            'Maayos ang pag-handle ng aking kaso.',
-            'Salamat sa mabilis na action sa aking reklamo.',
-            'Maganda ang serbisyo, maraming salamat!',
-            'Excellent service from the agency staff.',
-            'Very helpful and responsive to my concerns.',
-        ];
 
         // Shuffle name pools for better distribution
         shuffle($femaleNames);
@@ -659,8 +638,6 @@ class TestingSeeder extends Seeder
 
         $referrals = [];
         $referralIds = [];
-        $completedReferralIds = []; // for feedback later
-        $completedReferralInfo = []; // [refId => ['case_id' => ..., 'agcy_id' => ...]]
 
         DB::beginTransaction();
 
@@ -704,12 +681,6 @@ class TestingSeeder extends Seeder
                     $firstActionAt = $refCreatedAt->copy()->addDays(rand(1, 5));
                     $referralAssignedAt = $refCreatedAt->copy()->addDays(rand(1, 3));
                     $refUpdatedAt = $firstActionAt->copy()->addDays(rand(7, 30));
-
-                    $completedReferralIds[] = $refId;
-                    $completedReferralInfo[$refId] = [
-                        'case_id' => $caseId,
-                        'agcy_id' => $agencyId,
-                    ];
                 } elseif ($refStatus === 'REJECTED') {
                     $decision = 'REJECT';
                     $decisionComment = 'Requirements not met';
@@ -880,89 +851,7 @@ class TestingSeeder extends Seeder
         unset($milestones);
 
         // =====================================================================
-        // 8. FEEDBACK  (50 rows — random subset of COMPLETED referrals)
-        //    Uses $usedFeedbackKeys set to avoid UNIQUE(case_id, agency_id, referral_id)
-        // =====================================================================
-
-        // Pick 50 completed referrals (shuffle the list first)
-        shuffle($completedReferralIds);
-        $feedbackTargets = array_slice($completedReferralIds, 0, 50);
-
-        $feedbackRecords = [];
-        $feedbackIds = [];
-        $usedFeedbackKeys = [];
-
-        DB::beginTransaction();
-
-        foreach ($feedbackTargets as $refId) {
-            $info = $completedReferralInfo[$refId] ?? null;
-            if (! $info) {
-                continue;
-            }
-
-            $key = $info['case_id'].'|'.$info['agcy_id'].'|'.$refId;
-            if (isset($usedFeedbackKeys[$key])) {
-                continue;
-            }
-            $usedFeedbackKeys[$key] = true;
-
-            $fbId = (string) Str::uuid();
-            $feedbackIds[] = $fbId;
-            $feedbackRecords[] = [
-                'id' => $fbId,
-                'case_id' => $info['case_id'],
-                'agency_id' => $info['agcy_id'],
-                'referral_id' => $refId,
-                'service_name' => DB::table('referrals')->where('id', $refId)->value('required_services'),
-                'overall_rating' => rand(0, 100) < 20 ? 3 : (rand(0, 1) ? 4 : 5),
-                'comments' => $feedbackComments[array_rand($feedbackComments)],
-                'created_at' => now()->subDays(rand(0, 180)),
-                'updated_at' => $now,
-            ];
-        }
-
-        foreach (array_chunk($feedbackRecords, 50) as $chunk) {
-            DB::table('feedback')->insert($chunk);
-        }
-
-        DB::commit();
-
-        unset($feedbackRecords);
-
-        // =====================================================================
-        // 9. FEEDBACK SERVQUAL RESPONSES  (22 per feedback = 1100+ rows)
-        // =====================================================================
-
-        $servqualRows = [];
-
-        DB::beginTransaction();
-
-        foreach ($feedbackIds as $fbId) {
-            foreach ($servqualQuestions as $q) {
-                $servqualRows[] = [
-                    'id' => (string) Str::uuid(),
-                    'feedback_id' => $fbId,
-                    'question_id' => (string) Str::uuid(),
-                    'question_text' => $q['question'] ?? 'Service quality question',
-                    'dimension' => $q['dimension'] ?? 'General',
-                    'expectation' => rand(3, 5),
-                    'perception' => rand(1, 5),
-                    'created_at' => now()->subDays(rand(0, 180)),
-                    'updated_at' => $now,
-                ];
-            }
-        }
-
-        foreach (array_chunk($servqualRows, 100) as $chunk) {
-            DB::table('feedback_servqual_responses')->insert($chunk);
-        }
-
-        DB::commit();
-
-        unset($servqualRows);
-
-        // =====================================================================
-        // 10. AUDIT LOGS  (event-driven timeline, sequenced per case)
+        // 8. AUDIT LOGS  (event-driven timeline, sequenced per case)
         //     Order per case: Case CREATED → Referral CREATED → Milestones →
         //     Referral COMPLETED/REJECTED → Case CLOSED/ARCHIVED
         // =====================================================================
@@ -1087,6 +976,75 @@ class TestingSeeder extends Seeder
                 ];
             }
         }
+
+        // Hash-chain the audit rows in chain_seq (insertion) order. Bulk
+        // inserts bypass the AuditLog::creating hook, so link prev_hash here
+        // using the exact chainDigest() serialisation. Digests are computed
+        // after the timeline above is fully built because the shared Carbon
+        // instances keep being mutated as later rows are appended. Works on
+        // an empty table (first row is the chain root, prev_hash null) and
+        // chains off the existing last row otherwise.
+        $previousDigest = AuditLog::orderBy('chain_seq', 'desc')->first()?->chainDigest();
+
+        // old_value/new_value are jsonb columns: PostgreSQL normalises the
+        // stored document (newer versions also reorder object keys), so the
+        // digest must be computed from the normalised form the verifier will
+        // read back — not from the raw pre-insert strings. Normalise through
+        // the database itself so this stays correct on any server version.
+        $rawPayloads = [];
+        foreach ($auditLogs as $auditRow) {
+            foreach (['old_value', 'new_value'] as $column) {
+                if ($auditRow[$column] !== null) {
+                    $rawPayloads[] = $auditRow[$column];
+                }
+            }
+        }
+
+        $normalisedByRaw = [];
+        foreach (array_chunk(array_values(array_unique($rawPayloads)), 500) as $chunk) {
+            $placeholders = implode(',', array_fill(0, count($chunk), '(?)'));
+            $normalisedRows = DB::select(
+                "SELECT (col::jsonb)::text AS normalised FROM (VALUES {$placeholders}) AS v(col)",
+                $chunk
+            );
+            foreach ($chunk as $index => $raw) {
+                $normalisedByRaw[$raw] = $normalisedRows[$index]->normalised;
+            }
+        }
+        unset($rawPayloads);
+
+        $chainDigestOf = function (array $row, ?string $prevHash) use ($normalisedByRaw): string {
+            $encodeJson = static function (?string $json) use ($normalisedByRaw): string {
+                if ($json === null) {
+                    return json_encode(null, JSON_UNESCAPED_SLASHES);
+                }
+
+                return json_encode(json_decode($normalisedByRaw[$json], true), JSON_UNESCAPED_SLASHES);
+            };
+
+            $content = implode('|', [
+                $row['id'],
+                $row['action'],
+                $row['module'],
+                $row['entity_id'] ?? '',
+                $row['user_id'] ?? '',
+                $row['timestamp'] instanceof \DateTimeInterface
+                    ? Carbon::parse($row['timestamp'])->toIso8601String()
+                    : '',
+                $encodeJson($row['old_value'] ?? null),
+                $encodeJson($row['new_value'] ?? null),
+                $row['ip_address'] ?? '',
+                $prevHash ?? '',
+            ]);
+
+            return hash('sha256', $content);
+        };
+
+        foreach ($auditLogs as &$auditRow) {
+            $auditRow['prev_hash'] = $previousDigest;
+            $previousDigest = $chainDigestOf($auditRow, $previousDigest);
+        }
+        unset($auditRow);
 
         foreach (array_chunk($auditLogs, 200) as $chunk) {
             DB::table('audit_logs')->insert($chunk);

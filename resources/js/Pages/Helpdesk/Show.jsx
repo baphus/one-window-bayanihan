@@ -9,6 +9,7 @@ import { formatDisplayDate } from '@/lib/utils';
 import { articles } from '@/data/helpdesk/articles';
 import { categories } from '@/data/helpdesk/categories';
 import { tags } from '@/data/helpdesk/tags';
+import safeRoute from '@/utils/safeRoute';
 
 // ---------------------------------------------------------------------------
 // Build breadcrumb trail by walking the category's parentId chain
@@ -17,7 +18,7 @@ function buildBreadcrumbs(categoryId) {
   const items = [];
   let current = categories.find((c) => c.id === categoryId);
   while (current) {
-    items.unshift({ label: current.name, href: `/help?category=${current.slug}` });
+    items.unshift({ label: current.name, href: safeRoute('helpdesk.index', { category: current.slug }, `/help?category=${current.slug}`) });
     current = current.parentId ? categories.find((c) => c.id === current.parentId) : null;
   }
   return items;
@@ -61,7 +62,7 @@ export default function Show() {
             The article you&apos;re looking for doesn&apos;t exist or has been removed.
           </p>
           <Link
-            href="/help"
+            href={safeRoute('helpdesk.index', undefined, '/help')}
             className="mt-4 inline-flex rounded-none bg-primary px-4 py-2 font-label text-xs font-semibold uppercase tracking-[0.18em] text-white transition-colors hover:bg-primary-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           >
             Back to Help Center
@@ -97,7 +98,7 @@ export default function Show() {
           {/* Category badge */}
           {category && (
             <Link
-              href={`/help?category=${category.slug}`}
+              href={safeRoute('helpdesk.index', { category: category.slug }, `/help?category=${category.slug}`)}
               className="mb-3 inline-flex items-center gap-1 rounded-none bg-primary/10 px-3 py-1 font-label text-[11px] font-semibold uppercase tracking-[0.14em] text-primary transition-colors hover:bg-primary/20"
             >
               {category.icon && (

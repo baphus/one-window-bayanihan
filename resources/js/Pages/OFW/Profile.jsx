@@ -404,7 +404,7 @@ export default function Profile({ user, client }) {
                                 <img
                                     src={client.avatar_url}
                                     alt=""
-                                    className="h-28 w-28 rounded-circle border-4 border-white object-cover shadow-md sm:h-36 sm:w-36"
+                                    className="h-28 w-28 rounded-full border-4 border-white object-cover shadow-md sm:h-36 sm:w-36"
                                     onError={(e) => {
                                         e.currentTarget.style.display = 'none';
                                         e.currentTarget.nextElementSibling?.classList.remove('hidden');
@@ -412,7 +412,7 @@ export default function Profile({ user, client }) {
                                 />
                             ) : null}
                             <span
-                                className={`avatar-fallback ${client?.avatar_url ? 'hidden' : ''} flex h-28 w-28 items-center justify-center rounded-circle border-4 border-white ${getAvatarColor(fullName)} font-headline text-3xl font-bold text-white shadow-md sm:h-36 sm:w-36 sm:text-4xl`}
+                                className={`avatar-fallback ${client?.avatar_url ? 'hidden' : ''} flex h-28 w-28 items-center justify-center rounded-full border-4 border-white ${getAvatarColor(fullName)} font-headline text-3xl font-bold text-white shadow-md sm:h-36 sm:w-36 sm:text-4xl`}
                             >
                                 {initials}
                             </span>
@@ -501,7 +501,7 @@ export default function Profile({ user, client }) {
                                         const name = [row.first_name, row.last_name].filter(Boolean).join(' ') || `Contact ${i + 1}`;
                                         return (
                                             <li key={i} className="flex items-center gap-3">
-                                                <span className={`avatar-fallback flex h-9 w-9 shrink-0 items-center justify-center rounded-circle ${getAvatarColor(name)} text-xs font-bold text-white`}>
+                                                <span className={`avatar-fallback flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${getAvatarColor(name)} text-xs font-bold text-white`}>
                                                     {name.slice(0, 2).toUpperCase()}
                                                 </span>
                                                 <div className="min-w-0">

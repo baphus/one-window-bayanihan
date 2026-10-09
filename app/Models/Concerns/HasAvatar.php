@@ -2,6 +2,7 @@
 
 namespace App\Models\Concerns;
 
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 trait HasAvatar
@@ -29,7 +30,9 @@ trait HasAvatar
 
         try {
             return Storage::disk('private')->temporaryUrl($path, now()->addMinutes(5));
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            Log::debug('HasAvatar: failed to sign avatar URL', ['path' => $path, 'exception' => $e->getMessage()]);
+
             return null;
         }
     }
@@ -57,7 +60,9 @@ trait HasAvatar
 
         try {
             return Storage::disk('private')->temporaryUrl($path, now()->addMinutes(5));
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            Log::debug('HasAvatar: failed to sign logo URL', ['path' => $path, 'exception' => $e->getMessage()]);
+
             return null;
         }
     }

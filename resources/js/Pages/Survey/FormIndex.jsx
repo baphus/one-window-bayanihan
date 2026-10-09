@@ -45,7 +45,7 @@ export default function FormIndex({ forms = [] }) {
             <Link
               data-tour="survey-forms-create"
               href={route('survey.forms.create')}
-              className="inline-flex h-10 items-center rounded-md bg-blue-900 px-4 text-sm font-semibold text-white hover:bg-blue-800"
+              className="inline-flex h-10 items-center rounded-md bg-primary px-4 text-sm font-semibold text-white hover:bg-primary-container"
             >
               + Create Survey Form
             </Link>
@@ -59,7 +59,7 @@ export default function FormIndex({ forms = [] }) {
               <p className="mt-3 text-sm text-slate-500">No survey forms yet. Create one to start collecting client feedback.</p>
               <Link
                 href={route('survey.forms.create')}
-                className="mt-4 inline-flex h-10 items-center rounded-md bg-blue-900 px-4 text-sm font-semibold text-white hover:bg-blue-800"
+                className="mt-4 inline-flex h-10 items-center rounded-md bg-primary px-4 text-sm font-semibold text-white hover:bg-primary-container"
               >
                 Create your first form
               </Link>
@@ -115,7 +115,7 @@ export default function FormIndex({ forms = [] }) {
                               type="button"
                               disabled={activatingId === form.id}
                               onClick={() => handleActivate(form)}
-                              className="inline-flex h-8 items-center rounded-md bg-blue-900 px-3 text-[11px] font-semibold text-white hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                              className="inline-flex h-8 items-center rounded-md bg-primary px-3 text-[11px] font-semibold text-white hover:bg-primary-container disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               {activatingId === form.id ? 'Activating…' : 'Activate'}
                             </button>

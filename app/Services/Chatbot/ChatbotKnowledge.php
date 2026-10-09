@@ -73,15 +73,33 @@ final class ChatbotKnowledge
         return ['status' => 'success', 'evidence_id' => $turn->register($source, $content), 'article_title' => $article['title'], 'content' => $content, 'available_sections' => array_keys($article['sections']), 'missing_sections' => $missing, 'omitted_sections' => $omitted];
     }
 
+    /**
+     * Domain synonym expansions applied before tokenization.
+     *
+     * Kept here (not in the shared tokenizer) because they are retrieval
+     * vocabulary, not generic text normalization.
+     */
+    private const SYNONYM_EXPANSIONS = [
+        'password' => 'password security',
+        'mfa' => 'mfa security',
+        'otp' => 'otp verification',
+        'track' => 'track tracking tracker',
+        'status' => 'status statuses',
+        'requirements' => 'requirements documents',
+        'paano' => 'how',
+        'subaybayan' => 'tracking',
+        'kaso' => 'case',
+        'unsaon' => 'how',
+        'subayon' => 'tracking',
+        'dokumento' => 'documents',
+    ];
+
     private function tokens(string $text): array
     {
-        $text = mb_strtolower($text);
-        foreach (['password' => 'password security', 'mfa' => 'mfa security', 'otp' => 'otp verification', 'track' => 'track tracking tracker', 'status' => 'status statuses', 'requirements' => 'requirements documents', 'paano' => 'how', 'subaybayan' => 'tracking', 'kaso' => 'case', 'unsaon' => 'how', 'subayon' => 'tracking', 'dokumento' => 'documents'] as $word => $replacement) {
-            $text = preg_replace('/\b'.preg_quote($word, '/').'\b/u', $replacement, $text);
+        foreach (self::SYNONYM_EXPANSIONS as $word => $replacement) {
+            $text = preg_replace('/\b'.preg_quote($word, '/').'\b/iu', $replacement, $text);
         }
-        $words = preg_split('/[^\p{L}\p{N}]+/u', $text) ?: [];
-        $stop = ['the', 'and', 'for', 'how', 'can', 'you', 'your', 'what', 'with', 'this', 'that', 'from', 'are', 'does', 'have', 'need', 'want', 'about', 'please', 'ang', 'ako', 'akong', 'aking', 'mga'];
 
-        return array_values(array_unique(array_filter($words, fn ($word) => mb_strlen($word) > 2 && ! in_array($word, $stop, true))));
+        return array_values(array_unique(ChatbotQueryNormalizer::tokenize($text)));
     }
 }

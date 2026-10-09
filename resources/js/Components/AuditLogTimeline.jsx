@@ -1,20 +1,14 @@
 import { useMemo } from 'react';
-import { formatDisplayDateTime } from '@/lib/utils';
-import { getActivityType, getEntityLabel } from '@/lib/audit';
-import AuditLogCard from '@/Components/AuditLogCard';
-
-/**
- * Calculate days elapsed since a given timestamp.
- */
-function daysAgo(timestamp) {
-    const now = new Date();
-    const then = new Date(timestamp);
-    const diffMs = now.getTime() - then.getTime();
-    return Math.max(1, Math.round(diffMs / (1000 * 60 * 60 * 24)));
-}
+import { formatDisplayDateTime, getCaseAgeInDays } from '@/lib/utils';
+import { ChangesList, getActivityType, getEntityLabel } from '@/lib/audit';
+import UnifiedTimeline from '@/Components/Timeline';
 
 /**
  * AuditLogTimeline — flat card-based activity feed for client detail pages.
+ *
+ * Thin wrapper over UnifiedTimeline: keeps the 50-entry slice and the audit
+ * card styling, while ordering (newest first) and row rendering run through
+ * the shared component.
  *
  * @param {Object}  props
  * @param {Array}   props.logs  - Audit log entries (server-limited, sliced to 50 client-side)
@@ -28,62 +22,48 @@ export default function AuditLogTimeline({ logs = [], client = null }) {
 
             return {
                 id: log.id,
+                timestamp,
                 type: getActivityType(log.action, log.module),
                 entityType: getEntityLabel(moduleLabel),
                 details: log.message || '',
                 changes: Array.isArray(log.changes) ? log.changes : [],
                 actorName: log.actor || '',
-                timestamp,
                 caseNo: client?.caseFile?.case_number || null,
-                daysSince: daysAgo(timestamp),
+                daysSince: Math.max(1, getCaseAgeInDays(timestamp)),
             };
         });
     }, [logs, client]);
 
-    if (entries.length === 0) {
-        return <EmptyState />;
-    }
-
     return (
-        <div className="space-y-3">
-            {entries.map((entry, idx) => (
-                <AuditLogCard
-                    key={entry.id || `${entry.timestamp}-${idx}`}
-                    type={entry.type}
-                    details={entry.details}
-                    changes={entry.changes}
-                    maxRows={3}
-                    meta={[
-                        entry.caseNo && `Case ${entry.caseNo}`,
-                        entry.entityType,
-                        formatDisplayDateTime(entry.timestamp),
-                        entry.actorName || 'System',
-                        `${entry.daysSince} day${entry.daysSince > 1 ? 's' : ''}`,
-                    ]}
-                />
-            ))}
-        </div>
-    );
-}
-
-function EmptyState() {
-    return (
-        <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/50 p-10 text-center">
-            <svg
-                className="mx-auto mb-3 h-10 w-10 text-slate-300"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-            >
-                <circle cx="12" cy="12" r="10" />
-                <polyline points="12 6 12 12 16 14" />
-            </svg>
-            <p className="text-sm font-medium text-slate-500">
-                No activity recorded yet.
-            </p>
-        </div>
+        <UnifiedTimeline
+            variant="plain"
+            items={entries}
+            emptyTitle="No activity recorded yet."
+            renderItem={({ item }) => {
+                const metaSegments = [
+                    item.caseNo && `Case ${item.caseNo}`,
+                    item.entityType,
+                    formatDisplayDateTime(item.timestamp),
+                    item.actorName || 'System',
+                    `${item.daysSince} day${item.daysSince > 1 ? 's' : ''}`,
+                ].filter(Boolean);
+                return (
+                    <div className="rounded-[3px] border border-slate-200 bg-slate-50 p-3">
+                        <p className="text-[11px] font-extrabold uppercase tracking-[0.1em] text-blue-900">
+                            {item.type}
+                        </p>
+                        {item.details && (
+                            <p className="mt-1 text-[12px] text-slate-700">{item.details}</p>
+                        )}
+                        <ChangesList changes={item.changes} variant="compact" maxRows={3} />
+                        {metaSegments.length > 0 && (
+                            <p className="mt-1 text-[10px] text-slate-500">
+                                {metaSegments.join(' • ')}
+                            </p>
+                        )}
+                    </div>
+                );
+            }}
+        />
     );
 }

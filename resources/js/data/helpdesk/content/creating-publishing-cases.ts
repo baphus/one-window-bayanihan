@@ -14,7 +14,7 @@ Record client type, name, contact details, and vulnerability indicator when rele
 
 ### Address and employment
 
-Enter address details consistently. Employment information helps determine category, issue, and referral service. If unknown, save a draft rather than guessing.
+Enter address details consistently using the region → province → city → barangay cascades (backed by the address lookup reference data). Employment information helps determine category, issue, and referral service. If unknown, save a draft rather than guessing.
 
 ![Address section](/assets/helpdesk/cases-create-address.png)
 
@@ -26,7 +26,7 @@ Next of kin is optional. When one is available, the form supports multiple entri
 
 ### Consent, category, issue, and summary
 
-Capture consent before processing. Select the best category and case issue. Write a factual summary explaining the problem, prior actions, and needed assistance.
+Capture consent before processing. Select the best categories (**category_ids** is canonical; a legacy single category field is still accepted — never send both) and case issue. Write a factual summary explaining the problem, prior actions, and needed assistance.
 
 ## Save draft or publish
 
@@ -37,7 +37,7 @@ Use **DRAFT** when information is incomplete. Drafts can be edited, deleted, or 
 
 ## After publishing
 
-Open the case details page, confirm the case number and tracker number, review the summary, create referrals if needed, and explain OTP-based tracking to the client.
+Open the case details page, confirm the case number and tracker number, review the summary, create referrals if needed, and explain OTP-based tracking to the client. Cases filed by clients themselves first land in the intake queue, where a Case Manager accepts or rejects them — accepted cases become **OPEN**, rejected ones are sent back with a reason.
 
 ![Case details](/assets/helpdesk/cases-show.png)
 `;

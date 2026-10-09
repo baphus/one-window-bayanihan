@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Agency;
 use App\Models\CaseFile;
 use App\Models\Client;
+use App\Models\Referral;
 use App\Models\User;
 use App\Notifications\MilestoneAdded;
 use App\Notifications\PeerReferralCreated;
@@ -45,7 +46,6 @@ class ReferralServiceNotificationTest extends TestCase
         $this->service->createReferral([
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
-            'required_services' => 'Test Service',
             'notes' => 'Test notes',
         ], $caseManager->id);
 
@@ -61,7 +61,6 @@ class ReferralServiceNotificationTest extends TestCase
         $this->service->createReferral([
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
-            'required_services' => 'Test Service',
         ], $caseManager->id);
 
         $this->assertDatabaseHas('case_notifications', [
@@ -81,7 +80,6 @@ class ReferralServiceNotificationTest extends TestCase
         $referral = $this->service->createReferral([
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
-            'required_services' => 'Test',
         ], $caseManager->id);
 
         Notification::fake();
@@ -100,7 +98,6 @@ class ReferralServiceNotificationTest extends TestCase
         $referral = $this->service->createReferral([
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
-            'required_services' => 'Test',
         ], $caseManager->id);
 
         $this->service->updateStatus($referral->id, 'PROCESSING', null, null, $caseManager->id);
@@ -122,7 +119,6 @@ class ReferralServiceNotificationTest extends TestCase
         $referral = $this->service->createReferral([
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
-            'required_services' => 'Test',
         ], $caseManager->id);
 
         Notification::fake();
@@ -150,7 +146,6 @@ class ReferralServiceNotificationTest extends TestCase
         $referral = $this->service->createReferral([
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
-            'required_services' => 'Test',
         ], $caseManager->id);
 
         Notification::fake();
@@ -169,7 +164,6 @@ class ReferralServiceNotificationTest extends TestCase
         $referral = $this->service->createReferral([
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
-            'required_services' => 'Test',
         ], $caseManager->id);
 
         $this->service->addMilestone($referral->id, 'First Milestone', 'Description', $caseManager->id);
@@ -198,7 +192,6 @@ class ReferralServiceNotificationTest extends TestCase
         $this->service->createReferral([
             'case_id' => $case->id,
             'agcy_id' => $agencyA->id,
-            'required_services' => 'Service A',
         ], $caseManager->id);
 
         Notification::fake();
@@ -208,7 +201,6 @@ class ReferralServiceNotificationTest extends TestCase
         $this->service->createReferral([
             'case_id' => $case->id,
             'agcy_id' => $agencyB->id,
-            'required_services' => 'Service B',
         ], $caseManager->id);
 
         Notification::assertSentTo($agencyAUser, PeerReferralCreated::class);
@@ -231,7 +223,6 @@ class ReferralServiceNotificationTest extends TestCase
         $this->service->createReferral([
             'case_id' => $case->id,
             'agcy_id' => $agencyA->id,
-            'required_services' => 'Service A',
         ], $caseManager->id);
 
         Notification::fake();
@@ -240,7 +231,6 @@ class ReferralServiceNotificationTest extends TestCase
         $this->service->createReferral([
             'case_id' => $case->id,
             'agcy_id' => $agencyA->id,
-            'required_services' => 'Service A2',
         ], $caseManager->id);
 
         Notification::assertNotSentTo($agencyAUser, PeerReferralCreated::class);
@@ -264,7 +254,6 @@ class ReferralServiceNotificationTest extends TestCase
         $this->service->createReferral([
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
-            'required_services' => 'Service',
         ], $caseManager->id);
 
         Notification::assertNotSentTo($agencyUser, PeerReferralCreated::class);
@@ -279,15 +268,15 @@ class ReferralServiceNotificationTest extends TestCase
         $referral = $this->service->createReferral([
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
-            'required_services' => 'Test',
         ], $caseManager->id);
 
         $this->service->updateStatus($referral->id, 'PROCESSING', 'ACCEPT', null, $caseManager->id);
-        $this->service->updateStatus($referral->id, 'REJECTED', 'REJECT', 'Agency cannot complete this service.', $caseManager->id);
+        $this->service->updateStatus($referral->id, 'REJECTED', 'REJECT', 'Agency cannot complete this service.', $caseManager->id, 'OUTSIDE_MANDATE');
 
         $fresh = $referral->fresh();
         $this->assertSame('REJECTED', $fresh->status);
         $this->assertSame('REJECT', $fresh->decision);
+        $this->assertSame('OUTSIDE_MANDATE', $fresh->rejection_reason);
     }
 
     public function test_referral_can_be_rejected_from_for_compliance(): void
@@ -299,13 +288,13 @@ class ReferralServiceNotificationTest extends TestCase
         $referral = $this->service->createReferral([
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
-            'required_services' => 'Test',
         ], $caseManager->id);
 
         $this->service->updateStatus($referral->id, 'FOR_COMPLIANCE', 'ACCEPT', null, $caseManager->id);
-        $this->service->updateStatus($referral->id, 'REJECTED', 'REJECT', 'Client did not respond.', $caseManager->id);
+        $this->service->updateStatus($referral->id, 'REJECTED', 'REJECT', 'Client did not respond.', $caseManager->id, 'CLIENT_WITHDREW');
 
         $this->assertSame('REJECTED', $referral->fresh()->status);
+        $this->assertSame('CLIENT_WITHDREW', $referral->fresh()->rejection_reason);
     }
 
     public function test_completed_referral_cannot_be_rejected(): void
@@ -317,7 +306,6 @@ class ReferralServiceNotificationTest extends TestCase
         $referral = $this->service->createReferral([
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
-            'required_services' => 'Test',
         ], $caseManager->id);
 
         $this->service->updateStatus($referral->id, 'PROCESSING', 'ACCEPT', null, $caseManager->id);
@@ -331,6 +319,73 @@ class ReferralServiceNotificationTest extends TestCase
         }
 
         $this->assertSame('COMPLETED', $referral->fresh()->status);
+    }
+
+    public function test_rejecting_without_a_reason_is_refused(): void
+    {
+        $caseManager = $this->createUser('CASE_MANAGER');
+        $case = $this->createCase($caseManager);
+        $agency = Agency::factory()->create();
+
+        $referral = $this->service->createReferral([
+            'case_id' => $case->id,
+            'agcy_id' => $agency->id,
+        ], $caseManager->id);
+
+        try {
+            $this->service->updateStatus($referral->id, 'REJECTED', 'REJECT', 'No reason given.', $caseManager->id);
+            $this->fail('Expected InvalidArgumentException was not thrown.');
+        } catch (\InvalidArgumentException $e) {
+            $this->assertStringContainsString('rejection reason', $e->getMessage());
+        }
+
+        $this->assertSame('PENDING', $referral->fresh()->status);
+    }
+
+    public function test_rejecting_with_other_reason_requires_a_detailed_comment(): void
+    {
+        $caseManager = $this->createUser('CASE_MANAGER');
+        $case = $this->createCase($caseManager);
+        $agency = Agency::factory()->create();
+
+        $referral = $this->service->createReferral([
+            'case_id' => $case->id,
+            'agcy_id' => $agency->id,
+        ], $caseManager->id);
+
+        foreach ([null, 'Too short'] as $comment) {
+            try {
+                $this->service->updateStatus($referral->id, 'REJECTED', 'REJECT', $comment, $caseManager->id, 'OTHER');
+                $this->fail('Expected InvalidArgumentException was not thrown.');
+            } catch (\InvalidArgumentException $e) {
+                $this->assertStringContainsString('at least 10 characters', $e->getMessage());
+            }
+        }
+
+        $updated = $this->service->updateStatus($referral->id, 'REJECTED', 'REJECT', 'Duplicate of an earlier referral sent in error.', $caseManager->id, 'OTHER');
+
+        $this->assertSame('REJECTED', $updated->status);
+        $this->assertSame('OTHER', $updated->rejection_reason);
+    }
+
+    public function test_rejection_reason_is_cleared_when_referral_moves_out_of_rejected(): void
+    {
+        $caseManager = $this->createUser('CASE_MANAGER');
+        $case = $this->createCase($caseManager);
+        $agency = Agency::factory()->create();
+
+        // Stale reason on a non-rejected referral (e.g. legacy data): moving
+        // forward must clear it rather than carry it along.
+        $referral = Referral::factory()->processing()->create([
+            'case_id' => $case->id,
+            'agcy_id' => $agency->id,
+            'rejection_reason' => 'NO_SERVICE_CAPACITY',
+        ]);
+
+        $updated = $this->service->updateStatus($referral->id, 'COMPLETED', null, null, $caseManager->id);
+
+        $this->assertSame('COMPLETED', $updated->status);
+        $this->assertNull($updated->rejection_reason);
     }
 
     private function createUser(string $role): User

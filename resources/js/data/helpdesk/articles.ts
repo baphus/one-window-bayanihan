@@ -43,7 +43,7 @@ import managingClientRecords from "./content/managing-client-records";
 import usingTheStakeholderDirectory from "./content/using-the-stakeholder-directory";
 import creatingAReferralChoosingAgencyAndService from "./content/creating-a-referral-choosing-agency-and-service";
 import referralDocumentsAndComplianceUploads from "./content/referral-documents-and-compliance-uploads";
-import systemSecuritySettingsIpWhitelistAndSessions from "./content/system-security-settings-ip-whitelist-and-sessions";
+import systemSecuritySettingsAndSessions from "./content/system-security-settings-and-sessions";
 import emailLogsAndResendingFailedEmails from "./content/email-logs-and-resending-failed-emails";
 import maintenanceModeSystemLogsAndDataExport from "./content/maintenance-mode-system-logs-and-data-export";
 
@@ -156,7 +156,7 @@ export const articles: HelpdeskArticle[] = [
     title: "Providing Feedback on Your Case",
     slug: "providing-feedback-on-your-case",
     excerpt:
-      "Learn how to provide feedback and rate the service you received after your case is closed, including the SERVQUAL evaluation dimensions.",
+      "Learn how to open your survey invitation link and answer your agency's questions after your case is closed.",
     content: providingFeedbackOnYourCase,
     categoryId: CATEGORY["ofw-rights"],
     tagIds: [TAG["cases"], TAG["documents"]],
@@ -321,7 +321,7 @@ export const articles: HelpdeskArticle[] = [
     title: "Configuring System Settings and AI Chatbot",
     slug: "configuring-system-settings-ai-chatbot",
     excerpt:
-      "Guide for administrators on configuring system settings including OTP debug mode, session timeout, file upload limits, and the AI chatbot provider setup.",
+      "Guide for administrators on configuring system settings including the referral overdue threshold and the AI chatbot provider setup.",
     content: configuringSystemSettingsAiChatbot,
     categoryId: CATEGORY["system-config"],
     tagIds: [TAG["troubleshooting"], TAG["onboarding"]],
@@ -507,37 +507,37 @@ export const articles: HelpdeskArticle[] = [
 
   {
     id: "article-33",
-    title: "Building SERVQUAL Feedback Questionnaires",
+    title: "Building Client Survey Forms",
     slug: "building-servqual-feedback-questionnaires",
     excerpt:
-      "How agencies create feedback forms, manage the agency default and per-service overrides, and customize the 22 standard SERVQUAL questions.",
+      "How agencies create survey forms, choose question types, activate one form per agency, and handle the post-invitation editing lock.",
     content: buildingServqualFeedbackQuestionnaires,
     categoryId: CATEGORY["service-quality-feedback"],
-    tagIds: [TAG["servqual"], TAG["feedback"], TAG["training"]],
+    tagIds: [TAG["feedback"], TAG["training"]],
     featured: false,
     publishedAt: "2026-07-11T00:00:00.000Z",
   },
   {
     id: "article-34",
-    title: "Reading Your Agency Feedback Dashboard",
+    title: "Reading Your Agency Feedback",
     slug: "reading-your-agency-feedback-dashboard",
     excerpt:
-      "What the summary cards, rating distribution, SERVQUAL dimensions, and service breakdown mean — and how agencies act on them.",
+      "What the Total Sent, Total Submitted, and Response Rate cards mean, how to read submitted responses, and how agencies act on them.",
     content: readingYourAgencyFeedbackDashboard,
     categoryId: CATEGORY["service-quality-feedback"],
-    tagIds: [TAG["servqual"], TAG["feedback"], TAG["dashboard"]],
+    tagIds: [TAG["feedback"], TAG["dashboard"]],
     featured: false,
     publishedAt: "2026-07-11T00:00:00.000Z",
   },
   {
     id: "article-35",
-    title: "Feedback Dashboards for Case Managers and Admins",
+    title: "Feedback Views for Case Managers and Admins",
     slug: "feedback-dashboards-for-case-managers-and-admins",
     excerpt:
-      "The cross-agency feedback views: the case manager dashboard and the admin Feedback Overview with agency summary and filterable submissions.",
+      "How case managers and admins use the shared Survey Responses page, scoped to their role, to review client feedback across agencies.",
     content: feedbackDashboardsForCaseManagersAndAdmins,
     categoryId: CATEGORY["service-quality-feedback"],
-    tagIds: [TAG["servqual"], TAG["feedback"], TAG["dashboard"]],
+    tagIds: [TAG["feedback"], TAG["dashboard"]],
     featured: false,
     publishedAt: "2026-07-11T00:00:00.000Z",
   },
@@ -651,11 +651,11 @@ export const articles: HelpdeskArticle[] = [
 
   {
     id: "article-44",
-    title: "System Security: Settings, IP Whitelist, and Active Sessions",
-    slug: "system-security-settings-ip-whitelist-and-sessions",
+    title: "System Security: Settings and Active Sessions",
+    slug: "system-security-settings-and-sessions",
     excerpt:
-      "Password policy, lockout rules, mandatory MFA, the admin IP whitelist (and its lock-out risk), and terminating active sessions.",
-    content: systemSecuritySettingsIpWhitelistAndSessions,
+      "Mandatory MFA and terminating active sessions.",
+    content: systemSecuritySettingsAndSessions,
     categoryId: CATEGORY["system-config"],
     tagIds: [TAG["security"], TAG["audit"]],
     featured: false,

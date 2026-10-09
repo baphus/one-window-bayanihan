@@ -1,6 +1,6 @@
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import PrimaryButton from '@/Components/PrimaryButton';
 import TextInput from '@/Components/TextInput';
 import InputLabel from '@/Components/InputLabel';
@@ -16,6 +16,7 @@ import { useToast } from '@/Hooks/useToast';
 import { formatDisplayDateTime, formatDisplayDate } from '@/lib/utils';
 import { formatRelativeTime } from '@/lib/relativeTime';
 import { formatResolvedAddress } from '@/lib/addressResolver';
+import UnifiedTimeline from '@/Components/Timeline';
 
 const TIMELINE_EVENT_CONFIG = {
   referral_sent:   { dot: 'bg-purple-50 border-purple-200 text-purple-600', icon: 'forward_to_inbox' },
@@ -378,7 +379,7 @@ function ClientRequestsSection({ referral, requests, permissions, isReceivingAge
     const [showCreate, setShowCreate] = useState(false);
     const [selectedRequestId, setSelectedRequestId] = useState(null);
     const createForm = useForm({ type: 'DOCUMENT_REQUEST', title: '', instructions: '', due_at: '', checklist: [''] });
-    const isOversight = isCaseManager || isAdmin || !isReceivingAgency;
+    const isOversight = isAdmin;
     const canCreate = isReceivingAgency && permissions.canCreate;
     const activeRequest = requests.find((request) => request.id === selectedRequestId) ?? requests[0];
     const reloadRequests = () => router.reload({ only: ['clientRequestHistory', 'clientRequestPermissions', 'timeline'], preserveScroll: true });
@@ -669,8 +670,17 @@ function ServiceAddDropdown({ referralId, selectedIds, serviceRequirements }) {
     );
 }
 
+const REJECTION_REASONS = [
+    { value: 'INCOMPLETE_REQUIREMENTS', label: 'Incomplete requirements' },
+    { value: 'OUTSIDE_MANDATE', label: 'Outside agency mandate' },
+    { value: 'DUPLICATE_REFERRAL', label: 'Duplicate referral' },
+    { value: 'CLIENT_WITHDREW', label: 'Client withdrew' },
+    { value: 'NO_SERVICE_CAPACITY', label: 'No service capacity' },
+    { value: 'OTHER', label: 'Other' },
+];
+
 export default function ReferralShow({ referral, serviceRequirements = [], overdueDays = 7, timeline = [], clientRequestHistory = [], clientRequestPermissions = {}, relatedReferrals = [] }) {
-    const { auth } = usePage().props;
+    const { auth, errors } = usePage().props;
     const isAgency = auth.user.role === 'AGENCY';
     const isCaseManager = auth.user.role === 'CASE_MANAGER';
     const isAdmin = auth.user.role === 'ADMIN';
@@ -701,13 +711,116 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
     const [showOverdueInfo, setShowOverdueInfo] = useState(false);
     const [showAuditLog, setShowAuditLog] = useState(false);
     const [selectedRelatedReferral, setSelectedRelatedReferral] = useState(null);
+    const [relatedTab, setRelatedTab] = useState('details');
+    const [threadMessages, setThreadMessages] = useState([]);
+    const [threadLoading, setThreadLoading] = useState(false);
+    const [threadSending, setThreadSending] = useState(false);
+    const [threadDraft, setThreadDraft] = useState('');
+    const [threadError, setThreadError] = useState('');
+    const [readThreadIds, setReadThreadIds] = useState(() => new Set());
+    const threadListEndRef = useRef(null);
+
+    useEffect(() => {
+        if (relatedTab === 'messages' && threadListEndRef.current) {
+            threadListEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    }, [relatedTab, threadMessages]);
+
+    function openRelatedReferral(rel) {
+        setSelectedRelatedReferral(rel);
+        setRelatedTab('details');
+        setThreadMessages([]);
+        setThreadDraft('');
+        setThreadError('');
+    }
+
+    function closeRelatedReferral() {
+        setSelectedRelatedReferral(null);
+        setRelatedTab('details');
+        setThreadMessages([]);
+        setThreadDraft('');
+        setThreadError('');
+    }
+
+    async function loadReferralThread(rel) {
+        if (!rel) return;
+        setThreadLoading(true);
+        setThreadError('');
+        try {
+            const res = await fetch(route('api.referrals.messages.index', rel.id), {
+                headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            });
+            if (!res.ok) {
+                setThreadError('Unable to load the message thread.');
+                return;
+            }
+            const payload = await res.json();
+            setThreadMessages(payload.data ?? []);
+            // Marking the thread read happens after it has been viewed so the
+            // next page visit shows a clean, de-badged card.
+            fetch(route('referrals.messages.read', rel.id), {
+                method: 'POST',
+                headers: {
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                    'Content-Type': 'application/json',
+                },
+                body: '{}',
+            }).catch(() => {});
+            setReadThreadIds((prev) => {
+                const next = new Set(prev);
+                next.add(rel.id);
+                return next;
+            });
+        } catch {
+            setThreadError('Unable to load the message thread.');
+        } finally {
+            setThreadLoading(false);
+        }
+    }
+
+    async function sendThreadMessage() {
+        const rel = selectedRelatedReferral;
+        const body = threadDraft.trim();
+        if (!rel || !body || threadSending) return;
+        setThreadSending(true);
+        setThreadError('');
+        try {
+            const res = await fetch(route('referrals.messages.store', rel.id), {
+                method: 'POST',
+                headers: {
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ body }),
+            });
+            if (!res.ok) {
+                const payload = await res.json().catch(() => null);
+                const fieldError = Object.values(payload?.errors ?? {}).flat().find(Boolean);
+                setThreadError(payload?.message || fieldError || 'Unable to send the message.');
+                return;
+            }
+            const payload = await res.json();
+            setThreadMessages((prev) => [...prev, payload.data]);
+            setThreadDraft('');
+        } catch {
+            setThreadError('Unable to send the message.');
+        } finally {
+            setThreadSending(false);
+        }
+    }
 
     const [pendingDecision, setPendingDecision] = useState(null);
     const [decisionRemark, setDecisionRemark] = useState('');
+    const [decisionReason, setDecisionReason] = useState('');
     const [decisionSubmitting, setDecisionSubmitting] = useState(false);
     const [showUpdateStatus, setShowUpdateStatus] = useState(false);
     const [updateStatusValue, setUpdateStatusValue] = useState('PROCESSING');
     const [updateStatusRemark, setUpdateStatusRemark] = useState('');
+    const [updateStatusReason, setUpdateStatusReason] = useState('');
     const [updateStatusSubmitting, setUpdateStatusSubmitting] = useState(false);
 
     const [commentDraft, setCommentDraft] = useState('');
@@ -829,8 +942,8 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                         </>
                     )}
                     {canUpdateStatus && !['PENDING', 'COMPLETED', 'REJECTED'].includes(referral.status) && (
-                        <button
-                            onClick={() => { setShowUpdateStatus(true); setUpdateStatusValue(referral.status); setUpdateStatusRemark(''); }}
+                            <button
+                                onClick={() => { setShowUpdateStatus(true); setUpdateStatusValue(referral.status); setUpdateStatusRemark(''); setUpdateStatusReason(''); }}
                             className="px-3 min-h-[34px] bg-slate-100 text-[12px] font-bold text-slate-700 border border-slate-300 rounded-md hover:bg-slate-200 transition-colors inline-flex items-center"
                         >
                             Update Status
@@ -845,13 +958,6 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                         Audit Log
                     </button>
                     <Link
-                        href={route('cases.show', referral.case_id)}
-                        className="px-3 min-h-[34px] bg-slate-100 text-[12px] font-bold text-slate-700 border border-slate-300 rounded-md hover:bg-slate-200 transition-colors inline-flex items-center gap-1.5"
-                    >
-                        <span className="material-symbols-outlined text-[16px]">folder_open</span>
-                        View Case
-                    </Link>
-                    <Link
                         href={route('referrals.index')}
                         className="px-3 min-h-[34px] bg-slate-100 text-[12px] font-bold text-slate-700 border border-slate-300 rounded-md hover:bg-slate-200 transition-colors inline-flex items-center"
                     >
@@ -860,8 +966,8 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
-                <div className="xl:col-span-8 space-y-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-12 gap-4">
+                <div className="lg:col-span-2 xl:col-span-12">
                     <div data-tour="referral-info">
                     <CardSection title="Referral Information" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
                         {isOverdue && (
@@ -886,9 +992,9 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                                 )}
                             </div>
                         )}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 border border-slate-200">
-                            <InfoCell label="Receiving Agency" value={referral.agency?.name ?? 'N/A'} />
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 border border-slate-200">
                             <InfoCell label="Status" value={<StatusBadge status={referral.status} />} />
+                            <InfoCell label="Receiving Agency" value={referral.agency?.name ?? 'N/A'} />
                             <InfoCell label="Associated Case No." value={
                                 <Link href={route('cases.show', referral.case_id)} className="text-blue-900 hover:underline">
                                     {referral.case_file?.case_number ?? 'N/A'}
@@ -898,70 +1004,69 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                             <InfoCell label="Date Referred" value={formatDisplayDateTime(referral.created_at)} />
                             <InfoCell label="Last Updated" value={formatDisplayDateTime(referral.updated_at)} />
                         </div>
-                        <div className="px-3 py-2 border-b border-slate-200">
-                            <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Required Services</p>
-                            <div className="mt-1 space-y-2">
-                                {referral.services?.length > 0 ? (
-                                    referral.services.map((service) => (
-                                        <ServiceCard
-                                            key={service.id}
-                                            service={service}
-                                            referral={referral}
-                                            isAgency={isAgency}
-                                            serviceRequirements={referral.service_requirements?.filter(r => r.service_id === service.id) ?? []}
-                                        />
-                                    ))
-                                ) : (
-                                    <span className="text-[12px] text-slate-500 italic">None selected</span>
+                        <div className="mt-3 border-t border-slate-200 pt-3">
+                            <div className="px-3 py-2 border-b border-slate-200">
+                                <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Required Services</p>
+                                <div className="mt-1 space-y-2">
+                                    {referral.services?.length > 0 ? (
+                                        referral.services.map((service) => (
+                                            <ServiceCard
+                                                key={service.id}
+                                                service={service}
+                                                referral={referral}
+                                                isAgency={isAgency}
+                                                serviceRequirements={referral.service_requirements?.filter(r => r.service_id === service.id) ?? []}
+                                            />
+                                        ))
+                                    ) : (
+                                        <span className="text-[12px] text-slate-500 italic">
+                                            {isAgency
+                                                ? 'No services assigned yet — add the services this referral will apply for.'
+                                                : 'No services assigned yet. The agency focal will assign services for this referral.'}
+                                        </span>
+                                    )}
+                                </div>
+
+                                {isAgency && referral.status !== 'COMPLETED' && (
+                                    <ServiceAddDropdown
+                                        referralId={referral.id}
+                                        selectedIds={new Set((referral.services ?? []).map((s) => s.id))}
+                                        serviceRequirements={serviceRequirements}
+                                    />
                                 )}
                             </div>
-
-                            {isAgency && referral.status !== 'COMPLETED' && (
-                                <ServiceAddDropdown
-                                    referralId={referral.id}
-                                    selectedIds={new Set((referral.services ?? []).map((s) => s.id))}
-                                    serviceRequirements={serviceRequirements}
-                                />
+                            {referral.notes && (
+                                <div className="px-3 py-2 border-b border-slate-200">
+                                    <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Notes</p>
+                                    <p className="mt-1 text-[12px] font-semibold text-slate-700 whitespace-pre-wrap">{referral.notes}</p>
+                                </div>
+                            )}
+                            {referral.decision && (
+                                <div className="px-3 py-2 border-b border-slate-200">
+                                    <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Decision</p>
+                                    <p className="mt-1 text-[12px] font-semibold text-slate-700">{referral.decision}</p>
+                                </div>
+                            )}
+                            {referral.decision_comment && (
+                                <div className="px-3 py-2">
+                                    <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Decision Comment</p>
+                                    <p className="mt-1 text-[12px] font-semibold text-slate-700 whitespace-pre-wrap">{referral.decision_comment}</p>
+                                </div>
                             )}
                         </div>
-                        {referral.notes && (
-                            <div className="px-3 py-2 border-b border-slate-200">
-                                <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Notes</p>
-                                <p className="mt-1 text-[12px] font-semibold text-slate-700 whitespace-pre-wrap">{referral.notes}</p>
-                            </div>
-                        )}
-                        {referral.decision && (
-                            <div className="px-3 py-2 border-b border-slate-200">
-                                <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Decision</p>
-                                <p className="mt-1 text-[12px] font-semibold text-slate-700">{referral.decision}</p>
-                            </div>
-                        )}
-                        {referral.decision_comment && (
-                            <div className="px-3 py-2">
-                                <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Decision Comment</p>
-                                <p className="mt-1 text-[12px] font-semibold text-slate-700 whitespace-pre-wrap">{referral.decision_comment}</p>
-                            </div>
-                        )}
                     </CardSection>
                     </div>
+                </div>
 
-                    <CardSection title="Case Information" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 border border-slate-200">
-                            <InfoCell label="Case Status" value={caseFile?.status ? <StatusBadge status={caseFile.status} /> : 'N/A'} />
-                            <InfoCell label="Tracker Number" value={caseFile?.tracker_number ?? 'N/A'} />
-                            <InfoCell label="Category" value={caseFile?.category?.name ?? caseFile?.category?.title ?? 'N/A'} />
-                            <InfoCell label="Issue / Concern" value={caseFile?.case_issue?.name ?? caseFile?.case_issue?.title ?? 'N/A'} />
-                        </div>
-                    </CardSection>
-
+                <div className="lg:col-span-1 xl:col-span-8 space-y-4">
                     <CardSection title="Client Details" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
                         <div className="space-y-4 p-4">
                             {/* Avatar + Name row */}
                             <div className="flex items-start gap-4 pb-4 border-b border-slate-200">
                                 {client?.avatar_url ? (
-                                    <img src={client.avatar_url} alt="" className="h-14 w-14 rounded-circle object-cover border border-slate-200 shrink-0" onError={(e) => { e.target.style.display = 'none'; }} />
+                                    <img src={client.avatar_url} alt="" className="h-14 w-14 rounded-full object-cover border border-slate-200 shrink-0" onError={(e) => { e.target.style.display = 'none'; }} />
                                 ) : (
-                                    <span className={`h-14 w-14 inline-flex items-center justify-center rounded-circle shrink-0 ${getAvatarColor(formatFullName(client))}`}>
+                                    <span className={`h-14 w-14 inline-flex items-center justify-center rounded-full shrink-0 ${getAvatarColor(formatFullName(client))}`}>
                                         <span className="material-symbols-outlined text-[24px] text-white/60">person</span>
                                     </span>
                                 )}
@@ -992,7 +1097,7 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                                     <p className="text-[8px] font-extrabold uppercase tracking-[0.08em] text-slate-500">Age</p>
                                     <p className="mt-0.5 text-[12px] font-semibold text-slate-700">{client?.date_of_birth ? getClientAge(client.date_of_birth) : 'N/A'}</p>
                                 </div>
-                                <div className="col-span-2">
+                                <div className="col-span-2 sm:col-span-1">
                                     <p className="text-[8px] font-extrabold uppercase tracking-[0.08em] text-slate-500">Vulnerability</p>
                                     <p className="mt-0.5 text-[12px] font-semibold text-slate-700">
                                         {(() => {
@@ -1003,9 +1108,14 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                                         })()}
                                     </p>
                                 </div>
+                                <div className="col-span-2 sm:col-span-1">
+                                    <p className="text-[8px] font-extrabold uppercase tracking-[0.08em] text-slate-500">Address</p>
+                                    <p className="mt-0.5 text-[12px] font-semibold text-slate-700">{formatAddress(clientAddress)}</p>
+                                </div>
                             </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {/* Contact — stacked single column so long emails read clearly */}
+                            <div className="grid grid-cols-1 gap-3">
                                 <div>
                                     <p className="text-[8px] font-extrabold uppercase tracking-[0.08em] text-slate-500">Email</p>
                                     <p className="mt-0.5 text-[12px] font-semibold text-slate-700 break-words">{client?.email || 'N/A'}</p>
@@ -1013,13 +1123,6 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                                 <div>
                                     <p className="text-[8px] font-extrabold uppercase tracking-[0.08em] text-slate-500">Contact Number</p>
                                     <p className="mt-0.5 text-[12px] font-semibold text-slate-700">{client?.contact_number || 'N/A'}</p>
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <div>
-                                    <p className="text-[8px] font-extrabold uppercase tracking-[0.08em] text-slate-500">Address</p>
-                                    <p className="mt-0.5 text-[12px] font-semibold text-slate-700">{formatAddress(clientAddress)}</p>
                                 </div>
                             </div>
 
@@ -1111,41 +1214,15 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                             )}
                         </div>
                     </CardSection>
-                    {/* Service Requirements — live reference from service definitions */}
-                    <div data-tour="referral-documents">
-                        <CardSection title="Service Requirements" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
-                            {serviceRequirements.length > 0 ? (
-                                <div className="space-y-4">
-                                    {serviceRequirements
-                                        .filter((svc) => {
-                                            const selected = (referral.services ?? []).map((s) => s.name);
-                                            return selected.length === 0 || selected.includes(svc.title);
-                                        })
-                                        .map((svc) => (
-                                        <div key={svc.title} className="rounded-md border border-slate-100 bg-slate-50/50 p-3">
-                                            <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-slate-600">{svc.title}</p>
-                                            {svc.requiredDocuments?.length > 0 ? (
-                                                <ul className="mt-2 space-y-1">
-                                                    {svc.requiredDocuments.map((doc, idx) => (
-                                                        <li key={idx} className="flex items-start gap-2 text-[11px] text-slate-600">
-                                                            <span className="material-symbols-outlined text-[13px] text-slate-400 mt-0.5 shrink-0">description</span>
-                                                            <span>{doc}</span>
-                                                        </li>
-                                                    ))}
-                                                </ul>
-                                            ) : (
-                                                <p className="mt-1 text-[11px] text-slate-400 italic">No standard requirements defined.</p>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <p className="text-[12px] text-slate-500 italic">No service requirements defined for this agency.</p>
-                            )}
 
-
-                        </CardSection>
-                    </div>
+                    <CardSection title="Case Information" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 border border-slate-200">
+                            <InfoCell label="Case Status" value={caseFile?.status ? <StatusBadge status={caseFile.status} /> : 'N/A'} />
+                            <InfoCell label="Tracker Number" value={caseFile?.tracker_number ?? 'N/A'} />
+                            <InfoCell label="Category" value={caseFile?.category?.name ?? caseFile?.category?.title ?? 'N/A'} />
+                            <InfoCell label="Issue / Concern" value={caseFile?.case_issue?.name ?? caseFile?.case_issue?.title ?? 'N/A'} />
+                        </div>
+                    </CardSection>
 
                     {/* Uploaded Documents / Attachments */}
                     {(referral.attachments ?? []).filter((att) => !att.is_archived).length > 0 && (
@@ -1274,6 +1351,7 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                         </CardSection>
                     </div>
 
+                    {(isAdmin || isReceivingAgency) && (
                     <ClientRequestsSection
                         referral={referral}
                         requests={clientRequestHistory}
@@ -1282,54 +1360,27 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                         isCaseManager={isCaseManager}
                         isAdmin={isAdmin}
                     />
+                    )}
                 </div>
 
-                <aside className="xl:col-span-4 space-y-4">
+                <aside className="lg:col-span-1 xl:col-span-4 space-y-4">
                     <div data-tour="referral-timeline">
                     <CardSection title="Referral Timeline" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
-                        {timeline.length > 0 ? (
-                            <div className="mt-1 relative pl-4">
-                                <div className="absolute left-[4px] top-1 bottom-1 w-px bg-slate-200" />
-                                <div className="flex flex-col-reverse gap-4">
-                                    {[...timeline].reverse().map((item) => {
-                                        const cfg = TIMELINE_EVENT_CONFIG[item.type] ?? TIMELINE_EVENT_CONFIG.milestone;
-                                        return (
-                                            <div key={item.id} className="relative flex items-start gap-3">
-                                                <div className={`mt-0.5 -ml-[18px] h-5 w-5 overflow-hidden rounded-full border border-white shadow-sm z-10 flex items-center justify-center ${cfg.dot}`}>
-                                                    <span className="material-symbols-outlined text-[12px]">{cfg.icon}</span>
-                                                </div>
-                                                <div className="min-w-0">
-                                                    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                                                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">
-                                                            {formatRelativeTime(item.timestamp)}
-                                                        </span>
-                                                        <span className="text-[9px] text-slate-400">
-                                                            {formatDisplayDateTime(item.timestamp)}
-                                                        </span>
-                                                    </div>
-                                                    <p className="text-[11px] leading-5 font-semibold text-slate-700 mt-0.5">{item.title}</p>
-                                                    {item.description && (
-                                                        <p className="text-[11px] leading-5 text-slate-600">{item.description}</p>
-                                                    )}
-                                                    <p className="mt-0.5 text-[10px] text-slate-400">{item.actor}</p>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        ) : (
-                            <p className="text-[11px] text-slate-500 py-2">No timeline events recorded.</p>
-                        )}
-                        {canAddMilestone && (
-                            <button
-                                type="button"
-                                onClick={() => setShowMilestoneModal(true)}
-                                className="mt-3 h-[28px] w-full px-3 bg-blue-900 text-white text-[10px] font-bold rounded-md border border-blue-900 hover:bg-blue-800 transition-colors"
-                            >
-                                + Add Milestone
-                            </button>
-                        )}
+                        <UnifiedTimeline
+                            items={timeline}
+                            eventConfig={TIMELINE_EVENT_CONFIG}
+                            footerActions={
+                                canAddMilestone ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowMilestoneModal(true)}
+                                        className="mt-3 h-[28px] w-full px-3 bg-blue-900 text-white text-[10px] font-bold rounded-md border border-blue-900 hover:bg-blue-800 transition-colors"
+                                    >
+                                        + Add Milestone
+                                    </button>
+                                ) : null
+                            }
+                        />
                     </CardSection>
                     </div>
 
@@ -1350,7 +1401,7 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                                         <button
                                             key={rel.id}
                                             type="button"
-                                            onClick={() => setSelectedRelatedReferral(rel)}
+                                            onClick={() => openRelatedReferral(rel)}
                                             className="w-full rounded-md border border-slate-200 bg-slate-50/70 px-3 py-2.5 text-left transition-colors hover:border-slate-300 hover:bg-slate-100/70"
                                         >
                                             <div className="flex items-center justify-between gap-2">
@@ -1364,6 +1415,11 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                                                 </div>
                                                 <div className="shrink-0 flex items-center gap-2">
                                                     <StatusBadge status={rel.status} />
+                                                    {rel.can_message && rel.unread_count > 0 && !readThreadIds.has(rel.id) && (
+                                                        <span className="inline-flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-blue-900 px-1 text-[9px] font-bold leading-none text-white">
+                                                            {rel.unread_count}
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </div>
                                             <div className="mt-1 flex items-center justify-between gap-2">
@@ -1487,7 +1543,7 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
             </div>
 
             {pendingDecision && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setPendingDecision(null)}>
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => { setPendingDecision(null); setDecisionReason(''); }}>
                     <div className="w-full max-w-lg rounded-lg border border-slate-200 bg-white shadow-lg owb-modal-animate" onClick={(e) => e.stopPropagation()}>
                         <div className="border-b border-slate-200 px-5 py-4">
                             <h2 className="text-base font-bold text-slate-900">
@@ -1513,6 +1569,22 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                                     </select>
                                 </div>
                             )}
+                            {pendingDecision.mode === 'REJECT' && (
+                                <div>
+                                    <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-600">Reason *</label>
+                                    <select
+                                        value={decisionReason}
+                                        onChange={(e) => setDecisionReason(e.target.value)}
+                                        className="h-10 w-full rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-700 focus:ring-1 focus:ring-blue-700"
+                                    >
+                                        <option value="">Select a reason</option>
+                                        {REJECTION_REASONS.map((reason) => (
+                                            <option key={reason.value} value={reason.value}>{reason.label}</option>
+                                        ))}
+                                    </select>
+                                    <InputError message={errors?.rejection_reason} className="mt-1" />
+                                </div>
+                            )}
                             <div>
                                 <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-600">Remark</label>
                                 <textarea
@@ -1522,26 +1594,32 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                                     placeholder="Enter your decision remark..."
                                     className="w-full rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-700 focus:ring-1 focus:ring-blue-700"
                                 />
+                                {pendingDecision.mode === 'REJECT' && decisionReason === 'OTHER' && (
+                                    <p className="mt-1 text-[11px] text-slate-500">Please explain in at least 10 characters.</p>
+                                )}
+                                <InputError message={errors?.decision_comment} className="mt-1" />
                             </div>
                         </div>
                         <div className="flex justify-end gap-2 border-t border-slate-200 px-5 py-3">
-                            <button onClick={() => { setPendingDecision(null); setDecisionRemark(''); }}
+                            <button onClick={() => { setPendingDecision(null); setDecisionRemark(''); setDecisionReason(''); }}
                                 className="h-9 rounded border border-slate-300 bg-white px-4 text-xs font-bold text-slate-700 hover:bg-slate-50">Cancel</button>
                             <button onClick={() => {
                                 if (decisionSubmitting) return;
                                 const trimmed = decisionRemark.trim();
                                 if (!trimmed) return;
+                                if (pendingDecision.mode === 'REJECT' && (!decisionReason || (decisionReason === 'OTHER' && trimmed.length < 10))) return;
                                 setDecisionSubmitting(true);
                                 router.patch(route('referrals.update-status', pendingDecision.id), {
                                     status: pendingDecision.status,
                                     decision: pendingDecision.mode,
                                     decision_comment: trimmed,
+                                    rejection_reason: pendingDecision.mode === 'REJECT' ? (decisionReason || undefined) : undefined,
                                 }, {
                                     preserveScroll: true,
-                                    onSuccess: () => { setPendingDecision(null); setDecisionRemark(''); },
+                                    onSuccess: () => { setPendingDecision(null); setDecisionRemark(''); setDecisionReason(''); },
                                     onFinish: () => setDecisionSubmitting(false),
                                 });
-                            }} disabled={!decisionRemark.trim() || decisionSubmitting}
+                            }} disabled={!decisionRemark.trim() || decisionSubmitting || (pendingDecision.mode === 'REJECT' && (!decisionReason || (decisionReason === 'OTHER' && decisionRemark.trim().length < 10)))}
                                 className="h-9 rounded bg-blue-900 px-4 text-xs font-bold text-white hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed">
                                 {decisionSubmitting ? 'Saving…' : pendingDecision.mode === 'ACCEPT'
                                     ? `Confirm ${pendingDecision.status === 'FOR_COMPLIANCE' ? 'For Compliance' : 'Accept'}`
@@ -1553,7 +1631,7 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
             )}
 
             {showUpdateStatus && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => { setShowUpdateStatus(false); setUpdateStatusRemark(''); }}>
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => { setShowUpdateStatus(false); setUpdateStatusRemark(''); setUpdateStatusReason(''); }}>
                     <div className="w-full max-w-lg rounded-lg border border-slate-200 bg-white shadow-lg owb-modal-animate" onClick={(e) => e.stopPropagation()}>
                         <div className="border-b border-slate-200 px-5 py-4">
                             <h2 className="text-base font-bold text-slate-900">Update Status</h2>
@@ -1573,6 +1651,22 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                                     <option value="REJECTED">Rejected</option>
                                 </select>
                             </div>
+                            {updateStatusValue === 'REJECTED' && (
+                                <div>
+                                    <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-600">Reason *</label>
+                                    <select
+                                        value={updateStatusReason}
+                                        onChange={(e) => setUpdateStatusReason(e.target.value)}
+                                        className="h-10 w-full rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-700 focus:ring-1 focus:ring-blue-700"
+                                    >
+                                        <option value="">Select a reason</option>
+                                        {REJECTION_REASONS.map((reason) => (
+                                            <option key={reason.value} value={reason.value}>{reason.label}</option>
+                                        ))}
+                                    </select>
+                                    <InputError message={errors?.rejection_reason} className="mt-1" />
+                                </div>
+                            )}
                             <div>
                                 <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-600">Remark</label>
                                 <textarea
@@ -1582,26 +1676,32 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                                     placeholder="Enter a remark for this status update..."
                                     className="w-full rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-700 focus:ring-1 focus:ring-blue-700"
                                 />
+                                {updateStatusValue === 'REJECTED' && updateStatusReason === 'OTHER' && (
+                                    <p className="mt-1 text-[11px] text-slate-500">Please explain in at least 10 characters.</p>
+                                )}
+                                <InputError message={errors?.decision_comment} className="mt-1" />
                             </div>
                         </div>
                         <div className="flex justify-end gap-2 border-t border-slate-200 px-5 py-3">
-                            <button onClick={() => { setShowUpdateStatus(false); setUpdateStatusRemark(''); }}
+                            <button onClick={() => { setShowUpdateStatus(false); setUpdateStatusRemark(''); setUpdateStatusReason(''); }}
                                 className="h-9 rounded border border-slate-300 bg-white px-4 text-xs font-bold text-slate-700 hover:bg-slate-50">Cancel</button>
                             <button onClick={() => {
                                 if (updateStatusSubmitting) return;
                                 const trimmed = updateStatusRemark.trim();
                                 if (!trimmed) return;
+                                if (updateStatusValue === 'REJECTED' && (!updateStatusReason || (updateStatusReason === 'OTHER' && trimmed.length < 10))) return;
                                 setUpdateStatusSubmitting(true);
                                 router.patch(route('referrals.update-status', referral.id), {
                                     status: updateStatusValue,
                                     decision: updateStatusValue === 'REJECTED' ? 'REJECT' : undefined,
                                     decision_comment: trimmed,
+                                    rejection_reason: updateStatusValue === 'REJECTED' ? (updateStatusReason || undefined) : undefined,
                                 }, {
                                     preserveScroll: true,
-                                    onSuccess: () => { setShowUpdateStatus(false); setUpdateStatusRemark(''); },
+                                    onSuccess: () => { setShowUpdateStatus(false); setUpdateStatusRemark(''); setUpdateStatusReason(''); },
                                     onFinish: () => setUpdateStatusSubmitting(false),
                                 });
-                            }} disabled={!updateStatusRemark.trim() || updateStatusSubmitting}
+                            }} disabled={!updateStatusRemark.trim() || updateStatusSubmitting || (updateStatusValue === 'REJECTED' && (!updateStatusReason || (updateStatusReason === 'OTHER' && updateStatusRemark.trim().length < 10)))}
                                 className="h-9 rounded bg-blue-900 px-4 text-xs font-bold text-white hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed">
                                 Update Status
                             </button>
@@ -1696,7 +1796,7 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                 }}
             />
             {/* Related Referral Detail Modal */}
-            <Modal show={selectedRelatedReferral !== null} maxWidth="lg" onClose={() => setSelectedRelatedReferral(null)}>
+            <Modal show={selectedRelatedReferral !== null} maxWidth="lg" onClose={closeRelatedReferral}>
                 {selectedRelatedReferral && (
                     <div className="bg-white">
                         <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-5 py-4">
@@ -1706,6 +1806,42 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                             </div>
                             <StatusBadge status={selectedRelatedReferral.status} />
                         </div>
+                        <div className="flex items-center gap-1 border-b border-slate-200 px-5">
+                            <button
+                                type="button"
+                                onClick={() => setRelatedTab('details')}
+                                className={`border-b-2 px-3 py-2 text-[10px] font-bold transition-colors ${
+                                    relatedTab === 'details'
+                                        ? 'border-blue-900 text-blue-900'
+                                        : 'border-transparent text-slate-500 hover:text-slate-700'
+                                }`}
+                            >
+                                Details
+                            </button>
+                            {selectedRelatedReferral.can_message && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setRelatedTab('messages');
+                                    if (threadMessages.length === 0) loadReferralThread(selectedRelatedReferral);
+                                }}
+                                className={`border-b-2 px-3 py-2 text-[10px] font-bold transition-colors ${
+                                    relatedTab === 'messages'
+                                        ? 'border-blue-900 text-blue-900'
+                                        : 'border-transparent text-slate-500 hover:text-slate-700'
+                                }`}
+                            >
+                                Messages
+                                {selectedRelatedReferral.unread_count > 0 && !readThreadIds.has(selectedRelatedReferral.id) && (
+                                    <span className="ml-1.5 inline-flex h-[14px] min-w-[14px] items-center justify-center rounded-full bg-blue-900 px-1 text-[8px] font-bold leading-none text-white">
+                                        {selectedRelatedReferral.unread_count}
+                                    </span>
+                                )}
+                            </button>
+                            )}
+                        </div>
+                        {relatedTab === 'details' ? (
+                        <>
                         <div className="px-5 py-4 space-y-4 max-h-[60vh] overflow-y-auto">
                             {/* Services & Requirements */}
                             {selectedRelatedReferral.services?.length > 0 && (
@@ -1787,12 +1923,74 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                             )}
                             <button
                                 type="button"
-                                onClick={() => setSelectedRelatedReferral(null)}
+                                onClick={closeRelatedReferral}
                                 className="h-[30px] px-4 border border-slate-300 bg-white text-slate-700 text-[10px] font-bold rounded-md hover:bg-slate-50"
                             >
                                 Close
                             </button>
                         </div>
+                        </>
+                        ) : (
+                        <div className="flex max-h-[60vh] flex-col">
+                            <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4">
+                                {threadLoading ? (
+                                    <p className="py-2 text-center text-[11px] italic text-slate-400">Loading messages…</p>
+                                ) : threadMessages.length === 0 ? (
+                                    <p className="py-2 text-center text-[11px] italic text-slate-400">No messages yet. Start the conversation below.</p>
+                                ) : (
+                                    threadMessages.map((msg) => {
+                                        const own = msg.sender?.id === auth.user.id;
+                                        return (
+                                            <div
+                                                key={msg.id}
+                                                className={`max-w-[85%] rounded-lg border px-3 py-2 ${
+                                                    own
+                                                        ? 'ml-auto border-blue-900/20 bg-blue-50'
+                                                        : 'border-slate-200 bg-white'
+                                                }`}
+                                            >
+                                                <div className={`flex items-center gap-2 ${own ? 'justify-end' : 'justify-between'}`}>
+                                                    <p className="text-[9px] font-extrabold uppercase tracking-[0.08em] text-slate-500">
+                                                        {msg.sender?.name ?? 'Unknown'}
+                                                        {msg.sender?.agency?.name && msg.sender.agency.name !== selectedRelatedReferral.agency?.name && (
+                                                            <span className="mx-1 font-semibold normal-case text-slate-400">· {msg.sender.agency.name}</span>
+                                                        )}
+                                                    </p>
+                                                    <p className="text-[9px] text-slate-400">{formatDisplayDateTime(msg.created_at)}</p>
+                                                </div>
+                                                <p className={`mt-1 whitespace-pre-wrap break-words text-[11px] ${own ? 'text-blue-950' : 'text-slate-700'}`}>{msg.body}</p>
+                                            </div>
+                                        );
+                                    })
+                                )}
+                                <div ref={threadListEndRef} />
+                            </div>
+                            {threadError && <p className="px-5 pb-1 text-[10px] font-medium text-red-600">{threadError}</p>}
+                            <form
+                                onSubmit={(e) => {
+                                    e.preventDefault();
+                                    sendThreadMessage();
+                                }}
+                                className="flex items-end gap-2 border-t border-slate-200 px-5 py-3"
+                            >
+                                <textarea
+                                    value={threadDraft}
+                                    onChange={(e) => setThreadDraft(e.target.value)}
+                                    rows={2}
+                                    disabled={threadSending}
+                                    placeholder={`Message to ${selectedRelatedReferral.agency?.name ?? 'agency'}…`}
+                                    className="flex-1 resize-none rounded-md border border-slate-200 bg-white px-3 py-2 text-[11px] text-slate-700 outline-none transition-colors focus:border-blue-900 focus:ring-1 focus:ring-blue-900 disabled:opacity-60"
+                                />
+                                <button
+                                    type="submit"
+                                    disabled={threadSending || !threadDraft.trim()}
+                                    className="inline-flex h-[34px] items-center rounded-md border border-blue-900 bg-blue-900 px-4 text-[10px] font-bold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                    {threadSending ? 'Sending…' : 'Send'}
+                                </button>
+                            </form>
+                        </div>
+                        )}
                     </div>
                 )}
             </Modal>

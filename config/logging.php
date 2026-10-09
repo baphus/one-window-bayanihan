@@ -18,7 +18,7 @@ return [
     |
     */
 
-    'default' => env('LOG_CHANNEL', 'stack'),
+    'default' => env('LOG_CHANNEL', 'stack') ?: 'stack',
 
     /*
     |--------------------------------------------------------------------------
@@ -54,7 +54,7 @@ return [
 
         'stack' => [
             'driver' => 'stack',
-            'channels' => explode(',', (string) env('LOG_STACK', 'single')),
+            'channels' => array_filter(array_map('trim', explode(',', (string) (env('LOG_STACK', 'single') ?: 'single')))) ?: ['single'],
             'ignore_exceptions' => false,
         ],
 

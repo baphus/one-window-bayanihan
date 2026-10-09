@@ -77,4 +77,35 @@ class ReportsFiltersTest extends TestCase
         $response->assertOk();
         $response->assertHeader('X-Inertia', 'true');
     }
+
+    public function test_reports_page_exposes_the_new_aggregate_props(): void
+    {
+        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $inertiaRequest = Request::create(route('reports.index'), 'GET');
+        $version = app(HandleInertiaRequests::class)->version($inertiaRequest);
+
+        $keys = implode(',', [
+            'rejectionReasonDistribution',
+            'caseSourceDistribution',
+            'closedCasesOverTime',
+            'reopenedStats',
+            'caseEventActorDistribution',
+            'agencyFirstResponse',
+            'clientRequestTypeDistribution',
+        ]);
+
+        $response = $this->actingAs($user)
+            ->withHeaders([
+                'X-Inertia' => 'true',
+                'X-Inertia-Version' => $version ?? '',
+                'X-Inertia-Partial-Component' => 'Reports/Index',
+                'X-Inertia-Partial-Data' => $keys,
+            ])->get(route('reports.index'));
+
+        $response->assertOk();
+        $props = $response->json('props');
+        foreach (explode(',', $keys) as $key) {
+            $this->assertArrayHasKey($key, $props, "reports page must expose {$key}");
+        }
+    }
 }

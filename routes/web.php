@@ -23,6 +23,7 @@ use App\Http\Controllers\ChatbotController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\HomeController;
 use App\Http\Controllers\IntakeController;
 use App\Http\Controllers\IntakeRegistrationController;
 use App\Http\Controllers\MfaController;
@@ -34,6 +35,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PublicSurveyController;
 use App\Http\Controllers\ReferralClientRequestController;
 use App\Http\Controllers\ReferralController;
+use App\Http\Controllers\ReferralMessageController;
 use App\Http\Controllers\ReportsController;
 use App\Http\Controllers\StakeholderController;
 use App\Http\Controllers\SurveyFormController;
@@ -42,7 +44,6 @@ use App\Http\Controllers\SystemSettingsController;
 use App\Http\Controllers\TrackController;
 use App\Http\Controllers\TrackRegistrationController;
 use App\Models\Agency;
-use Illuminate\Foundation\Application;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
@@ -56,15 +57,7 @@ Route::post('/survey/{token}', [PublicSurveyController::class, 'submit'])
     ->name('survey.public.submit')
     ->middleware('throttle:survey-submit');
 
-Route::get('/', function () {
-    return Inertia::render('Welcome', [
-        'canLogin' => Route::has('login'),
-        'canRegister' => Route::has('register'),
-        'laravelVersion' => Application::VERSION,
-        'phpVersion' => PHP_VERSION,
-        'agencies' => Agency::where('is_active', true)->get()->toArray(),
-    ]);
-});
+Route::get('/', [HomeController::class, 'index'])->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
@@ -100,17 +93,26 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::post('/referrals/{referral}/comments', [ReferralController::class, 'addComment'])->name('referrals.comments.store');
     Route::post('/referrals/{referral}/comments/{comment}/reply', [ReferralController::class, 'replyToComment'])->name('referrals.comments.reply');
+
+    // Agency message thread ("Other Agencies on This Case" section)
+    Route::get('/api/referrals/{referral}/messages', [ReferralMessageController::class, 'index'])->name('api.referrals.messages.index')->middleware('throttle:api-global');
+    Route::post('/referrals/{referral}/messages', [ReferralMessageController::class, 'store'])->name('referrals.messages.store');
+    Route::post('/referrals/{referral}/messages/read', [ReferralMessageController::class, 'markRead'])->name('referrals.messages.read');
     Route::post('/referrals/{referral}/attachments', [ReferralController::class, 'addAttachment'])->name('referrals.attachments.store');
     Route::post('/referrals/{referral}/attachments/{attachment}/replace', [ReferralController::class, 'replaceAttachment'])->name('referrals.attachments.replace');
     Route::post('/referrals/{referral}/attachments/{attachment}/remove', [ReferralController::class, 'deleteAttachment'])->name('referrals.attachments.delete');
     Route::get('/referrals/{referral}/attachments/{attachment}/download', [ReferralController::class, 'downloadAttachment'])->name('referrals.attachments.download');
     Route::get('/referrals/{referral}/attachments/{versionGroupId}/versions', [ReferralController::class, 'getAttachmentVersions'])->name('referrals.attachments.versions');
 
-    Route::get('/api/referrals/{referral}/audit-logs', [AuditLogController::class, 'referralAuditLogs'])->name('api.referrals.audit-logs');
+    Route::get('/api/referrals/{referral}/audit-logs', [AuditLogController::class, 'referralAuditLogs'])->name('api.referrals.audit-logs')->middleware('throttle:api-global');
 
     Route::get('/reports', [ReportsController::class, 'index'])->name('reports.index')->middleware('throttle:reports-view');
-    Route::get('/reports/export-pdf', [ReportsController::class, 'exportPdf'])->name('reports.export-pdf');
-    Route::get('/reports/export-excel', [ReportsController::class, 'exportExcel'])->name('reports.export-excel');
+    // The exports are the expensive half of this controller (DomPDF + GD chart
+    // images, PhpSpreadsheet) and php-fpm, the queue worker and scheduler share
+    // one container, so they get their own limit rather than relying on the
+    // generic web throttle. The index above keeps its own budget.
+    Route::get('/reports/export-pdf', [ReportsController::class, 'exportPdf'])->name('reports.export-pdf')->middleware('throttle:reports-export');
+    Route::get('/reports/export-excel', [ReportsController::class, 'exportExcel'])->name('reports.export-excel')->middleware('throttle:reports-export');
 
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index')->withoutMiddleware('verified');
     Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount'])->name('notifications.unread-count')->withoutMiddleware('verified');
@@ -153,7 +155,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // here so Agency Focal never sees an export surface.
         Route::get('/audit-logs/export', [AuditLogController::class, 'export'])->name('audit-logs.export');
 
-        Route::get('/api/cases/{case}/audit-logs', [AuditLogController::class, 'caseAuditLogs'])->name('api.cases.audit-logs');
+        Route::get('/api/cases/{case}/audit-logs', [AuditLogController::class, 'caseAuditLogs'])->name('api.cases.audit-logs')->middleware('throttle:api-global');
     });
 
     // Activity/Audit log viewer — CASE_MANAGER + ADMIN + AGENCY. Each role's
@@ -204,7 +206,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('/services/{service}', [AgencyServiceController::class, 'destroy'])->name('agency.services.destroy');
     });
 
-    Route::middleware('role:CASE_MANAGER,ADMIN,AGENCY')->group(function () {
+    Route::middleware('role:ADMIN,AGENCY')->group(function () {
         Route::get('/referrals/{referral}/client-requests', [ReferralClientRequestController::class, 'index'])->name('referrals.client-requests.index');
         Route::get('/referrals/{referral}/client-requests/attachments/{attachment}/download', [ReferralClientRequestController::class, 'downloadAgencyAttachment'])->name('referrals.client-requests.attachments.download');
         Route::post('/client-access-links/{accessLink}/revoke', [ReferralClientRequestController::class, 'revoke'])->name('referrals.client-requests.access.revoke');
@@ -228,23 +230,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
     });
 
     // Agency detail — accessible by ADMIN and CASE_MANAGER (read-only for non-ADMIN)
-    Route::middleware(['role:ADMIN,CASE_MANAGER', 'ip.whitelist'])
+    Route::middleware('role:ADMIN,CASE_MANAGER')
         ->prefix('admin')->name('admin.')
         ->get('/agencies/{agency}', [AdminAgencyController::class, 'show'])
         ->name('agencies.show');
 
-    // Onboarding routes
-    Route::get('/onboarding/state', [OnboardingController::class, 'state'])->name('onboarding.state');
-    Route::post('/onboarding/skip', [OnboardingController::class, 'skip'])->name('onboarding.skip');
-    Route::post('/onboarding/complete', [OnboardingController::class, 'complete'])->name('onboarding.complete');
-    Route::post('/onboarding/replay', [OnboardingController::class, 'replay'])->name('onboarding.replay');
-    Route::post('/onboarding/step', [OnboardingController::class, 'updateStep'])->name('onboarding.step');
-    Route::post('/onboarding/guide-seen', [OnboardingController::class, 'markGuideSeen'])->name('onboarding.guide-seen');
+    // Onboarding routes (getting-started checklist + profile prompt only —
+    // the guided tour is retired)
     Route::post('/onboarding/checklist/mark', [OnboardingController::class, 'markChecklistItem'])->name('onboarding.checklist.mark');
     Route::post('/onboarding/checklist/dismiss', [OnboardingController::class, 'dismissChecklist'])->name('onboarding.checklist.dismiss');
     Route::post('/onboarding/skip-profile', [OnboardingController::class, 'skipProfile'])->name('onboarding.skip-profile');
 
-    Route::prefix('admin')->name('admin.')->middleware(['role:ADMIN', 'ip.whitelist'])->group(function () {
+    Route::prefix('admin')->name('admin.')->middleware('role:ADMIN')->group(function () {
         Route::get('/agencies', [AdminAgencyController::class, 'index'])->name('agencies.index');
         Route::post('/agencies', [AdminAgencyController::class, 'store'])->name('agencies.store');
         Route::patch('/agencies/{agency}', [AdminAgencyController::class, 'update'])->name('agencies.update');
@@ -345,8 +342,6 @@ Route::get('/partners/{agency}', function (string $agency) {
         'agency' => $agency->toArray(),
         'canLogin' => Route::has('login'),
         'canRegister' => Route::has('register'),
-        'laravelVersion' => Application::VERSION,
-        'phpVersion' => PHP_VERSION,
     ]);
 })->name('partners.show');
 
@@ -369,8 +364,8 @@ Route::get('/terms', function () {
 // Public OFW self-filing intake
 Route::get('/intake', [IntakeController::class, 'index'])->name('intake.index');
 // Each step gets its own named limiter. With inline limits these three shared a
-// single per-visitor counter with each other AND with the address lookups the
-// wizard calls, so submission was rejected at 429 before it was ever attempted.
+// single per-visitor counter, so submission was rejected at 429 before it was
+// ever attempted.
 Route::post('/intake/verify-email', [IntakeController::class, 'verifyEmail'])
     ->name('intake.verify-email')
     ->middleware(['turnstile', 'throttle:intake-otp']);
@@ -435,8 +430,9 @@ Route::prefix('help')->name('helpdesk.')->group(function () {
 // API routes (authenticated via web session) — in web.php for session middleware support
 Route::middleware(['auth', 'verified', 'throttle:api-global'])->prefix('api')->group(function () {
     // Client selection for case creation form
-    Route::get('/clients', [ClientSelectController::class, 'search']);
-    Route::get('/clients/{client}', [ClientSelectController::class, 'show']);
+    Route::get('/clients', [ClientSelectController::class, 'search'])->name('api.clients.index');
+    Route::get('/clients/email-check', [ClientSelectController::class, 'checkEmail'])->name('api.clients.email-check');
+    Route::get('/clients/{client}', [ClientSelectController::class, 'show'])->name('api.clients.show');
 
 });
 
@@ -449,6 +445,7 @@ Route::middleware(['auth', 'role:OFW'])->prefix('my-cases')->name('ofw.')->group
     Route::get('/', [OfwDashboardController::class, 'index'])->name('dashboard');
     Route::get('/notifications', [OfwDashboardController::class, 'notifications'])->name('notifications');
     Route::patch('/notifications/{id}/read', [OfwDashboardController::class, 'markNotificationAsRead'])->name('notifications.mark-as-read');
+    Route::get('/{case}/agencies/{referral}/milestones', [OfwDashboardController::class, 'agencyMilestones'])->name('case.milestones');
     Route::get('/profile', [OfwProfileController::class, 'edit'])->name('profile.edit');
     Route::put('/profile', [OfwProfileController::class, 'update'])->name('profile.update');
     Route::get('/{id}', [OfwDashboardController::class, 'show'])->name('case.show');

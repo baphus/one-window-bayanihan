@@ -3,66 +3,31 @@
 namespace Tests\Unit;
 
 use App\Helpers\SecurityHelper;
-use stdClass;
 use Tests\TestCase;
+
+class ExplosiveSerializedPayload
+{
+    public static bool $woke = false;
+
+    public function __wakeup(): void
+    {
+        self::$woke = true;
+    }
+}
 
 class SecurityHelperTest extends TestCase
 {
-    public function test_returns_object_for_allowed_class(): void
+    public function test_inert_deserialization_does_not_invoke_magic_methods(): void
     {
-        $payload = serialize(new stdClass);
+        ExplosiveSerializedPayload::$woke = false;
 
-        $result = SecurityHelper::safeUnserialize($payload, [stdClass::class]);
+        $result = SecurityHelper::unserializeWithoutClasses(serialize(new ExplosiveSerializedPayload));
 
-        $this->assertInstanceOf(stdClass::class, $result);
-    }
-
-    public function test_returns_null_for_disallowed_class(): void
-    {
-        $payload = serialize(new stdClass);
-
-        $result = SecurityHelper::safeUnserialize($payload, [self::class]);
-
-        $this->assertNull($result);
-    }
-
-    public function test_returns_null_for_empty_payload(): void
-    {
-        $result = SecurityHelper::safeUnserialize('', [stdClass::class]);
-
-        $this->assertNull($result);
-    }
-
-    public function test_returns_null_for_invalid_payload(): void
-    {
-        $result = SecurityHelper::safeUnserialize('not a serialized value', [stdClass::class]);
-
-        $this->assertNull($result);
-    }
-
-    public function test_throws_exception_for_empty_allowed_classes(): void
-    {
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('safeUnserialize: at least one allowed class must be specified');
-
-        SecurityHelper::safeUnserialize(serialize(new stdClass), []);
-    }
-
-    public function test_matches_any_class_in_allowed_list(): void
-    {
-        $payload = serialize(new stdClass);
-
-        $result = SecurityHelper::safeUnserialize($payload, [self::class, stdClass::class]);
-
-        $this->assertInstanceOf(stdClass::class, $result);
-    }
-
-    public function test_rejected_payload_triggers_log_and_returns_null(): void
-    {
-        $payload = serialize(new stdClass);
-
-        $result = SecurityHelper::safeUnserialize($payload, [self::class]);
-
-        $this->assertNull($result);
+        $this->assertIsObject($result);
+        $this->assertFalse(ExplosiveSerializedPayload::$woke);
+        $this->assertSame(
+            ExplosiveSerializedPayload::class,
+            SecurityHelper::serializedObjectProperties($result)['__PHP_Incomplete_Class_Name']
+        );
     }
 }

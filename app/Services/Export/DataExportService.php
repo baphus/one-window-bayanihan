@@ -155,6 +155,14 @@ class DataExportService
 
     /**
      * Generate a multi-sheet XLSX to a local file path.
+     *
+     * ponytail: the whole workbook is built in memory before it is written, so
+     * peak memory is roughly the database size, not the row count. The job that
+     * calls this is queued and time-boxed (GenerateSystemReport, 300s) and is
+     * now unique per document, so it will not run twice concurrently. Streaming
+     * rows into the writer needs a different write loop (cell-by-cell rather
+     * than one populated sheet) — do that when the admin export actually OOMs,
+     * not before.
      */
     public function generateMultiSheetToFile(
         array $sheets,

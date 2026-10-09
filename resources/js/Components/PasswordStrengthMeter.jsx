@@ -1,43 +1,5 @@
 import { useMemo } from 'react';
-
-function checkRules(value, rules) {
-  const checks = [];
-
-  if (rules?.min_length) {
-    checks.push({
-      label: `At least ${rules.min_length} characters`,
-      met: value.length >= rules.min_length,
-    });
-  }
-  if (rules?.require_mixed_case) {
-    checks.push({
-      label: 'Uppercase letter',
-      hint: '(A-Z)',
-      met: /[A-Z]/.test(value),
-    });
-    checks.push({
-      label: 'Lowercase letter',
-      hint: '(a-z)',
-      met: /[a-z]/.test(value),
-    });
-  }
-  if (rules?.require_numbers) {
-    checks.push({
-      label: 'Number',
-      hint: '(0-9)',
-      met: /[0-9]/.test(value),
-    });
-  }
-  if (rules?.require_symbols) {
-    checks.push({
-      label: 'Symbol',
-      hint: '(!@#)',
-      met: /[^a-zA-Z0-9]/.test(value),
-    });
-  }
-
-  return checks;
-}
+import { checkPasswordRules } from '@/utils/createPasswordSchema';
 
 function getStrength(checks, value, minLength) {
   if (!value) return { label: '', percent: 0, color: 'bg-gray-200' };
@@ -61,7 +23,7 @@ function getStrength(checks, value, minLength) {
 }
 
 export default function PasswordStrengthMeter({ value = '', rules, confirmation, showAll = false }) {
-  const checks = useMemo(() => checkRules(value, rules), [value, rules]);
+  const checks = useMemo(() => checkPasswordRules(value, rules), [value, rules]);
 
   const strength = useMemo(
     () => getStrength(checks, value, rules?.min_length),
@@ -90,8 +52,8 @@ export default function PasswordStrengthMeter({ value = '', rules, confirmation,
       {/* Rule checklist */}
       {showChecks && (
         <ul className="space-y-0.5">
-          {checks.map((check, i) => (
-            <li key={i} className="flex items-center gap-1.5 text-xs">
+          {checks.map((check) => (
+            <li key={check.key} className="flex items-center gap-1.5 text-xs">
               <span
                 className={`material-symbols-outlined text-[14px] ${
                   check.met ? 'text-green-600' : 'text-gray-400'

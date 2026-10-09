@@ -1,5 +1,6 @@
 import { Head, Link } from '@inertiajs/react';
 import GuestLayout from '@/Layouts/GuestLayout';
+import safeRoute from '@/utils/safeRoute';
 
 export default function ServerError({ incidentId }) {
     return (
@@ -12,7 +13,7 @@ export default function ServerError({ incidentId }) {
                     An unexpected error occurred. Please try again later.
                 </p>
                 <Link
-                    href="/"
+                    href={safeRoute('home', undefined, '/')}
                     className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                 >
                     Go back home

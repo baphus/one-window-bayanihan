@@ -2,26 +2,19 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\AuditAction;
-use App\Enums\AuditModule;
 use App\Helpers\CacheHelper;
-use App\Mail\EmailChangedNotification;
-use App\Mail\UserInviteMail;
+use App\Http\Controllers\Concerns\ResolvesPerPage;
+use App\Http\Requests\InviteAdminUserRequest;
+use App\Http\Requests\StoreAdminUserRequest;
+use App\Http\Requests\UpdateAdminUserRequest;
 use App\Models\Agency;
-use App\Models\AuditLog;
-use App\Models\SystemSetting;
 use App\Models\User;
 use App\Models\UserInvite;
-use App\Services\AuditCategory;
-use App\Services\DefaultAgencyService;
 use App\Services\OtpService;
-use App\Services\SecurityAuditLogger;
+use App\Services\UserService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
@@ -29,8 +22,11 @@ use Inertia\Inertia;
 
 class AdminUserController extends Controller
 {
+    use ResolvesPerPage;
+
     public function __construct(
         private readonly OtpService $otpService,
+        private readonly UserService $users,
     ) {}
 
     public function index(Request $request)
@@ -77,7 +73,7 @@ class AdminUserController extends Controller
             }
         }
 
-        $perPage = min((int) ($request->per_page ?? 15), 100);
+        $perPage = $this->perPage($request, 15);
         $users = $query->orderBy('created_at', 'desc')->paginate($perPage);
 
         $agencies = Agency::where('is_active', true)
@@ -113,80 +109,25 @@ class AdminUserController extends Controller
         return Inertia::render('Admin/User/Show', ['user' => $user]);
     }
 
-    public function store(Request $request)
+    public function store(StoreAdminUserRequest $request)
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email',
-            'password' => ['required', 'string', Password::min(8)->mixedCase()->numbers()->symbols()],
-            'role' => 'required|in:ADMIN,AGENCY,CASE_MANAGER',
-            'agcy_id' => 'nullable|exists:agencies,id',
-        ]);
+        $validated = $request->validated();
 
-        $agcyId = $validated['agcy_id'] ?? null;
-        if (! $agcyId && $validated['role'] === 'AGENCY') {
-            $agcyId = app(DefaultAgencyService::class)->getDefaultAgency()?->id;
-        }
-
-        $user = User::create([
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'password' => Hash::make($validated['password']),
-            'role' => $validated['role'],
-            'agcy_id' => $agcyId,
-            'email_verified_at' => now(),
-            'is_active' => true,
-        ]);
-
-        AuditLog::create([
-            'action' => AuditAction::CREATE->value,
-            'module' => AuditModule::USER->value,
-            'entity_id' => $user->id,
-            'new_value' => ['name' => $user->name, 'email' => $user->email, 'role' => $user->role],
-            'description' => 'User created directly by administrator',
-            'user_id' => $request->user()->id,
-            'timestamp' => now(),
-        ]);
+        $this->users->createUser($validated, $request->user()->id);
 
         return back()->with('success', 'User created successfully.');
     }
 
-    public function invite(Request $request)
+    public function invite(InviteAdminUserRequest $request)
     {
-        $validated = $request->validate([
-            'email' => 'required|email|unique:users,email',
-            'role' => 'required|in:ADMIN,AGENCY,CASE_MANAGER',
-            'agcy_id' => 'nullable|exists:agencies,id',
-        ]);
+        $validated = $request->validated();
 
         // Also check for existing pending invite
-        $existingInvite = UserInvite::where('email', $validated['email'])
-            ->whereNull('consumed_at')
-            ->whereNull('cancelled_at')
-            ->where('expires_at', '>', now())
-            ->first();
-
-        if ($existingInvite) {
+        if ($this->users->pendingInviteFor($validated['email'])) {
             return back()->with('warning', 'An invite was already sent to this email. Use the Resend action to send again.');
         }
 
-        $agcyId = $validated['agcy_id'] ?? null;
-        if (! $agcyId && $validated['role'] === 'AGENCY') {
-            $agcyId = app(DefaultAgencyService::class)->getDefaultAgency()?->id;
-        }
-
-        $token = Str::random(64);
-
-        $invite = UserInvite::create([
-            'email' => $validated['email'],
-            'role' => $validated['role'],
-            'agcy_id' => $agcyId,
-            'token' => $token,
-            'expires_at' => now()->addDays(7),
-            'created_by' => $request->user()->id,
-        ]);
-
-        Mail::to($validated['email'])->queue(new UserInviteMail($invite, $token));
+        $this->users->inviteUser($validated, $request->user()->id);
 
         return back()->with('success', 'Invitation sent to '.$validated['email']);
     }
@@ -200,14 +141,7 @@ class AdminUserController extends Controller
         }
 
         // Refresh token and expiry
-        $invite->update([
-            'token' => Str::random(64),
-            'expires_at' => now()->addDays(7),
-            'consumed_at' => null,
-            'cancelled_at' => null,
-        ]);
-
-        Mail::to($invite->email)->queue(new UserInviteMail($invite, $invite->token));
+        $this->users->resendInvite($invite);
 
         return back()->with('success', 'Invitation resent to '.$invite->email);
     }
@@ -220,67 +154,25 @@ class AdminUserController extends Controller
             return back()->with('error', 'This invite has already been used.');
         }
 
-        $invite->update(['cancelled_at' => now()]);
+        $this->users->cancelInvite($invite);
 
         return back()->with('success', 'Invitation cancelled.');
     }
 
-    public function update(Request $request, string $id)
+    public function update(UpdateAdminUserRequest $request, string $id)
     {
         $user = User::findOrFail($id);
 
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email,'.$id,
-            'role' => 'required|in:ADMIN,AGENCY,CASE_MANAGER',
-            'agcy_id' => 'nullable|exists:agencies,id',
-            'contact_number' => 'nullable|string',
-            'position' => 'nullable|string|max:255',
-            'department' => 'nullable|string|max:255',
-            'office_location' => 'nullable|string|max:500',
-            'bio' => 'nullable|string|max:2000',
-            'emergency_contact' => 'nullable|json',
-            'is_active' => 'boolean',
-        ]);
+        $validated = $request->validated();
 
         $updateData = $validated;
 
         if ($request->filled('password')) {
             $request->validate(['password' => ['string', Password::min(8)->mixedCase()->numbers()->symbols()]]);
-            $updateData['password'] = Hash::make($request->input('password'));
+            $updateData['password'] = $request->input('password');
         }
 
-        $emailChanged = $user->email !== $validated['email'];
-
-        if ($emailChanged) {
-            // Admin bypass: admins can update email directly without OTP.
-            $oldEmail = $user->email;
-            $user->email_verified_at = now();
-            $user->email = $validated['email'];
-
-            $user->save();
-
-            Mail::to($oldEmail)->queue(
-                new EmailChangedNotification($oldEmail, $validated['email'], $user->name)
-            );
-
-            AuditLog::create([
-                'action' => AuditAction::UPDATE->value,
-                'module' => AuditModule::USER->value,
-                // Account-credential change: must appear in the Security view
-                // (matches EmailChangeController).
-                'category' => AuditCategory::SECURITY,
-                'entity_id' => $user->id,
-                'old_value' => ['email' => $oldEmail],
-                'new_value' => ['email' => $validated['email']],
-                'description' => 'Email changed from '.$oldEmail.' to '.$validated['email'].' by administrator',
-                'user_id' => $request->user()->id,
-                'timestamp' => now(),
-            ]);
-        }
-
-        unset($updateData['email']);
-        $user->update($updateData);
+        $this->users->updateUser($user, $updateData, $request->user()->id);
 
         return redirect()->route('admin.users.index')
             ->with('success', 'User updated successfully.');
@@ -308,7 +200,6 @@ class AdminUserController extends Controller
         return back()->with([
             'email_change_step' => 'otp',
             'email_change_hint' => $this->maskEmail($newEmail),
-            'email_change_debug_otp' => (SystemSetting::getValue('debug_otp_enabled', false) && app()->environment('local', 'staging', 'testing')) ? $otp : null,
         ]);
     }
 
@@ -375,23 +266,14 @@ class AdminUserController extends Controller
 
         // If already inactive/deleted, permanently remove from database
         if (! $user->is_active || $user->is_deleted) {
-            // Kill sessions
-            DB::table('sessions')->where('user_id', $user->id)->delete();
-
-            // Force delete from database
-            $user->forceDelete();
+            $this->users->forceDelete($user);
 
             return redirect()->route('admin.users.index')
                 ->with('success', 'User permanently deleted.');
         }
 
         // Otherwise, soft-deactivate (flag-based soft delete)
-        $user->is_active = false;
-        $user->is_deleted = true;
-        $user->save();
-
-        // Kill all active sessions for the deactivated user
-        DB::table('sessions')->where('user_id', $user->id)->delete();
+        $this->users->deactivate($user);
 
         return redirect()->route('admin.users.index')
             ->with('success', 'User deactivated successfully.');
@@ -406,18 +288,7 @@ class AdminUserController extends Controller
                 ->with('error', 'User is already active.');
         }
 
-        $user->is_active = true;
-        $user->is_deleted = false;
-        $user->deleted_at = null;
-        $user->save();
-
-        AuditLog::create([
-            'action' => AuditAction::UPDATE->value,
-            'module' => AuditModule::USER->value,
-            'entity_id' => $user->id,
-            'user_id' => auth()->id(),
-            'timestamp' => now(),
-        ]);
+        $this->users->reactivate($user, auth()->id());
 
         return redirect()->route('admin.users.index')
             ->with('success', 'User reactivated successfully.');
@@ -429,8 +300,7 @@ class AdminUserController extends Controller
             return redirect()->back()->with('error', 'Cannot verify inactive or deleted users.');
         }
 
-        $user->email_verified_at = $user->email_verified_at ? null : now();
-        $user->save();
+        $this->users->toggleVerification($user);
 
         return redirect()->back()->with('success', 'User verification status updated.');
     }
@@ -449,15 +319,7 @@ class AdminUserController extends Controller
 
         $admin = $request->user();
 
-        $user->mfa_secret = null;
-        $user->mfa_recovery_codes = null;
-        $user->mfa_enabled_at = null;
-        $user->save();
-
-        // Kill active sessions for the target user to force re-login
-        DB::table('sessions')->where('user_id', $user->id)->delete();
-
-        SecurityAuditLogger::log('mfa', sprintf('%s admin-reset MFA for %s', $admin->name, $user->name));
+        $this->users->resetMfa($user, $admin);
 
         return back()->with('success', 'MFA has been reset for this user.');
     }

@@ -3,7 +3,7 @@
 > **Version:** 2.1.0 | **Updated:** 2026-07-27 | **Verified against:** actual source code
 > **Supersedes:** `PROJECT_RULES.md` (v2.0.0). Architecture decisions fix *technologies*;
 > hosting and managed-service providers are deployment choices, not architecture —
-> see `DEPLOYMENT_GUIDE_v3.0.0.md` §1.
+> see `DEPLOYMENT_GUIDE_v3.1.0.md` §1.
 
 ---
 
@@ -238,8 +238,8 @@ Fix the technology (PostgreSQL 17, S3-compatible storage, Redis 7, OCI
 container, SMTP/HTTPS mail) and express everything provider-specific as
 environment values or pipeline settings.
 
-- Requirements for a deployment target: `DEPLOYMENT_GUIDE_v3.0.0.md` §1
-- The only places a provider may appear: `DEPLOYMENT_GUIDE_v3.0.0.md` §12
+- Requirements for a deployment target: `DEPLOYMENT_GUIDE_v3.1.0.md` §1
+- The only places a provider may appear: `DEPLOYMENT_GUIDE_v3.1.0.md` §12
 - Application code must not import a provider SDK for any of the above; use
   standard protocol clients only.
 
@@ -256,4 +256,4 @@ environment values or pipeline settings.
 > sessions all use the database driver, while `.env.example` ships
 > `QUEUE_CONNECTION=redis` and `CACHE_STORE=redis` (sessions remain
 > database-backed). Confirm the intended production configuration and reconcile
-> both documents in a follow-up revision — see `REDIS_INTEGRATION_v2.0.0.md`.
+> both documents in a follow-up revision — see `REDIS_INTEGRATION_v2.1.0.md`.

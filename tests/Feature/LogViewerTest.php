@@ -84,22 +84,22 @@ class LogViewerTest extends TestCase
         // The real laravel.log is intentionally not touched: Windows keeps the
         // application log handle open. A Linux CI job should separately verify
         // the configured default channel resolves to storage/logs/laravel.log.
-        $this->mock(LogViewerService::class, function ($mock): void {
-            $mock->shouldReceive('getLogs')->once()->andReturn([
-                'entries' => [[
-                    'timestamp' => '2026-05-30 09:15:00',
-                    'environment' => 'local',
-                    'level' => 'info',
-                    'message' => 'Default source',
-                    'date' => '',
-                ]],
-                'total' => 1,
-                'per_page' => 50,
-                'current_page' => 1,
-                'last_page' => 1,
-                'levels' => ['info'],
-            ]);
-        });
+        $viewer = $this->createMock(LogViewerService::class);
+        $viewer->expects($this->once())->method('getLogs')->willReturn([
+            'entries' => [[
+                'timestamp' => '2026-05-30 09:15:00',
+                'environment' => 'local',
+                'level' => 'info',
+                'message' => 'Default source',
+                'date' => '',
+            ]],
+            'total' => 1,
+            'per_page' => 50,
+            'current_page' => 1,
+            'last_page' => 1,
+            'levels' => ['info'],
+        ]);
+        $this->app->instance(LogViewerService::class, $viewer);
 
         $response = $this->actingAs($this->user)->getJson('/admin/system/logs/entries');
 

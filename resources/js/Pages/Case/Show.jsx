@@ -16,6 +16,7 @@ import { getAvatarColor } from '@/Components/ui/UserAvatar';
 import { formatDisplayDateTime, formatDisplayDate, formatDisplayTime } from '@/lib/utils';
 import { formatResolvedAddress } from '@/lib/addressResolver';
 import AuditLogModal from '@/Components/AuditLogModal';
+import UnifiedTimeline from '@/Components/Timeline';
 
 const vulnConfig = {
   'PWD': { icon: 'accessibility', className: 'bg-purple-100 text-purple-800 border-purple-200' },
@@ -47,13 +48,6 @@ function CategoryBadges({ caseFile }) {
   );
 }
 
-function getCaseAgeDays(createdAt, status, updatedAt) {
-  const created = new Date(createdAt).getTime();
-  const end = status === 'CLOSED' ? new Date(updatedAt).getTime() : Date.now();
-  const days = Math.max(1, Math.round((end - created) / (1000 * 60 * 60 * 24)));
-  return `${days} day${days > 1 ? 's' : ''}`;
-}
-
 function getClientAge(dob) {
   if (!dob) return '\u2014';
   const birth = new Date(dob);
@@ -75,7 +69,7 @@ function formatNokAddress(nok) {
   return formatResolvedAddress(nok, nok?.full_address || 'N/A');
 }
 
-export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTimeline = [] }) {
+export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTimeline = [], categories = [], caseIssues = [] }) {
   const EVENT_CONFIG = {
     case_opened:             { dot: 'bg-blue-50 border-blue-200 text-blue-600',       icon: 'folder' },
     referral_sent:           { dot: 'bg-purple-50 border-purple-200 text-purple-600',   icon: 'forward_to_inbox' },
@@ -93,32 +87,6 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
     { value: 'milestone_added',    label: 'Milestones' },
     { value: 'case_closed',  label: 'Case Closed' },
   ];
-
-  function formatEventDate(dateStr) {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diffDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
-    if (diffDays < 0) {
-      return date.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
-    }
-    if (diffDays === 0) return 'Today';
-    if (diffDays === 1) return 'Yesterday';
-    if (diffDays < 7) return `${diffDays} days ago`;
-    return date.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
-  }
-
-  function formatHumanDate(dateStr) {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-PH', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    }) + ' at ' + date.toLocaleTimeString('en-PH', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-    });
-  }
 
   const [timelineAgencyFilter, setTimelineAgencyFilter] = useState('ALL');
   const [timelineTypeFilter, setTimelineTypeFilter] = useState('ALL');
@@ -141,7 +109,8 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
     } else if (timelineTypeFilter !== 'ALL') {
       items = items.filter(i => i.type === timelineTypeFilter);
     }
-    return items.reverse();
+    // Newest-first ordering is enforced inside UnifiedTimeline — never reverse here.
+    return items;
   }, [milestoneTimeline, timelineAgencyFilter, timelineTypeFilter]);
 
   const hasActiveFilters = timelineAgencyFilter !== 'ALL' || timelineTypeFilter !== 'ALL';
@@ -168,7 +137,8 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
   const [deletionReasonError, setDeletionReasonError] = useState('');
   const [deletingArchived, setDeletingArchived] = useState(false);
   const [formStatus, setFormStatus] = useState(caseFile.status);
-  const [formClientType, setFormClientType] = useState(caseFile.client_type);
+  const [formIssueId, setFormIssueId] = useState(caseFile.case_issue_id || '');
+  const [formCategoryIds, setFormCategoryIds] = useState(getCaseCategories(caseFile).map(c => c.id));
   const [formVulnerability, setFormVulnerability] = useState(caseFile.vulnerability_indicator || '');
   const [nokVulnerability, setNokVulnerability] = useState(caseFile.nok_vulnerability_indicator || '');
   const [formSummary, setFormSummary] = useState(caseFile.summary || '');
@@ -179,21 +149,23 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
     setConfirmDeleteDoc(docId);
   }
 
-  const initialEditRef = useRef({ status: caseFile.status, clientType: caseFile.client_type, vulnerability: caseFile.vulnerability_indicator || '', nokVulnerability: caseFile.nok_vulnerability_indicator || '', summary: caseFile.summary || '' });
+  const initialEditRef = useRef({ status: caseFile.status, issueId: caseFile.case_issue_id || '', categoryIds: getCaseCategories(caseFile).map(c => c.id), vulnerability: caseFile.vulnerability_indicator || '', nokVulnerability: caseFile.nok_vulnerability_indicator || '', summary: caseFile.summary || '' });
   const editIntentHandledRef = useRef(false);
   const hasEditDirty = useMemo(() => (
     formStatus !== initialEditRef.current.status
-    || formClientType !== initialEditRef.current.clientType
+    || formIssueId !== initialEditRef.current.issueId
+    || JSON.stringify(formCategoryIds) !== JSON.stringify(initialEditRef.current.categoryIds)
     || formVulnerability !== initialEditRef.current.vulnerability
     || nokVulnerability !== initialEditRef.current.nokVulnerability
     || formSummary !== initialEditRef.current.summary
-  ), [formStatus, formClientType, formVulnerability, nokVulnerability, formSummary]);
+  ), [formStatus, formIssueId, formCategoryIds, formVulnerability, nokVulnerability, formSummary]);
   const { UnsavedModal, bypassNext } = useUnsavedChanges(hasEditDirty && isEditOpen);
 
   function openEditDetails() {
     const initial = {
       status: caseFile.status,
-      clientType: caseFile.client_type,
+      issueId: caseFile.case_issue_id || '',
+      categoryIds: getCaseCategories(caseFile).map(c => c.id),
       vulnerability: caseFile.vulnerability_indicator || '',
       nokVulnerability: caseFile.nok_vulnerability_indicator || '',
       summary: caseFile.summary || '',
@@ -201,7 +173,8 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
 
     initialEditRef.current = initial;
     setFormStatus(initial.status);
-    setFormClientType(initial.clientType);
+    setFormIssueId(initial.issueId);
+    setFormCategoryIds(initial.categoryIds);
     setFormVulnerability(initial.vulnerability);
     setNokVulnerability(initial.nokVulnerability);
     setFormSummary(initial.summary);
@@ -273,7 +246,14 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
       key: 'agency',
       title: 'AGENCY',
       className: 'w-[34%] whitespace-normal leading-5 align-top',
-      render: (row) => <span className="text-[12px] font-semibold text-slate-700">{row.agency}</span>,
+      render: (row) => (
+        <span className="flex items-center gap-1.5 text-[12px] font-semibold text-slate-700">
+          {row.isOverdue && (
+            <span className="material-symbols-outlined text-[13px] text-amber-600 shrink-0" title="Overdue">warning</span>
+          )}
+          {row.agency}
+        </span>
+      ),
     },
     {
       key: 'referralStatus',
@@ -312,18 +292,13 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
     if (saving) return;
     setSaving(true);
     bypassNext();
-    const category_ids = getCaseCategories(caseFile)
-      .map((category) => category?.id)
-      .filter((id) => id !== null && id !== undefined && id !== '');
     router.patch(route('cases.update', caseFile.id), {
       status: formStatus,
-      client_type: formClientType,
+      case_issue_id: formIssueId || null,
       vulnerability_indicator: formVulnerability,
       nok_vulnerability_indicator: nokVulnerability,
       summary: formSummary,
-      // The update request is partial, but category_ids must still be sent so
-      // editing unrelated details does not discard existing assignments.
-      category_ids,
+      category_ids: formCategoryIds,
     }, {
       preserveScroll: true,
       onSuccess: () => {
@@ -520,40 +495,6 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
         <main className="xl:col-span-8 space-y-4">
-          {/* Key Stats Ribbon */}
-          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 rounded-md border border-slate-200 bg-white px-4 py-2.5 shadow-sm">
-            <StatusBadge status={caseFile.status} size="sm" />
-            <span className="text-[11px] text-slate-300 select-none">|</span>
-            <span className="text-[11px] text-slate-600">
-              <span className="font-semibold text-slate-800">{getCaseAgeDays(caseFile.created_at, caseFile.status, caseFile.updated_at)}</span>
-              <span className="text-slate-400 ml-1">since created</span>
-            </span>
-            <span className="text-[11px] text-slate-300 select-none">|</span>
-            <span className="text-[11px] text-slate-600">
-              <span className="font-semibold text-slate-800">{(caseFile.referrals || []).length}</span>
-              <span className="text-slate-400 ml-1">referral{(caseFile.referrals || []).length !== 1 ? 's' : ''}</span>
-            </span>
-            {hasOverdueReferrals && (
-              <>
-                <span className="text-[11px] text-slate-300 select-none">|</span>
-                <span className="inline-flex items-center gap-1 text-[11px] text-red-600 font-semibold">
-                  <span className="material-symbols-outlined text-[14px]">warning</span>
-                  {referralRows.filter(r => r.isOverdue).length} overdue
-                </span>
-              </>
-            )}
-            <span className="text-[11px] text-slate-300 select-none">|</span>
-            <span className="text-[11px] text-slate-600">
-              <span className="font-semibold text-slate-800">{clientTypeLabel}</span>
-            </span>
-            {getCaseCategories(caseFile).length > 0 && (
-              <>
-                <span className="text-[11px] text-slate-300 select-none">|</span>
-                <CategoryBadges caseFile={caseFile} />
-              </>
-            )}
-          </div>
-
           <CardSection title="Case Information" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
             <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
               <MetaTile label="Case No." value={caseFile.case_number} />
@@ -576,28 +517,33 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
             )}
           </CardSection>
 
-          {/* Referrals table — unchanged */}
+          {/* Referrals table */}
           <CardSection data-tour="case-referrals" title={`Referrals (${(caseFile.referrals || []).length})`} className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <h4 className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-slate-500">Agency Referrals</h4>
                 {hasOverdueReferrals && (
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => setShowOverdueInfo((prev) => !prev)}
-                      className="flex h-[18px] w-[18px] items-center justify-center rounded-full text-red-500 hover:bg-red-100 transition-colors"
-                    >
-                      <span className="material-symbols-outlined text-[14px]">info</span>
-                    </button>
-                    {showOverdueInfo && (
-                      <div className="absolute left-0 top-full mt-1 z-20 w-72 rounded-md border border-red-200 bg-red-50 px-3 py-2 shadow-md">
-                        <p className="text-[10px] leading-5 text-red-800">
-                          A referral is considered overdue when there has been no update or activity for more than {overdueDays} day{overdueDays > 1 ? 's' : ''}.
-                        </p>
-                      </div>
-                    )}
-                  </div>
+                  <>
+                    <span
+                      className="material-symbols-outlined text-[14px] text-amber-600 shrink-0"
+                      title={`${referralRows.filter((r) => r.isOverdue).length} overdue referral(s)`}
+                    >warning</span>
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setShowOverdueInfo((prev) => !prev)}
+                        className="flex h-[18px] w-[18px] items-center justify-center rounded-full text-amber-600 hover:bg-amber-100 transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-[14px]">info</span>
+                      </button>
+                      {showOverdueInfo && (
+                        <div className="absolute left-0 top-full mt-1 z-20 w-72 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 shadow-md">
+                          <p className="text-[10px] leading-5 text-amber-800">
+                            A referral is considered overdue when there has been no update or activity for more than {overdueDays} day{overdueDays > 1 ? 's' : ''}.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </>
                 )}
               </div>
               <Link
@@ -675,52 +621,18 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
               </p>
             )}
 
-            {filteredTimeline.length === 0 ? (
-              <div className="mt-4 bg-white rounded-xl border border-slate-200 p-10 text-center">
-                <span className="material-symbols-outlined text-4xl text-slate-300 block mb-2">history</span>
-                <p className="text-sm text-slate-500">No activity matches your filters.</p>
-                {hasActiveFilters && (
+            <UnifiedTimeline
+              items={filteredTimeline}
+              eventConfig={EVENT_CONFIG}
+              emptyTitle="No activity matches your filters."
+              emptyAction={
+                hasActiveFilters ? (
                   <button onClick={clearFilters} className="mt-2 text-xs font-bold text-blue-600 hover:text-blue-800 underline">
                     Clear filters
                   </button>
-                )}
-              </div>
-            ) : (
-              <div className="relative mt-4">
-                <div className="absolute left-[13px] top-2 bottom-2 w-px bg-slate-200" />
-                <div className="space-y-6">
-                  {filteredTimeline.map((item, index) => {
-                    const cfg = EVENT_CONFIG[item.type] ?? EVENT_CONFIG.milestone_added;
-                    return (
-                      <div key={`${item.date}-${index}`} className="relative flex gap-4 items-start group">
-                        <div className={`z-10 flex h-7 w-7 items-center justify-center rounded-full border bg-white ${cfg.dot} shadow-sm shrink-0`}>
-                          <span className="material-symbols-outlined text-[14px]">{cfg.icon}</span>
-                        </div>
-                        <div className="min-w-0 pt-0.5 flex-1">
-                          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-tight">
-                              {formatEventDate(item.date)}
-                            </span>
-                            <span className="text-[10px] text-slate-400 font-medium hidden sm:inline">
-                              {formatHumanDate(item.date)}
-                            </span>
-                            {item.agency && (
-                              <span className="text-[11px] font-semibold text-slate-400 border-l border-slate-200 pl-2">
-                                {item.agency}
-                              </span>
-                            )}
-                          </div>
-                          <h4 className="text-sm font-bold text-slate-900 mt-1 leading-snug">{item.title}</h4>
-                          {item.description && (
-                            <p className="text-xs text-slate-500 mt-1 leading-relaxed max-w-prose">{item.description}</p>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+                ) : null
+              }
+            />
           </CardSection>
           </div>
 
@@ -741,16 +653,16 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
                       clientId={client.id}
                     />
                   ) : client.avatar_url ? (
-                    <span className="inline-flex shrink-0 overflow-hidden rounded-circle">
-                      <img src={client.avatar_url} alt="" className="h-12 w-12 rounded-circle object-cover border border-slate-200" onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.querySelector('.avatar-fallback').classList.remove('hidden'); }} />
-                      <span className="avatar-fallback hidden h-12 w-12 rounded-circle flex items-center justify-center relative overflow-hidden">
+                    <span className="inline-flex shrink-0 overflow-hidden rounded-full">
+                      <img src={client.avatar_url} alt="" className="h-12 w-12 rounded-full object-cover border border-slate-200" onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.querySelector('.avatar-fallback').classList.remove('hidden'); }} />
+                      <span className="avatar-fallback hidden h-12 w-12 rounded-full flex items-center justify-center relative overflow-hidden">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3/5 h-3/5 text-white/30">
                           <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
                         </svg>
                       </span>
                     </span>
                   ) : (
-                    <span className={`h-12 w-12 inline-flex items-center justify-center rounded-circle flex-shrink-0 relative overflow-hidden ${getAvatarColor([client.first_name, client.last_name].filter(Boolean).join(' '))}`}>
+                    <span className={`h-12 w-12 inline-flex items-center justify-center rounded-full flex-shrink-0 relative overflow-hidden ${getAvatarColor([client.first_name, client.last_name].filter(Boolean).join(' '))}`}>
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3/5 h-3/5 text-white/30">
                         <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
                       </svg>
@@ -980,14 +892,19 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
               </div>
 
               <div>
-                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-slate-600">Client Type</label>
+                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-slate-600">Issue/Concern</label>
                 <select
-                  value={formClientType}
-                  onChange={(e) => setFormClientType(e.target.value)}
+                  value={formIssueId}
+                  onChange={(e) => setFormIssueId(e.target.value)}
                   className="h-10 w-full rounded-md border border-slate-200 px-3 py-2 text-[13px] text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
                 >
-                  <option value="OFW">Overseas Filipino Worker</option>
-                  <option value="NEXT_OF_KIN">Next of Kin</option>
+                  <option value="">None</option>
+                  {caseFile.case_issue && !caseIssues.some(i => i.id === caseFile.case_issue_id) && (
+                    <option value={caseFile.case_issue_id}>{caseFile.case_issue.name}</option>
+                  )}
+                  {caseIssues.map((issue) => (
+                    <option key={issue.id} value={issue.id}>{issue.name}</option>
+                  ))}
                 </select>
               </div>
 
@@ -1038,6 +955,34 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
                       </label>
                     );
                   })}
+                </div>
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-slate-600">Category</label>
+                <div className="flex flex-wrap gap-3">
+                  {categories.map((cat) => {
+                    const checked = formCategoryIds.includes(cat.id);
+                    return (
+                      <label key={cat.id} className="inline-flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => {
+                            setFormCategoryIds(prev => checked ? prev.filter(id => id !== cat.id) : [...prev, cat.id]);
+                          }}
+                          className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <span className="inline-flex items-center gap-1.5 text-[13px] text-slate-700">
+                          {cat.color && <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />}
+                          {cat.name}
+                        </span>
+                      </label>
+                    );
+                  })}
+                  {categories.length === 0 && (
+                    <span className="text-[12px] text-slate-400">No categories available.</span>
+                  )}
                 </div>
               </div>
 
