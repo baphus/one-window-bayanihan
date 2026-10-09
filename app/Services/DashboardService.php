@@ -522,6 +522,20 @@ class DashboardService
         $activeAgencies = $agencyCounts['active'];
         $inactiveAgencies = max($totalAgencies - $activeAgencies, 0);
 
+        // Worst-case age per queue for triage severity (cached 60s).
+        $worstAges = CacheHelper::safeRemember('dashboard:admin_worst_ages', 60, function () {
+            $overdueThreshold = now()->subDays(DashboardQueries::OVERDUE_DAYS);
+
+            return (array) DB::selectOne("
+                SELECT
+                    (SELECT MAX(EXTRACT(EPOCH FROM (NOW() - created_at))/86400)::int FROM cases WHERE status = 'OPEN' AND is_deleted = false) AS open_cases_worst,
+                    (SELECT MAX(EXTRACT(EPOCH FROM (NOW() - created_at))/86400)::int FROM referrals WHERE status = 'PENDING' AND is_deleted = false) AS pending_worst,
+                    (SELECT MAX(EXTRACT(EPOCH FROM (NOW() - created_at))/86400)::int FROM referrals WHERE status = 'PROCESSING' AND is_deleted = false) AS processing_worst,
+                    (SELECT MAX(EXTRACT(EPOCH FROM (NOW() - created_at))/86400)::int FROM referrals WHERE status = 'FOR_COMPLIANCE' AND is_deleted = false) AS compliance_worst,
+                    (SELECT MAX(EXTRACT(EPOCH FROM (NOW() - created_at))/86400)::int FROM referrals WHERE status IN ('PENDING','PROCESSING','FOR_COMPLIANCE') AND created_at < ? AND is_deleted = false) AS overdue_worst
+            ", [$overdueThreshold]);
+        });
+
         $operationalQueues = [
             [
                 'key' => 'openCases',
@@ -626,20 +640,6 @@ class DashboardService
                 'overdueRate' => $row['overdueRate'],
                 'avgDaysToComplete' => $row['averageCompletionDays'],
             ], array_slice($this->queries->buildAgencyResponseScorecardSQL(), 0, 5));
-        });
-
-        // Worst-case age per queue for triage severity (cached 60s).
-        $worstAges = CacheHelper::safeRemember('dashboard:admin_worst_ages', 60, function () {
-            $overdueThreshold = now()->subDays(DashboardQueries::OVERDUE_DAYS);
-
-            return (array) DB::selectOne("
-                SELECT
-                    (SELECT MAX(EXTRACT(EPOCH FROM (NOW() - created_at))/86400)::int FROM cases WHERE status = 'OPEN' AND is_deleted = false) AS open_cases_worst,
-                    (SELECT MAX(EXTRACT(EPOCH FROM (NOW() - created_at))/86400)::int FROM referrals WHERE status = 'PENDING' AND is_deleted = false) AS pending_worst,
-                    (SELECT MAX(EXTRACT(EPOCH FROM (NOW() - created_at))/86400)::int FROM referrals WHERE status = 'PROCESSING' AND is_deleted = false) AS processing_worst,
-                    (SELECT MAX(EXTRACT(EPOCH FROM (NOW() - created_at))/86400)::int FROM referrals WHERE status = 'FOR_COMPLIANCE' AND is_deleted = false) AS compliance_worst,
-                    (SELECT MAX(EXTRACT(EPOCH FROM (NOW() - created_at))/86400)::int FROM referrals WHERE status IN ('PENDING','PROCESSING','FOR_COMPLIANCE') AND created_at < ? AND is_deleted = false) AS overdue_worst
-            ", [$overdueThreshold]);
         });
 
         $recentCases = CaseFile::with(['client', 'user', 'category'])

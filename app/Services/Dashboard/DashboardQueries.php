@@ -8,8 +8,6 @@ use Illuminate\Support\Facades\DB;
 
 class DashboardQueries
 {
-    public const ACTIVE_REFERRAL_STATUSES = ['PENDING', 'PROCESSING', 'FOR_COMPLIANCE'];
-
     public const OVERDUE_DAYS = 5;
 
     // ──────────────────────────────────────────────────────────────────────────────
