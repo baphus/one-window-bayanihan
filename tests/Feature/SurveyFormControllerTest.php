@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\Agency;
 use App\Models\Referral;
@@ -17,9 +18,9 @@ class SurveyFormControllerTest extends TestCase
 
     public function test_non_agency_and_unassigned_agency_users_are_forbidden(): void
     {
-        $this->actingAs(User::factory()->create(['role' => 'CASE_MANAGER']))
+        $this->actingAs(User::factory()->create(['role' => UserRole::CASE_MANAGER->value]))
             ->get(route('survey.forms.index'))->assertForbidden();
-        $this->actingAs(User::factory()->create(['role' => 'AGENCY', 'agcy_id' => null]))
+        $this->actingAs(User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => null]))
             ->get(route('survey.forms.index'))->assertForbidden();
     }
 
@@ -200,7 +201,7 @@ class SurveyFormControllerTest extends TestCase
 
     public function test_missing_agency_mutation_is_forbidden(): void
     {
-        $user = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => null]);
+        $user = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => null]);
         $this->actingAs($user)->post(route('survey.forms.store'), [])->assertForbidden();
     }
 
@@ -208,7 +209,7 @@ class SurveyFormControllerTest extends TestCase
     {
         $agency = Agency::factory()->create();
 
-        return [User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agency->id]), $agency];
+        return [User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id]), $agency];
     }
 
     private function assertUnchanged(SurveyForm $form, string $title, int $questionCount): void

@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\AuditAction;
 use App\Enums\AuditModule;
+use App\Enums\UserRole;
 use App\Exceptions\SafeException;
 use App\Mail\IntakeReceivedMail;
 use App\Models\AuditLog;
@@ -34,7 +35,7 @@ class IntakeService
     {
         // Check if an OFW user account exists with an active case
         $existingUser = User::where('email', $email)
-            ->where('role', 'OFW')
+            ->where('role', UserRole::OFW->value)
             ->first();
 
         if ($existingUser && $existingUser->client_id) {
@@ -119,7 +120,7 @@ class IntakeService
                     // Serialize parallel submits on the identity rows so two
                     // requests cannot both pass the duplicate check and each
                     // insert a DRAFT.
-                    User::where('role', 'OFW')
+                    User::where('role', UserRole::OFW->value)
                         ->whereRaw('LOWER(TRIM(email)) = ?', [$email])
                         ->lockForUpdate()
                         ->first();
@@ -171,7 +172,7 @@ class IntakeService
         // Receipt email to the filer (outside transaction, after notify + audit).
         // Tells the OFW the case is being evaluated and prompts account
         // creation with the same email so the case links automatically.
-        $hasAccount = User::where('role', 'OFW')
+        $hasAccount = User::where('role', UserRole::OFW->value)
             ->whereRaw('LOWER(TRIM(email)) = ?', [strtolower(trim($verifiedEmail))])
             ->exists();
 
@@ -268,7 +269,7 @@ class IntakeService
             $ofwName = 'An OFW client';
         }
 
-        $caseManagers = User::where('role', 'CASE_MANAGER')
+        $caseManagers = User::where('role', UserRole::CASE_MANAGER->value)
             ->where('is_active', true)
             ->where('is_deleted', false)
             ->get();

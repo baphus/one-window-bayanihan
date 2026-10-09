@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Audit;
 
+use App\Enums\UserRole;
 use App\Models\AuditLog;
 use App\Models\Referral;
 use App\Models\User;
@@ -30,7 +31,7 @@ class AuditLogQueryTest extends TestCase
 
     public function test_audit_log_paginated(): void
     {
-        $user = User::factory()->create(['role' => 'ADMIN']);
+        $user = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $referral = Referral::factory()->create();
 
         for ($i = 0; $i < 30; $i++) {
@@ -64,7 +65,7 @@ class AuditLogQueryTest extends TestCase
 
     public function test_audit_log_query_count(): void
     {
-        $user = User::factory()->create(['role' => 'ADMIN']);
+        $user = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $referral = Referral::factory()->create();
 
         for ($i = 0; $i < 30; $i++) {
@@ -91,7 +92,7 @@ class AuditLogQueryTest extends TestCase
 
     public function test_status_change_filtered_in_sql(): void
     {
-        $user = User::factory()->create(['role' => 'ADMIN']);
+        $user = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $referral = Referral::factory()->create();
         $other = Referral::factory()->create();
 

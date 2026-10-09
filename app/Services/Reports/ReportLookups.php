@@ -2,6 +2,7 @@
 
 namespace App\Services\Reports;
 
+use App\Enums\UserRole;
 use App\Helpers\CacheHelper;
 use App\Models\Agency;
 use App\Models\CaseCategory;
@@ -15,18 +16,18 @@ class ReportLookups
 {
     use ScopesReportQueries;
 
-    // â”€â”€ Cache Keys & TTLs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Cache Keys & TTLs ────────────────────────────────────────────────
 
-    private const CACHE_TTL_REFERENCE = 1800;    // 30 minutes â€” reference/status data
+    private const CACHE_TTL_REFERENCE = 1800;    // 30 minutes — reference/status data
 
-    private const CACHE_TTL_OPTIONS = 600;       // 10 minutes â€” filter options
+    private const CACHE_TTL_OPTIONS = 600;       // 10 minutes — filter options
 
     public const KEY_REFERENCE_DATA = 'reports:reference_data';
 
     /**
      * Reference rows that drive the chart toggle controls (statuses, categories,
-     * case issues). Sourced from the live reference tables â€” active only, ordered
-     * by sort_order â€” so toggle lists and colors never drift from hard-coded literals.
+     * case issues). Sourced from the live reference tables — active only, ordered
+     * by sort_order — so toggle lists and colors never drift from hard-coded literals.
      */
     public function getReferenceData(): array
     {
@@ -54,7 +55,7 @@ class ReportLookups
      * Role-scoped agency options for the agency filter dropdown.
      *
      * Admin and CASE_MANAGER: all active agencies.
-     * Agency: empty array â€” the selector is hidden for Agency users.
+     * Agency: empty array — the selector is hidden for Agency users.
      *
      * @return array<int, array{value: string, label: string}>
      */
@@ -62,7 +63,7 @@ class ReportLookups
     {
         // Never let an unassigned scoped request fall through to the admin
         // branch after the cache key is built.
-        if ($role === 'AGENCY') {
+        if ($role === UserRole::AGENCY->value) {
             return [];
         }
 

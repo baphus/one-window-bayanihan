@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Security;
 
+use App\Enums\UserRole;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -16,7 +17,7 @@ class UserMassAssignmentTest extends TestCase
             'name' => 'test',
             'email' => 'a@b.com',
             'password' => 'P@ssw0rd!',
-            'role' => 'CASE_MANAGER',
+            'role' => UserRole::CASE_MANAGER->value,
             'mfa_secret' => 'test',
         ]);
 
@@ -29,7 +30,7 @@ class UserMassAssignmentTest extends TestCase
             'name' => 'test',
             'email' => 'b@c.com',
             'password' => 'P@ssw0rd!',
-            'role' => 'CASE_MANAGER',
+            'role' => UserRole::CASE_MANAGER->value,
             'mfa_recovery_codes' => ['code1', 'code2'],
         ]);
 

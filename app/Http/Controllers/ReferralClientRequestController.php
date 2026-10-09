@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\UserRole;
 use App\Http\Requests\StoreReferralClientMessageRequest;
 use App\Http\Requests\StoreReferralClientRequest;
 use App\Mail\ClientRequestMail;
@@ -417,7 +418,7 @@ class ReferralClientRequestController extends Controller
     {
         $clientRequest->loadMissing('referral.caseFile');
         $users = User::query()
-            ->where('role', 'AGENCY')
+            ->where('role', UserRole::AGENCY->value)
             ->where('is_active', true)
             ->where('agcy_id', $clientRequest->referral?->agcy_id)
             ->get();

@@ -1,43 +1,5 @@
 import { z } from 'zod';
 
-export const userFormSchema = z.object({
-  name: z
-    .string()
-    .min(1, 'Name is required.')
-    .max(255, 'Name must not exceed 255 characters.'),
-  email: z
-    .string()
-    .min(1, 'Email is required.')
-    .email('Please provide a valid email address.'),
-  password: z
-    .string()
-    .min(8, 'Password must be at least 8 characters.')
-    .optional()
-    .or(z.literal('')),
-  role: z
-    .string()
-    .min(1, 'Role is required.')
-    .refine((val) => ['CASE_MANAGER', 'AGENCY', 'ADMIN'].includes(val), {
-      message: 'Please select a valid role.',
-    }),
-  agcy_id: z.string().uuid('Please select a valid agency.').or(z.literal('')).nullable().optional(),
-  contact_number: z.string().optional().or(z.literal('')),
-  position: z.string().max(255, 'Occupation must not exceed 255 characters.').optional().or(z.literal('')),
-  department: z.string().max(255, 'Department must not exceed 255 characters.').optional().or(z.literal('')),
-  office_location: z.string().max(500, 'Office location must not exceed 500 characters.').optional().or(z.literal('')),
-  bio: z.string().max(2000, 'Bio must not exceed 2000 characters.').optional().or(z.literal('')),
-});
-
-/**
- * Stricter schema for new user creation — password is required.
- * Derives from userFormSchema so the shared fields live in one place.
- */
-export const createUserFormSchema = userFormSchema.extend({
-  password: z
-    .string()
-    .min(8, 'Password must be at least 8 characters.'),
-});
-
 export const serviceFormSchema = z.object({
   name: z
     .string()
@@ -99,12 +61,6 @@ export const caseStatusSchema = z.object({
   color: z.string().optional(),
   sort_order: z.number().optional(),
   is_active: z.boolean().optional(),
-});
-
-export const inviteUserFormSchema = z.object({
-    email: z.string().min(1, 'Email is required.').email('Please enter a valid email address.'),
-    role: z.enum(['ADMIN', 'AGENCY', 'CASE_MANAGER'], { required_error: 'Please select a role.' }),
-    agcy_id: z.string().nullable().optional(),
 });
 
 export const caseCategorySchema = z.object({

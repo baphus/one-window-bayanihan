@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\SetPostgresSession;
 use App\Models\AuditLog;
@@ -22,7 +23,7 @@ class AuditLogExportTest extends TestCase
         $this->withoutMiddleware(HandleInertiaRequests::class);
         $this->withoutMiddleware(SetPostgresSession::class);
 
-        $this->admin = User::factory()->create(['role' => 'ADMIN']);
+        $this->admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         AuditLog::truncate();
     }
 
@@ -43,7 +44,7 @@ class AuditLogExportTest extends TestCase
 
     public function test_case_manager_cannot_export(): void
     {
-        $caseManager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $caseManager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         $this->actingAs($caseManager)
             ->get('/audit-logs/export?date_from='.now()->subDays(7)->toDateString().'&date_to='.now()->toDateString())
@@ -52,7 +53,7 @@ class AuditLogExportTest extends TestCase
 
     public function test_agency_can_view_scoped_logs_but_cannot_export(): void
     {
-        $agencyUser = User::factory()->create(['role' => 'AGENCY']);
+        $agencyUser = User::factory()->create(['role' => UserRole::AGENCY->value]);
 
         // Agency Focal may open the scoped activity log …
         $this->actingAs($agencyUser)->get('/audit-logs')->assertStatus(200);

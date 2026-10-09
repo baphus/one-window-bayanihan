@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\CaseFile;
 use App\Models\Referral;
@@ -25,11 +26,11 @@ class ReferralMessageTest extends TestCase
         $agencyX = Agency::factory()->create();
         $agencyY = Agency::factory()->create();
         $agencyZ = Agency::factory()->create();
-        $xUser = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agencyX->id, 'is_active' => true]);
-        $yUser = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agencyY->id, 'is_active' => true]);
-        $zUser = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agencyZ->id, 'is_active' => true]);
-        $owner = User::factory()->create(['role' => 'CASE_MANAGER']);
-        $admin = User::factory()->mfaEnabled()->create(['role' => 'ADMIN']);
+        $xUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agencyX->id, 'is_active' => true]);
+        $yUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agencyY->id, 'is_active' => true]);
+        $zUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agencyZ->id, 'is_active' => true]);
+        $owner = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $admin = User::factory()->mfaEnabled()->create(['role' => UserRole::ADMIN->value]);
         $case = CaseFile::factory()->create(['user_id' => $owner->id]);
 
         $referralX = Referral::factory()->create(['case_id' => $case->id, 'agcy_id' => $agencyX->id]);
@@ -135,7 +136,7 @@ class ReferralMessageTest extends TestCase
         $f = $this->threadFixtures();
         $otherCase = CaseFile::factory()->create(['user_id' => $f['owner']->id]);
         $outAgency = Agency::factory()->create();
-        $outUser = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $outAgency->id, 'is_active' => true]);
+        $outUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $outAgency->id, 'is_active' => true]);
         Referral::factory()->create(['case_id' => $otherCase->id, 'agcy_id' => $outAgency->id]);
 
         $this->actingAs($outUser)

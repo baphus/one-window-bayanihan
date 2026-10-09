@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Http\Middleware\LogContext;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -30,7 +31,7 @@ class LogContextTest extends TestCase
     public function test_middleware_sets_user_context_when_authenticated(): void
     {
         $user = User::factory()->create([
-            'role' => 'CASE_MANAGER',
+            'role' => UserRole::CASE_MANAGER->value,
         ]);
 
         $logger = $this->createMock(Logger::class);
@@ -39,7 +40,7 @@ class LogContextTest extends TestCase
                 isset($context['user_id']) &&
                 $context['user_id'] === $user->id &&
                 isset($context['user_role']) &&
-                $context['user_role'] === 'CASE_MANAGER'
+                $context['user_role'] === UserRole::CASE_MANAGER->value
             ));
         Log::swap($logger);
 

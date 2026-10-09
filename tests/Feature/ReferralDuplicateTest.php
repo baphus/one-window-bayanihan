@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\CaseFile;
 use App\Models\Referral;
@@ -26,7 +27,7 @@ class ReferralDuplicateTest extends TestCase
     {
         parent::setUp();
 
-        $this->caseManager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $this->caseManager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $this->agencyA = Agency::factory()->create(['name' => 'Agency A']);
         $this->agencyB = Agency::factory()->create(['name' => 'Agency B']);
 

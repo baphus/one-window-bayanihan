@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Http\Middleware\VerifyTurnstile;
 use App\Models\CaseFile;
 use App\Models\Client;
@@ -37,7 +38,7 @@ class IntakeReturningOfwTest extends TestCase
         $client = Client::factory()->create(['email' => $email]);
         $existingUser = User::factory()->create([
             'email' => $email,
-            'role' => 'OFW',
+            'role' => UserRole::OFW->value,
             'client_id' => $client->id,
         ]);
 

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Mail\ClientUpdateMail;
 use App\Models\Agency;
 use App\Models\CaseFile;
@@ -228,7 +229,7 @@ class ReferralStatusChangedMailTest extends TestCase
         Mail::fake();
 
         $caseManager = User::factory()->create([
-            'role' => 'CASE_MANAGER',
+            'role' => UserRole::CASE_MANAGER->value,
             'email' => 'cm@example.com',
         ]);
         $client = Client::factory()->create(['email' => 'ofw@example.com']);
@@ -259,7 +260,7 @@ class ReferralStatusChangedMailTest extends TestCase
         Mail::fake();
 
         $caseManager = User::factory()->create([
-            'role' => 'CASE_MANAGER',
+            'role' => UserRole::CASE_MANAGER->value,
             'email' => 'cm@example.com',
         ]);
         $client = Client::factory()->create(['email' => 'ofw@example.com']);
@@ -288,7 +289,7 @@ class ReferralStatusChangedMailTest extends TestCase
         Mail::fake();
 
         $caseManager = User::factory()->create([
-            'role' => 'CASE_MANAGER',
+            'role' => UserRole::CASE_MANAGER->value,
             'email' => 'cm@example.com',
         ]);
         $client = Client::factory()->create(['email' => 'ofw@example.com']);
@@ -322,7 +323,7 @@ class ReferralStatusChangedMailTest extends TestCase
         Mail::fake();
 
         $caseManager = User::factory()->create([
-            'role' => 'CASE_MANAGER',
+            'role' => UserRole::CASE_MANAGER->value,
             'email' => 'cm@example.com',
         ]);
         $client = Client::factory()->create(['email' => null]);
@@ -352,7 +353,7 @@ class ReferralStatusChangedMailTest extends TestCase
         Notification::fake();
 
         $caseManager = User::factory()->create([
-            'role' => 'CASE_MANAGER',
+            'role' => UserRole::CASE_MANAGER->value,
             'email' => 'cm@example.com',
         ]);
         $client = Client::factory()->create(['email' => 'ofw@example.com']);

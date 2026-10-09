@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Http\Middleware\VerifyTurnstile;
 use App\Models\CaseFile;
 use App\Models\User;
@@ -80,7 +81,7 @@ class DateOfBirthBoundsTest extends TestCase
     #[Test]
     public function draft_save_rejects_an_out_of_bounds_date_of_birth(): void
     {
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $case = CaseFile::factory()->create([
             'user_id' => $user->id,
             'status' => 'DRAFT',
@@ -104,7 +105,7 @@ class DateOfBirthBoundsTest extends TestCase
     #[Test]
     public function draft_save_still_accepts_a_nullable_date_of_birth(): void
     {
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $case = CaseFile::factory()->create([
             'user_id' => $user->id,
             'status' => 'DRAFT',

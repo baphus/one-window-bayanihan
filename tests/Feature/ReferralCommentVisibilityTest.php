@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Models\CaseFile;
 use App\Models\Referral;
 use App\Models\ReferralComment;
@@ -17,7 +18,7 @@ class ReferralCommentVisibilityTest extends TestCase
     {
         $case = CaseFile::factory()->create();
         $referral = Referral::factory()->create(['case_id' => $case->id]);
-        $user = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $referral->agcy_id]);
+        $user = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $referral->agcy_id]);
 
         return [$user, $referral];
     }

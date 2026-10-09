@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\CaseFile;
 use App\Models\Referral;
@@ -32,7 +33,7 @@ class InterventionAccessTest extends TestCase
             'is_default' => true,
         ]);
 
-        $this->caseManager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $this->caseManager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         $this->case = CaseFile::factory()->create([
             'user_id' => $this->caseManager->id,
@@ -93,7 +94,7 @@ class InterventionAccessTest extends TestCase
     public function agency_can_add_milestone_to_their_referral(): void
     {
         $agencyUser = User::factory()->create([
-            'role' => 'AGENCY',
+            'role' => UserRole::AGENCY->value,
             'agcy_id' => $this->dmw->id,
             'is_active' => true,
         ]);
@@ -121,7 +122,7 @@ class InterventionAccessTest extends TestCase
     public function agency_can_update_status_on_their_referral(): void
     {
         $agencyUser = User::factory()->create([
-            'role' => 'AGENCY',
+            'role' => UserRole::AGENCY->value,
             'agcy_id' => $this->dmw->id,
             'is_active' => true,
         ]);
@@ -187,7 +188,7 @@ class InterventionAccessTest extends TestCase
     public function agency_rejection_without_reason_is_refused(): void
     {
         $agencyUser = User::factory()->create([
-            'role' => 'AGENCY',
+            'role' => UserRole::AGENCY->value,
             'agcy_id' => $this->dmw->id,
             'is_active' => true,
         ]);
@@ -214,7 +215,7 @@ class InterventionAccessTest extends TestCase
     public function agency_rejection_with_reason_succeeds(): void
     {
         $agencyUser = User::factory()->create([
-            'role' => 'AGENCY',
+            'role' => UserRole::AGENCY->value,
             'agcy_id' => $this->dmw->id,
             'is_active' => true,
         ]);
@@ -270,7 +271,7 @@ class InterventionAccessTest extends TestCase
     public function agency_can_gate_their_pending_referral(): void
     {
         $agencyUser = User::factory()->create([
-            'role' => 'AGENCY',
+            'role' => UserRole::AGENCY->value,
             'agcy_id' => $this->dmw->id,
             'is_active' => true,
         ]);

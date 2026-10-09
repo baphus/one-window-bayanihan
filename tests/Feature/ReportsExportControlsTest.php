@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\AuditLog;
 use App\Models\CaseFile;
@@ -78,7 +79,7 @@ class ReportsExportControlsTest extends TestCase
     {
         config(['reports.suppression_threshold' => 5]);
 
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         // Two cases is below the threshold of five.
         $this->seedCases($admin, 2, ['client_type' => CaseFile::CLIENT_TYPE_OFW]);
 
@@ -99,7 +100,7 @@ class ReportsExportControlsTest extends TestCase
     {
         config(['reports.suppression_threshold' => 5]);
 
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $this->seedCases($admin, 6, ['client_type' => CaseFile::CLIENT_TYPE_OFW]);
 
         $payload = $this->service->buildPdfPayloadFromCriteria($this->criteriaFor($admin));
@@ -116,7 +117,7 @@ class ReportsExportControlsTest extends TestCase
     {
         config(['reports.suppression_threshold' => 5]);
 
-        foreach (['ADMIN', 'CASE_MANAGER'] as $role) {
+        foreach ([UserRole::ADMIN->value, UserRole::CASE_MANAGER->value] as $role) {
             $user = User::factory()->create(['role' => $role]);
             $this->seedCases($user, 2);
 
@@ -134,7 +135,7 @@ class ReportsExportControlsTest extends TestCase
     {
         config(['reports.suppression_threshold' => 5]);
 
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $this->seedCases($admin, 6, ['client_type' => CaseFile::CLIENT_TYPE_OFW]);
 
         $payload = $this->service->buildPdfPayloadFromCriteria($this->criteriaFor($admin));
@@ -153,7 +154,7 @@ class ReportsExportControlsTest extends TestCase
     {
         config(['reports.suppression_threshold' => 5]);
 
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         // Two client types: one below the threshold, one well above.
         $this->seedCases($admin, 2, ['client_type' => CaseFile::CLIENT_TYPE_OFW]);
         $this->seedCases($admin, 20, ['client_type' => 'NEXT_OF_KIN']);
@@ -179,8 +180,8 @@ class ReportsExportControlsTest extends TestCase
     #[Test]
     public function an_agency_user_without_an_agency_gets_no_data_in_the_export(): void
     {
-        $orphan = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => null]);
-        $other = User::factory()->create(['role' => 'ADMIN']);
+        $orphan = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => null]);
+        $other = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $this->seedCases($other, 8);
 
         $payload = $this->service->buildPdfPayloadFromCriteria(
@@ -203,7 +204,7 @@ class ReportsExportControlsTest extends TestCase
     public function the_agency_overdue_count_is_scoped_rather_than_blanked_to_zero(): void
     {
         $agency = Agency::factory()->create();
-        $agencyUser = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agency->id]);
+        $agencyUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id]);
         $this->seedCases($agencyUser, 2);
 
         $sheets = $this->service->buildExcelSheetsFromCriteria(
@@ -220,7 +221,7 @@ class ReportsExportControlsTest extends TestCase
     {
         config(['reports.pdf_appendix_rows' => 2]);
 
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $this->seedCases($admin, 7);
 
         $appendix = $this->service->buildPdfPayloadFromCriteria($this->criteriaFor($admin))['appendix'];
@@ -249,7 +250,7 @@ class ReportsExportControlsTest extends TestCase
     {
         Carbon::setTestNow(Carbon::parse('2026-03-10 20:00:00', 'UTC'));
 
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $this->seedCases($admin, 3);
         $criteria = $this->criteriaFor($admin);
 
@@ -274,7 +275,7 @@ class ReportsExportControlsTest extends TestCase
     #[Test]
     public function risk_ranking_survives_being_pushed_into_sql(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $this->seedCases($admin, 4);
 
         $payload = $this->service->buildPdfPayloadFromCriteria($this->criteriaFor($admin));
@@ -292,7 +293,7 @@ class ReportsExportControlsTest extends TestCase
     #[Test]
     public function preflight_reports_matching_volumes_and_the_active_limit(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $this->seedCases($admin, 3);
 
         $result = $this->service->preflight($this->criteriaFor($admin), 'xlsx');
@@ -308,7 +309,7 @@ class ReportsExportControlsTest extends TestCase
     {
         config(['reports.export_row_cap' => 2]);
 
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $this->seedCases($admin, 3);
 
         $this->assertTrue($this->service->preflight($this->criteriaFor($admin), 'xlsx')['exceeds']);
@@ -322,7 +323,7 @@ class ReportsExportControlsTest extends TestCase
             'reports.pdf_preflight_max_rows' => 500,
         ]);
 
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $this->seedCases($admin, 3);
         $criteria = $this->criteriaFor($admin);
 
@@ -335,7 +336,7 @@ class ReportsExportControlsTest extends TestCase
     {
         config(['reports.export_row_cap' => 1]);
 
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $this->seedCases($admin, 3);
 
         $response = $this->actingAs($admin)->get(route('reports.export-excel', [
@@ -351,7 +352,7 @@ class ReportsExportControlsTest extends TestCase
     #[Test]
     public function a_successful_export_records_both_the_attempt_and_the_outcome(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $this->seedCases($admin, 2);
 
         $this->actingAs($admin)->get(route('reports.export-excel', [
@@ -375,7 +376,7 @@ class ReportsExportControlsTest extends TestCase
     {
         config(['reports.export_row_cap' => 1]);
 
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $this->seedCases($admin, 3);
 
         $this->actingAs($admin)->get(route('reports.export-excel', [
@@ -395,7 +396,7 @@ class ReportsExportControlsTest extends TestCase
     #[Test]
     public function the_audit_record_captures_the_full_filter_set(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $this->seedCases($admin, 1);
 
         $this->actingAs($admin)->get(route('reports.export-pdf', [
@@ -416,7 +417,7 @@ class ReportsExportControlsTest extends TestCase
     #[Test]
     public function the_export_carries_every_section_the_reports_page_shows(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $this->seedCases($admin, 2);
 
         $payload = $this->service->buildPdfPayloadFromCriteria($this->criteriaFor($admin));
@@ -437,7 +438,7 @@ class ReportsExportControlsTest extends TestCase
     {
         config(['reports.pdf_appendix_rows' => 2]);
 
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $this->seedCases($admin, 5);
 
         $appendix = $this->service->buildPdfPayloadFromCriteria($this->criteriaFor($admin))['appendix'];
@@ -451,7 +452,7 @@ class ReportsExportControlsTest extends TestCase
     public function an_agency_export_cannot_widen_beyond_its_own_dashboard(): void
     {
         $agency = Agency::factory()->create();
-        $agencyUser = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agency->id]);
+        $agencyUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id]);
         $this->seedCases($agencyUser, 2);
 
         $sheets = $this->service->buildExcelSheetsFromCriteria(
@@ -475,7 +476,7 @@ class ReportsExportControlsTest extends TestCase
     public function an_agency_export_still_includes_what_the_agency_dashboard_shows(): void
     {
         $agency = Agency::factory()->create();
-        $agencyUser = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agency->id]);
+        $agencyUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id]);
         $this->seedCases($agencyUser, 3);
 
         $criteria = $this->criteriaFor($agencyUser, ['agency_id' => $agency->id]);
@@ -493,7 +494,7 @@ class ReportsExportControlsTest extends TestCase
     #[Test]
     public function the_workbook_declares_real_types_rather_than_writing_everything_as_text(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $this->seedCases($admin, 2);
 
         $sheets = $this->service->buildExcelSheetsFromCriteria($this->criteriaFor($admin));
@@ -511,7 +512,7 @@ class ReportsExportControlsTest extends TestCase
     #[Test]
     public function a_data_dictionary_sheet_defines_the_derived_columns(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $this->seedCases($admin, 1);
 
         $sheets = $this->service->buildExcelSheetsFromCriteria($this->criteriaFor($admin));

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Http\Middleware\VerifyTurnstile;
 use App\Mail\ClientUpdateMail;
 use App\Mail\IntakePublishedMail;
@@ -42,7 +43,7 @@ class IntakePublishTest extends TestCase
         // so corrections a case manager made on the review screen stayed in
         // draft_client_data and never reached the clients row — a case could open
         // with clients.sex still NULL after the reviewer had set it.
-        $cm = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $cm = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         $client = Client::factory()->create([
             'first_name' => 'Juan',
@@ -104,7 +105,7 @@ class IntakePublishTest extends TestCase
     #[Test]
     public function test_cm_can_publish_self_filed_draft(): void
     {
-        $cm = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $cm = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $client = Client::factory()->create([
             'first_name' => 'Juan',
             'last_name' => 'Dela Cruz',
@@ -160,7 +161,7 @@ class IntakePublishTest extends TestCase
         // When an intake is reviewed and published, the OFW should receive the
         // dedicated acceptance email only — not also a generic ClientUpdateMail,
         // which used to fire because notifyOfw() queues one by default.
-        $cm = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $cm = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $client = Client::factory()->create([
             'first_name' => 'Maria',
             'last_name' => 'Santos',

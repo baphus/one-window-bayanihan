@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\UserRole;
 use App\Http\Requests\Track\StoreTrackingRequest;
 use App\Http\Requests\Track\UpdateTrackingRequest;
 use App\Models\Referral;
@@ -114,7 +115,7 @@ class TrackController extends Controller
         $email = strtolower(trim(is_array($binding) ? ($binding['email'] ?? '') : ''));
         $data['verifiedEmail'] = $email;
         $data['hasOfwAccount'] = $email !== ''
-            ? User::where('email', $email)->where('role', 'OFW')->where('is_deleted', false)->exists()
+            ? User::where('email', $email)->where('role', UserRole::OFW->value)->where('is_deleted', false)->exists()
             : false;
 
         return Inertia::render('Tracking/Show', $data);

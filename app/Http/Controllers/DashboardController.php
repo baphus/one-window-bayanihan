@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\UserRole;
 use App\Helpers\CacheHelper;
 use App\Models\User;
 use App\Services\DashboardService;
@@ -37,15 +38,15 @@ class DashboardController extends Controller
         $reportsService = app(ReportsService::class);
 
         $data = match ($user->role) {
-            'AGENCY' => $dashboardService->getAgencyData($user),
-            'ADMIN' => $dashboardService->getAdminData(),
+            UserRole::AGENCY->value => $dashboardService->getAgencyData($user),
+            UserRole::ADMIN->value => $dashboardService->getAdminData(),
             default => $dashboardService->getCaseManagerData($user),
         };
 
         $data['role'] = $user->role;
 
         // getCaseTrends() is heavy — skip for agency dashboards which don't render it.
-        if ($user->role !== 'AGENCY') {
+        if ($user->role !== UserRole::AGENCY->value) {
             $data['caseTrends'] = CacheHelper::safeRemember('dashboard:admin_case_trends', 300, function () use ($reportsService) {
                 return $reportsService->getCaseTrends();
             });

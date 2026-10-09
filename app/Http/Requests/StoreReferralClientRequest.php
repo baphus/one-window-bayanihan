@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Enums\UserRole;
 use App\Models\ReferralClientRequest as ClientRequest;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -10,7 +11,7 @@ class StoreReferralClientRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->role === 'AGENCY' && $this->user()->is_active;
+        return $this->user()?->role === UserRole::AGENCY->value && $this->user()->is_active;
     }
 
     public function rules(): array

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\DTOs\FileStoreResult;
+use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\CaseDocument;
 use App\Models\CaseFile;
@@ -26,7 +27,7 @@ class CaseDocumentTest extends TestCase
     {
         parent::setUp();
 
-        $this->caseManager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $this->caseManager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         $this->case = CaseFile::create([
             'id' => fake()->uuid(),
@@ -66,7 +67,7 @@ class CaseDocumentTest extends TestCase
         $this->createDocument();
 
         $unauthorized = User::factory()->create([
-            'role' => 'AGENCY',
+            'role' => UserRole::AGENCY->value,
             'agcy_id' => null,
         ]);
 
@@ -80,7 +81,7 @@ class CaseDocumentTest extends TestCase
     {
         $this->createDocument();
 
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
 
         $response = $this->actingAs($admin)
             ->getJson(route('cases.documents.index', $this->case->id));
@@ -93,7 +94,7 @@ class CaseDocumentTest extends TestCase
     {
         $document = $this->createDocument();
 
-        $otherManager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $otherManager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         $this->actingAs($otherManager)
             ->getJson(route('cases.documents.index', $this->case->id))
@@ -133,7 +134,7 @@ class CaseDocumentTest extends TestCase
     {
         $doc = $this->createDocument();
 
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
 
         $response = $this->actingAs($admin)
             ->deleteJson(route('cases.documents.destroy', [$this->case->id, $doc->id]));
@@ -179,7 +180,7 @@ class CaseDocumentTest extends TestCase
         $this->createDocument()->update(['referral_id' => $referral->id]);
 
         $agencyUser = User::factory()->create([
-            'role' => 'AGENCY',
+            'role' => UserRole::AGENCY->value,
             'agcy_id' => $agency->id,
         ]);
 
@@ -208,7 +209,7 @@ class CaseDocumentTest extends TestCase
         ]);
 
         $agencyUser = User::factory()->create([
-            'role' => 'AGENCY',
+            'role' => UserRole::AGENCY->value,
             'agcy_id' => $agency->id,
         ]);
 
@@ -242,7 +243,7 @@ class CaseDocumentTest extends TestCase
         ]);
 
         $agencyUser = User::factory()->create([
-            'role' => 'AGENCY',
+            'role' => UserRole::AGENCY->value,
             'agcy_id' => $agency->id,
         ]);
 
@@ -277,7 +278,7 @@ class CaseDocumentTest extends TestCase
         ]);
 
         $agencyUser = User::factory()->create([
-            'role' => 'AGENCY',
+            'role' => UserRole::AGENCY->value,
             'agcy_id' => $agency->id,
         ]);
 
@@ -301,7 +302,7 @@ class CaseDocumentTest extends TestCase
         ]);
         $document = $this->createDocument();
         $document->update(['referral_id' => $referral->id]);
-        $agencyUser = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $otherAgency->id]);
+        $agencyUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $otherAgency->id]);
 
         $this->actingAs($agencyUser)->getJson(route('cases.documents.index', $this->case->id))
             ->assertOk()->assertJsonCount(0);
@@ -412,7 +413,7 @@ class CaseDocumentTest extends TestCase
     public function test_unauthorized_user_cannot_upload()
     {
         $unauthorized = User::factory()->create([
-            'role' => 'AGENCY',
+            'role' => UserRole::AGENCY->value,
             'agcy_id' => null,
         ]);
 

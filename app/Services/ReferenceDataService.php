@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\UserRole;
 use App\Helpers\CacheHelper;
 use App\Models\Agency;
 use App\Models\CaseCategory;
@@ -99,7 +100,7 @@ class ReferenceDataService
         return CacheHelper::safeRemember(
             self::KEY_USERS_CASE_MANAGERS,
             self::TTL_USERS,
-            fn () => User::where('role', 'CASE_MANAGER')
+            fn () => User::where('role', UserRole::CASE_MANAGER->value)
                 ->where('is_active', true)
                 ->select('id', 'name')
                 ->orderBy('name')

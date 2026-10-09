@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\AuditAction;
 use App\Enums\AuditModule;
+use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\AuditLog;
 use App\Models\CaseCategory;
@@ -257,9 +258,9 @@ class AuditLogFormatter
 
         if ($field === 'role') {
             return match ($normalized) {
-                'CASE_MANAGER' => 'Case Manager',
-                'AGENCY' => 'Agency Focal',
-                'ADMIN' => 'System Admin',
+                UserRole::CASE_MANAGER->value => 'Case Manager',
+                UserRole::AGENCY->value => 'Agency Focal',
+                UserRole::ADMIN->value => 'System Admin',
                 default => $stringValue,
             };
         }

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\ReferralClientInbox;
 
+use App\Enums\UserRole;
 use App\Models\Milestone;
 use App\Models\ReferralClientRequest;
 use App\Models\User;
@@ -79,7 +80,7 @@ class ServiceLifecycleTest extends ReferralClientInboxTestCase
     {
         $context = $this->context();
         $service = app(ReferralClientRequestService::class);
-        $otherManager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $otherManager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         // Other agency user cannot create requests on behalf of a different agency.
         try {

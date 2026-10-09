@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Models\CaseCategory;
 use App\Models\CaseFile;
 use App\Models\CaseIssue;
@@ -26,7 +27,7 @@ class CaseDraftTest extends TestCase
         parent::setUp();
 
         $this->user = User::factory()->create([
-            'role' => 'CASE_MANAGER',
+            'role' => UserRole::CASE_MANAGER->value,
         ]);
 
         $this->category = CaseCategory::factory()->create();
@@ -386,7 +387,7 @@ class CaseDraftTest extends TestCase
 
     public function test_json_auto_save_authorization(): void
     {
-        $otherUser = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $otherUser = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $case = CaseFile::factory()->create([
             'user_id' => $this->user->id,
             'status' => 'DRAFT',

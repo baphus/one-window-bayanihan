@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\CaseFile;
 use App\Models\Client;
@@ -25,7 +26,7 @@ class OfwDashboardTest extends TestCase
     {
         $client = Client::factory()->create();
         $ofwUser = User::factory()->create([
-            'role' => 'OFW',
+            'role' => UserRole::OFW->value,
             'client_id' => $client->id,
         ]);
 
@@ -54,7 +55,7 @@ class OfwDashboardTest extends TestCase
     {
         $client = Client::factory()->create();
         $ofwUser = User::factory()->create([
-            'role' => 'OFW',
+            'role' => UserRole::OFW->value,
             'client_id' => $client->id,
         ]);
 
@@ -76,7 +77,7 @@ class OfwDashboardTest extends TestCase
     {
         $client = Client::factory()->create();
         $ofwUser = User::factory()->create([
-            'role' => 'OFW',
+            'role' => UserRole::OFW->value,
             'client_id' => $client->id,
         ]);
 
@@ -104,7 +105,7 @@ class OfwDashboardTest extends TestCase
     {
         $client = Client::factory()->create();
         $ofwUser = User::factory()->create([
-            'role' => 'OFW',
+            'role' => UserRole::OFW->value,
             'client_id' => $client->id,
         ]);
 

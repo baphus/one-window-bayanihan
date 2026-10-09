@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\UserRole;
 use App\Helpers\CacheHelper;
 use App\Models\Referral;
 use App\Services\Reports\CaseMetrics;
@@ -15,9 +16,9 @@ class ReportsService
 {
     use ScopesReportQueries;
 
-    // â”€â”€ Cache Keys & TTLs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Cache Keys & TTLs ────────────────────────────────────────────────
 
-    private const CACHE_TTL_PAYLOAD = 180;       // 3 minutes â€” full report payload
+    private const CACHE_TTL_PAYLOAD = 180;       // 3 minutes — full report payload
 
     // BC alias — the canonical key lives on ReportLookups.
     public const KEY_REFERENCE_DATA = ReportLookups::KEY_REFERENCE_DATA;
@@ -60,8 +61,8 @@ class ReportsService
             $userId, $role, $agencyId, $fromDate, $toDate, $dateScope, $province, $city
         ) {
             $data = match ($role) {
-                'AGENCY' => $this->getAgencyPayload($userId, $fromDate, $toDate, $dateScope, $province, $city, $agencyId),
-                'ADMIN' => $this->getAdminPayload($fromDate, $toDate, $dateScope, $province, $city, $agencyId),
+                UserRole::AGENCY->value => $this->getAgencyPayload($userId, $fromDate, $toDate, $dateScope, $province, $city, $agencyId),
+                UserRole::ADMIN->value => $this->getAdminPayload($fromDate, $toDate, $dateScope, $province, $city, $agencyId),
                 default => $this->getCaseManagerPayload($userId, $fromDate, $toDate, $dateScope, $province, $city, $agencyId),
             };
 
@@ -84,35 +85,35 @@ class ReportsService
         $to = $toDate ?: now()->toDateString();
 
         return [
-            'kpis' => $this->referrals->getReferralKpis($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city, $agencyId),
-            'referralStatusDistribution' => $this->referrals->getReferralStatusDistribution($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city, $agencyId),
-            'rejectionReasonDistribution' => $this->referrals->getRejectionReasonDistribution($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city, $agencyId),
-            'referralAgencyDistribution' => $this->referrals->getReferralAgencyDistribution($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city, $agencyId),
-            'referralTrends' => $this->referrals->getReferralTrends($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city, $agencyId),
-            'casesOverTime' => $this->cases->getCasesOverTime($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city, $agencyId),
-            'genderDistribution' => $this->clients->getGenderDistribution($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city, $agencyId),
-            'clientTypeDistribution' => $this->cases->getClientTypeDistribution($userId, 'CASE_MANAGER', $agencyId, $from, $to, $province, $city),
-            'ageGroupDistribution' => $this->clients->getAgeGroupDistribution($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city, $agencyId),
-            'mostRequestedService' => $this->referrals->getMostRequestedService($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city, $agencyId),
-            'cycleTimeDistribution' => $this->referrals->getReferralCycleTimeDistribution($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city, $agencyId),
-            'referralAging' => $this->referrals->getReferralAging($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city, $agencyId),
-            'agencyScorecard' => $this->referrals->getAgencyScorecard($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city, $agencyId),
-            'geographicDistribution' => $this->clients->getGeographicDistribution($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city, $agencyId),
-            'geographicMapData' => $this->clients->getGeographicMapData($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city, $agencyId),
-            'categoryDistribution' => $this->cases->categoryDistribution($userId, 'CASE_MANAGER', $agencyId, $from, $to, $province, $city),
-            'employmentDistribution' => $this->clients->getLastEmploymentDistribution($userId, 'CASE_MANAGER', $agencyId, $from, $to, $province, $city),
-            'employmentOccupationBreakdown' => $this->clients->getEmploymentOccupationBreakdown($userId, 'CASE_MANAGER', $agencyId, $from, $to, $province, $city),
-            'caseStatusDistribution' => $this->cases->getCaseStatusDistribution($userId, 'CASE_MANAGER', $agencyId, $from, $to, $province, $city),
-            'caseIssueDistribution' => $this->cases->getCaseIssueDistribution($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city, $agencyId),
-            'overdueReferrals' => $this->referrals->getOverdueReferrals($userId, 'CASE_MANAGER', $province, $city, $agencyId),
-            'cityDistribution' => $this->clients->getCityDistribution($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city, $agencyId),
-            'vulnerabilityDistribution' => $this->cases->getVulnerabilityDistribution($userId, 'CASE_MANAGER', $agencyId, $from, $to, $province, $city),
-            'caseSourceDistribution' => $this->cases->getCaseSourceDistribution($userId, 'CASE_MANAGER', $agencyId, $from, $to, $province, $city),
-            'closedCasesOverTime' => $this->cases->getClosedCasesOverTime($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city, $agencyId),
-            'reopenedStats' => $this->cases->getReopenedStats($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city, $agencyId),
-            'caseEventActorDistribution' => $this->cases->getCaseEventActorDistribution($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city, $agencyId),
-            'agencyFirstResponse' => $this->referrals->getAgencyFirstResponse($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city, $agencyId),
-            'clientRequestTypeDistribution' => $this->referrals->getClientRequestTypeDistribution($userId, 'CASE_MANAGER', $from, $to, $dateScope, $province, $city, $agencyId),
+            'kpis' => $this->referrals->getReferralKpis($userId, UserRole::CASE_MANAGER->value, $from, $to, $dateScope, $province, $city, $agencyId),
+            'referralStatusDistribution' => $this->referrals->getReferralStatusDistribution($userId, UserRole::CASE_MANAGER->value, $from, $to, $dateScope, $province, $city, $agencyId),
+            'rejectionReasonDistribution' => $this->referrals->getRejectionReasonDistribution($userId, UserRole::CASE_MANAGER->value, $from, $to, $dateScope, $province, $city, $agencyId),
+            'referralAgencyDistribution' => $this->referrals->getReferralAgencyDistribution($userId, UserRole::CASE_MANAGER->value, $from, $to, $dateScope, $province, $city, $agencyId),
+            'referralTrends' => $this->referrals->getReferralTrends($userId, UserRole::CASE_MANAGER->value, $from, $to, $dateScope, $province, $city, $agencyId),
+            'casesOverTime' => $this->cases->getCasesOverTime($userId, UserRole::CASE_MANAGER->value, $from, $to, $dateScope, $province, $city, $agencyId),
+            'genderDistribution' => $this->clients->getGenderDistribution($userId, UserRole::CASE_MANAGER->value, $from, $to, $dateScope, $province, $city, $agencyId),
+            'clientTypeDistribution' => $this->cases->getClientTypeDistribution($userId, UserRole::CASE_MANAGER->value, $agencyId, $from, $to, $province, $city),
+            'ageGroupDistribution' => $this->clients->getAgeGroupDistribution($userId, UserRole::CASE_MANAGER->value, $from, $to, $dateScope, $province, $city, $agencyId),
+            'mostRequestedService' => $this->referrals->getMostRequestedService($userId, UserRole::CASE_MANAGER->value, $from, $to, $dateScope, $province, $city, $agencyId),
+            'cycleTimeDistribution' => $this->referrals->getReferralCycleTimeDistribution($userId, UserRole::CASE_MANAGER->value, $from, $to, $dateScope, $province, $city, $agencyId),
+            'referralAging' => $this->referrals->getReferralAging($userId, UserRole::CASE_MANAGER->value, $from, $to, $dateScope, $province, $city, $agencyId),
+            'agencyScorecard' => $this->referrals->getAgencyScorecard($userId, UserRole::CASE_MANAGER->value, $from, $to, $dateScope, $province, $city, $agencyId),
+            'geographicDistribution' => $this->clients->getGeographicDistribution($userId, UserRole::CASE_MANAGER->value, $from, $to, $dateScope, $province, $city, $agencyId),
+            'geographicMapData' => $this->clients->getGeographicMapData($userId, UserRole::CASE_MANAGER->value, $from, $to, $dateScope, $province, $city, $agencyId),
+            'categoryDistribution' => $this->cases->categoryDistribution($userId, UserRole::CASE_MANAGER->value, $agencyId, $from, $to, $province, $city),
+            'employmentDistribution' => $this->clients->getLastEmploymentDistribution($userId, UserRole::CASE_MANAGER->value, $agencyId, $from, $to, $province, $city),
+            'employmentOccupationBreakdown' => $this->clients->getEmploymentOccupationBreakdown($userId, UserRole::CASE_MANAGER->value, $agencyId, $from, $to, $province, $city),
+            'caseStatusDistribution' => $this->cases->getCaseStatusDistribution($userId, UserRole::CASE_MANAGER->value, $agencyId, $from, $to, $province, $city),
+            'caseIssueDistribution' => $this->cases->getCaseIssueDistribution($userId, UserRole::CASE_MANAGER->value, $from, $to, $dateScope, $province, $city, $agencyId),
+            'overdueReferrals' => $this->referrals->getOverdueReferrals($userId, UserRole::CASE_MANAGER->value, $province, $city, $agencyId),
+            'cityDistribution' => $this->clients->getCityDistribution($userId, UserRole::CASE_MANAGER->value, $from, $to, $dateScope, $province, $city, $agencyId),
+            'vulnerabilityDistribution' => $this->cases->getVulnerabilityDistribution($userId, UserRole::CASE_MANAGER->value, $agencyId, $from, $to, $province, $city),
+            'caseSourceDistribution' => $this->cases->getCaseSourceDistribution($userId, UserRole::CASE_MANAGER->value, $agencyId, $from, $to, $province, $city),
+            'closedCasesOverTime' => $this->cases->getClosedCasesOverTime($userId, UserRole::CASE_MANAGER->value, $from, $to, $dateScope, $province, $city, $agencyId),
+            'reopenedStats' => $this->cases->getReopenedStats($userId, UserRole::CASE_MANAGER->value, $from, $to, $dateScope, $province, $city, $agencyId),
+            'caseEventActorDistribution' => $this->cases->getCaseEventActorDistribution($userId, UserRole::CASE_MANAGER->value, $from, $to, $dateScope, $province, $city, $agencyId),
+            'agencyFirstResponse' => $this->referrals->getAgencyFirstResponse($userId, UserRole::CASE_MANAGER->value, $from, $to, $dateScope, $province, $city, $agencyId),
+            'clientRequestTypeDistribution' => $this->referrals->getClientRequestTypeDistribution($userId, UserRole::CASE_MANAGER->value, $from, $to, $dateScope, $province, $city, $agencyId),
         ];
     }
 
@@ -129,25 +130,25 @@ class ReportsService
         $to = $toDate ?: now()->toDateString();
 
         return [
-            'kpis' => $this->referrals->getReferralKpis(null, 'AGENCY', $from, $to, $dateScope, $province, $city, $agencyId),
-            'referralStatusDistribution' => $this->referrals->getReferralStatusDistribution(null, 'AGENCY', $from, $to, $dateScope, $province, $city, $agencyId),
-            'rejectionReasonDistribution' => $this->referrals->getRejectionReasonDistribution(null, 'AGENCY', $from, $to, $dateScope, $province, $city, $agencyId),
-            'referralTrends' => $this->referrals->getReferralTrends(null, 'AGENCY', $from, $to, $dateScope, $province, $city, $agencyId),
-            'avgReferralCompletion' => $this->referrals->getAvgReferralCompletionDays(role: 'AGENCY', agencyId: $agencyId),
-            'cycleTimeDistribution' => $this->referrals->getReferralCycleTimeDistribution(null, 'AGENCY', $from, $to, $dateScope, $province, $city, $agencyId),
-            'agencyScorecard' => $this->referrals->getAgencyScorecard(null, 'AGENCY', $from, $to, $dateScope, $province, $city, $agencyId),
-            'categoryDistribution' => $this->cases->categoryDistribution(null, 'AGENCY', $agencyId, $from, $to, $province, $city),
-            'caseStatusDistribution' => $this->cases->getCaseStatusDistribution(null, 'AGENCY', $agencyId, $from, $to, $province, $city),
-            'genderDistribution' => $this->clients->getGenderDistribution(null, 'AGENCY', $from, $to, $dateScope, $province, $city, $agencyId),
-            'ageGroupDistribution' => $this->clients->getAgeGroupDistribution(null, 'AGENCY', $from, $to, $dateScope, $province, $city, $agencyId),
-            'clientTypeDistribution' => $this->cases->getClientTypeDistribution(null, 'AGENCY', $agencyId, $from, $to, $province, $city),
-            'geographicMapData' => $this->clients->getGeographicMapData(null, 'AGENCY', $from, $to, $dateScope, $province, $city, $agencyId),
-            'caseSourceDistribution' => $this->cases->getCaseSourceDistribution(null, 'AGENCY', $agencyId, $from, $to, $province, $city),
-            'closedCasesOverTime' => $this->cases->getClosedCasesOverTime(null, 'AGENCY', $from, $to, $dateScope, $province, $city, $agencyId),
-            'reopenedStats' => $this->cases->getReopenedStats(null, 'AGENCY', $from, $to, $dateScope, $province, $city, $agencyId),
-            'caseEventActorDistribution' => $this->cases->getCaseEventActorDistribution(null, 'AGENCY', $from, $to, $dateScope, $province, $city, $agencyId),
-            'agencyFirstResponse' => $this->referrals->getAgencyFirstResponse(null, 'AGENCY', $from, $to, $dateScope, $province, $city, $agencyId),
-            'clientRequestTypeDistribution' => $this->referrals->getClientRequestTypeDistribution(null, 'AGENCY', $from, $to, $dateScope, $province, $city, $agencyId),
+            'kpis' => $this->referrals->getReferralKpis(null, UserRole::AGENCY->value, $from, $to, $dateScope, $province, $city, $agencyId),
+            'referralStatusDistribution' => $this->referrals->getReferralStatusDistribution(null, UserRole::AGENCY->value, $from, $to, $dateScope, $province, $city, $agencyId),
+            'rejectionReasonDistribution' => $this->referrals->getRejectionReasonDistribution(null, UserRole::AGENCY->value, $from, $to, $dateScope, $province, $city, $agencyId),
+            'referralTrends' => $this->referrals->getReferralTrends(null, UserRole::AGENCY->value, $from, $to, $dateScope, $province, $city, $agencyId),
+            'avgReferralCompletion' => $this->referrals->getAvgReferralCompletionDays(role: UserRole::AGENCY->value, agencyId: $agencyId),
+            'cycleTimeDistribution' => $this->referrals->getReferralCycleTimeDistribution(null, UserRole::AGENCY->value, $from, $to, $dateScope, $province, $city, $agencyId),
+            'agencyScorecard' => $this->referrals->getAgencyScorecard(null, UserRole::AGENCY->value, $from, $to, $dateScope, $province, $city, $agencyId),
+            'categoryDistribution' => $this->cases->categoryDistribution(null, UserRole::AGENCY->value, $agencyId, $from, $to, $province, $city),
+            'caseStatusDistribution' => $this->cases->getCaseStatusDistribution(null, UserRole::AGENCY->value, $agencyId, $from, $to, $province, $city),
+            'genderDistribution' => $this->clients->getGenderDistribution(null, UserRole::AGENCY->value, $from, $to, $dateScope, $province, $city, $agencyId),
+            'ageGroupDistribution' => $this->clients->getAgeGroupDistribution(null, UserRole::AGENCY->value, $from, $to, $dateScope, $province, $city, $agencyId),
+            'clientTypeDistribution' => $this->cases->getClientTypeDistribution(null, UserRole::AGENCY->value, $agencyId, $from, $to, $province, $city),
+            'geographicMapData' => $this->clients->getGeographicMapData(null, UserRole::AGENCY->value, $from, $to, $dateScope, $province, $city, $agencyId),
+            'caseSourceDistribution' => $this->cases->getCaseSourceDistribution(null, UserRole::AGENCY->value, $agencyId, $from, $to, $province, $city),
+            'closedCasesOverTime' => $this->cases->getClosedCasesOverTime(null, UserRole::AGENCY->value, $from, $to, $dateScope, $province, $city, $agencyId),
+            'reopenedStats' => $this->cases->getReopenedStats(null, UserRole::AGENCY->value, $from, $to, $dateScope, $province, $city, $agencyId),
+            'caseEventActorDistribution' => $this->cases->getCaseEventActorDistribution(null, UserRole::AGENCY->value, $from, $to, $dateScope, $province, $city, $agencyId),
+            'agencyFirstResponse' => $this->referrals->getAgencyFirstResponse(null, UserRole::AGENCY->value, $from, $to, $dateScope, $province, $city, $agencyId),
+            'clientRequestTypeDistribution' => $this->referrals->getClientRequestTypeDistribution(null, UserRole::AGENCY->value, $from, $to, $dateScope, $province, $city, $agencyId),
         ];
     }
 
@@ -203,7 +204,7 @@ class ReportsService
             ],
         ];
 
-        if ($role === 'AGENCY') {
+        if ($role === UserRole::AGENCY->value) {
             return [
                 'kpis' => $zeroKpis,
                 'referralStatusDistribution' => ['labels' => ['PENDING', 'PROCESSING', 'FOR_COMPLIANCE', 'COMPLETED', 'REJECTED'], 'data' => [0, 0, 0, 0, 0], 'colors' => []],
@@ -506,8 +507,8 @@ class ReportsService
 
     /**
      * Reference rows that drive the chart toggle controls (statuses, categories,
-     * case issues). Sourced from the live reference tables â€” active only, ordered
-     * by sort_order â€” so toggle lists and colors never drift from hard-coded literals.
+     * case issues). Sourced from the live reference tables — active only, ordered
+     * by sort_order — so toggle lists and colors never drift from hard-coded literals.
      */
     public function getReferenceData(): array
     {
@@ -518,7 +519,7 @@ class ReportsService
      * Role-scoped agency options for the agency filter dropdown.
      *
      * Admin and CASE_MANAGER: all active agencies.
-     * Agency: empty array â€” the selector is hidden for Agency users.
+     * Agency: empty array — the selector is hidden for Agency users.
      *
      * @return array<int, array{value: string, label: string}>
      */

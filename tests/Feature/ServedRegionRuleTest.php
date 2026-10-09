@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Http\Middleware\VerifyTurnstile;
 use App\Models\CaseFile;
 use App\Models\User;
@@ -133,7 +134,7 @@ class ServedRegionRuleTest extends TestCase
     #[Test]
     public function draft_save_rejects_region_outside_served_scope(): void
     {
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $case = CaseFile::factory()->create([
             'user_id' => $user->id,
             'status' => 'DRAFT',

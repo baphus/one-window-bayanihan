@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Export;
 
+use App\Enums\UserRole;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -34,7 +35,7 @@ class PageExportTest extends TestCase
     #[Test]
     public function cases_export_returns_xlsx(): void
     {
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         $response = $this->actingAs($user)->get(route('cases.export-excel'));
 
@@ -59,7 +60,7 @@ class PageExportTest extends TestCase
     #[Test]
     public function clients_export_returns_xlsx(): void
     {
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         $response = $this->actingAs($user)->get(route('clients.export-excel'));
 
@@ -84,7 +85,7 @@ class PageExportTest extends TestCase
     #[Test]
     public function referrals_export_returns_xlsx(): void
     {
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         $response = $this->actingAs($user)->get(route('referrals.export-excel'));
 

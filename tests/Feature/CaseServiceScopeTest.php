@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\CaseFile;
 use App\Models\Referral;
@@ -24,9 +25,9 @@ class CaseServiceScopeTest extends TestCase
 
     public function test_admin_sees_all_non_draft_cases(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
-        $manager1 = User::factory()->create(['role' => 'CASE_MANAGER']);
-        $manager2 = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $manager1 = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $manager2 = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         CaseFile::factory(3)->create(['user_id' => $manager1->id, 'status' => 'OPEN']);
         CaseFile::factory(2)->create(['user_id' => $manager2->id, 'status' => 'OPEN']);
@@ -39,8 +40,8 @@ class CaseServiceScopeTest extends TestCase
 
     public function test_case_manager_sees_all_cases(): void
     {
-        $manager1 = User::factory()->create(['role' => 'CASE_MANAGER']);
-        $manager2 = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $manager1 = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $manager2 = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         CaseFile::factory(3)->create(['user_id' => $manager1->id, 'status' => 'OPEN']);
         CaseFile::factory(2)->create(['user_id' => $manager2->id, 'status' => 'OPEN']);
@@ -53,8 +54,8 @@ class CaseServiceScopeTest extends TestCase
 
     public function test_case_manager_sees_other_managers_cases(): void
     {
-        $manager1 = User::factory()->create(['role' => 'CASE_MANAGER']);
-        $manager2 = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $manager1 = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $manager2 = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         $case1 = CaseFile::factory()->create(['user_id' => $manager1->id, 'status' => 'OPEN']);
         $case2 = CaseFile::factory()->create(['user_id' => $manager2->id, 'status' => 'OPEN']);
@@ -82,11 +83,11 @@ class CaseServiceScopeTest extends TestCase
         ]);
 
         $agencyUser = User::factory()->create([
-            'role' => 'AGENCY',
+            'role' => UserRole::AGENCY->value,
             'agcy_id' => $agency->id,
         ]);
 
-        $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         // Case with referral to agency user's agency — should be visible
         $caseWithReferral = CaseFile::factory()->create([
@@ -130,11 +131,11 @@ class CaseServiceScopeTest extends TestCase
     public function test_agency_without_agency_id_sees_no_cases(): void
     {
         $agencyUser = User::factory()->create([
-            'role' => 'AGENCY',
+            'role' => UserRole::AGENCY->value,
             'agcy_id' => null,
         ]);
 
-        $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         CaseFile::factory(3)->create(['user_id' => $manager->id, 'status' => 'OPEN']);
 
         $this->actingAs($agencyUser);
@@ -145,8 +146,8 @@ class CaseServiceScopeTest extends TestCase
 
     public function test_case_manager_can_filter_by_user_id(): void
     {
-        $manager1 = User::factory()->create(['role' => 'CASE_MANAGER']);
-        $manager2 = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $manager1 = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $manager2 = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         CaseFile::factory(2)->create(['user_id' => $manager1->id, 'status' => 'OPEN']);
         CaseFile::factory(3)->create(['user_id' => $manager2->id, 'status' => 'OPEN']);
@@ -163,7 +164,7 @@ class CaseServiceScopeTest extends TestCase
 
     public function test_drafts_are_excluded_from_get_cases(): void
     {
-        $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         CaseFile::factory(3)->create(['user_id' => $manager->id, 'status' => 'OPEN']);
         CaseFile::factory(2)->create(['user_id' => $manager->id, 'status' => 'DRAFT']);
@@ -179,9 +180,9 @@ class CaseServiceScopeTest extends TestCase
 
     public function test_admin_can_filter_by_user_id(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
-        $manager1 = User::factory()->create(['role' => 'CASE_MANAGER']);
-        $manager2 = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $manager1 = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $manager2 = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         CaseFile::factory(2)->create(['user_id' => $manager1->id, 'status' => 'OPEN']);
         CaseFile::factory(3)->create(['user_id' => $manager2->id, 'status' => 'OPEN']);
@@ -194,7 +195,7 @@ class CaseServiceScopeTest extends TestCase
 
     public function test_other_filters_still_work_with_role_scope(): void
     {
-        $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         CaseFile::factory()->create([
             'user_id' => $manager->id,

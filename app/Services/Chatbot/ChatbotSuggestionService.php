@@ -2,6 +2,7 @@
 
 namespace App\Services\Chatbot;
 
+use App\Enums\UserRole;
 use App\Models\Agency;
 
 /**
@@ -24,9 +25,9 @@ class ChatbotSuggestionService
     public function getSuggestions(?string $role = null): array
     {
         return match ($role) {
-            'ADMIN' => $this->getAdminSuggestions(),
-            'CASE_MANAGER' => $this->getCaseManagerSuggestions(),
-            'AGENCY' => $this->getAgencySuggestions(),
+            UserRole::ADMIN->value => $this->getAdminSuggestions(),
+            UserRole::CASE_MANAGER->value => $this->getCaseManagerSuggestions(),
+            UserRole::AGENCY->value => $this->getAgencySuggestions(),
             default => $this->getOfwSuggestions(),
         };
     }

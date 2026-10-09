@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Models\AuditLog;
 use App\Models\CaseCategory;
 use App\Models\CaseFile;
@@ -26,7 +27,7 @@ class CategoryAnalyticsAuditHardeningTest extends TestCase
         Cache::forget('dashboard:cm_cases_by_category');
         Cache::forget('dashboard:cm_counts');
 
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $primary = CaseCategory::factory()->create(['name' => 'Primary']);
         $secondary = CaseCategory::factory()->create(['name' => 'Secondary']);
         $excluded = CaseCategory::factory()->create(['name' => 'Excluded']);
@@ -69,7 +70,7 @@ class CategoryAnalyticsAuditHardeningTest extends TestCase
         $this->assertSame(1, $dashboardCounts['Secondary']);
         $this->assertArrayNotHasKey('Excluded', $dashboardCounts);
 
-        $reportCounts = collect(app(ReportsService::class)->categoryDistribution($user->id, 'CASE_MANAGER'))
+        $reportCounts = collect(app(ReportsService::class)->categoryDistribution($user->id, UserRole::CASE_MANAGER->value))
             ->pluck('count', 'name')->all();
         $this->assertSame(2, $reportCounts['Primary']);
         $this->assertSame(1, $reportCounts['Secondary']);
@@ -173,7 +174,7 @@ class CategoryAnalyticsAuditHardeningTest extends TestCase
         Cache::forget('dashboard:cm_cases_by_category');
         Cache::forget('dashboard:cm_counts');
 
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $primary = CaseCategory::factory()->create(['name' => 'Cache primary']);
         $secondary = CaseCategory::factory()->create(['name' => 'Cache secondary']);
         $case = CaseFile::factory()->create([
@@ -190,7 +191,7 @@ class CategoryAnalyticsAuditHardeningTest extends TestCase
         app(CaseService::class)->getCaseStats();
         app(DashboardService::class)->getCaseManagerData($user);
         $reports = app(ReportsService::class);
-        $reports->categoryDistribution($user->id, 'CASE_MANAGER');
+        $reports->categoryDistribution($user->id, UserRole::CASE_MANAGER->value);
         $tracking = app(TrackingService::class);
         $tracking->buildTrackingData($case->fresh());
         $this->assertTrue(Cache::has('stats:cases'));
@@ -223,7 +224,7 @@ class CategoryAnalyticsAuditHardeningTest extends TestCase
             ->pluck('count', 'name')->all();
         $this->assertSame(1, $dashboardCounts['Cache primary']);
         $this->assertSame(1, $dashboardCounts['Cache secondary']);
-        $reportCounts = collect($reports->categoryDistribution($user->id, 'CASE_MANAGER'))
+        $reportCounts = collect($reports->categoryDistribution($user->id, UserRole::CASE_MANAGER->value))
             ->pluck('count', 'name')->all();
         $this->assertSame(1, $reportCounts['Cache primary']);
         $this->assertSame(1, $reportCounts['Cache secondary']);

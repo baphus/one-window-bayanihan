@@ -100,22 +100,22 @@ class User extends Authenticatable implements MustVerifyEmail
 
     public function isAdmin(): bool
     {
-        return $this->role === 'ADMIN';
+        return $this->hasRole(UserRole::ADMIN);
     }
 
     public function isCaseManager(): bool
     {
-        return $this->role === 'CASE_MANAGER';
+        return $this->hasRole(UserRole::CASE_MANAGER);
     }
 
     public function isAgency(): bool
     {
-        return $this->role === 'AGENCY';
+        return $this->hasRole(UserRole::AGENCY);
     }
 
     public function isOfw(): bool
     {
-        return $this->role === 'OFW';
+        return $this->hasRole(UserRole::OFW);
     }
 
     public function isInMfaEnforcedRole(): bool

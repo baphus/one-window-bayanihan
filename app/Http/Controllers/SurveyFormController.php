@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\UserRole;
 use App\Http\Requests\StoreSurveyFormRequest;
 use App\Http\Requests\UpdateSurveyFormRequest;
 use App\Models\SurveyForm;
@@ -112,7 +113,7 @@ class SurveyFormController extends Controller
 
     private function authorizeFormManagement($user): void
     {
-        if (! $user || $user->role !== 'AGENCY' || $user->agcy_id === null) {
+        if (! $user || $user->role !== UserRole::AGENCY->value || $user->agcy_id === null) {
             abort(403, 'You do not have access to survey form management.');
         }
     }

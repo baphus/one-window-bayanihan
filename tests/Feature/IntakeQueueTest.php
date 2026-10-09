@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\CaseFile;
 use App\Models\Client;
@@ -23,7 +24,7 @@ class IntakeQueueTest extends TestCase
     #[Test]
     public function test_intake_queue_shows_self_filed_drafts(): void
     {
-        $cm = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $cm = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $client = Client::factory()->create();
 
         $case = CaseFile::factory()->draft()->create([
@@ -43,7 +44,7 @@ class IntakeQueueTest extends TestCase
     #[Test]
     public function test_intake_queue_not_accessible_by_agency(): void
     {
-        $agencyUser = User::factory()->create(['role' => 'AGENCY']);
+        $agencyUser = User::factory()->create(['role' => UserRole::AGENCY->value]);
 
         $response = $this->actingAs($agencyUser)
             ->get('/cases/intake-queue');
@@ -56,7 +57,7 @@ class IntakeQueueTest extends TestCase
     {
         $client = Client::factory()->create();
         $ofwUser = User::factory()->create([
-            'role' => 'OFW',
+            'role' => UserRole::OFW->value,
             'client_id' => $client->id,
         ]);
 

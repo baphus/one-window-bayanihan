@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Models\CaseFile;
 use App\Models\Client;
 use App\Models\User;
@@ -50,7 +51,7 @@ class PendingIntakeClientVisibilityTest extends TestCase
 
     private function caseManager(): User
     {
-        return User::factory()->create(['role' => 'CASE_MANAGER']);
+        return User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
     }
 
     #[Test]
@@ -96,7 +97,7 @@ class PendingIntakeClientVisibilityTest extends TestCase
         $established = Client::factory()->create(['first_name' => 'Established', 'is_deleted' => false]);
         CaseFile::factory()->create(['client_id' => $established->id, 'status' => 'OPEN']);
 
-        $response = $this->actingAs(User::factory()->create(['role' => 'ADMIN']))
+        $response = $this->actingAs(User::factory()->create(['role' => UserRole::ADMIN->value]))
             ->get(route('clients.index'));
 
         $response->assertStatus(200);
@@ -219,7 +220,7 @@ class PendingIntakeClientVisibilityTest extends TestCase
 
         // The export strips the raw name columns and emits "Last, First".
         $names = collect((new DataExportQueries)
-            ->getClientsExport(User::factory()->create(['role' => 'ADMIN'])))
+            ->getClientsExport(User::factory()->create(['role' => UserRole::ADMIN->value])))
             ->pluck('full_name')
             ->all();
 
@@ -240,7 +241,7 @@ class PendingIntakeClientVisibilityTest extends TestCase
         CaseFile::factory()->create(['client_id' => $deleted->id, 'status' => 'OPEN']);
 
         $names = collect((new DataExportQueries)
-            ->getClientsExport(User::factory()->create(['role' => 'ADMIN'])))
+            ->getClientsExport(User::factory()->create(['role' => UserRole::ADMIN->value])))
             ->pluck('full_name')
             ->all();
 
@@ -315,7 +316,7 @@ class PendingIntakeClientVisibilityTest extends TestCase
 
         // Each role gets a fresh user, so the per-user client_stats cache key is
         // distinct and cannot serve a value cached by the other.
-        foreach (['ADMIN', 'CASE_MANAGER'] as $role) {
+        foreach ([UserRole::ADMIN->value, UserRole::CASE_MANAGER->value] as $role) {
             $user = User::factory()->create(['role' => $role]);
 
             $this->actingAs($user)->get(route('clients.index'))

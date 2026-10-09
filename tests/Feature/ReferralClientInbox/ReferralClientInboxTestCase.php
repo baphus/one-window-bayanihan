@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\ReferralClientInbox;
 
+use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\CaseFile;
 use App\Models\Client;
@@ -22,9 +23,9 @@ abstract class ReferralClientInboxTestCase extends TestCase
         $otherAgency = Agency::factory()->create();
         // uniqid()-based emails: faker's unique() pool still collides at
         // full-suite scale (users_email_unique violation), these cannot.
-        $agencyUser = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agency->id, 'is_active' => true, 'email' => 'agency-'.uniqid().'@example.com']);
-        $otherAgencyUser = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $otherAgency->id, 'is_active' => true, 'email' => 'other-agency-'.uniqid().'@example.com']);
-        $manager = User::factory()->create(['role' => 'CASE_MANAGER', 'is_active' => true, 'email' => 'manager-'.uniqid().'@example.com']);
+        $agencyUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id, 'is_active' => true, 'email' => 'agency-'.uniqid().'@example.com']);
+        $otherAgencyUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $otherAgency->id, 'is_active' => true, 'email' => 'other-agency-'.uniqid().'@example.com']);
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value, 'is_active' => true, 'email' => 'manager-'.uniqid().'@example.com']);
         $client = Client::factory()->create(['email' => $withEmail ? 'client-'.uniqid().'@example.com' : null]);
         $case = CaseFile::factory()->create(['client_id' => $client->id, 'user_id' => $manager->id]);
         $referral = Referral::factory()->create(['case_id' => $case->id, 'agcy_id' => $agency->id]);

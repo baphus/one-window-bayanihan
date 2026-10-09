@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\TrackingService;
 
+use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\CaseCategory;
 use App\Models\CaseEvent;
@@ -60,7 +61,7 @@ class CaseEventRecordingTest extends TestCase
     {
         $result = $this->createCompleteCase(1);
         $referral = $result['referrals']->first();
-        $agencyUser = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $referral->agcy_id]);
+        $agencyUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $referral->agcy_id]);
         $service = app(ReferralService::class);
 
         foreach (['PROCESSING', 'COMPLETED'] as $status) {
@@ -233,7 +234,7 @@ class CaseEventRecordingTest extends TestCase
         $result = $this->createCompleteCase(1);
         $referral = $result['referrals']->first();
         $agencyUser = User::factory()->create([
-            'role' => 'AGENCY',
+            'role' => UserRole::AGENCY->value,
             'agcy_id' => $referral->agcy_id,
             'name' => 'Juanito Dela Cruz Unique',
         ]);

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\CaseFile;
 use App\Models\Client;
@@ -31,7 +32,7 @@ class ReferralServiceAssignmentTest extends TestCase
     {
         parent::setUp();
 
-        $this->caseManager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $this->caseManager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $client = Client::factory()->create(['email' => 'ofw@example.com']);
         $this->case = CaseFile::factory()->create([
             'user_id' => $this->caseManager->id,
@@ -42,7 +43,7 @@ class ReferralServiceAssignmentTest extends TestCase
         $this->agency = Agency::factory()->create();
         $this->agencyUser = User::factory()->create([
             'agcy_id' => $this->agency->id,
-            'role' => 'AGENCY',
+            'role' => UserRole::AGENCY->value,
             'is_active' => true,
         ]);
 
@@ -262,7 +263,7 @@ class ReferralServiceAssignmentTest extends TestCase
 
     public function test_admin_cannot_add_service(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $referral = Referral::create([
             'id' => fake()->uuid(),
             'required_services' => '',
@@ -322,7 +323,7 @@ class ReferralServiceAssignmentTest extends TestCase
 
     public function test_admin_cannot_remove_service(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $referral = Referral::create([
             'id' => fake()->uuid(),
             'required_services' => '',

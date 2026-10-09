@@ -2,6 +2,7 @@
 
 namespace Tests\Unit;
 
+use App\Enums\UserRole;
 use App\Models\CaseFile;
 use App\Models\Client;
 use App\Models\User;
@@ -29,7 +30,7 @@ class IntakeServiceDuplicateTest extends TestCase
         $client = Client::factory()->create(['email' => $email]);
         User::factory()->create([
             'email' => $email,
-            'role' => 'OFW',
+            'role' => UserRole::OFW->value,
             'client_id' => $client->id,
         ]);
 
@@ -53,7 +54,7 @@ class IntakeServiceDuplicateTest extends TestCase
         $client = Client::factory()->create(['email' => $email]);
         User::factory()->create([
             'email' => $email,
-            'role' => 'OFW',
+            'role' => UserRole::OFW->value,
             'client_id' => $client->id,
         ]);
 

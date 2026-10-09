@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Export;
 
+use App\Enums\UserRole;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\CaseFile;
 use App\Models\Client;
@@ -31,7 +32,7 @@ class DataExportSheetsTest extends TestCase
     #[Test]
     public function full_export_sheets_covers_every_mapped_table_in_order(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $client = Client::factory()->create();
         CaseFile::factory()->create(['client_id' => $client->id, 'user_id' => $admin->id]);
 
@@ -56,7 +57,7 @@ class DataExportSheetsTest extends TestCase
     #[Test]
     public function every_delegated_sheet_query_returns_a_collection(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $client = Client::factory()->create();
         $case = CaseFile::factory()->create(['client_id' => $client->id, 'user_id' => $admin->id]);
 
@@ -96,7 +97,7 @@ class DataExportSheetsTest extends TestCase
     #[Test]
     public function agency_user_is_scoped_out_of_users_reference_sheet(): void
     {
-        $agency = User::factory()->create(['role' => 'AGENCY']);
+        $agency = User::factory()->create(['role' => UserRole::AGENCY->value]);
 
         $this->assertCount(0, (new DataExportQueries)->getUsers($agency));
     }

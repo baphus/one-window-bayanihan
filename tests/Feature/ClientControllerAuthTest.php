@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\SetPostgresSession;
 use App\Models\Agency;
@@ -28,7 +29,7 @@ class ClientControllerAuthTest extends TestCase
 
     public function test_case_manager_can_view_own_client(): void
     {
-        $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $client = Client::factory()->create();
         CaseFile::factory()->create([
             'user_id' => $manager->id,
@@ -44,8 +45,8 @@ class ClientControllerAuthTest extends TestCase
 
     public function test_case_manager_can_view_any_client(): void
     {
-        $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
-        $otherManager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $otherManager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $client = Client::factory()->create();
         CaseFile::factory()->create([
             'user_id' => $otherManager->id,
@@ -61,8 +62,8 @@ class ClientControllerAuthTest extends TestCase
 
     public function test_admin_can_view_any_client(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
-        $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $client = Client::factory()->create();
         CaseFile::factory()->create([
             'user_id' => $manager->id,
@@ -78,7 +79,7 @@ class ClientControllerAuthTest extends TestCase
 
     public function test_admin_can_view_client_without_case_file(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $client = Client::factory()->create();
 
         $response = $this->actingAs($admin)
@@ -89,7 +90,7 @@ class ClientControllerAuthTest extends TestCase
 
     public function test_case_manager_can_view_client_without_case_file(): void
     {
-        $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $client = Client::factory()->create();
 
         $response = $this->actingAs($manager)
@@ -108,11 +109,11 @@ class ClientControllerAuthTest extends TestCase
         ]);
 
         $agencyUser = User::factory()->create([
-            'role' => 'AGENCY',
+            'role' => UserRole::AGENCY->value,
             'agcy_id' => $agency->id,
         ]);
 
-        $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $client = Client::factory()->create();
         $case = CaseFile::factory()->create([
             'user_id' => $manager->id,
@@ -150,11 +151,11 @@ class ClientControllerAuthTest extends TestCase
         ]);
 
         $agencyUser = User::factory()->create([
-            'role' => 'AGENCY',
+            'role' => UserRole::AGENCY->value,
             'agcy_id' => $agency->id,
         ]);
 
-        $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $client = Client::factory()->create();
         $case = CaseFile::factory()->create([
             'user_id' => $manager->id,
@@ -189,8 +190,8 @@ class ClientControllerAuthTest extends TestCase
 
     public function test_case_manager_sees_all_clients_in_index(): void
     {
-        $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
-        $otherManager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $otherManager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         $ownClient = Client::factory()->create();
         CaseFile::factory()->create([
@@ -218,7 +219,7 @@ class ClientControllerAuthTest extends TestCase
 
     public function test_client_index_counts_next_of_kin_cases_using_canonical_type(): void
     {
-        $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $client = Client::factory()->create();
         CaseFile::factory()->create([
             'user_id' => $manager->id,
@@ -239,9 +240,9 @@ class ClientControllerAuthTest extends TestCase
 
     public function test_admin_sees_all_clients_in_index(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
-        $manager1 = User::factory()->create(['role' => 'CASE_MANAGER']);
-        $manager2 = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $manager1 = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $manager2 = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         Client::factory()->create(); // No case file — admin should see it too
         $client2 = Client::factory()->create();

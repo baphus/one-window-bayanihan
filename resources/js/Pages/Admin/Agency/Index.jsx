@@ -28,8 +28,8 @@ const COLUMN_DEFS = [
 ];
 
 export default function AdminAgencyIndex({ agencies, filters, stats }) {
-  const { auth } = usePage().props;
-  const isAdmin = auth.user.role === 'ADMIN';
+  const { auth, roles } = usePage().props;
+  const isAdmin = auth.user.role === roles.ADMIN;
 
   const [showForm, setShowForm] = useState(false);
   const [editingAgency, setEditingAgency] = useState(null);

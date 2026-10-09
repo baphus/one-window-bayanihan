@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\DTOs\FileStoreResult;
+use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\CaseFile;
 use App\Models\Referral;
@@ -30,7 +31,7 @@ class ReferralDocumentUploadTest extends TestCase
 
         $this->agency = Agency::factory()->create();
 
-        $caseManager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $caseManager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         $this->case = CaseFile::factory()->create([
             'user_id' => $caseManager->id,
@@ -51,7 +52,7 @@ class ReferralDocumentUploadTest extends TestCase
     {
         Storage::fake('object-storage');
 
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
 
         $file = UploadedFile::fake()->createWithContent('malware.exe', 'malicious content', 'application/x-msdownload');
 
@@ -68,7 +69,7 @@ class ReferralDocumentUploadTest extends TestCase
     {
         Storage::fake('object-storage');
 
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
 
         $file = UploadedFile::fake()->createWithContent('document.pdf', '%PDF-1.4 test document', 'application/pdf');
 
@@ -88,7 +89,7 @@ class ReferralDocumentUploadTest extends TestCase
     {
         Storage::fake('object-storage');
 
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
 
         $file = UploadedFile::fake()->createWithContent('shell.php', '<?php echo "hello"; ?>', 'application/x-php');
 
@@ -109,7 +110,7 @@ class ReferralDocumentUploadTest extends TestCase
     {
         Storage::fake('object-storage');
 
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
 
         $file = UploadedFile::fake()->createWithContent('document.pdf', '%PDF-1.4 test document', 'application/pdf');
 
@@ -130,7 +131,7 @@ class ReferralDocumentUploadTest extends TestCase
     {
         Storage::fake('object-storage');
 
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
 
         // Simulate an object-storage failure for a file that passes validation.
         $storage = $this->createMock(StorageService::class);

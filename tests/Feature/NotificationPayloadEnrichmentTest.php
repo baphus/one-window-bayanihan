@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\CaseFile;
 use App\Models\CaseNotification;
@@ -31,7 +32,7 @@ class NotificationPayloadEnrichmentTest extends TestCase
 
     public function test_every_staff_notification_payload_has_consistent_inbox_keys(): void
     {
-        $caseManager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $caseManager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $case = CaseFile::factory()->create(['user_id' => $caseManager->id]);
         $referral = Referral::factory()->create([
             'case_id' => $case->id,
@@ -66,12 +67,12 @@ class NotificationPayloadEnrichmentTest extends TestCase
         Notification::fake();
         Mail::fake();
 
-        $caseManager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $caseManager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $case = $this->createCase($caseManager);
         $agency = Agency::factory()->create();
         $agencyUser = User::factory()->create([
             'agcy_id' => $agency->id,
-            'role' => 'AGENCY',
+            'role' => UserRole::AGENCY->value,
             'is_active' => true,
         ]);
 
@@ -99,7 +100,7 @@ class NotificationPayloadEnrichmentTest extends TestCase
     {
         Mail::fake();
 
-        $caseManager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $caseManager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $case = $this->createCase($caseManager);
         $agency = Agency::factory()->create();
 

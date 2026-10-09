@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Security;
 
+use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\CaseFile;
 use App\Models\Referral;
@@ -22,7 +23,7 @@ class ReferralAccessTest extends TestCase
     #[Test]
     public function owner_case_manager_can_access_referral(): void
     {
-        $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         $case = CaseFile::factory()->create(['user_id' => $manager->id]);
         $referral = Referral::create([
@@ -41,8 +42,8 @@ class ReferralAccessTest extends TestCase
     #[Test]
     public function any_case_manager_can_access_referral(): void
     {
-        $owner = User::factory()->create(['role' => 'CASE_MANAGER']);
-        $intruder = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $owner = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $intruder = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         $case = CaseFile::factory()->create(['user_id' => $owner->id]);
         $referral = Referral::create([
@@ -61,7 +62,7 @@ class ReferralAccessTest extends TestCase
     #[Test]
     public function admin_can_access_any_referral(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
 
         $case = CaseFile::factory()->create();
         $referral = Referral::create([

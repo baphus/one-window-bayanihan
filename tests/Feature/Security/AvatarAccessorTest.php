@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Security;
 
+use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\Client;
 use App\Models\User;
@@ -29,7 +30,7 @@ class AvatarAccessorTest extends TestCase
     {
         Storage::fake('private');
 
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $file = UploadedFile::fake()->image('photo.jpg', 100, 100);
         $path = $file->storeAs('avatars', 'user-'.$user->id.'-test.jpg', 'private');
 

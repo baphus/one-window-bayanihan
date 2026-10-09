@@ -680,10 +680,10 @@ const REJECTION_REASONS = [
 ];
 
 export default function ReferralShow({ referral, serviceRequirements = [], overdueDays = 7, timeline = [], clientRequestHistory = [], clientRequestPermissions = {}, relatedReferrals = [] }) {
-    const { auth, errors } = usePage().props;
-    const isAgency = auth.user.role === 'AGENCY';
-    const isCaseManager = auth.user.role === 'CASE_MANAGER';
-    const isAdmin = auth.user.role === 'ADMIN';
+    const { auth, roles, errors } = usePage().props;
+    const isAgency = auth.user.role === roles.AGENCY;
+    const isCaseManager = auth.user.role === roles.CASE_MANAGER;
+    const isAdmin = auth.user.role === roles.ADMIN;
     const canAddMilestone = isAgency && !['COMPLETED', 'PENDING'].includes(referral.status);
     const canUpdateStatus = isAgency;
 

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Http\Middleware\VerifyTurnstile;
 use App\Mail\IntakeReceivedMail;
 use App\Models\User;
@@ -89,7 +90,7 @@ class IntakeReceivedMailTest extends TestCase
         $email = 'returning-ofw@example.com';
 
         User::factory()->mfaEnabled()->create([
-            'role' => 'OFW',
+            'role' => UserRole::OFW->value,
             'email' => $email,
         ]);
 

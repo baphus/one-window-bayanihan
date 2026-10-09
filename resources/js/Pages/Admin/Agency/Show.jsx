@@ -15,8 +15,8 @@ import useTableVisitLoading from '@/Hooks/useTableVisitLoading';
 const TABS = ['Referrals', 'Services', 'Focal Persons'];
 
 export default function AdminAgencyShow({ agency, referrals }) {
-  const { auth } = usePage().props;
-  const isAdmin = auth?.user?.role === 'ADMIN';
+  const { auth, roles } = usePage().props;
+  const isAdmin = auth?.user?.role === roles.ADMIN;
 
   const [activeTab, setActiveTab] = useState('Referrals');
   const [showForm, setShowForm] = useState(false);

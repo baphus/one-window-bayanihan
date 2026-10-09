@@ -1,12 +1,6 @@
-import { useForm, router } from '@inertiajs/react';
+import { useForm, router, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 import InputError from '@/Components/InputError';
-
-const roleOptions = [
-  { value: 'CASE_MANAGER', label: 'Case Manager', description: 'Manages OFW cases end-to-end' },
-  { value: 'AGENCY', label: 'Agency Focal', description: 'Handles referrals for their agency' },
-  { value: 'ADMIN', label: 'System Admin', description: 'Full system access and configuration' },
-];
 
 export default function UserFormModal({ user, agencies, onClose, onBypass, selectedAgencyId, initialMode = 'invite' }) {
   const isEdit = !!user;
@@ -15,12 +9,19 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
   const [mode, setMode] = useState(isEdit ? 'invite' : initialMode);
   const isCreateMode = !isEdit && !isNewUserViaSelectedAgency && mode === 'create';
 
+  const roles = usePage().props.roles;
+  const roleOptions = [
+    { value: roles.CASE_MANAGER, label: 'Case Manager', description: 'Manages OFW cases end-to-end' },
+    { value: roles.AGENCY, label: 'Agency Focal', description: 'Handles referrals for their agency' },
+    { value: roles.ADMIN, label: 'System Admin', description: 'Full system access and configuration' },
+  ];
+
   const { data, setData, post, patch, processing, errors, clearErrors, setError } = useForm({
     name: user?.name ?? '',
     email: user?.email ?? '',
     password: '',
     password_confirmation: '',
-    role: user?.role ?? (isNewUserViaSelectedAgency ? 'AGENCY' : 'CASE_MANAGER'),
+    role: user?.role ?? (isNewUserViaSelectedAgency ? roles.AGENCY : roles.CASE_MANAGER),
     agcy_id: user?.agcy_id ?? (isNewUserViaSelectedAgency ? selectedAgencyId : ''),
     contact_number: user?.contact_number ?? '',
     position: user?.position ?? '',
@@ -38,7 +39,7 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
     clearErrors();
 
     if (!isEdit) {
-      if (data.role === 'AGENCY' && !data.agcy_id) {
+      if (data.role === roles.AGENCY && !data.agcy_id) {
         setError('agcy_id', 'Agency is required for Agency Focal users.');
         return;
       }
@@ -217,7 +218,7 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
                     </span>
                     <span className="text-xs text-slate-500">— assigned automatically for this agency</span>
                   </div>
-                  {!isEdit && <input type="hidden" value="AGENCY" />}
+                  {!isEdit && <input type="hidden" value={roles.AGENCY} />}
                 </>
               ) : (
                 <>
@@ -225,7 +226,7 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
                     value={data.role}
                     onChange={(e) => {
                       setData('role', e.target.value);
-                      if (e.target.value !== 'AGENCY') {
+                      if (e.target.value !== roles.AGENCY) {
                         setData('agcy_id', '');
                       }
                     }}
@@ -245,7 +246,7 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
             </div>
 
             {/* Agency — shown and required only for AGENCY role */}
-            {data.role === 'AGENCY' && !isNewUserViaSelectedAgency && (
+            {data.role === roles.AGENCY && !isNewUserViaSelectedAgency && (
               <div>
                 <label className="block text-sm font-medium text-slate-700">Agency <span className="text-red-500">*</span></label>
                 <select
@@ -295,7 +296,7 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
                     value={data.position}
                     onChange={(e) => setData('position', e.target.value)}
                     className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-primary focus:ring-primary text-sm"
-                    placeholder={data.role === 'AGENCY' ? 'e.g. Focal Person' : data.role === 'CASE_MANAGER' ? 'e.g. Case Manager II' : 'e.g. IT Administrator'}
+                    placeholder={data.role === roles.AGENCY ? 'e.g. Focal Person' : data.role === roles.CASE_MANAGER ? 'e.g. Case Manager II' : 'e.g. IT Administrator'}
                     maxLength={255}
                   />
                   <InputError message={errors.position} className="mt-1" />
@@ -307,7 +308,7 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
                     value={data.department}
                     onChange={(e) => setData('department', e.target.value)}
                     className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-primary focus:ring-primary text-sm"
-                    placeholder={data.role === 'AGENCY' ? 'e.g. OFW Assistance Division' : 'e.g. Case Management Unit'}
+                    placeholder={data.role === roles.AGENCY ? 'e.g. OFW Assistance Division' : 'e.g. Case Management Unit'}
                     maxLength={255}
                   />
                   <InputError message={errors.department} className="mt-1" />

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Http\Middleware\TurnstileMiddleware;
 use App\Models\AuditLog;
 use App\Models\User;
@@ -92,7 +93,7 @@ class AuditSecurityEventsTest extends TestCase
 
     public function test_session_termination_is_logged(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $this->actingAs($admin);
 
         SecurityAuditLogger::log(

@@ -1,10 +1,12 @@
 import KpiCard from '@/Components/ui/KpiCard';
 import { useLazyProp } from '@/Hooks/useLazyProp';
+import { usePage } from '@inertiajs/react';
 
 export default function AvgCompletionCard({ role }) {
   const [value, isLoading] = useLazyProp('avgReferralCompletion');
+  const roles = usePage().props.roles;
 
-  if (role && role !== 'AGENCY') return null;
+  if (role && role !== roles.AGENCY) return null;
 
   const numericValue = Number(value);
   const formatted = Number.isFinite(numericValue)
