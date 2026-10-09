@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\User;
 use App\Services\MaintenanceService;
@@ -20,7 +21,7 @@ class MaintenanceTest extends TestCase
         parent::setUp();
 
         $this->withoutMiddleware(HandleInertiaRequests::class);
-        $this->admin = User::factory()->create(['role' => 'ADMIN']);
+        $this->admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
     }
 
     #[Test]

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Http\Middleware\VerifyTurnstile;
 use App\Models\CaseCategory;
 use App\Models\CaseFile;
@@ -44,7 +45,7 @@ class DateOfEmploymentValidationTest extends TestCase
             ThrottleRequests::class,
         ]);
 
-        $this->user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $this->user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $this->category = CaseCategory::factory()->create(['is_active' => true]);
         $this->caseIssue = CaseIssue::create([
             'name' => 'Unpaid wages',

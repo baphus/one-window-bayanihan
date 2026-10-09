@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Client;
 
+use App\Enums\UserRole;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\SetPostgresSession;
 use App\Models\Agency;
@@ -33,8 +34,8 @@ class ClientCaseQueryTest extends TestCase
      */
     private function seedDirectory(): array
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
-        $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $agencyA = Agency::factory()->create();
         $agencyB = Agency::factory()->create();
 
@@ -143,7 +144,7 @@ class ClientCaseQueryTest extends TestCase
     {
         [$admin, $agencyA, $agencyB] = $this->seedDirectory();
 
-        $agencyUser = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agencyA->id]);
+        $agencyUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agencyA->id]);
         $stats = app(CaseService::class)->getClientDirectoryStats($agencyUser);
 
         $this->assertSame(2, $stats['total_clients']);
@@ -154,13 +155,13 @@ class ClientCaseQueryTest extends TestCase
         $this->assertSame(2, $stats['clients_with_open_cases']);
         $this->assertSame(2, $stats['total_referrals']);
 
-        $otherAgencyUser = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agencyB->id]);
+        $otherAgencyUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agencyB->id]);
         $otherStats = app(CaseService::class)->getClientDirectoryStats($otherAgencyUser);
 
         $this->assertSame(0, $otherStats['total_clients']);
         $this->assertSame(0, $otherStats['total_referrals']);
 
-        $orphanAgencyUser = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => null]);
+        $orphanAgencyUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => null]);
         $this->assertSame([
             'total_clients' => 0,
             'ofw_clients' => 0,

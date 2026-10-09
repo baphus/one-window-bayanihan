@@ -49,9 +49,9 @@ const REJECTION_REASONS = [
 ];
 
 export default function ReferralIndex({ referrals, filters: rawFilters, stats, agencies = [], categories = [], caseIssues = [] }) {
-    const { auth, errors } = usePage().props;
-    const isAgency = auth.user.role === 'AGENCY';
-    const canCreate = auth.user.role === 'CASE_MANAGER' || auth.user.role === 'ADMIN';
+    const { auth, roles, errors } = usePage().props;
+    const isAgency = auth.user.role === roles.AGENCY;
+    const canCreate = auth.user.role === roles.CASE_MANAGER || auth.user.role === roles.ADMIN;
     const filters = rawFilters && !Array.isArray(rawFilters) ? rawFilters : {};
 
     const [searchValue, setSearchValue] = useState(filters?.search ?? '');

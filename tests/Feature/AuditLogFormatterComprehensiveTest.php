@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\AuditLog;
 use App\Models\Milestone;
@@ -93,7 +94,7 @@ class AuditLogFormatterComprehensiveTest extends TestCase
             // ---- CREATE: Case ----
             'CREATE / case_files (auto-observer)' => [
                 'CREATE', 'case_files', null, ['case_number' => 'CASE-20260702-0001', 'client_type' => 'OFW', 'summary' => 'Test case'],
-                ['opened', 'CASE-20260702-0001', 'OFW'],
+                ['opened', 'CASE-20260702-0001', UserRole::OFW->value],
             ],
             'CREATE / case (singular module)' => [
                 'CREATE', 'case', null, ['case_number' => 'CASE-20260702-0002', 'client_type' => 'NON-OFW'],
@@ -131,9 +132,9 @@ class AuditLogFormatterComprehensiveTest extends TestCase
 
             // ---- CREATE: User ----
             'CREATE / user (with role)' => [
-                'CREATE', 'user', null, ['name' => 'Juan Dela Cruz', 'role' => 'CASE_MANAGER'],
+                'CREATE', 'user', null, ['name' => 'Juan Dela Cruz', 'role' => UserRole::CASE_MANAGER->value],
                 ['Juan Dela Cruz', 'registered as', 'Case Manager'],
-                ['CASE_MANAGER', 'role'], // Must format role as human-readable
+                [UserRole::CASE_MANAGER->value, 'role'], // Must format role as human-readable
             ],
 
             // ---- CREATE: Service ----
@@ -575,9 +576,9 @@ class AuditLogFormatterComprehensiveTest extends TestCase
             'status FOR_COMPLIANCE' => ['case_files', 'status', 'FOR_COMPLIANCE', 'For Compliance'],
 
             // Roles
-            'role CASE_MANAGER' => ['users', 'role', 'CASE_MANAGER', 'Case Manager'],
-            'role AGENCY' => ['users', 'role', 'AGENCY', 'Agency Focal'],
-            'role ADMIN' => ['users', 'role', 'ADMIN', 'System Admin'],
+            'role CASE_MANAGER' => ['users', 'role', UserRole::CASE_MANAGER->value, 'Case Manager'],
+            'role AGENCY' => ['users', 'role', UserRole::AGENCY->value, 'Agency Focal'],
+            'role ADMIN' => ['users', 'role', UserRole::ADMIN->value, 'System Admin'],
 
             // Client types
             'client_type OFW' => ['clients', 'client_type', 'OFW', 'OFW'],

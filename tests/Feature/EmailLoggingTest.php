@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\EmailLog;
 use App\Models\User;
@@ -46,7 +47,7 @@ class EmailLoggingTest extends TestCase
         $this->withoutMiddleware(HandleInertiaRequests::class);
 
         // Create the admin user for tests that need auth
-        $this->adminUser = User::factory()->create(['role' => 'ADMIN']);
+        $this->adminUser = User::factory()->create(['role' => UserRole::ADMIN->value]);
     }
 
     #[Test]
@@ -208,7 +209,7 @@ class EmailLoggingTest extends TestCase
     #[Test]
     public function non_admin_cannot_access_email_logs_page(): void
     {
-        $caseManager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $caseManager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         $response = $this
             ->actingAs($caseManager)

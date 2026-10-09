@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Models\CaseFile;
 use App\Models\Client;
 use App\Models\ClientAddress;
@@ -43,7 +44,7 @@ class AddressCodeToTextIntegrationTest extends TestCase
 
     public function test_full_flow_create_client_with_address(): void
     {
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $client = Client::factory()->create();
 
         $service = app(CaseService::class);
@@ -104,7 +105,7 @@ class AddressCodeToTextIntegrationTest extends TestCase
 
     public function test_reports_still_aggregate_correctly(): void
     {
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         $clientA = Client::factory()->create();
         $clientB = Client::factory()->create();
@@ -134,7 +135,7 @@ class AddressCodeToTextIntegrationTest extends TestCase
         ]);
 
         $reportService = app(ReportsService::class);
-        $distribution = $reportService->getGeographicDistribution($user->id, 'CASE_MANAGER');
+        $distribution = $reportService->getGeographicDistribution($user->id, UserRole::CASE_MANAGER->value);
 
         $this->assertArrayHasKey('labels', $distribution);
         $this->assertArrayHasKey('data', $distribution);

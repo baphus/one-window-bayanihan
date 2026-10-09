@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Dashboard;
 
+use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\CaseFile;
 use App\Models\Client;
@@ -31,7 +32,7 @@ class DashboardCacheTest extends TestCase
 
     public function test_dashboard_summary_cached(): void
     {
-        $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         $data = app(DashboardService::class)->getCaseManagerData($manager);
 
@@ -41,7 +42,7 @@ class DashboardCacheTest extends TestCase
 
     public function test_dashboard_cache_hit_on_second_call(): void
     {
-        $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $service = app(DashboardService::class);
 
         DB::flushQueryLog();
@@ -63,8 +64,8 @@ class DashboardCacheTest extends TestCase
     public function test_referral_write_invalidates_dashboard_caches(): void
     {
         $agency = Agency::factory()->create();
-        $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
-        $agencyUser = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agency->id]);
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $agencyUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id]);
         $service = app(DashboardService::class);
 
         $service->getCaseManagerData($manager);
@@ -87,7 +88,7 @@ class DashboardCacheTest extends TestCase
     public function test_agency_dashboard_provides_separate_pending_processing_and_overdue_queues(): void
     {
         $agency = Agency::factory()->create();
-        $agencyUser = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agency->id]);
+        $agencyUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id]);
         $client = Client::factory()->create();
 
         $pending = Referral::factory()->pending()->create([
@@ -115,7 +116,7 @@ class DashboardCacheTest extends TestCase
 
     public function test_case_write_invalidates_dashboard_caches(): void
     {
-        $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $service = app(DashboardService::class);
 
         $service->getCaseManagerData($manager);

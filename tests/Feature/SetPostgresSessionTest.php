@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -14,7 +15,7 @@ class SetPostgresSessionTest extends TestCase
     public function test_middleware_sets_session_vars_when_authenticated(): void
     {
         $user = User::factory()->create([
-            'role' => 'CASE_MANAGER',
+            'role' => UserRole::CASE_MANAGER->value,
         ]);
 
         // Make a request through the global middleware (any authenticated route)

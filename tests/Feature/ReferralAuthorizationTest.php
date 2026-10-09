@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\CaseFile;
 use App\Models\Referral;
@@ -23,7 +24,7 @@ class ReferralAuthorizationTest extends TestCase
         $agencyA = Agency::factory()->create();
         $agencyB = Agency::factory()->create();
 
-        $user = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agencyA->id]);
+        $user = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agencyA->id]);
 
         $case = CaseFile::factory()->create();
         $referral = Referral::create([
@@ -43,7 +44,7 @@ class ReferralAuthorizationTest extends TestCase
     {
         $agency = Agency::factory()->create();
 
-        $user = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agency->id]);
+        $user = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id]);
 
         $case = CaseFile::factory()->create();
         $referral = Referral::create([
@@ -61,8 +62,8 @@ class ReferralAuthorizationTest extends TestCase
 
     public function test_case_manager_can_view_any_referral(): void
     {
-        $managerA = User::factory()->create(['role' => 'CASE_MANAGER']);
-        $managerB = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $managerA = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $managerB = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         $case = CaseFile::factory()->create(['user_id' => $managerB->id]);
         $referral = Referral::create([
@@ -80,7 +81,7 @@ class ReferralAuthorizationTest extends TestCase
 
     public function test_case_manager_can_view_own_referral(): void
     {
-        $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         $case = CaseFile::factory()->create(['user_id' => $manager->id]);
         $referral = Referral::create([
@@ -98,7 +99,7 @@ class ReferralAuthorizationTest extends TestCase
 
     public function test_admin_can_view_any_referral(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
 
         $case = CaseFile::factory()->create();
         $referral = Referral::create([

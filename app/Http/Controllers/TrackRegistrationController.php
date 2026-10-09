@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\UserRole;
 use App\Models\User;
 use App\Services\TrackingService;
 use Illuminate\Http\Request;
@@ -62,7 +63,7 @@ class TrackRegistrationController extends Controller
         // Idempotent: an OFW account that already exists for the verified email
         // is simply signed in again (mirrors IntakeRegistrationController).
         $existingUser = User::where('email', $email)
-            ->where('role', 'OFW')
+            ->where('role', UserRole::OFW->value)
             ->where('is_deleted', false)
             ->first();
 
@@ -79,7 +80,7 @@ class TrackRegistrationController extends Controller
             'name' => trim(($client->first_name ?? '').' '.($client->last_name ?? '')),
             'email' => $email,
             'password' => Hash::make($validated['password']),
-            'role' => 'OFW',
+            'role' => UserRole::OFW->value,
             'client_id' => $client->id,
             'email_verified_at' => now(),
             'is_active' => true,

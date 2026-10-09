@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\Service;
 use App\Models\User;
@@ -20,7 +21,7 @@ class AdminServiceControllerTest extends TestCase
 
     public function test_admin_can_delete_service(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
 
         $agency = Agency::factory()->create();
         $service = Service::create([
@@ -39,7 +40,7 @@ class AdminServiceControllerTest extends TestCase
 
     public function test_admin_cannot_delete_nonexistent_service(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
 
         $fakeId = '00000000-0000-0000-0000-000000000000';
 

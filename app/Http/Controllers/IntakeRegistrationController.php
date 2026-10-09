@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\UserRole;
 use App\Models\Client;
 use App\Models\User;
 use App\Services\IntakeService;
@@ -45,7 +46,7 @@ class IntakeRegistrationController extends Controller
 
         // Check if an OFW user already exists for this email
         $existingUser = User::where('email', $verifiedEmail)
-            ->where('role', 'OFW')
+            ->where('role', UserRole::OFW->value)
             ->first();
 
         if ($existingUser) {
@@ -65,7 +66,7 @@ class IntakeRegistrationController extends Controller
             'name' => trim(($client->first_name ?? '').' '.($client->last_name ?? '')),
             'email' => $verifiedEmail,
             'password' => Hash::make($validated['password']),
-            'role' => 'OFW',
+            'role' => UserRole::OFW->value,
             'client_id' => $client->id,
             'email_verified_at' => now(),
             'is_active' => true,

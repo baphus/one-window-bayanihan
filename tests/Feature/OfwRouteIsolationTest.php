@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Models\Client;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -17,7 +18,7 @@ class OfwRouteIsolationTest extends TestCase
     {
         $client = Client::factory()->create();
         $ofwUser = User::factory()->create([
-            'role' => 'OFW',
+            'role' => UserRole::OFW->value,
             'client_id' => $client->id,
         ]);
 
@@ -33,7 +34,7 @@ class OfwRouteIsolationTest extends TestCase
     {
         $client = Client::factory()->create();
         $ofwUser = User::factory()->create([
-            'role' => 'OFW',
+            'role' => UserRole::OFW->value,
             'client_id' => $client->id,
         ]);
 
@@ -46,7 +47,7 @@ class OfwRouteIsolationTest extends TestCase
     #[Test]
     public function test_staff_cannot_access_ofw_routes(): void
     {
-        $cm = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $cm = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         $response = $this->actingAs($cm)
             ->get('/my-cases');

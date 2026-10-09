@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\CaseFile;
 use App\Models\Client;
@@ -28,7 +29,7 @@ class OfwProfileTest extends TestCase
     private function ofwUserFor(Client $client): User
     {
         return User::factory()->create([
-            'role' => 'OFW',
+            'role' => UserRole::OFW->value,
             'client_id' => $client->id,
         ]);
     }
@@ -62,7 +63,7 @@ class OfwProfileTest extends TestCase
     #[Test]
     public function test_ofw_profile_page_omits_client_when_account_has_none(): void
     {
-        $user = User::factory()->create(['role' => 'OFW']);
+        $user = User::factory()->create(['role' => UserRole::OFW->value]);
 
         $response = $this->actingAs($user)
             ->withHeader('X-Inertia', 'true')
@@ -230,7 +231,7 @@ class OfwProfileTest extends TestCase
     public function test_profile_update_notifies_case_manager(): void
     {
         $client = Client::factory()->create();
-        $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         CaseFile::factory()->open()->create([
             'client_id' => $client->id,
             'user_id' => $manager->id,

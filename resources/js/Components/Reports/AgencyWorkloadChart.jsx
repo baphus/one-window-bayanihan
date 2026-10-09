@@ -2,6 +2,7 @@ import { Bar } from 'react-chartjs-2';
 import ReportLazySection from '@/Components/Reports/ReportLazySection';
 import ChartSkeleton from '@/Components/Reports/ChartSkeleton';
 import { cardShell, COLORS, pageHeadingStyles } from '@/Components/Reports/pageHeadingStyles';
+import { usePage } from '@inertiajs/react';
 
 const barOptions = {
   responsive: true,
@@ -32,7 +33,9 @@ function toBarData(data) {
 }
 
 export default function AgencyWorkloadChart({ role }) {
-  if (role && role !== 'ADMIN') return null;
+  const roles = usePage().props.roles;
+
+  if (role && role !== roles.ADMIN) return null;
 
   return (
     <ReportLazySection lazyKey="agencyWorkload" skeleton={<ChartSkeleton />} emptyMessage="No agency workload data available.">

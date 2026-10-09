@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\AuditAction;
 use App\Enums\AuditModule;
+use App\Enums\UserRole;
 use App\Events\ReferralCompleted;
 use App\Exceptions\SafeException;
 use App\Helpers\CacheHelper;
@@ -143,7 +144,7 @@ class ReferralService
         $cacheKey = self::referralStatsCacheKey($userAgencyId, $userRole, $userId);
 
         return CacheHelper::safeRemember($cacheKey, 120, function () use ($userAgencyId, $userRole) {
-            if ($userRole === 'AGENCY' && ! $userAgencyId) {
+            if ($userRole === UserRole::AGENCY->value && ! $userAgencyId) {
                 return array_fill_keys(['total_referrals', 'pending', 'processing', 'for_compliance', 'completed', 'rejected'], 0);
             }
 
@@ -151,7 +152,7 @@ class ReferralService
             $bindings = [];
 
             // AGENCY: scoped to own agency referrals. ADMIN/CASE_MANAGER: all referrals.
-            if ($userRole === 'AGENCY' && $userAgencyId) {
+            if ($userRole === UserRole::AGENCY->value && $userAgencyId) {
                 $where .= ' AND agcy_id = ?';
                 $bindings[] = $userAgencyId;
             }
@@ -205,7 +206,7 @@ class ReferralService
             // A unique, deterministic tie-breaker prevents rows moving between pages.
             ->orderBy('id', $direction);
 
-        if ($userRole === 'AGENCY') {
+        if ($userRole === UserRole::AGENCY->value) {
             if (! $userAgencyId) {
                 $query->whereRaw('1 = 0');
             } else {
@@ -728,11 +729,11 @@ class ReferralService
             ))) / 86400 > ?', [$overdueDays]);
 
         match ($userRole) {
-            'ADMIN' => null,
-            'CASE_MANAGER' => $userId
+            UserRole::ADMIN->value => null,
+            UserRole::CASE_MANAGER->value => $userId
                 ? $query->whereIn('case_id', CaseFile::where('user_id', $userId)->select('id'))
                 : $query->whereRaw('1 = 0'),
-            'AGENCY' => $userAgencyId
+            UserRole::AGENCY->value => $userAgencyId
                 ? $query->where('agcy_id', $userAgencyId)
                 : $query->whereRaw('1 = 0'),
             default => $query->whereRaw('1 = 0'),
@@ -744,13 +745,13 @@ class ReferralService
     public function getOverdueReferrals(int $overdueDays = 7, ?string $userAgencyId = null, ?string $userRole = null)
     {
         $query = $this->overdueReferralsQuery(
-            userRole: $userRole ?? 'ADMIN',
+            userRole: $userRole ?? UserRole::ADMIN->value,
             userId: null,
             userAgencyId: $userAgencyId,
             overdueDays: $overdueDays,
         )->with([
             'caseFile.client',
-            'agency.users' => fn ($q) => $q->where('role', 'AGENCY')->where('is_active', true),
+            'agency.users' => fn ($q) => $q->where('role', UserRole::AGENCY->value)->where('is_active', true),
         ]);
 
         return $query->orderBy('created_at')->paginate(15);
@@ -767,7 +768,7 @@ class ReferralService
         $query = $this->overdueReferralsQuery($userRole, $userId, $userAgencyId, $overdueDays)
             ->with([
                 'caseFile.client',
-                'agency.users' => fn ($q) => $q->where('role', 'AGENCY')->where('is_active', true),
+                'agency.users' => fn ($q) => $q->where('role', UserRole::AGENCY->value)->where('is_active', true),
             ]);
 
         $this->applyOverdueFilters($query, $filters);

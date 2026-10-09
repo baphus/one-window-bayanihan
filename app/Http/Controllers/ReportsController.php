@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\AuditAction;
 use App\Enums\AuditModule;
+use App\Enums\UserRole;
 use App\Http\Requests\ReportsFilterRequest;
 use App\Models\AuditLog;
 use App\Services\Export\DataExportService;
@@ -35,8 +36,8 @@ class ReportsController extends Controller
         // Resolve effective agency scope: AGENCY users are always locked to
         // their own agency; ADMIN and CASE_MANAGER may select one or view all.
         $effectiveAgencyId = match ($user?->role) {
-            'AGENCY' => $user?->agency?->id,
-            'ADMIN', 'CASE_MANAGER' => $filters['agency_id'] ?? null,
+            UserRole::AGENCY->value => $user?->agency?->id,
+            UserRole::ADMIN->value, UserRole::CASE_MANAGER->value => $filters['agency_id'] ?? null,
             default => null,
         };
 

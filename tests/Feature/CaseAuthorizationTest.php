@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\CaseFile;
 use App\Models\Referral;
@@ -29,7 +30,7 @@ class CaseAuthorizationTest extends TestCase
         ]);
 
         $agencyUser = User::factory()->create([
-            'role' => 'AGENCY',
+            'role' => UserRole::AGENCY->value,
             'agcy_id' => $agency->id,
         ]);
 
@@ -49,7 +50,7 @@ class CaseAuthorizationTest extends TestCase
 
     public function test_agency_with_active_referral_can_view_case(): void
     {
-        $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         $case = CaseFile::create([
             'id' => fake()->uuid(),
@@ -76,7 +77,7 @@ class CaseAuthorizationTest extends TestCase
         ]);
 
         $agencyUser = User::factory()->create([
-            'role' => 'AGENCY',
+            'role' => UserRole::AGENCY->value,
             'agcy_id' => $agency->id,
         ]);
 
@@ -87,7 +88,7 @@ class CaseAuthorizationTest extends TestCase
 
     public function test_case_manager_can_view_any_case(): void
     {
-        $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         $case = CaseFile::create([
             'id' => fake()->uuid(),
@@ -105,9 +106,9 @@ class CaseAuthorizationTest extends TestCase
 
     public function test_admin_can_view_any_case(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
 
-        $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         $case = CaseFile::create([
             'id' => fake()->uuid(),

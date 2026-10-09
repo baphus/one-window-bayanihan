@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\CaseEvent;
 use App\Models\CaseFile;
@@ -33,14 +34,14 @@ class ReportsMetricsTest extends TestCase
         parent::setUp();
 
         $this->service = app(ReportsService::class);
-        $this->managerA = User::factory()->create(['role' => 'CASE_MANAGER']);
-        $this->managerB = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $this->managerA = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $this->managerB = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $this->agency = Agency::factory()->create();
     }
 
     private function kpisFor(User $manager): array
     {
-        return $this->service->getReferralKpis($manager->id, 'CASE_MANAGER');
+        return $this->service->getReferralKpis($manager->id, UserRole::CASE_MANAGER->value);
     }
 
     #[Test]
@@ -98,7 +99,7 @@ class ReportsMetricsTest extends TestCase
 
         $trends = $this->service->getReferralTrends(
             $this->managerA->id,
-            'CASE_MANAGER',
+            UserRole::CASE_MANAGER->value,
             '2026-02-01',
             '2026-03-31',
             'referral_created_at'
@@ -130,7 +131,7 @@ class ReportsMetricsTest extends TestCase
 
         $trends = $this->service->getReferralTrends(
             null,
-            'AGENCY',
+            UserRole::AGENCY->value,
             '2026-04-01',
             '2026-04-30',
             'referral_created_at',
@@ -174,7 +175,7 @@ class ReportsMetricsTest extends TestCase
         $other = Client::factory()->create(['sex' => 'MALE']);
         CaseFile::factory()->create(['user_id' => $this->managerB->id, 'status' => 'OPEN', 'client_id' => $other->id]);
 
-        $dist = $this->service->getGenderDistribution($this->managerA->id, 'CASE_MANAGER');
+        $dist = $this->service->getGenderDistribution($this->managerA->id, UserRole::CASE_MANAGER->value);
 
         $this->assertSame(['Male', 'Female', 'Unknown'], $dist['labels']);
         $this->assertSame([2, 1, 1], $dist['data']);
@@ -221,7 +222,7 @@ class ReportsMetricsTest extends TestCase
         $deleted->forceFill(['is_deleted' => true])->save();
         ClientEmployment::create(['client_id' => $ownedClient->id, 'last_position' => null]);
 
-        $breakdown = $this->service->getEmploymentOccupationBreakdown($this->managerA->id, 'CASE_MANAGER');
+        $breakdown = $this->service->getEmploymentOccupationBreakdown($this->managerA->id, UserRole::CASE_MANAGER->value);
 
         $this->assertSame(['Engineer', 'Nurse'], $breakdown['labels']);
         $this->assertSame([2, 1], array_map('intval', $breakdown['data']));
@@ -234,7 +235,7 @@ class ReportsMetricsTest extends TestCase
         $case = CaseFile::factory()->create(['user_id' => $this->managerA->id, 'status' => 'OPEN']);
         Referral::factory()->pending()->create(['case_id' => $case->id, 'agcy_id' => $this->agency->id]);
 
-        $kpis = $this->service->getReferralKpis(null, 'CASE_MANAGER');
+        $kpis = $this->service->getReferralKpis(null, UserRole::CASE_MANAGER->value);
 
         $this->assertSame(1, $kpis['totalReferrals']);
         $this->assertSame(1, $kpis['totalCases']);
@@ -246,7 +247,7 @@ class ReportsMetricsTest extends TestCase
         CaseFile::factory()->create(['user_id' => $this->managerA->id, 'status' => 'OPEN', 'source' => 'internal']);
         CaseFile::factory()->count(2)->create(['user_id' => $this->managerA->id, 'status' => 'OPEN', 'source' => CaseFile::SOURCE_SELF_FILED]);
 
-        $distribution = $this->service->getCaseSourceDistribution($this->managerA->id, 'CASE_MANAGER');
+        $distribution = $this->service->getCaseSourceDistribution($this->managerA->id, UserRole::CASE_MANAGER->value);
 
         $this->assertSame(['Internal', 'Self-filed'], $distribution['labels']);
         $this->assertSame([1, 2], array_map('intval', $distribution['data']));
@@ -267,7 +268,7 @@ class ReportsMetricsTest extends TestCase
         ]);
         CaseFile::factory()->create(['user_id' => $this->managerA->id, 'status' => 'OPEN']);
 
-        $trend = $this->service->getClosedCasesOverTime($this->managerA->id, 'CASE_MANAGER');
+        $trend = $this->service->getClosedCasesOverTime($this->managerA->id, UserRole::CASE_MANAGER->value);
 
         $this->assertSame(['2026-02', '2026-03'], $trend['labels']);
         $this->assertSame('Cases Closed', $trend['datasets'][0]['label']);
@@ -288,7 +289,7 @@ class ReportsMetricsTest extends TestCase
             'occurred_at' => now(),
         ]);
 
-        $stats = $this->service->getReopenedStats($this->managerA->id, 'CASE_MANAGER');
+        $stats = $this->service->getReopenedStats($this->managerA->id, UserRole::CASE_MANAGER->value);
 
         $this->assertSame(1, $stats['reopenedCount']);
         $this->assertSame(1, $stats['repeatClients']);
@@ -303,7 +304,7 @@ class ReportsMetricsTest extends TestCase
         CaseFile::factory()->closed()->create(['user_id' => $this->managerA->id]);
         CaseFile::factory()->draft()->create(['user_id' => $this->managerA->id]);
 
-        $distribution = $this->service->getCaseStatusDistribution($this->managerA->id, 'CASE_MANAGER');
+        $distribution = $this->service->getCaseStatusDistribution($this->managerA->id, UserRole::CASE_MANAGER->value);
 
         $this->assertSame(['OPEN', 'CLOSED', 'DRAFT'], $distribution['labels']);
         $this->assertSame([1, 1, 1], array_map('intval', $distribution['data']));
@@ -323,7 +324,7 @@ class ReportsMetricsTest extends TestCase
             ]);
         }
 
-        $distribution = $this->service->getCaseEventActorDistribution($this->managerA->id, 'CASE_MANAGER');
+        $distribution = $this->service->getCaseEventActorDistribution($this->managerA->id, UserRole::CASE_MANAGER->value);
 
         $this->assertSame(['Agency', 'Case manager', 'System'], $distribution['labels']);
         $this->assertSame([2, 0, 1], array_map('intval', $distribution['data']));
@@ -341,7 +342,7 @@ class ReportsMetricsTest extends TestCase
         ]);
         Referral::factory()->pending()->create(['case_id' => $case->id, 'agcy_id' => $this->agency->id]);
 
-        $scorecard = $this->service->getAgencyScorecard($this->managerA->id, 'CASE_MANAGER');
+        $scorecard = $this->service->getAgencyScorecard($this->managerA->id, UserRole::CASE_MANAGER->value);
 
         $this->assertCount(1, $scorecard);
         $this->assertSame(2, $scorecard[0]['total']);
@@ -376,7 +377,7 @@ class ReportsMetricsTest extends TestCase
             ]);
         }
 
-        $response = $this->service->getAgencyFirstResponse($this->managerA->id, 'CASE_MANAGER');
+        $response = $this->service->getAgencyFirstResponse($this->managerA->id, UserRole::CASE_MANAGER->value);
 
         $this->assertCount(1, $response);
         $this->assertSame($this->agency->name, $response[0]['agency']);
@@ -398,7 +399,7 @@ class ReportsMetricsTest extends TestCase
             'type' => ReferralClientRequest::TYPE_QUESTION,
         ]);
 
-        $distribution = $this->service->getClientRequestTypeDistribution($this->managerA->id, 'CASE_MANAGER');
+        $distribution = $this->service->getClientRequestTypeDistribution($this->managerA->id, UserRole::CASE_MANAGER->value);
 
         $this->assertSame(['Document request', 'Question', 'Information update'], $distribution['labels']);
         $this->assertSame([2, 1, 0], array_map('intval', $distribution['data']));
@@ -407,11 +408,11 @@ class ReportsMetricsTest extends TestCase
     #[Test]
     public function empty_report_payload_carries_zero_shapes_for_new_aggregates(): void
     {
-        $agencyless = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => null]);
+        $agencyless = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => null]);
 
         $payload = $this->service->getAll(
             userId: $agencyless->id,
-            role: 'AGENCY',
+            role: UserRole::AGENCY->value,
             agencyId: null,
             fromDate: '2026-01-01',
             toDate: '2026-12-31',
@@ -442,7 +443,7 @@ class ReportsMetricsTest extends TestCase
             'nok_vulnerability_indicator' => null,
         ]);
 
-        $distribution = $this->service->getVulnerabilityDistribution($this->managerA->id, 'CASE_MANAGER');
+        $distribution = $this->service->getVulnerabilityDistribution($this->managerA->id, UserRole::CASE_MANAGER->value);
 
         $combined = array_combine($distribution['labels'], array_map('intval', $distribution['data']));
         $this->assertSame(1, $combined['PWD']);
@@ -465,7 +466,7 @@ class ReportsMetricsTest extends TestCase
         ]);
         Referral::factory()->pending()->create(['case_id' => $case->id, 'agcy_id' => $this->agency->id]);
 
-        $distribution = $this->service->getRejectionReasonDistribution($this->managerA->id, 'CASE_MANAGER');
+        $distribution = $this->service->getRejectionReasonDistribution($this->managerA->id, UserRole::CASE_MANAGER->value);
 
         $this->assertSame(Referral::REJECTION_REASONS, $distribution['labels']);
         $this->assertCount(6, $distribution['data']);

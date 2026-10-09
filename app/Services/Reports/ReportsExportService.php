@@ -2,6 +2,7 @@
 
 namespace App\Services\Reports;
 
+use App\Enums\UserRole;
 use App\Services\ReportsService;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
@@ -131,7 +132,7 @@ class ReportsExportService
         }
 
         $user = $request->user();
-        if (! in_array($user->role, ['ADMIN', 'CASE_MANAGER', 'AGENCY'], true)) {
+        if (! in_array($user->role, [UserRole::ADMIN->value, UserRole::CASE_MANAGER->value, UserRole::AGENCY->value], true)) {
             return back()->with('error', 'Your account is not allowed to export reports.');
         }
 
@@ -141,8 +142,8 @@ class ReportsExportService
         }
 
         $agencyId = match ($user->role) {
-            'AGENCY' => $user->agcy_id,
-            'ADMIN', 'CASE_MANAGER' => $request->query('agency_id') ?: null,
+            UserRole::AGENCY->value => $user->agcy_id,
+            UserRole::ADMIN->value, UserRole::CASE_MANAGER->value => $request->query('agency_id') ?: null,
             default => null,
         };
 
@@ -318,7 +319,7 @@ class ReportsExportService
 
         if ($c['agency_id']) {
             $q->where('referrals.agcy_id', $c['agency_id']);
-        } elseif ($c['role'] === 'AGENCY') {
+        } elseif ($c['role'] === UserRole::AGENCY->value) {
             // Agency user without an assigned agency sees no data.
             $q->whereRaw('1=0');
         }
@@ -341,7 +342,7 @@ class ReportsExportService
 
         if ($c['agency_id']) {
             $q->whereExists(fn ($s) => $s->selectRaw('1')->from('referrals')->whereColumn('referrals.case_id', 'cases.id')->whereNull('referrals.deleted_at')->where('referrals.agcy_id', $c['agency_id']));
-        } elseif ($c['role'] === 'AGENCY') {
+        } elseif ($c['role'] === UserRole::AGENCY->value) {
             // Agency user without an assigned agency sees no data.
             $q->whereRaw('1=0');
         }
@@ -445,14 +446,14 @@ class ReportsExportService
             // other role falls back to the same computation directly so the
             // Trends section can cite the on-screen average finish time.
             'avgReferralCompletion' => $report['avgReferralCompletion']
-                ?? $this->reports->getAvgReferralCompletionDays($role === 'AGENCY' ? 'AGENCY' : null, $c['agency_id']),
+                ?? $this->reports->getAvgReferralCompletionDays($role === UserRole::AGENCY->value ? UserRole::AGENCY->value : null, $c['agency_id']),
             'caseTrends' => $this->trendFromBase($caseBase, 'cases.created_at'),
             'referralTrends' => $this->trendFromBase($refBase, 'referrals.created_at'),
         ];
 
         $summary += $this->additionalSections($c, $refBase);
 
-        if ($role === 'AGENCY') {
+        if ($role === UserRole::AGENCY->value) {
             // Only the sections an agency actually sees belong in an agency
             // export. Empty these payload keys so the PDF's `!empty()` section
             // guards skip them and the Excel sheet list drops them.
@@ -487,8 +488,8 @@ class ReportsExportService
      */
     private function additionalSections(array $c, $refBase): array
     {
-        $role = $c['role'] === 'CASE_MANAGER' ? 'CASE_MANAGER' : ($c['role'] === 'AGENCY' ? 'AGENCY' : null);
-        $userId = $c['role'] === 'CASE_MANAGER' ? $c['user_id'] : null;
+        $role = $c['role'] === UserRole::CASE_MANAGER->value ? UserRole::CASE_MANAGER->value : ($c['role'] === UserRole::AGENCY->value ? UserRole::AGENCY->value : null);
+        $userId = $c['role'] === UserRole::CASE_MANAGER->value ? $c['user_id'] : null;
         $from = $c['from']->toDateString();
         $to = $c['to']->toDateString();
         $scope = $c['dateScope'];
@@ -506,7 +507,7 @@ class ReportsExportService
         // caseBase() already `1=0` for exactly this case, so the state is
         // reachable, and without this an export would show a user data their
         // own dashboard refuses them.
-        if ($role === 'AGENCY' && ! $agency) {
+        if ($role === UserRole::AGENCY->value && ! $agency) {
             return $this->emptyAdditionalSections();
         }
 
@@ -982,7 +983,7 @@ class ReportsExportService
             ['title' => 'Case Details', 'columnMap' => $caseCols, 'rows' => $cases],
         ];
 
-        if ($role === 'AGENCY') {
+        if ($role === UserRole::AGENCY->value) {
             $sheets = array_values(array_filter(
                 $sheets,
                 fn ($sheet) => ! in_array($sheet['title'], self::AGENCY_HIDDEN_SHEETS, true)

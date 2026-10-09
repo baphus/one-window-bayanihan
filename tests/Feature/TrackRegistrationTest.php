@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Http\Middleware\VerifyTurnstile;
 use App\Models\User;
 use App\Services\TrackingService;
@@ -58,7 +59,7 @@ class TrackRegistrationTest extends TestCase
 
         $user = User::where('email', $email)->first();
         $this->assertNotNull($user);
-        $this->assertSame('OFW', $user->role);
+        $this->assertSame(UserRole::OFW->value, $user->role);
         $this->assertEquals($case['client']->id, $user->client_id);
         $this->assertNotNull($user->email_verified_at);
         $this->assertTrue((bool) $user->is_active);
@@ -79,7 +80,7 @@ class TrackRegistrationTest extends TestCase
 
         $existing = User::factory()->create([
             'email' => $email,
-            'role' => 'OFW',
+            'role' => UserRole::OFW->value,
             'client_id' => $case['client']->id,
         ]);
 

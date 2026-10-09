@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Http\Requests\StoreCaseRequest;
 use App\Http\Requests\UpdateCaseRequest;
 use App\Models\Agency;
@@ -108,7 +109,7 @@ class MultiCategoryCaseSupportTest extends TestCase
 
     public function test_multiple_categories_are_supported_by_case_filtering(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $matching = CaseFile::factory()->create(['status' => 'OPEN']);
         $other = CaseFile::factory()->create(['status' => 'OPEN']);
         $target = CaseCategory::factory()->create();
@@ -128,7 +129,7 @@ class MultiCategoryCaseSupportTest extends TestCase
 
     public function test_export_reports_all_categories_and_matches_pivot_category_filters(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $first = CaseCategory::factory()->create(['name' => 'First category']);
         $second = CaseCategory::factory()->create(['name' => 'Second category']);
         $case = CaseFile::factory()->create(['status' => 'OPEN', 'category_id' => $first->id]);
@@ -181,7 +182,7 @@ class MultiCategoryCaseSupportTest extends TestCase
 
     public function test_admin_category_usage_counts_secondary_assignments(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $category = CaseCategory::factory()->create();
         $case = CaseFile::factory()->create(['status' => 'OPEN', 'category_id' => null]);
         $this->linkCategories($case, [$category->id]);
@@ -195,7 +196,7 @@ class MultiCategoryCaseSupportTest extends TestCase
 
     public function test_admin_category_usage_excludes_deleted_cases(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $category = CaseCategory::factory()->create();
         $case = CaseFile::factory()->create(['status' => 'OPEN', 'category_id' => null, 'is_deleted' => true]);
         $this->linkCategories($case, [$category->id]);
@@ -235,7 +236,7 @@ class MultiCategoryCaseSupportTest extends TestCase
 
     public function test_client_controller_category_ids_filter_matches_secondary_and_legacy_categories(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $target = CaseCategory::factory()->create();
         $secondary = CaseCategory::factory()->create();
         $unrelated = CaseCategory::factory()->create();
@@ -262,7 +263,7 @@ class MultiCategoryCaseSupportTest extends TestCase
 
     public function test_data_exports_category_ids_filter_cases_referrals_and_clients_without_duplicates(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $agency = Agency::factory()->create();
         $target = CaseCategory::factory()->create(['name' => 'Target']);
         $secondary = CaseCategory::factory()->create(['name' => 'Secondary']);

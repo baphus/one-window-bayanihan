@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\AuditAction;
+use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\AuditLog;
 use App\Models\CaseDocument;
@@ -25,7 +26,7 @@ class DeleteArchivedCaseTest extends TestCase
 
     public function test_delete_archived_case_soft_deletes_and_cascades(): void
     {
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $case = CaseFile::factory()->create(['status' => 'ARCHIVED', 'user_id' => $user->id]);
         $referral = Referral::factory()->create(['case_id' => $case->id, 'status' => 'COMPLETED']);
         $comment = ReferralComment::create([
@@ -66,7 +67,7 @@ class DeleteArchivedCaseTest extends TestCase
 
     public function test_delete_archived_case_creates_audit_log(): void
     {
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $case = CaseFile::factory()->create(['status' => 'ARCHIVED', 'user_id' => $user->id]);
 
         $this->actingAs($user);
@@ -86,7 +87,7 @@ class DeleteArchivedCaseTest extends TestCase
 
     public function test_delete_rejects_non_archived_case(): void
     {
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $case = CaseFile::factory()->create(['status' => 'OPEN', 'user_id' => $user->id]);
 
         $this->actingAs($user);
@@ -98,7 +99,7 @@ class DeleteArchivedCaseTest extends TestCase
 
     public function test_delete_requires_reason_min_10_chars(): void
     {
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $case = CaseFile::factory()->create(['status' => 'ARCHIVED', 'user_id' => $user->id]);
 
         $response = $this->actingAs($user)
@@ -112,7 +113,7 @@ class DeleteArchivedCaseTest extends TestCase
 
     public function test_delete_requires_reason_field(): void
     {
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $case = CaseFile::factory()->create(['status' => 'ARCHIVED', 'user_id' => $user->id]);
 
         $response = $this->actingAs($user)
@@ -125,8 +126,8 @@ class DeleteArchivedCaseTest extends TestCase
     public function test_agency_user_cannot_delete_archived_case(): void
     {
         $agency = Agency::factory()->create();
-        $agencyUser = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agency->id]);
-        $cm = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $agencyUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id]);
+        $cm = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $case = CaseFile::factory()->create(['status' => 'ARCHIVED', 'user_id' => $cm->id]);
 
         $response = $this->actingAs($agencyUser)
@@ -144,7 +145,7 @@ class DeleteArchivedCaseTest extends TestCase
 
     public function test_restore_trashed_case_restores_to_archived(): void
     {
-        $user = User::factory()->create(['role' => 'ADMIN']);
+        $user = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $case = CaseFile::factory()->create(['status' => 'ARCHIVED', 'user_id' => $user->id]);
         $referral = Referral::factory()->create(['case_id' => $case->id, 'status' => 'COMPLETED']);
         $document = CaseDocument::factory()->create(['case_id' => $case->id]);
@@ -179,7 +180,7 @@ class DeleteArchivedCaseTest extends TestCase
 
     public function test_restore_creates_audit_log(): void
     {
-        $user = User::factory()->create(['role' => 'ADMIN']);
+        $user = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $case = CaseFile::factory()->create(['status' => 'ARCHIVED', 'user_id' => $user->id]);
 
         $this->actingAs($user);
@@ -201,7 +202,7 @@ class DeleteArchivedCaseTest extends TestCase
 
     public function test_get_trashed_cases_returns_only_soft_deleted(): void
     {
-        $user = User::factory()->create(['role' => 'ADMIN']);
+        $user = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $activeCase = CaseFile::factory()->create(['status' => 'ARCHIVED', 'user_id' => $user->id]);
         $deletedCase = CaseFile::factory()->create(['status' => 'ARCHIVED', 'user_id' => $user->id]);
 
@@ -217,8 +218,8 @@ class DeleteArchivedCaseTest extends TestCase
 
     public function test_get_trashed_cases_filters_by_case_manager_ownership(): void
     {
-        $cm1 = User::factory()->create(['role' => 'CASE_MANAGER']);
-        $cm2 = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $cm1 = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $cm2 = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         $case1 = CaseFile::factory()->create(['status' => 'ARCHIVED', 'user_id' => $cm1->id]);
         $case2 = CaseFile::factory()->create(['status' => 'ARCHIVED', 'user_id' => $cm2->id]);
@@ -238,8 +239,8 @@ class DeleteArchivedCaseTest extends TestCase
 
     public function test_admin_sees_all_trashed_cases(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
-        $cm = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $cm = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         $case1 = CaseFile::factory()->create(['status' => 'ARCHIVED', 'user_id' => $cm->id]);
         $case2 = CaseFile::factory()->create(['status' => 'ARCHIVED', 'user_id' => $admin->id]);
@@ -259,7 +260,7 @@ class DeleteArchivedCaseTest extends TestCase
 
     public function test_purge_command_force_deletes_old_cases(): void
     {
-        $user = User::factory()->create(['role' => 'ADMIN']);
+        $user = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $case = CaseFile::factory()->create(['status' => 'ARCHIVED', 'user_id' => $user->id]);
 
         $this->actingAs($user);
@@ -281,7 +282,7 @@ class DeleteArchivedCaseTest extends TestCase
 
     public function test_purge_command_skips_recent_cases(): void
     {
-        $user = User::factory()->create(['role' => 'ADMIN']);
+        $user = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $case = CaseFile::factory()->create(['status' => 'ARCHIVED', 'user_id' => $user->id]);
 
         $this->actingAs($user);
@@ -299,7 +300,7 @@ class DeleteArchivedCaseTest extends TestCase
 
     public function test_purge_command_respects_custom_days_option(): void
     {
-        $user = User::factory()->create(['role' => 'ADMIN']);
+        $user = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $case = CaseFile::factory()->create(['status' => 'ARCHIVED', 'user_id' => $user->id]);
 
         $this->actingAs($user);
@@ -328,7 +329,7 @@ class DeleteArchivedCaseTest extends TestCase
 
     public function test_trash_index_renders_for_case_manager(): void
     {
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         $response = $this->actingAs($user)->get(route('cases.trash'));
 
@@ -341,7 +342,7 @@ class DeleteArchivedCaseTest extends TestCase
 
     public function test_restore_endpoint_restores_case(): void
     {
-        $user = User::factory()->create(['role' => 'ADMIN']);
+        $user = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $case = CaseFile::factory()->create(['status' => 'ARCHIVED', 'user_id' => $user->id]);
 
         $this->actingAs($user);
@@ -359,7 +360,7 @@ class DeleteArchivedCaseTest extends TestCase
 
     public function test_delete_endpoint_moves_to_trash(): void
     {
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $case = CaseFile::factory()->create(['status' => 'ARCHIVED', 'user_id' => $user->id]);
 
         $response = $this->actingAs($user)

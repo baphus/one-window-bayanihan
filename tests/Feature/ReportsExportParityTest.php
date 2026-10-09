@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\CaseFile;
 use App\Models\Client;
@@ -69,7 +70,7 @@ class ReportsExportParityTest extends TestCase
     #[Test]
     public function export_payload_contains_the_new_screen_sections(): void
     {
-        $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $agency = Agency::factory()->create();
         $this->seedCase($manager, $agency);
 
@@ -87,7 +88,7 @@ class ReportsExportParityTest extends TestCase
     #[Test]
     public function scorecard_active_equals_total_minus_completed_per_agency(): void
     {
-        $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $agency = Agency::factory()->create();
         $case = $this->seedCase($manager, $agency);
         Referral::factory()->completed()->create(['case_id' => $case->id, 'agcy_id' => $agency->id]);
@@ -108,7 +109,7 @@ class ReportsExportParityTest extends TestCase
     #[Test]
     public function overdue_labels_name_the_windowed_definition(): void
     {
-        $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $agency = Agency::factory()->create();
         $this->seedCase($manager, $agency, [], [
             'created_at' => now()->subDays(20),
@@ -139,7 +140,7 @@ class ReportsExportParityTest extends TestCase
     #[Test]
     public function trend_recompute_agrees_with_the_service_methods(): void
     {
-        $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $agency = Agency::factory()->create();
         $this->seedCase($manager, $agency,
             ['created_at' => '2026-02-10 08:00:00', 'updated_at' => '2026-02-10 08:00:00'],
@@ -151,7 +152,7 @@ class ReportsExportParityTest extends TestCase
         $payload = $this->exports->buildPdfPayloadFromCriteria($this->criteriaFor($manager));
 
         $casesOverTime = $this->reports->getCasesOverTime(
-            $manager->id, 'CASE_MANAGER', '2026-01-01', '2026-12-31', 'case_created_at'
+            $manager->id, UserRole::CASE_MANAGER->value, '2026-01-01', '2026-12-31', 'case_created_at'
         );
         $this->assertSame($casesOverTime['labels'], $payload['caseTrends']['labels']);
         $this->assertSame(
@@ -163,7 +164,7 @@ class ReportsExportParityTest extends TestCase
             $this->criteriaFor($manager, ['dateScope' => 'referral_created_at'])
         );
         $referralTrends = $this->reports->getReferralTrends(
-            $manager->id, 'CASE_MANAGER', '2026-01-01', '2026-12-31', 'referral_created_at'
+            $manager->id, UserRole::CASE_MANAGER->value, '2026-01-01', '2026-12-31', 'referral_created_at'
         );
         $this->assertSame($referralTrends['labels'], $referralPayload['referralTrends']['labels']);
         $this->assertSame(

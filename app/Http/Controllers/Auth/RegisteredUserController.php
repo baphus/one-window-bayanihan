@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Services\ReferenceDataService;
@@ -41,7 +42,7 @@ class RegisteredUserController extends Controller
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
-            'role' => 'CASE_MANAGER',
+            'role' => UserRole::CASE_MANAGER->value,
         ]);
 
         app(ReferenceDataService::class)->assignDefaultAgency($user);

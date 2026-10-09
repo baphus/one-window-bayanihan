@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Models\CaseFile;
 use App\Models\Client;
 use App\Models\User;
@@ -30,7 +31,7 @@ class CaseServiceNotificationTest extends TestCase
     {
         Notification::fake();
 
-        $caseManager = $this->createUser('CASE_MANAGER');
+        $caseManager = $this->createUser(UserRole::CASE_MANAGER->value);
         $case = $this->createCase($caseManager);
 
         $this->service->updateCase($case->id, [
@@ -44,7 +45,7 @@ class CaseServiceNotificationTest extends TestCase
 
     public function test_updating_case_creates_ofw_notification(): void
     {
-        $caseManager = $this->createUser('CASE_MANAGER');
+        $caseManager = $this->createUser(UserRole::CASE_MANAGER->value);
         $case = $this->createCase($caseManager);
 
         $this->service->updateCase($case->id, [
@@ -63,7 +64,7 @@ class CaseServiceNotificationTest extends TestCase
     {
         Notification::fake();
 
-        $caseManager = $this->createUser('CASE_MANAGER');
+        $caseManager = $this->createUser(UserRole::CASE_MANAGER->value);
         $case = $this->createCase($caseManager);
 
         // Update with same values
@@ -80,7 +81,7 @@ class CaseServiceNotificationTest extends TestCase
     {
         Notification::fake();
 
-        $caseManager = $this->createUser('CASE_MANAGER');
+        $caseManager = $this->createUser(UserRole::CASE_MANAGER->value);
         $case = $this->createCase($caseManager);
 
         $this->service->toggleCaseStatus($case->id, $caseManager->id);
@@ -90,7 +91,7 @@ class CaseServiceNotificationTest extends TestCase
 
     public function test_toggling_case_status_creates_ofw_notification(): void
     {
-        $caseManager = $this->createUser('CASE_MANAGER');
+        $caseManager = $this->createUser(UserRole::CASE_MANAGER->value);
         $case = $this->createCase($caseManager);
 
         $this->service->toggleCaseStatus($case->id, $caseManager->id);

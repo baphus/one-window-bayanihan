@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -20,7 +21,7 @@ class AdminAgencyControllerTest extends TestCase
 
     public function test_admin_can_delete_agency(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
 
         $agency = Agency::factory()->create(['is_active' => true, 'is_deleted' => false]);
 
@@ -37,7 +38,7 @@ class AdminAgencyControllerTest extends TestCase
 
     public function test_admin_cannot_delete_nonexistent_agency(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
 
         $fakeId = '00000000-0000-0000-0000-000000000000';
 
@@ -48,7 +49,7 @@ class AdminAgencyControllerTest extends TestCase
 
     public function test_admin_can_upload_logo_when_creating_agency(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $file = UploadedFile::fake()->image('logo.jpg', 128, 128);
 
         $response = $this->actingAs($admin)->post(route('admin.agencies.store'), [
@@ -67,7 +68,7 @@ class AdminAgencyControllerTest extends TestCase
 
     public function test_logo_upload_rejects_non_image_file(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $file = UploadedFile::fake()->create('logo.txt', 100);
 
         $response = $this->actingAs($admin)->post(route('admin.agencies.store'), [
@@ -81,7 +82,7 @@ class AdminAgencyControllerTest extends TestCase
 
     public function test_logo_upload_rejects_oversized_file(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $file = UploadedFile::fake()->create('logo.jpg', 3000);
 
         $response = $this->actingAs($admin)->post(route('admin.agencies.store'), [
@@ -95,7 +96,7 @@ class AdminAgencyControllerTest extends TestCase
 
     public function test_latitude_and_longitude_are_stored_when_creating_agency(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
 
         $response = $this->actingAs($admin)->post(route('admin.agencies.store'), [
             'name' => 'Test Agency',
@@ -115,7 +116,7 @@ class AdminAgencyControllerTest extends TestCase
 
     public function test_map_link_is_auto_generated_from_latitude_and_longitude(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
 
         $response = $this->actingAs($admin)->post(route('admin.agencies.store'), [
             'name' => 'Test Agency',
@@ -134,7 +135,7 @@ class AdminAgencyControllerTest extends TestCase
 
     public function test_map_link_parses_google_maps_place_url_and_gets_lat_lng(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
 
         $response = $this->actingAs($admin)->post(route('admin.agencies.store'), [
             'name' => 'Test Agency',
@@ -155,7 +156,7 @@ class AdminAgencyControllerTest extends TestCase
 
     public function test_map_link_parses_google_maps_query_url_with_coords(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
 
         $response = $this->actingAs($admin)->post(route('admin.agencies.store'), [
             'name' => 'Test Agency',
@@ -174,7 +175,7 @@ class AdminAgencyControllerTest extends TestCase
 
     public function test_map_link_overwrites_direct_lat_lng_when_both_provided(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
 
         $response = $this->actingAs($admin)->post(route('admin.agencies.store'), [
             'name' => 'Test Agency',
@@ -195,7 +196,7 @@ class AdminAgencyControllerTest extends TestCase
 
     public function test_map_link_preserves_goo_gl_url_without_parsing(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
 
         $response = $this->actingAs($admin)->post(route('admin.agencies.store'), [
             'name' => 'Test Agency',
@@ -214,7 +215,7 @@ class AdminAgencyControllerTest extends TestCase
 
     public function test_map_link_remains_null_when_lat_lng_not_provided(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
 
         $response = $this->actingAs($admin)->post(route('admin.agencies.store'), [
             'name' => 'Test Agency',
@@ -230,7 +231,7 @@ class AdminAgencyControllerTest extends TestCase
 
     public function test_existing_logo_unchanged_when_updating_without_logo_file(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $agency = Agency::factory()->create([
             'logo_url' => 'logos/old-logo.jpg',
         ]);

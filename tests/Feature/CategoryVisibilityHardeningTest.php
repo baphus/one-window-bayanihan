@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\SetPostgresSession;
 use App\Models\Agency;
@@ -28,7 +29,7 @@ class CategoryVisibilityHardeningTest extends TestCase
 
     public function test_agency_user_without_agency_gets_no_client_or_referral_list_count_or_export_data(): void
     {
-        $user = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => null]);
+        $user = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => null]);
         $agency = Agency::factory()->create();
         $client = Client::factory()->create();
         $case = CaseFile::factory()->create(['client_id' => $client->id]);
@@ -59,7 +60,7 @@ class CategoryVisibilityHardeningTest extends TestCase
         $this->assertCount(0, $exports->getReferralsExport($user));
         $this->assertSame(0, $exports->countReferralsExport($user));
 
-        $stats = app(ReferralService::class)->getReferralStats(null, 'AGENCY');
+        $stats = app(ReferralService::class)->getReferralStats(null, UserRole::AGENCY->value);
         $this->assertSame(0, $stats['total_referrals']);
     }
 
@@ -67,8 +68,8 @@ class CategoryVisibilityHardeningTest extends TestCase
     {
         $agency = Agency::factory()->create();
         $foreignAgency = Agency::factory()->create();
-        $viewer = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agency->id]);
-        $foreignManager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $viewer = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id]);
+        $foreignManager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $client = Client::factory()->create();
 
         $visibleCase = CaseFile::factory()->create([
@@ -120,8 +121,8 @@ class CategoryVisibilityHardeningTest extends TestCase
 
     public function test_case_manager_list_stats_and_export_count_are_scoped_to_viewer(): void
     {
-        $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
-        $otherManager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $otherManager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $agency = Agency::factory()->create();
 
         $managerCase = CaseFile::factory()->create(['user_id' => $manager->id]);
@@ -164,7 +165,7 @@ class CategoryVisibilityHardeningTest extends TestCase
     {
         $agency = Agency::factory()->create();
         $otherAgency = Agency::factory()->create();
-        $user = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agency->id]);
+        $user = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id]);
         $case = CaseFile::factory()->create();
         $visibleReferral = Referral::factory()->create([
             'case_id' => $case->id,
@@ -192,20 +193,20 @@ class CategoryVisibilityHardeningTest extends TestCase
     public function test_referral_mutation_refreshes_manager_and_agency_stats(): void
     {
         $agency = Agency::factory()->create();
-        $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $case = CaseFile::factory()->create(['user_id' => $manager->id]);
         $service = app(ReferralService::class);
 
-        $this->assertSame(0, $service->getReferralStats(null, 'CASE_MANAGER', $manager->id)['total_referrals']);
-        $this->assertSame(0, $service->getReferralStats($agency->id, 'AGENCY', null)['total_referrals']);
+        $this->assertSame(0, $service->getReferralStats(null, UserRole::CASE_MANAGER->value, $manager->id)['total_referrals']);
+        $this->assertSame(0, $service->getReferralStats($agency->id, UserRole::AGENCY->value, null)['total_referrals']);
 
         Referral::factory()->create([
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
         ]);
 
-        $this->assertSame(1, $service->getReferralStats(null, 'CASE_MANAGER', $manager->id)['total_referrals']);
-        $this->assertSame(1, $service->getReferralStats($agency->id, 'AGENCY', null)['total_referrals']);
+        $this->assertSame(1, $service->getReferralStats(null, UserRole::CASE_MANAGER->value, $manager->id)['total_referrals']);
+        $this->assertSame(1, $service->getReferralStats($agency->id, UserRole::AGENCY->value, null)['total_referrals']);
     }
 
     private function audit(User $user, string $module, string $entityId, string $description): string

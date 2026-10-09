@@ -99,8 +99,8 @@ const COLUMN_DEFS = [
 ];
 
 export default function CaseIndex({ cases, filters: rawFilters, stats, users = [], agencies = [], categories = [], caseIssues = [] }) {
-  const { auth } = usePage().props;
-  const canCreate = auth.user.role === 'CASE_MANAGER' || auth.user.role === 'ADMIN';
+  const { auth, roles } = usePage().props;
+  const canCreate = auth.user.role === roles.CASE_MANAGER || auth.user.role === roles.ADMIN;
   const filters = rawFilters && !Array.isArray(rawFilters) ? rawFilters : {};
 
   const [searchValue, setSearchValue] = useState(filters?.search ?? '');

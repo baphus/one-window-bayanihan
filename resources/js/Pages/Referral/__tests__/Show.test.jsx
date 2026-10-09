@@ -9,7 +9,7 @@ vi.mock('@inertiajs/react', () => ({
   Head: () => null,
   Link: ({ children, ...props }) => <a {...props}>{children}</a>,
   router: routerSpy,
-  usePage: () => ({ props: { auth: { user: { role: state.role, agcy_id: state.agencyId } } } }),
+  usePage: () => ({ props: { auth: { user: { role: state.role, agcy_id: state.agencyId } }, roles: { ADMIN: 'ADMIN', AGENCY: 'AGENCY', CASE_MANAGER: 'CASE_MANAGER', OFW: 'OFW' } } }),
   useForm: (initial = {}) => ({
     data: initial,
     errors: {},

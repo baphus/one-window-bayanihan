@@ -2,6 +2,7 @@
 
 namespace App\Services\Reports\Concerns;
 
+use App\Enums\UserRole;
 use App\Models\CaseFile;
 use App\Models\ClientEmployment;
 use App\Models\Referral;
@@ -18,7 +19,7 @@ trait ScopesReportQueries
      */
     private function hasRequiredRoleScope(?string $userId, ?string $role, ?string $agencyId): bool
     {
-        return $role !== 'AGENCY' || (bool) $agencyId;
+        return $role !== UserRole::AGENCY->value || (bool) $agencyId;
     }
 
     private function caseQuery(?string $userId = null, ?string $role = null, ?string $agencyId = null, string $dateScope = 'case_created_at')
@@ -51,7 +52,7 @@ trait ScopesReportQueries
         }
 
         if ($dateScope === 'case_created_at') {
-            // Subquery avoids JOIN â€” prevents ambiguous column errors
+            // Subquery avoids JOIN — prevents ambiguous column errors
             $query->whereIn('referrals.case_id', function ($q) use ($fromDate, $toDate) {
                 $q->select('cases.id')->from('cases')
                     ->whereNull('cases.deleted_at');
@@ -82,8 +83,8 @@ trait ScopesReportQueries
     /**
      * Restrict a `cases`-based query to the active reporting window.
      *
-     * Five panels â€” client type, vulnerability, case status, and both
-     * employment breakdowns â€” previously ignored the date and geography
+     * Five panels — client type, vulnerability, case status, and both
+     * employment breakdowns — previously ignored the date and geography
      * filters entirely and reported all-time figures beside panels that
      * honoured them. Exporting those sections would have printed numbers that
      * contradict the date range on the same page.
@@ -188,7 +189,7 @@ trait ScopesReportQueries
     /**
      * Case scope for event-based metrics (reopens, actor split).
      *
-     * Carries role/agency/geo only â€” no case-date window. Event metrics
+     * Carries role/agency/geo only — no case-date window. Event metrics
      * window the events themselves, so activity on older cases still counts
      * when it falls inside the reporting window.
      */

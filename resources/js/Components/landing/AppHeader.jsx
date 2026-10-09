@@ -25,6 +25,7 @@ function isActive(currentPath, link) {
 export default function AppHeader({ minimal }) {
   const { url, props } = usePage();
   const user = props.auth?.user ?? null;
+  const roles = props.roles;
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -33,10 +34,10 @@ export default function AppHeader({ minimal }) {
   }, [url]);
 
   const mobileActionHref = user
-    ? (user.role === 'OFW' ? route('ofw.dashboard') : route('dashboard'))
+    ? (user.role === roles.OFW ? route('ofw.dashboard') : route('dashboard'))
     : route('login');
   const mobileActionLabel = user
-    ? (user.role === 'OFW' ? 'My Cases' : 'Dashboard')
+    ? (user.role === roles.OFW ? 'My Cases' : 'Dashboard')
     : 'Login';
 
   return (
@@ -96,10 +97,10 @@ export default function AppHeader({ minimal }) {
               {user ? (
                 <div className="flex items-center gap-3">
                   <a
-                    href={user.role === 'OFW' ? route('ofw.dashboard') : route('dashboard')}
+                    href={user.role === roles.OFW ? route('ofw.dashboard') : route('dashboard')}
                     className="inline-flex items-center justify-center gap-2 rounded-none bg-primary px-6 py-2.5 text-[14px] font-bold text-white transition-all hover:brightness-110 active:scale-95"
                   >
-                    {user.role === 'OFW' ? 'My Cases' : 'Dashboard'}
+                    {user.role === roles.OFW ? 'My Cases' : 'Dashboard'}
                   </a>
 
                   <div className="flex items-center gap-4 border-l border-gray-200 pl-5">
@@ -291,11 +292,11 @@ export default function AppHeader({ minimal }) {
 
                 {user ? (
                   <a
-                    href={user.role === 'OFW' ? route('ofw.dashboard') : route('dashboard')}
+                    href={user.role === roles.OFW ? route('ofw.dashboard') : route('dashboard')}
                     onClick={() => setIsMobileMenuOpen(false)}
                     className="inline-flex w-full items-center justify-center gap-2 rounded-none bg-primary px-6 py-2.5 text-[14px] font-bold text-white transition-all hover:brightness-110 active:scale-95"
                   >
-                    {user.role === 'OFW' ? 'My Cases' : 'Dashboard'}
+                    {user.role === roles.OFW ? 'My Cases' : 'Dashboard'}
                   </a>
                 ) : (
                   <Link

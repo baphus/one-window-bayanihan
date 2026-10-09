@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\CaseCategory;
 use App\Models\CaseFile;
@@ -33,7 +34,7 @@ class ReportsExportServiceTest extends TestCase
     #[Test]
     public function invalid_dates_return_redirect_response(): void
     {
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $request = $this->requestFor($user, ['from' => '2026-99-99', 'to' => '2026-12-31']);
 
         $result = $this->service->buildExcelSheets($request);
@@ -45,7 +46,7 @@ class ReportsExportServiceTest extends TestCase
     #[Test]
     public function malformed_export_filter_is_rejected_by_the_report_export_endpoint(): void
     {
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         $response = $this->actingAs($user)->get(route('reports.export-excel', [
             'from' => 'not-a-date',
@@ -59,7 +60,7 @@ class ReportsExportServiceTest extends TestCase
     #[Test]
     public function reports_export_endpoint_returns_the_expected_xlsx_workbook_headers(): void
     {
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         $response = $this->actingAs($user)->get(route('reports.export-excel', [
             'from' => '2026-01-01',
@@ -74,7 +75,7 @@ class ReportsExportServiceTest extends TestCase
     #[Test]
     public function exactly_two_year_date_range_is_allowed_but_longer_range_redirects(): void
     {
-        $user = User::factory()->create(['role' => 'ADMIN']);
+        $user = User::factory()->create(['role' => UserRole::ADMIN->value]);
 
         $allowed = $this->service->buildExcelSheets($this->requestFor($user, [
             'from' => '2024-02-29',
@@ -93,8 +94,8 @@ class ReportsExportServiceTest extends TestCase
     public function case_manager_export_details_include_all_cases(): void
     {
         [$agency] = $this->seedAgencies();
-        $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
-        $otherManager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $otherManager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $owned = $this->caseWithReferral($manager, $agency, 'CASE-OWNED-001');
         $other = $this->caseWithReferral($otherManager, $agency, 'CASE-OTHER-001');
 
@@ -109,8 +110,8 @@ class ReportsExportServiceTest extends TestCase
     public function agency_export_details_are_scoped_to_agency_referrals(): void
     {
         [$agency, $otherAgency] = $this->seedAgencies();
-        $agencyUser = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agency->id]);
-        $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $agencyUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id]);
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $included = $this->caseWithReferral($manager, $agency, 'CASE-AGENCY-001');
         $excluded = $this->caseWithReferral($manager, $otherAgency, 'CASE-OTHER-AGENCY-001');
 
@@ -125,8 +126,8 @@ class ReportsExportServiceTest extends TestCase
     public function agency_without_agency_id_exports_empty_details_and_summaries(): void
     {
         [$agency] = $this->seedAgencies();
-        $agencyUser = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => null]);
-        $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $agencyUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => null]);
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $this->caseWithReferral($manager, $agency, 'CASE-HIDDEN-001');
 
         $sheets = $this->service->buildExcelSheets($this->requestFor($agencyUser));
@@ -140,7 +141,7 @@ class ReportsExportServiceTest extends TestCase
     public function detail_sheets_exclude_pii_and_ai_metadata(): void
     {
         [$agency] = $this->seedAgencies();
-        $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $this->caseWithReferral($manager, $agency, 'CASE-PII-001', [
             'summary' => 'PRIVATE CASE SUMMARY',
             'tracker_number' => 'SECRET-TRACKER',
@@ -172,7 +173,7 @@ class ReportsExportServiceTest extends TestCase
     public function case_export_uses_secondary_pivot_categories_without_scalar_category(): void
     {
         [$agency] = $this->seedAgencies();
-        $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $secondary = CaseCategory::factory()->create(['name' => 'Secondary category']);
         $case = CaseFile::factory()->create([
             'case_number' => 'CASE-PIVOT-CATEGORY-001',
@@ -206,7 +207,7 @@ class ReportsExportServiceTest extends TestCase
     public function pdf_top_referrals_are_limited_to_active_risk_ranked_rows(): void
     {
         [$agency] = $this->seedAgencies();
-        $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $oldPending = $this->caseWithReferral($manager, $agency, 'CASE-PENDING-OLD', [], [
             'status' => 'PENDING',
             'created_at' => CarbonImmutable::parse('2026-06-15 00:00:00'),
@@ -232,7 +233,7 @@ class ReportsExportServiceTest extends TestCase
         config(['reports.export_row_cap' => 50]);
 
         [$agency] = $this->seedAgencies();
-        $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $case = CaseFile::factory()->create([
             'case_number' => 'CASE-CAP-001',
             'user_id' => $manager->id,
@@ -278,7 +279,7 @@ class ReportsExportServiceTest extends TestCase
     public function pdf_metadata_reports_matching_context_without_detail_export_counts(): void
     {
         [$agency] = $this->seedAgencies();
-        $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $this->caseWithReferral($manager, $agency, 'CASE-PDF-META-001');
 
         $payload = $this->service->buildPdfPayload($this->requestFor($manager));

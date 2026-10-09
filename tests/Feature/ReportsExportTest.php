@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\CaseFile;
 use App\Models\Client;
@@ -31,8 +32,8 @@ class ReportsExportTest extends TestCase
     {
         parent::setUp();
 
-        $this->manager = User::factory()->create(['role' => 'CASE_MANAGER']);
-        $this->otherManager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $this->manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $this->otherManager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $this->agency = Agency::factory()->create();
     }
 
@@ -69,7 +70,7 @@ class ReportsExportTest extends TestCase
         $this->makeCaseWithReferral($this->manager);
         $this->makeCaseWithReferral($this->otherManager);
 
-        $report = app(ReportsService::class)->getAll(userId: $this->manager->id, role: 'CASE_MANAGER');
+        $report = app(ReportsService::class)->getAll(userId: $this->manager->id, role: UserRole::CASE_MANAGER->value);
         $payload = $this->payloadFor($this->manager);
 
         // Export figures are the exact same computed dataset as the screen.
@@ -121,7 +122,7 @@ class ReportsExportTest extends TestCase
     #[Test]
     public function public_report_pdf_and_xlsx_endpoints_include_all_data_for_case_managers(): void
     {
-        $other = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $other = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $mine = $this->makeCaseWithReferral($this->manager);
         $theirs = $this->makeCaseWithReferral($other);
 
@@ -154,7 +155,7 @@ class ReportsExportTest extends TestCase
     #[Test]
     public function all_client_case_and_referral_workbooks_have_decrypted_employment_fields_and_unscoped_case_manager(): void
     {
-        $other = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $other = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $owned = $this->makeCaseWithReferral($this->manager);
         $otherCase = $this->makeCaseWithReferral($other);
 
@@ -190,7 +191,7 @@ class ReportsExportTest extends TestCase
     #[Test]
     public function admin_full_data_export_includes_a_decrypted_client_employments_workbook(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $client = Client::factory()->create();
         ClientEmployment::create([
             'client_id' => $client->id,

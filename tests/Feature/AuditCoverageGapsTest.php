@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\AuditAction;
+use App\Enums\UserRole;
 use App\Models\AuditLog;
 use App\Models\CaseFile;
 use App\Models\Client;
@@ -34,7 +35,7 @@ class AuditCoverageGapsTest extends TestCase
 
     public function test_security_settings_update_writes_audit_row_with_key_names_only(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $this->actingAs($admin);
 
         $this->post(route('admin.system.security.update'), [
@@ -62,7 +63,7 @@ class AuditCoverageGapsTest extends TestCase
 
     public function test_delete_draft_writes_delete_audit_row(): void
     {
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $client = Client::factory()->create([
             'first_name' => 'Juan',
             'last_name' => 'Dela Cruz',
@@ -101,7 +102,7 @@ class AuditCoverageGapsTest extends TestCase
 
     public function test_session_terminate_writes_audit_row(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $this->actingAs($admin);
 
         do {
@@ -129,7 +130,7 @@ class AuditCoverageGapsTest extends TestCase
 
     public function test_maintenance_enable_writes_audit_row(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $this->actingAs($admin);
         $this->ensureMaintenanceModeOff();
 
@@ -149,7 +150,7 @@ class AuditCoverageGapsTest extends TestCase
 
     public function test_maintenance_disable_writes_audit_row(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $this->actingAs($admin);
         $this->ensureMaintenanceModeOff();
 

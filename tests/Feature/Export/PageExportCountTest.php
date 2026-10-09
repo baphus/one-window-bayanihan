@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Export;
 
+use App\Enums\UserRole;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\Agency;
 use App\Models\CaseFile;
@@ -53,7 +54,7 @@ class PageExportCountTest extends TestCase
     #[Test]
     public function referrals_count_respects_status_filter(): void
     {
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $agency = Agency::factory()->create();
         $case = CaseFile::factory()->create();
         Referral::factory()->create(['case_id' => $case->id, 'agcy_id' => $agency->id, 'status' => 'PENDING']);
@@ -67,7 +68,7 @@ class PageExportCountTest extends TestCase
     #[Test]
     public function referrals_count_respects_date_range(): void
     {
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $agency = Agency::factory()->create();
         $case = CaseFile::factory()->create();
         Referral::factory()->create([
@@ -94,7 +95,7 @@ class PageExportCountTest extends TestCase
     {
         $ownAgency = Agency::factory()->create();
         $otherAgency = Agency::factory()->create();
-        $user = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $ownAgency->id]);
+        $user = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $ownAgency->id]);
         $case = CaseFile::factory()->create();
         Referral::factory()->create(['case_id' => $case->id, 'agcy_id' => $ownAgency->id]);
         Referral::factory()->create(['case_id' => $case->id, 'agcy_id' => $otherAgency->id]);
@@ -111,7 +112,7 @@ class PageExportCountTest extends TestCase
     #[Test]
     public function cases_count_respects_status_filter(): void
     {
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         CaseFile::factory()->create(['status' => 'OPEN']);
         CaseFile::factory()->create(['status' => 'CLOSED']);
 
@@ -123,7 +124,7 @@ class PageExportCountTest extends TestCase
     #[Test]
     public function cases_count_respects_next_of_kin_client_type_filter(): void
     {
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         CaseFile::factory()->create(['client_type' => CaseFile::CLIENT_TYPE_OFW]);
         CaseFile::factory()->create(['client_type' => CaseFile::CLIENT_TYPE_NEXT_OF_KIN]);
 
@@ -141,7 +142,7 @@ class PageExportCountTest extends TestCase
     #[Test]
     public function clients_count_respects_search_filter(): void
     {
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         Client::factory()->create(['first_name' => 'Maria', 'last_name' => 'Santos']);
         Client::factory()->create(['first_name' => 'Juan', 'last_name' => 'Dela Cruz']);
 
@@ -153,7 +154,7 @@ class PageExportCountTest extends TestCase
     #[Test]
     public function clients_count_respects_sex_filter(): void
     {
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         Client::factory()->create(['sex' => 'MALE']);
         Client::factory()->create(['sex' => 'FEMALE']);
 
@@ -165,7 +166,7 @@ class PageExportCountTest extends TestCase
     #[Test]
     public function clients_count_respects_next_of_kin_client_type_filter(): void
     {
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $ofw = Client::factory()->create();
         $nextOfKin = Client::factory()->create();
         CaseFile::factory()->create([

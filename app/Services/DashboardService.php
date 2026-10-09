@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\UserRole;
 use App\Helpers\CacheHelper;
 use App\Models\Agency;
 use App\Models\AuditLog;
@@ -222,10 +223,10 @@ class DashboardService
         // pattern as the admin case-trends payload.
         $reportsService = app(ReportsService::class);
         $casesOverTime = CacheHelper::safeRemember('dashboard:cm_cases_over_time', 300, function () use ($reportsService) {
-            return $reportsService->getCasesOverTime(null, 'CASE_MANAGER');
+            return $reportsService->getCasesOverTime(null, UserRole::CASE_MANAGER->value);
         });
         $referralTrends = CacheHelper::safeRemember('dashboard:cm_referral_trends', 300, function () use ($reportsService) {
-            return $reportsService->getReferralTrends(null, 'CASE_MANAGER');
+            return $reportsService->getReferralTrends(null, UserRole::CASE_MANAGER->value);
         });
 
         // Work queue counts via targeted SQL
@@ -597,9 +598,9 @@ class DashboardService
                 ->map(fn ($row) => [
                     'role' => $row->role,
                     'label' => match ($row->role) {
-                        'ADMIN' => 'Administrators',
-                        'CASE_MANAGER' => 'Case managers',
-                        'AGENCY' => 'Agency users',
+                        UserRole::ADMIN->value => 'Administrators',
+                        UserRole::CASE_MANAGER->value => 'Case managers',
+                        UserRole::AGENCY->value => 'Agency users',
                         default => $row->role,
                     },
                     'count' => (int) $row->total,

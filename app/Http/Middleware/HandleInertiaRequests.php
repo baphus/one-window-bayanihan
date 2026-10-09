@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Enums\UserRole;
 use App\Helpers\CacheHelper;
 use App\Services\CaseService;
 use App\Services\Chatbot\ChatbotSuggestionService;
@@ -25,7 +26,7 @@ class HandleInertiaRequests extends Middleware
     private function getProfileIncomplete(Request $request): bool
     {
         $user = $request->user();
-        if (! $user || $user->role === 'OFW') {
+        if (! $user || $user->role === UserRole::OFW->value) {
             return false;
         }
 
@@ -57,7 +58,7 @@ class HandleInertiaRequests extends Middleware
     private function getIntakeQueueCount(Request $request): int
     {
         $user = $request->user();
-        if (! $user || ! in_array($user->role, ['CASE_MANAGER', 'ADMIN'])) {
+        if (! $user || ! in_array($user->role, [UserRole::CASE_MANAGER->value, UserRole::ADMIN->value])) {
             return 0;
         }
 
@@ -102,12 +103,15 @@ class HandleInertiaRequests extends Middleware
                     'agency' => $this->getCachedUserAgency($request),
                 ] : null,
             ],
+            'roles' => collect(UserRole::cases())
+                ->mapWithKeys(fn (UserRole $role) => [$role->name => $role->value])
+                ->all(),
             'notifications' => fn () => [
                 'unread_count' => $this->getUnreadNotificationCount($request),
             ],
             'intake_queue_count' => fn () => $this->getIntakeQueueCount($request),
             'just_published' => $request->session()->get('just_published'),
-            'onboarding' => fn () => $request->user() && $request->user()->role !== 'OFW'
+            'onboarding' => fn () => $request->user() && $request->user()->role !== UserRole::OFW->value
                 ? app(OnboardingService::class)->getOnboardingState($request->user())
                 : null,
             'profile_incomplete' => fn () => $this->getProfileIncomplete($request),

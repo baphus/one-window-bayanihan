@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\CaseFile;
 use App\Models\Client;
@@ -22,7 +23,7 @@ class DashboardPayloadTest extends TestCase
     {
         Cache::flush();
 
-        $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $agency = Agency::factory()->create();
 
         // Seven OPEN cases with staggered timestamps: the preview must cap
@@ -129,8 +130,8 @@ class DashboardPayloadTest extends TestCase
 
         $agency = Agency::factory()->create(['name' => 'OWWA Cebu']);
         $otherAgency = Agency::factory()->create(['name' => 'Other Agency']);
-        $agencyUser = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agency->id]);
-        $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $agencyUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id]);
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         // Six stale PENDING referrals plus one fresh: the pending list caps
         // at the 5 oldest.

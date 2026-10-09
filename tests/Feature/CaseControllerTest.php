@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Models\CaseCategory;
 use App\Models\CaseFile;
 use App\Models\Client;
@@ -15,7 +16,7 @@ class CaseControllerTest extends TestCase
 
     public function test_edit_draft_returns_draft_data(): void
     {
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $case = CaseFile::factory()->create([
             'status' => 'DRAFT',
             'user_id' => $user->id,
@@ -34,8 +35,8 @@ class CaseControllerTest extends TestCase
 
     public function test_edit_draft_403_for_other_user(): void
     {
-        $userA = User::factory()->create(['role' => 'CASE_MANAGER']);
-        $userB = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $userA = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $userB = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $case = CaseFile::factory()->create([
             'status' => 'DRAFT',
             'user_id' => $userA->id,
@@ -49,7 +50,7 @@ class CaseControllerTest extends TestCase
 
     public function test_edit_draft_404_for_non_draft(): void
     {
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $case = CaseFile::factory()->create([
             'status' => 'OPEN',
             'user_id' => $user->id,
@@ -63,7 +64,7 @@ class CaseControllerTest extends TestCase
 
     public function test_save_draft_updates_draft(): void
     {
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $case = CaseFile::factory()->create([
             'status' => 'DRAFT',
             'user_id' => $user->id,
@@ -88,8 +89,8 @@ class CaseControllerTest extends TestCase
 
     public function test_save_draft_403_for_other_user(): void
     {
-        $userA = User::factory()->create(['role' => 'CASE_MANAGER']);
-        $userB = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $userA = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $userB = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $case = CaseFile::factory()->create([
             'status' => 'DRAFT',
             'user_id' => $userA->id,
@@ -105,8 +106,8 @@ class CaseControllerTest extends TestCase
 
     public function test_draft_index_is_owner_scoped_and_exposes_publishable_id(): void
     {
-        $owner = User::factory()->create(['role' => 'CASE_MANAGER']);
-        $other = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $owner = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $other = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $owned = CaseFile::factory()->create(['status' => 'DRAFT', 'user_id' => $owner->id]);
         CaseFile::factory()->create(['status' => 'DRAFT', 'user_id' => $other->id]);
 
@@ -119,7 +120,7 @@ class CaseControllerTest extends TestCase
 
     public function test_publish_redirect_contains_published_case_id_for_owner(): void
     {
-        $owner = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $owner = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $category = CaseCategory::factory()->create();
         $client = Client::factory()->create([
             'date_of_birth' => '1990-01-01', 'sex' => 'MALE',
@@ -142,9 +143,9 @@ class CaseControllerTest extends TestCase
 
     public function test_cross_owner_and_admin_non_owner_cannot_publish_draft(): void
     {
-        $owner = User::factory()->create(['role' => 'CASE_MANAGER']);
-        $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $owner = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $case = CaseFile::factory()->create(['status' => 'DRAFT', 'user_id' => $owner->id]);
 
         $this->actingAs($manager)->post(route('cases.publish', $case))->assertForbidden();
@@ -153,7 +154,7 @@ class CaseControllerTest extends TestCase
 
     public function test_admin_owner_can_publish_own_draft(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $category = CaseCategory::factory()->create();
         $client = Client::factory()->create([
             'date_of_birth' => '1990-01-01', 'sex' => 'MALE',

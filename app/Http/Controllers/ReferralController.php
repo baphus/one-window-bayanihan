@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\UserRole;
 use App\Exceptions\SafeException;
 use App\Http\Requests\StoreMilestoneRequest;
 use App\Http\Requests\StoreReferralCommentRequest;
@@ -133,7 +134,7 @@ class ReferralController extends Controller
         $this->authorizeReferralAccess($referral, $request->user());
         $serviceRequirements = $this->referralService->getServiceRequirements($referral->agcy_id);
         $overdueDays = (int) SystemSetting::getValue('referral_overdue_days', 7);
-        $clientRequestHistory = $request->user()->role === 'CASE_MANAGER'
+        $clientRequestHistory = $request->user()->role === UserRole::CASE_MANAGER->value
             ? []
             : $this->referralService->getClientRequestHistory($referral);
         // Keep the eager-loaded models out of the general referral payload; the
@@ -146,7 +147,7 @@ class ReferralController extends Controller
             'overdueDays' => $overdueDays,
             'timeline' => $this->referralService->getReferralTimeline($referral),
             'clientRequestHistory' => $clientRequestHistory,
-            'clientRequestPermissions' => $request->user()->role === 'CASE_MANAGER'
+            'clientRequestPermissions' => $request->user()->role === UserRole::CASE_MANAGER->value
                 ? ['canCreate' => false, 'canReply' => false, 'canTransition' => false, 'canRevokeAccess' => false]
                 : $this->referralService->getClientRequestPermissions($referral, $request->user()),
             'relatedReferrals' => $this->referralService->getRelatedReferrals($referral, $request->user()),
@@ -198,7 +199,7 @@ class ReferralController extends Controller
                 ->with('error', $e->getMessage());
         }
 
-        if ($request->user()->role === 'AGENCY') {
+        if ($request->user()->role === UserRole::AGENCY->value) {
             app(OnboardingService::class)
                 ->markChecklistItemQuietly($request->user(), 'act-on-referral');
         }
@@ -220,7 +221,7 @@ class ReferralController extends Controller
         }
 
         // Agencies may only add milestones after accepting the referral.
-        if ($request->user()->role === 'AGENCY' && ! in_array($referral->status, ['PROCESSING', 'FOR_COMPLIANCE', 'COMPLETED'], true)) {
+        if ($request->user()->role === UserRole::AGENCY->value && ! in_array($referral->status, ['PROCESSING', 'FOR_COMPLIANCE', 'COMPLETED'], true)) {
             return redirect()
                 ->back()
                 ->with('error', 'You can only add milestones after accepting the referral.');
@@ -416,7 +417,7 @@ class ReferralController extends Controller
         $referral = $this->referralService->getReferral($id);
         $this->authorizeReferralAccess($referral, $request->user());
 
-        if ($request->user()->role !== 'AGENCY') {
+        if ($request->user()->role !== UserRole::AGENCY->value) {
             return redirect()->back()->with('error', 'Only the receiving agency can manage services.');
         }
 
@@ -438,7 +439,7 @@ class ReferralController extends Controller
         $referral = $this->referralService->getReferral($id);
         $this->authorizeReferralAccess($referral, $request->user());
 
-        if ($request->user()->role !== 'AGENCY') {
+        if ($request->user()->role !== UserRole::AGENCY->value) {
             return redirect()->back()->with('error', 'Only the receiving agency can manage services.');
         }
 
@@ -456,7 +457,7 @@ class ReferralController extends Controller
         $referral = $this->referralService->getReferral($id);
         $this->authorizeReferralAccess($referral, $request->user());
 
-        if ($request->user()->role !== 'AGENCY') {
+        if ($request->user()->role !== UserRole::AGENCY->value) {
             return redirect()->back()->with('error', 'Only the receiving agency can manage service requirements.');
         }
 
@@ -484,7 +485,7 @@ class ReferralController extends Controller
         $referral = $this->referralService->getReferral($id);
         $this->authorizeReferralAccess($referral, $request->user());
 
-        if ($request->user()->role !== 'AGENCY') {
+        if ($request->user()->role !== UserRole::AGENCY->value) {
             return redirect()->back()->with('error', 'Only the receiving agency can manage service requirements.');
         }
 
@@ -512,7 +513,7 @@ class ReferralController extends Controller
         $referral = $this->referralService->getReferral($id);
         $this->authorizeReferralAccess($referral, $request->user());
 
-        if ($request->user()->role !== 'AGENCY') {
+        if ($request->user()->role !== UserRole::AGENCY->value) {
             return redirect()->back()->with('error', 'Only the receiving agency can manage service requirements.');
         }
 

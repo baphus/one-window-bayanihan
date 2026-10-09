@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\SetPostgresSession;
 use App\Models\AuditLog;
@@ -25,7 +26,7 @@ class AuditLogControllerTest extends TestCase
         parent::setUp();
         $this->withoutMiddleware(HandleInertiaRequests::class);
         $this->withoutMiddleware(SetPostgresSession::class);
-        $this->user = User::factory()->create(['role' => 'ADMIN']);
+        $this->user = User::factory()->create(['role' => UserRole::ADMIN->value]);
     }
 
     #[Test]
@@ -232,7 +233,7 @@ class AuditLogControllerTest extends TestCase
     #[Test]
     public function it_filters_by_user()
     {
-        $otherUser = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $otherUser = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         AuditLog::create(['user_id' => $this->user->id, 'action' => 'UPDATE', 'module' => 'clients', 'timestamp' => now()->subMinute()]);
         AuditLog::create(['user_id' => $otherUser->id, 'action' => 'UPDATE', 'module' => 'clients', 'timestamp' => now()]);
 
@@ -345,7 +346,7 @@ class AuditLogControllerTest extends TestCase
 
         // Use an admin actor to bypass the CASE_MANAGER entity_id scope filter in the controller
         // while the audit_log records reference $this->user->id as the performer
-        $actor = User::factory()->create(['role' => 'ADMIN']);
+        $actor = User::factory()->create(['role' => UserRole::ADMIN->value]);
 
         DB::table('audit_logs')->insert([
             [
@@ -382,8 +383,8 @@ class AuditLogControllerTest extends TestCase
     #[Test]
     public function it_searches_audit_logs_by_actor_name(): void
     {
-        $matched = User::factory()->create(['role' => 'ADMIN', 'name' => 'Zenaida Villanueva']);
-        $other = User::factory()->create(['role' => 'ADMIN', 'name' => 'Rogelio Santos']);
+        $matched = User::factory()->create(['role' => UserRole::ADMIN->value, 'name' => 'Zenaida Villanueva']);
+        $other = User::factory()->create(['role' => UserRole::ADMIN->value, 'name' => 'Rogelio Santos']);
 
         $matchLog = AuditLog::create([
             'user_id' => $matched->id,

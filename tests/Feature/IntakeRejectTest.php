@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Http\Middleware\VerifyTurnstile;
 use App\Models\CaseFile;
 use App\Models\Client;
@@ -31,7 +32,7 @@ class IntakeRejectTest extends TestCase
     #[Test]
     public function test_cm_can_reject_intake_with_reason(): void
     {
-        $cm = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $cm = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $client = Client::factory()->create();
 
         $case = CaseFile::factory()->draft()->create([
@@ -58,7 +59,7 @@ class IntakeRejectTest extends TestCase
     #[Test]
     public function test_reject_requires_reason_min_10(): void
     {
-        $cm = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $cm = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $client = Client::factory()->create();
 
         $case = CaseFile::factory()->draft()->create([

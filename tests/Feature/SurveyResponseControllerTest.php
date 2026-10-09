@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\CaseFile;
 use App\Models\Client;
@@ -25,7 +26,7 @@ class SurveyResponseControllerTest extends TestCase
         $submitted = $this->makeInvitation($agency, true);
         $this->makeInvitation($agency, false);
         $this->makeInvitation(Agency::factory()->create(), true);
-        $user = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agency->id]);
+        $user = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id]);
 
         $this->actingAs($user)->get(route('survey.responses.index', ['agency_id' => 'not-a-uuid']))
             ->assertInertia(fn (Assert $page) => $this->assertIndex($page, [$submitted->id], 2, 1, 50));
@@ -33,10 +34,10 @@ class SurveyResponseControllerTest extends TestCase
 
     public function test_case_manager_sees_all_survey_responses(): void
     {
-        $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $mine = $this->makeInvitation(Agency::factory()->create(), true, $manager);
         $ownUnsubmitted = $this->makeInvitation(Agency::factory()->create(), false, $manager);
-        $other = $this->makeInvitation(Agency::factory()->create(), true, User::factory()->create(['role' => 'CASE_MANAGER']));
+        $other = $this->makeInvitation(Agency::factory()->create(), true, User::factory()->create(['role' => UserRole::CASE_MANAGER->value]));
 
         $this->actingAs($manager)->get(route('survey.responses.index'))
             ->assertInertia(fn (Assert $page) => $this->assertIndex($page, [$other->id, $mine->id], 3, 2, 66.7));
@@ -53,7 +54,7 @@ class SurveyResponseControllerTest extends TestCase
         $firstSubmitted = $this->makeInvitation($firstAgency, true);
         $this->makeInvitation($firstAgency, false);
         $secondSubmitted = $this->makeInvitation(Agency::factory()->create(), true);
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
 
         $this->actingAs($admin)->get(route('survey.responses.index'))
             ->assertInertia(fn (Assert $page) => $this->assertIndex($page, [$secondSubmitted->id, $firstSubmitted->id], 3, 2, 66.7));
@@ -66,7 +67,7 @@ class SurveyResponseControllerTest extends TestCase
 
     public function test_admin_rejects_malformed_or_nonexistent_agency_filters(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         foreach (['not-a-uuid', '00000000-0000-0000-0000-000000000000'] as $agencyId) {
             $this->actingAs($admin)->get(route('survey.responses.index', ['agency_id' => $agencyId]))
                 ->assertSessionHasErrors('agency_id');
@@ -75,7 +76,7 @@ class SurveyResponseControllerTest extends TestCase
 
     public function test_per_page_accepts_one_and_one_hundred_and_falls_back_to_fifteen(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         for ($i = 0; $i < 16; $i++) {
             $this->makeInvitation(Agency::factory()->create(), true);
         }
@@ -96,7 +97,7 @@ class SurveyResponseControllerTest extends TestCase
         $submitted = $this->makeInvitation($agency, true);
         $unsubmitted = $this->makeInvitation($agency, false);
         $other = $this->makeInvitation(Agency::factory()->create(), true);
-        $user = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agency->id]);
+        $user = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id]);
 
         $this->get(route('survey.responses.index'))->assertRedirect();
         $this->actingAs($user)->get(route('survey.responses.show', $unsubmitted))->assertForbidden();
@@ -147,7 +148,7 @@ class SurveyResponseControllerTest extends TestCase
     private function makeInvitation(Agency $agency, bool $submitted, ?User $owner = null): SurveyInvitation
     {
         $client = Client::factory()->create(['email' => 'private@example.test']);
-        $owner ??= User::factory()->create(['role' => 'CASE_MANAGER']);
+        $owner ??= User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $case = CaseFile::factory()->create(['client_id' => $client->id, 'user_id' => $owner->id]);
         $referral = Referral::factory()->create(['case_id' => $case->id, 'agcy_id' => $agency->id]);
         $form = SurveyForm::firstOrCreate(

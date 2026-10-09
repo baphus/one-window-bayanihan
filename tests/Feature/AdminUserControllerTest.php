@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -22,7 +23,7 @@ class AdminUserControllerTest extends TestCase
         parent::setUp();
 
         $this->agency = Agency::factory()->create();
-        $this->admin = User::factory()->create(['role' => 'ADMIN']);
+        $this->admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
     }
 
     public function test_admin_can_create_user_directly(): void
@@ -31,7 +32,7 @@ class AdminUserControllerTest extends TestCase
             'name' => 'Jane Direct',
             'email' => 'jane.direct@example.com',
             'password' => 'Str0ng!Pass',
-            'role' => 'CASE_MANAGER',
+            'role' => UserRole::CASE_MANAGER->value,
             'agcy_id' => $this->agency->id,
         ];
 
@@ -44,7 +45,7 @@ class AdminUserControllerTest extends TestCase
         $this->assertDatabaseHas('users', [
             'name' => 'Jane Direct',
             'email' => 'jane.direct@example.com',
-            'role' => 'CASE_MANAGER',
+            'role' => UserRole::CASE_MANAGER->value,
             'agcy_id' => $this->agency->id,
             'is_active' => true,
         ]);
@@ -64,7 +65,7 @@ class AdminUserControllerTest extends TestCase
                 'name' => 'Dupe User',
                 'email' => 'taken@example.com',
                 'password' => 'Str0ng!Pass',
-                'role' => 'CASE_MANAGER',
+                'role' => UserRole::CASE_MANAGER->value,
                 'agcy_id' => $this->agency->id,
             ]);
 
@@ -79,7 +80,7 @@ class AdminUserControllerTest extends TestCase
         $response = $this->post(route('admin.users.store'), [
             'email' => 'user@example.com',
             'password' => 'Str0ng!Pass',
-            'role' => 'CASE_MANAGER',
+            'role' => UserRole::CASE_MANAGER->value,
             'agcy_id' => $this->agency->id,
         ]);
         $response->assertSessionHasErrors(['name']);
@@ -88,7 +89,7 @@ class AdminUserControllerTest extends TestCase
         $response = $this->post(route('admin.users.store'), [
             'name' => 'No Email',
             'password' => 'Str0ng!Pass',
-            'role' => 'CASE_MANAGER',
+            'role' => UserRole::CASE_MANAGER->value,
             'agcy_id' => $this->agency->id,
         ]);
         $response->assertSessionHasErrors(['email']);
@@ -97,7 +98,7 @@ class AdminUserControllerTest extends TestCase
         $response = $this->post(route('admin.users.store'), [
             'name' => 'No Pass',
             'email' => 'nopass@example.com',
-            'role' => 'CASE_MANAGER',
+            'role' => UserRole::CASE_MANAGER->value,
             'agcy_id' => $this->agency->id,
         ]);
         $response->assertSessionHasErrors(['password']);
@@ -119,7 +120,7 @@ class AdminUserControllerTest extends TestCase
                 'name' => 'Bad Role',
                 'email' => 'badrole@example.com',
                 'password' => 'Str0ng!Pass',
-                'role' => 'OFW',
+                'role' => UserRole::OFW->value,
                 'agcy_id' => $this->agency->id,
             ]);
 
@@ -135,7 +136,7 @@ class AdminUserControllerTest extends TestCase
             'name' => 'Weak Pass',
             'email' => 'weak1@example.com',
             'password' => 'Sh0rt!',
-            'role' => 'CASE_MANAGER',
+            'role' => UserRole::CASE_MANAGER->value,
             'agcy_id' => $this->agency->id,
         ]);
         $response->assertSessionHasErrors(['password']);
@@ -145,7 +146,7 @@ class AdminUserControllerTest extends TestCase
             'name' => 'Weak Pass 2',
             'email' => 'weak2@example.com',
             'password' => 'lowercase1!',
-            'role' => 'CASE_MANAGER',
+            'role' => UserRole::CASE_MANAGER->value,
             'agcy_id' => $this->agency->id,
         ]);
         $response->assertSessionHasErrors(['password']);
@@ -155,7 +156,7 @@ class AdminUserControllerTest extends TestCase
             'name' => 'Weak Pass 3',
             'email' => 'weak3@example.com',
             'password' => 'NoNumbers!',
-            'role' => 'CASE_MANAGER',
+            'role' => UserRole::CASE_MANAGER->value,
             'agcy_id' => $this->agency->id,
         ]);
         $response->assertSessionHasErrors(['password']);
@@ -165,7 +166,7 @@ class AdminUserControllerTest extends TestCase
             'name' => 'Weak Pass 4',
             'email' => 'weak4@example.com',
             'password' => 'NoSymbols1',
-            'role' => 'CASE_MANAGER',
+            'role' => UserRole::CASE_MANAGER->value,
             'agcy_id' => $this->agency->id,
         ]);
         $response->assertSessionHasErrors(['password']);
@@ -173,14 +174,14 @@ class AdminUserControllerTest extends TestCase
 
     public function test_non_admin_cannot_create_user(): void
     {
-        $caseManager = User::factory()->create(['role' => 'CASE_MANAGER']);
-        $agencyUser = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $this->agency->id]);
+        $caseManager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $agencyUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $this->agency->id]);
 
         $payload = [
             'name' => 'Should Not Create',
             'email' => 'shouldnot@example.com',
             'password' => 'Str0ng!Pass',
-            'role' => 'CASE_MANAGER',
+            'role' => UserRole::CASE_MANAGER->value,
             'agcy_id' => $this->agency->id,
         ];
 
@@ -202,7 +203,7 @@ class AdminUserControllerTest extends TestCase
                 'name' => 'Login Ready',
                 'email' => 'login.ready@example.com',
                 'password' => $password,
-                'role' => 'CASE_MANAGER',
+                'role' => UserRole::CASE_MANAGER->value,
                 'agcy_id' => $this->agency->id,
             ]);
 
@@ -217,7 +218,7 @@ class AdminUserControllerTest extends TestCase
     public function test_admin_can_delete_user(): void
     {
         $target = User::factory()->create([
-            'role' => 'AGENCY',
+            'role' => UserRole::AGENCY->value,
             'is_active' => true,
             'is_deleted' => false,
             'agcy_id' => $this->agency->id,

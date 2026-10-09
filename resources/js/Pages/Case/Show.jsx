@@ -121,7 +121,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
   };
 
   const page = usePage();
-  const { auth } = page.props;
+  const { auth, roles } = page.props;
   const client = caseFile.client;
   const toast = useToast();
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -195,8 +195,8 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
   const primaryEmployment = client?.employments?.[0] || null;
   const primaryNok = client?.nextOfKin?.find(n => n.is_primary) || client?.nextOfKin?.[0] || null;
 
-  const canUploadAvatar = auth.user?.role === 'ADMIN' || auth.user?.role === 'CASE_MANAGER';
-  const canManageCaseDocuments = auth.user?.role === 'CASE_MANAGER';
+  const canUploadAvatar = auth.user?.role === roles.ADMIN || auth.user?.role === roles.CASE_MANAGER;
+  const canManageCaseDocuments = auth.user?.role === roles.CASE_MANAGER;
   const clientTypeLabel = caseFile.client_type === 'OFW' ? 'Overseas Filipino Worker' : 'Next of Kin';
 
   const referralRows = useMemo(() => {
@@ -463,7 +463,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
               >
                 Restore from Archive
               </button>
-              {(auth.user.role === 'CASE_MANAGER' || auth.user.role === 'ADMIN') && (
+              {(auth.user.role === roles.CASE_MANAGER || auth.user.role === roles.ADMIN) && (
                 <button
                   type="button"
                   onClick={() => setShowDeleteModal(true)}

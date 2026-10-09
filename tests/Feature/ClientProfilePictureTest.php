@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\CaseFile;
 use App\Models\Client;
@@ -26,7 +27,7 @@ class ClientProfilePictureTest extends TestCase
         $this->withoutMiddleware(HandleInertiaRequests::class);
         Storage::fake('public');
 
-        $this->user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $this->user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $this->client = Client::factory()->create();
 
         // Create a case file linking the case manager to the client

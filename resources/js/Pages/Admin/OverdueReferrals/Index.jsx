@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
@@ -55,7 +55,8 @@ function currentParamsFromUrl() {
 }
 
 export default function OverdueReferralsIndex({ stats = {}, referrals, userRole }) {
-  const canRemind = userRole === 'ADMIN' || userRole === 'CASE_MANAGER';
+  const roles = usePage().props.roles;
+  const canRemind = userRole === roles.ADMIN || userRole === roles.CASE_MANAGER;
   const total = stats.total ?? 0;
 
   const [selectedIds, setSelectedIds] = useState([]);

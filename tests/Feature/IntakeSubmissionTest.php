@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Http\Middleware\VerifyTurnstile;
 use App\Models\CaseFile;
 use App\Models\Client;
@@ -91,7 +92,7 @@ class IntakeSubmissionTest extends TestCase
         $this->assertEquals('Mendoza', $client->middle_name);
 
         // Assert no User account was created (accountless flow)
-        $user = User::where('email', $email)->where('role', 'OFW')->first();
+        $user = User::where('email', $email)->where('role', UserRole::OFW->value)->first();
         $this->assertNull($user, 'OFW user should NOT be created in accountless intake');
 
         // Assert case was created
@@ -117,7 +118,7 @@ class IntakeSubmissionTest extends TestCase
         $email = 'juan.signedin@example.com';
 
         $user = User::factory()->mfaEnabled()->create([
-            'role' => 'OFW',
+            'role' => UserRole::OFW->value,
             'email' => $email,
         ]);
         $client = Client::factory()->create(['email' => $email]);
@@ -142,7 +143,7 @@ class IntakeSubmissionTest extends TestCase
     #[Test]
     public function test_signed_in_non_ofw_still_requires_otp(): void
     {
-        $manager = User::factory()->mfaEnabled()->create(['role' => 'CASE_MANAGER']);
+        $manager = User::factory()->mfaEnabled()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         $response = $this->actingAs($manager)
             ->withSession([
@@ -235,7 +236,7 @@ class IntakeSubmissionTest extends TestCase
         $email = 'juan.signedin@example.com';
 
         $user = User::factory()->mfaEnabled()->create([
-            'role' => 'OFW',
+            'role' => UserRole::OFW->value,
             'email' => $email,
         ]);
         $client = Client::factory()->create(['email' => $email]);
