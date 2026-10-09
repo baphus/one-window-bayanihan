@@ -19,7 +19,7 @@ class HandleInertiaRequests extends Middleware
             return '';
         }
 
-        return parent::version($request);
+        return parent::version($request) ?? '';
     }
 
     private function getProfileIncomplete(Request $request): bool

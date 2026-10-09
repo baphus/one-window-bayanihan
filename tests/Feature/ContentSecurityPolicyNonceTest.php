@@ -68,21 +68,45 @@ class ContentSecurityPolicyNonceTest extends TestCase
 
     public function test_rendered_login_scripts_and_preloads_carry_the_policy_nonce(): void
     {
-        $response = $this->get('/login')->assertOk();
-        $nonce = $this->cspNonceFromHeader($response->baseResponse);
-        $document = new \DOMDocument;
-        @$document->loadHTML($response->getContent());
-        $scripts = $document->getElementsByTagName('script');
-        $this->assertGreaterThan(1, $scripts->length, 'Expected Ziggy and Vite scripts.');
+        // TestCase disables Vite globally (no built manifest in CI). This
+        // test needs real @vite output, so restore Vite and point it at a
+        // throwaway manifest containing the login page's entries.
+        $this->withVite();
+        app(Vite::class)->useBuildDirectory('test-build');
+        @mkdir(public_path('test-build'), 0777, true);
+        file_put_contents(public_path('test-build/manifest.json'), json_encode([
+            'resources/js/app.tsx' => [
+                'file' => 'assets/app-test.js',
+                'src' => 'resources/js/app.tsx',
+                'isEntry' => true,
+            ],
+            'resources/js/Pages/Auth/Login.jsx' => [
+                'file' => 'assets/login-test.js',
+                'src' => 'resources/js/Pages/Auth/Login.jsx',
+                'isEntry' => true,
+            ],
+        ]));
 
-        foreach ($scripts as $script) {
-            $this->assertSame($nonce, $script->getAttribute('nonce'), 'An emitted script would be blocked by CSP.');
-        }
+        try {
+            $response = $this->get('/login')->assertOk();
+            $nonce = $this->cspNonceFromHeader($response->baseResponse);
+            $document = new \DOMDocument;
+            @$document->loadHTML($response->getContent());
+            $scripts = $document->getElementsByTagName('script');
+            $this->assertGreaterThan(1, $scripts->length, 'Expected Ziggy and Vite scripts.');
 
-        foreach ($document->getElementsByTagName('link') as $link) {
-            if ($link->getAttribute('rel') === 'modulepreload') {
-                $this->assertSame($nonce, $link->getAttribute('nonce'));
+            foreach ($scripts as $script) {
+                $this->assertSame($nonce, $script->getAttribute('nonce'), 'An emitted script would be blocked by CSP.');
             }
+
+            foreach ($document->getElementsByTagName('link') as $link) {
+                if ($link->getAttribute('rel') === 'modulepreload') {
+                    $this->assertSame($nonce, $link->getAttribute('nonce'));
+                }
+            }
+        } finally {
+            @unlink(public_path('test-build/manifest.json'));
+            @rmdir(public_path('test-build'));
         }
     }
 
