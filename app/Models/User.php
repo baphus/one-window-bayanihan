@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\UserRole;
 use App\Models\Concerns\HasAvatar;
 use App\Models\Concerns\SoftDeleteFlag;
 use App\Models\Concerns\UsesUuid;
@@ -20,6 +21,7 @@ class User extends Authenticatable implements MustVerifyEmail
     public static array $auditExclude = [
         'password', 'remember_token', 'id', 'created_at', 'updated_at',
         'email_verified_at', 'mfa_secret', 'mfa_recovery_codes', 'mfa_enabled_at',
+        'mfa_last_totp_counter',
         'email', 'contact_number',
         'onboarding_step', 'seen_page_guides', 'checklist_progress',
     ];
@@ -52,6 +54,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'notifications_config',
         'timezone',
         'mfa_enabled_at',
+        'mfa_last_totp_counter',
         'onboarding_completed_at',
         'onboarding_step',
         'seen_page_guides',
@@ -128,6 +131,23 @@ class User extends Authenticatable implements MustVerifyEmail
         }
 
         return in_array($this->role, config('mfa.enrollment_enforced_roles', []), true);
+    }
+
+    /**
+     * The role as an enum, or null when the column holds something this build
+     * does not know. The column is not cast: users.role is compared as a plain
+     * string in hundreds of places, and casting would change what serialises
+     * everywhere at once. Use this at boundaries that need to exhaustively
+     * match a role.
+     */
+    public function roleEnum(): ?UserRole
+    {
+        return is_string($this->role) ? UserRole::tryFrom($this->role) : null;
+    }
+
+    public function hasRole(UserRole $role): bool
+    {
+        return $this->roleEnum() === $role;
     }
 
     public function client()

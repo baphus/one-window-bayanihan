@@ -9,6 +9,7 @@ use App\Services\Export\DataExportService;
 use App\Services\Reports\ReportsExportService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
@@ -17,13 +18,24 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
-class GenerateSystemReport implements ShouldQueue
+class GenerateSystemReport implements ShouldBeUnique, ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $tries = 3;
 
     public int $timeout = 300;
+
+    /**
+     * Two clicks on "export" used to queue two jobs that each held the whole
+     * dataset in memory at the same time. One per document record is enough.
+     */
+    public int $uniqueFor = 3600;
+
+    public function uniqueId(): string
+    {
+        return $this->documentId;
+    }
 
     public function backoff(): array
     {

@@ -1,3 +1,5 @@
+import { addDays } from './dates';
+
 const MINUTE_MS = 60 * 1000;
 const HOUR_MS = 60 * MINUTE_MS;
 const DAY_MS = 24 * HOUR_MS;
@@ -36,7 +38,9 @@ function formatMonthYear(date: Date): string {
 }
 
 function startOfLocalDay(date: Date): Date {
-    return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    // Was a hand-rolled new Date(y, m, d) duplicated verbatim from addDays() in
+    // lib/dates.js. Reuse that helper so the local-day rule has one definition.
+    return addDays(date, 0);
 }
 
 function startOfLocalWeek(date: Date): Date {
@@ -125,7 +129,10 @@ export function formatRelativeTime(iso: string): string {
     return formatMonthDayYear(date);
 }
 
-export { formatDisplayDateTime } from './utils';
+// formatDisplayDateTime is deliberately NOT re-exported from here. It lives in
+// lib/utils; re-exporting it through this module made a date-formatting helper
+// reachable from a relative-time module for no reason. Import it from
+// '@/lib/utils' at the call site instead.
 
 export function formatDateGroup(iso: string): string {
     const date = parseDate(iso);

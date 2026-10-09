@@ -107,8 +107,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/api/referrals/{referral}/audit-logs', [AuditLogController::class, 'referralAuditLogs'])->name('api.referrals.audit-logs')->middleware('throttle:api-global');
 
     Route::get('/reports', [ReportsController::class, 'index'])->name('reports.index')->middleware('throttle:reports-view');
-    Route::get('/reports/export-pdf', [ReportsController::class, 'exportPdf'])->name('reports.export-pdf');
-    Route::get('/reports/export-excel', [ReportsController::class, 'exportExcel'])->name('reports.export-excel');
+    // The exports are the expensive half of this controller (DomPDF + GD chart
+    // images, PhpSpreadsheet) and php-fpm, the queue worker and scheduler share
+    // one container, so they get their own limit rather than relying on the
+    // generic web throttle. The index above keeps its own budget.
+    Route::get('/reports/export-pdf', [ReportsController::class, 'exportPdf'])->name('reports.export-pdf')->middleware('throttle:reports-export');
+    Route::get('/reports/export-excel', [ReportsController::class, 'exportExcel'])->name('reports.export-excel')->middleware('throttle:reports-export');
 
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index')->withoutMiddleware('verified');
     Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount'])->name('notifications.unread-count')->withoutMiddleware('verified');

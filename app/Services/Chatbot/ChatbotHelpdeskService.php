@@ -148,38 +148,6 @@ class ChatbotHelpdeskService
     }
 
     /**
-     * Return a classifier-friendly listing of available articles, grouped by audience.
-     *
-     * @param  list<string>|null  $groupNames  Only include these audience groups, or all if null
-     */
-    public function getArticleList(?array $groupNames = null): string
-    {
-        $meta = $this->parseArticlesTs();
-        $groups = $this->buildAudienceGroups();
-
-        // Group slugs by audience group using their category's top-level parent
-        $grouped = [];
-        foreach ($meta as $slug => $info) {
-            $group = $groups[$info['categorySlug']] ?? 'General';
-            if ($groupNames !== null && ! in_array($group, $groupNames, true)) {
-                continue;
-            }
-            $grouped[$group][] = $slug;
-        }
-
-        $lines = [];
-        foreach ($grouped as $group => $slugs) {
-            $lines[] = "### {$group}";
-            foreach ($slugs as $slug) {
-                $lines[] = "- {$slug}: {$meta[$slug]['excerpt']}";
-            }
-            $lines[] = '';
-        }
-
-        return implode("\n", $lines);
-    }
-
-    /**
      * Check if a slug refers to a known article.
      */
     public function has(string $slug): bool
@@ -247,8 +215,9 @@ class ChatbotHelpdeskService
     public function getSectionList(?array $groupNames = null): string
     {
         $slugs = $this->discoverSlugs();
-        $meta = $this->parseArticlesTs();
-        $groups = $this->buildAudienceGroups();
+        $parsed = $this->parsed();
+        $meta = $parsed['articles'];
+        $groups = $parsed['groups'];
 
         $grouped = [];
         foreach ($slugs as $slug) {
@@ -307,131 +276,6 @@ class ChatbotHelpdeskService
         }
 
         return implode("\n\n---\n\n", $parts);
-    }
-
-    /**
-     * Return all sections as flat key-value pairs for embedding.
-     *
-     * Key:  "slug::Section Heading"
-     * Value: Text suitable for embedding (heading + first sentence from content).
-     *
-     * @return array<string, string>
-     */
-    public function getAllSectionTexts(): array
-    {
-        $result = [];
-        foreach ($this->discoverSlugs() as $slug) {
-            $title = $this->getTitle($slug) ?? $slug;
-            $sections = $this->parseSections($slug);
-            foreach ($sections as $section) {
-                $id = "{$slug}::{$section['heading']}";
-                $snippet = $this->firstSentence($section['content']);
-                $text = $snippet !== ''
-                    ? "{$section['heading']}: {$snippet}"
-                    : $section['heading'];
-                $result[$id] = "{$title} — {$text}";
-            }
-        }
-
-        return $result;
-    }
-
-    /**
-     * Legacy section keyword search against parsed TypeScript content.
-     * The active agent uses ChatbotKnowledge's weighted article search.
-     *
-     * Each section is scored by the proportion of query words found in its
-     * text (title + heading + body). Results are returned in the same format
-     * expected by existing section-level callers.
-     *
-     * @param  list<string>|null  $audienceGroups  Filter to these groups, or null for all
-     * @return list<array{source_type: string, source_key: string, slug: string, heading: string, audience_group: string, rank: int, raw_score: float}>
-     */
-    public function keywordSearch(string $query, ?array $audienceGroups = null, int $limit = 5): array
-    {
-        $queryWords = $this->normalizeKeywords($query);
-        if ($queryWords === []) {
-            return [];
-        }
-
-        $articles = $this->getAllParsedArticles();
-        $hits = [];
-
-        foreach ($articles as $slug => $article) {
-            if ($audienceGroups !== null && ! in_array($article['audience_group'], $audienceGroups, true)) {
-                continue;
-            }
-
-            foreach ($article['sections'] as $section) {
-                $searchText = mb_strtolower(
-                    $article['title'].' '.$section['heading'].' '.$section['content'],
-                );
-
-                $matches = 0;
-                foreach ($queryWords as $word) {
-                    if (str_contains($searchText, $word)) {
-                        $matches++;
-                    }
-                }
-
-                if ($matches === 0) {
-                    continue;
-                }
-
-                $score = $matches / count($queryWords);
-                $hits[] = [
-                    'source_type' => 'helpdesk',
-                    'source_key' => "{$slug}::{$section['heading']}",
-                    'slug' => $slug,
-                    'heading' => $section['heading'],
-                    'audience_group' => $article['audience_group'],
-                    'rank' => 0,
-                    'raw_score' => $score,
-                    'score' => $score,
-                ];
-            }
-        }
-
-        if ($hits === []) {
-            return [];
-        }
-
-        usort($hits, fn (array $a, array $b) => $b['raw_score'] <=> $a['raw_score']);
-
-        $result = [];
-        foreach (array_slice($hits, 0, max(1, $limit)) as $i => $hit) {
-            $hit['rank'] = $i + 1;
-            $result[] = $hit;
-        }
-
-        return $result;
-    }
-
-    /**
-     * Split a query into normalized keywords for plain-text matching.
-     * Strips common English stop words and very short tokens to reduce noise.
-     *
-     * @return list<string>
-     */
-    private function normalizeKeywords(string $query): array
-    {
-        $stopWords = [
-            'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been',
-            'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may',
-            'can', 'has', 'have', 'had', 'how', 'what', 'why', 'when',
-            'where', 'which', 'who', 'whom', 'this', 'that', 'these', 'those',
-            'of', 'in', 'on', 'at', 'to', 'for', 'with', 'by', 'from', 'as',
-            'into', 'through', 'during', 'before', 'after', 'about',
-            'between', 'under', 'over', 'and', 'or', 'but', 'not', 'no',
-            'if', 'so', 'than', 'then', 'also', 'just', 'very', 'too',
-            'it', 'its', 'you', 'your', 'i', 'me', 'my', 'we', 'our',
-            'they', 'them', 'their', 'he', 'she', 'him', 'her', 'his',
-        ];
-
-        $lower = mb_strtolower(trim($query));
-        $words = preg_split('/[^\p{L}\p{N}]+/u', $lower, -1, PREG_SPLIT_NO_EMPTY) ?: [];
-
-        return array_values(array_filter($words, fn (string $w) => ! in_array($w, $stopWords, true) && mb_strlen($w) >= 3));
     }
 
     /**
@@ -510,16 +354,6 @@ class ChatbotHelpdeskService
     }
 
     /**
-     * Cached slug → title + excerpt + categorySlug mapping.
-     *
-     * @return array<string, array{title: string, excerpt: string, categorySlug: string}>
-     */
-    private function parseArticlesTs(): array
-    {
-        return $this->parsed()['articles'];
-    }
-
-    /**
      * Parse articles.ts to extract slug → title + excerpt + categorySlug mapping.
      *
      * @return array<string, array{title: string, excerpt: string, categorySlug: string}>
@@ -548,42 +382,6 @@ class ChatbotHelpdeskService
         }
 
         return $articles;
-    }
-
-    /**
-     * Return structured article metadata (title + excerpt) filtered by audience group.
-     *
-     * @param  list<string>|null  $groupNames  Only include these audience groups, or all if null
-     * @return array<string, array{title: string, excerpt: string}>
-     */
-    public function getArticleMeta(?array $groupNames = null): array
-    {
-        $meta = $this->parseArticlesTs();
-        $groups = $this->buildAudienceGroups();
-
-        $result = [];
-        foreach ($meta as $slug => $info) {
-            $group = $groups[$info['categorySlug']] ?? 'General';
-            if ($groupNames !== null && ! in_array($group, $groupNames, true)) {
-                continue;
-            }
-            $result[$slug] = [
-                'title' => $info['title'],
-                'excerpt' => $info['excerpt'],
-            ];
-        }
-
-        return $result;
-    }
-
-    /**
-     * Cached category slug → audience group mapping.
-     *
-     * @return array<string, string> category slug → audience group name
-     */
-    private function buildAudienceGroups(): array
-    {
-        return $this->parsed()['groups'];
     }
 
     /**

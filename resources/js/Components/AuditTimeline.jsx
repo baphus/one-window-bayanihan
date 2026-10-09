@@ -1,6 +1,7 @@
 import { useMemo, useCallback, useState, useEffect, useRef } from 'react';
 import { Link, router } from '@inertiajs/react';
-import { formatRelativeTime, formatDateGroup, formatDisplayDateTime } from '@/lib/relativeTime';
+import { formatRelativeTime, formatDateGroup } from '@/lib/relativeTime';
+import { formatDisplayDateTime } from '@/lib/utils';
 import { ChangesList, CATEGORY_LABELS, actionStyle } from '@/lib/audit';
 import { formatCount } from '@/Components/Dashboard/primitives';
 import { sortTimelineItems } from '@/Components/Timeline';

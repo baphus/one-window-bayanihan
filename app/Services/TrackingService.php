@@ -24,6 +24,17 @@ class TrackingService
      */
     private const CLIENT_STRIPPED_DATA_KEYS = ['status', 'old_status', 'new_status'];
 
+    /**
+     * Rows of case history loaded per public tracking render. A long-running
+     * case would otherwise grow without bound on the public endpoint.
+     *
+     * ponytail: fixed cap, newest-first, no "load more" — upgrade to real
+     * pagination when an OFW case actually needs to see older events.
+     */
+    private const TIMELINE_EVENT_LIMIT = 200;
+
+    private const NOTIFICATION_LIMIT = 50;
+
     public static function trackingMilestonesCacheKey(string $caseId, string $referralId): string
     {
         return 'tracking:milestones:'.$caseId.':'.$referralId;
@@ -134,10 +145,13 @@ class TrackingService
         ];
 
         // Single read of the append-only client-facing event log. Everything the
-        // timeline and step machines need derives from this one query.
+        // timeline and step machines need derives from this one query. Capped:
+        // a case that stays open for two years must not build an unbounded
+        // timeline on every refresh of the public, unauthenticated endpoint.
         $events = CaseEvent::where('case_id', $case->id)
             ->orderBy('occurred_at')
             ->orderBy('sequence')
+            ->limit(self::TIMELINE_EVENT_LIMIT)
             ->get();
 
         // Agency cards with dynamic step progress.
@@ -191,6 +205,7 @@ class TrackingService
             $notifications = CaseNotification::where('case_id', $case->id)
                 ->where('client_email', $case->client->email)
                 ->orderBy('created_at', 'desc')
+                ->limit(self::NOTIFICATION_LIMIT)
                 ->get();
 
             $unreadCount = $notifications->whereNull('read_at')->count();

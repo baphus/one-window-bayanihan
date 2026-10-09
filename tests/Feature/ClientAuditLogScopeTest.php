@@ -189,7 +189,7 @@ class ClientAuditLogScopeTest extends TestCase
         $this->assertEquals('First action', $logs[2]->description);
     }
 
-    public function test_scope_limits_to_50_results(): void
+    public function test_scope_has_no_hidden_limit(): void
     {
         for ($i = 0; $i < 55; $i++) {
             AuditLog::create([
@@ -204,7 +204,27 @@ class ClientAuditLogScopeTest extends TestCase
 
         $logs = AuditLog::forClient($this->client->id)->get();
 
-        $this->assertCount(50, $logs);
+        $this->assertCount(55, $logs);
+    }
+
+    public function test_client_related_audit_logs_applies_its_own_limit(): void
+    {
+        for ($i = 0; $i < 55; $i++) {
+            AuditLog::create([
+                'user_id' => $this->user->id,
+                'action' => 'UPDATE',
+                'module' => 'clients',
+                'entity_id' => $this->client->id,
+                'description' => "Log entry {$i}",
+                'timestamp' => now()->subMinutes(55 - $i),
+            ]);
+        }
+
+        // The scope no longer truncates — the rendering path decides how many
+        // rows it shows. A limit hidden in a scope looked like a complete list.
+        $logs = $this->client->relatedAuditLogs();
+
+        $this->assertCount(Client::RELATED_AUDIT_LOG_LIMIT, $logs);
     }
 
     public function test_client_related_audit_logs_includes_client_case_and_referral(): void

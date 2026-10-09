@@ -1,5 +1,7 @@
 <?php
 
+use App\Enums\UserRole;
+
 return [
     'pending_ttl' => (int) env('MFA_LOGIN_CHALLENGE_TTL', 300),
     'max_attempts' => (int) env('MFA_LOGIN_CHALLENGE_MAX_ATTEMPTS', 5),
@@ -29,6 +31,6 @@ return [
      */
     'enrollment_enforced_roles' => array_values(array_filter(array_map(
         'trim',
-        explode(',', (string) (env('MFA_ENROLLMENT_ENFORCED_ROLES') ?: 'ADMIN,CASE_MANAGER,AGENCY'))
+        explode(',', (string) (env('MFA_ENROLLMENT_ENFORCED_ROLES') ?: implode(',', UserRole::staffValues())))
     ))),
 ];

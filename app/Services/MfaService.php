@@ -120,9 +120,24 @@ class MfaService
                 return null;
             }
 
+            // The replay counter is read and written inside the same row lock.
+            // Previously verifyTotp() did its own unlocked UPDATE, so two
+            // simultaneous logins presenting the same 30-second code could
+            // both read 0, both pass, and both commit — the lock did not cover
+            // the write it was supposed to serialise. It still does not cover
+            // the recovery-code path, which is already guarded by
+            // consumeRecoveryCode()'s own lockForUpdate.
+            $lastUsed = (int) ($fresh->mfa_last_totp_counter ?? 0);
+            $consumedCounter = null;
+
             $valid = $recovery
                 ? $this->consumeRecoveryCode($fresh, $code)
-                : $this->verifyTotp($fresh, $code);
+                : $this->verifyTotp($fresh, $code, $lastUsed, $consumedCounter);
+
+            if ($valid && $consumedCounter !== null && $consumedCounter > $lastUsed) {
+                $fresh->mfa_last_totp_counter = $consumedCounter;
+                $fresh->save();
+            }
 
             return $valid ? $fresh->fresh() : null;
         });
@@ -137,7 +152,16 @@ class MfaService
             && hash_equals($fingerprint, hash('sha256', (string) $user->password));
     }
 
-    public function verifyTotp(User $user, string $code): bool
+    /**
+     * Verify a TOTP code against the counters above $lastUsed and, on success,
+     * report which counter was consumed so the caller can persist it under the
+     * row lock it already holds.
+     *
+     * This method never touches the database: the replay guard is only sound if
+     * the read and the write happen inside the same locked transaction, which
+     * is why completeChallenge() owns both.
+     */
+    public function verifyTotp(User $user, string $code, int $lastUsed = 0, ?int &$consumedCounter = null): bool
     {
         if (! $user->mfa_secret) {
             return false;
@@ -146,8 +170,21 @@ class MfaService
         $google2fa = app('pragmarx.google2fa');
         $step = 30;
         $now = intdiv(now()->timestamp, $step);
+
+        // Highest counter already accepted. A code is accepted for at most
+        // (2 * window + 1) steps; anything at or below the last accepted
+        // counter is refused, which is strictly tighter than any cache TTL and
+        // does not care whether the cache survived a flush.
+        $lastUsed = $lastUsed > 0 ? $lastUsed : (int) ($user->mfa_last_totp_counter ?? 0);
+
         for ($offset = -config('mfa.window'); $offset <= config('mfa.window'); $offset++) {
             $counter = $now + $offset;
+
+            // Never accept an old or already-consumed counter.
+            if ($counter <= $lastUsed) {
+                continue;
+            }
+
             try {
                 $valid = $google2fa->verifyKey($user->mfa_secret, $code, 0, $counter) !== false;
             } catch (Throwable) {
@@ -157,18 +194,14 @@ class MfaService
                 continue;
             }
 
-            $key = 'mfa:totp:'.$user->getKey().':'.$counter;
-            try {
-                if (! Cache::add($key, true, config('mfa.replay_ttl', 120))) {
-                    return false;
-                }
-            } catch (Throwable $e) {
-                // Fail closed: without the replay cache we cannot tell a fresh
-                // code from a replayed one, so rejecting is safer than risking
-                // TOTP reuse. Logged distinctly from a genuine replay rejection.
-                report($e);
+            $consumedCounter = $counter;
 
-                return false;
+            // Best-effort fast path for the same counter within the same step.
+            // Losing this is harmless — the database check above holds.
+            try {
+                Cache::add('mfa:totp:'.$user->getKey().':'.$counter, true, config('mfa.replay_ttl', 120));
+            } catch (Throwable $e) {
+                report($e);
             }
 
             return true;

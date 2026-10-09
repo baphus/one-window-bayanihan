@@ -212,6 +212,14 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(120)->by($request->user()?->id ?: $request->ip());
         });
 
+        // The PDF and Excel report renders are the heaviest request in the app
+        // and php-fpm, the queue worker and the scheduler share one container,
+        // so a single account refreshing the export link could starve the queue
+        // for everyone. Five a minute per user is far above one person working.
+        RateLimiter::for('reports-export', function (Request $request) {
+            return Limit::perMinute(5)->by($request->user()?->id ?: $request->ip());
+        });
+
         RateLimiter::for('api-global', function (Request $request) {
             return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
         });
@@ -259,9 +267,14 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('agency-client-delivery-recipient', function (Request $request) use ($recipientEmail) {
             $email = $recipientEmail($request);
 
+            // Was: Limit::none() when the client has no email on file. That
+            // silently removed this whole limit class for exactly the client
+            // records most likely to be re-requested repeatedly, leaving only
+            // the other two throttles on those routes. Key on the request id
+            // so the brake still exists when there is no recipient address.
             return filled($email)
                 ? Limit::perHour(5)->by('recipient|'.hash('sha256', strtolower(trim($email))))
-                : Limit::none();
+                : Limit::perHour(5)->by('recipient|'.$request->user()?->id.'|'.$request->ip());
         });
 
         RateLimiter::for('track-request-exchange', function (Request $request) {
