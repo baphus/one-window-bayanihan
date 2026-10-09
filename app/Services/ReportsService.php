@@ -382,11 +382,17 @@ class ReportsService
         }
 
         // Count cases with no vulnerability set (or only "None")
+        // NULL indicators must land here: NOT LIKE on NULL yields NULL, not true.
         $noneCount = (clone $query)
             ->where(function ($q) use ($categories) {
                 foreach ($categories as $cat) {
-                    $q->where('cases.vulnerability_indicator', 'NOT LIKE', "%{$cat}%")
-                        ->where('cases.nok_vulnerability_indicator', 'NOT LIKE', "%{$cat}%");
+                    $q->where(function ($qq) use ($cat) {
+                        $qq->where('cases.vulnerability_indicator', 'NOT LIKE', "%{$cat}%")
+                            ->orWhereNull('cases.vulnerability_indicator');
+                    })->where(function ($qq) use ($cat) {
+                        $qq->where('cases.nok_vulnerability_indicator', 'NOT LIKE', "%{$cat}%")
+                            ->orWhereNull('cases.nok_vulnerability_indicator');
+                    });
                 }
             })
             ->count();

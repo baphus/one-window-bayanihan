@@ -2,12 +2,14 @@
 
 namespace App\Services\Export;
 
+use App\Casts\EncryptedString;
 use App\Models\CaseFile;
 use App\Models\Client;
 use App\Models\ClientAddress;
 use App\Models\ClientEmployment;
 use App\Models\NextOfKin;
 use App\Models\User;
+use App\Services\PhilippineAddressService;
 use App\Support\CategoryFilter;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
@@ -41,6 +43,44 @@ class DataExportQueries
     private function isAdmin(?User $user): bool
     {
         return $user === null || $user->role === 'ADMIN' || $user->role === 'CASE_MANAGER';
+    }
+
+    /**
+     * Build the full 13-table workbook sheets shared by the admin download
+     * and the queued GenerateSystemReport job. Single source of truth for
+     * the table-to-query map — add new tables here, not at call sites.
+     *
+     * @return list<array{title: string, columnMap: array, rows: Collection}>
+     */
+    public function fullExportSheets(?User $user = null): array
+    {
+        $tableQueryMap = [
+            'cases' => fn () => $this->getCases($user),
+            'clients' => fn () => $this->getClients($user),
+            'referrals' => fn () => $this->getReferrals($user),
+            'users' => fn () => $this->getUsers($user),
+            'agencies' => fn () => $this->getAgencies(),
+            'services' => fn () => $this->getServices(),
+            'milestones' => fn () => $this->getMilestones($user),
+            'next_of_kin' => fn () => $this->getNextOfKins($user),
+            'case_documents' => fn () => $this->getCaseDocuments($user),
+            'client_addresses' => fn () => $this->getClientAddresses($user),
+            'client_employments' => fn () => $this->getClientEmployments($user),
+            'case_categories' => fn () => $this->getCaseCategories(),
+            'case_statuses' => fn () => $this->getCaseStatuses(),
+        ];
+
+        $sheets = [];
+        foreach (ColumnMaps::getAllTables() as $table) {
+            $data = isset($tableQueryMap[$table]) ? $tableQueryMap[$table]() : collect();
+            $sheets[] = [
+                'title' => ucfirst($table),
+                'columnMap' => ColumnMaps::getMap($table),
+                'rows' => $data,
+            ];
+        }
+
+        return $sheets;
     }
 
     /**

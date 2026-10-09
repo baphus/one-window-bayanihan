@@ -209,15 +209,15 @@ class DashboardPayloadTest extends TestCase
 
         // Exact row shape, agency_name null as before for agency scope.
         $this->assertSame(
-            ['id', 'case_id', 'case_number', 'client_name', 'service', 'agency_name', 'status', 'age_days', 'referred_at', 'href'],
+            ['id', 'case_id', 'case_number', 'tracking_number', 'client_name', 'service', 'agency_name', 'status', 'age_days', 'referred_at', 'href'],
             array_keys($pending[0])
         );
         $this->assertNull($pending[0]['agency_name']);
         $this->assertNotEmpty($pending[0]['referred_at']);
 
-        // Count totals stay exact.
+        // Count totals stay exact (processingReferrals is a list in the agency payload).
         $this->assertSame(10, $data['totalReferrals']);
-        $this->assertSame(1, $data['processingReferrals']);
+        $this->assertCount(1, $data['processingReferrals']);
         $this->assertSame(1, $data['completedReferrals']);
     }
 

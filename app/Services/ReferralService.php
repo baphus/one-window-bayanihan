@@ -117,7 +117,9 @@ class ReferralService
                 }
             }
 
-            // Also create OFW notification for the case client (plain language, no status codes)
+            // Also create OFW notification for the case client (plain language, no status codes).
+            // Deferred until after commit: notifyOfw queues the client email,
+            // which must never send when the referral transaction rolls back.
             if ($referral->caseFile && $referral->caseFile->client && $referral->caseFile->client->email) {
                 $referral->loadMissing(['agency', 'services']);
                 $agencyName = $referral->agency?->name ?? 'a partner agency';
@@ -125,15 +127,19 @@ class ReferralService
                     ? $referral->services->pluck('name')->implode(', ')
                     : 'the help you requested';
 
-                $this->notificationService->notifyOfw(
-                    $referral->caseFile,
-                    $referral->caseFile->client->email,
+                $ofwCase = $referral->caseFile;
+                $ofwEmail = $referral->caseFile->client->email;
+                $trackUrl = route('track.show', $referral->caseFile->tracker_number ?? $referral->case_id);
+
+                DB::afterCommit(fn () => $this->notificationService->notifyOfw(
+                    $ofwCase,
+                    $ofwEmail,
                     'referral_created',
                     "Your case was sent to {$agencyName}",
-                    "Good news — your case {$referral->caseFile->case_number} was sent to {$agencyName} for: {$services}. They will post updates here as they work on it.",
+                    "Good news — your case {$ofwCase->case_number} was sent to {$agencyName} for: {$services}. They will post updates here as they work on it.",
                     ['referral_id' => $referral->id, 'status' => $referral->status],
-                    route('track.show', $referral->caseFile->tracker_number ?? $referral->case_id),
-                );
+                    $trackUrl,
+                ));
             }
 
             return $referral->load(['agency', 'caseFile', 'milestones']);
@@ -740,22 +746,30 @@ class ReferralService
                     Notification::send($agencyUsers, $statusNotification);
                 }
 
-                // Also create OFW notification (plain language, no status codes)
+                // Also create OFW notification (plain language, no status codes).
+                // Deferred until after commit: notifyOfw queues the client email,
+                // which must never send when the status-change transaction rolls back.
                 if ($referral->caseFile->client && $referral->caseFile->client->email) {
                     $referral->loadMissing('agency');
-                    $this->notificationService->notifyOfw(
-                        $referral->caseFile,
-                        $referral->caseFile->client->email,
+                    $ofwCase = $referral->caseFile;
+                    $ofwEmail = $referral->caseFile->client->email;
+                    $ofwTitle = $this->ofwReferralStatusTitle($referral, $status);
+                    $ofwMessage = $this->ofwReferralStatusMessage($referral, $status);
+                    $trackUrl = route('track.show', $referral->caseFile->tracker_number ?? $referral->case_id);
+
+                    DB::afterCommit(fn () => $this->notificationService->notifyOfw(
+                        $ofwCase,
+                        $ofwEmail,
                         'referral_status_changed',
-                        $this->ofwReferralStatusTitle($referral, $status),
-                        $this->ofwReferralStatusMessage($referral, $status),
+                        $ofwTitle,
+                        $ofwMessage,
                         [
                             'referral_id' => $referral->id,
                             'old_status' => $oldStatus,
                             'new_status' => $status,
                         ],
-                        route('track.show', $referral->caseFile->tracker_number ?? $referral->case_id),
-                    );
+                        $trackUrl,
+                    ));
                 }
             }
 

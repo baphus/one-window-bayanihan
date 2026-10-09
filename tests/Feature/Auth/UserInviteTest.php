@@ -52,6 +52,25 @@ class UserInviteTest extends TestCase
         Mail::assertQueued(UserInviteMail::class);
     }
 
+    public function test_invite_token_is_stored_hashed_only(): void
+    {
+        $this->actingAs($this->admin)
+            ->post(route('admin.users.invite'), [
+                'email' => 'hashed@example.com',
+                'role' => 'CASE_MANAGER',
+                'agcy_id' => $this->agency->id,
+            ]);
+
+        $invite = UserInvite::where('email', 'hashed@example.com')->firstOrFail();
+        $this->assertNull($invite->token);
+        $this->assertNotNull($invite->token_hash);
+        $this->assertSame(64, strlen($invite->token_hash));
+
+        Mail::assertQueued(UserInviteMail::class, function (UserInviteMail $mail) use ($invite) {
+            return hash('sha256', $mail->token) === $invite->token_hash;
+        });
+    }
+
     public function test_admin_cannot_invite_existing_user(): void
     {
         User::factory()->create(['email' => 'existing@example.com']);
@@ -75,7 +94,7 @@ class UserInviteTest extends TestCase
             'email' => 'pending@example.com',
             'role' => 'CASE_MANAGER',
             'agcy_id' => $this->agency->id,
-            'token' => 'existing-token',
+            'token_hash' => hash('sha256', 'existing-token'),
             'expires_at' => now()->addDays(7),
             'created_by' => $this->admin->id,
         ]);
@@ -97,12 +116,12 @@ class UserInviteTest extends TestCase
             'email' => 'resend@example.com',
             'role' => 'CASE_MANAGER',
             'agcy_id' => $this->agency->id,
-            'token' => 'original-token',
+            'token_hash' => hash('sha256', 'original-token'),
             'expires_at' => now()->addDays(7),
             'created_by' => $this->admin->id,
         ]);
 
-        $originalToken = $invite->token;
+        $originalHash = $invite->token_hash;
 
         $response = $this->actingAs($this->admin)
             ->post(route('admin.users.invites.resend', $invite->id));
@@ -111,7 +130,7 @@ class UserInviteTest extends TestCase
         $response->assertSessionHas('success');
 
         $invite->refresh();
-        $this->assertNotEquals($originalToken, $invite->token);
+        $this->assertNotEquals($originalHash, $invite->token_hash);
         $this->assertNull($invite->consumed_at);
         $this->assertNull($invite->cancelled_at);
 
@@ -135,7 +154,7 @@ class UserInviteTest extends TestCase
             'email' => 'consumed@example.com',
             'role' => 'CASE_MANAGER',
             'agcy_id' => $this->agency->id,
-            'token' => 'consumed-token',
+            'token_hash' => hash('sha256', 'consumed-token'),
             'expires_at' => now()->addDays(7),
             'created_by' => $this->admin->id,
             'consumed_at' => now(),
@@ -154,7 +173,7 @@ class UserInviteTest extends TestCase
             'email' => 'cancel@example.com',
             'role' => 'CASE_MANAGER',
             'agcy_id' => $this->agency->id,
-            'token' => 'cancel-token',
+            'token_hash' => hash('sha256', 'cancel-token'),
             'expires_at' => now()->addDays(7),
             'created_by' => $this->admin->id,
         ]);
@@ -175,7 +194,7 @@ class UserInviteTest extends TestCase
             'email' => 'already-consumed@example.com',
             'role' => 'CASE_MANAGER',
             'agcy_id' => $this->agency->id,
-            'token' => 'consumed-token-2',
+            'token_hash' => hash('sha256', 'consumed-token-2'),
             'expires_at' => now()->addDays(7),
             'created_by' => $this->admin->id,
             'consumed_at' => now(),
@@ -190,21 +209,22 @@ class UserInviteTest extends TestCase
 
     public function test_user_registers_via_invite(): void
     {
+        $rawToken = 'registration-token-123';
         $invite = UserInvite::create([
             'email' => 'register-via@example.com',
             'role' => 'CASE_MANAGER',
             'agcy_id' => $this->agency->id,
-            'token' => 'registration-token-123',
+            'token_hash' => hash('sha256', $rawToken),
             'expires_at' => now()->addDays(7),
             'created_by' => $this->admin->id,
         ]);
 
         // Show the invite page
-        $showResponse = $this->get(route('register-via-invite', $invite->token));
+        $showResponse = $this->get(route('register-via-invite', $rawToken));
         $showResponse->assertStatus(200);
 
         // Submit registration
-        $storeResponse = $this->post(route('register-via-invite.store', $invite->token), [
+        $storeResponse = $this->post(route('register-via-invite.store', $rawToken), [
             'name' => 'New Invited User',
             'password' => 'SecureP@ss1',
             'password_confirmation' => 'SecureP@ss1',
@@ -239,16 +259,17 @@ class UserInviteTest extends TestCase
 
     public function test_expired_invite_shows_error(): void
     {
+        $rawToken = 'expired-token';
         $invite = UserInvite::create([
             'email' => 'expired@example.com',
             'role' => 'CASE_MANAGER',
             'agcy_id' => $this->agency->id,
-            'token' => 'expired-token',
+            'token_hash' => hash('sha256', $rawToken),
             'expires_at' => now()->subDay(),
             'created_by' => $this->admin->id,
         ]);
 
-        $response = $this->get(route('register-via-invite', $invite->token));
+        $response = $this->get(route('register-via-invite', $rawToken));
 
         $response->assertStatus(410);
     }

@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\AuditAction;
 use App\Enums\AuditModule;
+use App\Exceptions\SafeException;
 use App\Mail\IntakeReceivedMail;
 use App\Models\AuditLog;
 use App\Models\CaseFile;
@@ -113,6 +114,30 @@ class IntakeService
         for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
             try {
                 $case = DB::transaction(function () use ($data, $verifiedEmail) {
+                    $email = strtolower(trim($verifiedEmail));
+
+                    // Serialize parallel submits on the identity rows so two
+                    // requests cannot both pass the duplicate check and each
+                    // insert a DRAFT.
+                    User::where('role', 'OFW')
+                        ->whereRaw('LOWER(TRIM(email)) = ?', [$email])
+                        ->lockForUpdate()
+                        ->first();
+                    $lockedClient = Client::where('is_deleted', false)
+                        ->whereRaw('LOWER(TRIM(email)) = ?', [$email])
+                        ->lockForUpdate()
+                        ->first();
+
+                    if ($lockedClient && CaseFile::where('client_id', $lockedClient->id)
+                        ->whereIn('status', ['OPEN', 'DRAFT'])
+                        ->where('is_deleted', false)
+                        ->exists()) {
+                        throw new SafeException(
+                            'duplicate_intake',
+                            'You already have an active case. Please use the tracking portal to check its status.'
+                        );
+                    }
+
                     $client = $this->findOrCreateClient($data, $verifiedEmail);
                     $case = $this->createDraftCase($data, $client->id, $verifiedEmail);
 
@@ -222,7 +247,7 @@ class IntakeService
      */
     public function generateOtp(string $email): string
     {
-        return $this->otpService->generate($email, 'intake');
+        return $this->otpService->generate(strtolower(trim($email)), 'intake');
     }
 
     /**
@@ -230,7 +255,7 @@ class IntakeService
      */
     public function verifyOtp(string $email, string $otp): bool
     {
-        return $this->otpService->verify($email, 'intake', $otp);
+        return $this->otpService->verify(strtolower(trim($email)), 'intake', $otp);
     }
 
     /**
@@ -360,15 +385,22 @@ class IntakeService
             $nokData = [$nokData];
         }
 
-        // Delete existing NOK and recreate (simpler for intake)
-        $client->nextOfKin()->each(fn ($n) => $n->forceDelete());
+        // Soft-delete sync (mirrors CaseService): keep ids, update/create,
+        // soft-delete rows missing from the submission, keep one primary.
+        $existingIds = $client->nextOfKin()->pluck('id')->toArray();
+        $incomingIds = array_filter(array_column($nokData, 'id'));
+        $idsToDelete = array_diff($existingIds, $incomingIds);
+
+        if (! empty($idsToDelete)) {
+            $client->nextOfKin()->whereIn('id', $idsToDelete)->each(fn ($n) => $n->delete());
+        }
 
         foreach ($nokData as $index => $nok) {
             if (empty($nok['first_name']) && empty($nok['last_name'])) {
                 continue;
             }
 
-            $client->nextOfKin()->create([
+            $attributes = [
                 'first_name' => $nok['first_name'] ?? null,
                 'last_name' => $nok['last_name'] ?? null,
                 'middle_name' => $nok['middle_name'] ?? null,
@@ -380,10 +412,23 @@ class IntakeService
                 'city_municipality' => $nok['city_municipality'] ?? $nok['nok_address']['city_municipality'] ?? null,
                 'barangay' => $nok['barangay'] ?? $nok['nok_address']['barangay'] ?? null,
                 'street' => $nok['street'] ?? $nok['nok_address']['street'] ?? null,
-                'is_primary' => $index === 0,
-                'sort_order' => $index,
-            ]);
+                'is_primary' => $nok['is_primary'] ?? $index === 0,
+                'sort_order' => $nok['sort_order'] ?? $index,
+            ];
+
+            if (! empty($nok['id'])) {
+                $existing = $client->nextOfKin()->find($nok['id']);
+                if ($existing) {
+                    $existing->update($attributes);
+
+                    continue;
+                }
+            }
+
+            $client->nextOfKin()->create($attributes);
         }
+
+        $this->caseService->ensureSinglePrimary($client->id);
     }
 
     /**

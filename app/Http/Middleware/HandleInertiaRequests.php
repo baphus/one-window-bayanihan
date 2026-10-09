@@ -19,7 +19,7 @@ class HandleInertiaRequests extends Middleware
             return '';
         }
 
-        return parent::version($request);
+        return parent::version($request) ?? '';
     }
 
     private function getProfileIncomplete(Request $request): bool
@@ -123,7 +123,9 @@ class HandleInertiaRequests extends Middleware
                 'enabled' => config('ai-chatbot.enabled', false),
                 'provider' => config('ai-chatbot.provider', 'gemini'),
                 'assistant_name' => config('ai-chatbot.assistant_name', 'Bayani'),
-                'suggestions' => app(ChatbotSuggestionService::class)->getSuggestions($request->user()?->role),
+                'suggestions' => fn () => config('ai-chatbot.enabled', false)
+                    ? app(ChatbotSuggestionService::class)->getSuggestions($request->user()?->role)
+                    : [],
             ],
             'turnstile' => [
                 'enabled' => (bool) config('turnstile.enabled', false),

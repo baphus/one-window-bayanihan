@@ -170,7 +170,7 @@ class EdgeCasesTest extends TestCase
         ]);
 
         // ASSERT — the second OTP overwrites the first in cache
-        $key = 'otp:track:'.$email;
+        $key = 'otp:track:'.$email.':'.$case->tracker_number;
         $cachedOtp = Cache::get($key);
 
         $this->assertNotNull($cachedOtp, 'OTP must exist in cache after two requests');

@@ -106,81 +106,7 @@ class CaseService
 
             if ($isExistingClient) {
                 $client = Client::findOrFail($data['selected_client_id']);
-
-                if (! empty($data['address'])) {
-                    $address = $client->addresses()->first();
-                    $resolvedAddress = $this->resolveAddressNames($data['address']);
-                    if ($address) {
-                        $address->update($resolvedAddress);
-                    } else {
-                        $client->addresses()->create($resolvedAddress);
-                    }
-                }
-
-                if (! empty($data['employment'])) {
-                    $employment = $client->employments()->first();
-                    if ($employment) {
-                        $employment->update([
-                            'employer_name' => $data['employment']['employer_name'] ?? null,
-                            'position' => $data['employment']['position'] ?? null,
-                            'country' => $data['employment']['country'] ?? null,
-                            'start_date' => $data['employment']['start_date'] ?? null,
-                            'end_date' => ! empty($data['employment']['is_present']) ? null : ($data['employment']['end_date'] ?? null),
-                            'last_country' => $data['employment']['last_country'] ?? null,
-                            'last_position' => $this->normalizePosition($data['employment']['last_position'] ?? null),
-                            'date_of_arrival' => $data['employment']['date_of_arrival'] ?? null,
-                        ]);
-                    } else {
-                        $client->employments()->create([
-                            'employer_name' => $data['employment']['employer_name'] ?? null,
-                            'position' => $data['employment']['position'] ?? null,
-                            'country' => $data['employment']['country'] ?? null,
-                            'start_date' => $data['employment']['start_date'] ?? null,
-                            'end_date' => ! empty($data['employment']['is_present']) ? null : ($data['employment']['end_date'] ?? null),
-                            'last_country' => $data['employment']['last_country'] ?? null,
-                            'last_position' => $this->normalizePosition($data['employment']['last_position'] ?? null),
-                            'date_of_arrival' => $data['employment']['date_of_arrival'] ?? null,
-                        ]);
-                    }
-                }
-
-                if (array_key_exists('next_of_kin', $data) && is_array($data['next_of_kin'])) {
-                    $nokList = $data['next_of_kin'];
-
-                    // Handle old single-object format (backward compat): update first NOK or create
-                    if (isset($nokList['first_name'])) {
-                        $nok = $client->nextOfKin()->first();
-                        $normalized = $this->normalizeNokData($nokList);
-                        if ($nok) {
-                            $nok->update($normalized);
-                        } else {
-                            $client->nextOfKin()->create($normalized);
-                        }
-                    } else {
-                        // Multi-NOK array format: run sync algorithm
-                        $existingIds = $client->nextOfKin()->pluck('id')->toArray();
-                        $incomingIds = array_filter(array_column($nokList, 'id'));
-                        $idsToDelete = array_diff($existingIds, $incomingIds);
-
-                        if (! empty($idsToDelete)) {
-                            $client->nextOfKin()->whereIn('id', $idsToDelete)->each(fn ($n) => $n->delete());
-                        }
-
-                        foreach ($nokList as $nokData) {
-                            $normalized = $this->normalizeNokData($nokData);
-                            if (! empty($nokData['id'])) {
-                                $nok = $client->nextOfKin()->find($nokData['id']);
-                                if ($nok) {
-                                    $nok->update($normalized);
-                                }
-                            } else {
-                                $client->nextOfKin()->create($normalized);
-                            }
-                        }
-                    }
-
-                    $this->ensureSinglePrimary($client->id);
-                }
+                $this->syncExistingClientData($client, $data);
             }
 
             if (isset($client)) {
@@ -338,81 +264,7 @@ class CaseService
             // NOTE: This runs outside withoutEvents so that UsesUuid auto-generates IDs for new records
             if (! empty($data['selected_client_id'])) {
                 $client = Client::findOrFail($data['selected_client_id']);
-
-                if (! empty($data['address'])) {
-                    $address = $client->addresses()->first();
-                    $resolvedAddress = $this->resolveAddressNames($data['address']);
-                    if ($address) {
-                        $address->update($resolvedAddress);
-                    } else {
-                        $client->addresses()->create($resolvedAddress);
-                    }
-                }
-
-                if (! empty($data['employment'])) {
-                    $employment = $client->employments()->first();
-                    if ($employment) {
-                        $employment->update([
-                            'employer_name' => $data['employment']['employer_name'] ?? null,
-                            'position' => $data['employment']['position'] ?? null,
-                            'country' => $data['employment']['country'] ?? null,
-                            'start_date' => $data['employment']['start_date'] ?? null,
-                            'end_date' => ! empty($data['employment']['is_present']) ? null : ($data['employment']['end_date'] ?? null),
-                            'last_country' => $data['employment']['last_country'] ?? null,
-                            'last_position' => $this->normalizePosition($data['employment']['last_position'] ?? null),
-                            'date_of_arrival' => $data['employment']['date_of_arrival'] ?? null,
-                        ]);
-                    } else {
-                        $client->employments()->create([
-                            'employer_name' => $data['employment']['employer_name'] ?? null,
-                            'position' => $data['employment']['position'] ?? null,
-                            'country' => $data['employment']['country'] ?? null,
-                            'start_date' => $data['employment']['start_date'] ?? null,
-                            'end_date' => ! empty($data['employment']['is_present']) ? null : ($data['employment']['end_date'] ?? null),
-                            'last_country' => $data['employment']['last_country'] ?? null,
-                            'last_position' => $this->normalizePosition($data['employment']['last_position'] ?? null),
-                            'date_of_arrival' => $data['employment']['date_of_arrival'] ?? null,
-                        ]);
-                    }
-                }
-
-                if (array_key_exists('next_of_kin', $data) && is_array($data['next_of_kin'])) {
-                    $nokList = $data['next_of_kin'];
-
-                    // Handle old single-object format (backward compat): update first NOK or create
-                    if (isset($nokList['first_name'])) {
-                        $nok = $client->nextOfKin()->first();
-                        $normalized = $this->normalizeNokData($nokList);
-                        if ($nok) {
-                            $nok->update($normalized);
-                        } else {
-                            $client->nextOfKin()->create($normalized);
-                        }
-                    } else {
-                        // Multi-NOK array format: run sync algorithm
-                        $existingIds = $client->nextOfKin()->pluck('id')->toArray();
-                        $incomingIds = array_filter(array_column($nokList, 'id'));
-                        $idsToDelete = array_diff($existingIds, $incomingIds);
-
-                        if (! empty($idsToDelete)) {
-                            $client->nextOfKin()->whereIn('id', $idsToDelete)->each(fn ($n) => $n->delete());
-                        }
-
-                        foreach ($nokList as $nokData) {
-                            $normalized = $this->normalizeNokData($nokData);
-                            if (! empty($nokData['id'])) {
-                                $nok = $client->nextOfKin()->find($nokData['id']);
-                                if ($nok) {
-                                    $nok->update($normalized);
-                                }
-                            } else {
-                                $client->nextOfKin()->create($normalized);
-                            }
-                        }
-                    }
-
-                    $this->ensureSinglePrimary($client->id);
-                }
+                $this->syncExistingClientData($client, $data);
             }
 
             // No AuditLog creation — draft updates are transient
@@ -490,10 +342,10 @@ class CaseService
             // Mark intake submission notification as read
             $this->notificationService->markIntakeNotificationsAsRead($case);
 
-            // Notify OFW about the rejection via email
+            // Notify OFW about the rejection via email (after commit — never on rollback)
             $clientEmail = $case->client?->email;
             if ($clientEmail) {
-                Mail::to($clientEmail)->queue(new IntakeRejectedMail($case, $reason));
+                DB::afterCommit(fn () => Mail::to($clientEmail)->queue(new IntakeRejectedMail($case, $reason)));
             }
 
             return $case;
@@ -747,7 +599,7 @@ class CaseService
                         false,
                     );
 
-                    Mail::to($clientEmail)->queue(new IntakePublishedMail($case));
+                    DB::afterCommit(fn () => Mail::to($clientEmail)->queue(new IntakePublishedMail($case)));
                 }
             } else {
                 // Notify OFW when a case manager creates a case for them.
@@ -773,7 +625,7 @@ class CaseService
                         false,
                     );
 
-                    Mail::to($clientEmail)->queue(new CaseCreatedMail($case));
+                    DB::afterCommit(fn () => Mail::to($clientEmail)->queue(new CaseCreatedMail($case)));
                 }
             }
 
@@ -1657,6 +1509,91 @@ class CaseService
         return $address;
     }
 
+    /**
+     * Sync address, employment, and next-of-kin onto an existing client.
+     *
+     * Shared by createCaseInternal and updateDraft (existing-client mode).
+     * NOK uses the soft-delete sync algorithm: rows keep their ids,
+     * missing rows are soft-deleted, and exactly one primary remains.
+     */
+    public function syncExistingClientData(Client $client, array $data): void
+    {
+        if (! empty($data['address'])) {
+            $address = $client->addresses()->first();
+            $resolvedAddress = $this->resolveAddressNames($data['address']);
+            if ($address) {
+                $address->update($resolvedAddress);
+            } else {
+                $client->addresses()->create($resolvedAddress);
+            }
+        }
+
+        if (! empty($data['employment'])) {
+            $employment = $client->employments()->first();
+            if ($employment) {
+                $employment->update([
+                    'employer_name' => $data['employment']['employer_name'] ?? null,
+                    'position' => $data['employment']['position'] ?? null,
+                    'country' => $data['employment']['country'] ?? null,
+                    'start_date' => $data['employment']['start_date'] ?? null,
+                    'end_date' => ! empty($data['employment']['is_present']) ? null : ($data['employment']['end_date'] ?? null),
+                    'last_country' => $data['employment']['last_country'] ?? null,
+                    'last_position' => $this->normalizePosition($data['employment']['last_position'] ?? null),
+                    'date_of_arrival' => $data['employment']['date_of_arrival'] ?? null,
+                ]);
+            } else {
+                $client->employments()->create([
+                    'employer_name' => $data['employment']['employer_name'] ?? null,
+                    'position' => $data['employment']['position'] ?? null,
+                    'country' => $data['employment']['country'] ?? null,
+                    'start_date' => $data['employment']['start_date'] ?? null,
+                    'end_date' => ! empty($data['employment']['is_present']) ? null : ($data['employment']['end_date'] ?? null),
+                    'last_country' => $data['employment']['last_country'] ?? null,
+                    'last_position' => $this->normalizePosition($data['employment']['last_position'] ?? null),
+                    'date_of_arrival' => $data['employment']['date_of_arrival'] ?? null,
+                ]);
+            }
+        }
+
+        if (array_key_exists('next_of_kin', $data) && is_array($data['next_of_kin'])) {
+            $nokList = $data['next_of_kin'];
+
+            // Handle old single-object format (backward compat): update first NOK or create
+            if (isset($nokList['first_name'])) {
+                $nok = $client->nextOfKin()->first();
+                $normalized = $this->normalizeNokData($nokList);
+                if ($nok) {
+                    $nok->update($normalized);
+                } else {
+                    $client->nextOfKin()->create($normalized);
+                }
+            } else {
+                // Multi-NOK array format: run sync algorithm
+                $existingIds = $client->nextOfKin()->pluck('id')->toArray();
+                $incomingIds = array_filter(array_column($nokList, 'id'));
+                $idsToDelete = array_diff($existingIds, $incomingIds);
+
+                if (! empty($idsToDelete)) {
+                    $client->nextOfKin()->whereIn('id', $idsToDelete)->each(fn ($n) => $n->delete());
+                }
+
+                foreach ($nokList as $nokData) {
+                    $normalized = $this->normalizeNokData($nokData);
+                    if (! empty($nokData['id'])) {
+                        $nok = $client->nextOfKin()->find($nokData['id']);
+                        if ($nok) {
+                            $nok->update($normalized);
+                        }
+                    } else {
+                        $client->nextOfKin()->create($normalized);
+                    }
+                }
+            }
+
+            $this->ensureSinglePrimary($client->id);
+        }
+    }
+
     private function normalizeNokData(array $data): array
     {
         $result = [
@@ -1698,7 +1635,7 @@ class CaseService
         return $result;
     }
 
-    private function ensureSinglePrimary(string $clientId): void
+    public function ensureSinglePrimary(string $clientId): void
     {
         $noks = NextOfKin::where('client_id', $clientId)
             ->whereNull('deleted_at')

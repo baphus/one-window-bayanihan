@@ -175,73 +175,20 @@ class DashboardService
         ], $bands);
     }
 
-    private function buildPriorityReferralsSQL(?string $agencyId = null, int $limit = 8, bool $includeAgency = true, ?string $status = null): array
+    /**
+     * Single referral-list builder. $priorityOnly adds the CASE-scored
+     * wrapper for CM/admin priority queues; otherwise oldest-first
+     * (agency queues, with optional overdue filter).
+     */
+    private function buildReferralListSQL(?string $agencyId = null, int $limit = 8, bool $includeAgency = true, ?string $status = null, bool $overdueOnly = false, bool $priorityOnly = false): array
     {
-        $agencyFilter = '';
+        $filter = '';
         $bindings = [];
         if ($agencyId) {
-            $agencyFilter = 'AND r.agcy_id = ?';
+            $filter .= ' AND r.agcy_id = ?';
             $bindings[] = $agencyId;
         }
         if ($status) {
-            $agencyFilter .= ' AND r.status = ?';
-            $bindings[] = $status;
-        }
-        $bindings[] = $limit;
-
-        $rows = DB::select("
-            SELECT * FROM (
-                SELECT r.id, r.case_id, r.status,
-                    COALESCE(
-                        (SELECT STRING_AGG(s.name, ', ' ORDER BY s.name) FROM referral_services rs JOIN services s ON s.id = rs.service_id WHERE rs.referral_id = r.id),
-                        r.required_services
-                    ) AS service_names,
-                    r.created_at,
-                    a.name AS agency_name, c.case_number, cl.first_name, cl.last_name,
-                    EXTRACT(EPOCH FROM (NOW() - r.created_at))/86400 AS age_days,
-                    CASE
-                        WHEN r.status = 'REJECTED' THEN 100 + EXTRACT(EPOCH FROM (NOW() - r.created_at))/86400
-                        WHEN r.status = 'FOR_COMPLIANCE' THEN 80 + EXTRACT(EPOCH FROM (NOW() - r.created_at))/86400
-                        WHEN r.status = 'PENDING' THEN 60 + EXTRACT(EPOCH FROM (NOW() - r.created_at))/86400
-                        WHEN r.status = 'PROCESSING' AND EXTRACT(EPOCH FROM (NOW() - r.created_at))/86400 >= 5 THEN 40 + EXTRACT(EPOCH FROM (NOW() - r.created_at))/86400
-                        WHEN r.status IN ('PENDING','PROCESSING','FOR_COMPLIANCE') AND EXTRACT(EPOCH FROM (NOW() - r.created_at))/86400 >= 5 THEN 30 + EXTRACT(EPOCH FROM (NOW() - r.created_at))/86400
-                        ELSE 0
-                    END AS priority_score
-                FROM referrals r
-                LEFT JOIN agencies a ON a.id = r.agcy_id
-                LEFT JOIN cases c ON c.id = r.case_id AND c.is_deleted = false
-                LEFT JOIN clients cl ON cl.id = c.client_id
-                WHERE r.is_deleted = false {$agencyFilter}
-            ) sub
-            WHERE priority_score > 0
-            ORDER BY priority_score DESC
-            LIMIT ?
-        ", $bindings);
-
-        return array_map(fn ($row) => [
-            'id' => $row->id,
-            'case_id' => $row->case_id,
-            'case_number' => $row->case_number ?? 'N/A',
-            'client_name' => trim(($row->first_name ?? '').' '.($row->last_name ?? '')) ?: 'Unnamed',
-            'service' => $row->service_names ?: 'Service not specified',
-            'agency_name' => $includeAgency ? ($row->agency_name ?? 'N/A') : null,
-            'status' => $row->status,
-            'age_days' => (int) round($row->age_days),
-            'referred_at' => Carbon::parse($row->created_at)->toISOString(),
-            'href' => '/referrals/'.$row->id,
-        ], $rows);
-    }
-
-    /**
-     * Agency dashboard lists. Same SELECT and row shape as
-     * buildPriorityReferralsSQL but without priority scoring: simple
-     * oldest-first queues (LIMIT 5) for the simplified agency dashboard.
-     */
-    private function buildAgencyReferralListSQL(string $agencyId, ?string $status = null, bool $overdueOnly = false, int $limit = 5): array
-    {
-        $filter = 'AND r.agcy_id = ?';
-        $bindings = [$agencyId];
-        if ($status !== null) {
             $filter .= ' AND r.status = ?';
             $bindings[] = $status;
         }
@@ -250,31 +197,46 @@ class DashboardService
         }
         $bindings[] = $limit;
 
-        $rows = DB::select("
+        $scoreColumn = $priorityOnly ? ',
+                    CASE
+                        WHEN r.status = \'REJECTED\' THEN 100 + EXTRACT(EPOCH FROM (NOW() - r.created_at))/86400
+                        WHEN r.status = \'FOR_COMPLIANCE\' THEN 80 + EXTRACT(EPOCH FROM (NOW() - r.created_at))/86400
+                        WHEN r.status = \'PENDING\' THEN 60 + EXTRACT(EPOCH FROM (NOW() - r.created_at))/86400
+                        WHEN r.status = \'PROCESSING\' AND EXTRACT(EPOCH FROM (NOW() - r.created_at))/86400 >= 5 THEN 40 + EXTRACT(EPOCH FROM (NOW() - r.created_at))/86400
+                        WHEN r.status IN (\'PENDING\',\'PROCESSING\',\'FOR_COMPLIANCE\') AND EXTRACT(EPOCH FROM (NOW() - r.created_at))/86400 >= 5 THEN 30 + EXTRACT(EPOCH FROM (NOW() - r.created_at))/86400
+                        ELSE 0
+                    END AS priority_score' : '';
+
+        $inner = "
             SELECT r.id, r.case_id, r.status,
                 COALESCE(
                     (SELECT STRING_AGG(s.name, ', ' ORDER BY s.name) FROM referral_services rs JOIN services s ON s.id = rs.service_id WHERE rs.referral_id = r.id),
                     r.required_services
                 ) AS service_names,
                 r.created_at,
-                a.name AS agency_name, c.case_number, cl.first_name, cl.last_name,
-                EXTRACT(EPOCH FROM (NOW() - r.created_at))/86400 AS age_days
+                a.name AS agency_name, c.case_number, c.tracker_number, cl.first_name, cl.last_name,
+                EXTRACT(EPOCH FROM (NOW() - r.created_at))/86400 AS age_days{$scoreColumn}
             FROM referrals r
             LEFT JOIN agencies a ON a.id = r.agcy_id
             LEFT JOIN cases c ON c.id = r.case_id AND c.is_deleted = false
             LEFT JOIN clients cl ON cl.id = c.client_id
             WHERE r.is_deleted = false {$filter}
-            ORDER BY r.created_at ASC
-            LIMIT ?
-        ", $bindings);
+        ";
+
+        $sql = $priorityOnly
+            ? "SELECT * FROM ({$inner}) sub WHERE priority_score > 0 ORDER BY priority_score DESC LIMIT ?"
+            : "{$inner} ORDER BY r.created_at ASC LIMIT ?";
+
+        $rows = DB::select($sql, $bindings);
 
         return array_map(fn ($row) => [
             'id' => $row->id,
             'case_id' => $row->case_id,
             'case_number' => $row->case_number ?? 'N/A',
+            'tracking_number' => $row->tracker_number ?? null,
             'client_name' => trim(($row->first_name ?? '').' '.($row->last_name ?? '')) ?: 'Unnamed',
             'service' => $row->service_names ?: 'Service not specified',
-            'agency_name' => null,
+            'agency_name' => $includeAgency ? ($row->agency_name ?? 'N/A') : null,
             'status' => $row->status,
             'age_days' => (int) round($row->age_days),
             'referred_at' => $row->created_at ? Carbon::parse($row->created_at)->toISOString() : null,
@@ -787,7 +749,7 @@ class DashboardService
             return $this->buildReferralAgingBandsSQL();
         });
         $priorityReferrals = CacheHelper::safeRemember('dashboard:cm_priority_referrals', 60, function () {
-            return $this->buildPriorityReferralsSQL(null, 8, true);
+            return $this->buildReferralListSQL(priorityOnly: true);
         });
         $priorityCases = CacheHelper::safeRemember('dashboard:cm_priority_cases', 60, function () {
             return $this->buildPriorityCasesSQL(8);
@@ -802,7 +764,7 @@ class DashboardService
             return $this->buildIntakeReviewList($user?->id, 8);
         });
         $forComplianceList = CacheHelper::safeRemember('dashboard:cm_for_compliance_list', 60, function () {
-            return $this->buildPriorityReferralsSQL(null, 8, true, 'FOR_COMPLIANCE');
+            return $this->buildReferralListSQL(status: 'FOR_COMPLIANCE', priorityOnly: true);
         });
         $readyToClose = CacheHelper::safeRemember('dashboard:cm_ready_to_close', 60, function () {
             return $this->buildReadyToCloseListSQL(8);
@@ -937,10 +899,13 @@ class DashboardService
             return $this->buildReferralAgingBandsSQL($agencyId);
         });
         $pendingReferralsList = CacheHelper::safeRemember('dashboard:agency_pending_referrals:'.$agencyId, 60, function () use ($agencyId) {
-            return $this->buildAgencyReferralListSQL($agencyId, 'PENDING', false, 5);
+            return $this->buildReferralListSQL($agencyId, 5, false, 'PENDING');
+        });
+        $processingReferralsList = CacheHelper::safeRemember('dashboard:agency_processing_referrals:'.$agencyId, 60, function () use ($agencyId) {
+            return $this->buildReferralListSQL($agencyId, 5, false, 'PROCESSING');
         });
         $overdueReferralsList = CacheHelper::safeRemember('dashboard:agency_overdue_referrals:'.$agencyId, 60, function () use ($agencyId) {
-            return $this->buildAgencyReferralListSQL($agencyId, null, true, 5);
+            return $this->buildReferralListSQL($agencyId, 5, false, overdueOnly: true);
         });
         $serviceDemand = CacheHelper::safeRemember('dashboard:agency_service_demand:'.$agencyId, 120, function () use ($agencyId) {
             return $this->buildAgencyServiceDemand($agencyId);
@@ -1027,7 +992,7 @@ class DashboardService
         return [
             'totalReferrals' => $totalReferrals,
             'pendingReferrals' => $pendingReferralsList,
-            'processingReferrals' => $processingReferrals,
+            'processingReferrals' => $processingReferralsList,
             'forComplianceReferrals' => $forComplianceReferrals,
             'completedReferrals' => $completedReferrals,
             'rejectedReferrals' => $rejectedReferrals,
@@ -1314,7 +1279,7 @@ class DashboardService
 
         // Priority referrals — top 5 highest-priority across all agencies.
         $adminPriorityReferrals = CacheHelper::safeRemember('dashboard:admin_priority_referrals', 60, function () {
-            return $this->buildPriorityReferralsSQL(null, 5, true);
+            return $this->buildReferralListSQL(limit: 5, priorityOnly: true);
         });
 
         // Referral aging bands — global view for frontend aging visualization.

@@ -102,7 +102,7 @@ class AdminUserTest extends TestCase
         UserInvite::create([
             'email' => 'dup@example.com',
             'role' => 'CASE_MANAGER',
-            'token' => Str::random(64),
+            'token_hash' => hash('sha256', Str::random(64)),
             'expires_at' => now()->addDays(7),
             'created_by' => $this->admin->id,
         ]);
@@ -124,17 +124,17 @@ class AdminUserTest extends TestCase
         $invite = UserInvite::create([
             'email' => 'resend@example.com',
             'role' => 'CASE_MANAGER',
-            'token' => Str::random(64),
+            'token_hash' => hash('sha256', $rawToken = Str::random(64)),
             'expires_at' => now()->addDays(7),
             'created_by' => $this->admin->id,
         ]);
-        $oldToken = $invite->token;
+        $oldToken = $invite->token_hash;
 
         $response = $this->actingAs($this->admin)
             ->post(route('admin.users.invites.resend', $invite->id));
 
         $response->assertRedirect();
-        $this->assertNotEquals($oldToken, $invite->fresh()->token);
+        $this->assertNotEquals($oldToken, $invite->fresh()->token_hash);
         Mail::assertQueued(UserInviteMail::class);
     }
 
@@ -143,7 +143,7 @@ class AdminUserTest extends TestCase
         $invite = UserInvite::create([
             'email' => 'cancel@example.com',
             'role' => 'CASE_MANAGER',
-            'token' => Str::random(64),
+            'token_hash' => hash('sha256', Str::random(64)),
             'expires_at' => now()->addDays(7),
             'created_by' => $this->admin->id,
         ]);

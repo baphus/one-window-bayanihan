@@ -41,6 +41,7 @@ class TrackController extends Controller
         $otp = $this->trackingService->generateOtp(
             $email,
             'track',
+            $case->tracker_number,
         );
 
         $emailParts = explode('@', $email);
@@ -72,6 +73,7 @@ class TrackController extends Controller
             $email,
             $validated['otp'],
             'track',
+            $case->tracker_number,
         );
 
         if (! $verified) {

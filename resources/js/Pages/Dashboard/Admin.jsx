@@ -4,8 +4,8 @@ import GettingStartedChecklist from '@/Components/GettingStartedChecklist';
 import { formatDisplayDateTime } from '@/lib/utils';
 import safeRoute from '@/utils/safeRoute';
 import {
-    ActivityFeed,
     BarList,
+    DashboardTable,
     EmptyState,
     FilterChip,
     MaterialSymbol,
@@ -207,9 +207,22 @@ export default function AdminDashboard({ dashboard = {} }) {
                                 />
                             ))}
                         </div>
-                        <ActivityFeed
-                            items={filteredLogs}
-                            limit={8}
+                        <DashboardTable
+                            columns={[
+                                { key: 'time', label: 'Time' },
+                                { key: 'module', label: 'Module' },
+                                { key: 'activity', label: 'Activity' },
+                            ]}
+                            rows={filteredLogs.map((log) => ({
+                                key: log.id,
+                                time: log.time,
+                                module: categorizeModule(log.module),
+                                activity: (
+                                    <span className="block max-w-xl truncate font-semibold text-slate-900" title={log.desc || log.title}>
+                                        {log.title}
+                                    </span>
+                                ),
+                            }))}
                             empty={<EmptyState message="No matching activity." />}
                         />
                     </SectionCard>

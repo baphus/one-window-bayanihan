@@ -68,7 +68,8 @@ class UserService
                 'email' => $data['email'],
                 'role' => $data['role'],
                 'agcy_id' => $this->resolveAgencyId($data),
-                'token' => $token,
+                'token' => null,
+                'token_hash' => hash('sha256', $token),
                 'expires_at' => now()->addDays(7),
                 'created_by' => $actorId,
             ]);
@@ -83,14 +84,17 @@ class UserService
 
     public function resendInvite(UserInvite $invite): UserInvite
     {
+        $token = Str::random(64);
+
         $invite->update([
-            'token' => Str::random(64),
+            'token' => null,
+            'token_hash' => hash('sha256', $token),
             'expires_at' => now()->addDays(7),
             'consumed_at' => null,
             'cancelled_at' => null,
         ]);
 
-        Mail::to($invite->email)->queue(new UserInviteMail($invite, $invite->token));
+        Mail::to($invite->email)->queue(new UserInviteMail($invite->refresh(), $token));
 
         return $invite;
     }
