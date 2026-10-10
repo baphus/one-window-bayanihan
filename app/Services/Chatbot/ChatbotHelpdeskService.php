@@ -23,14 +23,6 @@ class ChatbotHelpdeskService
 
     private ?string $parsedHash = null;
 
-    /**
-     * Memoized content hash for the duration of the request. contentHash()
-     * globs and sha256s ~49 files and runs on every entry point, but the
-     * corpus cannot change mid-request. Cross-request invalidation is
-     * untouched: the hash still keys the persistent cache.
-     */
-    private ?string $contentHashMemo = null;
-
     /** Articles whose sections are included in the classifier-miss fallback. */
     private array $fallbackSlugs = [
         'using-public-tracking-portal',
@@ -53,10 +45,6 @@ class ChatbotHelpdeskService
      */
     public function contentHash(): string
     {
-        if ($this->contentHashMemo !== null) {
-            return $this->contentHashMemo;
-        }
-
         $files = glob("{$this->contentDir}/*.ts") ?: [];
         $files[] = $this->articlesTsPath;
         $files[] = $this->categoriesTsPath;
@@ -69,7 +57,7 @@ class ChatbotHelpdeskService
         }
         sort($parts);
 
-        return $this->contentHashMemo = hash('sha256', implode("\n", $parts));
+        return hash('sha256', implode("\n", $parts));
     }
 
     /**
@@ -78,7 +66,6 @@ class ChatbotHelpdeskService
      */
     public function refreshCache(): string
     {
-        $this->contentHashMemo = null;
         $hash = $this->contentHash();
         Cache::forget("chatbot.helpdesk.{$hash}");
         $this->parsed = null;

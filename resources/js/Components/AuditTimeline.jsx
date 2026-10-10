@@ -1,8 +1,7 @@
 import { useMemo, useCallback, useState, useEffect, useRef } from 'react';
 import { Link, router } from '@inertiajs/react';
-import { formatRelativeTime, formatDateGroup } from '@/lib/relativeTime';
-import { formatDisplayDateTime } from '@/lib/utils';
-import { ChangesList, CATEGORY_LABELS, actionStyle } from '@/lib/audit';
+import { formatDateGroup } from '@/lib/relativeTime';
+import { AuditLogRow, CATEGORY_LABELS, actionStyle } from '@/lib/audit';
 import { formatCount } from '@/Components/Dashboard/primitives';
 import { sortTimelineItems } from '@/Components/Timeline';
 import TablePagination from '@/Components/ui/TablePagination';
@@ -120,57 +119,12 @@ export function AuditTimeline({
 
 function TimelineEntry({ log }) {
     const style = actionStyle(log.action);
-
-    const actorName = log.actor || '??';
-
-    const displayMessage = log.message ?? '';
-    const changes = log.changes || [];
-
     return (
-        <div className="relative pl-12 py-4">
-            {/* Colored dot */}
-            <div className={`absolute left-5 top-8 -translate-x-1/2 w-3 h-3 rounded-full ring-4 ring-white ${style.dot} z-10`} />
-            
-            {/* Card */}
-            <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm transition-shadow hover:shadow-md">
-                {/* Row 1 */}
-                <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-2">
-                    <div className="flex items-center gap-3 flex-grow">
-                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary-fixed flex items-center justify-center">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3/5 h-3/5 text-primary/40">
-                                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-                            </svg>
-                        </div>
-                        <div className="flex-grow text-sm text-slate-900 font-medium leading-snug">
-                            {displayMessage}
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-3 self-start sm:self-center ml-11 sm:ml-0">
-                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${style.badge}`}>
-                            <span className="material-symbols-outlined text-[14px]">{style.icon}</span>
-                            {log.action}
-                        </span>
-                        <div className="text-xs text-slate-500 whitespace-nowrap">
-                            <span>{formatDisplayDateTime(log.timestamp)}</span>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Row 2 */}
-                <div className="text-xs text-slate-500 ml-11 space-y-0.5">
-                    <p>
-                        {formatRelativeTime(log.timestamp)} <span className="mx-1">•</span> {log.formatted_module || log.module}
-                        {actorName !== '??' ? <> <span className="mx-1">•</span> {actorName}</> : null}
-                    </p>
-                </div>
-
-                {/* Row 3: Always-visible changes list */}
-                {changes.length > 0 && (
-                    <div className="ml-11 mt-3">
-                        <ChangesList changes={changes} />
-                    </div>
-                )}
-
+        <div className="relative pl-12 py-3">
+            <div className={`absolute left-5 top-4 -translate-x-1/2 w-2.5 h-2.5 rounded-full ring-4 ring-white ${style.dot} z-10`} />
+            {/* Dense row: hairline separator, no card */}
+            <div className="border-b border-slate-100 pb-3 hover:bg-slate-50/60 -mx-2 px-2 rounded transition-colors">
+                <AuditLogRow log={log} maxRows={3} variant="full" />
             </div>
         </div>
     );

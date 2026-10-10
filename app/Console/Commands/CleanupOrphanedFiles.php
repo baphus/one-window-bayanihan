@@ -37,6 +37,7 @@ class CleanupOrphanedFiles extends Command
                     $count++;
                 } catch (\Throwable $e) {
                     $this->error("Failed to delete {$doc->file_path}: {$e->getMessage()}");
+                    logger()->warning('CleanupOrphanedFiles: failed to delete orphaned file', ['path' => $doc->file_path, 'exception' => $e]);
                 }
             });
 
@@ -60,6 +61,7 @@ class CleanupOrphanedFiles extends Command
                     $count++;
                 } catch (\Throwable $e) {
                     $this->error("Failed to delete {$att->file_path}: {$e->getMessage()}");
+                    logger()->warning('CleanupOrphanedFiles: failed to delete orphaned file', ['path' => $att->file_path, 'exception' => $e]);
                 }
             });
 

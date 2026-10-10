@@ -2010,7 +2010,7 @@ class CaseService
                 'entity_id' => null,
                 'description' => "Auto-purged {$count} case(s) with deleted_at before {$cutoff->toDateString()}",
                 'old_value' => ['purged_count' => $count, 'cutoff_date' => $cutoff->toDateString()],
-                'new_value' => [],
+                'new_value' => null,
                 'user_id' => null,
                 'timestamp' => now(),
             ]);

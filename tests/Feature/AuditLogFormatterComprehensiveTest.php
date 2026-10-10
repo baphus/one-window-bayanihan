@@ -921,8 +921,13 @@ class AuditLogFormatterComprehensiveTest extends TestCase
         $this->assertStringContainsString('Contract Dispute', $byField['category_names']['new']);
         $this->assertStringContainsString('Wage Claim', $byField['category_names']['new']);
 
-        $this->assertSame('client', $byField['client']['fieldLabel']);
-        $this->assertSame('Juan M. Dela Cruz Jr.', $byField['client']['new']);
+        // Non-admin safe path never surfaces the client snapshot full name.
+        $this->assertArrayNotHasKey('client', $byField);
+
+        // Admin path still surfaces the client snapshot full name.
+        $adminByField = collect($this->formatter->formatForAuditResponse($log, true)['changes'])->keyBy('field');
+        $this->assertSame('client', $adminByField['client']['fieldLabel']);
+        $this->assertSame('Juan M. Dela Cruz Jr.', $adminByField['client']['new']);
 
         $this->assertSame('next of kin count', $byField['next_of_kin_count']['fieldLabel']);
         $this->assertSame('2', $byField['next_of_kin_count']['new']);
@@ -1180,5 +1185,86 @@ class AuditLogFormatterComprehensiveTest extends TestCase
         // Should use the snapshot, not the live title
         $this->assertStringContainsString('Snapshot Label', $response['message']);
         $this->assertStringContainsString("Milestone 'Snapshot Label'", $response['message']);
+    }
+
+    // ========================================================================
+    //  TEST SUITE 11: Admin vs non-admin audit response
+    // ========================================================================
+
+    public function test_admin_publish_response_shows_case_number_and_client(): void
+    {
+        $log = new AuditLog([
+            'action' => 'PUBLISH',
+            'module' => 'CASE',
+            'entity_id' => 'd31e0a57-85f4-4f17-9b34-7699c787dfea',
+            'entity_label' => 'CASE-2026-00001',
+            'old_value' => ['status' => 'DRAFT'],
+            'new_value' => [
+                'case_number' => 'CASE-2026-00001',
+                'status' => 'OPEN',
+                'summary' => 'Contract dispute filed by the client',
+                'category_names' => ['Contract Dispute', 'Wage Claim'],
+                'case_issue' => 'Contract Dispute',
+                'client' => [
+                    'first_name' => 'Juan',
+                    'middle_name' => 'M.',
+                    'last_name' => 'Dela Cruz',
+                    'suffix' => 'Jr.',
+                ],
+            ],
+            'user_id' => null,
+            'timestamp' => now(),
+        ]);
+
+        $response = $this->formatter->formatForAuditResponse($log, true);
+
+        $this->assertStringContainsString('CASE-2026-00001', $response['message']);
+        $this->assertStringContainsString('Juan M. Dela Cruz Jr.', $response['message']);
+        $this->assertStringContainsString('Contract Dispute', $response['message']);
+        // Free text must never leak raw into the message
+        $this->assertStringNotContainsString('Contract dispute filed by the client', $response['message']);
+    }
+
+    public function test_admin_update_response_shows_old_and_new(): void
+    {
+        $log = new AuditLog([
+            'action' => 'UPDATE',
+            'module' => 'case',
+            'old_value' => ['status' => 'OPEN'],
+            'new_value' => ['status' => 'CLOSED'],
+            'user_id' => null,
+            'timestamp' => now(),
+        ]);
+
+        $response = $this->formatter->formatForAuditResponse($log, true);
+
+        $this->assertNotEmpty($response['changes']);
+        $change = collect($response['changes'])->firstWhere('field', 'status');
+        $this->assertNotNull($change);
+        $this->assertArrayHasKey('old', $change);
+        $this->assertArrayHasKey('new', $change);
+        $this->assertSame('Open', $change['old']);
+        $this->assertSame('Closed', $change['new']);
+    }
+
+    public function test_non_admin_response_stays_after_only(): void
+    {
+        $log = new AuditLog([
+            'action' => 'UPDATE',
+            'module' => 'case',
+            'old_value' => ['status' => 'OPEN'],
+            'new_value' => ['status' => 'CLOSED'],
+            'user_id' => null,
+            'timestamp' => now(),
+        ]);
+
+        $response = $this->formatter->formatForAuditResponse($log);
+
+        $this->assertNotEmpty($response['changes']);
+        $change = collect($response['changes'])->firstWhere('field', 'status');
+        $this->assertNotNull($change);
+        $this->assertArrayNotHasKey('old', $change);
+        $this->assertArrayHasKey('new', $change);
+        $this->assertSame('Closed', $change['new']);
     }
 }
