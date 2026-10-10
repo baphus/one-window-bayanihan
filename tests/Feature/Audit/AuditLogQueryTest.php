@@ -3,6 +3,8 @@
 namespace Tests\Feature\Audit;
 
 use App\Enums\UserRole;
+use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\SetPostgresSession;
 use App\Models\AuditLog;
 use App\Models\Referral;
 use App\Models\User;
@@ -15,6 +17,13 @@ use Tests\TestCase;
 class AuditLogQueryTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->withoutMiddleware(HandleInertiaRequests::class);
+        $this->withoutMiddleware(SetPostgresSession::class);
+    }
 
     private function createStatusChangeLog(User $user, string $referralId, int $index, string $from = 'PENDING', string $to = 'PROCESSING'): AuditLog
     {
@@ -123,5 +132,135 @@ class AuditLogQueryTest extends TestCase
         $statusEvents = collect($timeline)->where('type', 'referral_status')->values();
         $this->assertCount(1, $statusEvents);
         $this->assertSame('Referral status updated to Processing', $statusEvents->first()['title']);
+    }
+
+    /** Actor names seen by an audit viewer on an Inertia GET. */
+    private function auditActors(User $viewer, string $query): array
+    {
+        $response = $this->actingAs($viewer)
+            ->withHeader('X-Inertia', 'true')
+            ->get('/audit-logs?'.$query);
+
+        $response->assertOk();
+
+        return collect($response->json('props.logs.data'))
+            ->pluck('actor')
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    public function test_role_filter_applies_for_admin_only(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $ofw = User::factory()->create(['role' => UserRole::OFW->value]);
+        $caseManager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $referral = Referral::factory()->create();
+
+        $this->createStatusChangeLog($admin, $referral->id, 1);
+        $this->createStatusChangeLog($ofw, $referral->id, 2);
+
+        // Admin: comma-separated, case-insensitive; unknown roles are dropped.
+        $this->assertSame(
+            [$ofw->name],
+            $this->auditActors($admin, 'action=UPDATE&role=ofw,NOT_A_ROLE')
+        );
+
+        // Nothing valid in the param -> the filter is ignored, not empty.
+        $this->assertContains(
+            $admin->name,
+            $this->auditActors($admin, 'action=UPDATE&role=NOT_A_ROLE')
+        );
+
+        // Scoped viewer: the role param is ignored entirely.
+        $this->assertContains(
+            $admin->name,
+            $this->auditActors($caseManager, 'action=UPDATE&role=OFW')
+        );
+    }
+
+    public function test_has_changes_filter_keeps_only_rows_with_a_diff(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $referral = Referral::factory()->create();
+
+        $withDiff = $this->createStatusChangeLog($admin, $referral->id, 1);
+        $noValues = AuditLog::create([
+            'action' => 'UPDATE',
+            'module' => 'referral',
+            'entity_id' => $referral->id,
+            'user_id' => $admin->id,
+            'timestamp' => now()->subMinutes(2),
+        ]);
+        $emptyValues = AuditLog::create([
+            'action' => 'UPDATE',
+            'module' => 'referral',
+            'entity_id' => $referral->id,
+            'old_value' => [],
+            'user_id' => $admin->id,
+            'timestamp' => now()->subMinutes(3),
+        ]);
+
+        $ids = array_column(
+            $this->actingAs($admin)
+                ->withHeader('X-Inertia', 'true')
+                ->get('/audit-logs?action=UPDATE&has_changes=1')
+                ->assertOk()
+                ->json('props.logs.data'),
+            'id'
+        );
+
+        $this->assertContains($withDiff->id, $ids);
+        $this->assertNotContains($noValues->id, $ids);
+        $this->assertNotContains($emptyValues->id, $ids);
+
+        // Without the flag every UPDATE row stays visible.
+        $unfiltered = array_column(
+            $this->actingAs($admin)
+                ->withHeader('X-Inertia', 'true')
+                ->get('/audit-logs?action=UPDATE')
+                ->assertOk()
+                ->json('props.logs.data'),
+            'id'
+        );
+        $this->assertContains($noValues->id, $unfiltered);
+    }
+
+    public function test_actor_options_returns_distinct_actors_and_is_admin_only(): void
+    {
+        $admin = User::factory()->create([
+            'role' => UserRole::ADMIN->value,
+            'name' => 'Ada Admin',
+            'email' => 'ada.admin@example.test',
+        ]);
+        $deactivated = User::factory()->create([
+            'role' => UserRole::CASE_MANAGER->value,
+            'name' => 'Deactivated Dave',
+            'email' => 'dave@example.test',
+            'is_active' => false,
+        ]);
+        $caseManager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $referral = Referral::factory()->create();
+
+        $this->createStatusChangeLog($admin, $referral->id, 1);
+        $this->createStatusChangeLog($deactivated, $referral->id, 2);
+
+        $byId = collect($this->actingAs($admin)->get('/audit-logs/actors')->assertOk()->json())
+            ->keyBy('id');
+
+        $this->assertSame(['id', 'name', 'email', 'deactivated'], array_keys($byId[$admin->id]));
+        $this->assertFalse($byId[$admin->id]['deactivated']);
+        $this->assertTrue($byId[$deactivated->id]['deactivated']);
+        $this->assertSame('dave@example.test', $byId[$deactivated->id]['email']);
+
+        // Search narrows by name or email, case-insensitively.
+        $found = $this->actingAs($admin)->get('/audit-logs/actors?search=ADA')->assertOk()->json();
+        $this->assertSame([$admin->id], array_column($found, 'id'));
+
+        $none = $this->actingAs($admin)->get('/audit-logs/actors?search=nobody-here')->assertOk()->json();
+        $this->assertSame([], $none);
+
+        // Route admits CASE_MANAGER; the controller rejects them.
+        $this->actingAs($caseManager)->get('/audit-logs/actors')->assertStatus(403);
     }
 }
