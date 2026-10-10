@@ -284,6 +284,40 @@ class CaseServiceTest extends TestCase
         $service->publishDraft($case->id, $user->id);
     }
 
+    public function test_publish_requires_province_when_region_is_stored_as_a_name(): void
+    {
+        $user = User::factory()->create();
+        $category = CaseCategory::factory()->create();
+        $client = Client::factory()->create(['sex' => 'FEMALE']);
+        // Existing-client rows store the region as its display name, not a
+        // PSGC code; getProvinces() only understands codes, so the province
+        // check silently passed until the stored name is resolved first.
+        $client->addresses()->create([
+            'region' => 'Region VII (Central Visayas)',
+            'city_municipality' => 'Cebu City',
+            'barangay' => 'Lahug',
+        ]);
+        $case = CaseFile::factory()->create([
+            'status' => 'DRAFT',
+            'user_id' => $user->id,
+            'category_id' => $category->id,
+            'client_id' => $client->id,
+            'client_type' => 'OFW',
+        ]);
+        $case->categories()->attach($category->id);
+
+        try {
+            app(CaseService::class)->publishDraft($case->id, $user->id);
+            $this->fail('Expected ValidationException because the province is missing.');
+        } catch (ValidationException $e) {
+            $this->assertArrayHasKey('draft', $e->errors());
+            $this->assertStringContainsString('Missing: Province.', $e->errors()['draft'][0]);
+        }
+
+        $case->refresh();
+        $this->assertSame('DRAFT', $case->status);
+    }
+
     public function test_ofw_draft_requires_ofw_email_before_publish(): void
     {
         $user = User::factory()->create();

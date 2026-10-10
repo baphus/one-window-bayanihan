@@ -117,8 +117,8 @@ COPY docker/php/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 # ── Cleanup build-only files ──
-# resources/js/data must survive: AddressNameResolver reads the PSGC lookup
-# table from resource_path('js/data/philippine-addresses.ts') at runtime to turn
+# resources/js/data must survive: PhilippineAddressService reads the PSGC lookup
+# table from resource_path('js/data/philippine-addresses.json') at runtime to turn
 # stored codes into place names. Deleting all of resources/js made every
 # resolve() fall through to returning the raw code, so case managers saw
 # "0730600041, 0730600000, ..." instead of "Lahug, City of Cebu, Cebu, Region VII".
