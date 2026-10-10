@@ -29,6 +29,8 @@ vi.mock('@/Components/InputError', () => ({ default: () => null }));
 vi.mock('@/Components/ui/CardSection', () => ({
   CardSection: ({ title, children }) => <section><h2>{title}</h2>{children}</section>,
   InfoCell: ({ label, value }) => <div><span>{label}</span>{value}</div>,
+  CardHeader: ({ title, meta, actions }) => <section><h2>{title}</h2>{meta && <span>{meta}</span>}{actions}</section>,
+  InfoField: ({ label, value, fallback = 'N/A' }) => <div><span>{label}</span>{value || fallback}</div>,
 }));
 vi.mock('@/Components/ui/StatusBadge', () => ({ default: ({ status }) => <span>{status}</span> }));
 vi.mock('@/Components/ui/UserAvatar', () => ({ default: () => null, getAvatarColor: () => '' }));

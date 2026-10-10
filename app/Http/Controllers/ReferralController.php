@@ -209,6 +209,24 @@ class ReferralController extends Controller
             ->with('success', 'Referral status updated.');
     }
 
+    public function destroy(Request $request, string $id)
+    {
+        $referral = $this->referralService->getReferral($id);
+        $this->authorizeReferralAccess($referral, $request->user());
+
+        try {
+            $this->referralService->deleteReferral($referral);
+        } catch (\InvalidArgumentException $e) {
+            return redirect()
+                ->back()
+                ->with('error', $e->getMessage());
+        }
+
+        return redirect()
+            ->back()
+            ->with('success', 'Referral deleted.');
+    }
+
     public function addMilestone(StoreMilestoneRequest $request, string $id)
     {
         $referral = $this->referralService->getReferral($id);

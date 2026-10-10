@@ -9,6 +9,7 @@ export default function FileUpload({
     label = 'Choose files',
     disabled = false,
     className = '',
+    variant = 'dropzone',
 }) {
     const inputRef = useRef(null);
     const [isDragOver, setIsDragOver] = useState(false);
@@ -130,6 +131,39 @@ export default function FileUpload({
         },
         [handleClick],
     );
+
+    // Header-style trigger for pages that keep the dropzone (or the file list)
+    // in the body — same hidden input and validation, compact button chrome.
+    if (variant === 'button') {
+        return (
+            <div className={`w-auto ${className}`}>
+                <input
+                    ref={inputRef}
+                    type="file"
+                    accept={accept}
+                    multiple={multiple}
+                    onChange={handleFileChange}
+                    className="hidden"
+                    disabled={disabled}
+                    aria-hidden="true"
+                />
+                <button
+                    type="button"
+                    onClick={handleClick}
+                    disabled={disabled}
+                    className="inline-flex min-h-[34px] items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3.5 text-[12px] font-bold text-blue-900 transition-colors hover:bg-slate-50 disabled:opacity-50"
+                >
+                    <span className="material-symbols-outlined text-[15px]">upload</span>
+                    {label}
+                </button>
+                {error && (
+                    <p className="mt-1 text-[12px] text-rose-600" role="alert">
+                        {error}
+                    </p>
+                )}
+            </div>
+        );
+    }
 
     return (
         <div className={`w-full ${className}`}>

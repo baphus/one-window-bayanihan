@@ -80,6 +80,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/referrals/export-count', [ReferralController::class, 'exportCount'])->name('referrals.export-count')->middleware('role:CASE_MANAGER,ADMIN,AGENCY');
     Route::get('/referrals/{referral}', [ReferralController::class, 'show'])->name('referrals.show');
     Route::patch('/referrals/{referral}/status', [ReferralController::class, 'updateStatus'])->name('referrals.update-status');
+    Route::delete('/referrals/{referral}', [ReferralController::class, 'destroy'])->name('referrals.destroy')->middleware('role:CASE_MANAGER,ADMIN');
     Route::post('/referrals/{referral}/milestones', [ReferralController::class, 'addMilestone'])->name('referrals.milestones.store');
 
     // Agency service management

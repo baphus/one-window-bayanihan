@@ -16,10 +16,14 @@ class CaseDocumentController extends Controller
         $case = CaseFile::findOrFail($caseId);
         $this->authorizeAccess($case, $request->user());
 
-        $query = $case->documents()->where('is_deleted', false);
+        // Orphaned pointers: hide docs whose referral was soft-deleted so
+        // managers never list files agencies can no longer resolve.
+        $query = $case->documents()
+            ->where('is_deleted', false)
+            ->whereDoesntHave('referral', fn ($referrals) => $referrals->onlyTrashed());
 
         if ($request->user()->isAgency()) {
-            $query->whereHas('referral', fn ($referrals) => $referrals->where('agcy_id', $request->user()->agcy_id));
+            $query->visibleToAgency($request->user()->agcy_id);
         }
 
         if ($request->filled('category')) {
@@ -191,8 +195,11 @@ class CaseDocumentController extends Controller
             return;
         }
 
-        // Agency whose agcy_id matches the referral's agcy_id can access
-        if ($user->isAgency() && $document->referral && $document->referral->agcy_id === $user->agcy_id) {
+        // Agency users: general case files plus files on a referral to their
+        // own agency. Never another agency's referral documents; a null
+        // agcy_id must never match, even against a null referral agcy_id.
+        if ($user->isAgency() && ($document->referral_id === null
+            || ($user->agcy_id && $document->referral && $document->referral->agcy_id === $user->agcy_id))) {
             return;
         }
 

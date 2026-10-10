@@ -609,6 +609,23 @@ class ReferralService
         $requirement->delete();
     }
 
+    /**
+     * Soft-delete a referral. CascadeSoftDeletes flags the milestones,
+     * comments, attachments, client requests and service requirements too,
+     * and AuditObserver::deleted() writes the audit entry.
+     *
+     * Completed referrals are part of the delivered-service record and can
+     * only leave the case via rejection/withdrawal semantics, not deletion.
+     */
+    public function deleteReferral(Referral $referral): void
+    {
+        if ($referral->status === 'COMPLETED') {
+            throw new \InvalidArgumentException('A completed referral cannot be deleted.');
+        }
+
+        $referral->delete();
+    }
+
     public function updateStatus(string $id, string $status, ?string $decision, ?string $decisionComment, string $userId, ?string $rejectionReason = null): Referral
     {
         $changed = false;

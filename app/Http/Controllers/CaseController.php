@@ -225,6 +225,21 @@ class CaseController extends Controller
         if ($case->status === 'DRAFT' && $case->user_id !== $request->user()->id) {
             abort(403, 'You do not have access to this draft.');
         }
+
+        // Agency users only receive general case files plus their own
+        // referral's files; other agencies' referral documents stay
+        // server-side (download routes re-check regardless).
+        if ($request->user()->isAgency()) {
+            $case->load(['documents' => fn ($q) => $q
+                ->where('is_deleted', false)
+                ->visibleToAgency($request->user()->agcy_id)]);
+            $userAgencyId = $request->user()->agcy_id;
+            foreach ($case->referrals as $referral) {
+                if (! $userAgencyId || $referral->agcy_id !== $userAgencyId) {
+                    $referral->unsetRelation('attachments');
+                }
+            }
+        }
         $overdueDays = (int) SystemSetting::getValue('referral_overdue_days', 7);
 
         $trackingData = $this->trackingService->buildTrackingData($case);
