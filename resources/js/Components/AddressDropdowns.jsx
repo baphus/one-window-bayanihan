@@ -14,8 +14,10 @@ import {
  * The region dropdown is scoped to the served regions from
  * `props.addresses.served_regions` (config/addresses.php), so coverage can be
  * widened — or removed entirely (empty array = every Philippine region) —
- * without code changes. Filtered here rather than in the generated data file
- * so `npm run addresses:sync` keeps regenerating philippine-addresses.ts.
+ * without code changes. The generated dataset is pre-scoped to the served
+ * regions by `npm run addresses:sync`; widen the config list, keep the sync
+ * script's SERVED_REGIONS constant in step with it, and re-run the sync
+ * (`-- --all` for every region) so the wider list actually resolves.
  */
 function Field({ label, required, children, className }) {
     return (

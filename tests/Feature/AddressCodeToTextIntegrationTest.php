@@ -19,7 +19,7 @@ class AddressCodeToTextIntegrationTest extends TestCase
 
     private PhilippineAddressService $addressService;
 
-    /** @var array<string, string> Real codes from resources/js/data/philippine-addresses.ts for Region VII */
+    /** @var array<string, string> Real codes from resources/js/data/philippine-addresses.json for Region VII */
     private const REGION_CODE = '0700000000';
 
     private const REGION_NAME = 'Region VII (Central Visayas)';

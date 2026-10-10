@@ -44,49 +44,16 @@ final class ServedRegion implements ValidationRule
             return;
         }
 
-        // Dataset display name or parenthesized short form ("Central Visayas").
+        // ponytail: the name forms (dataset display name, "Central Visayas",
+        // "Region VII", "VII") stay accepted here because stored drafts and
+        // legacy rows resubmit names; tightening to codes only would break
+        // them. Plain labels come out of resolveAddressToCodes now, so the
+        // former regionLabels() branch is gone with it.
         $resolved = $this->addresses->resolveAddressToCodes(['region' => $value]);
         if (is_string($resolved['region']) && in_array($resolved['region'], $servedRegions, true)) {
             return;
         }
 
-        // Plain labels ("Region VII", "VII") derived from the served regions'
-        // own display names, so no region is hardcoded here.
-        foreach ($this->regionLabels($servedRegions) as $label) {
-            if (strcasecmp($label, trim($value)) === 0) {
-                return;
-            }
-        }
-
         $fail('The selected region is not currently served. Choose a region from the list to continue.');
-    }
-
-    /**
-     * Recognizable plain labels for the served region codes, e.g.
-     * "Region VII (Central Visayas)", "Region VII", "VII", "Central Visayas".
-     *
-     * @param  list<string>  $servedRegions
-     * @return list<string>
-     */
-    private function regionLabels(array $servedRegions): array
-    {
-        $labels = [];
-
-        foreach ($this->addresses->getRegions() as $region) {
-            if (! in_array($region['code'], $servedRegions, true)) {
-                continue;
-            }
-
-            $name = $region['name'];
-            $labels[] = $name;
-
-            if (preg_match('/^Region\s+(.+?)\s*\((.+)\)$/i', $name, $matches)) {
-                $labels[] = 'Region '.$matches[1];
-                $labels[] = $matches[1];
-                $labels[] = $matches[2];
-            }
-        }
-
-        return $labels;
     }
 }

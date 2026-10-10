@@ -179,7 +179,12 @@ class ClientSelectApiTest extends TestCase
         $response = $this->actingAs($user)->getJson("/api/clients/{$client->id}");
 
         $response->assertOk()
-            ->assertJsonPath('data.addresses.0.region', 'Region X')
+            // Stored region names resolve to PSGC codes; region_name keeps the
+            // stored text. 'Region X' only fell through as-is before the
+            // resolver learned the "Region X" prefix of "Region X (Northern
+            // Mindanao)".
+            ->assertJsonPath('data.addresses.0.region', '1000000000')
+            ->assertJsonPath('data.addresses.0.region_name', 'Region X')
             ->assertJsonPath('data.addresses.0.province', 'Province A')
             ->assertJsonPath('data.employments.0.employer_name', 'ACME Corp')
             ->assertJsonPath('data.employments.0.last_country', 'SAUDI ARABIA')

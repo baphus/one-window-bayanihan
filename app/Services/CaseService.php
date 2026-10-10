@@ -796,12 +796,15 @@ class CaseService
         }
 
         $draftAddress = $draftData['address'] ?? [];
-        $regionCode = $address?->region ?? $draftAddress['region'] ?? null;
-        $provinces = $this->addressService->getProvinces($regionCode);
+        $regionValue = $address?->region ?? $draftAddress['region'] ?? null;
+        // The stored region may be a display name ("Region VII (Central
+        // Visayas)") rather than a PSGC code, and getProvinces() only
+        // understands codes — resolving keeps the province check honest.
+        $provinces = $this->addressService->getProvinces($this->resolveRegionCode($regionValue));
         $regionRequiresProvince = count($provinces) > 0;
 
         $addressFields = [
-            'Region' => $regionCode,
+            'Region' => $regionValue,
             'City/Municipality' => $address?->city_municipality ?? $draftAddress['city_municipality'] ?? null,
             'Barangay' => $address?->barangay ?? $draftAddress['barangay'] ?? null,
         ];
@@ -838,6 +841,28 @@ class CaseService
         }
 
         return trim((string) $value) === '';
+    }
+
+    /**
+     * Stored regions are either PSGC codes or display names; getProvinces()
+     * only understands codes. Unresolvable values come back null, which reads
+     * as "no provinces to require" — same as a missing region.
+     */
+    private function resolveRegionCode(mixed $value): ?string
+    {
+        if (! is_string($value) || trim($value) === '') {
+            return null;
+        }
+
+        foreach ($this->addressService->getRegions() as $region) {
+            if ($region['code'] === $value) {
+                return $value;
+            }
+        }
+
+        $resolved = $this->addressService->resolveAddressToCodes(['region' => $value])['region'];
+
+        return is_string($resolved) ? $resolved : null;
     }
 
     private function resolveClientNotificationEmail(CaseFile $case): ?string

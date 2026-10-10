@@ -57,6 +57,7 @@ class IntakePublishTest extends TestCase
         ClientAddress::create([
             'client_id' => $client->id,
             'region' => 'Region VII',
+            'province' => 'Cebu',
             'city_municipality' => 'Cebu City',
             'barangay' => 'Lahug',
         ]);
@@ -119,6 +120,7 @@ class IntakePublishTest extends TestCase
         ClientAddress::create([
             'client_id' => $client->id,
             'region' => 'Region VII',
+            'province' => 'Cebu',
             'city_municipality' => 'Cebu City',
             'barangay' => 'Lahug',
         ]);
@@ -174,6 +176,7 @@ class IntakePublishTest extends TestCase
         ClientAddress::create([
             'client_id' => $client->id,
             'region' => 'Region VII',
+            'province' => 'Cebu',
             'city_municipality' => 'Cebu City',
             'barangay' => 'Lahug',
         ]);
