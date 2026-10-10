@@ -35,3 +35,24 @@ export function SubsectionCard({ title, children }) {
     </div>
   );
 }
+
+export function CardHeader({ title, meta, actions }) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#dce3eb] px-5 py-4">
+      <div className="flex min-w-0 items-baseline gap-2">
+        <h3 className="text-[15px] font-bold text-[#172333]">{title}</h3>
+        {meta && <span className="text-[12px] text-slate-500">{meta}</span>}
+      </div>
+      {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
+    </div>
+  );
+}
+
+export function InfoField({ label, value, fallback = 'N/A' }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-[12px] font-medium text-slate-500">{label}</p>
+      <p className="mt-0.5 break-words text-[13px] font-semibold text-slate-800">{value || fallback}</p>
+    </div>
+  );
+}

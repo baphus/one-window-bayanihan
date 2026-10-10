@@ -9,9 +9,8 @@ import { Eye, Trash2 } from 'lucide-react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import { RowContextMenu, RowContextMenuItem } from '@/Components/ui/RowContextMenu';
 import FileUpload from '@/Components/FileUpload';
-import { CardSection, MetaTile } from '@/Components/ui/CardSection';
+import { InfoCell, CardHeader, InfoField } from '@/Components/ui/CardSection';
 import StatusBadge from '@/Components/ui/StatusBadge';
-import ProfilePictureUpload from '@/Components/ProfilePictureUpload';
 import { getAvatarColor } from '@/Components/ui/UserAvatar';
 import { formatDisplayDateTime, formatDisplayDate, formatDisplayTime } from '@/lib/utils';
 import { formatResolvedAddress } from '@/lib/addressResolver';
@@ -80,7 +79,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
   };
 
   const EVENT_TYPE_OPTIONS = [
-    { value: 'ALL',          label: 'All Events' },
+    { value: 'ALL',          label: 'All events' },
     { value: 'case_opened',  label: 'Case Opened' },
     { value: 'referral',     label: 'Referrals' },
     { value: 'referral_status_changed', label: 'Status Updates' },
@@ -149,6 +148,20 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
     setConfirmDeleteDoc(docId);
   }
 
+  function handleDocumentUpload(file) {
+    if (!file) return;
+    setUploadingDoc(true);
+    router.post(
+      route('cases.documents.store', caseFile.id),
+      { file },
+      {
+        preserveScroll: true,
+        onSuccess: () => setUploadingDoc(false),
+        onError: () => setUploadingDoc(false),
+      },
+    );
+  }
+
   const initialEditRef = useRef({ status: caseFile.status, issueId: caseFile.case_issue_id || '', categoryIds: getCaseCategories(caseFile).map(c => c.id), vulnerability: caseFile.vulnerability_indicator || '', nokVulnerability: caseFile.nok_vulnerability_indicator || '', summary: caseFile.summary || '' });
   const editIntentHandledRef = useRef(false);
   const hasEditDirty = useMemo(() => (
@@ -195,9 +208,12 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
   const primaryEmployment = client?.employments?.[0] || null;
   const primaryNok = client?.nextOfKin?.find(n => n.is_primary) || client?.nextOfKin?.[0] || null;
 
-  const canUploadAvatar = auth.user?.role === roles.ADMIN || auth.user?.role === roles.CASE_MANAGER;
   const canManageCaseDocuments = auth.user?.role === roles.CASE_MANAGER;
+  const canManageReferrals = auth.user?.role === roles.CASE_MANAGER || auth.user?.role === roles.ADMIN;
   const clientTypeLabel = caseFile.client_type === 'OFW' ? 'Overseas Filipino Worker' : 'Next of Kin';
+  const clientFullName = client ? [client.first_name, client.middle_name, client.last_name, client.suffix].filter(Boolean).join(' ') : '';
+  const clientInitials = client ? [client.first_name, client.last_name].filter(Boolean).map((part) => part[0]).join('').toUpperCase().slice(0, 2) : '';
+  const [confirmDeleteReferral, setConfirmDeleteReferral] = useState(null);
 
   const referralRows = useMemo(() => {
     return (caseFile.referrals || []).map((ref) => {
@@ -219,7 +235,8 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
         isOverdue,
         service: ref.required_services,
         latestMilestone: latest?.title || 'Referral Sent',
-        dateReferred: formatDisplayDateTime(ref.created_at),
+        dateReferred: formatDisplayDate(ref.created_at),
+        timeReferred: formatDisplayTime(ref.created_at),
       };
     });
   }, [caseFile.referrals, overdueDays]);
@@ -230,6 +247,12 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
     return (caseFile.referrals || []).some(
       (ref) => !['COMPLETED', 'REJECTED'].includes(ref.status),
     );
+  }, [caseFile.referrals]);
+
+  const activeReferralCount = useMemo(() => {
+    return (caseFile.referrals || []).filter(
+      (ref) => !['COMPLETED', 'REJECTED'].includes(ref.status),
+    ).length;
   }, [caseFile.referrals]);
 
   const [contextMenu, setContextMenu] = useState(null);
@@ -271,19 +294,37 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
       key: 'dateReferred',
       title: 'DATE REFERRED',
       className: 'w-[16%] whitespace-nowrap align-top',
-      render: (row) => <span className="text-[12px] text-slate-500">{row.dateReferred}</span>,
+      render: (row) => (
+        <span className="block leading-5">
+          <span className="block text-[12px] text-slate-600">{row.dateReferred}</span>
+          <span className="block text-[11px] text-slate-400">{row.timeReferred}</span>
+        </span>
+      ),
     },
     {
       key: 'action',
-      title: 'ACTION',
-      className: 'w-[7%] whitespace-nowrap text-right align-top',
+      title: 'ACTIONS',
+      className: 'w-[8%] whitespace-nowrap text-right align-top',
       render: (row) => (
-        <Link
-          href={route('referrals.show', row.id)}
-          className="inline-flex px-2 min-h-[28px] items-center bg-slate-100 text-slate-700 hover:bg-slate-200 text-[11px] font-bold rounded-md transition-colors border border-slate-300"
-        >
-          View
-        </Link>
+        <div className="flex items-center justify-end gap-1.5">
+          <Link
+            href={route('referrals.show', row.id)}
+            title="View referral"
+            className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 transition-colors hover:bg-slate-50 hover:text-blue-900"
+          >
+            <span className="material-symbols-outlined text-[15px]">edit</span>
+          </Link>
+          {canManageReferrals && row.referralStatus !== 'COMPLETED' && (
+            <button
+              type="button"
+              onClick={() => setConfirmDeleteReferral(row)}
+              title="Delete referral"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-red-200 bg-white text-red-500 transition-colors hover:bg-red-50"
+            >
+              <span className="material-symbols-outlined text-[15px]">delete</span>
+            </button>
+          )}
+        </div>
       ),
     },
   ];
@@ -366,10 +407,11 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
     <AppLayout title="Case Details">
       <Head title="Case Details" />
 
-      <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 mb-5">
-        <Link href={route('cases.index')} className="transition hover:text-blue-900">Cases</Link>
-        <span className="mx-2">&gt;</span>
-        <span>{caseFile.case_number}</span>
+      <div className="mb-5">
+        <Link href={route('cases.index')} className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-slate-500 transition hover:text-blue-900">
+          <span className="material-symbols-outlined text-[16px]">arrow_back</span>
+          Back to Cases
+        </Link>
       </div>
 
       {showReferralPrompt && (
@@ -398,46 +440,28 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
         </div>
       )}
 
-      <div className="mb-6">
-        <h1 className="text-3xl md:text-[34px] font-black leading-tight tracking-tight text-slate-900">Case Details</h1>
-        <p className="mt-1 text-[14px] leading-6 text-slate-600">Overview of client profile, referral progress, and timeline updates.</p>
-        <div data-tour="case-header" className="flex items-center justify-between gap-4 flex-wrap mt-3">
-          <div className="flex items-center gap-2">
-            <StatusBadge status={caseFile.status} size="md" />
-            {caseFile.user && (
-              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-md">
-                <span className="w-5 h-5 rounded-full bg-slate-700 text-white text-[8px] font-bold flex items-center justify-center shrink-0">
-                  {caseFile.user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
-                </span>
-                <span className="text-[11px] font-medium text-slate-600">
-                  Created by <span className="font-bold text-slate-800">{caseFile.user.name}</span>
-                </span>
-              </div>
-            )}
+      <div className="mx-auto mb-5 max-w-[1440px]">
+        <div className="flex items-end justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="text-[28px] font-extrabold leading-tight tracking-[-0.02em] text-[#172333]">Case Details</h1>
+            <p className="mt-2 text-[11px] leading-5 text-[#607080]">Case information, referrals and supporting records</p>
           </div>
           <div data-tour="case-actions" className="flex items-center gap-2 shrink-0">
             <a
             href={route('cases.export-pdf', caseFile.id)}
             target="_blank"
-            className="px-3 min-h-[34px] bg-slate-100 text-[12px] font-bold text-slate-700 border border-slate-300 rounded-md hover:bg-slate-200 transition-colors inline-flex items-center gap-1.5"
+            className="px-3.5 min-h-[34px] bg-white text-[12px] font-bold text-[#233f82] border border-slate-200 rounded-md hover:bg-slate-50 transition-colors inline-flex items-center gap-1.5"
           >
-            <span className="material-symbols-outlined text-[16px]">picture_as_pdf</span>
+            <span className="material-symbols-outlined text-[15px]">picture_as_pdf</span>
             Export PDF
           </a>
           <button
             type="button"
             onClick={() => setShowAuditLog(true)}
-            className="px-3 min-h-[34px] bg-slate-100 text-[12px] font-bold text-slate-700 border border-slate-300 rounded-md hover:bg-slate-200 transition-colors inline-flex items-center gap-1.5"
+            className="px-3 min-h-[34px] bg-slate-100 text-[12px] font-bold text-slate-700 border border-slate-300 rounded-md hover:bg-slate-200 transition-colors inline-flex items-center gap-1.5 hidden"
           >
             <span className="material-symbols-outlined text-[16px]">history</span>
             Audit Log
-          </button>
-          <button
-            type="button"
-            onClick={openEditDetails}
-            className="px-3 min-h-[34px] bg-slate-100 text-[12px] font-bold text-slate-700 border border-slate-300 rounded-md hover:bg-slate-200 transition-colors"
-          >
-            Edit Details
           </button>
           {(caseFile.status === 'OPEN' || caseFile.status === 'CLOSED') && (
             <button
@@ -445,7 +469,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
               onClick={() => setConfirmToggleStatus(true)}
               disabled={caseFile.status === 'OPEN' && hasActiveReferrals}
               title={caseFile.status === 'OPEN' && hasActiveReferrals ? 'Resolve all referrals before closing this case.' : ''}
-              className={`px-3 min-h-[34px] text-[12px] font-bold rounded-md transition-colors border ${
+              className={`px-3 min-h-[34px] text-[12px] font-bold rounded-md transition-colors border hidden ${
                 caseFile.status === 'OPEN' && hasActiveReferrals
                   ? 'bg-gray-200 text-gray-500 border-gray-300 cursor-not-allowed'
                   : 'bg-blue-900 text-white hover:bg-blue-800 border-blue-900'
@@ -483,326 +507,282 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
               Archive Case
             </button>
           ) : null}
-          <Link
-            href={route('cases.index')}
-            className="px-3 min-h-[34px] bg-slate-100 text-[12px] font-bold text-slate-700 border border-slate-300 rounded-md hover:bg-slate-200 transition-colors inline-flex items-center"
-          >
-            Back to Cases
-          </Link>
         </div>
       </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
-        <main className="xl:col-span-8 space-y-4">
-          <CardSection title="Case Information" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
-            <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
-              <MetaTile label="Case No." value={caseFile.case_number} />
-              <MetaTile label="Tracking ID" value={caseFile.tracker_number} />
-              <MetaTile label="Client Type" value={clientTypeLabel} />
-              <MetaTile label="Date Created" value={formatDisplayDate(caseFile.created_at)} subtext={formatDisplayTime(caseFile.created_at)} />
-              {getCaseCategories(caseFile).length > 0 && <MetaTile label="Category" value={<CategoryBadges caseFile={caseFile} />} />}
-              {caseFile.case_issue && (
-                <MetaTile label="Issue/Concern" value={caseFile.case_issue.name} />
-              )}
+      <div className="mx-auto grid max-w-[1440px] grid-cols-1 gap-4 xl:grid-cols-12">
+        <main className="space-y-4 xl:col-span-8">
+          <section className="rounded-xl border border-[#dce3eb] bg-white shadow-[0_1px_3px_rgba(23,35,51,0.04)]">
+            <div className="flex items-center justify-between gap-3 border-b border-[#dce3eb] px-5 py-4">
+              <h3 className="text-[15px] font-bold text-[#172333]">Case Summary</h3>
+              <div className="flex items-center gap-2">
+                <button type="button" onClick={openEditDetails} className="inline-flex min-h-[34px] items-center gap-1.5 rounded-md bg-[#233f82] px-3.5 text-[12px] font-bold text-white transition hover:bg-[#172c63]">
+                  <span className="material-symbols-outlined text-[15px]">edit</span>
+                  Edit Details
+                </button>
+                <button type="button" onClick={() => setConfirmToggleStatus(true)} disabled={caseFile.status === 'OPEN' && hasActiveReferrals} className="inline-flex min-h-[34px] items-center gap-1.5 rounded-md bg-slate-100 px-3.5 text-[12px] font-bold text-slate-500 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:hover:bg-slate-100">
+                  <span className="material-symbols-outlined text-[15px]">lock</span>
+                  Close Case
+                </button>
+              </div>
             </div>
-          </CardSection>
-
-          {/* Case Narrative — moved to top of main column */}
-          <CardSection title="Case Narrative" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
-            {caseFile.summary ? (
-              <p className="text-[13px] leading-6 text-slate-700 whitespace-pre-wrap">{caseFile.summary}</p>
-            ) : (
-              <p className="text-[12px] text-slate-500 italic">No narrative recorded for this case.</p>
-            )}
-          </CardSection>
+            {/* [&>div]:border-0 strips InfoCell's border-b/border-r dividers for this grid only */}
+            <div className="grid grid-cols-1 md:grid-cols-3 [&>div]:border-0">
+              <InfoCell label="Case No." value={caseFile.case_number} />
+              <InfoCell label="Tracking ID" value={caseFile.tracker_number} />
+              <InfoCell label="Date created" value={<>{formatDisplayDate(caseFile.created_at)}<span className="block text-[10px] font-normal text-slate-500">{formatDisplayTime(caseFile.created_at)}</span></>} />
+              <InfoCell label="Client type" value={clientTypeLabel} />
+              <InfoCell label="Category" value={<CategoryBadges caseFile={caseFile} />} />
+              <InfoCell label="Status" value={<StatusBadge status={caseFile.status} size="sm" />} />
+              <InfoCell label="Issue / concern" value={caseFile.case_issue?.name || '-'} />
+              <InfoCell label="Case narrative" value={caseFile.summary || '-'} />
+              <InfoCell label="Opened by" value={caseFile.user?.name || '-'} />
+            </div>
+            <p className="border-t border-[#dce3eb] px-5 py-3 text-center text-[11px] text-slate-400">Close Case is unavailable while referrals are active. All referrals must be completed or rejected.</p>
+          </section>
 
           {/* Referrals table */}
-          <CardSection data-tour="case-referrals" title={`Referrals (${(caseFile.referrals || []).length})`} className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                {hasOverdueReferrals && (
-                  <>
-                    <span
-                      className="material-symbols-outlined text-[14px] text-amber-600 shrink-0"
-                      title={`${referralRows.filter((r) => r.isOverdue).length} overdue referral(s)`}
-                    >warning</span>
-                    <div className="relative">
-                      <button
-                        type="button"
-                        onClick={() => setShowOverdueInfo((prev) => !prev)}
-                        className="flex h-[18px] w-[18px] items-center justify-center rounded-full text-amber-600 hover:bg-amber-100 transition-colors"
-                      >
-                        <span className="material-symbols-outlined text-[14px]">info</span>
-                      </button>
-                      {showOverdueInfo && (
-                        <div className="absolute left-0 top-full mt-1 z-20 w-72 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 shadow-md">
-                          <p className="text-[10px] leading-5 text-amber-800">
-                            A referral is considered overdue when there has been no update or activity for more than {overdueDays} day{overdueDays > 1 ? 's' : ''}.
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </>
-                )}
-              </div>
-              <Link
-                href={route('referrals.create', { case_id: caseFile.id })}
-                className="px-3 min-h-[30px] inline-flex items-center bg-slate-100 text-slate-700 hover:bg-slate-200 text-[11px] font-bold rounded-md transition-colors border border-slate-300"
-              >
-                + Refer to Agency
-              </Link>
-            </div>
-            {caseFile.status === 'OPEN' && hasActiveReferrals && (
-              <div className="mb-3 flex items-start gap-2.5 rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5">
-                <span className="material-symbols-outlined text-[16px] text-amber-600 shrink-0 mt-px">warning</span>
-                <p className="text-[11px] leading-5 text-amber-800">
-                  This case cannot be closed until all referrals are completed or rejected. Resolve the active referrals below first.
-                </p>
-              </div>
-            )}
-            <UnifiedTable
-              variant="embedded"
-              data={referralRows}
-              columns={referralColumns}
-              keyExtractor={(row) => row.id}
-              hideControlBar
-              hidePagination
+          <section data-tour="case-referrals" className="rounded-xl border border-[#dce3eb] bg-white shadow-[0_1px_3px_rgba(23,35,51,0.04)]">
+            <CardHeader
+              title="Referrals"
+              meta={`${(caseFile.referrals || []).length} referrals · ${activeReferralCount} active`}
+              actions={(
+                <>
+                  {hasOverdueReferrals && (
+                    <>
+                      <span
+                        className="material-symbols-outlined text-[16px] text-amber-600 shrink-0"
+                        title={`${referralRows.filter((r) => r.isOverdue).length} overdue referral(s)`}
+                      >warning</span>
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => setShowOverdueInfo((prev) => !prev)}
+                          className="flex h-[20px] w-[20px] items-center justify-center rounded-full text-amber-600 hover:bg-amber-100 transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-[15px]">info</span>
+                        </button>
+                        {showOverdueInfo && (
+                          <div className="absolute right-0 top-full mt-1 z-20 w-72 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 shadow-md">
+                            <p className="text-[11px] leading-5 text-amber-800">
+                              A referral is considered overdue when there has been no update or activity for more than {overdueDays} day{overdueDays > 1 ? 's' : ''}.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
+                  <Link
+                    href={route('referrals.create', { case_id: caseFile.id })}
+                    className="inline-flex min-h-[34px] items-center gap-1 rounded-md bg-blue-900 px-3.5 text-[12px] font-bold text-white transition-colors hover:bg-blue-800"
+                  >
+                    <span className="material-symbols-outlined text-[15px]">add</span>
+                    Refer to Agency
+                  </Link>
+                </>
+              )}
             />
-          </CardSection>
+            <div className="space-y-3 px-5 pb-5">
+              {caseFile.status === 'OPEN' && hasActiveReferrals && (
+                <div className="flex items-start gap-2.5 rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5">
+                  <span className="material-symbols-outlined text-[16px] text-amber-600 shrink-0 mt-px">warning</span>
+                  <p className="text-[11px] leading-5 text-amber-800">
+                    This case cannot be closed until all referrals are completed or rejected. Resolve the active referrals below first.
+                  </p>
+                </div>
+              )}
+              <UnifiedTable
+                variant="embedded"
+                data={referralRows}
+                columns={referralColumns}
+                keyExtractor={(row) => row.id}
+                hideControlBar
+                hidePagination
+              />
+            </div>
+          </section>
 
           <div data-tour="case-timeline">
-          <CardSection title="Activity Timeline" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-slate-500">Chronological Events</span>
+            <section className="rounded-xl border border-[#dce3eb] bg-white shadow-[0_1px_3px_rgba(23,35,51,0.04)]">
+              <CardHeader
+                title="Activity"
+                meta="Chronological events"
+                actions={(
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* Agency filter */}
+                    {timelineAgencyNames.length > 0 && (
+                      <div className="relative inline-flex">
+                        <select
+                          value={timelineAgencyFilter}
+                          onChange={e => setTimelineAgencyFilter(e.target.value)}
+                          aria-label="Filter events by agency"
+                          className="min-h-[34px] cursor-pointer appearance-none rounded-md border border-slate-200 bg-white pl-3 pr-8 text-[12px] font-semibold text-slate-600 outline-none transition-colors hover:border-slate-300 focus:ring-1 focus:ring-blue-900"
+                        >
+                          <option value="ALL">All agencies</option>
+                          {timelineAgencyNames.map(a => <option key={a} value={a}>{a}</option>)}
+                        </select>
+                        <span className="material-symbols-outlined pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-[16px] text-slate-400">expand_more</span>
+                      </div>
+                    )}
+                    {/* Type filter */}
+                    <div className="relative inline-flex">
+                      <select
+                        value={timelineTypeFilter}
+                        onChange={e => setTimelineTypeFilter(e.target.value)}
+                        aria-label="Filter events by type"
+                        className="min-h-[34px] cursor-pointer appearance-none rounded-md border border-slate-200 bg-white pl-3 pr-8 text-[12px] font-semibold text-slate-600 outline-none transition-colors hover:border-slate-300 focus:ring-1 focus:ring-blue-900"
+                      >
+                        {EVENT_TYPE_OPTIONS.map(opt => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                      </select>
+                      <span className="material-symbols-outlined pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-[16px] text-slate-400">expand_more</span>
+                    </div>
+                    {/* Clear filters */}
+                    {hasActiveFilters && (
+                      <button
+                        type="button"
+                        onClick={clearFilters}
+                        className="min-h-[34px] rounded-md px-2.5 text-[12px] font-bold text-blue-600 transition-colors hover:text-blue-800"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                )}
+              />
+              <div className="px-5 pb-5">
+                {/* Filter results count */}
                 {milestoneTimeline && milestoneTimeline.length > 0 && (
-                  <span className="text-[10px] text-slate-400">({milestoneTimeline.length} event{milestoneTimeline.length !== 1 ? 's' : ''})</span>
+                  <p className="mb-2 text-[11px] font-medium text-slate-400">
+                    Showing {filteredTimeline.length} of {milestoneTimeline.length} events
+                  </p>
                 )}
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                {/* Agency filter */}
-                {timelineAgencyNames.length > 0 && (
-                  <select
-                    value={timelineAgencyFilter}
-                    onChange={e => setTimelineAgencyFilter(e.target.value)}
-                    className="text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-600 border border-slate-200 rounded-md px-2.5 py-1.5 bg-white hover:border-slate-300 transition-colors cursor-pointer outline-none focus:ring-1 focus:ring-blue-900"
-                  >
-                    <option value="ALL">All Agencies</option>
-                    {timelineAgencyNames.map(a => <option key={a} value={a}>{a}</option>)}
-                  </select>
-                )}
-                {/* Type filter */}
-                <select
-                  value={timelineTypeFilter}
-                  onChange={e => setTimelineTypeFilter(e.target.value)}
-                  className="text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-600 border border-slate-200 rounded-md px-2.5 py-1.5 bg-white hover:border-slate-300 transition-colors cursor-pointer outline-none focus:ring-1 focus:ring-blue-900"
-                >
-                  {EVENT_TYPE_OPTIONS.map(opt => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-                {/* Clear filters */}
-                {hasActiveFilters && (
-                  <button
-                    onClick={clearFilters}
-                    className="text-[10px] font-extrabold uppercase tracking-[0.08em] text-blue-600 hover:text-blue-800 px-2 py-1.5 transition-colors"
-                  >
-                    Clear
-                  </button>
-                )}
-              </div>
-            </div>
 
-            {/* Filter results count */}
-            {milestoneTimeline && milestoneTimeline.length > 0 && (
-              <p className="mt-2 text-[10px] text-slate-400 font-medium px-0.5">
-                Showing {filteredTimeline.length} of {milestoneTimeline.length} events
-              </p>
-            )}
-
-            <UnifiedTimeline
-              items={filteredTimeline}
-              eventConfig={EVENT_CONFIG}
-              emptyTitle="No activity matches your filters."
-              emptyAction={
-                hasActiveFilters ? (
-                  <button onClick={clearFilters} className="mt-2 text-xs font-bold text-blue-600 hover:text-blue-800 underline">
-                    Clear filters
-                  </button>
-                ) : null
-              }
-            />
-          </CardSection>
+                <UnifiedTimeline
+                  items={filteredTimeline}
+                  eventConfig={EVENT_CONFIG}
+                  emptyTitle="No activity matches your filters."
+                  emptyAction={
+                    hasActiveFilters ? (
+                      <button type="button" onClick={clearFilters} className="mt-2 text-xs font-bold text-blue-600 hover:text-blue-800 underline">
+                        Clear filters
+                      </button>
+                    ) : null
+                  }
+                />
+              </div>
+            </section>
           </div>
 
         </main>
 
-        <aside className="xl:col-span-4 space-y-4">
-          {/* Client Profile — compact all-in-one card */}
-          <CardSection data-tour="case-client-info" title="Client Profile" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
-            <div className="space-y-4">
-              {/* Avatar + Name */}
+        <aside className="space-y-4 xl:col-span-4">
+          {/* Client Information */}
+          <section data-tour="case-client-info" className="rounded-xl border border-[#dce3eb] bg-white shadow-[0_1px_3px_rgba(23,35,51,0.04)]">
+            <CardHeader title="Client Information" />
+            <div className="space-y-4 px-5 pb-5">
+              {/* Avatar */}
               {client ? (
-                <div className="flex items-start gap-3 pb-3 border-b border-slate-200">
-                  {canUploadAvatar ? (
-                    <ProfilePictureUpload
-                      currentUrl={client.avatar_url}
-                      name={[client.first_name, client.last_name].filter(Boolean).join(' ')}
-                      size="md"
-                      clientId={client.id}
-                    />
-                  ) : client.avatar_url ? (
-                    <span className="inline-flex shrink-0 overflow-hidden rounded-full">
-                      <img src={client.avatar_url} alt="" className="h-12 w-12 rounded-full object-cover border border-slate-200" onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.querySelector('.avatar-fallback').classList.remove('hidden'); }} />
-                      <span className="avatar-fallback hidden h-12 w-12 rounded-full flex items-center justify-center relative overflow-hidden">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3/5 h-3/5 text-white/30">
-                          <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-                        </svg>
-                      </span>
-                    </span>
-                  ) : (
-                    <span className={`h-12 w-12 inline-flex items-center justify-center rounded-full flex-shrink-0 relative overflow-hidden ${getAvatarColor([client.first_name, client.last_name].filter(Boolean).join(' '))}`}>
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3/5 h-3/5 text-white/30">
-                        <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-                      </svg>
-                    </span>
-                  )}
-                  <div className="min-w-0 flex-1 self-center">
-                    <p className="text-[14px] font-bold text-slate-800 break-words">
-                      {[client.first_name, client.middle_name, client.last_name, client.suffix].filter(Boolean).join(' ')}
-                    </p>
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">{clientTypeLabel}</p>
-                  </div>
-                </div>
-              ) : (
-                <p className="text-[12px] font-semibold text-slate-700">N/A</p>
-              )}
+                client.avatar_url ? (
+                  <img
+                    src={client.avatar_url}
+                    alt=""
+                    className="h-[88px] w-[88px] shrink-0 rounded-2xl border border-slate-200 object-cover"
+                    onError={(e) => { e.target.style.display = 'none'; }}
+                  />
+                ) : (
+                  <span
+                    className={`inline-flex h-[88px] w-[88px] shrink-0 items-center justify-center rounded-2xl text-[26px] font-bold text-white ${getAvatarColor(clientFullName)}`}
+                    aria-hidden="true"
+                  >
+                    {clientInitials || '?'}
+                  </span>
+                )
+              ) : null}
 
-              {/* DOB · Age · Sex */}
-              <div className="grid grid-cols-3 gap-2">
-                <div className="min-w-0">
-                  <p className="text-[8px] font-extrabold uppercase tracking-[0.06em] text-slate-500 break-words">Date of Birth</p>
-                  <p className="mt-0.5 text-[12px] font-semibold text-slate-700 break-words">{client?.date_of_birth ? formatDisplayDate(client.date_of_birth) : 'N/A'}</p>
-                </div>
-                <div>
-                  <p className="text-[8px] font-extrabold uppercase tracking-[0.06em] text-slate-500">Age</p>
-                  <p className="mt-0.5 text-[12px] font-semibold text-slate-700">{client?.date_of_birth ? getClientAge(client.date_of_birth) : 'N/A'}</p>
-                </div>
-                <div>
-                  <p className="text-[8px] font-extrabold uppercase tracking-[0.06em] text-slate-500">Sex</p>
-                  <p className="mt-0.5 text-[12px] font-semibold text-slate-700">{client?.sex || 'N/A'}</p>
-                </div>
+              <InfoField label="Full name" value={clientFullName} />
+
+              <InfoField label="Date of birth" value={client?.date_of_birth ? formatDisplayDate(client.date_of_birth) : null} />
+
+              <div className="grid grid-cols-2 gap-3">
+                <InfoField label="Age" value={client?.date_of_birth ? getClientAge(client.date_of_birth) : null} />
+                <InfoField label="Sex" value={client?.sex} />
               </div>
 
-              {/* Email · Contact */}
-              <div className="grid grid-cols-2 gap-2">
-                <div className="min-w-0">
-                  <p className="text-[8px] font-extrabold uppercase tracking-[0.06em] text-slate-500">Email</p>
-                  <p className="mt-0.5 text-[12px] font-semibold text-slate-700 break-words">{client?.email || 'N/A'}</p>
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[8px] font-extrabold uppercase tracking-[0.06em] text-slate-500">Contact No.</p>
-                  <p className="mt-0.5 text-[12px] font-semibold text-slate-700 break-words">{client?.contact_number || 'N/A'}</p>
-                </div>
+              <div className="grid grid-cols-2 gap-3">
+                <InfoField label="Email" value={client?.email} />
+                <InfoField label="Contact no." value={client?.contact_number} />
               </div>
 
-              {/* Address - full width */}
-              <div>
-                <p className="text-[9px] font-extrabold uppercase tracking-[0.08em] text-slate-500">Address</p>
-                <p className="mt-0.5 text-[12px] font-semibold text-slate-700">{primaryAddress ? formatAddress(primaryAddress) : 'No address recorded'}</p>
-              </div>
-
-              {/* Work History — compact inline */}
-              {primaryEmployment && (
-                <>
-                  <hr className="border-slate-200" />
-                  <div>
-                    <p className="text-[9px] font-extrabold uppercase tracking-[0.08em] text-slate-500">Work History</p>
-                    <div className="mt-2 space-y-2">
-                      <div className="flex items-center gap-2 text-[12px]">
-                        <span className="font-semibold text-slate-700 shrink-0">{primaryEmployment.last_country || primaryEmployment.country || 'N/A'}</span>
-                        <span className="text-slate-300">·</span>
-                        <span className="text-slate-600 truncate">{primaryEmployment.last_position || primaryEmployment.position || 'N/A'}</span>
-                      </div>
-                      {primaryEmployment.date_of_arrival && (
-                        <p className="text-[11px] text-slate-500">Arrived {formatDisplayDate(primaryEmployment.date_of_arrival)}</p>
-                      )}
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {/* Next of Kin — compact */}
-              {client?.nextOfKin?.length > 0 && (
-                <>
-                  <hr className="border-slate-200" />
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Next of Kin</p>
-                      <p className="text-[9px] text-slate-400">{client.nextOfKin.length} record{client.nextOfKin.length !== 1 ? 's' : ''}</p>
-                    </div>
-                    <div className="mt-2 space-y-2">
-                      {client.nextOfKin.map((nok, idx) => (
-                        <div key={nok.id} className={`text-[12px] text-slate-700 ${idx > 0 ? 'pt-2 border-t border-slate-200' : ''}`}>
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold">{[nok.first_name, nok.last_name].filter(Boolean).join(' ')}</span>
-                            {nok.is_primary && (
-                              <span className="inline-flex items-center rounded-full bg-indigo-600 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.1em] text-white">Primary</span>
-                            )}
-                          </div>
-                          <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-slate-500">
-                            {nok.relationship && <span>{nok.relationship}</span>}
-                            {nok.phone_number && <span>{nok.phone_number}</span>}
-                            {nok.email && <span className="break-all">{nok.email}</span>}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {/* Vulnerability — compact badges */}
+              {/* Vulnerability */}
               {(() => {
                 const ofwVulns = (caseFile.vulnerability_indicator || '').split(',').map(s => s.trim()).filter(v => v && v !== 'None');
                 const nokVulns = (caseFile.nok_vulnerability_indicator || '').split(',').map(s => s.trim()).filter(v => v && v !== 'None');
                 const hasVulns = ofwVulns.length > 0 || nokVulns.length > 0;
                 if (!hasVulns) return null;
                 return (
-                  <>
-                    <hr className="border-slate-200" />
-                    <div>
-                      <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Vulnerability</p>
-                      <div className="mt-2 flex flex-wrap gap-1.5">
-                        {ofwVulns.map((v) => (
-                          <span key={`ofw-${v}`} className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-bold ${vulnConfig[v]?.className || 'bg-slate-100 text-slate-700 border-slate-200'}`}>
-                            <span className="material-symbols-outlined text-[13px]">{vulnConfig[v]?.icon || 'warning'}</span>
-                            OFW: {v}
-                          </span>
-                        ))}
-                        {nokVulns.map((v) => (
-                          <span key={`nok-${v}`} className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-bold ${vulnConfig[v]?.className || 'bg-slate-100 text-slate-700 border-slate-200'}`}>
-                            <span className="material-symbols-outlined text-[13px]">{vulnConfig[v]?.icon || 'warning'}</span>
-                            NOK: {v}
-                          </span>
-                        ))}
-                      </div>
+                  <div>
+                    <p className="text-[12px] font-medium text-slate-500">Vulnerability</p>
+                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                      {ofwVulns.map((v) => (
+                        <span key={`ofw-${v}`} className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-bold ${vulnConfig[v]?.className || 'bg-slate-100 text-slate-700 border-slate-200'}`}>
+                          <span className="material-symbols-outlined text-[13px]">{vulnConfig[v]?.icon || 'warning'}</span>
+                          OFW: {v}
+                        </span>
+                      ))}
+                      {nokVulns.map((v) => (
+                        <span key={`nok-${v}`} className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-bold ${vulnConfig[v]?.className || 'bg-slate-100 text-slate-700 border-slate-200'}`}>
+                          <span className="material-symbols-outlined text-[13px]">{vulnConfig[v]?.icon || 'warning'}</span>
+                          NOK: {v}
+                        </span>
+                      ))}
                     </div>
-                  </>
+                  </div>
                 );
               })()}
-            </div>
-          </CardSection>
 
-          <CardSection data-tour="case-documents" title="Case Documents" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
-            <div className="mb-3 flex items-start gap-2 rounded-md border border-blue-100 bg-blue-50 px-3 py-2">
-              <span className="material-symbols-outlined text-[16px] text-blue-600 mt-0.5">info</span>
-              <p className="text-[11px] leading-5 text-blue-800">
-                Everything uploaded to this section will be viewable to all referred agencies.
-              </p>
+              <InfoField label="Address" value={primaryAddress ? formatAddress(primaryAddress) : null} fallback="No address recorded" />
+
+              {primaryEmployment && (
+                <>
+                  <hr className="border-slate-200" />
+                  <div className="grid grid-cols-2 gap-3">
+                    <InfoField
+                      label="Work history"
+                      value={`${primaryEmployment.last_country || primaryEmployment.country || 'N/A'} · ${primaryEmployment.last_position || primaryEmployment.position || 'N/A'}`}
+                    />
+                    <InfoField label="Arrival date" value={primaryEmployment.date_of_arrival ? formatDisplayDate(primaryEmployment.date_of_arrival) : null} />
+                  </div>
+                </>
+              )}
             </div>
-            <div className="space-y-4">
+          </section>
+
+          <section data-tour="case-documents" className="rounded-xl border border-[#dce3eb] bg-white shadow-[0_1px_3px_rgba(23,35,51,0.04)]">
+            <CardHeader
+              title="Documents"
+              meta={`${(caseFile.documents || []).length} documents`}
+              actions={canManageCaseDocuments && (
+                <FileUpload
+                  variant="button"
+                  accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                  maxSize={10 * 1024 * 1024}
+                  label={uploadingDoc ? 'Uploading...' : 'Upload New File'}
+                  disabled={uploadingDoc}
+                  onFilesSelected={handleDocumentUpload}
+                />
+              )}
+            />
+            <div className="space-y-4 px-5 pb-5">
+              <div className="flex items-start gap-2 rounded-md border border-blue-100 bg-blue-50 px-3 py-2">
+                <span className="material-symbols-outlined text-[16px] text-blue-600 mt-0.5">info</span>
+                <p className="text-[11px] leading-5 text-blue-800">
+                  Everything uploaded to this section will be viewable to all referred agencies.
+                </p>
+              </div>
+
               {caseFile.documents?.length > 0 ? (
                 <div className="space-y-2">
                   {caseFile.documents.map((doc) => {
@@ -840,32 +820,23 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
                   })}
                 </div>
               ) : (
-                <p className="text-[12px] text-slate-500">No case documents uploaded.</p>
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-[12px] text-slate-500">No case documents uploaded.</p>
+                  {canManageCaseDocuments && <p className="text-[12px] text-slate-400">Drag &amp; drop or click to browse</p>}
+                </div>
               )}
 
               {canManageCaseDocuments && (
                 <FileUpload
                   accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
                   maxSize={10 * 1024 * 1024}
-                  label={uploadingDoc ? 'Uploading...' : 'Upload New File'}
+                  label="Drop files here"
                   disabled={uploadingDoc}
-                  onFilesSelected={(file) => {
-                    if (!file) return;
-                    setUploadingDoc(true);
-                    router.post(
-                      route('cases.documents.store', caseFile.id),
-                      { file },
-                      {
-                        preserveScroll: true,
-                        onSuccess: () => setUploadingDoc(false),
-                        onError: () => setUploadingDoc(false),
-                      },
-                    );
-                  }}
+                  onFilesSelected={handleDocumentUpload}
                 />
               )}
             </div>
-          </CardSection>
+          </section>
         </aside>
       </div>
 
@@ -1025,6 +996,18 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
         entityType="case"
         entityId={caseFile.id}
         title={`Audit Log — ${caseFile.case_number}`}
+      />
+      <ConfirmDialog
+        open={!!confirmDeleteReferral}
+        title="Delete Referral"
+        message={`Are you sure you want to delete the referral to ${confirmDeleteReferral?.agency || 'this agency'}? Its milestones, comments and history will be removed from this case.`}
+        confirmLabel="Delete"
+        tone="danger"
+        onConfirm={() => {
+          router.delete(route('referrals.destroy', confirmDeleteReferral.id), { preserveScroll: true });
+          setConfirmDeleteReferral(null);
+        }}
+        onCancel={() => setConfirmDeleteReferral(null)}
       />
       <ConfirmDialog
         open={!!confirmDeleteDoc}

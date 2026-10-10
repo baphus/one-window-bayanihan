@@ -19,7 +19,7 @@ class CaseDocumentController extends Controller
         $query = $case->documents()->where('is_deleted', false);
 
         if ($request->user()->isAgency()) {
-            $query->whereHas('referral', fn ($referrals) => $referrals->where('agcy_id', $request->user()->agcy_id));
+            $query->visibleToAgency($request->user()->agcy_id);
         }
 
         if ($request->filled('category')) {
@@ -191,8 +191,10 @@ class CaseDocumentController extends Controller
             return;
         }
 
-        // Agency whose agcy_id matches the referral's agcy_id can access
-        if ($user->isAgency() && $document->referral && $document->referral->agcy_id === $user->agcy_id) {
+        // Agency users: general case files plus files on a referral to their
+        // own agency. Never another agency's referral documents.
+        if ($user->isAgency() && ($document->referral_id === null
+            || ($document->referral && $document->referral->agcy_id === $user->agcy_id))) {
             return;
         }
 

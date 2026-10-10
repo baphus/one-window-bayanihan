@@ -5,7 +5,7 @@ import PrimaryButton from '@/Components/PrimaryButton';
 import TextInput from '@/Components/TextInput';
 import InputLabel from '@/Components/InputLabel';
 import InputError from '@/Components/InputError';
-import { CardSection, InfoCell } from '@/Components/ui/CardSection';
+import { CardSection, CardHeader, InfoCell, InfoField } from '@/Components/ui/CardSection';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import UserAvatar, { getAvatarColor } from '@/Components/ui/UserAvatar';
 import PeerProfileModal from '@/Components/PeerProfileModal';
@@ -913,220 +913,419 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
     }
 
     return (
-        <AppLayout title="Referral Detail">
-            <Head title="Referral Detail" />
+        <AppLayout title="Referral Details">
+            <Head title="Referral Details" />
 
-            <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 mb-5">
-                <Link href={route('referrals.index')} className="transition hover:text-blue-900">Referrals</Link>
-                <span className="mx-2">&gt;</span>
-                <span>{referral.case_file?.case_number ?? referral.id}</span>
+            <div className="mb-5">
+                <Link href={route('referrals.index')} className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-slate-500 transition hover:text-blue-900">
+                    <span className="material-symbols-outlined text-[16px]">arrow_back</span>
+                    Back to Referrals
+                </Link>
             </div>
 
-            <div className="flex items-start justify-between gap-4 flex-wrap mb-6">
-                <h1 className="text-3xl md:text-[34px] font-black leading-tight tracking-tight text-slate-900">Referral Details</h1>
-                <div data-tour="referral-actions" className="flex items-center gap-2">
-                    {canUpdateStatus && referral.status === 'PENDING' && (
-                        <>
-                            <button
-                                onClick={() => setPendingDecision({ id: referral.id, mode: 'ACCEPT', status: 'PROCESSING' })}
-                                className="px-3 min-h-[34px] bg-emerald-600 text-[12px] font-bold text-white border border-emerald-600 rounded-md hover:bg-emerald-700 transition-colors"
-                            >
-                                Accept
-                            </button>
-                            <button
-                                onClick={() => setPendingDecision({ id: referral.id, mode: 'REJECT', status: 'REJECTED' })}
-                                className="px-3 min-h-[34px] bg-red-50 text-[12px] font-bold text-red-700 border border-red-200 rounded-md hover:bg-red-100 transition-colors"
-                            >
-                                Reject
-                            </button>
-                        </>
-                    )}
-                    {canUpdateStatus && !['PENDING', 'COMPLETED', 'REJECTED'].includes(referral.status) && (
-                            <button
-                                onClick={() => { setShowUpdateStatus(true); setUpdateStatusValue(referral.status); setUpdateStatusRemark(''); setUpdateStatusReason(''); }}
-                            className="px-3 min-h-[34px] bg-slate-100 text-[12px] font-bold text-slate-700 border border-slate-300 rounded-md hover:bg-slate-200 transition-colors inline-flex items-center"
-                        >
-                            Update Status
-                        </button>
-                    )}
-                    <button
-                        type="button"
-                        onClick={() => setShowAuditLog(true)}
-                        className="px-3 min-h-[34px] bg-slate-100 text-[12px] font-bold text-slate-700 border border-slate-300 rounded-md hover:bg-slate-200 transition-colors inline-flex items-center gap-1.5"
-                    >
-                        <span className="material-symbols-outlined text-[16px]">history</span>
-                        Audit Log
-                    </button>
-                    <Link
-                        href={route('referrals.index')}
-                        className="px-3 min-h-[34px] bg-slate-100 text-[12px] font-bold text-slate-700 border border-slate-300 rounded-md hover:bg-slate-200 transition-colors inline-flex items-center"
-                    >
-                        Back
-                    </Link>
-                </div>
+            <div className="mx-auto mb-5 max-w-[1440px]">
+                <h1 className="text-[28px] font-extrabold leading-tight tracking-[-0.02em] text-[#172333]">Referral Details</h1>
+                <p className="mt-2 text-[11px] leading-5 text-[#607080]">Referral Information, linked case and supporting records</p>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-12 gap-4">
-                <div className="lg:col-span-2 xl:col-span-12">
-                    <div data-tour="referral-info">
-                    <CardSection title="Referral Information" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
-                        {isOverdue && (
-                            <div className="mb-3 rounded-md border border-red-200 bg-red-50">
-                                <div className="flex items-center gap-2 px-3 py-2">
-                                    <span className="material-symbols-outlined text-[18px] text-red-600">warning</span>
-                                    <p className="flex-1 text-[12px] font-bold text-red-700">This referral is overdue by {referralAge} day{referralAge > 1 ? 's' : ''}</p>
+            <div className="mx-auto grid max-w-[1440px] grid-cols-1 gap-4 xl:grid-cols-12">
+                <main className="space-y-4 xl:col-span-8">
+                    {/* Referral Summary */}
+                    <section data-tour="referral-info" className="rounded-xl border border-[#dce3eb] bg-white shadow-[0_1px_3px_rgba(23,35,51,0.04)]">
+                        <CardHeader
+                            title="Referral Summary"
+                            actions={(
+                                <div data-tour="referral-actions" className="flex flex-wrap items-center gap-2">
+                                    {canUpdateStatus && referral.status === 'PENDING' && (
+                                        <>
+                                            <button
+                                                type="button"
+                                                onClick={() => setPendingDecision({ id: referral.id, mode: 'ACCEPT', status: 'PROCESSING' })}
+                                                className="inline-flex min-h-[34px] items-center rounded-md bg-[#233f82] px-3.5 text-[12px] font-bold text-white transition-colors hover:bg-[#172c63]"
+                                            >
+                                                Accept
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setPendingDecision({ id: referral.id, mode: 'REJECT', status: 'REJECTED' })}
+                                                className="inline-flex min-h-[34px] items-center rounded-md border border-red-200 bg-white px-3.5 text-[12px] font-bold text-red-700 transition-colors hover:bg-red-50"
+                                            >
+                                                Reject
+                                            </button>
+                                        </>
+                                    )}
+                                    {canUpdateStatus && !['PENDING', 'COMPLETED', 'REJECTED'].includes(referral.status) && (
+                                        <button
+                                            type="button"
+                                            onClick={() => { setShowUpdateStatus(true); setUpdateStatusValue(referral.status); setUpdateStatusRemark(''); setUpdateStatusReason(''); }}
+                                            className="inline-flex min-h-[34px] items-center rounded-md border border-slate-200 bg-white px-3.5 text-[12px] font-bold text-slate-700 transition-colors hover:bg-slate-50"
+                                        >
+                                            Update Status
+                                        </button>
+                                    )}
                                     <button
                                         type="button"
-                                        onClick={() => setShowOverdueInfo((prev) => !prev)}
-                                        className="flex h-[20px] w-[20px] items-center justify-center rounded-full text-red-500 hover:bg-red-200 transition-colors"
+                                        onClick={() => setShowAuditLog(true)}
+                                        className="inline-flex min-h-[34px] items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 text-[12px] font-bold text-slate-700 transition-colors hover:bg-slate-50"
                                     >
-                                        <span className="material-symbols-outlined text-[16px]">{showOverdueInfo ? 'close' : 'info'}</span>
+                                        <span className="material-symbols-outlined text-[15px]">history</span>
+                                        Audit Log
                                     </button>
                                 </div>
-                                {showOverdueInfo && (
-                                    <div className="border-t border-red-200 px-3 py-2">
-                                        <p className="text-[11px] leading-5 text-red-800">
-                                            A referral is considered overdue when there has been no update or activity for more than {overdueDays} day{overdueDays > 1 ? 's' : ''}.
-                                        </p>
+                            )}
+                        />
+                        <div className="space-y-3 px-5 pb-5">
+                            {isOverdue && (
+                                <div className="rounded-md border border-red-200 bg-red-50">
+                                    <div className="flex items-center gap-2 px-3 py-2">
+                                        <span className="material-symbols-outlined text-[18px] text-red-600">warning</span>
+                                        <p className="flex-1 text-[12px] font-bold text-red-700">This referral is overdue by {referralAge} day{referralAge > 1 ? 's' : ''}</p>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowOverdueInfo((prev) => !prev)}
+                                            className="flex h-[20px] w-[20px] items-center justify-center rounded-full text-red-500 hover:bg-red-200 transition-colors"
+                                        >
+                                            <span className="material-symbols-outlined text-[16px]">{showOverdueInfo ? 'close' : 'info'}</span>
+                                        </button>
                                     </div>
-                                )}
-                            </div>
-                        )}
-                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 border border-slate-200">
-                            <InfoCell label="Status" value={<StatusBadge status={referral.status} />} />
-                            <InfoCell label="Receiving Agency" value={referral.agency?.name ?? 'N/A'} />
-                            <InfoCell label="Associated Case No." value={
-                                <Link href={route('cases.show', referral.case_id)} className="text-blue-900 hover:underline">
-                                    {referral.case_file?.case_number ?? 'N/A'}
-                                </Link>
-                            } />
-                            <InfoCell label="Tracking ID" value={referral.case_file?.tracker_number ?? 'N/A'} />
-                            <InfoCell label="Date Referred" value={formatDisplayDateTime(referral.created_at)} />
-                            <InfoCell label="Last Updated" value={formatDisplayDateTime(referral.updated_at)} />
-                        </div>
-                        <div className="mt-3 border-t border-slate-200 pt-3">
-                            <div className="px-3 py-2 border-b border-slate-200">
-                                <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Required Services</p>
-                                <div className="mt-1 space-y-2">
-                                    {referral.services?.length > 0 ? (
-                                        referral.services.map((service) => (
-                                            <ServiceCard
-                                                key={service.id}
-                                                service={service}
-                                                referral={referral}
-                                                isAgency={isAgency}
-                                                serviceRequirements={referral.service_requirements?.filter(r => r.service_id === service.id) ?? []}
-                                            />
-                                        ))
-                                    ) : (
-                                        <span className="text-[12px] text-slate-500 italic">
-                                            {isAgency
-                                                ? 'No services assigned yet — add the services this referral will apply for.'
-                                                : 'No services assigned yet. The agency focal will assign services for this referral.'}
-                                        </span>
+                                    {showOverdueInfo && (
+                                        <div className="border-t border-red-200 px-3 py-2">
+                                            <p className="text-[11px] leading-5 text-red-800">
+                                                A referral is considered overdue when there has been no update or activity for more than {overdueDays} day{overdueDays > 1 ? 's' : ''}.
+                                            </p>
+                                        </div>
                                     )}
                                 </div>
-
-                                {isAgency && referral.status !== 'COMPLETED' && (
-                                    <ServiceAddDropdown
-                                        referralId={referral.id}
-                                        selectedIds={new Set((referral.services ?? []).map((s) => s.id))}
-                                        serviceRequirements={serviceRequirements}
-                                    />
-                                )}
+                            )}
+                            <div className="grid grid-cols-1 gap-y-1 sm:grid-cols-3 [&>div]:border-0">
+                                <InfoCell label="Status" value={<StatusBadge status={referral.status} />} />
+                                <InfoCell label="Receiving agency" value={referral.agency?.name ?? 'N/A'} />
+                                <InfoCell label="Linked case" value={
+                                    <Link href={route('cases.show', referral.case_id)} className="text-blue-900 hover:underline">
+                                        {referral.case_file?.case_number ?? 'N/A'}
+                                    </Link>
+                                } />
+                                <InfoCell label="Tracking ID" value={referral.case_file?.tracker_number ?? 'N/A'} />
+                                <InfoCell label="Date referred" value={formatDisplayDateTime(referral.created_at)} />
+                                <InfoCell label="Last updated" value={formatDisplayDateTime(referral.updated_at)} />
                             </div>
+                        </div>
+                    </section>
+
+                    {/* Required Services */}
+                    <section className="rounded-xl border border-[#dce3eb] bg-white shadow-[0_1px_3px_rgba(23,35,51,0.04)]">
+                        <CardHeader title="Required Services" />
+                        <div className="space-y-3 px-5 pb-5">
+                            {referral.services?.length > 0 ? (
+                                <div className="space-y-2">
+                                    {referral.services.map((service) => (
+                                        <ServiceCard
+                                            key={service.id}
+                                            service={service}
+                                            referral={referral}
+                                            isAgency={isAgency}
+                                            serviceRequirements={referral.service_requirements?.filter(r => r.service_id === service.id) ?? []}
+                                        />
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="text-[12px] text-slate-500">
+                                    {isAgency
+                                        ? 'No services assigned yet — add the services this referral will apply for.'
+                                        : 'No services assigned yet. The agency focal will assign services for this referral.'}
+                                </p>
+                            )}
+
+                            {isAgency && referral.status !== 'COMPLETED' && (
+                                <ServiceAddDropdown
+                                    referralId={referral.id}
+                                    selectedIds={new Set((referral.services ?? []).map((s) => s.id))}
+                                    serviceRequirements={serviceRequirements}
+                                />
+                            )}
                             {referral.notes && (
-                                <div className="px-3 py-2 border-b border-slate-200">
-                                    <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Notes</p>
-                                    <p className="mt-1 text-[12px] font-semibold text-slate-700 whitespace-pre-wrap">{referral.notes}</p>
+                                <div>
+                                    <p className="text-[12px] font-medium text-slate-500">Notes</p>
+                                    <p className="mt-0.5 text-[13px] font-semibold text-slate-800 whitespace-pre-wrap">{referral.notes}</p>
                                 </div>
                             )}
                             {referral.decision && (
-                                <div className="px-3 py-2 border-b border-slate-200">
-                                    <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Decision</p>
-                                    <p className="mt-1 text-[12px] font-semibold text-slate-700">{referral.decision}</p>
+                                <div>
+                                    <p className="text-[12px] font-medium text-slate-500">Decision</p>
+                                    <p className="mt-0.5 text-[13px] font-semibold text-slate-800">{referral.decision}</p>
                                 </div>
                             )}
                             {referral.decision_comment && (
-                                <div className="px-3 py-2">
-                                    <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Decision Comment</p>
-                                    <p className="mt-1 text-[12px] font-semibold text-slate-700 whitespace-pre-wrap">{referral.decision_comment}</p>
+                                <div>
+                                    <p className="text-[12px] font-medium text-slate-500">Decision comment</p>
+                                    <p className="mt-0.5 text-[13px] font-semibold text-slate-800 whitespace-pre-wrap">{referral.decision_comment}</p>
                                 </div>
                             )}
                         </div>
-                    </CardSection>
-                    </div>
-                </div>
+                    </section>
 
-                <div className="lg:col-span-1 xl:col-span-8 space-y-4">
-                    <CardSection title="Client Details" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
-                        <div className="space-y-4 p-4">
-                            {/* Avatar + Name row */}
-                            <div className="flex items-start gap-4 pb-4 border-b border-slate-200">
-                                {client?.avatar_url ? (
-                                    <img src={client.avatar_url} alt="" className="h-14 w-14 rounded-full object-cover border border-slate-200 shrink-0" onError={(e) => { e.target.style.display = 'none'; }} />
-                                ) : (
-                                    <span className={`h-14 w-14 inline-flex items-center justify-center rounded-full shrink-0 ${getAvatarColor(formatFullName(client))}`}>
-                                        <span className="material-symbols-outlined text-[24px] text-white/60">person</span>
-                                    </span>
-                                )}
-                                <div className="min-w-0 flex-1 self-center">
-                                    <p className="text-[16px] font-bold text-slate-900 break-words">
-                                        {formatFullName(client)}
-                                    </p>
-                                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                                        <span className="inline-flex items-center rounded-md bg-blue-50 border border-blue-200 px-2 py-0.5 text-[10px] font-bold text-blue-700 uppercase tracking-wider">
-                                            {caseFile?.client_type?.replace(/_/g, ' ') ?? 'N/A'}
-                                        </span>
-                                        {client?.sex && (
-                                            <span className="inline-flex items-center rounded-md bg-slate-50 border border-slate-200 px-2 py-0.5 text-[10px] font-medium text-slate-600">
-                                                {client.sex}
-                                            </span>
-                                        )}
+                    {/* Linked Case Information */}
+                    <section className="rounded-xl border border-[#dce3eb] bg-white shadow-[0_1px_3px_rgba(23,35,51,0.04)]">
+                        <CardHeader title="Linked Case Information" />
+                        <div className="space-y-4 px-5 pb-5">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 [&>div]:border-0">
+                                <InfoCell label="Case no." value={
+                                    <Link href={route('cases.show', referral.case_id)} className="text-blue-900 hover:underline">
+                                        {caseFile?.case_number ?? 'N/A'}
+                                    </Link>
+                                } />
+                                <InfoCell label="Case status" value={caseFile?.status ? <StatusBadge status={caseFile.status} /> : 'N/A'} />
+                                <InfoCell label="Tracker number" value={caseFile?.tracker_number ?? 'N/A'} />
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 [&>div]:border-0">
+                                <InfoCell label="Category" value={caseFile?.category?.name ?? caseFile?.category?.title ?? 'N/A'} />
+                                <InfoCell label="Issue / concern" value={caseFile?.case_issue?.name ?? caseFile?.case_issue?.title ?? 'N/A'} />
+                            </div>
+                            <div>
+                                <p className="text-[12px] font-medium text-slate-500">Case narrative</p>
+                                <p className="mt-0.5 text-[13px] leading-5 text-slate-700 whitespace-pre-wrap">{caseFile?.summary || 'No case narrative recorded.'}</p>
+                            </div>
+                        </div>
+                    </section>
+
+                    {relatedReferrals.length > 0 && (
+                        <section className="rounded-xl border border-[#dce3eb] bg-white shadow-[0_1px_3px_rgba(23,35,51,0.04)]">
+                            <CardHeader title="Other Agencies on This Case" />
+                            <div className="space-y-2 px-5 pb-5">
+                                {relatedReferrals.map((rel) => {
+                                    const latestMilestone = rel.milestones?.[0];
+                                    return (
+                                        <button
+                                            key={rel.id}
+                                            type="button"
+                                            onClick={() => openRelatedReferral(rel)}
+                                            className="w-full rounded-lg border border-slate-200 bg-slate-50/70 px-4 py-3 text-left transition-colors hover:border-slate-300 hover:bg-slate-100/70"
+                                        >
+                                            <div className="flex items-center justify-between gap-2">
+                                                <div className="min-w-0">
+                                                    <p className="text-[13px] font-bold text-slate-800 truncate">{rel.agency?.name ?? 'Unknown Agency'}</p>
+                                                    {rel.services?.length > 0 && (
+                                                        <p className="mt-0.5 text-[11px] text-slate-500 truncate">
+                                                            {rel.services.map((s) => s.name).join(', ')}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                                <div className="shrink-0 flex items-center gap-2">
+                                                    <StatusBadge status={rel.status} />
+                                                    {rel.can_message && rel.unread_count > 0 && !readThreadIds.has(rel.id) && (
+                                                        <span className="inline-flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-blue-900 px-1 text-[9px] font-bold leading-none text-white">
+                                                            {rel.unread_count}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="mt-1 flex items-center justify-between gap-2">
+                                                <p className="text-[9px] text-slate-400">Referred {formatDisplayDateTime(rel.created_at)}</p>
+                                                {latestMilestone && (
+                                                    <p className="text-[9px] text-slate-500 truncate">
+                                                        <span className="material-symbols-outlined inline-block align-[-2px] text-[11px] text-emerald-500 mr-0.5">flag</span>
+                                                        {latestMilestone.title} · {formatRelativeTime(latestMilestone.created_at)}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </section>
+                    )}
+
+                    <div data-tour="referral-timeline">
+                        <section className="rounded-xl border border-[#dce3eb] bg-white shadow-[0_1px_3px_rgba(23,35,51,0.04)]">
+                            <CardHeader title="Referral Timeline" />
+                            <div className="px-5 pb-5">
+                                <UnifiedTimeline
+                                    items={timeline}
+                                    eventConfig={TIMELINE_EVENT_CONFIG}
+                                    footerActions={
+                                        canAddMilestone ? (
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowMilestoneModal(true)}
+                                                className="mt-3 h-[34px] w-full rounded-md bg-[#233f82] px-3 text-[12px] font-bold text-white transition-colors hover:bg-[#172c63]"
+                                            >
+                                                + Add Milestone
+                                            </button>
+                                        ) : null
+                                    }
+                                />
+                            </div>
+                        </section>
+                    </div>
+
+                    <div data-tour="referral-comments">
+                        <section className="rounded-xl border border-[#dce3eb] bg-white shadow-[0_1px_3px_rgba(23,35,51,0.04)]">
+                            <CardHeader title="Referral Comments" />
+                            <div className="px-5 pb-5">
+                                <div className="space-y-3">
+                                    {topLevelComments.length > 0 ? (
+                                        topLevelComments.map((comment) => {
+                                            const replies = comment.replies ?? [];
+                                            return (
+                                                <div key={comment.id} className="rounded-md border border-slate-200 bg-white shadow-sm">
+                                                    <div className="flex items-start gap-2.5 px-3 pt-2.5 pb-2">
+                                                        <UserAvatar user={comment.user} size="sm" />
+                                                        <div className="min-w-0 flex-1">
+                                                            <div className="flex items-baseline gap-2">
+                                                                <span className="text-[11px] font-bold text-slate-800">{comment.user?.name ?? 'Unknown'}</span>
+                                                                <span className="text-[9px] text-slate-400">{formatDisplayDateTime(comment.created_at)}</span>
+                                                                {comment.is_edited && <span className="text-[9px] text-slate-400 italic">(edited)</span>}
+                                                            </div>
+                                                            <p className="mt-0.5 text-[11px] leading-5 text-slate-700 whitespace-pre-wrap">{comment.content}</p>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setReplyToCommentId(comment.id);
+                                                                    setCommentDraft('');
+                                                                }}
+                                                                className="mt-1 text-[9px] font-bold text-blue-900 hover:text-blue-800 transition-colors"
+                                                            >
+                                                                Reply
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                    {replies.length > 0 && (
+                                                        <div className="ml-8 mr-3 pb-2.5 space-y-2">
+                                                            {replies.map((reply) => (
+                                                                <div key={reply.id} className="flex items-start gap-2 rounded-md bg-slate-50 px-2.5 py-2">
+                                                                    <UserAvatar user={reply.user} size="sm" onClick={() => setPeerProfileUser(reply.user)} />
+                                                                    <div className="min-w-0 flex-1">
+                                                                        <div className="flex items-baseline gap-2">
+                                                                            <span className="text-[10px] font-bold text-slate-700">{reply.user?.name ?? 'Unknown'}</span>
+                                                                            <span className="text-[9px] text-slate-400">{formatDisplayDateTime(reply.created_at)}</span>
+                                                                            {reply.is_edited && <span className="text-[9px] text-slate-400 italic">(edited)</span>}
+                                                                        </div>
+                                                                        <p className="text-[11px] leading-5 text-slate-700 whitespace-pre-wrap">{reply.content}</p>
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })
+                                    ) : (
+                                        <div className="flex flex-col items-center justify-center py-8 text-center">
+                                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 border border-slate-200">
+                                                <span className="material-symbols-outlined text-[18px] text-slate-400">chat_bubble_outline</span>
+                                            </div>
+                                            <p className="mt-2 text-[11px] font-semibold text-slate-500">No comments yet</p>
+                                            <p className="text-[10px] text-slate-400">Start the conversation below.</p>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="mt-3 pt-3 border-t border-slate-200">
+                                    {replyToComment && (
+                                        <div className="mb-2 flex items-center justify-between rounded-md bg-sky-50 border border-sky-200 px-2.5 py-1.5">
+                                            <p className="text-[10px] text-blue-900 font-semibold truncate">
+                                                Replying to <span className="font-bold">{replyToComment.user?.name ?? 'comment'}</span>
+                                            </p>
+                                            <button
+                                                type="button"
+                                                onClick={cancelReply}
+                                                className="text-[10px] font-bold text-blue-900 hover:underline shrink-0 ml-2"
+                                            >
+                                                Cancel
+                                            </button>
+                                        </div>
+                                    )}
+                                    <div className="flex items-start gap-2">
+                                        <UserAvatar user={auth.user} size="sm" />
+                                        <div className="flex-1 min-w-0">
+                                            <textarea
+                                                value={commentDraft}
+                                                onChange={(e) => setCommentDraft(e.target.value)}
+                                                rows={2}
+                                                className="w-full rounded-md border border-slate-200 px-3 py-1.5 text-[12px] text-slate-700 outline-none focus:border-blue-900 focus:ring-1 focus:ring-blue-900/20 resize-none transition-colors"
+                                                placeholder={replyToComment ? 'Write a reply...' : 'Write a comment...'}
+                                            />
+                                            <div className="mt-1.5 flex items-center justify-between">
+                                                <span className="text-[9px] text-slate-400">{replyToComment ? 'Your reply will be posted immediately' : 'Your comment will be posted immediately'}</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={handlePostComment}
+                                                    disabled={postingComment || !commentDraft.trim()}
+                                                    className="h-[26px] px-3 bg-blue-900 text-white text-[10px] font-bold rounded-md border border-blue-900 hover:bg-blue-800 disabled:opacity-60 transition-colors"
+                                                >
+                                                    {postingComment ? 'Posting...' : 'Post'}
+                                                </button>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
+                        </section>
+                    </div>
 
-                            {/* Personal Info grid */}
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                                <div>
-                                    <p className="text-[8px] font-extrabold uppercase tracking-[0.08em] text-slate-500">Date of Birth</p>
-                                    <p className="mt-0.5 text-[12px] font-semibold text-slate-700">{client?.date_of_birth ? formatDisplayDate(client.date_of_birth) : 'N/A'}</p>
-                                </div>
-                                <div>
-                                    <p className="text-[8px] font-extrabold uppercase tracking-[0.08em] text-slate-500">Age</p>
-                                    <p className="mt-0.5 text-[12px] font-semibold text-slate-700">{client?.date_of_birth ? getClientAge(client.date_of_birth) : 'N/A'}</p>
-                                </div>
-                                <div className="col-span-2 sm:col-span-1">
-                                    <p className="text-[8px] font-extrabold uppercase tracking-[0.08em] text-slate-500">Vulnerability</p>
-                                    <p className="mt-0.5 text-[12px] font-semibold text-slate-700">
-                                        {(() => {
-                                            const vuln = caseFile?.client_type === 'NEXT_OF_KIN'
-                                                ? caseFile?.nok_vulnerability_indicator
-                                                : caseFile?.vulnerability_indicator;
-                                            return vuln || 'None';
-                                        })()}
-                                    </p>
-                                </div>
-                                <div className="col-span-2 sm:col-span-1">
-                                    <p className="text-[8px] font-extrabold uppercase tracking-[0.08em] text-slate-500">Address</p>
-                                    <p className="mt-0.5 text-[12px] font-semibold text-slate-700">{formatAddress(clientAddress)}</p>
-                                </div>
+                    {(isAdmin || isReceivingAgency) && (
+                    <ClientRequestsSection
+                        referral={referral}
+                        requests={clientRequestHistory}
+                        permissions={clientRequestPermissions}
+                        isReceivingAgency={isReceivingAgency}
+                        isCaseManager={isCaseManager}
+                        isAdmin={isAdmin}
+                    />
+                    )}
+                </main>
+
+                <aside className="space-y-4 xl:col-span-4">
+                    {/* Client Information */}
+                    <section data-tour="referral-client-info" className="rounded-xl border border-[#dce3eb] bg-white shadow-[0_1px_3px_rgba(23,35,51,0.04)]">
+                        <CardHeader title="Client Information" />
+                        <div className="space-y-4 px-5 pb-5">
+                            {client ? (
+                                client.avatar_url ? (
+                                    <img
+                                        src={client.avatar_url}
+                                        alt=""
+                                        className="h-[72px] w-[72px] shrink-0 rounded-2xl border border-slate-200 object-cover"
+                                        onError={(e) => { e.target.style.display = 'none'; }}
+                                    />
+                                ) : (
+                                    <span
+                                        className={`inline-flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-2xl text-[22px] font-bold text-white ${getAvatarColor(formatFullName(client))}`}
+                                        aria-hidden="true"
+                                    >
+                                        {[client?.first_name, client?.last_name].filter(Boolean).map((part) => part[0]).join('').toUpperCase().slice(0, 2) || '?'}
+                                    </span>
+                                )
+                            ) : null}
+
+                            <InfoField label="Full name" value={formatFullName(client)} />
+
+                            <InfoField label="Client type" value={caseFile?.client_type?.replace(/_/g, ' ')} />
+
+                            <InfoField label="Date of birth" value={client?.date_of_birth ? formatDisplayDate(client.date_of_birth) : null} />
+
+                            <div className="grid grid-cols-2 gap-3">
+                                <InfoField label="Age" value={client?.date_of_birth ? getClientAge(client.date_of_birth) : null} />
+                                <InfoField label="Sex" value={client?.sex} />
                             </div>
 
-                            {/* Contact — stacked single column so long emails read clearly */}
-                            <div className="grid grid-cols-1 gap-3">
-                                <div>
-                                    <p className="text-[8px] font-extrabold uppercase tracking-[0.08em] text-slate-500">Email</p>
-                                    <p className="mt-0.5 text-[12px] font-semibold text-slate-700 break-words">{client?.email || 'N/A'}</p>
-                                </div>
-                                <div>
-                                    <p className="text-[8px] font-extrabold uppercase tracking-[0.08em] text-slate-500">Contact Number</p>
-                                    <p className="mt-0.5 text-[12px] font-semibold text-slate-700">{client?.contact_number || 'N/A'}</p>
-                                </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <InfoField label="Email" value={client?.email} />
+                                <InfoField label="Contact no." value={client?.contact_number} />
                             </div>
 
-                            {/* Employment History */}
+                            <InfoField
+                                label="Vulnerability"
+                                value={(() => {
+                                    const vuln = caseFile?.client_type === 'NEXT_OF_KIN'
+                                        ? caseFile?.nok_vulnerability_indicator
+                                        : caseFile?.vulnerability_indicator;
+                                    return vuln || 'None';
+                                })()}
+                            />
+
+                            <InfoField label="Address" value={formatAddress(clientAddress)} />
+
                             {client?.employments?.length > 0 && (
                                 <>
                                     <hr className="border-slate-200" />
@@ -1136,7 +1335,7 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                                             <span className="ml-1.5 text-slate-400 font-normal normal-case">({client.employments.length} record{client.employments.length !== 1 ? 's' : ''})</span>
                                         </p>
                                         <div className="space-y-2">
-                                            {client.employments.map((emp, idx) => (
+                                            {client.employments.map((emp) => (
                                                 <div key={emp.id} className="rounded-md border border-slate-100 bg-slate-50 px-3 py-2">
                                                     <div className="flex items-start justify-between gap-2">
                                                         <div className="min-w-0">
@@ -1179,20 +1378,17 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                                 </>
                             )}
 
-                            {/* Next of Kin */}
                             {client?.nextOfKin?.length > 0 && (
                                 <>
                                     <hr className="border-slate-200" />
                                     <div>
-                                        <div className="flex items-center justify-between mb-2">
-                                            <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">
-                                                Next of Kin
-                                                <span className="ml-1.5 text-slate-400 font-normal normal-case">({client.nextOfKin.length} record{client.nextOfKin.length !== 1 ? 's' : ''})</span>
-                                            </p>
-                                        </div>
+                                        <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500 mb-2">
+                                            Next of Kin
+                                            <span className="ml-1.5 text-slate-400 font-normal normal-case">({client.nextOfKin.length} record{client.nextOfKin.length !== 1 ? 's' : ''})</span>
+                                        </p>
                                         <div className="space-y-2">
-                                            {client.nextOfKin.map((nok, idx) => (
-                                                <div key={nok.id} className={`rounded-md border border-slate-100 px-3 py-2 ${idx > 0 ? 'bg-white' : 'bg-blue-50/50 border-blue-100'}`}>
+                                            {client.nextOfKin.map((nok) => (
+                                                <div key={nok.id} className={`rounded-md border px-3 py-2 ${nok.is_primary ? 'border-blue-100 bg-blue-50/50' : 'border-slate-100 bg-white'}`}>
                                                     <div className="flex items-center gap-2">
                                                         <span className="text-[13px] font-bold text-slate-800">
                                                             {[nok.first_name, nok.last_name].filter(Boolean).join(' ')}
@@ -1213,68 +1409,18 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                                 </>
                             )}
                         </div>
-                    </CardSection>
+                    </section>
 
-                    <CardSection title="Case Information" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 border border-slate-200">
-                            <InfoCell label="Case Status" value={caseFile?.status ? <StatusBadge status={caseFile.status} /> : 'N/A'} />
-                            <InfoCell label="Tracker Number" value={caseFile?.tracker_number ?? 'N/A'} />
-                            <InfoCell label="Category" value={caseFile?.category?.name ?? caseFile?.category?.title ?? 'N/A'} />
-                            <InfoCell label="Issue / Concern" value={caseFile?.case_issue?.name ?? caseFile?.case_issue?.title ?? 'N/A'} />
-                        </div>
-                    </CardSection>
-
-                    {/* Uploaded Documents / Attachments */}
-                    {(referral.attachments ?? []).filter((att) => !att.is_archived).length > 0 && (
-                        <CardSection title="Uploaded Documents" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
-                            <div className="divide-y divide-slate-100">
-                                {(referral.attachments ?? [])
-                                    .filter((att) => !att.is_archived)
-                                    .map((att) => (
-                                        <div key={att.id} className="flex items-center gap-3 px-1 py-2.5">
-                                            <span className="material-symbols-outlined text-[16px] text-slate-400">description</span>
-                                            <div className="min-w-0 flex-1">
-                                                <a
-                                                    href={route('referrals.attachments.download', [referral.id, att.id])}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="text-[12px] text-blue-700 hover:text-blue-900 hover:underline font-medium truncate block"
-                                                >
-                                                    {att.file_name}
-                                                </a>
-                                                <div className="flex items-center gap-2 mt-0.5">
-                                                    {att.user && (
-                                                        <span className="text-[9px] text-slate-400">
-                                                            Uploaded by {att.user.name}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </div>
-                                            {att.user_id === auth.user.id && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setRemoveAttachment(att)}
-                                                    className="text-[9px] text-red-600 hover:text-red-800 font-bold inline-flex items-center gap-0.5 shrink-0"
-                                                >
-                                                    <span className="material-symbols-outlined text-[12px]">delete</span>
-                                                    Remove
-                                                </button>
-                                            )}
-                                        </div>
-                                    ))}
-                            </div>
-                        </CardSection>
-                    )}
-
-                    {/* Referral Documents */}
+                    {/* Documents */}
                     <div data-tour="referral-documents">
-                        <CardSection title="Documents" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
-                            {/* Upload area — case manager and admin only */}
-                            {(isCaseManager || isAdmin) && (
-                                <div className="border border-slate-200 rounded-md bg-slate-50/50 px-3 py-2.5 mb-3">
-                                    <div className="flex items-center gap-2">
-                                        <label className="shrink-0 h-[28px] px-3 bg-blue-900 text-white text-[10px] font-bold rounded-md border border-blue-900 hover:bg-blue-800 transition-colors cursor-pointer inline-flex items-center gap-1.5">
-                                            <span className="material-symbols-outlined text-[14px]">upload_file</span>
+                        <section className="rounded-xl border border-[#dce3eb] bg-white shadow-[0_1px_3px_rgba(23,35,51,0.04)]">
+                            <CardHeader
+                                title="Documents"
+                                meta={`${((referral.attachments ?? []).filter((att) => !att.is_archived).length) + ((referral.documents ?? []).length)} files`}
+                                actions={(isCaseManager || isAdmin) && (
+                                    <>
+                                        <label className="h-[34px] cursor-pointer inline-flex items-center gap-1.5 rounded-md border border-[#233f82] bg-white px-3 text-[12px] font-bold text-[#233f82] transition-colors hover:bg-blue-50">
+                                            <span className="material-symbols-outlined text-[15px]">upload_file</span>
                                             Choose File
                                             <input
                                                 type="file"
@@ -1282,262 +1428,122 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                                                 onChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)}
                                             />
                                         </label>
-                                        {selectedFile ? (
-                                            <span className="text-[11px] text-slate-600 truncate min-w-0">{selectedFile.name}</span>
-                                        ) : (
-                                            <span className="text-[11px] text-slate-400 italic">No file selected</span>
-                                        )}
                                         <button
                                             type="button"
                                             onClick={handleDocumentUpload}
                                             disabled={!selectedFile || uploadingDoc}
-                                            className="ml-auto shrink-0 h-[28px] px-3 bg-blue-900 text-white text-[10px] font-bold rounded-md border border-blue-900 hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center gap-1"
+                                            className="h-[34px] rounded-md bg-[#233f82] px-3.5 text-[12px] font-bold text-white transition-colors hover:bg-[#172c63] disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1"
                                         >
                                             {uploadingDoc ? (
                                                 <>
-                                                    <span className="material-symbols-outlined text-[14px] animate-spin">progress_activity</span>
+                                                    <span className="material-symbols-outlined text-[15px] animate-spin">progress_activity</span>
                                                     Uploading…
                                                 </>
                                             ) : (
                                                 <>
-                                                    <span className="material-symbols-outlined text-[14px]">cloud_upload</span>
+                                                    <span className="material-symbols-outlined text-[15px]">cloud_upload</span>
                                                     Upload
                                                 </>
                                             )}
                                         </button>
-                                    </div>
-                                    {uploadError && (
-                                        <p className="mt-2 text-[11px] text-red-600">{uploadError}</p>
-                                    )}
-                                </div>
-                            )}
-
-                            {/* Document list */}
-                            {referral.documents && referral.documents.length > 0 ? (
-                                <div className="divide-y divide-slate-100">
-                                    {referral.documents.map((doc) => (
-                                        <div key={doc.id} className="flex items-center gap-3 px-1 py-2.5">
-                                            <span className="material-symbols-outlined text-[16px] text-slate-400">
-                                                {doc.file_type?.startsWith('image/') ? 'image' : 'description'}
-                                            </span>
-                                            <div className="min-w-0 flex-1">
-                                                <a
-                                                    href={route('cases.documents.download', [referral.case_id, doc.id])}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="text-[12px] text-blue-700 hover:text-blue-900 hover:underline font-medium truncate block"
-                                                >
-                                                    {doc.file_name}
-                                                </a>
-                                                <div className="flex items-center gap-2 mt-0.5">
-                                                    {doc.user && (
-                                                        <span className="text-[9px] text-slate-400">
-                                                            Uploaded by {doc.user.name}
-                                                        </span>
-                                                    )}
-                                                    {doc.created_at && (
-                                                        <span className="text-[9px] text-slate-400">
-                                                            {formatDisplayDateTime(doc.created_at)}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <p className="text-[12px] text-slate-500 italic">No documents uploaded yet.</p>
-                            )}
-                        </CardSection>
-                    </div>
-
-                    {(isAdmin || isReceivingAgency) && (
-                    <ClientRequestsSection
-                        referral={referral}
-                        requests={clientRequestHistory}
-                        permissions={clientRequestPermissions}
-                        isReceivingAgency={isReceivingAgency}
-                        isCaseManager={isCaseManager}
-                        isAdmin={isAdmin}
-                    />
-                    )}
-                </div>
-
-                <aside className="lg:col-span-1 xl:col-span-4 space-y-4">
-                    <div data-tour="referral-timeline">
-                    <CardSection title="Referral Timeline" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
-                        <UnifiedTimeline
-                            items={timeline}
-                            eventConfig={TIMELINE_EVENT_CONFIG}
-                            footerActions={
-                                canAddMilestone ? (
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowMilestoneModal(true)}
-                                        className="mt-3 h-[28px] w-full px-3 bg-blue-900 text-white text-[10px] font-bold rounded-md border border-blue-900 hover:bg-blue-800 transition-colors"
-                                    >
-                                        + Add Milestone
-                                    </button>
-                                ) : null
-                            }
-                        />
-                    </CardSection>
-                    </div>
-
-                    <CardSection title="Case Narrative" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
-                        {referral.case_file?.summary ? (
-                            <p className="text-[12px] leading-5 text-slate-600 whitespace-pre-wrap">{referral.case_file.summary}</p>
-                        ) : (
-                            <p className="text-[12px] text-slate-500 italic">No case narrative recorded.</p>
-                        )}
-                    </CardSection>
-
-                    {relatedReferrals.length > 0 && (
-                        <CardSection title="Other Agencies on This Case" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
-                            <div className="space-y-2">
-                                {relatedReferrals.map((rel) => {
-                                    const latestMilestone = rel.milestones?.[0];
-                                    return (
-                                        <button
-                                            key={rel.id}
-                                            type="button"
-                                            onClick={() => openRelatedReferral(rel)}
-                                            className="w-full rounded-md border border-slate-200 bg-slate-50/70 px-3 py-2.5 text-left transition-colors hover:border-slate-300 hover:bg-slate-100/70"
-                                        >
-                                            <div className="flex items-center justify-between gap-2">
-                                                <div className="min-w-0">
-                                                    <p className="text-[12px] font-bold text-slate-800 truncate">{rel.agency?.name ?? 'Unknown Agency'}</p>
-                                                    {rel.services?.length > 0 && (
-                                                        <p className="mt-0.5 text-[10px] text-slate-500 truncate">
-                                                            {rel.services.map((s) => s.name).join(', ')}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                                <div className="shrink-0 flex items-center gap-2">
-                                                    <StatusBadge status={rel.status} />
-                                                    {rel.can_message && rel.unread_count > 0 && !readThreadIds.has(rel.id) && (
-                                                        <span className="inline-flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-blue-900 px-1 text-[9px] font-bold leading-none text-white">
-                                                            {rel.unread_count}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </div>
-                                            <div className="mt-1 flex items-center justify-between gap-2">
-                                                <p className="text-[9px] text-slate-400">Referred {formatDisplayDateTime(rel.created_at)}</p>
-                                                {latestMilestone && (
-                                                    <p className="text-[9px] text-slate-500 truncate">
-                                                        <span className="material-symbols-outlined inline-block align-[-2px] text-[11px] text-emerald-500 mr-0.5">flag</span>
-                                                        {latestMilestone.title} · {formatRelativeTime(latestMilestone.created_at)}
-                                                    </p>
-                                                )}
-                                            </div>
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </CardSection>
-                    )}
-
-                    <div data-tour="referral-comments">
-                    <CardSection title="Referral Comments" className="[&>h3]:text-gray-800 [&>h3]:tracking-[0.14em]">
-                        <div className="space-y-3">
-                            {topLevelComments.length > 0 ? (
-                                topLevelComments.map((comment) => {
-                                    const replies = comment.replies ?? [];
-                                    return (
-                                        <div key={comment.id} className="rounded-md border border-slate-200 bg-white shadow-sm">
-                                            <div className="flex items-start gap-2.5 px-3 pt-2.5 pb-2">
-                                                <UserAvatar user={comment.user} size="sm" />
-                                                <div className="min-w-0 flex-1">
-                                                    <div className="flex items-baseline gap-2">
-                                                        <span className="text-[11px] font-bold text-slate-800">{comment.user?.name ?? 'Unknown'}</span>
-                                                        <span className="text-[9px] text-slate-400">{formatDisplayDateTime(comment.created_at)}</span>
-                                                        {comment.is_edited && <span className="text-[9px] text-slate-400 italic">(edited)</span>}
-                                                    </div>
-                                                    <p className="mt-0.5 text-[11px] leading-5 text-slate-700 whitespace-pre-wrap">{comment.content}</p>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => {
-                                                            setReplyToCommentId(comment.id);
-                                                            setCommentDraft('');
-                                                        }}
-                                                        className="mt-1 text-[9px] font-bold text-blue-900 hover:text-blue-800 transition-colors"
-                                                    >
-                                                        Reply
-                                                    </button>
-                                                </div>
-                                            </div>
-                                            {replies.length > 0 && (
-                                                <div className="ml-8 mr-3 pb-2.5 space-y-2">
-                                                    {replies.map((reply) => (
-                                                        <div key={reply.id} className="flex items-start gap-2 rounded-md bg-slate-50 px-2.5 py-2">
-                                                            <UserAvatar user={reply.user} size="sm" onClick={() => setPeerProfileUser(reply.user)} />
-                                                            <div className="min-w-0 flex-1">
-                                                                <div className="flex items-baseline gap-2">
-                                                                    <span className="text-[10px] font-bold text-slate-700">{reply.user?.name ?? 'Unknown'}</span>
-                                                                    <span className="text-[9px] text-slate-400">{formatDisplayDateTime(reply.created_at)}</span>
-                                                                    {reply.is_edited && <span className="text-[9px] text-slate-400 italic">(edited)</span>}
-                                                                </div>
-                                                                <p className="text-[11px] leading-5 text-slate-700 whitespace-pre-wrap">{reply.content}</p>
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </div>
-                                    );
-                                })
-                            ) : (
-                                <div className="flex flex-col items-center justify-center py-8 text-center">
-                                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 border border-slate-200">
-                                        <span className="material-symbols-outlined text-[18px] text-slate-400">chat_bubble_outline</span>
-                                    </div>
-                                    <p className="mt-2 text-[11px] font-semibold text-slate-500">No comments yet</p>
-                                    <p className="text-[10px] text-slate-400">Start the conversation below.</p>
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="mt-3 pt-3 border-t border-slate-200">
-                            {replyToComment && (
-                                <div className="mb-2 flex items-center justify-between rounded-md bg-sky-50 border border-sky-200 px-2.5 py-1.5">
-                                    <p className="text-[10px] text-blue-900 font-semibold truncate">
-                                        Replying to <span className="font-bold">{replyToComment.user?.name ?? 'comment'}</span>
+                                    </>
+                                )}
+                            />
+                            <div className="space-y-3 px-5 pb-5">
+                                <div className="flex items-start gap-2 rounded-md border border-blue-100 bg-blue-50 px-3 py-2">
+                                    <span className="material-symbols-outlined text-[16px] text-blue-600 mt-0.5">info</span>
+                                    <p className="text-[11px] leading-5 text-blue-800">
+                                        Files uploaded here are visible to this agency only.
                                     </p>
-                                    <button
-                                        type="button"
-                                        onClick={cancelReply}
-                                        className="text-[10px] font-bold text-blue-900 hover:underline shrink-0 ml-2"
-                                    >
-                                        Cancel
-                                    </button>
                                 </div>
-                            )}
-                            <div className="flex items-start gap-2">
-                                <UserAvatar user={auth.user} size="sm" />
-                                <div className="flex-1 min-w-0">
-                                    <textarea
-                                        value={commentDraft}
-                                        onChange={(e) => setCommentDraft(e.target.value)}
-                                        rows={2}
-                                        className="w-full rounded-md border border-slate-200 px-3 py-1.5 text-[12px] text-slate-700 outline-none focus:border-blue-900 focus:ring-1 focus:ring-blue-900/20 resize-none transition-colors"
-                                        placeholder={replyToComment ? 'Write a reply...' : 'Write a comment...'}
-                                    />
-                                    <div className="mt-1.5 flex items-center justify-between">
-                                        <span className="text-[9px] text-slate-400">{replyToComment ? 'Your reply will be posted immediately' : 'Your comment will be posted immediately'}</span>
-                                        <button
-                                            type="button"
-                                            onClick={handlePostComment}
-                                            disabled={postingComment || !commentDraft.trim()}
-                                            className="h-[26px] px-3 bg-blue-900 text-white text-[10px] font-bold rounded-md border border-blue-900 hover:bg-blue-800 disabled:opacity-60 transition-colors"
-                                        >
-                                            {postingComment ? 'Posting...' : 'Post'}
-                                        </button>
+
+                                {uploadError && (
+                                    <p className="text-[11px] text-red-600">{uploadError}</p>
+                                )}
+
+                                {/* Uploaded Documents / Attachments */}
+                                {(referral.attachments ?? []).filter((att) => !att.is_archived).length > 0 && (
+                                    <div className="divide-y divide-slate-100">
+                                        {(referral.attachments ?? [])
+                                            .filter((att) => !att.is_archived)
+                                            .map((att) => (
+                                                <div key={att.id} className="flex items-center gap-3 py-2.5">
+                                                    <span className="material-symbols-outlined text-[16px] text-slate-400">description</span>
+                                                    <div className="min-w-0 flex-1">
+                                                        <a
+                                                            href={route('referrals.attachments.download', [referral.id, att.id])}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="text-[12px] text-blue-700 hover:text-blue-900 hover:underline font-medium truncate block"
+                                                        >
+                                                            {att.file_name}
+                                                        </a>
+                                                        {att.user && (
+                                                            <span className="text-[9px] text-slate-400">
+                                                                Uploaded by {att.user.name}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    {att.user_id === auth.user.id && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setRemoveAttachment(att)}
+                                                            className="text-[9px] text-red-600 hover:text-red-800 font-bold inline-flex items-center gap-0.5 shrink-0"
+                                                        >
+                                                            <span className="material-symbols-outlined text-[12px]">delete</span>
+                                                            Remove
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            ))}
                                     </div>
-                                </div>
+                                )}
+
+                                {/* Referral Documents */}
+                                {referral.documents && referral.documents.length > 0 ? (
+                                    <div className="divide-y divide-slate-100">
+                                        {referral.documents.map((doc) => (
+                                            <div key={doc.id} className="flex items-center gap-3 py-2.5">
+                                                <span className="material-symbols-outlined text-[16px] text-slate-400">
+                                                    {doc.file_type?.startsWith('image/') ? 'image' : 'description'}
+                                                </span>
+                                                <div className="min-w-0 flex-1">
+                                                    <a
+                                                        href={route('cases.documents.download', [referral.case_id, doc.id])}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="text-[12px] text-blue-700 hover:text-blue-900 hover:underline font-medium truncate block"
+                                                    >
+                                                        {doc.file_name}
+                                                    </a>
+                                                    <div className="flex items-center gap-2 mt-0.5">
+                                                        {doc.user && (
+                                                            <span className="text-[9px] text-slate-400">
+                                                                Uploaded by {doc.user.name}
+                                                            </span>
+                                                        )}
+                                                        {doc.created_at && (
+                                                            <span className="text-[9px] text-slate-400">
+                                                                {formatDisplayDateTime(doc.created_at)}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (referral.attachments ?? []).filter((att) => !att.is_archived).length === 0 ? (
+                                    <div className="flex items-center justify-between gap-3 py-1">
+                                        <p className="text-[12px] text-slate-500">No documents uploaded yet.</p>
+                                        {(isCaseManager || isAdmin) && (
+                                            <p className="text-[11px] text-slate-400 truncate">
+                                                {selectedFile ? selectedFile.name : 'No file selected'}
+                                            </p>
+                                        )}
+                                    </div>
+                                ) : null}
                             </div>
-                        </div>
-                    </CardSection>
+                        </section>
                     </div>
                 </aside>
             </div>

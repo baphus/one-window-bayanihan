@@ -13,6 +13,7 @@ use App\Services\StorageService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
 class CaseDocumentTest extends TestCase
@@ -310,6 +311,103 @@ class CaseDocumentTest extends TestCase
             ->assertForbidden();
         $this->actingAs($agencyUser)->get(route('cases.documents.download', [$this->case->id, $document->id]))
             ->assertForbidden();
+    }
+
+    public function test_agency_sees_general_case_and_own_referral_documents_only(): void
+    {
+        $ownAgency = Agency::create(['id' => fake()->uuid(), 'name' => 'Own', 'short' => 'OW', 'slug' => 'own-visibility']);
+        $otherAgency = Agency::create(['id' => fake()->uuid(), 'name' => 'Other', 'short' => 'OT', 'slug' => 'other-visibility']);
+        $ownReferral = Referral::create([
+            'id' => fake()->uuid(), 'required_services' => 'Service', 'status' => 'PENDING',
+            'case_id' => $this->case->id, 'agcy_id' => $ownAgency->id,
+        ]);
+        $otherReferral = Referral::create([
+            'id' => fake()->uuid(), 'required_services' => 'Other service', 'status' => 'PENDING',
+            'case_id' => $this->case->id, 'agcy_id' => $otherAgency->id,
+        ]);
+
+        // (b) General case file — no referral link.
+        $generalDoc = $this->createDocument();
+        // (a) Manager-uploaded document on the agency's own referral.
+        $ownReferralDoc = $this->createDocument();
+        $ownReferralDoc->update(['referral_id' => $ownReferral->id]);
+        // Another agency's referral document — must stay invisible.
+        $otherReferralDoc = $this->createDocument();
+        $otherReferralDoc->update(['referral_id' => $otherReferral->id]);
+
+        $agencyUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $ownAgency->id]);
+
+        // Index returns general case files + own-referral docs, never the other agency's.
+        $response = $this->actingAs($agencyUser)->getJson(route('cases.documents.index', $this->case->id));
+        $response->assertOk()->assertJsonCount(2);
+        $listedIds = collect($response->json())->pluck('id');
+        $this->assertContains($generalDoc->id, $listedIds);
+        $this->assertContains($ownReferralDoc->id, $listedIds);
+        $this->assertNotContains($otherReferralDoc->id, $listedIds);
+
+        // Direct download: general case file and own-referral doc are allowed.
+        $storage = $this->createMock(StorageService::class);
+        $storage->expects($this->exactly(2))->method('temporaryUrl')->willReturn('https://storage.test/document.pdf');
+        $this->app->instance(StorageService::class, $storage);
+
+        $this->actingAs($agencyUser)
+            ->get(route('cases.documents.download', [$this->case->id, $generalDoc->id]))
+            ->assertRedirect('https://storage.test/document.pdf');
+        $this->actingAs($agencyUser)
+            ->get(route('cases.documents.download', [$this->case->id, $ownReferralDoc->id]))
+            ->assertRedirect('https://storage.test/document.pdf');
+
+        // Another referral's document is refused on the direct download route.
+        $this->actingAs($agencyUser)
+            ->get(route('cases.documents.download', [$this->case->id, $otherReferralDoc->id]))
+            ->assertForbidden();
+    }
+
+    public function test_agency_case_show_payload_scopes_documents_and_attachments(): void
+    {
+        $ownAgency = Agency::create(['id' => fake()->uuid(), 'name' => 'Own', 'short' => 'OW', 'slug' => 'own-payload']);
+        $otherAgency = Agency::create(['id' => fake()->uuid(), 'name' => 'Other', 'short' => 'OT', 'slug' => 'other-payload']);
+        $ownReferral = Referral::create([
+            'id' => fake()->uuid(), 'required_services' => 'Service', 'status' => 'PENDING',
+            'case_id' => $this->case->id, 'agcy_id' => $ownAgency->id,
+        ]);
+        $otherReferral = Referral::create([
+            'id' => fake()->uuid(), 'required_services' => 'Other service', 'status' => 'PENDING',
+            'case_id' => $this->case->id, 'agcy_id' => $otherAgency->id,
+        ]);
+
+        $generalDoc = $this->createDocument();
+        $ownReferralDoc = $this->createDocument();
+        $ownReferralDoc->update(['referral_id' => $ownReferral->id]);
+        $otherReferralDoc = $this->createDocument();
+        $otherReferralDoc->update(['referral_id' => $otherReferral->id]);
+
+        $ownReferral->attachments()->create([
+            'id' => fake()->uuid(), 'file_name' => 'own.txt', 'file_path' => 'referral/own.txt',
+            'file_type' => 'text/plain', 'user_id' => $this->caseManager->id,
+        ]);
+        $otherReferral->attachments()->create([
+            'id' => fake()->uuid(), 'file_name' => 'secret.txt', 'file_path' => 'referral/secret.txt',
+            'file_type' => 'text/plain', 'user_id' => $this->caseManager->id,
+        ]);
+
+        $agencyUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $ownAgency->id]);
+
+        $this->actingAs($agencyUser)
+            ->get(route('cases.show', $this->case->id))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Case/Show')
+                ->has('case.documents', 2)
+                ->where('case.documents', fn ($docs) => collect($docs)->pluck('id')->contains($otherReferralDoc->id) === false)
+                ->where('case.referrals', function ($referrals) use ($ownReferral, $otherReferral) {
+                    $own = collect($referrals)->firstWhere('id', $ownReferral->id);
+                    $other = collect($referrals)->firstWhere('id', $otherReferral->id);
+
+                    return count($own['attachments'] ?? []) === 1
+                        && ! array_key_exists('attachments', $other);
+                })
+            );
     }
 
     #[Test]
