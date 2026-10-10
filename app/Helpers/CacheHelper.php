@@ -33,6 +33,7 @@ class CacheHelper
 
             return $value;
         } catch (\Throwable $e) {
+            Log::warning('CacheHelper: cache read failed, recomputing value', ['key' => $key, 'exception' => $e->getMessage()]);
             Cache::forget($key);
 
             return $callback();

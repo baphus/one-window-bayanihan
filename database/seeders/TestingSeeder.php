@@ -26,6 +26,7 @@ namespace Database\Seeders;
 
 use App\Models\AuditLog;
 use App\Models\CaseFile;
+use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -35,6 +36,8 @@ use Illuminate\Support\Str;
 
 class TestingSeeder extends Seeder
 {
+    use WithoutModelEvents;
+
     public function run(): void
     {
         // =====================================================================

@@ -37,6 +37,8 @@ export const ACTION_STYLES = {
     PUBLISH: { dot: 'bg-emerald-500', badge: 'bg-emerald-100 text-emerald-700', icon: 'publish' },
     ARCHIVE: { dot: 'bg-slate-500', badge: 'bg-slate-100 text-slate-700', icon: 'archive' },
     UNARCHIVE: { dot: 'bg-slate-500', badge: 'bg-slate-100 text-slate-700', icon: 'unarchive' },
+    RESTORE: { dot: 'bg-emerald-500', badge: 'bg-emerald-100 text-emerald-700', icon: 'restore' },
+    PURGE: { dot: 'bg-slate-500', badge: 'bg-slate-100 text-slate-700', icon: 'delete_forever' },
 };
 
 export const DEFAULT_ACTION_STYLE = { dot: 'bg-slate-500', badge: 'bg-slate-100 text-slate-700', icon: 'info' };
@@ -68,11 +70,15 @@ export function getActivityType(action, module) {
     if (act === 'PUBLISH') return 'PUBLISHED';
     if (act === 'ARCHIVE') return 'ARCHIVED';
     if (act === 'UNARCHIVE') return 'UNARCHIVED';
+    if (act === 'RESTORE') return 'RESTORED';
+    if (act === 'PURGE') return 'PURGED';
 
     if (['CASE', 'CASES', 'CASE_FILES'].includes(mod)) {
         if (act === 'CREATE') return 'CASE OPENED';
         if (act === 'UPDATE') return 'CASE UPDATED';
         if (act === 'DELETE') return 'CASE DELETED';
+        if (act === 'RESTORE') return 'CASE RESTORED';
+        if (act === 'PURGE') return 'CASE PURGED';
     }
 
     if (['REFERRAL', 'REFERRALS'].includes(mod)) {
@@ -136,7 +142,8 @@ export function normalizeAuditLog(log) {
  * Each changed field renders as a label/value line. Deliberately NOT a
  * table — the audit timeline must not read as tabular data.
  *
- * @param {Array}  props.changes  [{ field, fieldLabel, new }]  (after-only)
+ * @param {Array}  props.changes  [{ field, fieldLabel, new, old? }]
+ *   after-only today; when `old` is present render an old → new diff.
  * @param {number} [props.maxRows] cap the visible rows; excess collapses to "+N more"
  * @param {'full'|'compact'} [props.variant='full']
  *        full    – bordered container (Index timeline)
@@ -153,16 +160,29 @@ export function ChangesList({ changes, maxRows = null, variant = 'full' }) {
             ? 'border border-slate-200 rounded-md overflow-hidden bg-white/60'
             : 'mt-2'}>
             <dl className={variant === 'full' ? 'divide-y divide-slate-100' : ''}>
-                {visible.map((change, idx) => (
-                    <div key={idx} className="flex gap-3 px-3 py-1.5">
-                        <dt className="w-32 shrink-0 truncate text-[11px] font-medium capitalize text-slate-500">
-                            {change.fieldLabel || change.field}
-                        </dt>
-                        <dd className="min-w-0 flex-1 break-words text-xs text-emerald-700">
-                            {change.new ?? '—'}
-                        </dd>
-                    </div>
-                ))}
+                {visible.map((change, idx) => {
+                    const label = change.fieldLabel || change.field;
+                    const next = change.new ?? '—';
+                    const hasOld = change.old !== undefined && change.old !== null && change.old !== '';
+                    return (
+                        <div key={idx} className="flex gap-3 px-3 py-1.5">
+                            <dt className="w-32 shrink-0 truncate text-[11px] font-medium capitalize text-slate-500">
+                                {label}
+                            </dt>
+                            <dd className="min-w-0 flex-1 break-words text-xs">
+                                {hasOld ? (
+                                    <>
+                                        <span className="text-slate-400 line-through">{String(change.old)}</span>
+                                        <span aria-hidden="true" className="mx-1.5 text-slate-300">→</span>
+                                        <span className="text-emerald-700">{String(next)}</span>
+                                    </>
+                                ) : (
+                                    <span className="text-emerald-700">{String(next)}</span>
+                                )}
+                            </dd>
+                        </div>
+                    );
+                })}
             </dl>
             {remaining > 0 && (
                 <p className={variant === 'full'
@@ -170,6 +190,58 @@ export function ChangesList({ changes, maxRows = null, variant = 'full' }) {
                     : 'px-1 pt-[3px] text-[10px] text-slate-400'}>
                     +{remaining} more
                 </p>
+            )}
+        </div>
+    );
+}
+
+/**
+ * AuditLogRow — shared dense timeline row content for every audit surface.
+ * Spine/dot/positioning stays with the caller; this is header + message + changes only.
+ *
+ * Header is a single wrapping line: timestamp • actor • ACTION badge • module label.
+ *
+ * @param {Object} props.log safe audit row (snake_case formatted_module)
+ * @param {number} [props.maxRows=3]
+ * @param {'full'|'compact'} [props.variant='full']
+ * @param {string[]} [props.extra=[]] trailing meta segments (e.g. case no.)
+ */
+export function AuditLogRow({ log, maxRows = 3, variant = 'full', extra = [] }) {
+    const style = actionStyle(log.action);
+    const actor = log.actor || 'System';
+    const moduleLabel = log.formatted_module || log.module || '';
+    const message = log.message ?? '';
+    const changes = Array.isArray(log.changes) ? log.changes : [];
+    const timestamp = log.timestamp ? formatDisplayDateTime(log.timestamp) : '';
+
+    return (
+        <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] leading-5">
+                {timestamp && (
+                    <span className="whitespace-nowrap tabular-nums text-slate-500">{timestamp}</span>
+                )}
+                {timestamp && <span aria-hidden="true" className="text-slate-300">•</span>}
+                <span className="max-w-[180px] truncate font-medium text-slate-700">{actor}</span>
+                <span aria-hidden="true" className="text-slate-300">•</span>
+                <span className={`inline-flex items-center gap-1 rounded px-1.5 py-px text-[10px] font-bold uppercase tracking-wide ${style.badge}`}>
+                    <span className="material-symbols-outlined text-[12px] leading-none">{style.icon}</span>
+                    {getActivityType(log.action, log.module)}
+                </span>
+                {moduleLabel && <span className="text-slate-500">{moduleLabel}</span>}
+                {extra.filter(Boolean).map((seg) => (
+                    <span key={seg} className="inline-flex items-center gap-1.5">
+                        <span aria-hidden="true" className="text-slate-300">•</span>
+                        <span className="text-slate-500">{seg}</span>
+                    </span>
+                ))}
+            </div>
+            {message && (
+                <p className="mt-0.5 text-[13px] leading-5 text-slate-800">{message}</p>
+            )}
+            {changes.length > 0 && (
+                <div className="mt-1.5">
+                    <ChangesList changes={changes} maxRows={maxRows} variant={variant} />
+                </div>
             )}
         </div>
     );

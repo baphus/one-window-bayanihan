@@ -139,7 +139,8 @@ class CaseService
                 $case->save();
 
                 // If the client is orphaned (no other cases reference it via client_id), delete it fully
-                if ($client && ! $client->caseFiles()->exists()) {
+                // withTrashed: CaseFile soft-deletes, so a plain exists() misses trashed cases and would orphan a live client's identity.
+                if ($client && ! $client->caseFiles()->withTrashed()->exists()) {
                     // Must delete child records first (FK onDelete restrict on all).
                     // Single-statement deletes: model events are already suppressed
                     // by the surrounding withoutEvents block.
@@ -1990,6 +1991,13 @@ class CaseService
         }
 
         DB::transaction(function () use ($cases, $cutoff, $count) {
+            $ids = $cases->pluck('id')->all();
+
+            // case_events has no soft-delete flag and its FK is RESTRICT, so it cannot go through
+            // $cascadeSoftDeletes (CaseEvent is append-only; its deleting hook throws).
+            // Limit: event rows go without per-row audit, and referrals with request access-links can still hit RESTRICT.
+            DB::table('case_events')->whereIn('case_id', $ids)->delete();
+
             foreach ($cases as $case) {
                 // CascadeSoftDeletes handles child force-deletes when forceDelete() is called.
                 $case->forceDelete();
@@ -2002,7 +2010,7 @@ class CaseService
                 'entity_id' => null,
                 'description' => "Auto-purged {$count} case(s) with deleted_at before {$cutoff->toDateString()}",
                 'old_value' => ['purged_count' => $count, 'cutoff_date' => $cutoff->toDateString()],
-                'new_value' => [],
+                'new_value' => null,
                 'user_id' => null,
                 'timestamp' => now(),
             ]);

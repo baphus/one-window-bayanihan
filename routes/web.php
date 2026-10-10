@@ -76,8 +76,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/referrals', [ReferralController::class, 'index'])->name('referrals.index');
     Route::get('/referrals/create', [ReferralController::class, 'create'])->name('referrals.create');
     Route::post('/referrals', [ReferralController::class, 'store'])->name('referrals.store');
-    Route::get('/referrals/export-excel', [ReferralController::class, 'exportExcel'])->name('referrals.export-excel');
-    Route::get('/referrals/export-count', [ReferralController::class, 'exportCount'])->name('referrals.export-count');
+    Route::get('/referrals/export-excel', [ReferralController::class, 'exportExcel'])->name('referrals.export-excel')->middleware('role:CASE_MANAGER,ADMIN,AGENCY');
+    Route::get('/referrals/export-count', [ReferralController::class, 'exportCount'])->name('referrals.export-count')->middleware('role:CASE_MANAGER,ADMIN,AGENCY');
     Route::get('/referrals/{referral}', [ReferralController::class, 'show'])->name('referrals.show');
     Route::patch('/referrals/{referral}/status', [ReferralController::class, 'updateStatus'])->name('referrals.update-status');
     Route::post('/referrals/{referral}/milestones', [ReferralController::class, 'addMilestone'])->name('referrals.milestones.store');
@@ -389,9 +389,11 @@ Route::get('/track/verify-otp', function () {
 Route::post('/track/verify-otp', [TrackController::class, 'verifyOtp'])
     ->name('track.verify-otp')
     ->middleware('throttle:tracking');
-Route::get('/track/case', [TrackController::class, 'show'])->name('track.show');
+Route::get('/track/case', [TrackController::class, 'show'])->name('track.show')
+    ->middleware('throttle:tracking');
 Route::get('/track/case/{tracker_number}/referrals/{referral}/milestones', [TrackController::class, 'milestones'])
-    ->name('track.milestones');
+    ->name('track.milestones')
+    ->middleware('throttle:tracking');
 
 Route::post('/track/register', [TrackRegistrationController::class, 'store'])
     ->name('track.register')
@@ -401,7 +403,8 @@ Route::post('/track/request/exchange', [ReferralClientRequestController::class, 
     ->name('track.request.exchange')
     ->middleware('throttle:track-request-exchange');
 Route::get('/track/request', [ReferralClientRequestController::class, 'show'])
-    ->name('track.request.index');
+    ->name('track.request.index')
+    ->middleware('throttle:tracking');
 Route::post('/track/request/messages', [ReferralClientRequestController::class, 'clientMessage'])
     ->name('track.request.messages.store')
     ->middleware('throttle:track-request-message');
@@ -409,7 +412,8 @@ Route::post('/track/request/replacement', [ReferralClientRequestController::clas
     ->name('track.request.replacement')
     ->middleware('throttle:track-request-replacement');
 Route::get('/track/request/attachments/{attachment}/download', [ReferralClientRequestController::class, 'downloadAttachment'])
-    ->name('track.request.attachments.download');
+    ->name('track.request.attachments.download')
+    ->middleware('throttle:tracking');
 
 Route::prefix('help')->name('helpdesk.')->group(function () {
     Route::get('/', function (Request $request) {

@@ -31,11 +31,6 @@ class Agency extends Model
         });
     }
 
-    public function scopeDefault($query): void
-    {
-        $query->where('is_default', true);
-    }
-
     public function isDeletable(): bool
     {
         return ! $this->is_default;
@@ -86,10 +81,5 @@ class Agency extends Model
     public function services()
     {
         return $this->hasMany(Service::class, 'agcy_id');
-    }
-
-    public function feedback()
-    {
-        return $this->hasMany(Feedback::class, 'agency_id');
     }
 }

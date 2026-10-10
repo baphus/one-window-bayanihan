@@ -167,7 +167,7 @@ return Application::configure(basePath: dirname(__DIR__))
                 return null;
             }
 
-            $incidentId = method_exists(Uuid::class, 'uuid7') ? Uuid::uuid7()->toString() : Str::uuid()->toString();
+            $incidentId = Uuid::uuid7()->toString();
             Log::error('Unhandled exception', [
                 'incident_id' => $incidentId,
                 'exception' => $e,

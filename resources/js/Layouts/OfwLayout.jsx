@@ -3,6 +3,7 @@ import { Head, Link, router, usePage } from '@inertiajs/react';
 import { FlashMessageWatcher } from '@/Components/ToastProvider';
 import OfwNotificationBell from '@/Components/OfwNotificationBell';
 import safeRoute from '@/utils/safeRoute';
+import { clearAllDraftBackups } from '@/Hooks/useLocalStorageDraft';
 
 export default function OfwLayout({ children, title }) {
     const { url, props } = usePage();
@@ -14,6 +15,7 @@ export default function OfwLayout({ children, title }) {
     }, [url]);
 
     function handleLogout() {
+        clearAllDraftBackups();
         router.post(route('logout'));
     }
 

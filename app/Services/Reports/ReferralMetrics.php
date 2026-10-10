@@ -390,25 +390,28 @@ class ReferralMetrics
             return [];
         }
 
-        // First PENDINGâ†’PROCESSING transition per referral, read from the
+        // First PENDING→PROCESSING transition per referral, read from the
         // append-only event log: referral timestamps cannot show it because
-        // updated_at moves on every later edit.
+        // updated_at moves on every later edit. Aggregated in PostgreSQL
+        // (MIN per referral over the same scoped referral set) instead of
+        // hydrating every event and grouping in PHP. Same value as before:
+        // the earliest PROCESSING event per referral (sequence only broke
+        // ties within one timestamp, which cannot move the day-resolution
+        // median below).
         $firstAccepts = CaseEvent::where('type', CaseEvent::TYPE_REFERRAL_STATUS_CHANGED)
-            ->whereIn('referral_id', $referrals->pluck('id'))
+            ->whereIn('referral_id', (clone $query)->where('referrals.status', '!=', 'PENDING')->select('referrals.id'))
             ->where('meta->to', 'PROCESSING')
-            ->orderBy('occurred_at')
-            ->orderBy('sequence')
-            ->get()
+            ->select('referral_id', DB::raw('MIN(occurred_at) as first_accept_at'))
             ->groupBy('referral_id')
-            ->map(fn ($events) => $events->first());
+            ->pluck('first_accept_at', 'referral_id');
 
         $daysByAgency = [];
         foreach ($referrals as $referral) {
-            $accept = $firstAccepts->get($referral->id);
-            if (! $accept || ! $accept->occurred_at || ! $referral->created_at) {
+            $acceptAt = $firstAccepts->get($referral->id);
+            if (! $acceptAt || ! $referral->created_at) {
                 continue;
             }
-            $hours = $referral->created_at->diffInHours($accept->occurred_at, false);
+            $hours = $referral->created_at->diffInHours(Carbon::parse($acceptAt), false);
             if ($hours < 0) {
                 continue;
             }

@@ -1,10 +1,9 @@
-import { useState, useCallback, useEffect, useMemo, Fragment } from 'react';
+import { useState, useCallback, useEffect, useMemo, Fragment, lazy, Suspense } from 'react';
 import { Head, router, usePage } from '@inertiajs/react';
 import AppHeader from '@/Components/landing/AppHeader';
 import AppFooter from '@/Components/landing/AppFooter';
 import TurnstileWidget from '@/Components/TurnstileWidget';
 import ChatBot from '@/Components/ChatBot';
-import AddressDropdowns from '@/Components/AddressDropdowns';
 import PhoneInput from '@/Components/PhoneInput';
 import CountrySelect from '@/Components/CountrySelect';
 import SearchableSelect from '@/Components/SearchableSelect';
@@ -27,6 +26,16 @@ const STEPS = [
 ];
 
 const STORAGE_KEY = 'ofw_intake_form_data';
+// Kiosk/shared-PC safety: a draft left mid-wizard must not be readable forever.
+const DRAFT_TTL_MS = 24 * 60 * 60 * 1000;
+
+// The address dropdowns pull in the ~1.6 MB PSGC dataset — lazy-split them so
+// anonymous visitors don't download/parse it before step 1 is interactive.
+const AddressDropdowns = lazy(() => import('@/Components/AddressDropdowns'));
+
+function AddressLoadingFallback() {
+  return <p className="text-xs text-slate-400">Loading address options…</p>;
+}
 
 function emptyNextOfKin(isPrimary = false) {
   return {
@@ -47,14 +56,26 @@ function emptyNextOfKin(isPrimary = false) {
 
 function saveToSession(data) {
   try {
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    // savedAt lives alongside the draft (not wrapped) so reads stay
+    // shape-compatible with drafts written before the TTL existed.
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ ...data, savedAt: Date.now() }));
   } catch (e) { /* quota exceeded — ignore */ }
 }
 
 function loadFromSession() {
   try {
     const raw = sessionStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return null;
+    const { savedAt, ...data } = parsed;
+    if (savedAt && Date.now() - savedAt > DRAFT_TTL_MS) {
+      try { sessionStorage.removeItem(STORAGE_KEY); } catch (e) { /* ignore */ }
+      return null;
+    }
+    // No savedAt = draft written before the TTL existed: accept it (the next
+    // keystroke rewrites it with a timestamp) rather than strand the filer.
+    return data;
   } catch (e) { return null; }
 }
 
@@ -684,6 +705,7 @@ function AddressStep({ formData, updateField, errors, onNext, onBack }) {
       <h2 className="mb-1 text-lg font-bold text-slate-900">Home Address</h2>
       <p className="mb-6 text-sm text-slate-500">Your current address in the Philippines.</p>
 
+      <Suspense fallback={<AddressLoadingFallback />}>
       <AddressDropdowns
         values={formData.address}
         onChange={handleAddressChange}
@@ -694,6 +716,7 @@ function AddressStep({ formData, updateField, errors, onNext, onBack }) {
           barangay: stepErrors.barangay || errors['address.barangay'],
         }}
       />
+      </Suspense>
 
       <div className="mt-8 flex justify-between">
         <button type="button" onClick={onBack} className="px-6 py-3 text-sm font-medium text-slate-600 hover:text-primary">Back</button>
@@ -993,10 +1016,12 @@ function NokStep({ formData, setFormData, errors, onNext, onBack }) {
                 <span className="material-symbols-outlined text-[14px]">content_copy</span>
                 Same as client address
               </button>
+              <Suspense fallback={<AddressLoadingFallback />}>
               <AddressDropdowns
                 values={{ region: nok.region, province: nok.province, city_municipality: nok.city_municipality, barangay: nok.barangay, street: nok.street }}
                 onChange={(field, value) => handleNokAddressChange(i, field, value)}
               />
+              </Suspense>
             </div>
           </div>
         </div>

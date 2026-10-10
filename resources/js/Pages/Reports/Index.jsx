@@ -1,6 +1,6 @@
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, usePage } from '@inertiajs/react';
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Users, Target, Clock, GitFork, CheckCircle2, Hourglass, ClipboardCheck } from 'lucide-react';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, PointElement, LineElement, Title, Tooltip, Legend, Filler } from 'chart.js';
 import { COLORS } from '@/Components/Reports/pageHeadingStyles';
@@ -14,16 +14,10 @@ import ProvinceCityFilter from '@/Components/Reports/ProvinceCityFilter';
 import ExportButtons from '@/Components/Reports/ExportButtons';
 import { useReportFilters } from '@/Hooks/useReportFilters';
 import { useLazyProp } from '@/Hooks/useLazyProp';
-import { philippineAddressData, getCitiesByProvince } from '@/data/philippine-addresses';
 import CasesTab from '@/Pages/Reports/sections/CasesTab';
 import ReferralsTab from '@/Pages/Reports/sections/ReferralsTab';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, PointElement, LineElement, Title, Tooltip, Legend, Filler);
-
-// Province name → PSGC code lookup built from PSGC master data
-const provinceNameToPsgcCode = Object.values(philippineAddressData.provincesByRegion)
-  .flat()
-  .reduce((acc, p) => { acc[p.name.toLowerCase()] = p.code; return acc; }, {});
 
 function ReportsDashboard({
   // Eager props
@@ -42,20 +36,34 @@ function ReportsDashboard({
   const [referralSeries] = useLazyProp('referralTrends');
   const roles = usePage().props.roles;
 
+  // PSGC dataset loads lazily so it stays out of the initial chunk; the city
+  // lookup below falls back to the server-provided options until it resolves.
+  const [addressData, setAddressData] = useState(null);
+
+  useEffect(() => {
+    let live = true;
+    import('@/data/philippine-addresses').then((mod) => {
+      if (live) setAddressData(mod);
+    });
+    return () => { live = false; };
+  }, []);
+
   const caseSparkline = casesSeries?.datasets?.[0]?.data;
   const referralSparkline = referralSeries?.datasets?.[0]?.data;
   const localCityOptions = useMemo(() => {
     if (!province) return cityOptions || [];
     const selected = provinceOptions.find((p) => p.value === province);
-    if (selected) {
-      const psgcCode = provinceNameToPsgcCode[selected.label.toLowerCase()];
+    if (selected && addressData) {
+      const psgcCode = Object.values(addressData.philippineAddressData.provincesByRegion)
+        .flat()
+        .find((p) => p.name.toLowerCase() === selected.label.toLowerCase())?.code;
       if (psgcCode) {
-        const cities = getCitiesByProvince(psgcCode);
+        const cities = addressData.getCitiesByProvince(psgcCode);
         if (cities.length > 0) return cities.map((c) => ({ value: c.code, label: c.name }));
       }
     }
     return cityOptions || [];
-  }, [province, cityOptions, provinceOptions]);
+  }, [province, cityOptions, provinceOptions, addressData]);
 
   // Everything on this page uses the case filed date. The server defaults
   // date_scope to case_created_at when it is absent, so no scope selector.

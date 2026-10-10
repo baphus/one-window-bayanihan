@@ -39,6 +39,7 @@ class AuditLogFormatter
      * them would re-disclose legacy/free text the guardrail forbids.
      */
     private const FREE_TEXT_FIELDS = [
+        'client',
         'notes',
         'summary',
         'description',
@@ -337,13 +338,13 @@ class AuditLogFormatter
      *     category: string|null,
      *     message: string,
      *     detail: string,
-     *     changes: array<int, array{field:string, fieldLabel:string, new:string}>,
+     *     changes: array<int, array{field:string, fieldLabel:string, new:string}|array{field:string, fieldLabel:string, old:string|null, new:string|null}>,
      *     actor: string,
      *     timestamp: string|null,
      *     hasChanges: bool
      * }
      */
-    public function formatForAuditResponse(AuditLog $log): array
+    public function formatForAuditResponse(AuditLog $log, bool $isAdmin = false): array
     {
         $action = AuditAction::tryFrom(strtoupper((string) $log->action))?->value ?? 'UNKNOWN';
         $actor = $this->resolveUserName($log);
@@ -354,6 +355,11 @@ class AuditLogFormatter
         $classifiable = $auditModule !== null && $action !== 'UNKNOWN';
 
         $identifier = $classifiable ? $this->resolveEntityIdentifier($log, $auditModule) : null;
+        $message = $this->formatSafeMessage($actor, $action, $moduleLabel, $identifier);
+
+        if ($isAdmin && $classifiable && in_array($action, ['PUBLISH', 'CREATE'], true)) {
+            $message = $this->formatAdminEnrichedMessage($message, $actor, $action, $log->new_value);
+        }
 
         return [
             'id' => (string) $log->getKey(),
@@ -361,13 +367,119 @@ class AuditLogFormatter
             'module' => $module,
             'formatted_module' => $moduleLabel,
             'category' => $category,
-            'message' => $this->formatSafeMessage($actor, $action, $moduleLabel, $identifier),
+            'message' => $message,
             'detail' => '',
-            'changes' => $classifiable ? $this->getSafeAfterChanges($log, $action) : [],
+            'changes' => $changes = ($classifiable
+                ? ($isAdmin
+                    ? $this->adminChanges($log, $action)
+                    : $this->getSafeAfterChanges($log, $action))
+                : []),
             'actor' => $actor,
             'timestamp' => $log->timestamp?->toISOString(),
-            'hasChanges' => $log->old_value !== null || $log->new_value !== null,
+            'hasChanges' => $changes !== [],
         ];
+    }
+
+    /**
+     * Admin before/after diff, guarded by the same rule as
+     * getSafeAfterChanges(): a value formatFieldValue() cannot transform is
+     * free text (case notes, comments, client snapshots on the loose end) and
+     * never reaches the API. Structured snapshots — the client cart, resolved
+     * names, CONTROLLED_FIELDS — still surface in full.
+     *
+     * @return array<int, array{field:string, fieldLabel:string, old:string|null, new:string|null}>
+     */
+    private function adminChanges(AuditLog $log, string $action): array
+    {
+        $sides = [
+            is_array($log->old_value) ? $log->old_value : [],
+            is_array($log->new_value) ? $log->new_value : [],
+        ];
+
+        return array_values(array_filter(
+            $this->getStructuredChanges($log->old_value, $log->new_value, $action),
+            function (array $change) use ($sides): bool {
+                $field = (string) $change['field'];
+
+                foreach ($sides as $side) {
+                    if (! array_key_exists($field, $side)) {
+                        continue;
+                    }
+
+                    $value = $side[$field];
+                    $formatted = $this->formatFieldValue('', $field, $value);
+                    $raw = is_scalar($value) ? (string) $value : json_encode($value);
+
+                    if ($formatted === $raw && ! in_array($field, self::CONTROLLED_FIELDS, true)) {
+                        // Raw value passed through unchanged — treat as unsafe free text.
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+        ));
+    }
+
+    /**
+     * Admin-only PUBLISH/CREATE message: prefer the enriched new_value payload
+     * (case_number + client snapshot + category_names) over the generic safe
+     * message. FREE_TEXT_FIELDS are never surfaced here.
+     */
+    private function formatAdminEnrichedMessage(string $fallback, string $actor, string $action, mixed $newValue): string
+    {
+        if (! is_array($newValue) || $newValue === []) {
+            return $fallback;
+        }
+
+        $clientName = null;
+        if (isset($newValue['client']) && is_array($newValue['client'])) {
+            $formatted = $this->formatFieldValue('', 'client', $newValue['client']);
+            if (! str_ends_with($formatted, 'fields') && $formatted !== 'empty') {
+                $clientName = $formatted;
+            }
+        } elseif (isset($newValue['first_name']) || isset($newValue['last_name'])) {
+            $full = trim(($newValue['first_name'] ?? '').' '.($newValue['last_name'] ?? ''));
+            if ($full !== '') {
+                $clientName = $full;
+            }
+        }
+
+        $categories = null;
+        if (isset($newValue['category_names']) && is_array($newValue['category_names'])) {
+            $names = array_values(array_filter(
+                $newValue['category_names'],
+                fn ($v) => is_scalar($v) && (string) $v !== ''
+            ));
+            if ($names !== []) {
+                $categories = implode(', ', array_map('strval', $names));
+            }
+        } elseif (isset($newValue['case_issue']) && is_string($newValue['case_issue']) && $newValue['case_issue'] !== '') {
+            $categories = $newValue['case_issue'];
+        }
+
+        $caseNumber = isset($newValue['case_number']) && is_string($newValue['case_number']) && $newValue['case_number'] !== ''
+            ? $newValue['case_number']
+            : null;
+
+        // Without any enriched parts there is nothing to prefer over the safe message.
+        if ($caseNumber === null && $clientName === null && $categories === null) {
+            return $fallback;
+        }
+
+        $base = $caseNumber !== null
+            ? sprintf('%s %s Case %s', $actor, $this->formatAction($action), $caseNumber)
+            : $fallback;
+
+        if ($clientName !== null) {
+            $base .= sprintf(' for %s', $clientName);
+        }
+
+        if ($categories !== null) {
+            $base .= sprintf(' — %s', $categories);
+        }
+
+        return $base;
     }
 
     /**

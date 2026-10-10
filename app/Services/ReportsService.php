@@ -11,6 +11,8 @@ use App\Services\Reports\Concerns\ScopesReportQueries;
 use App\Services\Reports\ReferralMetrics;
 use App\Services\Reports\ReportLookups;
 use App\Services\Reports\ReportsCache;
+use Illuminate\Contracts\Cache\LockTimeoutException;
+use Illuminate\Support\Facades\Cache;
 
 class ReportsService
 {
@@ -57,7 +59,7 @@ class ReportsService
             $province ?? '', $city ?? '',
         ]));
 
-        return CacheHelper::safeRemember($cacheKey, self::CACHE_TTL_PAYLOAD, function () use (
+        $compute = function () use (
             $userId, $role, $agencyId, $fromDate, $toDate, $dateScope, $province, $city
         ) {
             $data = match ($role) {
@@ -69,7 +71,18 @@ class ReportsService
             $data['role'] = $role;
 
             return $data;
-        });
+        };
+
+        // Stampede guard: this payload costs ~30 aggregates, so only one
+        // request may rebuild it. Waiters re-read through safeRemember, so a
+        // waiter arriving after the rebuild serves the fresh value instead
+        // of recomputing. Locking stays here only — no other CacheHelper
+        // caller changes.
+        try {
+            return Cache::lock($cacheKey.':lock', 60)->block(10, fn () => CacheHelper::safeRemember($cacheKey, self::CACHE_TTL_PAYLOAD, $compute));
+        } catch (LockTimeoutException) {
+            return CacheHelper::safeRemember($cacheKey, self::CACHE_TTL_PAYLOAD, $compute);
+        }
     }
 
     private function getCaseManagerPayload(

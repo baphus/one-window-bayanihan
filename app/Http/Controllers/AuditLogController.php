@@ -43,7 +43,7 @@ class AuditLogController extends Controller
         // paginator supplies the `page` (and omits any stale cursor) itself.
         $logs = $query->paginate($perPage)->appends($request->except(['page', 'cursor']));
 
-        $this->presentLogs($logs, $formatter);
+        $this->presentLogs($logs, $formatter, $isAdmin);
 
         // Filter facets. Admins draw from the whole table (cached, shared);
         // scoped roles draw only from the rows they can actually see, so the
@@ -170,7 +170,7 @@ class AuditLogController extends Controller
             fputcsv($out, ['Timestamp (UTC)', 'Actor', 'Action', 'Module', 'Description', 'Category', 'Has Changes']);
 
             foreach ($query->with('user')->orderBy('timestamp')->orderBy('id')->cursor() as $log) {
-                $display = $formatter->formatForAuditResponse($log);
+                $display = $formatter->formatForAuditResponse($log, true);
                 fputcsv($out, array_map([$this, 'csvSafe'], [
                     $display['timestamp'],
                     $display['actor'],
@@ -279,10 +279,18 @@ class AuditLogController extends Controller
                                 ->whereColumn('cases.id', 'audit_logs.entity_id')
                                 ->where('cases.case_number', 'ILIKE', "%{$search}%");
                         });
-                })
-                // Raw UUID prefix match on the entity identifier (covers
-                // referral/milestone short IDs and full UUIDs).
-                ->orWhereRaw('audit_logs.entity_id::text ILIKE ?', ["%{$search}%"]);
+                });
+            // Entity-identifier match without casting to text for an
+            // unanchored ILIKE (which forced a sequential scan on this
+            // append-only table): a full UUID hits the B-tree directly, and
+            // a UUID fragment (e.g. the 8-char short ID) uses an anchored
+            // prefix comparison the index can still serve.
+            $term = trim($search);
+            if (Str::isUuid($term)) {
+                $safeMetadata->orWhere('audit_logs.entity_id', $term);
+            } elseif (preg_match('/^[0-9a-f-]{8,36}$/i', $term)) {
+                $safeMetadata->orWhereRaw('left(audit_logs.entity_id::text, ?) = ?', [strlen($term), strtolower($term)]);
+            }
         });
     }
 
@@ -452,7 +460,7 @@ class AuditLogController extends Controller
         $logs = $query->cursorPaginate($perPage);
 
         $formatter = app(AuditLogFormatter::class);
-        $this->presentLogs($logs, $formatter);
+        $this->presentLogs($logs, $formatter, $user->isAdmin());
 
         return response()->json($logs);
     }
@@ -509,7 +517,7 @@ class AuditLogController extends Controller
         $logs = $query->cursorPaginate($perPage);
 
         $formatter = app(AuditLogFormatter::class);
-        $this->presentLogs($logs, $formatter);
+        $this->presentLogs($logs, $formatter, $user->isAdmin());
 
         return response()->json($logs);
     }
@@ -518,11 +526,11 @@ class AuditLogController extends Controller
      * Replace Eloquent records with the explicit safe audit response shape
      * before an Inertia page or JSON endpoint can serialize them.
      */
-    private function presentLogs($logs, AuditLogFormatter $formatter): void
+    private function presentLogs($logs, AuditLogFormatter $formatter, bool $isAdmin = false): void
     {
         $logs->setCollection(
             $logs->getCollection()
-                ->map(fn (AuditLog $log) => $formatter->formatForAuditResponse($log))
+                ->map(fn (AuditLog $log) => $formatter->formatForAuditResponse($log, $isAdmin))
                 ->values()
         );
     }

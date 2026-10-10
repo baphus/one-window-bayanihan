@@ -451,7 +451,7 @@ class ReportsExportService
             'referralTrends' => $this->trendFromBase($refBase, 'referrals.created_at'),
         ];
 
-        $summary += $this->additionalSections($c, $refBase);
+        $summary += $this->additionalSections($c, $refBase, $report);
 
         if ($role === UserRole::AGENCY->value) {
             // Only the sections an agency actually sees belong in an agency
@@ -486,7 +486,7 @@ class ReportsExportService
      * Without this the exports carried roughly half of what the Reports page
      * shows, and a reader could not reconcile the document against the screen.
      */
-    private function additionalSections(array $c, $refBase): array
+    private function additionalSections(array $c, $refBase, array $report = []): array
     {
         $role = $c['role'] === UserRole::CASE_MANAGER->value ? UserRole::CASE_MANAGER->value : ($c['role'] === UserRole::AGENCY->value ? UserRole::AGENCY->value : null);
         $userId = $c['role'] === UserRole::CASE_MANAGER->value ? $c['user_id'] : null;
@@ -511,26 +511,30 @@ class ReportsExportService
             return $this->emptyAdditionalSections();
         }
 
+        // Prefer the already-computed getAll() payload (same filters, same
+        // request) over re-running each aggregate — like summaryFromReport()
+        // does for referralAging. Roles whose payload omits a key fall back
+        // to the direct call with the identical filter set.
         return [
-            'referralFunnel' => $this->funnelFromStatuses($this->reports->getReferralStatusDistribution($userId, $role, $from, $to, $scope, $prov, $city, $agency)),
-            'casesOverTime' => $this->reports->getCasesOverTime($userId, $role, $from, $to, $scope, $prov, $city, $agency),
-            'genderDistribution' => $this->reports->getGenderDistribution($userId, $role, $from, $to, $scope, $prov, $city, $agency),
-            'ageGroupDistribution' => $this->reports->getAgeGroupDistribution($userId, $role, $from, $to, $scope, $prov, $city, $agency),
-            'vulnerabilityDistribution' => $this->reports->getVulnerabilityDistribution($userId, $role, $agency, $from, $to, $prov, $city),
-            'clientTypeDistribution' => $this->reports->getClientTypeDistribution($userId, $role, $agency, $from, $to, $prov, $city),
-            'cityDistribution' => $this->reports->getCityDistribution($userId, $role, $from, $to, $scope, $prov, $city, $agency),
-            'agencyWorkload' => $this->reports->getAgencyWorkload($from, $to, $agency),
-            'referralAgencyDistribution' => $this->reports->getReferralAgencyDistribution($userId, $role, $from, $to, $scope, $prov, $city, $agency),
-            'employmentOccupationBreakdown' => $this->reports->getEmploymentOccupationBreakdown($userId, $role, $agency, $from, $to, $prov, $city),
+            'referralFunnel' => $this->funnelFromStatuses($report['referralStatusDistribution'] ?? $this->reports->getReferralStatusDistribution($userId, $role, $from, $to, $scope, $prov, $city, $agency)),
+            'casesOverTime' => $report['casesOverTime'] ?? $this->reports->getCasesOverTime($userId, $role, $from, $to, $scope, $prov, $city, $agency),
+            'genderDistribution' => $report['genderDistribution'] ?? $this->reports->getGenderDistribution($userId, $role, $from, $to, $scope, $prov, $city, $agency),
+            'ageGroupDistribution' => $report['ageGroupDistribution'] ?? $this->reports->getAgeGroupDistribution($userId, $role, $from, $to, $scope, $prov, $city, $agency),
+            'vulnerabilityDistribution' => $report['vulnerabilityDistribution'] ?? $this->reports->getVulnerabilityDistribution($userId, $role, $agency, $from, $to, $prov, $city),
+            'clientTypeDistribution' => $report['clientTypeDistribution'] ?? $this->reports->getClientTypeDistribution($userId, $role, $agency, $from, $to, $prov, $city),
+            'cityDistribution' => $report['cityDistribution'] ?? $this->reports->getCityDistribution($userId, $role, $from, $to, $scope, $prov, $city, $agency),
+            'agencyWorkload' => $report['agencyWorkload'] ?? $this->reports->getAgencyWorkload($from, $to, $agency),
+            'referralAgencyDistribution' => $report['referralAgencyDistribution'] ?? $this->reports->getReferralAgencyDistribution($userId, $role, $from, $to, $scope, $prov, $city, $agency),
+            'employmentOccupationBreakdown' => $report['employmentOccupationBreakdown'] ?? $this->reports->getEmploymentOccupationBreakdown($userId, $role, $agency, $from, $to, $prov, $city),
             'overdueReferrals' => $this->overdueFromBase($refBase),
-            'mostRequestedService' => $this->reports->getMostRequestedService($userId, $role, $from, $to, $scope, $prov, $city, $agency),
-            'rejectionReasonDistribution' => $this->reports->getRejectionReasonDistribution($userId, $role, $from, $to, $scope, $prov, $city, $agency),
-            'closedCasesOverTime' => $this->reports->getClosedCasesOverTime($userId, $role, $from, $to, $scope, $prov, $city, $agency),
-            'caseSourceDistribution' => $this->reports->getCaseSourceDistribution($userId, $role, $agency, $from, $to, $prov, $city),
-            'reopenedStats' => $this->reports->getReopenedStats($userId, $role, $from, $to, $scope, $prov, $city, $agency),
-            'caseEventActorDistribution' => $this->reports->getCaseEventActorDistribution($userId, $role, $from, $to, $scope, $prov, $city, $agency),
-            'agencyFirstResponse' => $this->reports->getAgencyFirstResponse($userId, $role, $from, $to, $scope, $prov, $city, $agency),
-            'clientRequestTypeDistribution' => $this->reports->getClientRequestTypeDistribution($userId, $role, $from, $to, $scope, $prov, $city, $agency),
+            'mostRequestedService' => $report['mostRequestedService'] ?? $this->reports->getMostRequestedService($userId, $role, $from, $to, $scope, $prov, $city, $agency),
+            'rejectionReasonDistribution' => $report['rejectionReasonDistribution'] ?? $this->reports->getRejectionReasonDistribution($userId, $role, $from, $to, $scope, $prov, $city, $agency),
+            'closedCasesOverTime' => $report['closedCasesOverTime'] ?? $this->reports->getClosedCasesOverTime($userId, $role, $from, $to, $scope, $prov, $city, $agency),
+            'caseSourceDistribution' => $report['caseSourceDistribution'] ?? $this->reports->getCaseSourceDistribution($userId, $role, $agency, $from, $to, $prov, $city),
+            'reopenedStats' => $report['reopenedStats'] ?? $this->reports->getReopenedStats($userId, $role, $from, $to, $scope, $prov, $city, $agency),
+            'caseEventActorDistribution' => $report['caseEventActorDistribution'] ?? $this->reports->getCaseEventActorDistribution($userId, $role, $from, $to, $scope, $prov, $city, $agency),
+            'agencyFirstResponse' => $report['agencyFirstResponse'] ?? $this->reports->getAgencyFirstResponse($userId, $role, $from, $to, $scope, $prov, $city, $agency),
+            'clientRequestTypeDistribution' => $report['clientRequestTypeDistribution'] ?? $this->reports->getClientRequestTypeDistribution($userId, $role, $from, $to, $scope, $prov, $city, $agency),
         ];
     }
 

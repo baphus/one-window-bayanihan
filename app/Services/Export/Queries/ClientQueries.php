@@ -64,19 +64,8 @@ class ClientQueries
         return $query->get();
     }
 
-    /**
-     * Get enriched clients for business export — no IDs or system fields.
-     * Joins case info, addresses, employments, next-of-kin, and referral parties.
-     * ADMIN/CASE_MANAGER: all. AGENCY: clients on their referrals.
-     *
-     * @param  array  $filters  Optional: search, sex, client_type
-     */
-    public function getClientsExport(?User $user = null, array $filters = []): Collection
+    private function clientsExportQuery(?User $user = null, array $filters = [])
     {
-        if ($user?->role === UserRole::AGENCY->value && ! $user->agcy_id) {
-            return collect();
-        }
-
         $query = DB::table('clients AS cl')
             ->select([
                 // Client info
@@ -263,11 +252,21 @@ class ClientQueries
             });
         }
 
+        return $query;
+    }
+
+    /**
+     * Get enriched clients for business export — no IDs or system fields.
+     * Joins case info, addresses, employments, next-of-kin, and referral parties.
+     * ADMIN/CASE_MANAGER: all. AGENCY: clients on their referrals.
+     *
+     * @param  array  $filters  Optional: search, sex, client_type
+     */
+    public function getClientsExport(?User $user = null, array $filters = []): Collection
+    {
         // Safety cap — prevents memory exhaustion on unbounded exports.
         // The DataExportService should eventually support streaming for larger sets.
-        $query->limit(10000);
-
-        return $query->get()->map(function ($row) {
+        return $this->clientsExportQuery($user, $filters)->limit(10000)->get()->map(function ($row) {
             $row = (object) $row;
 
             // --- Decrypt encrypted PII fields from raw subqueries ---
@@ -340,6 +339,6 @@ class ClientQueries
 
     public function countClientsExport(?User $user = null, array $filters = []): int
     {
-        return (int) $this->getClientsExport($user, $filters)->count();
+        return (int) $this->clientsExportQuery($user, $filters)->count();
     }
 }

@@ -385,10 +385,6 @@ function NotificationsBlock() {
         safeRoute('notifications.index', { per_page: 20 }, '/notifications?per_page=20'),
     );
 
-    const { data: unreadData, reload: reloadUnread } = useJsonPoll(
-        safeRoute('notifications.unread-count', undefined, '/notifications/unread-count'),
-    );
-
     const [marking, setMarking] = useState(false);
 
     const markRead = async (rawId) => {
@@ -403,14 +399,16 @@ function NotificationsBlock() {
             });
             if (!res.ok) throw new Error(`Failed to mark as read: ${res.status}`);
             await res.json();
-            await Promise.all([reloadList(), reloadUnread()]);
+            await reloadList();
         } finally {
             setMarking(false);
         }
     };
 
     const items = safeArray(notifData?.data).map((row) => normalizeNotification(row)).slice(0, 5);
-    const unreadCount = Number(unreadData?.count ?? items.filter((item) => !item.is_read).length);
+    // The list endpoint already reports the unread count in meta — the
+    // client-side count is only a fallback.
+    const unreadCount = Number(notifData?.meta?.unread ?? items.filter((item) => !item.is_read).length);
 
     return (
         <SectionCard
