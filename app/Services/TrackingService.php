@@ -114,22 +114,25 @@ class TrackingService
             ? ($client->nextOfKin->where('is_primary', true)->first() ?? $client->nextOfKin->first())
             : null;
 
+        $homeAddress = $client?->addresses->first();
+        $lastEmployment = $client?->employments->first();
+
         $caseOverview = [
             'narrative' => $case->summary ?? '',
             'ofw' => $client ? [
                 'fullName' => trim("{$client->first_name} {$client->middle_name} {$client->last_name} {$client->suffix}"),
                 'dateOfBirth' => $client->date_of_birth?->toDateString() ?? '',
                 'gender' => $client->sex ?? '',
-                'homeAddress' => $client->addresses->first()
+                'homeAddress' => $homeAddress
                     ? $this->addressResolver->format(
-                        $client->addresses->first()->street,
-                        $client->addresses->first()->barangay,
-                        $client->addresses->first()->city_municipality,
-                        $client->addresses->first()->province,
-                        $client->addresses->first()->region,
+                        $homeAddress->street,
+                        $homeAddress->barangay,
+                        $homeAddress->city_municipality,
+                        $homeAddress->province,
+                        $homeAddress->region,
                     )
                     : '',
-                'homeAddressParts' => $this->formatAddressParts($client->addresses->first()),
+                'homeAddressParts' => $this->formatAddressParts($homeAddress),
                 'specialCategories' => [],
             ] : null,
             'nextOfKin' => $primaryNok ? [
@@ -137,10 +140,10 @@ class TrackingService
                 'relationship' => $primaryNok->relationship,
                 'contact' => $primaryNok->phone_number ?? $primaryNok->email,
             ] : null,
-            'workHistory' => $client && $client->employments->isNotEmpty() ? [
-                'lastCountry' => $client->employments->first()->last_country ?? $client->employments->first()->country ?? '',
-                'lastPosition' => $client->employments->first()->last_position ?? $client->employments->first()->position ?? '',
-                'arrivalDate' => $client->employments->first()->date_of_arrival?->toDateString() ?? $client->employments->first()->end_date?->toDateString() ?? '',
+            'workHistory' => $lastEmployment ? [
+                'lastCountry' => $lastEmployment->last_country ?? $lastEmployment->country ?? '',
+                'lastPosition' => $lastEmployment->last_position ?? $lastEmployment->position ?? '',
+                'arrivalDate' => $lastEmployment->date_of_arrival?->toDateString() ?? $lastEmployment->end_date?->toDateString() ?? '',
             ] : null,
         ];
 

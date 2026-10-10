@@ -106,6 +106,24 @@ class CaseNumberGeneratorTest extends TestCase
         $this->assertCount(1, $queries, 'Allocation should be a single round trip.');
     }
 
+    public function test_padding_does_not_truncate_past_99999(): void
+    {
+        // str_pad pads but never truncates: past 99999 the serial grows to six
+        // digits (OWB-{period}-100000). Uniqueness and ordering hold; only the
+        // documented five-digit width is exceeded.
+        $period = now()->timezone(config('app.operating_timezone'))->format('Ym');
+
+        DB::table('case_number_counters')->insert([
+            'period' => (int) $period,
+            'last_number' => 99999,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->assertSame("OWB-{$period}-100000", $this->generator()->nextCaseNumber());
+        $this->assertSame("OWB-{$period}-100001", $this->generator()->nextCaseNumber());
+    }
+
     public function test_tracker_uses_an_unambiguous_alphabet(): void
     {
         for ($i = 0; $i < 40; $i++) {

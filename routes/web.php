@@ -320,9 +320,15 @@ Route::middleware(['auth', 'role:ADMIN,CASE_MANAGER,AGENCY'])->group(function ()
 });
 
 Route::get('/partners', function () {
-    $agencies = Agency::with('services')->where('is_active', true)->get()->toArray();
+    $agencies = Agency::where('is_active', true)
+        ->orderBy('name')
+        ->paginate(50);
 
-    return Inertia::render('PublicAgencies/Index', ['agencies' => $agencies]);
+    // Services are loaded on the show route only; the cards render them
+    // conditionally and the eager load dominated the payload.
+    return Inertia::render('PublicAgencies/Index', [
+        'agencies' => $agencies->getCollection()->toArray(),
+    ]);
 })->name('partners');
 
 Route::get('/partners/{agency}', function (string $agency) {
