@@ -165,6 +165,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // agency's referrals and the cases those referrals belong to.
     Route::middleware('role:CASE_MANAGER,ADMIN,AGENCY')->group(function () {
         Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('audit-logs.index');
+        // Actor lookup for the filter select; controller enforces isAdmin.
+        Route::get('/audit-logs/actors', [AuditLogController::class, 'actorOptions'])->name('audit-logs.actors');
     });
 
     // Case show: AGENCY can view cases with active referrals (authorized in controller)

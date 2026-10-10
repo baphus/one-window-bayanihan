@@ -1,10 +1,27 @@
-import { useMemo, useCallback, useState, useEffect, useRef } from 'react';
+import { useMemo, useCallback, useState, useEffect, useRef, useId } from 'react';
 import { Link, router } from '@inertiajs/react';
 import { formatDateGroup } from '@/lib/relativeTime';
 import { AuditLogRow, CATEGORY_LABELS, actionStyle } from '@/lib/audit';
 import { formatCount } from '@/Components/Dashboard/primitives';
 import { sortTimelineItems } from '@/Components/Timeline';
 import TablePagination from '@/Components/ui/TablePagination';
+
+const ROLE_OPTIONS = ['ADMIN', 'CASE_MANAGER', 'AGENCY', 'OFW'];
+const ROLE_LABELS = { ADMIN: 'Admin', CASE_MANAGER: 'Case Manager', AGENCY: 'Agency', OFW: 'OFW' };
+
+// Presets are inclusive windows ending today, so "Last 7d" spans 7 calendar days.
+const DATE_PRESETS = [
+    { key: 'today', label: 'Today', days: 1 },
+    { key: '7d', label: 'Last 7d', days: 7 },
+    { key: '30d', label: 'Last 30d', days: 30 },
+];
+
+/** ISO Y-m-d in the viewer's local timezone (date inputs and URL params are local). */
+function toLocalISO(date) {
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${date.getFullYear()}-${month}-${day}`;
+}
 
 /**
  * @param {Object} props
@@ -15,6 +32,7 @@ import TablePagination from '@/Components/ui/TablePagination';
  * @param {Object[]} [props.availableModules=[]] - Available modules for filter dropdown
  * @param {Object} [props.availableModulesLabels={}] - Maps module -> human label for filter dropdown
  * @param {Object} [props.filterValues={}] - Current filter state
+ * @param {boolean} [props.isScoped=false] - Viewer only sees their slice of the trail; hides admin-only filters
  * @param {Object} [props.pagination] - Pagination info: total, currentPage, totalPages, from, to, perPage
  * @param {Function} [props.onPageChange] - Callback for page change
  */
@@ -28,6 +46,7 @@ export function AuditTimeline({
     availableCategories = [],
     activeCategories = [],
     filterValues = {},
+    isScoped = false,
     pagination,
     onPageChange = () => {},
 }) {
@@ -67,6 +86,7 @@ export function AuditTimeline({
                     activeCategories={activeCategories}
                     filterValues={filterValues}
                     onFilterChange={onFilterChange}
+                    isScoped={isScoped}
                 />
             )}
 
@@ -130,12 +150,13 @@ function TimelineEntry({ log }) {
     );
 }
 
-function FilterBar({ availableActions, availableModules, availableModulesLabels, availableCategories, activeCategories, filterValues, onFilterChange }) {
+function FilterBar({ availableActions, availableModules, availableModulesLabels, availableCategories, activeCategories, filterValues, onFilterChange, isScoped = false }) {
     /* ---------- local state for debounced search + Apply-gated dates ---------- */
     const [localSearch, setLocalSearch] = useState(() => filterValues.search || '');
     const [localDateFrom, setLocalDateFrom] = useState(() => filterValues.date_from || '');
     const [localDateTo, setLocalDateTo] = useState(() => filterValues.date_to || '');
     const debounceRef = useRef(null);
+    const dateFromRef = useRef(null);
     const filterValuesRef = useRef(filterValues);
     const onFilterChangeRef = useRef(onFilterChange);
     filterValuesRef.current = filterValues;
@@ -192,6 +213,37 @@ function FilterBar({ availableActions, availableModules, availableModulesLabels,
         onFilterChange({ ...filterValues, module: newModules.join(',') });
     };
 
+    const handleRoleToggle = (role) => {
+        const currentRoles = (filterValues.role || '').split(',').filter(Boolean);
+        const newRoles = currentRoles.includes(role)
+            ? currentRoles.filter(r => r !== role)
+            : [...currentRoles, role];
+        onFilterChange({ ...filterValues, role: newRoles.join(',') });
+    };
+
+    // Preset windows are computed per render so the active highlight follows
+    // "today" and whatever range is currently applied.
+    const presets = DATE_PRESETS.map(preset => {
+        const start = new Date();
+        start.setDate(start.getDate() - (preset.days - 1));
+        return { ...preset, from: toLocalISO(start), to: toLocalISO(new Date()) };
+    });
+
+    const activePresetKey = (() => {
+        const from = filterValues.date_from;
+        const to = filterValues.date_to;
+        if (!from && !to) return null;
+        return presets.find(p => p.from === from && p.to === to)?.key ?? 'custom';
+    })();
+
+    const applyPreset = (preset) => {
+        setLocalDateFrom(preset.from);
+        setLocalDateTo(preset.to);
+        onFilterChange({ ...filterValues, date_from: preset.from, date_to: preset.to });
+    };
+
+    const hasChangesOnly = String(filterValues.has_changes ?? '') === '1';
+
     const applyDateFilter = () => {
         onFilterChange({ ...filterValues, date_from: localDateFrom, date_to: localDateTo });
     };
@@ -230,36 +282,109 @@ function FilterBar({ availableActions, availableModules, availableModulesLabels,
                         className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-md text-sm focus:ring-primary focus:border-primary"
                     />
                 </div>
-                
-                <div className="flex flex-wrap gap-3 items-center">
-                    {/* Date Range — Apply/Reset pattern */}
+
+                {/* Only-with-changes toggle */}
+                <label className="inline-flex items-center gap-2 select-none cursor-pointer" title="Hide events that recorded no field changes">
+                    <input
+                        type="checkbox"
+                        checked={hasChangesOnly}
+                        onChange={(e) => onFilterChange({ ...filterValues, has_changes: e.target.checked ? '1' : '' })}
+                        className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary"
+                    />
+                    <span className="text-sm text-slate-600">Only with changes</span>
+                </label>
+            </div>
+
+            {/* Admin-only: actor picker + current-role chips */}
+            {!isScoped && (
+                <div className="flex flex-wrap gap-x-6 gap-y-3 items-center">
                     <div className="flex items-center gap-2">
-                        <input
-                            type="date"
-                            value={localDateFrom}
-                            onChange={(e) => setLocalDateFrom(e.target.value)}
-                            className="py-2 px-3 border border-slate-300 rounded-md text-sm focus:ring-primary focus:border-primary"
-                        />
-                        <span className="text-slate-500 text-sm">to</span>
-                        <input
-                            type="date"
-                            value={localDateTo}
-                            onChange={(e) => setLocalDateTo(e.target.value)}
-                            className="py-2 px-3 border border-slate-300 rounded-md text-sm focus:ring-primary focus:border-primary"
-                        />
-                        <button
-                            onClick={applyDateFilter}
-                            className="px-3 py-2 bg-primary text-white text-sm font-medium rounded-md hover:bg-primary-container transition-colors"
-                        >
-                            Apply
-                        </button>
-                        <button
-                            onClick={resetDateFilter}
-                            className="px-3 py-2 bg-white border border-slate-300 text-slate-700 text-sm font-medium rounded-md hover:bg-slate-50 transition-colors"
-                        >
-                            Reset
-                        </button>
+                        <span className="text-sm font-medium text-slate-700">Actor:</span>
+                        <ActorPicker filterValues={filterValues} onFilterChange={onFilterChange} />
                     </div>
+                    <div className="flex flex-wrap gap-2 items-center">
+                        <span
+                            className="text-sm font-medium text-slate-700 mr-2"
+                            title="Reflects the user's current role, not necessarily the role they held when the event was recorded."
+                        >
+                            Current role:
+                        </span>
+                        {ROLE_OPTIONS.map(role => {
+                            const isActive = (filterValues.role || '').split(',').includes(role);
+                            return (
+                                <button
+                                    key={role}
+                                    onClick={() => handleRoleToggle(role)}
+                                    className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                                        isActive
+                                        ? 'bg-primary-fixed border-primary/20 text-primary'
+                                        : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
+                                    }`}
+                                >
+                                    {ROLE_LABELS[role] || role}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
+            {/* Date presets + Apply/Reset range */}
+            <div className="flex flex-wrap gap-3 items-center">
+                <span className="text-sm font-medium text-slate-700">Date:</span>
+                {presets.map(preset => (
+                    <button
+                        key={preset.key}
+                        onClick={() => applyPreset(preset)}
+                        className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                            activePresetKey === preset.key
+                            ? 'bg-primary-fixed border-primary/20 text-primary'
+                            : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
+                        }`}
+                    >
+                        {preset.label}
+                    </button>
+                ))}
+                <button
+                    onClick={() => dateFromRef.current?.focus()}
+                    title="Set a custom range with the date inputs"
+                    className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                        activePresetKey === 'custom'
+                        ? 'bg-primary-fixed border-primary/20 text-primary'
+                        : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
+                    }`}
+                >
+                    Custom
+                </button>
+
+                <div className="flex items-center gap-2">
+                    {/* Date Range — Apply/Reset pattern */}
+                    <input
+                        ref={dateFromRef}
+                        type="date"
+                        value={localDateFrom}
+                        onChange={(e) => setLocalDateFrom(e.target.value)}
+                        className="py-2 px-3 border border-slate-300 rounded-md text-sm focus:ring-primary focus:border-primary"
+                    />
+                    <span className="text-slate-500 text-sm">to</span>
+                    <input
+                        type="date"
+                        value={localDateTo}
+                        onChange={(e) => setLocalDateTo(e.target.value)}
+                        className="py-2 px-3 border border-slate-300 rounded-md text-sm focus:ring-primary focus:border-primary"
+                    />
+                    <button
+                        onClick={applyDateFilter}
+                        className="px-3 py-2 bg-primary text-white text-sm font-medium rounded-md hover:bg-primary-container transition-colors"
+                    >
+                        Apply
+                    </button>
+                    <button
+                        onClick={resetDateFilter}
+                        className="px-3 py-2 bg-white border border-slate-300 text-slate-700 text-sm font-medium rounded-md hover:bg-slate-50 transition-colors"
+                    >
+                        Reset
+                    </button>
                 </div>
             </div>
             
@@ -351,6 +476,202 @@ function FilterBar({ availableActions, availableModules, availableModulesLabels,
                         Clear All
                     </button>
                 </div>
+            )}
+        </div>
+    );
+}
+
+/**
+ * Async single-select actor combobox backed by GET /audit-logs/actors
+ * (admin-only). Kept local to the filter bar: it only ever writes `user_id`.
+ */
+function ActorPicker({ filterValues, onFilterChange }) {
+    const userId = filterValues.user_id || '';
+    const [query, setQuery] = useState('');
+    const [actors, setActors] = useState([]);
+    const [open, setOpen] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [highlighted, setHighlighted] = useState(0);
+    const wrapperRef = useRef(null);
+    const debounceRef = useRef(null);
+    const seqRef = useRef(0);
+    const listboxId = useId();
+
+    const selected = actors.find(a => String(a.id) === String(userId)) || null;
+
+    const fetchActors = useCallback((search) => {
+        const seq = ++seqRef.current;
+        setLoading(true);
+        fetch(`/audit-logs/actors?search=${encodeURIComponent(search)}`, {
+            credentials: 'same-origin',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        })
+            .then(res => (res.ok ? res.json() : []))
+            .then((data) => {
+                if (seq !== seqRef.current) return;
+                setActors(Array.isArray(data) ? data : (data?.data ?? []));
+            })
+            .catch(() => {
+                if (seq !== seqRef.current) return;
+                setActors([]);
+            })
+            .finally(() => {
+                if (seq !== seqRef.current) return;
+                setLoading(false);
+            });
+    }, []);
+
+    // Resolve the name behind a user_id that arrived from the URL.
+    useEffect(() => {
+        if (userId && !actors.some(a => String(a.id) === String(userId))) {
+            fetchActors('');
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [userId]);
+
+    // Reset the typed query when the selection itself changes or is cleared.
+    useEffect(() => {
+        setQuery('');
+        setOpen(false);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [userId]);
+
+    useEffect(() => {
+        const handleOutside = (e) => {
+            if (wrapperRef.current && !wrapperRef.current.contains(e.target)) setOpen(false);
+        };
+        document.addEventListener('mousedown', handleOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleOutside);
+            if (debounceRef.current) clearTimeout(debounceRef.current);
+        };
+    }, []);
+
+    const select = (actor) => {
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        setOpen(false);
+        setQuery('');
+        onFilterChange({ ...filterValues, user_id: String(actor.id) });
+    };
+
+    const clear = () => {
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        setOpen(false);
+        setQuery('');
+        onFilterChange({ ...filterValues, user_id: '' });
+    };
+
+    const handleQueryChange = (e) => {
+        const value = e.target.value;
+        setQuery(value);
+        setOpen(true);
+        setHighlighted(0);
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(() => fetchActors(value), 400);
+    };
+
+    const handleFocus = () => {
+        setOpen(true);
+        setHighlighted(0);
+        if (actors.length === 0) fetchActors(query);
+    };
+
+    const handleKeyDown = (e) => {
+        if (e.key === 'Escape') {
+            setOpen(false);
+            return;
+        }
+        if (!open) return;
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setHighlighted(i => Math.min(i + 1, Math.max(actors.length - 1, 0)));
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setHighlighted(i => Math.max(i - 1, 0));
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (actors[highlighted]) select(actors[highlighted]);
+        }
+    };
+
+    const displayValue = open ? query : (selected?.name ?? (userId ? 'Selected actor' : ''));
+
+    return (
+        <div ref={wrapperRef} className="relative w-64">
+            <input
+                type="text"
+                value={displayValue}
+                onChange={handleQueryChange}
+                onFocus={handleFocus}
+                onKeyDown={handleKeyDown}
+                placeholder="Search by name or email..."
+                autoComplete="off"
+                role="combobox"
+                aria-expanded={open}
+                aria-controls={listboxId}
+                aria-autocomplete="list"
+                aria-label="Actor"
+                aria-activedescendant={open && actors[highlighted] ? `${listboxId}-${highlighted}` : undefined}
+                className="w-full py-2 pl-3 pr-9 border border-slate-300 rounded-md text-sm focus:ring-primary focus:border-primary"
+            />
+            {userId && !open ? (
+                <button
+                    type="button"
+                    onClick={clear}
+                    title="Clear actor filter"
+                    aria-label="Clear actor filter"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                    <span className="material-symbols-outlined text-[16px]">close</span>
+                </button>
+            ) : (
+                <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 material-symbols-outlined text-[16px] text-slate-400">
+                    {open ? 'expand_less' : 'expand_more'}
+                </span>
+            )}
+
+            {open && (
+                <ul
+                    id={listboxId}
+                    role="listbox"
+                    aria-label="Actors"
+                    className="absolute z-50 mt-1 w-full max-h-56 overflow-y-auto rounded-md border border-slate-200 bg-white py-1 shadow-lg owb-scroll-wide"
+                >
+                    {loading && actors.length === 0 && (
+                        <li className="px-3 py-2 text-[11px] text-slate-400 italic">Searching...</li>
+                    )}
+                    {!loading && actors.length === 0 && (
+                        <li className="px-3 py-2 text-[11px] text-slate-400 italic">No people found</li>
+                    )}
+                    {actors.map((actor, idx) => (
+                        <li
+                            key={actor.id}
+                            id={`${listboxId}-${idx}`}
+                            role="option"
+                            aria-selected={String(actor.id) === String(userId)}
+                            onMouseDown={(e) => { e.preventDefault(); select(actor); }}
+                            onMouseEnter={() => setHighlighted(idx)}
+                            className={`px-3 py-1.5 text-[12px] cursor-pointer transition-colors ${
+                                idx === highlighted ? 'bg-slate-100' : 'hover:bg-slate-50'
+                            }`}
+                        >
+                            <div className="flex items-center justify-between gap-2">
+                                <span className="min-w-0">
+                                    <span className="block truncate font-medium text-slate-800">{actor.name}</span>
+                                    <span className="block truncate text-[11px] text-slate-400">{actor.email}</span>
+                                </span>
+                                {actor.deactivated && (
+                                    <span className="shrink-0 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500 ring-1 ring-slate-200">
+                                        Deactivated
+                                    </span>
+                                )}
+                            </div>
+                        </li>
+                    ))}
+                </ul>
             )}
         </div>
     );
