@@ -27,56 +27,66 @@ class PhilippineAddressService
 
         // ponytail: parse once per cache TTL instead of once per cold worker;
         // bump the key if the dataset format ever changes.
-        return self::$data = Cache::remember('ph-addresses-v1', now()->addDay(), function (): array {
-            $decoded = self::readDataset();
+        try {
+            return self::$data = Cache::remember('ph-addresses-v1', now()->addDay(), fn (): array => self::buildIndex());
+        } catch (\Throwable) {
+            // Cache backend (e.g. Redis) may be unreachable in console /
+            // migrate contexts; the dataset is a local file, so parse it
+            // directly instead of failing the whole call.
+            return self::$data = self::buildIndex();
+        }
+    }
 
-            if ($decoded === null) {
-                return [];
+    private static function buildIndex(): array
+    {
+        $decoded = self::readDataset();
+
+        if ($decoded === null) {
+            return [];
+        }
+
+        // ponytail: the former allByCode index (code => {code, name, type,
+        // parent_code}) had no callers; derive it on demand from PSGC code
+        // prefixes (2/4/7/9 digits = region/province/city_municipality/
+        // barangay) if it is ever needed again.
+        $codeToName = [];
+
+        foreach ($decoded['regions'] ?? [] as $region) {
+            $codeToName[$region['code']] = $region['name'];
+        }
+
+        foreach ($decoded['provincesByRegion'] ?? [] as $provinces) {
+            foreach ($provinces as $province) {
+                $codeToName[$province['code']] = $province['name'];
             }
+        }
 
-            // ponytail: the former allByCode index (code => {code, name, type,
-            // parent_code}) had no callers; derive it on demand from PSGC code
-            // prefixes (2/4/7/9 digits = region/province/city_municipality/
-            // barangay) if it is ever needed again.
-            $codeToName = [];
-
-            foreach ($decoded['regions'] ?? [] as $region) {
-                $codeToName[$region['code']] = $region['name'];
+        foreach ($decoded['citiesByProvince'] ?? [] as $cities) {
+            foreach ($cities as $city) {
+                $codeToName[$city['code']] = $city['name'];
             }
+        }
 
-            foreach ($decoded['provincesByRegion'] ?? [] as $provinces) {
-                foreach ($provinces as $province) {
-                    $codeToName[$province['code']] = $province['name'];
-                }
+        foreach ($decoded['citiesByRegion'] ?? [] as $cities) {
+            foreach ($cities as $city) {
+                $codeToName[$city['code']] = $city['name'];
             }
+        }
 
-            foreach ($decoded['citiesByProvince'] ?? [] as $cities) {
-                foreach ($cities as $city) {
-                    $codeToName[$city['code']] = $city['name'];
-                }
+        foreach ($decoded['barangaysByCity'] ?? [] as $barangays) {
+            foreach ($barangays as $barangay) {
+                $codeToName[$barangay['code']] = $barangay['name'];
             }
+        }
 
-            foreach ($decoded['citiesByRegion'] ?? [] as $cities) {
-                foreach ($cities as $city) {
-                    $codeToName[$city['code']] = $city['name'];
-                }
-            }
-
-            foreach ($decoded['barangaysByCity'] ?? [] as $barangays) {
-                foreach ($barangays as $barangay) {
-                    $codeToName[$barangay['code']] = $barangay['name'];
-                }
-            }
-
-            return [
-                'regions' => $decoded['regions'] ?? [],
-                'provincesByRegion' => $decoded['provincesByRegion'] ?? [],
-                'citiesByProvince' => $decoded['citiesByProvince'] ?? [],
-                'citiesByRegion' => $decoded['citiesByRegion'] ?? [],
-                'barangaysByCity' => $decoded['barangaysByCity'] ?? [],
-                'codeToName' => $codeToName,
-            ];
-        });
+        return [
+            'regions' => $decoded['regions'] ?? [],
+            'provincesByRegion' => $decoded['provincesByRegion'] ?? [],
+            'citiesByProvince' => $decoded['citiesByProvince'] ?? [],
+            'citiesByRegion' => $decoded['citiesByRegion'] ?? [],
+            'barangaysByCity' => $decoded['barangaysByCity'] ?? [],
+            'codeToName' => $codeToName,
+        ];
     }
 
     /**
