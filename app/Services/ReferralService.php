@@ -81,12 +81,14 @@ class ReferralService
     }
 
     /**
-     * Create a referral plus its uploaded case documents atomically.
+     * Create a referral plus its uploaded case documents.
      *
-     * The referral row, the stored files, and the case-document rows share one
-     * database transaction (nested service transactions join it via savepoints),
-     * so a failed upload rolls everything back. Already-stored files are
-     * deleted from object storage so no orphans remain.
+     * Object-storage uploads happen BEFORE the database transaction: storage
+     * writes cannot be rolled back, so holding row locks during upload only
+     * lengthens lock hold time without adding atomicity. The referral row and
+     * its case-document rows are committed together in one transaction. On a
+     * failed upload, already-stored files are deleted from object storage; a
+     * hard crash between upload and commit may leave orphan objects.
      *
      * @param  array<string, mixed>  $data  Validated referral attributes.
      * @param  array<int, UploadedFile>|UploadedFile|null  $files  Uploaded documents.
@@ -97,23 +99,27 @@ class ReferralService
     {
         $files = is_array($files) ? $files : ($files instanceof UploadedFile ? [$files] : []);
         $storedPaths = [];
+        $uploadResults = [];
 
         try {
-            return DB::transaction(function () use ($data, $userId, $files, $storage, &$storedPaths) {
+            foreach ($files as $file) {
+                $result = $storage->store($file, 'case-documents/'.$data['case_id']);
+
+                if (! $result->success) {
+                    throw new SafeException(
+                        'REFERRAL_DOCUMENT_UPLOAD_FAILED',
+                        $result->error ?? 'Failed to store file.',
+                    );
+                }
+
+                $storedPaths[] = $result->path;
+                $uploadResults[] = $result;
+            }
+
+            return DB::transaction(function () use ($data, $userId, $uploadResults) {
                 $referral = $this->createReferral($data, $userId);
 
-                foreach ($files as $file) {
-                    $result = $storage->store($file, 'case-documents/'.$referral->case_id);
-
-                    if (! $result->success) {
-                        throw new SafeException(
-                            'REFERRAL_DOCUMENT_UPLOAD_FAILED',
-                            $result->error ?? 'Failed to store file.',
-                        );
-                    }
-
-                    $storedPaths[] = $result->path;
-
+                foreach ($uploadResults as $result) {
                     CaseDocument::create([
                         'file_name' => $result->originalName,
                         'file_path' => $result->path,
@@ -129,8 +135,7 @@ class ReferralService
                 return $referral;
             });
         } catch (SafeException $e) {
-            // Roll back the object-storage side; the DB transaction is rolled
-            // back automatically.
+            // Remove stored objects; no DB rows were committed.
             foreach ($storedPaths as $path) {
                 $storage->delete($path);
             }

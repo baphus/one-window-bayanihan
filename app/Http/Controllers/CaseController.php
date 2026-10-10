@@ -28,7 +28,6 @@ class CaseController extends Controller
         private readonly PhilippineAddressService $addressService,
         private readonly TrackingService $trackingService,
         private readonly ReferenceDataService $referenceData,
-        private readonly PhilippineAddressService $addressNames,
         private readonly DataExportQueries $exportQueries,
         private readonly DataExportService $exportService,
         private readonly OnboardingService $onboardingService,
@@ -36,17 +35,31 @@ class CaseController extends Controller
 
     public function index(Request $request)
     {
-        $filterKeys = ['status', 'search', 'client_type', 'vulnerability_indicator', 'user_id', 'agcy_id', 'category_id', 'category_ids', 'case_issue_id', 'age_min_days', 'referral_state', 'date_from', 'date_to', 'sort', 'direction', 'per_page'];
         $categoryFilters = CategoryFilter::fromRequest($request)->toArray();
 
+        // agcy_id is the agencies FK column name (also on users/referrals),
+        // not a typo for agency_id — keep the query param name in sync.
         $listing = $request->validate([
-            'sort' => ['sometimes', 'string', 'in:case_number,tracker_number,client_type,status,created_at'],
-            'direction' => ['sometimes', 'string', 'in:asc,desc'],
-            'per_page' => ['sometimes', 'integer', 'min:10', 'max:100'],
+            'status' => ['nullable', 'string', 'in:OPEN,CLOSED,ARCHIVED'],
+            'search' => ['nullable', 'string', 'max:255'],
+            'client_type' => ['nullable', 'string', 'in:'.implode(',', CaseFile::CLIENT_TYPES)],
+            'vulnerability_indicator' => ['nullable', 'string', 'max:255'],
+            'user_id' => ['nullable', 'string', 'uuid'],
+            'agcy_id' => ['nullable', 'string', 'uuid'],
+            'case_issue_id' => ['nullable', 'string', 'uuid'],
+            'age_min_days' => ['nullable', 'integer', 'min:0', 'max:3650'],
+            'referral_state' => ['nullable', 'string', 'in:none'],
+            'date_from' => ['nullable', 'string', 'date_format:Y-m-d'],
+            'date_to' => ['nullable', 'string', 'date_format:Y-m-d'],
+            'sort' => ['nullable', 'string', 'in:case_number,tracker_number,client_type,status,created_at'],
+            'direction' => ['nullable', 'string', 'in:asc,desc'],
+            'per_page' => ['nullable', 'integer', 'min:10', 'max:100'],
         ]);
 
+        $filters = array_merge($listing, $categoryFilters);
+
         $cases = $this->caseService->getCases(
-            array_merge($request->only($filterKeys), $categoryFilters),
+            $filters,
             $listing['sort'] ?? 'created_at',
             $listing['direction'] ?? 'desc',
             (int) ($listing['per_page'] ?? 15)
@@ -54,7 +67,7 @@ class CaseController extends Controller
 
         return Inertia::render('Case/Index', [
             'cases' => $cases,
-            'filters' => (object) array_merge($request->only($filterKeys), $categoryFilters),
+            'filters' => (object) $filters,
             'stats' => $this->caseService->getCaseStats($request->user()),
             'users' => $this->referenceData->getCaseManagerUsers(),
             'agencies' => $this->referenceData->getAgenciesDropdown(),
@@ -170,10 +183,10 @@ class CaseController extends Controller
         if (! empty($draftData['address'])) {
             $a = $draftData['address'];
             $draftAddressNames = [
-                'barangay' => $this->addressNames->resolve($a['barangay'] ?? null),
-                'city_municipality' => $this->addressNames->resolve($a['city_municipality'] ?? null),
-                'province' => $this->addressNames->resolve($a['province'] ?? null),
-                'region' => $this->addressNames->resolve($a['region'] ?? null),
+                'barangay' => $this->addressService->resolve($a['barangay'] ?? null),
+                'city_municipality' => $this->addressService->resolve($a['city_municipality'] ?? null),
+                'province' => $this->addressService->resolve($a['province'] ?? null),
+                'region' => $this->addressService->resolve($a['region'] ?? null),
                 'street' => $a['street'] ?? '',
             ];
         }

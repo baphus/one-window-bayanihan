@@ -159,8 +159,12 @@ class StorageService
         'jpg' => ['image/jpeg', 'image/pjpeg'],
         'jpeg' => ['image/jpeg'],
         'png' => ['image/png'],
+        'webp' => ['image/webp'],
         'doc' => ['application/msword'],
         'docx' => ['application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+        'xlsx' => ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
+        // finfo reports most CSV content as text/plain; text/csv only for well-formed input.
+        'csv' => ['text/csv', 'text/plain'],
     ];
 
     /**
@@ -196,13 +200,22 @@ class StorageService
         if (! empty($allowedTypes)) {
             // Allowed MIME types are derived from the allowed extensions
             $allowedMimes = [];
+            $unmappedExtensions = [];
             foreach ($allowedTypes as $ext) {
                 $ext = strtolower($ext);
                 if (isset(self::EXTENSION_MIME_MAP[$ext])) {
                     $allowedMimes = array_merge($allowedMimes, self::EXTENSION_MIME_MAP[$ext]);
+                } else {
+                    $unmappedExtensions[] = $ext;
                 }
             }
             $allowedMimes = array_unique($allowedMimes);
+
+            // Fail closed: an allowed extension with no MIME mapping cannot be
+            // content-sniffed, so it must never slip past this check silently.
+            foreach ($unmappedExtensions as $ext) {
+                $errors[] = "File type '{$ext}' has no MIME mapping and cannot be content-validated.";
+            }
 
             if (! empty($allowedMimes)) {
                 $finfo = new \finfo(FILEINFO_MIME_TYPE);

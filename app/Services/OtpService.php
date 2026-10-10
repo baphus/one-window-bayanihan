@@ -25,7 +25,8 @@ class OtpService
             ? "otp:attempts:{$purpose}:{$identifier}:{$sessionId}"
             : "otp:attempts:{$purpose}:{$identifier}");
 
-        // Send OTP via email (will log when MAIL_MAILER=log)
+        // Send OTP via email. The log mailer writes the full body to the
+        // app log; OtpMail redacts the code there (see OtpMail::buildViewData).
         if (filter_var($identifier, FILTER_VALIDATE_EMAIL)) {
             Mail::to($identifier)->queue(new OtpMail($otp, $purpose));
         }
@@ -44,24 +45,24 @@ class OtpService
 
         $cachedOtp = Cache::get($key);
 
-        // Check if max attempts exceeded — invalidate OTP. The counter is
-        // incremented atomically below, so concurrent guesses cannot slip
-        // past the limit through a read-modify-write race.
-        $attempts = (int) Cache::get($attemptsKey, 0);
-        if ($attempts >= self::MAX_ATTEMPTS) {
+        // Increment-first: each guess consumes an attempt atomically before
+        // the code is checked, so concurrent guesses cannot slip past the
+        // limit through a read-modify-write race. increment() creates the
+        // key when missing without a TTL, so set the expiry on first use
+        // to match the OTP lifetime.
+        $attempts = (int) Cache::increment($attemptsKey);
+        if ($attempts === 1) {
+            Cache::put($attemptsKey, 1, now()->addMinutes(self::TTL_MINUTES));
+        }
+
+        // Sixth (and later) guesses invalidate the OTP outright.
+        if ($attempts > self::MAX_ATTEMPTS) {
             Cache::forget($key);
 
             return false;
         }
 
         if (! is_string($cachedOtp) || ! hash_equals($cachedOtp, $otp)) {
-            // Increment failed-attempt counter atomically. increment() creates
-            // the key when missing without a TTL, so set the expiry on first
-            // use to match the OTP lifetime.
-            if (Cache::increment($attemptsKey) === 1) {
-                Cache::put($attemptsKey, 1, now()->addMinutes(self::TTL_MINUTES));
-            }
-
             return false;
         }
 
