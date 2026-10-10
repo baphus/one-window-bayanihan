@@ -161,6 +161,36 @@ class CaseDocumentTest extends TestCase
             ->assertJsonCount(0);
     }
 
+    public function test_documents_on_soft_deleted_referral_not_listed()
+    {
+        $agency = Agency::create([
+            'id' => fake()->uuid(),
+            'name' => 'Test Agency',
+            'short' => 'TA',
+            'slug' => 'test-agency-orphan',
+        ]);
+        $referral = Referral::create([
+            'id' => fake()->uuid(),
+            'required_services' => 'Test service',
+            'status' => 'PENDING',
+            'case_id' => $this->case->id,
+            'agcy_id' => $agency->id,
+        ]);
+        $orphanedDoc = $this->createDocument();
+        $orphanedDoc->update(['referral_id' => $referral->id]);
+        $generalDoc = $this->createDocument();
+
+        $referral->delete();
+
+        $response = $this->actingAs($this->caseManager)
+            ->getJson(route('cases.documents.index', $this->case->id));
+
+        $response->assertOk()
+            ->assertJsonCount(1)
+            ->assertJsonMissing(['id' => $orphanedDoc->id])
+            ->assertJsonFragment(['id' => $generalDoc->id]);
+    }
+
     public function test_agency_user_with_active_referral_can_access()
     {
         $agency = Agency::create([

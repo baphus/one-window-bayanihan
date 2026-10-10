@@ -233,8 +233,9 @@ class CaseController extends Controller
             $case->load(['documents' => fn ($q) => $q
                 ->where('is_deleted', false)
                 ->visibleToAgency($request->user()->agcy_id)]);
+            $userAgencyId = $request->user()->agcy_id;
             foreach ($case->referrals as $referral) {
-                if ($referral->agcy_id !== $request->user()->agcy_id) {
+                if (! $userAgencyId || $referral->agcy_id !== $userAgencyId) {
                     $referral->unsetRelation('attachments');
                 }
             }
