@@ -17,11 +17,19 @@ class ChatbotHelpdeskService
      * Fully parsed helpdesk content, loaded once per content version from the
      * persistent cache (see parsed()).
      *
-     * @var array{titles: array<string, string>, sections: array<string, array<string, array{heading: string, content: string}>>, articles: array<string, array{title: string, excerpt: string, categorySlug: string}>, groups: array<string, string>}|null
+     * @var array{titles: array<string, string>, sections: array<string, array<string, array{heading: string, content: string}>>, tokens: array<string, array{title: list<string>, sections: array<string, array{heading: list<string>, body: list<string>}}>>, articles: array<string, array{title: string, excerpt: string, categorySlug: string}>, groups: array<string, string>}|null
      */
     private ?array $parsed = null;
 
     private ?string $parsedHash = null;
+
+    /**
+     * Memoized content hash for the duration of the request. contentHash()
+     * globs and sha256s ~49 files and runs on every entry point, but the
+     * corpus cannot change mid-request. Cross-request invalidation is
+     * untouched: the hash still keys the persistent cache.
+     */
+    private ?string $contentHashMemo = null;
 
     /** Articles whose sections are included in the classifier-miss fallback. */
     private array $fallbackSlugs = [
@@ -45,6 +53,10 @@ class ChatbotHelpdeskService
      */
     public function contentHash(): string
     {
+        if ($this->contentHashMemo !== null) {
+            return $this->contentHashMemo;
+        }
+
         $files = glob("{$this->contentDir}/*.ts") ?: [];
         $files[] = $this->articlesTsPath;
         $files[] = $this->categoriesTsPath;
@@ -57,7 +69,7 @@ class ChatbotHelpdeskService
         }
         sort($parts);
 
-        return hash('sha256', implode("\n", $parts));
+        return $this->contentHashMemo = hash('sha256', implode("\n", $parts));
     }
 
     /**
@@ -66,6 +78,7 @@ class ChatbotHelpdeskService
      */
     public function refreshCache(): string
     {
+        $this->contentHashMemo = null;
         $hash = $this->contentHash();
         Cache::forget("chatbot.helpdesk.{$hash}");
         $this->parsed = null;
@@ -95,6 +108,10 @@ class ChatbotHelpdeskService
 
     /**
      * Parse every content file plus the article/category indexes in one pass.
+     *
+     * Also precomputes the per-section token sets search() scores against,
+     * so a turn with up to 8 tool calls tokenizes the 238-section corpus
+     * once per content version instead of once per section per search.
      */
     private function parseAll(): array
     {
@@ -110,9 +127,25 @@ class ChatbotHelpdeskService
             $sections[$slug] = $this->splitSections($content);
         }
 
+        $tokens = [];
+        foreach ($sections as $slug => $slugSections) {
+            $sectionTokens = [];
+            foreach ($slugSections as $heading => $section) {
+                $sectionTokens[$heading] = [
+                    'heading' => ChatbotKnowledge::tokensFor($section['heading']),
+                    'body' => ChatbotKnowledge::tokensFor($section['content']),
+                ];
+            }
+            $tokens[$slug] = [
+                'title' => ChatbotKnowledge::tokensFor(($titles[$slug] ?? $slug).' '.$slug),
+                'sections' => $sectionTokens,
+            ];
+        }
+
         return [
             'titles' => $titles,
             'sections' => $sections,
+            'tokens' => $tokens,
             'articles' => $this->parseArticlesTsFile(),
             'groups' => $this->buildAudienceGroupsFile(),
         ];
@@ -167,7 +200,7 @@ class ChatbotHelpdeskService
      * Return every article's title, audience group, and parsed sections —
      * the full corpus used to build the retrieval index.
      *
-     * @return array<string, array{title: string, audience_group: string, sections: array<string, array{heading: string, content: string}>}>
+     * @return array<string, array{title: string, audience_group: string, sections: array<string, array{heading: string, content: string}>, tokens: array{title: list<string>, sections: array<string, array{heading: list<string>, body: list<string>}>}|null}>
      */
     public function getAllParsedArticles(): array
     {
@@ -184,6 +217,7 @@ class ChatbotHelpdeskService
                 'title' => $parsed['titles'][$slug] ?? $slug,
                 'audience_group' => $group,
                 'sections' => $sections,
+                'tokens' => $parsed['tokens'][$slug] ?? null,
             ];
         }
 

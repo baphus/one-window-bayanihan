@@ -1,19 +1,15 @@
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef, lazy, Suspense } from 'react';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import useAutoSave from '@/Hooks/useAutoSave';
-import { getProvincesByRegion } from '@/data/philippine-addresses';
 import useLocalStorageDraft from '@/Hooks/useLocalStorageDraft';
 
-import AddressDropdowns from '@/Components/AddressDropdowns';
 import CountrySelect from '@/Components/CountrySelect';
 import PhoneInput from '@/Components/PhoneInput';
 import SearchableSelect from '@/Components/SearchableSelect';
-import ClientProfileSummaryModal from '@/Components/ClientProfileSummaryModal';
 import InputError from '@/Components/InputError';
 import { useToast } from '@/Hooks/useToast';
-import { formatResolvedAddress } from '@/lib/addressResolver';
 import { DEFAULT_OCCUPATIONS } from '@/data/defaultOccupations';
 
 const STEPS = [
@@ -23,6 +19,17 @@ const STEPS = [
 ];
 
 const SUFFIX_OPTIONS = ['', 'Jr', 'Sr', 'II', 'III', 'IV', 'V'];
+
+// The address dropdowns pull in the ~1.6 MB PSGC dataset — lazy-split them so
+// the dataset is not in the initial chunk. The province lookup below resolves
+// from the same lazily-loaded module via a cached ref.
+const AddressDropdowns = lazy(() => import('@/Components/AddressDropdowns'));
+// Same dataset chain via lib/addressResolver — only needed for the confirm modal.
+const ClientProfileSummaryModal = lazy(() => import('@/Components/ClientProfileSummaryModal'));
+
+function AddressLoadingFallback() {
+    return <p className="text-xs text-slate-400">Loading address options…</p>;
+}
 
 // Applicants must be 15–100 years old (ISO date strings compare chronologically).
 const DOB_BOUNDS = (() => {
@@ -294,7 +301,7 @@ function CategoryCheckboxDropdown({ categories, selectedIds, onChange, error }) 
     );
 }
 
-function CaseSummaryModal({ show, data, caseId, trackingId, categories, caseIssues, notificationEmail, onClose, onConfirm, processing, isDraft, nokSummary }) {
+function CaseSummaryModal({ show, data, caseId, trackingId, categories, caseIssues, notificationEmail, resolvedAddress, onClose, onConfirm, processing, isDraft, nokSummary }) {
     if (!show) return null;
 
     const selectedCategories = normalizeCategoryIds(data.category_ids)
@@ -344,7 +351,7 @@ function CaseSummaryModal({ show, data, caseId, trackingId, categories, caseIssu
                         <div className="col-span-2">
                             <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Address</span>
                             <span className="font-semibold text-slate-800">
-                                {formatResolvedAddress(data.address) || '—'}
+                                {resolvedAddress || '—'}
                             </span>
                         </div>
                         <div>
@@ -484,6 +491,20 @@ export default function CaseCreate() {
     const searchDebounceRef = useRef(null);
     const draftIdRef = useRef(existingDraft?.id || null);
     const restoredRef = useRef(false);
+    // Lazily-loaded PSGC module cache for regionRequiresProvince (see above).
+    const addressDataRef = useRef(null);
+    // Lazily-loaded address resolver for the confirm modal (see above).
+    const [resolveAddress, setResolveAddress] = useState(null);
+    useEffect(() => {
+        let live = true;
+        import('@/data/philippine-addresses').then((mod) => {
+            if (live) addressDataRef.current = mod;
+        });
+        import('@/lib/addressResolver').then((mod) => {
+            if (live) setResolveAddress(() => mod.formatResolvedAddress);
+        });
+        return () => { live = false; };
+    }, []);
     // Guards the existing-client prefill below so it fires exactly once,
     // when the late `client` prop arrives — never re-running on edits.
     const clientPrefillRef = useRef(false);
@@ -600,13 +621,20 @@ export default function CaseCreate() {
         }
     }
 
-    useEffect(() => {
-        if (!hasLocalBackup || existingDraft || !localBackup?.data || restoredRef.current) return;
+    function handleRestoreLocalBackup() {
+        const backupData = localBackup?.data;
+        if (!backupData || typeof backupData !== 'object') return;
         restoredRef.current = true;
-
-        // Always discard stale localStorage backups — "Create Case" starts fresh.
+        Object.entries(backupData).forEach(([key, value]) => {
+            setData(key, value);
+        });
         clearLocalBackup();
-    }, [hasLocalBackup, existingDraft, localBackup, setData]);
+    }
+
+    function handleDiscardLocalBackup() {
+        restoredRef.current = true;
+        clearLocalBackup();
+    }
 
     useEffect(() => {
         if (autoSaveDraftId) draftIdRef.current = autoSaveDraftId;
@@ -1144,7 +1172,11 @@ export default function CaseCreate() {
     }
 
     function regionRequiresProvince(regionCode) {
-        return getProvincesByRegion(regionCode).length > 0;
+        // ponytail: dataset loads async after paint — require province until the
+        // lookup resolves (transient; validation only runs on user action).
+        const lookup = addressDataRef.current?.getProvincesByRegion;
+        if (typeof lookup !== 'function') return true;
+        return lookup(regionCode).length > 0;
     }
 
     function canProceed() {
@@ -1767,6 +1799,16 @@ function handleConfirmClient(client) {
                 </div>
             )}
 
+            {hasLocalBackup && !existingDraft && (
+                <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                    <strong>Unsaved draft found</strong> from a previous session on this device. Restore it or start fresh.
+                    <div className="mt-2 flex gap-2">
+                        <button type="button" onClick={handleRestoreLocalBackup} className="rounded-md bg-primary px-3 py-1.5 text-[12px] font-bold text-white hover:bg-primary-container transition-colors">Restore draft</button>
+                        <button type="button" onClick={handleDiscardLocalBackup} className="rounded-md border border-amber-300 bg-white px-3 py-1.5 text-[12px] font-bold text-amber-800 hover:bg-amber-100 transition-colors">Discard</button>
+                    </div>
+                </div>
+            )}
+
             <div className="mb-6">
                 <div className="flex items-center justify-between">
                     <div>
@@ -2141,6 +2183,7 @@ function handleConfirmClient(client) {
 
                                         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
                                             <Subsection title="Address">
+                                                <Suspense fallback={<AddressLoadingFallback />}>
                                                 <AddressDropdowns
                                                     values={data.address}
                                                     onChange={handleAddressChange}
@@ -2151,6 +2194,7 @@ function handleConfirmClient(client) {
                                                         barangay: errors['address.barangay'],
                                                     }}
                                                 />
+                                                </Suspense>
                                             </Subsection>
                                         </div>
 
@@ -2291,6 +2335,7 @@ function handleConfirmClient(client) {
                                                                     <span className="material-symbols-outlined text-[14px]">content_copy</span>
                                                                     Same as client address
                                                                 </button>
+                                                                <Suspense fallback={<AddressLoadingFallback />}>
                                                                 <AddressDropdowns
                                                                     values={nok.nok_address || { region: '', province: '', city_municipality: '', barangay: '', street: '' }}
                                                                     onChange={(field, value) => {
@@ -2301,6 +2346,7 @@ function handleConfirmClient(client) {
                                                                         }
                                                                     }}
                                                                 />
+                                                                </Suspense>
                                                             </Subsection>
                                                         </div>
                                                     </div>
@@ -2691,7 +2737,9 @@ function handleConfirmClient(client) {
                     </div>
                 </section>
             </form>
+            <Suspense fallback={null}>
             <ClientProfileSummaryModal show={!!selectedClient} client={selectedClient} onConfirm={handleConfirmClient} onClose={() => setSelectedClient(null)} />
+            </Suspense>
             {UnsavedModal}
             <CaseSummaryModal
                 show={showCreateModal}
@@ -2701,6 +2749,9 @@ function handleConfirmClient(client) {
                 categories={categories}
                 caseIssues={caseIssues}
                 notificationEmail={notificationEmail}
+                resolvedAddress={resolveAddress
+                    ? resolveAddress(data.address)
+                    : [data.address?.street, data.address?.barangay, data.address?.city_municipality, data.address?.province, data.address?.region].filter(Boolean).join(', ')}
                 onClose={() => setShowCreateModal(false)}
                 onConfirm={handleConfirmSubmit}
                 processing={processing}

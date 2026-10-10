@@ -158,9 +158,10 @@ class ReferralQueries
         $this->applyCategoryFilter($query, 'c', $filters);
 
         // ADMIN/CASE_MANAGER: all referrals. AGENCY: own agency referrals only.
+        // Fail closed: any other role (including OFW) or missing user sees nothing.
         if ($user?->role === UserRole::AGENCY->value && $user->agcy_id) {
             $query->where('r.agcy_id', $user->agcy_id);
-        } elseif ($user?->role === UserRole::AGENCY->value) {
+        } elseif ($user?->role !== UserRole::ADMIN->value && $user?->role !== UserRole::CASE_MANAGER->value) {
             $query->whereRaw('1 = 0');
         }
 

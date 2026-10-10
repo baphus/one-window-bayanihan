@@ -458,6 +458,12 @@ class CaseController extends Controller
         $primaryAddress = $client->addresses->first();
         $primaryNok = $client->nextOfKin->first();
 
+        // dompdf builds the whole DOM before paging, so cap the timeline: a
+        // case with thousands of events would otherwise exhaust the 256M limit.
+        $eventsQuery = $case->caseEvents()->latest('occurred_at');
+        $eventsTotal = $eventsQuery->count();
+        $eventsLimit = 500;
+
         $data = [
             'case' => $case,
             'client' => $client,
@@ -465,7 +471,9 @@ class CaseController extends Controller
             'address' => $primaryAddress,
             'nok' => $primaryNok,
             'referrals' => $case->referrals,
-            'milestones' => $case->caseEvents()->latest('occurred_at')->get(),
+            'milestones' => $eventsQuery->limit($eventsLimit)->get(),
+            'eventsTruncated' => $eventsTotal > $eventsLimit,
+            'eventsTotal' => $eventsTotal,
             'exportedAt' => now()->format('M d, Y h:i A'),
         ];
 

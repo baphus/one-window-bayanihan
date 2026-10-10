@@ -15,7 +15,7 @@ class Referral extends Model
     /**
      * Relationships to cascade on soft-delete and restore.
      */
-    protected array $cascadeSoftDeletes = ['comments', 'attachments'];
+    protected array $cascadeSoftDeletes = ['comments', 'attachments', 'milestones', 'clientRequests', 'serviceRequirements'];
 
     /**
      * Controlled rejection-reason vocabulary (mirrors the

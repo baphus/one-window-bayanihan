@@ -23,7 +23,7 @@ Bayanihan One Window coordinates case management across multiple government agen
 
 | Layer | Technology |
 |---|---|
-| Backend | Laravel 13, PHP 8.3 |
+| Backend | Laravel 13, PHP 8.4 |
 | Frontend | React 18, Inertia.js v2, Tailwind CSS 3 |
 | Database | PostgreSQL 17 |
 | File Storage | S3-compatible object storage |
@@ -37,8 +37,8 @@ Bayanihan One Window coordinates case management across multiple government agen
 
 ### Prerequisites
 
-- PHP 8.3+ (with `ext-redis` extension)
-- Node.js 18+
+- PHP 8.4+ (with `ext-redis` extension)
+- Node.js 24+
 - PostgreSQL 17 (local or networked)
 - Redis 7+ (native, container, or a Windows-compatible Redis-protocol server)
 - Composer

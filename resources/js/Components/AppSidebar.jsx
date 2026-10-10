@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import UserAvatar from '@/Components/ui/UserAvatar';
 import PeerProfileModal from '@/Components/PeerProfileModal';
 import safeRoute from '@/utils/safeRoute';
+import { clearAllDraftBackups } from '@/Hooks/useLocalStorageDraft';
 
 
 export const navByRole = {
@@ -119,8 +120,9 @@ export default function AppSidebar() {
     try { return localStorage.getItem('owb-sidebar-collapsed') === 'true'; }
     catch { return false; }
   });
+  const unreadStorageKey = `owb-unread-count-${user?.id ?? 'anonymous'}`;
   const [unreadCount, setUnreadCount] = useState(() => {
-    try { return parseInt(localStorage.getItem('owb-unread-count') || '0', 10) || 0; }
+    try { return parseInt(localStorage.getItem(unreadStorageKey) || '0', 10) || 0; }
     catch { return 0; }
   });
   const [hoveredItem, setHoveredItem] = useState(null);
@@ -138,6 +140,16 @@ export default function AppSidebar() {
     sessionStorage.setItem('owb-sidebar-scroll', e.target.scrollTop);
   }, []);
 
+  // Re-seed from the namespaced key on account switch; drop the legacy
+  // cross-user key so a stale count is never shown to the next user.
+  useEffect(() => {
+    try {
+      setUnreadCount(parseInt(localStorage.getItem(unreadStorageKey) || '0', 10) || 0);
+      localStorage.removeItem('owb-unread-count');
+    }
+    catch { /* noop */ }
+  }, [unreadStorageKey]);
+
   // Fetch unread notification count
   useEffect(() => {
     let timer;
@@ -149,7 +161,7 @@ export default function AppSidebar() {
         .then((data) => {
           if (data?.count != null) {
             setUnreadCount(data.count);
-            try { localStorage.setItem('owb-unread-count', String(data.count)); }
+            try { localStorage.setItem(unreadStorageKey, String(data.count)); }
             catch { /* noop */ }
           }
         })
@@ -161,6 +173,11 @@ export default function AppSidebar() {
     return () => {
       clearInterval(timer);
     };
+  }, [unreadStorageKey]);
+
+  const handleLogout = useCallback(() => {
+    clearAllDraftBackups();
+    router.post(route('logout'));
   }, []);
 
   const toggleCollapsed = useCallback(() => {
@@ -380,7 +397,7 @@ export default function AppSidebar() {
               {!collapsed && <span>EDIT PROFILE</span>}
             </Link>
             <button
-              onClick={() => router.post(route('logout'))}
+              onClick={handleLogout}
               className="flex items-center justify-center w-10 h-8 rounded-md border border-red-100 text-red-600 hover:bg-red-50 transition-all"
               title="Log Out"
             >

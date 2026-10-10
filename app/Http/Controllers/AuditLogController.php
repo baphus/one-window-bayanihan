@@ -279,10 +279,13 @@ class AuditLogController extends Controller
                                 ->whereColumn('cases.id', 'audit_logs.entity_id')
                                 ->where('cases.case_number', 'ILIKE', "%{$search}%");
                         });
-                })
-                // Raw UUID prefix match on the entity identifier (covers
-                // referral/milestone short IDs and full UUIDs).
-                ->orWhereRaw('audit_logs.entity_id::text ILIKE ?', ["%{$search}%"]);
+                });
+            // Exact UUID match on the entity identifier, without casting
+            // to text so the B-tree indexes stay usable. A ::text ILIKE
+            // here forced a sequential scan on this append-only table.
+            if (Str::isUuid(trim($search))) {
+                $safeMetadata->orWhere('audit_logs.entity_id', trim($search));
+            }
         });
     }
 

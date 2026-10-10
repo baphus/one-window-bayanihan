@@ -59,16 +59,7 @@ class CaseQueries
         });
     }
 
-    /**
-     * Get enriched cases for business export — joins related client data,
-     * addresses, employments, next-of-kin, case issues, and referral parties.
-     * No IDs or system fields. ADMIN/CASE_MANAGER see all; AGENCY sees own.
-     *
-     * @param  array  $filters  Optional: status, search, client_type, vulnerability_indicator,
-     *                          user_id, agcy_id, category_id/category_ids, case_issue_id,
-     *                          age_min_days, referral_state
-     */
-    public function getCasesExport(?User $user = null, array $filters = []): Collection
+    private function casesExportQuery(?User $user = null, array $filters = [])
     {
         $query = DB::table('cases AS c')
             ->select([
@@ -195,11 +186,23 @@ class CaseQueries
             });
         }
 
+        return $query;
+    }
+
+    /**
+     * Get enriched cases for business export — joins related client data,
+     * addresses, employments, next-of-kin, case issues, and referral parties.
+     * No IDs or system fields. ADMIN/CASE_MANAGER see all; AGENCY sees own.
+     *
+     * @param  array  $filters  Optional: status, search, client_type, vulnerability_indicator,
+     *                          user_id, agcy_id, category_id/category_ids, case_issue_id,
+     *                          age_min_days, referral_state
+     */
+    public function getCasesExport(?User $user = null, array $filters = []): Collection
+    {
         // Safety cap — prevents memory exhaustion on unbounded exports.
         // The DataExportService should eventually support streaming for larger sets.
-        $query->limit(10000);
-
-        return $query->get()->map(function ($row) {
+        return $this->casesExportQuery($user, $filters)->limit(10000)->get()->map(function ($row) {
             // Convert stdClass to a mutable object we can add properties to
             $row = (object) $row;
 
@@ -269,6 +272,6 @@ class CaseQueries
 
     public function countCasesExport(?User $user = null, array $filters = []): int
     {
-        return (int) $this->getCasesExport($user, $filters)->count();
+        return (int) $this->casesExportQuery($user, $filters)->count();
     }
 }

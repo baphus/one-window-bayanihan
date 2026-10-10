@@ -13,17 +13,21 @@ final class ChatbotKnowledge
 
     public function search(string $query, ChatbotAudience $audience, int $limit = 5): array
     {
-        $tokens = $this->tokens(mb_substr($query, 0, 500));
+        $tokens = self::tokensFor(mb_substr($query, 0, 500));
         if ($tokens === []) {
             return [];
         }
         $results = [];
         foreach ($this->articles($audience) as $slug => $article) {
-            $titleTokens = $this->tokens($article['title'].' '.$slug);
+            // Token sets are precomputed in the cached parse (see
+            // ChatbotHelpdeskService::parsed()); fall back to tokenizing only
+            // for parses cached before that key existed.
+            $titleTokens = $article['tokens']['title'] ?? self::tokensFor($article['title'].' '.$slug);
             $best = null;
             foreach ($article['sections'] as $section) {
-                $headingTokens = $this->tokens($section['heading']);
-                $bodyTokens = $this->tokens($section['content']);
+                $sectionTokens = $article['tokens']['sections'][$section['heading']] ?? null;
+                $headingTokens = $sectionTokens['heading'] ?? self::tokensFor($section['heading']);
+                $bodyTokens = $sectionTokens['body'] ?? self::tokensFor($section['content']);
                 $score = count(array_intersect($tokens, $titleTokens)) * 5
                     + count(array_intersect($tokens, $headingTokens)) * 3
                     + count(array_intersect($tokens, $bodyTokens));
@@ -94,7 +98,14 @@ final class ChatbotKnowledge
         'dokumento' => 'documents',
     ];
 
-    private function tokens(string $text): array
+    /**
+     * Tokenize with the retrieval synonym expansions applied.
+     *
+     * Public so the helpdesk parse can precompute per-section token sets
+     * once per content version; search() then reads that map instead of
+     * re-tokenizing the whole corpus on every request.
+     */
+    public static function tokensFor(string $text): array
     {
         foreach (self::SYNONYM_EXPANSIONS as $word => $replacement) {
             $text = preg_replace('/\b'.preg_quote($word, '/').'\b/iu', $replacement, $text);

@@ -100,7 +100,7 @@ function NotificationsTab({ data, isLoading, error, page, onPageChange, onRetry,
             <div
               key={item.id}
               onClick={() => {
-                if (item.action_url) {
+                if (item.action_url && item.action_url.startsWith('/')) {
                   router.visit(item.action_url);
                 }
               }}
@@ -146,7 +146,9 @@ function NotificationsTab({ data, isLoading, error, page, onPageChange, onRetry,
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            router.visit(item.action_url);
+                            if (item.action_url && item.action_url.startsWith('/')) {
+                              router.visit(item.action_url);
+                            }
                           }}
                           className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-700 hover:text-blue-900 transition-colors"
                         >
@@ -160,7 +162,7 @@ function NotificationsTab({ data, isLoading, error, page, onPageChange, onRetry,
                             e.stopPropagation();
                             markReadMutation.mutate(item._rawId);
                           }}
-                          disabled={markReadMutation.isPending}
+                          disabled={markReadMutation.pendingId === item._rawId}
                           className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-blue-600 transition-colors disabled:opacity-50"
                         >
                           <CheckCircle2 className="w-3.5 h-3.5" />
@@ -222,7 +224,8 @@ export default function NotificationsIndex() {
   );
 
   // ── Mutations ──
-  const [marking, setMarking] = useState(false);
+  const [markingId, setMarkingId] = useState(null);
+  const [markingAll, setMarkingAll] = useState(false);
 
   const patchNotification = (url) =>
     fetch(url, {
@@ -234,27 +237,27 @@ export default function NotificationsIndex() {
     }).then((r) => { if (!r.ok) throw new Error(); return r.json(); });
 
   const markRead = async (rawId) => {
-    setMarking(true);
+    setMarkingId(rawId);
     try {
       await patchNotification(route('notifications.mark-as-read', rawId));
       await reload();
     } finally {
-      setMarking(false);
+      setMarkingId((current) => (current === rawId ? null : current));
     }
   };
 
   const markAllRead = async () => {
-    setMarking(true);
+    setMarkingAll(true);
     try {
       await patchNotification(route('notifications.mark-all-read'));
       await reload();
     } finally {
-      setMarking(false);
+      setMarkingAll(false);
     }
   };
 
-  const markReadMutation = { mutate: markRead, isPending: marking };
-  const markAllReadMutation = { mutate: markAllRead, isPending: marking };
+  const markReadMutation = { mutate: markRead, isPending: markingId !== null, pendingId: markingId };
+  const markAllReadMutation = { mutate: markAllRead, isPending: markingAll };
 
   // ── Handlers ──
   const goToPage = (page) => {
