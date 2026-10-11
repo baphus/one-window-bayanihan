@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Auth;
 
+use App\Enums\UserRole;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -9,14 +10,14 @@ class RegistrationTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_public_registration_screen_is_not_available(): void
+    public function test_public_registration_screen_is_available(): void
     {
         $response = $this->get('/register');
 
-        $response->assertNotFound();
+        $response->assertOk();
     }
 
-    public function test_public_registration_submission_is_not_available_and_creates_no_user(): void
+    public function test_public_registration_submission_creates_ofw_user(): void
     {
         $response = $this->post('/register', [
             'name' => 'Test User',
@@ -25,9 +26,10 @@ class RegistrationTest extends TestCase
             'password_confirmation' => 'P@ssw0rd!',
         ]);
 
-        $response->assertNotFound();
-        $this->assertDatabaseMissing('users', [
+        $response->assertRedirect();
+        $this->assertDatabaseHas('users', [
             'email' => 'test@example.com',
+            'role' => UserRole::OFW->value,
         ]);
     }
 }

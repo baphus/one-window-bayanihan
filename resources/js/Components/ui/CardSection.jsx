@@ -38,7 +38,7 @@ export function SubsectionCard({ title, children }) {
 
 export function CardHeader({ title, meta, actions }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#dce3eb] px-5 py-4">
+    <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-[#dce3eb] px-5 py-4">
       <div className="flex min-w-0 items-baseline gap-2">
         <h3 className="text-[15px] font-bold text-[#172333]">{title}</h3>
         {meta && <span className="text-[12px] text-slate-500">{meta}</span>}

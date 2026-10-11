@@ -20,11 +20,18 @@ export default function TopServiceRequestedCard({ role }) {
 
   if (role && role !== roles.CASE_MANAGER) return null;
 
+  const agency = data?.agency;
+  const description = isLoading
+    ? 'Loading most active service…'
+    : agency && agency !== 'N/A'
+      ? `from ${agency}`
+      : null;
+
   return (
     <KpiCard
-      title="Top Service Requested"
+      title="Most Active Service"
       value={isLoading ? '—' : value}
-      description={isLoading ? 'Loading top service…' : null}
+      description={description}
       trailing={!isLoading && count > 0 ? <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">{count} requests this period</span> : null}
     />
   );

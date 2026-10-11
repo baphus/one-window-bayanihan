@@ -30,11 +30,16 @@ class IntakeController extends Controller
      */
     public function index()
     {
+        $user = request()->user();
+
+        if (! $user) {
+            return redirect()->guest(route('login'));
+        }
+
         $existingClient = null;
         $skipVerification = false;
 
-        $user = request()->user();
-        if ($user && $user->isOfw()) {
+        if ($user->isOfw()) {
             // Signed-in OFW: the session already proved email ownership at login,
             // so the wizard skips the email+OTP verification step.
             $skipVerification = true;

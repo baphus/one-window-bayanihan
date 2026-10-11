@@ -1,5 +1,6 @@
 import { Link } from '@inertiajs/react';
 import OfwLayout from '@/Layouts/OfwLayout';
+import { EmptyState, PageHeader, SectionCard } from '@/Components/Dashboard/primitives';
 
 // Laravel paginator labels are server-escaped strings limited to page
 // numbers plus &laquo; / &raquo; / &hellip; entities — decode them as text
@@ -29,17 +30,17 @@ function NotificationItem({ notification }) {
 
     return (
         <div
-            className={`rounded-lg border p-4 transition-colors ${
+            className={`px-5 py-3 transition-colors ${
                 isUnread
-                    ? 'border-blue-200 bg-blue-50/50'
-                    : 'border-slate-200 bg-white'
+                    ? 'bg-primary/5'
+                    : 'bg-white'
             }`}
         >
             <div className="flex items-start gap-3">
                 {/* Unread indicator */}
                 <div className="mt-1.5 shrink-0">
                     {isUnread ? (
-                        <span className="block h-2.5 w-2.5 rounded-full bg-blue-500" />
+                        <span className="block h-2.5 w-2.5 rounded-full bg-primary" />
                     ) : (
                         <span className="block h-2.5 w-2.5 rounded-full bg-slate-200" />
                     )}
@@ -63,18 +64,6 @@ function NotificationItem({ notification }) {
     );
 }
 
-function EmptyState() {
-    return (
-        <div className="rounded-lg border-2 border-dashed border-slate-200 bg-white px-6 py-16 text-center">
-            <span className="material-symbols-outlined text-5xl text-slate-300">notifications_off</span>
-            <h2 className="mt-4 text-lg font-semibold text-slate-800">No notifications</h2>
-            <p className="mx-auto mt-2 max-w-sm text-sm text-slate-500">
-                You'll receive notifications here when there are updates to your cases.
-            </p>
-        </div>
-    );
-}
-
 export default function Notifications({ notifications }) {
     const notificationList = notifications?.data ?? [];
 
@@ -89,25 +78,28 @@ export default function Notifications({ notifications }) {
                 Back to My Cases
             </Link>
 
-            <div className="mt-4">
-                <h1 className="text-xl font-extrabold font-headline tracking-tight text-slate-900">Notifications</h1>
-                <p className="mt-1 text-sm text-slate-400 font-body">
-                    Updates about your cases
-                </p>
-            </div>
+            <PageHeader
+                eyebrow="My cases"
+                title="Notifications"
+                subtitle="Updates about your cases"
+            />
 
             <div className="mt-6">
                 {notificationList.length === 0 ? (
-                    <EmptyState />
+                    <SectionCard title="Updates">
+                        <EmptyState message="You'll receive notifications here when there are updates to your cases." />
+                    </SectionCard>
                 ) : (
-                    <div className="max-h-[calc(100vh-18rem)] space-y-3 overflow-y-auto pr-1 owb-scroll-wide">
-                        {notificationList.map((notification) => (
-                            <NotificationItem
-                                key={notification.id}
-                                notification={notification}
-                            />
-                        ))}
-                    </div>
+                    <SectionCard title="Updates" bodyClassName="">
+                        <div className="max-h-[calc(100vh-18rem)] divide-y divide-slate-100 overflow-y-auto owb-scroll-wide">
+                            {notificationList.map((notification) => (
+                                <NotificationItem
+                                    key={notification.id}
+                                    notification={notification}
+                                />
+                            ))}
+                        </div>
+                    </SectionCard>
                 )}
             </div>
 

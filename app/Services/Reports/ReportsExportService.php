@@ -560,7 +560,7 @@ class ReportsExportService
             'referralAgencyDistribution' => $emptyDist,
             'employmentOccupationBreakdown' => $emptyDist,
             'overdueReferrals' => ['count' => 0, 'threshold_days' => 14],
-            'mostRequestedService' => ['name' => 'N/A', 'value' => 0],
+            'mostRequestedService' => ['name' => 'N/A', 'value' => 0, 'agency' => 'N/A'],
             'rejectionReasonDistribution' => $emptyDist,
             'closedCasesOverTime' => ['labels' => [], 'datasets' => [['data' => []]]],
             'caseSourceDistribution' => $emptyDist,
@@ -946,7 +946,8 @@ class ReportsExportService
                 ['metric' => 'Overdue after (days)', 'value' => (string) ($p['overdueReferrals']['threshold_days'] ?? 14)],
             ])],
             ['title' => 'Most Requested Service', 'columnMap' => $kv, 'rows' => collect([
-                ['metric' => 'Service', 'value' => (string) ($p['mostRequestedService']['name'] ?? 'N/A')],
+                ['metric' => 'Most active service', 'value' => (string) ($p['mostRequestedService']['name'] ?? 'N/A')],
+                ['metric' => 'Agency', 'value' => (string) ($p['mostRequestedService']['agency'] ?? 'N/A')],
                 ['metric' => 'Requests', 'value' => (string) ($p['mostRequestedService']['value'] ?? 0)],
             ])],
 

@@ -38,29 +38,39 @@ class ClientController extends Controller
         // The client directory lists established clients. Self-filed intakes that
         // have not been accepted belong in the intake queue only, which reads
         // cases directly and is unaffected by this scope.
-        $clients = Client::where('is_deleted', false)->withoutUnacceptedIntake()->with([
-            'caseFile' => function ($q) use ($user) {
-                // ADMIN/CASE_MANAGER: all cases. AGENCY: cases with own referrals.
-                if ($user?->isAgency()) {
-                    $q->whereHas('referrals', fn ($referrals) => $referrals
-                        ->where('agcy_id', $user->agcy_id)
-                        ->where('is_deleted', false));
-                }
+        $clients = Client::where('is_deleted', false)->withoutUnacceptedIntake()
+            // Established means at least one live non-DRAFT case; a client whose
+            // cases are all DRAFT, or who has no case yet, is not in the
+            // directory. caseFiles (all cases), not caseFile: an older OPEN case
+            // plus a newer DRAFT still counts.
+            ->whereHas('caseFiles', function ($q) {
+                $q->where('is_deleted', false)
+                    ->whereNull('cases.deleted_at')
+                    ->where('status', '!=', 'DRAFT');
+            })
+            ->with([
+                'caseFile' => function ($q) use ($user) {
+                    // ADMIN/CASE_MANAGER: all cases. AGENCY: cases with own referrals.
+                    if ($user?->isAgency()) {
+                        $q->whereHas('referrals', fn ($referrals) => $referrals
+                            ->where('agcy_id', $user->agcy_id)
+                            ->where('is_deleted', false));
+                    }
 
-                $q->with([
-                    'referrals' => function ($referrals) use ($user) {
-                        $referrals->where('is_deleted', false)->with('agency');
-                        if ($user?->isAgency()) {
-                            $referrals->where('agcy_id', $user->agcy_id);
-                        }
-                    },
-                    'category', 'categories', 'caseIssue',
-                ]);
-            },
-            'addresses',
-            'employments',
-            'nextOfKin',
-        ]);
+                    $q->with([
+                        'referrals' => function ($referrals) use ($user) {
+                            $referrals->where('is_deleted', false)->with('agency');
+                            if ($user?->isAgency()) {
+                                $referrals->where('agcy_id', $user->agcy_id);
+                            }
+                        },
+                        'category', 'categories', 'caseIssue',
+                    ]);
+                },
+                'addresses',
+                'employments',
+                'nextOfKin',
+            ]);
 
         // An agency user without an agency has no visible client scope.
         if ($user?->isAgency() && ! $user->agcy_id) {

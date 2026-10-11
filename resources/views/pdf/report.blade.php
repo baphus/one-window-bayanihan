@@ -217,7 +217,7 @@
 
     @if(!empty($mostRequestedService['name']) && $mostRequestedService['name'] !== 'N/A')
         <div class="note-box">
-            <strong>Most requested service:</strong> {{ $mostRequestedService['name'] }}
+            <strong>Most active service:</strong> {{ $mostRequestedService['name'] }}@if(!empty($mostRequestedService['agency']) && $mostRequestedService['agency'] !== 'N/A') — {{ $mostRequestedService['agency'] }}@endif
             ({{ $fmt($mostRequestedService['value'] ?? 0) }} requests in range)
         </div>
     @endif

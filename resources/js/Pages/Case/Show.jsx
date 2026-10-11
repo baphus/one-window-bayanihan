@@ -514,19 +514,21 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
       <div className="mx-auto grid max-w-[1440px] grid-cols-1 gap-4 xl:grid-cols-12">
         <main className="space-y-4 xl:col-span-8">
           <section className="rounded-xl border border-[#dce3eb] bg-white shadow-[0_1px_3px_rgba(23,35,51,0.04)]">
-            <div className="flex items-center justify-between gap-3 border-b border-[#dce3eb] px-5 py-4">
-              <h3 className="text-[15px] font-bold text-[#172333]">Case Summary</h3>
-              <div className="flex items-center gap-2">
-                <button type="button" onClick={openEditDetails} className="inline-flex min-h-[34px] items-center gap-1.5 rounded-md bg-[#233f82] px-3.5 text-[12px] font-bold text-white transition hover:bg-[#172c63]">
-                  <span className="material-symbols-outlined text-[15px]">edit</span>
-                  Edit Details
-                </button>
-                <button type="button" onClick={() => setConfirmToggleStatus(true)} disabled={caseFile.status === 'OPEN' && hasActiveReferrals} className="inline-flex min-h-[34px] items-center gap-1.5 rounded-md bg-slate-100 px-3.5 text-[12px] font-bold text-slate-500 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:hover:bg-slate-100">
-                  <span className="material-symbols-outlined text-[15px]">lock</span>
-                  Close Case
-                </button>
-              </div>
-            </div>
+            <CardHeader
+              title="Case Summary"
+              actions={(
+                <>
+                  <button type="button" onClick={openEditDetails} className="inline-flex min-h-[34px] items-center gap-1.5 rounded-md bg-[#233f82] px-3.5 text-[12px] font-bold text-white transition hover:bg-[#172c63]">
+                    <span className="material-symbols-outlined text-[15px]">edit</span>
+                    Edit Details
+                  </button>
+                  <button type="button" onClick={() => setConfirmToggleStatus(true)} disabled={caseFile.status === 'OPEN' && hasActiveReferrals} className="inline-flex min-h-[34px] items-center gap-1.5 rounded-md bg-slate-100 px-3.5 text-[12px] font-bold text-slate-500 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:hover:bg-slate-100">
+                    <span className="material-symbols-outlined text-[15px]">lock</span>
+                    Close Case
+                  </button>
+                </>
+              )}
+            />
             {/* [&>div]:border-0 strips InfoCell's border-b/border-r dividers for this grid only */}
             <div className="grid grid-cols-1 md:grid-cols-3 [&>div]:border-0">
               <InfoCell label="Case No." value={caseFile.case_number} />

@@ -147,6 +147,20 @@ class ClientQueries
             });
         });
 
+        // Directory rule: only clients with at least one live non-DRAFT case are
+        // listed, so hide draft-only and caseless clients here too — hand-written
+        // to match ClientController@index's whereHas('caseFiles'). Top-level AND;
+        // grouping it inside the block above would let it OR past the filters.
+        $query->whereExists(function ($q) {
+            $q->selectRaw('1')
+                ->from('cases AS cd')
+                ->whereColumn('cd.client_id', 'cl.id')
+                ->whereNotNull('cd.client_id')
+                ->where('cd.is_deleted', false)
+                ->whereNull('cd.deleted_at')
+                ->where('cd.status', '!=', 'DRAFT');
+        });
+
         // ADMIN/CASE_MANAGER: all. AGENCY: clients linked to their referrals.
         if ($user?->role === UserRole::AGENCY->value) {
             if ($user->agcy_id) {

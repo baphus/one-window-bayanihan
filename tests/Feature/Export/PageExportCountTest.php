@@ -143,8 +143,11 @@ class PageExportCountTest extends TestCase
     public function clients_count_respects_search_filter(): void
     {
         $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-        Client::factory()->create(['first_name' => 'Maria', 'last_name' => 'Santos']);
-        Client::factory()->create(['first_name' => 'Juan', 'last_name' => 'Dela Cruz']);
+        // The directory and its export list only clients with a live non-DRAFT case.
+        $maria = Client::factory()->create(['first_name' => 'Maria', 'last_name' => 'Santos']);
+        $juan = Client::factory()->create(['first_name' => 'Juan', 'last_name' => 'Dela Cruz']);
+        CaseFile::factory()->create(['client_id' => $maria->id]);
+        CaseFile::factory()->create(['client_id' => $juan->id]);
 
         $response = $this->actingAs($user)->getJson(route('clients.export-count', ['search' => 'Maria']));
 
@@ -155,8 +158,9 @@ class PageExportCountTest extends TestCase
     public function clients_count_respects_sex_filter(): void
     {
         $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-        Client::factory()->create(['sex' => 'MALE']);
+        $male = Client::factory()->create(['sex' => 'MALE']);
         Client::factory()->create(['sex' => 'FEMALE']);
+        CaseFile::factory()->create(['client_id' => $male->id]);
 
         $response = $this->actingAs($user)->getJson(route('clients.export-count', ['sex' => 'MALE']));
 

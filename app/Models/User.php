@@ -120,13 +120,17 @@ class User extends Authenticatable implements MustVerifyEmail
 
     public function isInMfaEnforcedRole(): bool
     {
+        if ($this->isOfw()) {
+            return false;
+        }
+
         if (function_exists('app')) {
             try {
                 if (app()->isProduction()) {
                     return $this->role !== null && $this->role !== '';
                 }
             } catch (\Throwable $e) {
-                // Fall through to config-driven behaviour when app context is unavailable.
+                // Fall through to config-driven behaviour when context is unavailable.
             }
         }
 

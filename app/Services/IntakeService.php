@@ -340,13 +340,8 @@ class IntakeService
         }
 
         $resolved = $this->resolveAddressNames($addressData);
-        $address = $client->addresses()->first();
 
-        if ($address) {
-            $address->update($resolved);
-        } else {
-            $client->addresses()->create($resolved);
-        }
+        $client->addresses()->updateOrCreate(['client_id' => $client->id], $resolved);
     }
 
     private function syncEmployment(Client $client, ?array $employmentData): void

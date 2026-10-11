@@ -52,7 +52,25 @@ export default function OfwLayout({ children, title }) {
                         <OfwNotificationBell />
 
                         {/* Desktop actions */}
-                        <div className="hidden items-center gap-3 md:flex">
+                        <div className="hidden items-center gap-3 lg:flex">
+                            <Link
+                                href={safeRoute('ofw.dashboard', undefined, '/my-cases')}
+                                className="text-sm font-semibold text-slate-700 transition hover:text-primary"
+                            >
+                                My Cases
+                            </Link>
+                            <Link
+                                href={safeRoute('ofw.notifications', undefined, '/my-cases/notifications')}
+                                className="text-sm font-semibold text-slate-700 transition hover:text-primary"
+                            >
+                                Notifications
+                            </Link>
+                            <Link
+                                href={safeRoute('intake.index', undefined, '/intake')}
+                                className="text-sm font-semibold text-slate-700 transition hover:text-primary"
+                            >
+                                File a Case
+                            </Link>
                             <div className="flex items-center gap-4 border-l border-gray-200 pl-5">
                                 <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-primary">
                                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-3/5 w-3/5 text-white/50">
@@ -82,7 +100,7 @@ export default function OfwLayout({ children, title }) {
                         {/* Mobile menu button */}
                         <button
                             type="button"
-                            className="inline-flex items-center justify-center self-center rounded-md border border-gray-200 p-2 text-slate-600 transition hover:bg-slate-50 hover:text-primary md:hidden"
+                            className="inline-flex items-center justify-center self-center rounded-md border border-gray-200 p-2 text-slate-600 transition hover:bg-slate-50 hover:text-primary lg:hidden"
                             aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
                             aria-expanded={mobileMenuOpen}
                             aria-controls="ofw-mobile-navigation"
@@ -110,12 +128,12 @@ export default function OfwLayout({ children, title }) {
                         <button
                             type="button"
                             aria-label="Close mobile menu"
-                            className="fixed inset-0 z-40 bg-slate-950/40 md:hidden"
+                            className="fixed inset-0 z-40 bg-slate-950/40 lg:hidden"
                             onClick={() => setMobileMenuOpen(false)}
                         />
                         <aside
                             id="ofw-mobile-navigation"
-                            className="fixed right-0 top-0 z-50 flex h-full w-[min(19rem,85vw)] flex-col bg-white shadow-2xl ring-1 ring-black/5 md:hidden"
+                            className="fixed right-0 top-0 z-50 flex h-full w-[min(19rem,85vw)] flex-col bg-white shadow-2xl ring-1 ring-black/5 lg:hidden"
                             aria-label="Mobile navigation"
                         >
                             <div className="flex items-center justify-between border-b border-gray-100 px-4 py-4">
@@ -141,7 +159,31 @@ export default function OfwLayout({ children, title }) {
                             </div>
 
                             <div className="flex-1 overflow-y-auto px-4 py-4">
-                                <div className="grid gap-2">
+                                <nav aria-label="OFW portal" className="grid gap-2">
+                                    <Link
+                                        href={safeRoute('ofw.dashboard', undefined, '/my-cases')}
+                                        className="rounded-md border border-gray-200 px-4 py-3 text-left text-sm font-medium text-slate-600 transition hover:bg-slate-50 hover:text-primary"
+                                    >
+                                        My Cases
+                                    </Link>
+                                    <Link
+                                        href={safeRoute('ofw.notifications', undefined, '/my-cases/notifications')}
+                                        className="rounded-md border border-gray-200 px-4 py-3 text-left text-sm font-medium text-slate-600 transition hover:bg-slate-50 hover:text-primary"
+                                    >
+                                        Notifications
+                                    </Link>
+                                    <Link
+                                        href={safeRoute('ofw.profile.edit', undefined, '/my-cases/profile')}
+                                        className="rounded-md border border-gray-200 px-4 py-3 text-left text-sm font-medium text-slate-600 transition hover:bg-slate-50 hover:text-primary"
+                                    >
+                                        Profile
+                                    </Link>
+                                    <Link
+                                        href={safeRoute('intake.index', undefined, '/intake')}
+                                        className="rounded-md border border-gray-200 px-4 py-3 text-left text-sm font-medium text-slate-600 transition hover:bg-slate-50 hover:text-primary"
+                                    >
+                                        File a Case
+                                    </Link>
                                     <button
                                         type="button"
                                         onClick={() => {
@@ -152,7 +194,7 @@ export default function OfwLayout({ children, title }) {
                                     >
                                         Logout
                                     </button>
-                                </div>
+                                </nav>
                             </div>
                         </aside>
                     </>

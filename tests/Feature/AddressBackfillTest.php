@@ -39,20 +39,32 @@ class AddressBackfillTest extends TestCase
 
     public function test_backfill_replaces_codes_with_names_and_leaves_names_alone(): void
     {
-        $clientId = (string) Str::uuid();
+        $codeClientId = (string) Str::uuid();
+        $correctClientId = (string) Str::uuid();
         DB::table('clients')->insert([
-            'id' => $clientId,
-            'first_name' => 'Juan',
-            'last_name' => 'Dela Cruz',
-            'created_at' => now(),
-            'updated_at' => now(),
+            [
+                'id' => $codeClientId,
+                'first_name' => 'Juan',
+                'last_name' => 'Dela Cruz',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'id' => $correctClientId,
+                'first_name' => 'Jane',
+                'last_name' => 'Doe',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
         ]);
 
         // One row written while the resolver was broken, one already correct.
+        // One live address per client (enforced by
+        // client_addresses_one_live_per_client), so each row belongs to its own client.
         DB::table('client_addresses')->insert([
             [
                 'id' => (string) Str::uuid(),
-                'client_id' => $clientId,
+                'client_id' => $codeClientId,
                 'region' => '0700000000',
                 'city_municipality' => '0730600000',
                 'created_at' => now(),
@@ -60,7 +72,7 @@ class AddressBackfillTest extends TestCase
             ],
             [
                 'id' => (string) Str::uuid(),
-                'client_id' => $clientId,
+                'client_id' => $correctClientId,
                 'region' => 'Region VII (Central Visayas)',
                 'city_municipality' => 'City of Cebu',
                 'created_at' => now(),

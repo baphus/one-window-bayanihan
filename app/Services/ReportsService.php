@@ -246,7 +246,7 @@ class ReportsService
             'referralAgencyDistribution' => [], 'referralTrends' => [],
             'casesOverTime' => [], 'genderDistribution' => [],
             'clientTypeDistribution' => [], 'ageGroupDistribution' => [],
-            'mostRequestedService' => ['name' => 'N/A', 'value' => 0],
+            'mostRequestedService' => ['name' => 'N/A', 'value' => 0, 'agency' => 'N/A'],
             'cycleTimeDistribution' => [], 'referralAging' => [],
             'agencyScorecard' => [], 'geographicDistribution' => [],
             'geographicMapData' => ['provinces' => []], 'categoryDistribution' => [],
