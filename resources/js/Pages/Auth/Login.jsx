@@ -101,11 +101,11 @@ export default function Login({ status, canResetPassword }) {
                                     </span>
 
                                     <h2 className="font-headline text-2xl font-bold text-slate-900">
-                                        Sign In
+                                        OFW Assistance Portal
                                     </h2>
 
                                     <p className="mt-2 text-sm text-slate-500">
-                                        Sign in using your government account credentials.
+                                        Log in to track your case, file a request, or manage your assistance profile.
                                     </p>
                                 </div>
 
@@ -125,7 +125,10 @@ export default function Login({ status, canResetPassword }) {
                                     )}
 
                                     <div>
-                                        <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-on-surface-variant">Email Address</label>
+                                        <div className="flex justify-between mb-2">
+                                            <label className="block text-xs font-bold uppercase tracking-widest text-on-surface-variant">Email Address</label>
+                                            <Link href={route('forgot-email')} className="text-xs font-bold text-primary hover:underline">Forgot Email?</Link>
+                                        </div>
                                         <div className="relative">
                                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant/40 text-[20px] material-symbols-outlined">alternate_email</span>
                                             <input
@@ -141,12 +144,9 @@ export default function Login({ status, canResetPassword }) {
                                     <div>
                                         <div className="flex justify-between mb-2">
                                             <label className="block text-xs font-bold uppercase tracking-widest text-on-surface-variant">Password</label>
-                                            <div className="flex gap-3">
-                                                {canResetPassword && (
-                                                    <Link href={route('password.request')} className="text-xs font-bold text-primary hover:underline">Forgot Access?</Link>
-                                                )}
-                                                <Link href={route('forgot-email')} className="text-xs font-bold text-primary hover:underline">Forgot Email?</Link>
-                                            </div>
+                                            {canResetPassword && (
+                                                <Link href={route('password.request')} className="text-xs font-bold text-primary hover:underline">Forgot Access?</Link>
+                                            )}
                                         </div>
                                         <PasswordInput
                                             id="login-password"
@@ -175,8 +175,18 @@ export default function Login({ status, canResetPassword }) {
                                         disabled={processing}
                                         className="w-full bg-primary text-on-primary px-8 py-4 text-sm font-bold shadow-xl hover:brightness-110 active:scale-95 transition-all disabled:opacity-60 rounded-md"
                                     >
-                                        {processing ? 'Verifying...' : 'Sign In'}
+                                        {processing ? 'Verifying...' : 'Log In'}
                                     </button>
+
+                                    <p className="text-center text-sm text-slate-500">
+                                        Don&apos;t have an account?{' '}
+                                        <Link
+                                            href={route('register')}
+                                            className="font-semibold text-primary hover:underline"
+                                        >
+                                            Register here
+                                        </Link>
+                                    </p>
                                 </form>
                             </div>
 
