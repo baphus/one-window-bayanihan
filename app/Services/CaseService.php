@@ -1545,13 +1545,8 @@ class CaseService
     public function syncExistingClientData(Client $client, array $data): void
     {
         if (! empty($data['address'])) {
-            $address = $client->addresses()->first();
             $resolvedAddress = $this->resolveAddressNames($data['address']);
-            if ($address) {
-                $address->update($resolvedAddress);
-            } else {
-                $client->addresses()->create($resolvedAddress);
-            }
+            $client->addresses()->updateOrCreate(['client_id' => $client->id], $resolvedAddress);
         }
 
         if (! empty($data['employment'])) {
@@ -1788,10 +1783,19 @@ class CaseService
         $agencyId = ($user?->isAgency() && $user->agcy_id) ? $user->agcy_id : null;
 
         $totalClients = $user?->isAdmin()
-            ? Client::where('is_deleted', false)->withoutUnacceptedIntake()->count()
+            ? Client::where('is_deleted', false)->withoutUnacceptedIntake()
+                // Same rule as ClientController@index: at least one live
+                // non-DRAFT case, or the tile counts clients the listing hides.
+                ->whereHas('caseFiles', function ($q) {
+                    $q->where('is_deleted', false)
+                        ->whereNull('cases.deleted_at')
+                        ->where('status', '!=', 'DRAFT');
+                })
+                ->count()
             : $this->countDistinctClientsWithCases($agencyId, function ($q) {
-                // No extra case constraint: any live case qualifies (matches the
-                // COUNT DISTINCT ... THEN cl.id join in the legacy query).
+                // A live draft alone does not establish a client either (the
+                // caseFiles whereHas already rules out caseless clients).
+                $q->where('cases.status', '!=', 'DRAFT');
             }, function ($clients) {
                 // Legacy parity: the non-admin COUNT(DISTINCT CASE WHEN ...)
                 // applied the unaccepted-intake exclusion too, or the tile

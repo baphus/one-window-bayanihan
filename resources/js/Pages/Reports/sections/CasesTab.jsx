@@ -162,8 +162,17 @@ function DemographicsSection({ mapProps }) {
                         lines={clientTypeSlices.map((slice) => ({ label: slice.label, value: slice.count }))}
                     />
                     <MiniBox
-                        heading="Top service"
-                        lines={service ? [{ label: service.name, value: service.value }] : []}
+                        heading="Most active service"
+                        lines={
+                            service
+                                ? [
+                                      { label: service.name, value: service.value },
+                                      ...(service.agency && service.agency !== 'N/A'
+                                          ? [{ label: 'Agency', value: service.agency }]
+                                          : []),
+                                  ]
+                                : []
+                        }
                     />
                 </div>
             )}

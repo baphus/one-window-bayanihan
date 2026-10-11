@@ -212,14 +212,16 @@ class ReferralMetrics
         $top = (clone $query)
             ->join('referral_services', 'referral_services.referral_id', '=', 'referrals.id')
             ->join('services', 'services.id', '=', 'referral_services.service_id')
-            ->select('services.name', DB::raw('count(*) as total'))
-            ->groupBy('services.name')
+            ->leftJoin('agencies', 'agencies.id', '=', 'services.agcy_id')
+            ->select('services.name', 'agencies.name as agency_name', DB::raw('count(*) as total'))
+            ->groupBy('services.name', 'agencies.name')
             ->orderByDesc('total')
             ->first();
 
         return [
             'name' => $top?->name ?? 'N/A',
             'value' => (int) ($top?->total ?? 0),
+            'agency' => $top?->agency_name ?? 'N/A',
         ];
     }
 

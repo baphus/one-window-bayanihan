@@ -6,6 +6,7 @@ use App\Http\Controllers\Auth\EmailVerificationNotificationController;
 use App\Http\Controllers\Auth\EmailVerificationPromptController;
 use App\Http\Controllers\Auth\MfaChallengeController;
 use App\Http\Controllers\Auth\NewPasswordController;
+use App\Http\Controllers\Auth\OfwRegistrationController;
 use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\RegisterViaInviteController;
@@ -20,6 +21,13 @@ use Inertia\Inertia;
 Route::middleware('guest')->group(function () {
     Route::get('login', [AuthenticatedSessionController::class, 'create'])
         ->name('login');
+
+    // OFW self-registration
+    Route::get('register', [OfwRegistrationController::class, 'create'])
+        ->name('register');
+    Route::post('register', [OfwRegistrationController::class, 'store'])
+        ->middleware(['turnstile', 'throttle:register'])
+        ->name('register.store');
 
     // Named login.store, not login: two routes sharing the name breaks
     // `route:cache` with "Unable to prepare route [login] for serialization".

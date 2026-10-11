@@ -253,13 +253,10 @@ class IntakeSubmissionTest extends TestCase
     }
 
     #[Test]
-    public function test_intake_index_does_not_skip_for_anonymous_visitors(): void
+    public function test_intake_index_redirects_anonymous_visitors_to_login(): void
     {
         $response = $this->get('/intake');
 
-        $response->assertOk();
-        $response->assertInertia(fn (Assert $page) => $page
-            ->component('Intake/Index')
-            ->where('skipVerification', false));
+        $response->assertRedirect(route('login'));
     }
 }

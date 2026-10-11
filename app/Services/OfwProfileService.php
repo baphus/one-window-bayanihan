@@ -90,7 +90,7 @@ class OfwProfileService
             }
 
             $new = $this->pickFields($address, $fields);
-            $client->addresses()->create($new);
+            $client->addresses()->updateOrCreate(['client_id' => $client->id], $new);
             $changes['Address'] = ['old' => null, 'new' => $new];
 
             return;
@@ -102,10 +102,10 @@ class OfwProfileService
             return;
         }
 
-        foreach ($dirty as $field => $_) {
-            $row->{$field} = $dirty[$field]['new'];
-        }
-        $row->save();
+        $client->addresses()->updateOrCreate(
+            ['client_id' => $client->id],
+            array_map(fn (array $d) => $d['new'], $dirty)
+        );
 
         $changes['Address'] = $dirty;
     }
