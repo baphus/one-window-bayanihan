@@ -15,6 +15,7 @@ use App\Services\Reports\ReportsExportService;
 use App\Services\ReportsService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -47,7 +48,10 @@ class ReportsExportTest extends TestCase
 
     private function makeCaseWithReferral(User $manager, ?string $province = null): CaseFile
     {
-        $client = Client::factory()->create();
+        // publishedOnly requires user_id; clients created without linked accounts
+        // are excluded from exports intentionally (same rule as ClientController).
+        $clientUser = User::factory()->create();
+        $client = Client::factory()->create(['user_id' => $clientUser->id]);
         if ($province) {
             ClientAddress::create([
                 'client_id' => $client->id,
@@ -173,7 +177,14 @@ class ReportsExportTest extends TestCase
         $queries = new DataExportQueries;
 
         foreach (['getCasesExport', 'getClientsExport', 'getReferralsExport'] as $method) {
+            // Set RLS context for $this->manager
+            DB::statement('SELECT set_config(?, ?, ?)', ['app.current_user_id', $this->manager->id, false]);
+            DB::statement('SELECT set_config(?, ?, ?)', ['app.user_role', UserRole::CASE_MANAGER->value, false]);
             $ownedData = $queries->$method($this->manager, []);
+
+            // Set RLS context for $other
+            DB::statement('SELECT set_config(?, ?, ?)', ['app.current_user_id', $other->id, false]);
+            DB::statement('SELECT set_config(?, ?, ?)', ['app.user_role', UserRole::CASE_MANAGER->value, false]);
             $otherData = $queries->$method($other, []);
 
             $ownedJson = json_encode($ownedData->toArray());
@@ -208,6 +219,9 @@ class ReportsExportTest extends TestCase
 
         // Verify employment data via the queries layer directly
         $queries = new DataExportQueries;
+        // Set RLS session vars so admin sees all rows
+        DB::statement('SELECT set_config(?, ?, ?)', ['app.current_user_id', $admin->id, false]);
+        DB::statement('SELECT set_config(?, ?, ?)', ['app.user_role', UserRole::ADMIN->value, false]);
         $employments = $queries->getClientEmployments($admin);
         $json = json_encode($employments->toArray());
 
