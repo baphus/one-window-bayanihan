@@ -140,7 +140,7 @@ class ServedRegionRuleTest extends TestCase
                 'nok_address' => ['region' => 'NCR', 'city_municipality' => 'Quezon City', 'barangay' => 'Baclaran'],
             ]))
             ->assertStatus(422)
-            ->assertJsonValidationErrors('next_of_kin.0.region');
+            ->assertJsonValidationErrors('next_of_kin.0.nok_address.region');
     }
 
     private function validFilingData(string $region, string $clientId, string $categoryId, string $caseIssueId, ?array $noks = null): array

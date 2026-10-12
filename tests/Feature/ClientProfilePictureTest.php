@@ -28,7 +28,7 @@ class ClientProfilePictureTest extends TestCase
         Storage::fake('public');
 
         $this->user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-        $this->client = Client::factory()->create();
+        $this->client = Client::factory()->create(['user_id' => $this->user->id]);
 
         // Create a case file linking the case manager to the client
         // (required by authorizeClientAccess for non-admin users)

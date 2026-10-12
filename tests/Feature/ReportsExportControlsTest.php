@@ -383,7 +383,11 @@ class ReportsExportControlsTest extends TestCase
         $this->exportPdfViaHttp($admin);
 
         $this->assertSame(2, AuditLog::where('user_id', $admin->id)->count());
-        $log = AuditLog::where('user_id', $admin->id)->latest('timestamp')->first();
+        // ATTEMPTED and COMPLETED share the same timestamp, so latest() is a
+        // coin flip — pick the COMPLETED row explicitly.
+        $log = AuditLog::where('user_id', $admin->id)->get()
+            ->first(fn ($l) => str_contains(strtolower((string) $l->description), 'completed'));
+        $this->assertNotNull($log);
         $this->assertSame('EXPORT', $log->action);
         $this->assertStringContainsString('completed', strtolower($log->description));
     }

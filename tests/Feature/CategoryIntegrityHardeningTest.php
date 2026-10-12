@@ -6,6 +6,7 @@ use App\Http\Requests\StoreCaseRequest;
 use App\Http\Requests\UpdateCaseRequest;
 use App\Models\CaseCategory;
 use App\Models\CaseFile;
+use App\Models\Client;
 use App\Models\User;
 use App\Services\CaseService;
 use Illuminate\Database\QueryException;
@@ -36,7 +37,10 @@ class CategoryIntegrityHardeningTest extends TestCase
         }
 
         $user = User::factory()->create();
-        $case = app(CaseService::class)->createCase(['category_ids' => [$category->id]], $user->id);
+        // OFW Account-First: staff filers must pick a client (or send new_ofw);
+        // without one CaseService throws "No client to file for".
+        $client = Client::factory()->create();
+        $case = app(CaseService::class)->createCase(['category_ids' => [$category->id], 'selected_client_id' => $client->id], $user->id);
         $this->expectException(ValidationException::class);
         app(CaseService::class)->updateCase($case->id, $data, $user->id);
     }
@@ -114,7 +118,9 @@ class CategoryIntegrityHardeningTest extends TestCase
     {
         $user = User::factory()->create();
         $service = app(CaseService::class);
-        $categoryless = $service->createCase([], $user->id);
+        // OFW Account-First: resolved via selected_client_id for staff filers.
+        $client = Client::factory()->create();
+        $categoryless = $service->createCase(['selected_client_id' => $client->id], $user->id);
         try {
             $service->approveCase($categoryless->id, $user->id);
             $this->fail('Expected categoryless approve to fail.');
@@ -123,7 +129,7 @@ class CategoryIntegrityHardeningTest extends TestCase
         }
 
         $category = CaseCategory::factory()->create();
-        $draft = $service->createCase(['category_id' => $category->id], $user->id);
+        $draft = $service->createCase(['category_id' => $category->id, 'selected_client_id' => $client->id], $user->id);
         $category->update(['is_active' => false]);
         try {
             $service->approveCase($draft->id, $user->id);

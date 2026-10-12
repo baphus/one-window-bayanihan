@@ -33,8 +33,9 @@ class DataExportSheetsTest extends TestCase
     public function full_export_sheets_covers_every_mapped_table_in_order(): void
     {
         $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
-        $client = Client::factory()->create();
-        CaseFile::factory()->create(['client_id' => $client->id, 'user_id' => $admin->id]);
+        // Published client: linked account plus live OPEN case.
+        $client = Client::factory()->create(['user_id' => User::factory()->create()->id]);
+        CaseFile::factory()->create(['client_id' => $client->id, 'user_id' => User::factory()->create()->id, 'status' => 'OPEN']);
 
         $sheets = (new DataExportQueries)->fullExportSheets($admin);
 
@@ -58,8 +59,9 @@ class DataExportSheetsTest extends TestCase
     public function every_delegated_sheet_query_returns_a_collection(): void
     {
         $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
-        $client = Client::factory()->create();
-        $case = CaseFile::factory()->create(['client_id' => $client->id, 'user_id' => $admin->id]);
+        // Published client: linked account plus live OPEN case.
+        $client = Client::factory()->create(['user_id' => User::factory()->create()->id]);
+        $case = CaseFile::factory()->create(['client_id' => $client->id, 'user_id' => User::factory()->create()->id, 'status' => 'OPEN']);
 
         $queries = new DataExportQueries;
 

@@ -830,7 +830,7 @@ class AuditLogFormatterComprehensiveTest extends TestCase
 
         // Message should be clean: the description
         $this->assertStringContainsString('CASE-20260702-0006', $description);
-        $this->assertStringContainsString('published', $description);
+        $this->assertStringContainsString('approved', $description);
 
         // The changes should only show what actually changed
         $changes = $display['changes'];
@@ -841,7 +841,7 @@ class AuditLogFormatterComprehensiveTest extends TestCase
         $statusChanges = array_values(array_filter($changes, fn ($c) => $c['fieldLabel'] === 'status'));
         $this->assertNotEmpty($statusChanges);
         $this->assertStringContainsString('Open', $statusChanges[0]['new']);
-        $this->assertStringContainsString('Pending', $statusChanges[0]['old']);
+        $this->assertStringContainsString('PENDING_REVIEW', $statusChanges[0]['old']);
 
         // client_id change is meaningful
         $this->assertContains('client id', $fieldLabels);

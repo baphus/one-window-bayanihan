@@ -206,6 +206,8 @@ class CaseService
                 ->lockForUpdate()
                 ->findOrFail($id);
 
+            $this->revalidatePublishedCategories($case);
+
             $case->update([
                 'status' => 'OPEN',
                 'reviewed_by' => $userId,
@@ -242,6 +244,9 @@ class CaseService
             $case->deletion_reason = $reason;
             $case->deleted_by = $userId;
             $case->save();
+            // A rejected filing never publishes: drop its category assignments
+            // so usage counts and filters don't carry a dead filing's tags.
+            $case->categories()->detach();
             $case->delete();
 
             AuditLog::create([

@@ -28,7 +28,7 @@ class OfwRegistrationTest extends TestCase
         ]);
 
         $response->assertRedirect(route('register.profile'));
-        $this->assertSessionHas('pending_registration');
+        $response->assertSessionHas('pending_registration');
         $this->assertGuest();
         $this->assertNull(User::where('email', 'juan@example.com')->first());
     }

@@ -7,6 +7,7 @@ use App\Http\Middleware\VerifyTurnstile;
 use App\Models\CaseCategory;
 use App\Models\CaseFile;
 use App\Models\CaseIssue;
+use App\Models\Client;
 use App\Models\User;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -34,6 +35,8 @@ class DateOfEmploymentValidationTest extends TestCase
 
     private CaseIssue $caseIssue;
 
+    private Client $client;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -50,6 +53,7 @@ class DateOfEmploymentValidationTest extends TestCase
             'name' => 'Unpaid wages',
             'is_active' => true,
         ]);
+        $this->client = Client::factory()->create();
     }
 
     private function dateOfBirth(): string
@@ -199,6 +203,7 @@ class DateOfEmploymentValidationTest extends TestCase
     private function validPublishData(string $start, string $end): array
     {
         return [
+            'selected_client_id' => $this->client->id,
             'category_ids' => [$this->category->id],
             'case_issue_id' => $this->caseIssue->id,
             'client' => [

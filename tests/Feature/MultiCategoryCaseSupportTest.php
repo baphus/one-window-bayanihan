@@ -219,14 +219,14 @@ class MultiCategoryCaseSupportTest extends TestCase
         $target = CaseCategory::factory()->create();
         $secondary = CaseCategory::factory()->create();
         $unrelated = CaseCategory::factory()->create();
-        $legacyClient = Client::factory()->create();
-        $secondaryClient = Client::factory()->create();
-        $unrelatedClient = Client::factory()->create();
+        $legacyClient = Client::factory()->create(['user_id' => User::factory()->create()->id]);
+        $secondaryClient = Client::factory()->create(['user_id' => User::factory()->create()->id]);
+        $unrelatedClient = Client::factory()->create(['user_id' => User::factory()->create()->id]);
 
-        CaseFile::factory()->create(['client_id' => $legacyClient->id, 'category_id' => $target->id]);
-        $secondaryCase = CaseFile::factory()->create(['client_id' => $secondaryClient->id, 'category_id' => null]);
+        CaseFile::factory()->create(['client_id' => $legacyClient->id, 'category_id' => $target->id, 'status' => 'OPEN']);
+        $secondaryCase = CaseFile::factory()->create(['client_id' => $secondaryClient->id, 'category_id' => null, 'status' => 'OPEN']);
         $this->linkCategories($secondaryCase, [$secondary->id]);
-        CaseFile::factory()->create(['client_id' => $unrelatedClient->id, 'category_id' => $unrelated->id]);
+        CaseFile::factory()->create(['client_id' => $unrelatedClient->id, 'category_id' => $unrelated->id, 'status' => 'OPEN']);
 
         $response = $this->actingAs($admin)->get(route('clients.index', [
             'category_ids' => [$target->id, $secondary->id],
@@ -247,22 +247,25 @@ class MultiCategoryCaseSupportTest extends TestCase
         $target = CaseCategory::factory()->create(['name' => 'Target']);
         $secondary = CaseCategory::factory()->create(['name' => 'Secondary']);
         $unrelated = CaseCategory::factory()->create();
-        $legacyClient = Client::factory()->create();
-        $secondaryClient = Client::factory()->create();
-        $unrelatedClient = Client::factory()->create();
+        $legacyClient = Client::factory()->create(['user_id' => User::factory()->create()->id]);
+        $secondaryClient = Client::factory()->create(['user_id' => User::factory()->create()->id]);
+        $unrelatedClient = Client::factory()->create(['user_id' => User::factory()->create()->id]);
 
         $legacyCase = CaseFile::factory()->create([
             'client_id' => $legacyClient->id,
             'category_id' => $target->id,
+            'status' => 'OPEN',
         ]);
         $secondaryCase = CaseFile::factory()->create([
             'client_id' => $secondaryClient->id,
             'category_id' => null,
+            'status' => 'OPEN',
         ]);
         $this->linkCategories($secondaryCase, [$target->id, $secondary->id]);
         $unrelatedCase = CaseFile::factory()->create([
             'client_id' => $unrelatedClient->id,
             'category_id' => $unrelated->id,
+            'status' => 'OPEN',
         ]);
         $legacyReferral = Referral::factory()->create(['case_id' => $legacyCase->id, 'agcy_id' => $agency->id]);
         $secondaryReferral = Referral::factory()->create(['case_id' => $secondaryCase->id, 'agcy_id' => $agency->id]);

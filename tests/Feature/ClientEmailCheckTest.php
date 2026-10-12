@@ -38,6 +38,13 @@ class ClientEmailCheckTest extends TestCase
             'first_name' => 'Maria',
             'last_name' => 'Santos',
             'email' => 'maria@example.com',
+            // The probe only matches published clients: linked account + live OPEN case.
+            'user_id' => User::factory()->create()->id,
+        ]);
+        CaseFile::factory()->create([
+            'client_id' => $existing->id,
+            'user_id' => User::factory()->create()->id,
+            'status' => 'OPEN',
         ]);
 
         $response = $this->checkEmail('MARIA@Example.com ');

@@ -27,7 +27,7 @@ class RegistrationTest extends TestCase
         ]);
 
         $response->assertRedirect('/register/profile');
-        $this->assertSessionHas('pending_registration');
+        $response->assertSessionHas('pending_registration');
 
         // Step 1 does not create a user row yet — profile step does.
         $this->assertDatabaseMissing('users', ['email' => 'test@example.com']);
