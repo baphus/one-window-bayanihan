@@ -7,6 +7,7 @@ use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\SetPostgresSession;
 use App\Models\Agency;
 use App\Models\AuditLog;
+use App\Models\CaseCategory;
 use App\Models\CaseFile;
 use App\Models\Milestone;
 use App\Models\Referral;
@@ -30,6 +31,9 @@ class AuthorizationGapTest extends TestCase
         $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $filer = User::factory()->create(['role' => UserRole::OFW->value]);
         $case = CaseFile::factory()->pendingReview()->create(['user_id' => $filer->id]);
+        // approveCase revalidates published categories; attach an active one
+        // so the fixture matches production behavior without weakening the gate.
+        $case->categories()->attach(CaseCategory::factory()->create()->id);
 
         $response = $this->actingAs($manager)->post(route('cases.review-approve', $case));
 

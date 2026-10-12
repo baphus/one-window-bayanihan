@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\UserRole;
+use App\Models\CaseCategory;
 use App\Models\CaseFile;
 use App\Models\Client;
 use App\Models\User;
@@ -27,10 +28,17 @@ class CaseReviewTest extends TestCase
 
     private function createPendingCase(Client $client, User $filer): CaseFile
     {
-        return CaseFile::factory()->pendingReview()->create([
+        $case = CaseFile::factory()->pendingReview()->create([
             'user_id' => $filer->id,
             'client_id' => $client->id,
         ]);
+        // approveCase revalidates published categories; attach an active one
+        // so the test's fixture matches production behavior without weakening
+        // the validation gate.
+        $category = CaseCategory::factory()->create();
+        $case->categories()->attach($category->id);
+
+        return $case;
     }
 
     // ── approve ─────────────────────────────────────────────────────────────

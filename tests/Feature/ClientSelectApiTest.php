@@ -227,6 +227,9 @@ class ClientSelectApiTest extends TestCase
         $caseFile = CaseFile::factory()->create([
             'client_id' => $client->id,
             'user_id' => $user->id,
+            // caseFile relation resolves the latest case; make the asserted
+            // case newer than the helper's OPEN case so it is the one returned.
+            'created_at' => now()->addSecond(),
         ]);
 
         $response = $this->actingAs($user)->getJson("/api/clients/{$client->id}");
