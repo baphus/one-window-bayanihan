@@ -95,7 +95,7 @@ function buildEmployment(value = {}) {
     };
 }
 
-The case number and tracker number are assigned by the server on save
+// The case number and tracker number are assigned by the server on save
 // (CaseService::generateCaseNumber / generateTrackerNumber) using the canonical
 // OWB-{YEAR}{MONTH}-{NNNNN} and OWBAP-XXXXXXXXXX formats. This screen used to generate and
 // display look-alike values (CM-YYYYMMDD-NNNN plus a random OWBAP token) which
