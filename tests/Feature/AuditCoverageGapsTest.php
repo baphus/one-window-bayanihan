@@ -5,10 +5,7 @@ namespace Tests\Feature;
 use App\Enums\AuditAction;
 use App\Enums\UserRole;
 use App\Models\AuditLog;
-use App\Models\CaseFile;
-use App\Models\Client;
 use App\Models\User;
-use App\Services\CaseService;
 use App\Services\MaintenanceService;
 use App\Services\SessionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -19,7 +16,7 @@ use Tests\TestCase;
 
 /**
  * Regression tests for the service-level audit writes added in T3–T6 of the
- * audit-coverage-gaps plan (SecuritySettingsController, CaseService::deleteDraft,
+ * audit-coverage-gaps plan (SecuritySettingsController,
  * SessionService::terminate, MaintenanceService::enable/disable).
  *
  * These paths have no observable model event to rely on (draft deletion runs
@@ -59,45 +56,6 @@ class AuditCoverageGapsTest extends TestCase
         $this->assertStringNotContainsString('true', $entry->description);
         $this->assertNull($entry->old_value);
         $this->assertNull($entry->new_value);
-    }
-
-    public function test_delete_draft_writes_delete_audit_row(): void
-    {
-        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-        $client = Client::factory()->create([
-            'first_name' => 'Juan',
-            'last_name' => 'Dela Cruz',
-        ]);
-        $case = CaseFile::factory()->create([
-            'status' => 'DRAFT',
-            'user_id' => $user->id,
-        ]);
-        $case->client_id = $client->id;
-        $case->save();
-
-        $caseId = $case->id;
-        $caseNumber = $case->case_number;
-
-        app(CaseService::class)->deleteDraft($caseId, $user->id);
-
-        $this->assertDatabaseMissing('cases', ['id' => $caseId]);
-        $this->assertDatabaseHas('audit_logs', [
-            'module' => 'case',
-            'action' => AuditAction::DELETE->value,
-            'entity_id' => $caseId,
-            'user_id' => $user->id,
-        ]);
-
-        $entry = AuditLog::query()
-            ->where('module', 'case')
-            ->where('action', AuditAction::DELETE->value)
-            ->where('entity_id', $caseId)
-            ->firstOrFail();
-
-        // The manual audit captures the case number and client name because
-        // the deletion itself runs inside withoutEvents (no observer row).
-        $this->assertStringContainsString($caseNumber, $entry->description);
-        $this->assertStringContainsString('Juan Dela Cruz', $entry->description);
     }
 
     public function test_session_terminate_writes_audit_row(): void

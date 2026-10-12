@@ -21,9 +21,8 @@ use Tests\TestCase;
  * start_date is on/after DOB + 15 years and on/before today, and end_date
  * (when present) is on/after start_date and on/before today.
  *
- * These rules live in the case/intake FormRequests (POST /cases, intake
- * submit, cases.save-draft), so they are exercised through the HTTP layer for
- * both the publish (is_draft=false) and the draft-save paths.
+ * These rules live in StoreCaseRequest (POST /cases), so they are exercised
+ * through the HTTP layer for the authed filing path (→ PENDING_REVIEW).
  */
 class DateOfEmploymentValidationTest extends TestCase
 {
@@ -89,7 +88,7 @@ class DateOfEmploymentValidationTest extends TestCase
 
         $response = $this->actingAs($this->user)->post(route('cases.store'), $this->validPublishData($start, $start));
 
-        $case = CaseFile::where('status', 'OPEN')->firstOrFail();
+        $case = CaseFile::where('status', CaseFile::STATUS_PENDING_REVIEW)->firstOrFail();
         $response->assertRedirect(route('cases.show', $case));
     }
 
@@ -119,7 +118,7 @@ class DateOfEmploymentValidationTest extends TestCase
 
         $response = $this->actingAs($this->user)->post(route('cases.store'), $data);
 
-        $case = CaseFile::where('status', 'OPEN')->firstOrFail();
+        $case = CaseFile::where('status', CaseFile::STATUS_PENDING_REVIEW)->firstOrFail();
         $response->assertRedirect(route('cases.show', $case));
     }
 
@@ -130,7 +129,7 @@ class DateOfEmploymentValidationTest extends TestCase
 
         $response = $this->actingAs($this->user)->post(route('cases.store'), $this->validPublishData($today, $today));
 
-        $case = CaseFile::where('status', 'OPEN')->firstOrFail();
+        $case = CaseFile::where('status', CaseFile::STATUS_PENDING_REVIEW)->firstOrFail();
         $response->assertRedirect(route('cases.show', $case));
     }
 
@@ -162,7 +161,7 @@ class DateOfEmploymentValidationTest extends TestCase
         $response = $this->actingAs($this->user)
             ->post(route('cases.store'), $this->validPublishData('2020-01-01', now()->toDateString()));
 
-        $case = CaseFile::where('status', 'OPEN')->firstOrFail();
+        $case = CaseFile::where('status', CaseFile::STATUS_PENDING_REVIEW)->firstOrFail();
         $response->assertRedirect(route('cases.show', $case));
     }
 
@@ -184,140 +183,8 @@ class DateOfEmploymentValidationTest extends TestCase
 
         $response = $this->actingAs($this->user)->post(route('cases.store'), $data);
 
-        $case = CaseFile::where('status', 'OPEN')->firstOrFail();
+        $case = CaseFile::where('status', CaseFile::STATUS_PENDING_REVIEW)->firstOrFail();
         $response->assertRedirect(route('cases.show', $case));
-    }
-
-    #[Test]
-    public function draft_save_accepts_valid_dates(): void
-    {
-        $case = $this->makeDraft();
-
-        $this->actingAs($this->user)
-            ->put(route('cases.save-draft', $case->id), [
-                'client_type' => 'OFW',
-                'client' => ['date_of_birth' => $this->dateOfBirth()],
-                'employment' => ['start_date' => '2020-01-01', 'end_date' => now()->toDateString()],
-            ], ['Accept' => 'application/json'])
-            ->assertOk();
-    }
-
-    #[Test]
-    public function draft_save_rejects_future_dates(): void
-    {
-        $case = $this->makeDraft();
-
-        // Future end date fails even when every other draft field is relaxed.
-        $this->actingAs($this->user)
-            ->put(route('cases.save-draft', $case->id), [
-                'client_type' => 'OFW',
-                'client' => ['date_of_birth' => $this->dateOfBirth()],
-                'employment' => ['start_date' => now()->toDateString(), 'end_date' => now()->addDay()->toDateString()],
-            ], ['Accept' => 'application/json'])
-            ->assertStatus(422)
-            ->assertJsonValidationErrors('employment.end_date');
-
-        // Future start date fails on its own rule too.
-        $this->actingAs($this->user)
-            ->put(route('cases.save-draft', $case->id), [
-                'client_type' => 'OFW',
-                'client' => ['date_of_birth' => $this->dateOfBirth()],
-                'employment' => ['start_date' => now()->addDay()->toDateString(), 'end_date' => null],
-            ], ['Accept' => 'application/json'])
-            ->assertStatus(422)
-            ->assertJsonValidationErrors('employment.start_date');
-    }
-
-    #[Test]
-    public function draft_save_rejects_start_before_working_age(): void
-    {
-        $case = $this->makeDraft();
-        $dob = $this->dateOfBirth();
-        $floor = now()->parse($dob)->addYears(15)->toDateString();
-
-        $this->actingAs($this->user)
-            ->put(route('cases.save-draft', $case->id), [
-                'client_type' => 'OFW',
-                'client' => ['date_of_birth' => $dob],
-                'employment' => ['start_date' => now()->parse($dob)->addYears(14)->toDateString(), 'end_date' => null],
-            ], ['Accept' => 'application/json'])
-            ->assertStatus(422)
-            ->assertJsonValidationErrors('employment.start_date');
-
-        // On the working-age boundary itself the draft save succeeds.
-        $this->actingAs($this->user)
-            ->put(route('cases.save-draft', $case->id), [
-                'client_type' => 'OFW',
-                'client' => ['date_of_birth' => $dob],
-                'employment' => ['start_date' => $floor, 'end_date' => null],
-            ], ['Accept' => 'application/json'])
-            ->assertOk();
-    }
-
-    #[Test]
-    public function intake_rejects_a_span_that_crosses_working_age(): void
-    {
-        $this->withSession(['intake_verified_email' => 'young-span@example.com'])
-            ->postJson('/intake/submit', $this->validIntakeData())
-            ->assertStatus(422)
-            ->assertJsonValidationErrors('employment.start_date');
-    }
-
-    #[Test]
-    public function draft_save_accepts_missing_employment(): void
-    {
-        $case = $this->makeDraft();
-
-        $this->actingAs($this->user)
-            ->put(route('cases.save-draft', $case->id), [
-                'client_type' => 'OFW',
-            ], ['Accept' => 'application/json'])
-            ->assertOk();
-    }
-
-    private function makeDraft(): CaseFile
-    {
-        return CaseFile::factory()->create([
-            'user_id' => $this->user->id,
-            'status' => 'DRAFT',
-            'client_type' => 'OFW',
-        ]);
-    }
-
-    /**
-     * A complete self-filed intake payload for a 21-year-old reporting a
-     * 10-year employment span (started at age 11 — below working age).
-     */
-    private function validIntakeData(): array
-    {
-        return [
-            'client' => [
-                'first_name' => 'Juan',
-                'last_name' => 'Dela Cruz',
-                'middle_name' => 'Mendoza',
-                'suffix' => null,
-                'date_of_birth' => now()->subYears(21)->toDateString(),
-                'sex' => 'MALE',
-                'contact_number' => '+639171234567',
-            ],
-            'address' => [
-                'region' => '0700000000',
-                'province' => 'Cebu',
-                'city_municipality' => 'Cebu City',
-                'barangay' => 'Lahug',
-                'street' => '123 Main Street',
-            ],
-            'employment' => [
-                'employer_name' => 'Gulf Construction Co.',
-                'position' => 'Welder',
-                'country' => 'Saudi Arabia',
-                'start_date' => now()->subYears(10)->toDateString(),
-                'end_date' => null,
-                'is_present' => true,
-            ],
-            'summary' => 'I need help with unpaid wages from my employer for the past 3 months.',
-            'consent' => true,
-        ];
     }
 
     private function dayAfter(string $date): string
@@ -332,8 +199,7 @@ class DateOfEmploymentValidationTest extends TestCase
     private function validPublishData(string $start, string $end): array
     {
         return [
-            'client_type' => 'OFW',
-            'category_id' => $this->category->id,
+            'category_ids' => [$this->category->id],
             'case_issue_id' => $this->caseIssue->id,
             'client' => [
                 'first_name' => 'Juan',
@@ -361,7 +227,6 @@ class DateOfEmploymentValidationTest extends TestCase
             'next_of_kin' => [],
             'vulnerability_indicator' => 'None',
             'summary' => 'Employment date validation test',
-            'is_draft' => false,
             'consent' => true,
         ];
     }

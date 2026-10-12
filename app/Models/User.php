@@ -158,4 +158,14 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         return $this->belongsTo(Client::class, 'client_id');
     }
+
+    public function isOfType(string $type): bool
+    {
+        return $this->client?->type === $type;
+    }
+
+    public function isNextOfKin(): bool
+    {
+        return $this->isOfType('NEXT_OF_KIN');
+    }
 }

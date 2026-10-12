@@ -2,7 +2,6 @@
 
 namespace App\Http\Requests;
 
-use App\Models\CaseFile;
 use App\Rules\VulnerabilityRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -42,7 +41,6 @@ class UpdateCaseRequest extends FormRequest
     {
         return [
             'status' => ['nullable', Rule::in(['OPEN', 'CLOSED', 'ARCHIVED'])],
-            'client_type' => ['nullable', Rule::in(CaseFile::CLIENT_TYPES)],
             'vulnerability_indicator' => ['nullable', 'string', 'max:255', new VulnerabilityRule],
             'nok_vulnerability_indicator' => ['nullable', 'string', 'max:255', new VulnerabilityRule],
             'summary' => ['nullable', 'string', 'max:5000'],

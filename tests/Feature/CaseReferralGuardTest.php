@@ -40,7 +40,6 @@ class CaseReferralGuardTest extends TestCase
         $this->case = CaseFile::create([
             'id' => fake()->uuid(),
             'case_number' => 'TEST-'.fake()->unique()->numberBetween(1000, 9999),
-            'client_type' => 'OFW',
             'tracker_number' => 'OWBAP-'.strtoupper(fake()->bothify('???????')),
             'status' => 'OPEN',
             'user_id' => $this->user->id,

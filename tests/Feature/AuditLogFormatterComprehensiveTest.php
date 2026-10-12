@@ -514,7 +514,6 @@ class AuditLogFormatterComprehensiveTest extends TestCase
             'escalation_reason' => ['escalation_reason', 'escalation reason'],
             'category_id' => ['category_id', 'category'],
             'case_issue_id' => ['case_issue_id', 'case issue'],
-            'draft_client_data' => ['draft_client_data', 'draft client data'],
 
             // Client fields
             'first_name' => ['first_name', 'first name'],
@@ -792,11 +791,10 @@ class AuditLogFormatterComprehensiveTest extends TestCase
 
     public function test_publish_audit_shows_meaningful_changes_only(): void
     {
-        // Simulate what publishDraft() now produces: old (draft) vs new (published)
+        // Simulate what approveCase() now produces: old (pending) vs new (open)
         $old = [
-            'status' => 'DRAFT',
-            'summary' => 'Test case for client — DRAFT',
-            'client_type' => 'NON-OFW',
+            'status' => 'PENDING_REVIEW',
+            'summary' => 'Test case for client',
             'case_number' => 'CASE-20260702-0006',
             'tracker_number' => 'OWBAP-KCNHW6UO',
             'user_id' => '754da30c-3bd9-4a40-844b-2abea1b3b733',
@@ -809,20 +807,18 @@ class AuditLogFormatterComprehensiveTest extends TestCase
             'vulnerability_indicator' => null,
             'nok_vulnerability_indicator' => null,
             'is_deleted' => false,
-            'draft_client_data' => ['first_name' => 'Maria', 'last_name' => 'Santos'],
         ];
 
         $new = array_merge($old, [
             'status' => 'OPEN',
             'client_id' => 'd31e0a57-85f4-4f17-9b34-7699c787dfea',
             'consent_given_at' => '2026-07-03T00:00:00.000000Z',
-            'draft_client_data' => null,
         ]);
 
         $log = new AuditLog([
             'action' => 'PUBLISH',
             'module' => 'CASE',
-            'description' => 'Case CASE-20260702-0006 published — Test case for client — DRAFT',
+            'description' => 'Case CASE-20260702-0006 approved',
             'old_value' => $old,
             'new_value' => $new,
             'user_id' => null,
@@ -845,7 +841,7 @@ class AuditLogFormatterComprehensiveTest extends TestCase
         $statusChanges = array_values(array_filter($changes, fn ($c) => $c['fieldLabel'] === 'status'));
         $this->assertNotEmpty($statusChanges);
         $this->assertStringContainsString('Open', $statusChanges[0]['new']);
-        $this->assertStringContainsString('Draft', $statusChanges[0]['old']);
+        $this->assertStringContainsString('Pending', $statusChanges[0]['old']);
 
         // client_id change is meaningful
         $this->assertContains('client id', $fieldLabels);
@@ -857,8 +853,6 @@ class AuditLogFormatterComprehensiveTest extends TestCase
             'Tracker number did not change; changes should not mention it');
         $this->assertNotContains('case number', $fieldLabels,
             'Case number did not change; changes should not mention it');
-        $this->assertNotContains('client type', $fieldLabels,
-            'Client type did not change; changes should not mention it');
 
         // No UUIDs in the output (they're already in old/new values but formatFieldValue won't resolve them)
         // Actually UUIDs may appear because formatFieldValue just returns the raw string value for UUID columns
@@ -868,7 +862,7 @@ class AuditLogFormatterComprehensiveTest extends TestCase
 
     public function test_publish_audit_response_surfaces_new_publish_payload_fields(): void
     {
-        // The enriched PUBLISH payload produced by CaseService::publishDraft():
+        // The PUBLISH payload produced by CaseService::approveCase():
         // a single entry carrying case number, client details and case details.
         $log = AuditLog::create([
             'action' => 'PUBLISH',

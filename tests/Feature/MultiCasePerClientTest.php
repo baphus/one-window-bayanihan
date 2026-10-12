@@ -32,14 +32,12 @@ class MultiCasePerClientTest extends TestCase
         $client = Client::factory()->create();
         // Create first case
         $this->service->createCase([
-            'client_type' => 'OFW',
             'selected_client_id' => $client->id,
             'category_id' => $this->category->id,
         ], $this->user->id);
 
         // Create second case for same client — should NOT throw 422
         $case2 = $this->service->createCase([
-            'client_type' => 'OFW',
             'selected_client_id' => $client->id,
             'category_id' => $this->category->id,
         ], $this->user->id);
@@ -57,7 +55,6 @@ class MultiCasePerClientTest extends TestCase
         ]);
 
         $this->service->createCase([
-            'client_type' => 'OFW',
             'selected_client_id' => $client->id,
             'category_id' => $this->category->id,
         ], $this->user->id);
@@ -70,7 +67,6 @@ class MultiCasePerClientTest extends TestCase
     public function test_category_id_is_stored_on_case(): void
     {
         $case = $this->service->createCase([
-            'client_type' => 'OFW',
             'selected_client_id' => Client::factory()->create()->id,
             'category_id' => $this->category->id,
         ], $this->user->id);
@@ -81,7 +77,6 @@ class MultiCasePerClientTest extends TestCase
     public function test_category_id_is_optional(): void
     {
         $case = $this->service->createCase([
-            'client_type' => 'OFW',
             'selected_client_id' => Client::factory()->create()->id,
         ], $this->user->id);
 
@@ -91,7 +86,6 @@ class MultiCasePerClientTest extends TestCase
     public function test_case_loads_category_relation(): void
     {
         $case = $this->service->createCase([
-            'client_type' => 'OFW',
             'selected_client_id' => Client::factory()->create()->id,
             'category_id' => $this->category->id,
         ], $this->user->id);

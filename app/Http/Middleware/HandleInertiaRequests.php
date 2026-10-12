@@ -65,7 +65,7 @@ class HandleInertiaRequests extends Middleware
         return (int) CacheHelper::safeRemember(
             'intake_queue:count',
             120,
-            fn () => app(CaseService::class)->getIntakeQueueCount(),
+            fn () => app(CaseService::class)->getReviewQueueCount(),
         );
     }
 

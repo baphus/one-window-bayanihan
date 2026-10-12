@@ -33,7 +33,6 @@ class OfwCaseDetailTest extends TestCase
 
         $case = CaseFile::factory()->open()->create([
             'client_id' => $client->id,
-            'source' => CaseFile::SOURCE_SELF_FILED,
         ]);
 
         $response = $this->actingAs($ofwUser)
@@ -55,7 +54,6 @@ class OfwCaseDetailTest extends TestCase
 
         $case = CaseFile::factory()->open()->create([
             'client_id' => $client->id,
-            'source' => CaseFile::SOURCE_SELF_FILED,
         ]);
         $referral = Referral::factory()->create(['case_id' => $case->id]);
 
@@ -84,7 +82,6 @@ class OfwCaseDetailTest extends TestCase
 
         $case = CaseFile::factory()->open()->create([
             'client_id' => $client->id,
-            'source' => CaseFile::SOURCE_SELF_FILED,
         ]);
         $referral = Referral::factory()->create(['case_id' => $case->id]);
 
@@ -103,7 +100,6 @@ class OfwCaseDetailTest extends TestCase
         $otherClient = Client::factory()->create();
         $case = CaseFile::factory()->open()->create([
             'client_id' => $otherClient->id,
-            'source' => CaseFile::SOURCE_SELF_FILED,
         ]);
         $referral = Referral::factory()->create(['case_id' => $case->id]);
 
@@ -129,7 +125,6 @@ class OfwCaseDetailTest extends TestCase
 
         $case = CaseFile::factory()->open()->create([
             'client_id' => $client->id,
-            'source' => CaseFile::SOURCE_SELF_FILED,
         ]);
         $otherCase = CaseFile::factory()->open()->create([
             'client_id' => $client->id,

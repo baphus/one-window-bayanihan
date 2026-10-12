@@ -242,18 +242,6 @@ class ReportsMetricsTest extends TestCase
     }
 
     #[Test]
-    public function case_source_distribution_groups_internal_and_self_filed(): void
-    {
-        CaseFile::factory()->create(['user_id' => $this->managerA->id, 'status' => 'OPEN', 'source' => 'internal']);
-        CaseFile::factory()->count(2)->create(['user_id' => $this->managerA->id, 'status' => 'OPEN', 'source' => CaseFile::SOURCE_SELF_FILED]);
-
-        $distribution = $this->service->getCaseSourceDistribution($this->managerA->id, UserRole::CASE_MANAGER->value);
-
-        $this->assertSame(['Internal', 'Self-filed'], $distribution['labels']);
-        $this->assertSame([1, 2], array_map('intval', $distribution['data']));
-    }
-
-    #[Test]
     public function closed_cases_over_time_buckets_closures_by_close_month(): void
     {
         CaseFile::factory()->closed()->create([

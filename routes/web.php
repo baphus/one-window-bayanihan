@@ -24,8 +24,6 @@ use App\Http\Controllers\ClientController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\HomeController;
-use App\Http\Controllers\IntakeController;
-use App\Http\Controllers\IntakeRegistrationController;
 use App\Http\Controllers\MfaController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OfwDashboardController;
@@ -126,24 +124,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Role-gated: CASE_MANAGER + ADMIN only
     Route::middleware('role:CASE_MANAGER,ADMIN')->group(function () {
         Route::get('/cases', [CaseController::class, 'index'])->name('cases.index');
-        Route::get('/cases/intake-queue', [CaseController::class, 'intakeQueue'])->name('cases.intake-queue');
-        Route::get('/cases/create', [CaseController::class, 'create'])->name('cases.create');
-        Route::post('/cases', [CaseController::class, 'store'])->name('cases.store');
-        Route::get('/cases/drafts', [CaseController::class, 'drafts'])->name('cases.drafts');
+        Route::get('/cases/review-pending', [CaseController::class, 'reviewPending'])->name('cases.review-pending');
         Route::get('/cases/trash', [CaseController::class, 'trashIndex'])->name('cases.trash');
         Route::get('/cases/export-excel', [CaseController::class, 'exportExcel'])->name('cases.export-excel');
         Route::get('/cases/export-count', [CaseController::class, 'exportCount'])->name('cases.export-count');
         Route::get('/cases/{case}/export-pdf', [CaseController::class, 'exportPdf'])->name('cases.export-pdf');
-        Route::delete('/cases/{case}/destroy-draft', [CaseController::class, 'destroyDraft'])->name('cases.drafts.destroy');
-        Route::get('/cases/{case}/edit-draft', [CaseController::class, 'editDraft'])->name('cases.edit-draft');
-        Route::get('/cases/{case}/review-intake', [CaseController::class, 'reviewIntake'])->name('cases.review-intake');
-        Route::put('/cases/{case}/save-draft', [CaseController::class, 'updateDraft'])->name('cases.save-draft');
-        Route::post('/cases/{case}/publish', [CaseController::class, 'publish'])->name('cases.publish');
+        Route::post('/cases/{case}/review-approve', [CaseController::class, 'reviewApprove'])->name('cases.review-approve');
+        Route::post('/cases/{case}/review-reject', [CaseController::class, 'reviewReject'])->name('cases.review-reject');
         Route::post('/cases/{case}/archive', [CaseController::class, 'archive'])->name('cases.archive');
         Route::post('/cases/{case}/unarchive', [CaseController::class, 'unarchive'])->name('cases.unarchive');
         Route::delete('/cases/{case}/delete-archived', [CaseController::class, 'deleteArchived'])->name('cases.delete-archived');
         Route::post('/cases/{case}/restore', [CaseController::class, 'restore'])->name('cases.restore');
-        Route::post('/cases/{case}/reject-intake', [CaseController::class, 'rejectIntake'])->name('cases.reject-intake');
         Route::patch('/cases/{case}', [CaseController::class, 'update'])->name('cases.update');
         Route::post('/cases/{case}/toggle-status', [CaseController::class, 'toggleStatus'])->name('cases.toggle-status');
 
@@ -157,6 +148,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/audit-logs/export', [AuditLogController::class, 'export'])->name('audit-logs.export');
 
         Route::get('/api/cases/{case}/audit-logs', [AuditLogController::class, 'caseAuditLogs'])->name('api.cases.audit-logs')->middleware('throttle:api-global');
+    });
+
+    // Case filing: staff + OFW self-file. OFW create() prefills their own
+    // linked client; store() resolves server-side via filer->client.
+    Route::middleware('role:CASE_MANAGER,ADMIN,OFW')->group(function () {
+        Route::get('/cases/create', [CaseController::class, 'create'])->name('cases.create');
+        Route::post('/cases', [CaseController::class, 'store'])->name('cases.store');
     });
 
     // Activity/Audit log viewer — CASE_MANAGER + ADMIN + AGENCY. Each role's
@@ -370,24 +368,8 @@ Route::get('/terms', function () {
     return Inertia::render('Legal/TermsOfService');
 })->name('terms');
 
-// Public OFW self-filing intake
-Route::get('/intake', [IntakeController::class, 'index'])->name('intake.index');
-// Each step gets its own named limiter. With inline limits these three shared a
-// single per-visitor counter, so submission was rejected at 429 before it was
-// ever attempted.
-Route::post('/intake/verify-email', [IntakeController::class, 'verifyEmail'])
-    ->name('intake.verify-email')
-    ->middleware(['turnstile', 'throttle:intake-otp']);
-Route::post('/intake/check-duplicate', [IntakeController::class, 'checkDuplicate'])
-    ->name('intake.check-duplicate')
-    ->middleware('throttle:intake-duplicate');
-Route::post('/intake/submit', [IntakeController::class, 'submit'])
-    ->name('intake.submit')
-    ->middleware('throttle:intake-submit');
-Route::post('/intake/register', [IntakeRegistrationController::class, 'store'])
-    ->name('intake.register')
-    ->middleware('throttle:intake-submit');
-
+// Public OFW self-filing intake retired (account-first): OFWs register then
+// file from their portal. /track/* OTP portal kept as read-only fallback.
 Route::get('/track', [TrackController::class, 'index'])->name('track.index');
 Route::post('/track/send-otp', [TrackController::class, 'sendOtp'])
     ->name('track.send-otp')
@@ -441,12 +423,21 @@ Route::prefix('help')->name('helpdesk.')->group(function () {
 });
 
 // API routes (authenticated via web session) — in web.php for session middleware support
-Route::middleware(['auth', 'verified', 'throttle:api-global'])->prefix('api')->group(function () {
+// Client picker PII: staff only. OFW self-file resolves filer->client
+// server-side; NOK picks from the scoped my-linked-ofws endpoint below.
+Route::middleware(['auth', 'verified', 'throttle:api-global', 'role:CASE_MANAGER,ADMIN'])->prefix('api')->group(function () {
     // Client selection for case creation form
     Route::get('/clients', [ClientSelectController::class, 'search'])->name('api.clients.index');
     Route::get('/clients/email-check', [ClientSelectController::class, 'checkEmail'])->name('api.clients.email-check');
     Route::get('/clients/{client}', [ClientSelectController::class, 'show'])->name('api.clients.show');
 
+});
+
+// NEXT_OF_KIN scoped dropdown: only OFW clients linked via ofw_client_id to
+// the filer's own client. Empty when nothing linked yet — inline create is
+// then the primary path.
+Route::middleware(['auth', 'verified', 'throttle:api-global', 'role:OFW'])->prefix('api')->group(function () {
+    Route::get('/my-linked-ofws', [ClientSelectController::class, 'linkedOfws'])->name('api.my-linked-ofws');
 });
 
 Route::post('/chatbot/message', [ChatbotController::class, 'message'])

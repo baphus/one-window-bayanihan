@@ -6,7 +6,6 @@ use App\Http\Middleware\HandleInertiaRequests;
 use App\Mail\ClientUpdateMail;
 use App\Models\CaseFile;
 use App\Models\CaseNotification;
-use App\Notifications\NewIntakeSubmission;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Notifications\DatabaseNotification;
@@ -180,15 +179,16 @@ class NotificationService
     }
 
     /**
-     * Mark all NewIntakeSubmission notifications for a given case as read.
-     * Called when a case manager accepts or rejects an intake.
+     * Mark all review-pending notifications for a given case as read.
+     * Called when a case manager approves or rejects a filing.
+     *
+     * ponytail: no-op — the intake-era NewIntakeSubmission class no longer
+     * exists, and review notifications ship via CaseNotification. Remove when
+     * callers stop invoking it.
      */
     public function markIntakeNotificationsAsRead(CaseFile $case): void
     {
-        DatabaseNotification::where('type', NewIntakeSubmission::class)
-            ->whereRaw("data::json->>'case_id' = ?", [(string) $case->id])
-            ->whereNull('read_at')
-            ->update(['read_at' => now()]);
+        // No-op.
     }
 
     /**

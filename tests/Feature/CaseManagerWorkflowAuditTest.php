@@ -57,9 +57,9 @@ class CaseManagerWorkflowAuditTest extends TestCase
         $response->assertStatus(200);
     }
 
-    public function test_cm_can_access_drafts(): void
+    public function test_cm_can_access_review_pending(): void
     {
-        $response = $this->actingAs($this->cmUser)->get('/cases/drafts');
+        $response = $this->actingAs($this->cmUser)->get('/cases/review-pending');
         $response->assertStatus(200);
     }
 
@@ -172,32 +172,6 @@ class CaseManagerWorkflowAuditTest extends TestCase
     {
         $response = $this->actingAs($this->ofwUser)->get('/referrals');
         // Confirmed bug: OFW gets 200 instead of 403
-        $response->assertStatus(200);
-    }
-
-    public function test_draft_ownership_block(): void
-    {
-        $otherCM = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-        $draft = CaseFile::factory()->create([
-            'user_id' => $otherCM->id,
-            'status' => 'DRAFT',
-        ]);
-
-        $response = $this->actingAs($this->cmUser)
-            ->get("/cases/{$draft->id}/edit-draft");
-        $response->assertStatus(403);
-    }
-
-    public function test_self_filed_draft_editable_by_any_cm(): void
-    {
-        $draft = CaseFile::factory()->create([
-            'user_id' => null,
-            'status' => 'DRAFT',
-            'source' => 'self_filed',
-        ]);
-
-        $response = $this->actingAs($this->cmUser)
-            ->get("/cases/{$draft->id}/edit-draft");
         $response->assertStatus(200);
     }
 }

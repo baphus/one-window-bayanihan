@@ -35,7 +35,6 @@ class CaseServiceNotificationTest extends TestCase
         $case = $this->createCase($caseManager);
 
         $this->service->updateCase($case->id, [
-            'client_type' => 'OFW',
             'vulnerability_indicator' => 'Low',
             'summary' => 'Updated summary',
         ], $caseManager->id);
@@ -49,7 +48,6 @@ class CaseServiceNotificationTest extends TestCase
         $case = $this->createCase($caseManager);
 
         $this->service->updateCase($case->id, [
-            'client_type' => 'OFW',
             'vulnerability_indicator' => 'Low',
             'summary' => 'Updated summary',
         ], $caseManager->id);
@@ -69,7 +67,6 @@ class CaseServiceNotificationTest extends TestCase
 
         // Update with same values
         $this->service->updateCase($case->id, [
-            'client_type' => 'OFW',
             'vulnerability_indicator' => 'Low',
             'summary' => 'Test summary',
         ], $caseManager->id);
@@ -120,7 +117,6 @@ class CaseServiceNotificationTest extends TestCase
         return CaseFile::factory()->create([
             'user_id' => $user->id,
             'client_id' => $client->id,
-            'client_type' => 'OFW',
             'vulnerability_indicator' => 'Low',
             'summary' => 'Test summary',
             'status' => 'OPEN',

@@ -39,54 +39,47 @@ class ClientCaseQueryTest extends TestCase
         $agencyA = Agency::factory()->create();
         $agencyB = Agency::factory()->create();
 
-        $ofwOpen = Client::factory()->create();
+        $ofwOpen = Client::factory()->create(['type' => 'OFW']);
         CaseFile::factory()->create([
             'client_id' => $ofwOpen->id,
             'user_id' => $manager->id,
-            'client_type' => CaseFile::CLIENT_TYPE_OFW,
             'status' => 'OPEN',
             'vulnerability_indicator' => 'PWD',
             'nok_vulnerability_indicator' => null,
         ]);
 
-        $nokOpen = Client::factory()->create();
+        $nokOpen = Client::factory()->nextOfKin()->create();
         $nokCase = CaseFile::factory()->create([
             'client_id' => $nokOpen->id,
             'user_id' => $manager->id,
-            'client_type' => CaseFile::CLIENT_TYPE_NEXT_OF_KIN,
             'status' => 'OPEN',
             'vulnerability_indicator' => 'Senior Citizen',
             'nok_vulnerability_indicator' => null,
         ]);
 
-        $ofwClosed = Client::factory()->create();
+        $ofwClosed = Client::factory()->create(['type' => 'OFW']);
         CaseFile::factory()->create([
             'client_id' => $ofwClosed->id,
             'user_id' => $manager->id,
-            'client_type' => CaseFile::CLIENT_TYPE_OFW,
             'status' => 'CLOSED',
             'vulnerability_indicator' => null,
             'nok_vulnerability_indicator' => null,
         ]);
 
-        $ofwArchived = Client::factory()->create();
+        $ofwArchived = Client::factory()->create(['type' => 'OFW']);
         CaseFile::factory()->create([
             'client_id' => $ofwArchived->id,
             'user_id' => $manager->id,
-            'client_type' => CaseFile::CLIENT_TYPE_OFW,
             'status' => 'ARCHIVED',
             'vulnerability_indicator' => null,
             'nok_vulnerability_indicator' => null,
         ]);
 
-        // Unaccepted self-filed intake: hidden from the directory entirely.
-        $intakeOnly = Client::factory()->create();
-        CaseFile::factory()->create([
+        // Unaccepted OFW-filed case: hidden from the directory entirely.
+        $intakeOnly = Client::factory()->create(['type' => 'OFW']);
+        CaseFile::factory()->pendingReview()->create([
             'client_id' => $intakeOnly->id,
             'user_id' => null,
-            'source' => CaseFile::SOURCE_SELF_FILED,
-            'status' => 'DRAFT',
-            'client_type' => CaseFile::CLIENT_TYPE_OFW,
         ]);
 
         // Soft-deleted client: excluded everywhere.
@@ -94,7 +87,6 @@ class ClientCaseQueryTest extends TestCase
         $deletedCase = CaseFile::factory()->create([
             'client_id' => $deleted->id,
             'user_id' => $manager->id,
-            'client_type' => CaseFile::CLIENT_TYPE_OFW,
             'status' => 'OPEN',
         ]);
         $deleted->delete();
@@ -118,8 +110,8 @@ class ClientCaseQueryTest extends TestCase
 
         $stats = app(CaseService::class)->getClientDirectoryStats($admin);
 
-        $this->assertSame(4, $stats['total_clients']);
-        $this->assertSame(2, $stats['ofw_clients']);
+        $this->assertSame(5, $stats['total_clients']);
+        $this->assertSame(3, $stats['ofw_clients']);
         $this->assertSame(1, $stats['nok_clients']);
         $this->assertSame([
             'PWD' => 1,

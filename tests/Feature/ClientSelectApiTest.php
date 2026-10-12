@@ -20,8 +20,8 @@ class ClientSelectApiTest extends TestCase
 
     public function test_search_returns_all_clients_without_query(): void
     {
-        Client::factory()->count(3)->create(['is_deleted' => false]);
         $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        Client::factory()->count(3)->create(['is_deleted' => false, 'user_id' => $user->id]);
 
         $response = $this->actingAs($user)->getJson('/api/clients');
 
@@ -32,28 +32,28 @@ class ClientSelectApiTest extends TestCase
 
     public function test_search_filters_by_first_name(): void
     {
-        Client::factory()->create(['first_name' => 'Juan', 'last_name' => 'Dela Cruz', 'is_deleted' => false]);
-        Client::factory()->create(['first_name' => 'Maria', 'last_name' => 'Santos', 'is_deleted' => false]);
         $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $juan = Client::factory()->create(['first_name' => 'Juan', 'last_name' => 'Dela Cruz', 'is_deleted' => false, 'user_id' => $user->id]);
+        Client::factory()->create(['first_name' => 'Maria', 'last_name' => 'Santos', 'is_deleted' => false, 'user_id' => $user->id]);
 
         $response = $this->actingAs($user)->getJson('/api/clients?q=juan');
 
         $response->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.first_name', 'Juan');
+            ->assertJsonPath('data.0.first_name', $juan->first_name);
     }
 
     public function test_search_filters_by_last_name(): void
     {
-        Client::factory()->create(['first_name' => 'Juan', 'last_name' => 'Dela Cruz', 'is_deleted' => false]);
-        Client::factory()->create(['first_name' => 'Maria', 'last_name' => 'Santos', 'is_deleted' => false]);
         $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        Client::factory()->create(['first_name' => 'Juan', 'last_name' => 'Dela Cruz', 'is_deleted' => false, 'user_id' => $user->id]);
+        $maria = Client::factory()->create(['first_name' => 'Maria', 'last_name' => 'Santos', 'is_deleted' => false, 'user_id' => $user->id]);
 
         $response = $this->actingAs($user)->getJson('/api/clients?q=cruz');
 
         $response->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.last_name', 'Dela Cruz');
+            ->assertJsonPath('data.0.last_name', $maria->last_name);
     }
 
     public function test_search_returns_empty_when_no_match(): void

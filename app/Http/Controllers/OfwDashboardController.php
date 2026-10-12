@@ -36,7 +36,7 @@ class OfwDashboardController extends Controller
             ->where('is_deleted', false)
             ->clientVisible()
             ->selectRaw('count(*) as total')
-            ->selectRaw("count(*) filter (where status = 'DRAFT' and source = '".CaseFile::SOURCE_SELF_FILED."') as under_review")
+            ->selectRaw("count(*) filter (where status = '".CaseFile::STATUS_PENDING_REVIEW."') as under_review")
             ->selectRaw("count(*) filter (where status in ('OPEN', 'PENDING', 'PROCESSING', 'FOR_COMPLIANCE', 'IN_PROGRESS', 'BEING_PREPARED')) as in_progress")
             ->selectRaw("count(*) filter (where status in ('CLOSED', 'COMPLETED', 'RESOLVED')) as completed")
             ->first();

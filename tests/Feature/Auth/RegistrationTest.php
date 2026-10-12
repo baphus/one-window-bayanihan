@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Auth;
 
-use App\Enums\UserRole;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -17,7 +17,7 @@ class RegistrationTest extends TestCase
         $response->assertOk();
     }
 
-    public function test_public_registration_submission_creates_ofw_user(): void
+    public function test_public_registration_submits_credentials_and_redirects_to_profile(): void
     {
         $response = $this->post('/register', [
             'name' => 'Test User',
@@ -26,10 +26,10 @@ class RegistrationTest extends TestCase
             'password_confirmation' => 'P@ssw0rd!',
         ]);
 
-        $response->assertRedirect();
-        $this->assertDatabaseHas('users', [
-            'email' => 'test@example.com',
-            'role' => UserRole::OFW->value,
-        ]);
+        $response->assertRedirect('/register/profile');
+        $this->assertSessionHas('pending_registration');
+
+        // Step 1 does not create a user row yet — profile step does.
+        $this->assertDatabaseMissing('users', ['email' => 'test@example.com']);
     }
 }

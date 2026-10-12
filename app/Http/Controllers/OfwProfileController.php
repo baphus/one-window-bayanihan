@@ -73,7 +73,7 @@ class OfwProfileController extends Controller
             'employment.date_of_arrival' => ['nullable', 'date'],
             'next_of_kin' => ['sometimes', 'array'],
             'next_of_kin.*.first_name' => ['nullable', 'string', 'max:255'],
-            'next_of_kin.*.middle_name' => ['nullable', 'string', 'max:10'],
+            'next_of_kin.*.middle_name' => ['nullable', 'string', 'max:255'],
             'next_of_kin.*.last_name' => ['nullable', 'string', 'max:255'],
             'next_of_kin.*.relationship' => ['nullable', 'string', 'max:255'],
             'next_of_kin.*.phone_number' => ['nullable', 'string', 'max:20'],

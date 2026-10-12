@@ -1,15 +1,9 @@
 import { useEffect, useMemo } from 'react';
-import { useState } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import AppHeader from '@/Components/landing/AppHeader';
 import AppFooter from '@/Components/landing/AppFooter';
 import ChatBot from '@/Components/ChatBot';
-import PasswordStrengthMeter from '@/Components/PasswordStrengthMeter';
 import UnifiedTimeline from '@/Components/Timeline';
-
-// Mirrors TrackRegistrationController: Password::min(8)->mixedCase()->numbers().
-// (No symbol requirement — the shared `passwordRules` prop must not be used here.)
-const REGISTRATION_PASSWORD_RULES = { min_length: 8, require_mixed_case: true, require_numbers: true };
 
 /**
  * Track Your Case — results page.
@@ -633,199 +627,6 @@ function ClientRequestPanel({ clientRequestPanel }) {
   );
 }
 
-/**
- * Account-creation upsell shown to verified guests on the tracking page.
- *
- * The email was already OTP-verified in the tracking flow, so it is shown
- * read-only and the password is the only thing the guest supplies. After
- * success the visitor is sent to the OFW portal dashboard.
- */
-function AccountUpsell({ verifiedEmail, hasOfwAccount }) {
-  const { auth } = usePage().props;
-  const [showForm, setShowForm] = useState(false);
-  const [password, setPassword] = useState('');
-  const [passwordConfirmation, setPasswordConfirmation] = useState('');
-  const [errors, setErrors] = useState({});
-  const [generalError, setGeneralError] = useState('');
-  const [processing, setProcessing] = useState(false);
-
-  // A signed-in visitor already has an account; the upsell is guest-only.
-  if (auth?.user) return null;
-
-  async function handleCreateAccount() {
-    setErrors({});
-    setGeneralError('');
-    setProcessing(true);
-
-    try {
-      const res = await fetch(route('track.register'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-          'X-Requested-With': 'XMLHttpRequest',
-          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content ?? '',
-        },
-        body: JSON.stringify({ password, password_confirmation: passwordConfirmation }),
-      });
-
-      let json = null;
-      try {
-        json = await res.json();
-      } catch (e) {
-        json = null;
-      }
-
-      if (res.ok && json?.success) {
-        router.visit(json.redirect || route('ofw.dashboard'));
-        return;
-      }
-
-      if (res.status === 422) {
-        if (json?.errors) {
-          setErrors(json.errors);
-        } else if (json?.error) {
-          setGeneralError(json.error);
-        }
-      } else {
-        setGeneralError(json?.error || json?.message || 'Account creation failed. Please try again.');
-      }
-    } catch (e) {
-      setGeneralError('Network error. Please check your connection and try again.');
-    }
-
-    setProcessing(false);
-  }
-
-  if (hasOfwAccount) {
-    return (
-      <section className="mt-6 rounded-md border border-primary/20 bg-primary/5 px-5 py-4 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="font-headline text-sm font-extrabold tracking-tight text-slate-800">You already have an account</h2>
-            <p className="mt-0.5 text-[13px] leading-relaxed text-slate-600">
-              {verifiedEmail} is registered. Log in to view your case anytime without entering verification codes.
-            </p>
-          </div>
-          <Link
-            href={route('login')}
-            className="inline-flex items-center gap-2 bg-primary px-4 py-2.5 text-sm font-bold text-white transition-colors hover:brightness-110"
-          >
-            <span aria-hidden="true" className="material-symbols-outlined text-[17px]">login</span>
-            Log in
-          </Link>
-        </div>
-      </section>
-    );
-  }
-
-  return (
-    <section className="mt-6 rounded-md border border-primary/20 bg-primary/5 px-5 py-4 shadow-sm">
-      {!showForm ? (
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="font-headline text-sm font-extrabold tracking-tight text-slate-800">
-              Track your case anytime with an account
-            </h2>
-            <p className="mt-0.5 text-[13px] leading-relaxed text-slate-600">
-              Set a password so you can log in and check your case status without entering verification codes each time.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setShowForm(true)}
-            className="inline-flex items-center gap-2 bg-primary px-4 py-2.5 text-sm font-bold text-white transition-colors hover:brightness-110"
-          >
-            <span aria-hidden="true" className="material-symbols-outlined text-[17px]">how_to_reg</span>
-            Create account
-          </button>
-        </div>
-      ) : (
-        <div className="mx-auto max-w-md">
-          <h2 className="font-headline text-sm font-extrabold tracking-tight text-slate-800">Create your account</h2>
-          <p className="mt-0.5 text-[13px] text-slate-500">One password is all you need to check your case later.</p>
-
-          {generalError && (
-            <div className="mt-3 rounded border border-red-200 bg-red-50 px-3 py-2.5 text-xs font-medium text-red-700">
-              {generalError}
-            </div>
-          )}
-
-          <div className="mt-4 space-y-4">
-            <div>
-              <label className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Email</label>
-              <div className="relative">
-                <input
-                  type="email"
-                  value={verifiedEmail}
-                  readOnly
-                  title="Verified email — you'll log in with this address"
-                  className="w-full border border-outline-variant bg-surface-container px-4 py-3 pr-12 text-sm font-medium text-slate-900 focus:outline-none"
-                />
-                <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-primary">
-                  <span className="material-symbols-outlined text-[18px]">verified</span>
-                </span>
-              </div>
-              <p className="mt-1.5 text-xs text-slate-500">You'll use this email to log in.</p>
-            </div>
-
-            <div>
-              <label htmlFor="track-register-password" className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Password</label>
-              <input
-                id="track-register-password"
-                type="password"
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value);
-                  setErrors((prev) => ({ ...prev, password: undefined }));
-                }}
-                placeholder="At least 8 characters"
-                className={`w-full border bg-surface-container px-4 py-3 text-sm focus:outline-none ${errors.password ? 'border-error' : 'border-outline-variant focus:border-primary'}`}
-              />
-              {errors.password && <p className="mt-1 text-xs text-error">{errors.password[0]}</p>}
-              <PasswordStrengthMeter value={password} rules={REGISTRATION_PASSWORD_RULES} confirmation={passwordConfirmation} />
-            </div>
-
-            <div>
-              <label htmlFor="track-register-confirm" className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-600">Confirm Password</label>
-              <input
-                id="track-register-confirm"
-                type="password"
-                value={passwordConfirmation}
-                onChange={(e) => setPasswordConfirmation(e.target.value)}
-                placeholder="Re-enter your password"
-                className="w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none"
-              />
-              {errors.password_confirmation && <p className="mt-1 text-xs text-error">{errors.password_confirmation[0]}</p>}
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <button
-                type="button"
-                onClick={handleCreateAccount}
-                disabled={processing || !password || !passwordConfirmation}
-                className="inline-flex items-center justify-center gap-2 bg-primary px-6 py-3 text-sm font-bold text-white hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <span aria-hidden="true" className="material-symbols-outlined text-[17px]">
-                  {processing ? 'progress_activity' : 'arrow_forward'}
-                </span>
-                {processing ? 'Creating account…' : 'Create Account & Go to Dashboard'}
-              </button>
-              <button
-                type="button"
-                onClick={() => { setShowForm(false); setErrors({}); setGeneralError(''); }}
-                className="text-center text-xs text-slate-500 hover:text-primary"
-              >
-                Skip for now
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </section>
-  );
-}
-
 export default function TrackingShow({
   trackingId,
   trackedCase,
@@ -836,8 +637,6 @@ export default function TrackingShow({
   completionPercentage = 0,
   rejectedCount = 0,
   clientRequestPanel,
-  verifiedEmail = '',
-  hasOfwAccount = false,
 }) {
   if (clientRequestPanel) {
     return <ClientRequestPanel clientRequestPanel={clientRequestPanel} />;
@@ -900,6 +699,7 @@ export default function TrackingShow({
     );
   }
 
+  const { auth } = usePage().props;
   const feedbackNtfn = caseNotifications?.items?.find((n) => n.type === 'feedback_request');
   const showFeedback = completedAgencies > 0 && feedbackNtfn;
 
@@ -957,8 +757,24 @@ export default function TrackingShow({
           )}
         </header>
 
-        {verifiedEmail && (
-          <AccountUpsell verifiedEmail={verifiedEmail} hasOfwAccount={hasOfwAccount} />
+        {auth?.user ? null : (
+          <section className="mt-6 rounded-md border border-primary/20 bg-primary/5 px-5 py-4 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="font-headline text-sm font-extrabold tracking-tight text-slate-800">Have an account?</h2>
+                <p className="mt-0.5 text-[13px] leading-relaxed text-slate-600">
+                  Log in to file new requests and view all your cases in one place.
+                </p>
+              </div>
+              <Link
+                href={route('login')}
+                className="inline-flex items-center gap-2 bg-primary px-4 py-2.5 text-sm font-bold text-white transition-colors hover:brightness-110"
+              >
+                <span aria-hidden="true" className="material-symbols-outlined text-[17px]">login</span>
+                Log in
+              </Link>
+            </div>
+          </section>
         )}
 
         {/* Two-column layout: main content + case history sidebar */}

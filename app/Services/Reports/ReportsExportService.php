@@ -387,7 +387,8 @@ class ReportsExportService
         $category = "(SELECT STRING_AGG(DISTINCT cc.name, ', ' ORDER BY cc.name) FROM case_category ca JOIN case_categories cc ON cc.id = ca.case_category_id WHERE ca.case_id = cases.id)";
 
         return (clone $base)->leftJoin('case_issues', 'case_issues.id', '=', 'cases.case_issue_id')
-            ->selectRaw("cases.id as case_id, cases.case_number, cases.client_type, {$category} as category, case_issues.name as issue, cases.status, cases.created_at, cases.updated_at, cases.closed_at, DATE_PART('day', NOW() - cases.created_at)::int as age_days")
+            ->leftJoin('clients', 'clients.id', '=', 'cases.client_id')
+            ->selectRaw("cases.id as case_id, cases.case_number, clients.type as client_type, {$category} as category, case_issues.name as issue, cases.status, cases.created_at, cases.updated_at, cases.closed_at, DATE_PART('day', NOW() - cases.created_at)::int as age_days")
             ->orderByDesc('cases.created_at')->orderBy('cases.id');
     }
 

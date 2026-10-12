@@ -1,0 +1,664 @@
+// One Window Bayanihan - Database Schema (DBML)
+// Paste into https://dbdiagram.io/d to import automatically
+// or run: `dbml-to-mermaid schema.dbml`
+
+table users {
+  id uuid [pk, note: 'UUID primary key']
+  name varchar(255) [not null]
+  email varchar(255) [not null, unique]
+  password varchar(255) [not null]
+  role varchar(50) [not null, note: 'CASE_MANAGER | AGENCY | ADMIN | OFW']
+  agcy_id uuid [ref: > agencies.id, note: 'Agency assignment']
+  is_active bool [not null, default: true]
+  contact_number varchar(255)
+  avatar_url text
+  position varchar(255)
+  department varchar(255)
+  office_location varchar(255)
+  bio text
+  emergency_contact text
+  timezone varchar(255) [default: 'Asia/Manila']
+  mfa_secret text
+  mfa_recovery_codes json
+  mfa_enabled_at timestamp
+  notifications_config json
+  onboarding_completed_at timestamp
+  onboarding_step varchar(100)
+  profile_completed_at timestamp
+  email_verified_at timestamp
+  remember_token varchar(100)
+  is_deleted bool [not null, default: false]
+  deleted_at timestamp
+  deleted_by uuid [ref: > users.id, null]
+  created_at timestamp
+  updated_at timestamp
+  seen_page_guides json
+  checklist_progress json
+  client_id uuid [ref: > clients.id, note: 'OFW self-linked user']
+  mfa_last_totp_counter bigint
+}
+
+table clients {
+  id uuid [pk]
+  first_name varchar(255) [not null]
+  last_name varchar(255) [not null]
+  middle_name varchar(255)
+  suffix varchar(255)
+  date_of_birth text
+  sex varchar(10)
+  email varchar(255)
+  contact_number varchar(255)
+  avatar_url varchar(255)
+  type varchar(20) [note: 'LOCAL | OFW']
+  user_id uuid [ref: > users.id, unique]
+  ofw_client_id uuid [ref: > clients.id, note: 'Self-reference for OFW linking']
+  is_deleted bool [not null, default: false]
+  deleted_at timestamp
+  deleted_by uuid [ref: > users.id, null]
+  created_at timestamp
+  updated_at timestamp
+}
+
+table agencies {
+  id uuid [pk]
+  name varchar(255) [not null]
+  short varchar(255)
+  slug varchar(255) [unique]
+  description text
+  contact_info varchar(255)
+  map_link text
+  logo_url text
+  location_query text
+  is_active bool [not null, default: true]
+  is_default bool [not null, default: false]
+  latitude numeric(10,7)
+  longitude numeric(10,7)
+  is_deleted bool [not null, default: false]
+  deleted_at timestamp
+  deleted_by uuid [ref: > users.id, null]
+  created_at timestamp
+  updated_at timestamp
+}
+
+table cases {
+  id uuid [pk]
+  case_number varchar(255) [not null, unique]
+  tracker_number varchar(255) [not null, unique]
+  vulnerability_indicator varchar(255)
+  nok_vulnerability_indicator varchar(255)
+  summary text
+  status varchar(50) [not null, default: 'OPEN']
+  closed_at timestamp
+  consent_given_at timestamp
+  user_id uuid [ref: > users.id, note: 'Assigned case manager']
+  client_id uuid [ref: > clients.id, null]
+  category_id uuid [ref: > case_categories.id, null]
+  case_issue_id uuid [ref: > case_issues.id, null]
+  escalation_reason varchar(255)
+  reviewed_by uuid [ref: > users.id, null]
+  reviewed_at timestamp
+  is_deleted bool [not null, default: false]
+  deleted_at timestamp
+  deleted_by uuid [ref: > users.id, null]
+  deletion_reason text
+  created_at timestamp
+  updated_at timestamp
+}
+
+table case_categories {
+  id uuid [pk]
+  name varchar(255) [not null, unique]
+  description text
+  color varchar(7) [note: 'Hex color']
+  sort_order int [default: 0]
+  is_active bool [not null, default: true]
+  is_deleted bool [not null, default: false]
+  deleted_at timestamp
+  deleted_by uuid [ref: > users.id, null]
+  created_at timestamp
+  updated_at timestamp
+}
+
+table case_issues {
+  id uuid [pk]
+  name varchar(255) [not null, unique]
+  description text
+  sort_order int [default: 0]
+  is_active bool [not null, default: true]
+  is_deleted bool [not null, default: false]
+  deleted_at timestamp
+  deleted_by uuid [ref: > users.id, null]
+  created_at timestamp
+  updated_at timestamp
+}
+
+table case_statuses {
+  id uuid [pk]
+  name varchar(255) [not null]
+  slug varchar(255) [not null, unique]
+  type varchar(255) [not null]
+  color varchar(7)
+  sort_order int [default: 0]
+  is_system bool [not null, default: false]
+  is_active bool [not null, default: true]
+  is_deleted bool [not null, default: false]
+  deleted_at timestamp
+  deleted_by uuid [ref: > users.id, null]
+  created_at timestamp
+  updated_at timestamp
+}
+
+table case_category {
+  id uuid [pk]
+  case_id uuid [ref: > cases.id, not null]
+  case_category_id uuid [ref: > case_categories.id, not null]
+  created_at timestamp
+  updated_at timestamp
+
+  indexes {
+    (case_id, case_category_id) [unique]
+  }
+}
+
+table case_documents {
+  id uuid [pk]
+  file_name varchar(255) [not null]
+  file_path text [not null]
+  file_type varchar(50)
+  size bigint
+  case_id uuid [ref: > cases.id, not null]
+  referral_id uuid [ref: > referrals.id, null]
+  user_id uuid [ref: > users.id, not null]
+  category varchar(255)
+  is_deleted bool [not null, default: false]
+  deleted_at timestamp
+  deleted_by uuid [ref: > users.id, null]
+  created_at timestamp
+  updated_at timestamp
+}
+
+table case_events {
+  id uuid [pk]
+  sequence bigint [not null, unique]
+  case_id uuid [ref: > cases.id, not null]
+  referral_id uuid [ref: > referrals.id, null]
+  type varchar(50) [not null]
+  title varchar(255) [not null]
+  description text
+  meta jsonb
+  actor_type varchar(20) [not null, default: 'system']
+  occurred_at timestamp [not null]
+  created_at timestamp [not null]
+}
+
+table case_notifications {
+  id uuid [pk]
+  case_id uuid [ref: > cases.id, not null]
+  client_email varchar(255) [not null]
+  type varchar(255) [not null]
+  title varchar(255) [not null]
+  message text [not null]
+  data json
+  related_url varchar(255)
+  read_at timestamp
+  created_at timestamp
+  updated_at timestamp
+}
+
+table case_number_counters {
+  period int [pk]
+  last_number int [not null, default: 0]
+  created_at timestamp
+  updated_at timestamp
+}
+
+table client_addresses {
+  id uuid [pk]
+  client_id uuid [ref: > clients.id, not null]
+  region varchar(255)
+  province varchar(255)
+  city_municipality varchar(255)
+  barangay varchar(255)
+  street text
+  is_deleted bool [not null, default: false]
+  deleted_at timestamp
+  deleted_by uuid [ref: > users.id, null]
+  created_at timestamp
+  updated_at timestamp
+}
+
+table client_employments {
+  id uuid [pk]
+  client_id uuid [ref: > clients.id, not null]
+  employer_name text
+  employer_address text
+  employer_contact varchar(255)
+  position varchar(255)
+  monthly_income numeric
+  employment_type varchar(50)
+  work_country varchar(255)
+  contract_start_date date
+  contract_end_date date
+  is_deleted bool [not null, default: false]
+  deleted_at timestamp
+  deleted_by uuid [ref: > users.id, null]
+  created_at timestamp
+  updated_at timestamp
+}
+
+table next_of_kin {
+  id uuid [pk]
+  client_id uuid [ref: > clients.id, not null]
+  first_name varchar(255)
+  last_name varchar(255)
+  middle_name varchar(255)
+  relationship varchar(255)
+  is_primary bool [not null, default: false]
+  phone_number text
+  email text
+  full_address text
+  region varchar(255)
+  province varchar(255)
+  city_municipality varchar(255)
+  barangay varchar(255)
+  street text
+  sort_order int
+  is_deleted bool [not null, default: false]
+  deleted_at timestamp
+  deleted_by uuid [ref: > users.id, null]
+  created_at timestamp
+  updated_at timestamp
+}
+
+table referrals {
+  id uuid [pk]
+  case_id uuid [ref: > cases.id, not null]
+  agcy_id uuid [ref: > agencies.id, not null]
+  required_services text [not null]
+  notes text
+  status varchar(50) [not null, default: 'PENDING']
+  decision varchar(20)
+  decision_comment text
+  rejection_reason varchar(30)
+  first_action_at timestamp
+  referral_assigned_at timestamp
+  is_deleted bool [not null, default: false]
+  deleted_at timestamp
+  deleted_by uuid [ref: > users.id, null]
+  created_at timestamp
+  updated_at timestamp
+}
+
+table referral_services {
+  referral_id uuid [ref: > referrals.id, not null]
+  service_id uuid [ref: > services.id, not null]
+  created_at timestamp
+  updated_at timestamp
+
+  indexes {
+    (referral_id, service_id) [pk]
+  }
+}
+
+table services {
+  id uuid [pk]
+  name varchar(255) [not null]
+  description text
+  agcy_id uuid [ref: > agencies.id, null]
+  processing_days int
+  is_deleted bool [not null, default: false]
+  deleted_at timestamp
+  deleted_by uuid [ref: > users.id, null]
+  created_at timestamp
+  updated_at timestamp
+}
+
+table service_requirements {
+  id uuid [pk]
+  name varchar(255) [not null]
+  description text
+  is_required bool [not null]
+  service_id uuid [ref: > services.id, not null]
+  is_deleted bool [not null, default: false]
+  deleted_at timestamp
+  deleted_by uuid [ref: > users.id, null]
+  created_at timestamp
+  updated_at timestamp
+}
+
+table referral_service_requirements {
+  id uuid [pk]
+  referral_id uuid [ref: > referrals.id, not null]
+  service_id uuid [ref: > services.id, not null]
+  name varchar(255) [not null]
+  description text
+  is_required bool [not null, default: true]
+  sort_order int
+  is_deleted bool [not null, default: false]
+  deleted_at timestamp
+  deleted_by uuid [ref: > users.id, null]
+  created_at timestamp
+  updated_at timestamp
+}
+
+table referral_messages {
+  id uuid [pk]
+  referral_id uuid [ref: > referrals.id, not null]
+  sender_user_id uuid [ref: > users.id, not null]
+  body text [not null]
+  is_deleted bool [not null, default: false]
+  deleted_at timestamp
+  deleted_by uuid [ref: > users.id, null]
+  created_at timestamp
+  updated_at timestamp
+}
+
+table referral_comments {
+  id uuid [pk]
+  refr_id uuid [ref: > referrals.id, not null]
+  parent_id uuid [ref: > referral_comments.id, note: 'Self-reference for threaded comments']
+  content text [not null]
+  visibility varchar(50) [not null]
+  is_edited bool [not null, default: false]
+  user_id uuid [ref: > users.id, not null]
+  is_deleted bool [not null, default: false]
+  deleted_at timestamp
+  deleted_by uuid [ref: > users.id, null]
+  created_at timestamp
+  updated_at timestamp
+}
+
+table referral_attachments {
+  id uuid [pk]
+  referral_id uuid [ref: > referrals.id, not null]
+  file_name varchar(255) [not null]
+  file_path text [not null]
+  file_type varchar(50)
+  size bigint
+  user_id uuid [ref: > users.id, null]
+  replaces_id uuid [ref: > referral_attachments.id, note: 'Self-reference for file replacement']
+  version_group_id uuid
+  is_archived bool [not null, default: false]
+  is_deleted bool [not null, default: false]
+  deleted_at timestamp
+  deleted_by uuid [ref: > users.id, null]
+  created_at timestamp
+  updated_at timestamp
+}
+
+table referral_client_requests {
+  id uuid [pk]
+  referral_id uuid [ref: > referrals.id, not null]
+  creator_user_id uuid [ref: > users.id, not null]
+  type varchar(32) [not null]
+  title varchar(255) [not null]
+  instructions text [not null]
+  status varchar(32) [not null, default: 'OPEN']
+  due_at timestamp
+  is_deleted bool [not null, default: false]
+  deleted_at timestamp
+  deleted_by uuid [ref: > users.id, null]
+  created_at timestamp
+  updated_at timestamp
+}
+
+table referral_client_request_items {
+  id uuid [pk]
+  request_id uuid [ref: > referral_client_requests.id, not null]
+  label varchar(255) [not null]
+  sort_order int [not null, default: 0]
+  is_deleted bool [not null, default: false]
+  deleted_at timestamp
+  deleted_by uuid [ref: > users.id, null]
+  created_at timestamp
+  updated_at timestamp
+}
+
+table referral_client_messages {
+  id uuid [pk]
+  request_id uuid [ref: > referral_client_requests.id, not null]
+  body text [not null]
+  sender_kind varchar(24) [not null]
+  user_id uuid [ref: > users.id, null]
+  access_link_id uuid [ref: > referral_client_access_links.id, null]
+  kind varchar(24) [not null, default: 'MESSAGE']
+  is_deleted bool [not null, default: false]
+  deleted_at timestamp
+  deleted_by uuid [ref: > users.id, null]
+  created_at timestamp
+  updated_at timestamp
+}
+
+table referral_client_message_attachments {
+  id uuid [pk]
+  message_id uuid [ref: > referral_client_messages.id, not null]
+  file_name varchar(255) [not null]
+  file_path varchar(255) [not null]
+  file_type varchar(128)
+  size bigint [not null, default: 0]
+  is_deleted bool [not null, default: false]
+  deleted_at timestamp
+  deleted_by uuid [ref: > users.id, null]
+  created_at timestamp
+  updated_at timestamp
+}
+
+table referral_client_access_links {
+  id uuid [pk]
+  request_id uuid [ref: > referral_client_requests.id, not null]
+  token_hash varchar(255) [not null, unique]
+  expires_at timestamp [not null]
+  revoked_at timestamp
+  revoked_by uuid [ref: > users.id, null]
+  issued_by uuid [ref: > users.id, not null]
+  recipient_snapshot text [not null]
+  first_used_at timestamp
+  last_used_at timestamp
+  use_count int [not null, default: 0]
+  created_at timestamp
+  updated_at timestamp
+}
+
+table milestones {
+  id uuid [pk]
+  title varchar(255) [not null]
+  description text
+  refr_id uuid [ref: > referrals.id, not null]
+  user_id uuid [ref: > users.id, not null]
+  requirements json
+  client_request_id uuid [ref: > referral_client_requests.id, null]
+  is_deleted bool [not null, default: false]
+  deleted_at timestamp
+  deleted_by uuid [ref: > users.id, null]
+  created_at timestamp
+  updated_at timestamp
+}
+
+table agency_thread_reads {
+  user_id uuid [ref: > users.id, not null]
+  case_id uuid [ref: > cases.id, not null]
+  peer_agency_id uuid [ref: > agencies.id, not null]
+  last_read_at timestamp [not null]
+
+  indexes {
+    (user_id, case_id, peer_agency_id) [pk]
+  }
+}
+
+table audit_logs {
+  id uuid [pk]
+  action varchar(50) [not null]
+  module varchar(255) [not null]
+  entity_id uuid
+  description text
+  old_value jsonb
+  new_value jsonb
+  user_id uuid [ref: > users.id, null]
+  timestamp timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  is_deleted bool [not null, default: false]
+  deleted_at timestamp
+  deleted_by uuid [ref: > users.id, null]
+  ip_address varchar(45)
+  user_agent text
+  request_id uuid
+  prev_hash varchar(64)
+  category varchar(20)
+  chain_seq bigint [not null]
+  entity_label varchar(255)
+}
+
+table audit_archives {
+  id uuid [pk]
+  period varchar(7) [not null, unique]
+  path varchar(255) [not null]
+  checksum varchar(64) [not null]
+  row_count bigint [not null]
+  first_entry_at timestamp [not null]
+  last_entry_at timestamp [not null]
+  finalized_at timestamp
+  created_at timestamp
+  updated_at timestamp
+}
+
+table audit_chain_checkpoints {
+  id uuid [pk]
+  anchor_hash varchar(64) [not null]
+  pruned_through timestamp [not null]
+  bundle_manifest_path varchar(255)
+  created_at timestamp [not null]
+}
+
+table survey_forms {
+  id uuid [pk]
+  agency_id uuid [ref: > agencies.id, not null]
+  title varchar(255) [not null]
+  description text
+  is_active bool [not null, default: false]
+  activated_at timestamp
+  created_at timestamp
+  updated_at timestamp
+}
+
+table survey_questions {
+  id uuid [pk]
+  survey_form_id uuid [ref: > survey_forms.id, not null]
+  type varchar(20) [not null]
+  label text [not null]
+  options jsonb
+  is_required bool [not null, default: true]
+  "order" int [not null, default: 0]
+  created_at timestamp
+  updated_at timestamp
+}
+
+table survey_invitations {
+  id uuid [pk]
+  survey_form_id uuid [ref: > survey_forms.id, null]
+  case_id uuid [ref: > cases.id, not null]
+  agency_id uuid [ref: > agencies.id, not null]
+  referral_id uuid [ref: > referrals.id, not null]
+  client_name varchar(255) [not null]
+  client_email varchar(255) [not null]
+  service_name varchar(255) [not null]
+  token varchar(64)
+  token_hash varchar(64)
+  expires_at timestamp [not null]
+  submitted_at timestamp
+  created_at timestamp
+  updated_at timestamp
+
+  indexes {
+    (token, token_hash, referral_id, agency_id, case_id) [unique]
+  }
+}
+
+table survey_responses {
+  id uuid [pk]
+  survey_invitation_id uuid [ref: > survey_invitations.id, not null]
+  survey_question_id uuid [ref: > survey_questions.id, null]
+  answer text
+  selected_options jsonb
+  created_at timestamp
+  updated_at timestamp
+
+  indexes {
+    (survey_invitation_id, survey_question_id) [unique]
+  }
+}
+
+table generated_documents {
+  id uuid [pk]
+  user_id uuid [ref: > users.id, not null]
+  case_id uuid [ref: > cases.id, null]
+  type varchar(255) [not null]
+  filename varchar(255) [not null]
+  path varchar(255)
+  file_size bigint
+  mime_type varchar(255)
+  status varchar(255) [not null, default: 'pending']
+  error_message text
+  created_at timestamp
+  updated_at timestamp
+}
+
+table email_logs {
+  id uuid [pk]
+  to_email varchar(255) [not null]
+  subject varchar(255) [not null]
+  mailable_type varchar(255) [not null]
+  status varchar(255) [not null]
+  job_uuid uuid
+  error_message text
+  sent_at timestamp
+  provider_message_id varchar(255)
+  delivered_at timestamp
+  created_at timestamp
+  updated_at timestamp
+}
+
+table email_events {
+  id uuid [pk]
+  email_log_id uuid [ref: > email_logs.id, null]
+  provider_message_id varchar(255)
+  event_type varchar(255) [not null]
+  occurred_at timestamp
+  svix_id varchar(255) [not null, unique]
+  payload jsonb [not null]
+  created_at timestamp
+  updated_at timestamp
+}
+
+table notifications {
+  id uuid [pk]
+  type varchar(255) [not null]
+  notifiable_id uuid [not null]
+  notifiable_type varchar(255) [not null]
+  data text [not null]
+  read_at timestamp
+  created_at timestamp
+  updated_at timestamp
+}
+
+table user_invites {
+  id uuid [pk]
+  email varchar(255) [not null]
+  role varchar(255) [not null]
+  agcy_id uuid [ref: > agencies.id, null]
+  token varchar(255)
+  token_hash varchar(64)
+  expires_at timestamp [not null]
+  created_by uuid [ref: > users.id, not null]
+  consumed_at timestamp
+  cancelled_at timestamp
+  created_at timestamp
+  updated_at timestamp
+}
+
+table system_settings {
+  key varchar(255) [pk, not null]
+  category varchar(255)
+  value text
+  description text
+  created_at timestamp
+  updated_at timestamp
+}

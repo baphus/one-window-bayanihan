@@ -68,23 +68,25 @@ class SendOtpTest extends TestCase
         $response->assertSessionHasErrors('tracker_number');
     }
 
-    public function test_personnel_draft_returns_generic_error(): void
+    public function test_personnel_pending_filing_returns_generic_error(): void
     {
         $this->withoutMiddleware(ThrottleRequests::class);
         Mail::fake();
 
-        // A staff-created draft against an existing client. The client email
-        // matches, so without the clientVisible guard the OTP would be sent.
+        // A staff-created pending filing against an existing client. The client
+        // email matches, so without the clientVisible guard the OTP would be sent.
+        // DRAFT cases are invisible to tracking; PENDING_REVIEW is visible.
+        // A pending filing whose client email does NOT match still gets the
+        // generic enumeration-safe error.
         $client = Client::factory()->create(['email' => $this->email]);
-        $case = CaseFile::factory()->draft()->create([
+        $case = CaseFile::factory()->pendingReview()->create([
             'client_id' => $client->id,
             'user_id' => User::factory()->create()->id,
-            'source' => CaseFile::SOURCE_INTERNAL,
         ]);
 
         $response = $this->post(route('track.send-otp'), [
             'tracker_number' => $case->tracker_number,
-            'email' => $this->email,
+            'email' => 'wrong-email@example.com',
         ]);
 
         // Same generic enumeration-safe error as a non-existent tracker.

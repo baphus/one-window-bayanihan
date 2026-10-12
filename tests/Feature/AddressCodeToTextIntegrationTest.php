@@ -49,7 +49,6 @@ class AddressCodeToTextIntegrationTest extends TestCase
 
         $service = app(CaseService::class);
         $service->createCase([
-            'client_type' => 'OFW',
             'client' => ['first_name' => 'John', 'last_name' => 'Doe'],
             'selected_client_id' => $client->id,
             'address' => [

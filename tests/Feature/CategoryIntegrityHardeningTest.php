@@ -4,7 +4,6 @@ namespace Tests\Feature;
 
 use App\Http\Requests\StoreCaseRequest;
 use App\Http\Requests\UpdateCaseRequest;
-use App\Http\Requests\UpdateDraftRequest;
 use App\Models\CaseCategory;
 use App\Models\CaseFile;
 use App\Models\User;
@@ -27,7 +26,7 @@ class CategoryIntegrityHardeningTest extends TestCase
         $category = CaseCategory::factory()->create();
         $data = ['category_id' => $category->id, 'category_ids' => [$category->id]];
 
-        foreach ([StoreCaseRequest::class, UpdateCaseRequest::class, UpdateDraftRequest::class] as $requestClass) {
+        foreach ([StoreCaseRequest::class, UpdateCaseRequest::class] as $requestClass) {
             $request = $requestClass::create('/', 'POST', $data);
             $validator = Validator::make($request->all(), $request->rules());
             $method = new \ReflectionMethod($request, 'withValidator');
@@ -37,9 +36,9 @@ class CategoryIntegrityHardeningTest extends TestCase
         }
 
         $user = User::factory()->create();
-        $case = app(CaseService::class)->createCase(['client_type' => 'OFW'], $user->id);
+        $case = app(CaseService::class)->createCase(['category_ids' => [$category->id]], $user->id);
         $this->expectException(ValidationException::class);
-        app(CaseService::class)->updateDraft($case->id, $data, $user->id);
+        app(CaseService::class)->updateCase($case->id, $data, $user->id);
     }
 
     public function test_omitted_partial_update_preserves_assignments(): void
@@ -49,13 +48,13 @@ class CategoryIntegrityHardeningTest extends TestCase
         $case = CaseFile::factory()->create(['status' => 'OPEN', 'category_id' => $first->id]);
         $this->link($case, [$first->id, $second->id]);
 
-        app(CaseService::class)->updateCase($case->id, ['client_type' => 'OFW'], $case->user_id);
+        app(CaseService::class)->updateCase($case->id, ['summary' => 'touch'], $case->user_id);
 
         $this->assertEqualsCanonicalizing([$first->id, $second->id], $case->fresh()->categories()->pluck('case_categories.id')->all());
         $this->assertSame($first->id, $case->fresh()->category_id);
     }
 
-    public function test_published_case_cannot_be_cleared_but_drafts_may_be_empty(): void
+    public function test_published_case_cannot_be_cleared(): void
     {
         $user = User::factory()->create();
         $category = CaseCategory::factory()->create();
@@ -70,18 +69,14 @@ class CategoryIntegrityHardeningTest extends TestCase
                 $this->addToAssertionCount(1);
             }
         }
-
-        $draft = app(CaseService::class)->createCase(['client_type' => 'OFW', 'category_ids' => [$category->id]], $user->id);
-        app(CaseService::class)->updateDraft($draft->id, ['category_ids' => []], $user->id);
-        $this->assertDatabaseMissing('case_category', ['case_id' => $draft->id]);
-        $this->assertNull($draft->fresh()->category_id);
     }
 
     public function test_legacy_scalar_input_remains_primary_and_is_linked(): void
     {
         $user = User::factory()->create();
         $category = CaseCategory::factory()->create();
-        $case = app(CaseService::class)->createCase(['client_type' => 'OFW', 'category_id' => $category->id], $user->id);
+        $client = Client::factory()->create();
+        $case = app(CaseService::class)->createCase(['category_id' => $category->id, 'selected_client_id' => $client->id], $user->id);
 
         $this->assertSame($category->id, $case->category_id);
         $this->assertSame([$category->id], $case->categories()->pluck('case_categories.id')->all());
@@ -93,20 +88,21 @@ class CategoryIntegrityHardeningTest extends TestCase
         $retained = CaseCategory::factory()->create(['name' => 'Zed', 'sort_order' => 99]);
         $replacement = CaseCategory::factory()->create(['name' => 'Alpha', 'sort_order' => 2]);
         $tie = CaseCategory::factory()->create(['name' => 'Beta', 'sort_order' => 2]);
+        $client = Client::factory()->create();
         $case = app(CaseService::class)->createCase([
-            'client_type' => 'OFW',
             'category_id' => $retained->id,
+            'selected_client_id' => $client->id,
         ], $user->id);
 
-        app(CaseService::class)->updateDraft($case->id, [
+        app(CaseService::class)->updateCase($case->id, [
             'category_ids' => [$retained->id, $replacement->id],
         ], $user->id);
-        app(CaseService::class)->updateDraft($case->id, [
+        app(CaseService::class)->updateCase($case->id, [
             'category_ids' => [$replacement->id, $retained->id, $tie->id],
         ], $user->id);
         $this->assertSame($retained->id, $case->fresh()->category_id);
 
-        app(CaseService::class)->updateDraft($case->id, [
+        app(CaseService::class)->updateCase($case->id, [
             'category_ids' => [$tie->id, $replacement->id],
         ], $user->id);
         $fresh = $case->fresh();
@@ -114,24 +110,24 @@ class CategoryIntegrityHardeningTest extends TestCase
         $this->assertContains($fresh->category_id, $fresh->categories->pluck('id')->all());
     }
 
-    public function test_publish_rejects_categoryless_and_inactive_assignments(): void
+    public function test_approve_rejects_categoryless_and_inactive_assignments(): void
     {
         $user = User::factory()->create();
         $service = app(CaseService::class);
-        $categoryless = $service->createCase(['client_type' => 'OFW'], $user->id);
+        $categoryless = $service->createCase([], $user->id);
         try {
-            $service->publishDraft($categoryless->id, $user->id);
-            $this->fail('Expected categoryless publish to fail.');
+            $service->approveCase($categoryless->id, $user->id);
+            $this->fail('Expected categoryless approve to fail.');
         } catch (ValidationException) {
             $this->addToAssertionCount(1);
         }
 
         $category = CaseCategory::factory()->create();
-        $draft = $service->createCase(['client_type' => 'OFW', 'category_id' => $category->id], $user->id);
+        $draft = $service->createCase(['category_id' => $category->id], $user->id);
         $category->update(['is_active' => false]);
         try {
-            $service->publishDraft($draft->id, $user->id);
-            $this->fail('Expected inactive-category publish to fail.');
+            $service->approveCase($draft->id, $user->id);
+            $this->fail('Expected inactive-category approve to fail.');
         } catch (ValidationException) {
             $this->addToAssertionCount(1);
         }
@@ -191,7 +187,6 @@ class CategoryIntegrityHardeningTest extends TestCase
             $thrown = null;
             try {
                 app(CaseService::class)->updateCase($case->id, [
-                    'client_type' => 'OFW',
                     'category_ids' => [$category->id],
                 ], $user->id);
             } catch (QueryException $exception) {

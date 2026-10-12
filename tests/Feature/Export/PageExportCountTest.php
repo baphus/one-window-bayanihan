@@ -125,8 +125,10 @@ class PageExportCountTest extends TestCase
     public function cases_count_respects_next_of_kin_client_type_filter(): void
     {
         $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-        CaseFile::factory()->create(['client_type' => CaseFile::CLIENT_TYPE_OFW]);
-        CaseFile::factory()->create(['client_type' => CaseFile::CLIENT_TYPE_NEXT_OF_KIN]);
+        $ofwClient = Client::factory()->create(['type' => 'OFW']);
+        $nokClient = Client::factory()->nextOfKin()->create();
+        CaseFile::factory()->create(['client_id' => $ofwClient->id]);
+        CaseFile::factory()->create(['client_id' => $nokClient->id]);
 
         $response = $this->actingAs($user)->getJson(route('cases.export-count', [
             'client_type' => CaseFile::CLIENT_TYPE_NEXT_OF_KIN,
@@ -144,8 +146,10 @@ class PageExportCountTest extends TestCase
     {
         $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         // The directory and its export list only clients with a live non-DRAFT case.
-        $maria = Client::factory()->create(['first_name' => 'Maria', 'last_name' => 'Santos']);
-        $juan = Client::factory()->create(['first_name' => 'Juan', 'last_name' => 'Dela Cruz']);
+        $mariaOwner = User::factory()->create(['role' => UserRole::OFW->value]);
+        $juanOwner = User::factory()->create(['role' => UserRole::OFW->value]);
+        $maria = Client::factory()->create(['first_name' => 'Maria', 'last_name' => 'Santos', 'user_id' => $mariaOwner->id]);
+        $juan = Client::factory()->create(['first_name' => 'Juan', 'last_name' => 'Dela Cruz', 'user_id' => $juanOwner->id]);
         CaseFile::factory()->create(['client_id' => $maria->id]);
         CaseFile::factory()->create(['client_id' => $juan->id]);
 
@@ -158,7 +162,8 @@ class PageExportCountTest extends TestCase
     public function clients_count_respects_sex_filter(): void
     {
         $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-        $male = Client::factory()->create(['sex' => 'MALE']);
+        $maleOwner = User::factory()->create(['role' => UserRole::OFW->value]);
+        $male = Client::factory()->create(['sex' => 'MALE', 'user_id' => $maleOwner->id]);
         Client::factory()->create(['sex' => 'FEMALE']);
         CaseFile::factory()->create(['client_id' => $male->id]);
 
@@ -171,15 +176,15 @@ class PageExportCountTest extends TestCase
     public function clients_count_respects_next_of_kin_client_type_filter(): void
     {
         $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-        $ofw = Client::factory()->create();
-        $nextOfKin = Client::factory()->create();
+        $ofwOwner = User::factory()->create(['role' => UserRole::OFW->value]);
+        $nokOwner = User::factory()->create(['role' => UserRole::OFW->value]);
+        $ofw = Client::factory()->create(['user_id' => $ofwOwner->id]);
+        $nextOfKin = Client::factory()->nextOfKin()->create(['user_id' => $nokOwner->id]);
         CaseFile::factory()->create([
             'client_id' => $ofw->id,
-            'client_type' => CaseFile::CLIENT_TYPE_OFW,
         ]);
         CaseFile::factory()->create([
             'client_id' => $nextOfKin->id,
-            'client_type' => CaseFile::CLIENT_TYPE_NEXT_OF_KIN,
         ]);
 
         $response = $this->actingAs($user)->getJson(route('clients.export-count', [

@@ -36,7 +36,7 @@ class StagingSeeder extends Seeder
 
     private const CLOSED = 480;
 
-    private const DRAFT_SHARE = 0.10;
+    private const PENDING_REVIEW_SHARE = 0.10;
 
     private const MILESTONE_TEMPLATES = [
         'PROCESSING' => [
@@ -448,14 +448,12 @@ class StagingSeeder extends Seeder
                 $created = $this->after($ownerCreated, 30, 1440);
             }
 
-            $selfFiled = fake()->boolean(15);
             $categoryId = fake()->boolean(80) && $categoryIds !== [] ? fake()->randomElement($categoryIds) : null;
             $caseId = (string) Str::uuid();
 
             $caseRows[] = [
                 'id' => $caseId,
                 'case_number' => sprintf('OWB-%s-%s', $period, str_pad((string) $seqByPeriod[$period], 5, '0', STR_PAD_LEFT)),
-                'client_type' => fake()->boolean(60) ? 'OFW' : 'NEXT_OF_KIN',
                 'vulnerability_indicator' => fake()->randomElement(['PWD', 'Senior Citizen', 'Solo Parent', 'Indigenous Person', 'None', null]),
                 'nok_vulnerability_indicator' => null,
                 'tracker_number' => $tracker,
@@ -467,9 +465,8 @@ class StagingSeeder extends Seeder
                 'client_id' => $owner->id,
                 'category_id' => $categoryId,
                 'case_issue_id' => fake()->boolean(70) && $issueIds !== [] ? fake()->randomElement($issueIds) : null,
-                'draft_client_data' => null,
-                'source' => $selfFiled ? 'self_filed' : 'internal',
-                'intake_reviewed_by' => $selfFiled ? $this->caseManagerId : null,
+                'reviewed_by' => $this->caseManagerId,
+                'reviewed_at' => $created,
                 'created_at' => $created,
                 'updated_at' => $created,
                 'is_deleted' => false,
@@ -492,19 +489,18 @@ class StagingSeeder extends Seeder
         usort($caseRows, fn ($a, $b) => $a['created_at']->getTimestamp() <=> $b['created_at']->getTimestamp());
 
         $total = count($caseRows);
-        $draftCount = (int) round($total * self::DRAFT_SHARE);
+        $pendingCount = (int) round($total * self::PENDING_REVIEW_SHARE);
 
         foreach ($caseRows as $index => &$row) {
             if ($index < self::ARCHIVED) {
                 $row['status'] = 'ARCHIVED';
             } elseif ($index < self::ARCHIVED + self::CLOSED) {
                 $row['status'] = 'CLOSED';
-            } elseif ($index >= $total - $draftCount) {
-                $row['status'] = 'DRAFT';
+            } elseif ($index >= $total - $pendingCount) {
+                $row['status'] = 'PENDING_REVIEW';
                 $row['consent_given_at'] = null;
-                if (fake()->boolean(50)) {
-                    $row['client_id'] = null;
-                }
+                $row['reviewed_by'] = null;
+                $row['reviewed_at'] = null;
             }
         }
         unset($row);
@@ -560,7 +556,7 @@ class StagingSeeder extends Seeder
         $serviceLinkRows = [];
 
         foreach ($this->cases as $caseId => $case) {
-            if ($case['status'] === 'DRAFT') {
+            if ($case['status'] === 'PENDING_REVIEW') {
                 continue;
             }
 
@@ -1174,11 +1170,11 @@ class StagingSeeder extends Seeder
     private function seedEmailLogs(): void
     {
         foreach ($this->cases as $case) {
-            if ($case['email'] === null || $case['status'] === 'DRAFT') {
+            if ($case['email'] === null || $case['status'] === 'PENDING_REVIEW') {
                 continue;
             }
 
-            $this->pushEmail($case['email'], 'Your case '.$case['tracker'].' has been filed', 'App\\Mail\\IntakePublishedMail', $case['created_at']);
+            $this->pushEmail($case['email'], 'Your case '.$case['tracker'].' has been filed', 'App\\Mail\\CaseCreatedMail', $case['created_at']);
         }
 
         foreach ($this->referrals as $referral) {

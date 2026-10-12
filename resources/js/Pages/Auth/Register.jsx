@@ -85,11 +85,11 @@ export default function Register() {
                                 </span>
 
                                 <h2 className="font-headline text-2xl font-bold text-slate-900">
-                                    Create OFW Account
+                                    Create your account
                                 </h2>
 
                                 <p className="mt-2 text-sm text-slate-500">
-                                    Register to file a case request and track your assistance online.
+                                    Step 1 of 2 — set up your login.
                                 </p>
                             </div>
 

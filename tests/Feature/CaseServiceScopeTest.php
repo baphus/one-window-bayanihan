@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\CaseFile;
+use App\Models\Client;
 use App\Models\Referral;
 use App\Models\User;
 use App\Services\CaseService;
@@ -197,28 +198,33 @@ class CaseServiceScopeTest extends TestCase
     {
         $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
+        $ofwClient = Client::factory()->create(['type' => 'OFW']);
+        $nokClient = Client::factory()->create(['type' => 'NEXT_OF_KIN']);
+
         CaseFile::factory()->create([
             'user_id' => $manager->id,
             'status' => 'OPEN',
-            'client_type' => 'OFW',
+            'client_id' => $ofwClient->id,
         ]);
         CaseFile::factory()->create([
             'user_id' => $manager->id,
             'status' => 'OPEN',
-            'client_type' => CaseFile::CLIENT_TYPE_NEXT_OF_KIN,
+            'client_id' => $nokClient->id,
         ]);
 
         $this->actingAs($manager);
-        $cases = $this->service->getCases(['client_type' => 'OFW']);
+        $cases = $this->service->getCases();
 
-        $this->assertCount(1, $cases);
-        $this->assertEquals('OFW', $cases->first()->client_type);
+        $this->assertCount(2, $cases);
 
-        $nextOfKinCases = $this->service->getCases([
-            'client_type' => CaseFile::CLIENT_TYPE_NEXT_OF_KIN,
-        ]);
+        // ponytail: getCases() has no client_type filter (type lives on
+        // clients.type now); canonical path is CaseFile::ofClientType().
+        $ofwCases = CaseFile::ofClientType('OFW')->get();
+        $this->assertCount(1, $ofwCases);
+        $this->assertSame('OFW', $ofwCases->first()->client->type);
 
+        $nextOfKinCases = CaseFile::ofClientType(CaseFile::CLIENT_TYPE_NEXT_OF_KIN)->get();
         $this->assertCount(1, $nextOfKinCases);
-        $this->assertEquals(CaseFile::CLIENT_TYPE_NEXT_OF_KIN, $nextOfKinCases->first()->client_type);
+        $this->assertSame('NEXT_OF_KIN', $nextOfKinCases->first()->client->type);
     }
 }

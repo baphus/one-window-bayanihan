@@ -4,7 +4,10 @@ namespace Tests\Feature;
 
 use App\Enums\UserRole;
 use App\Http\Middleware\VerifyTurnstile;
+use App\Models\CaseCategory;
 use App\Models\CaseFile;
+use App\Models\CaseIssue;
+use App\Models\Client;
 use App\Models\User;
 use App\Rules\ServedRegion;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
@@ -91,73 +94,64 @@ class ServedRegionRuleTest extends TestCase
     }
 
     #[Test]
-    public function intake_submission_rejects_region_outside_served_scope(): void
-    {
-        $data = $this->validIntakeData('NCR');
-
-        $response = $this->withSession(['intake_verified_email' => 'region-gate@example.com'])
-            ->postJson('/intake/submit', $data);
-
-        $response->assertStatus(422);
-        $response->assertJsonValidationErrors('address.region');
-    }
-
-    #[Test]
-    public function intake_submission_accepts_served_region(): void
-    {
-        $response = $this->withSession(['intake_verified_email' => 'served-region@example.com'])
-            ->postJson('/intake/submit', $this->validIntakeData('0700000000'));
-
-        $response->assertOk();
-        $response->assertJson(['success' => true]);
-    }
-
-    #[Test]
-    public function intake_submission_validates_next_of_kin_region(): void
-    {
-        $data = $this->validIntakeData('0700000000');
-        $data['next_of_kin'] = [[
-            'first_name' => 'Maria',
-            'last_name' => 'Dela Cruz',
-            'relationship' => 'Spouse',
-            'phone_number' => '+639181234567',
-            'region' => 'NCR',
-        ]];
-
-        $response = $this->withSession(['intake_verified_email' => 'nok-region@example.com'])
-            ->postJson('/intake/submit', $data);
-
-        $response->assertStatus(422);
-        $response->assertJsonValidationErrors('next_of_kin.0.region');
-    }
-
-    #[Test]
-    public function draft_save_rejects_region_outside_served_scope(): void
+    public function filing_rejects_region_outside_served_scope(): void
     {
         $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-        $case = CaseFile::factory()->create([
-            'user_id' => $user->id,
-            'status' => 'DRAFT',
-            'client_type' => 'OFW',
-        ]);
+        $client = Client::factory()->create();
+        $category = CaseCategory::factory()->create(['is_active' => true]);
+        $caseIssue = CaseIssue::create(['name' => 'Unpaid wages', 'is_active' => true]);
 
-        $this->actingAs($user)->put(route('cases.save-draft', $case->id), [
-            'client_type' => 'OFW',
-            'address' => ['region' => 'NCR'],
-        ], ['Accept' => 'application/json'])
+        $this->actingAs($user)
+            ->postJson(route('cases.store'), $this->validFilingData('NCR', $client->id, $category->id, $caseIssue->id))
             ->assertStatus(422)
             ->assertJsonValidationErrors('address.region');
-
-        $this->actingAs($user)->put(route('cases.save-draft', $case->id), [
-            'client_type' => 'OFW',
-            'address' => ['region' => '0700000000'],
-        ], ['Accept' => 'application/json'])
-            ->assertOk();
     }
 
-    private function validIntakeData(string $region): array
+    #[Test]
+    public function filing_accepts_served_region(): void
+    {
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $client = Client::factory()->create();
+        $category = CaseCategory::factory()->create(['is_active' => true]);
+        $caseIssue = CaseIssue::create(['name' => 'Unpaid wages', 'is_active' => true]);
+
+        $response = $this->actingAs($user)
+            ->postJson(route('cases.store'), $this->validFilingData('0700000000', $client->id, $category->id, $caseIssue->id));
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('cases', ['status' => CaseFile::STATUS_PENDING_REVIEW]);
+    }
+
+    #[Test]
+    public function filing_validates_next_of_kin_region(): void
+    {
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $client = Client::factory()->create();
+        $category = CaseCategory::factory()->create(['is_active' => true]);
+        $caseIssue = CaseIssue::create(['name' => 'Unpaid wages', 'is_active' => true]);
+
+        $this->actingAs($user)
+            ->postJson(route('cases.store'), $this->validFilingData('0700000000', $client->id, $category->id, $caseIssue->id, [
+                'first_name' => 'Maria',
+                'last_name' => 'Dela Cruz',
+                'relationship' => 'Spouse',
+                'phone_number' => '+639181234567',
+                'email' => 'nok@example.test',
+                'nok_address' => ['region' => 'NCR', 'city_municipality' => 'Quezon City', 'barangay' => 'Baclaran'],
+            ]))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('next_of_kin.0.region');
+    }
+
+    private function validFilingData(string $region, string $clientId, string $categoryId, string $caseIssueId, ?array $noks = null): array
     {
         return [
+            'selected_client_id' => $clientId,
+            'category_ids' => [$categoryId],
+            'case_issue_id' => $caseIssueId,
+            'vulnerability_indicator' => 'None',
+            'summary' => 'Region validation filing test.',
+            'consent' => true,
             'client' => [
                 'first_name' => 'Juan',
                 'last_name' => 'Dela Cruz',
@@ -165,6 +159,7 @@ class ServedRegionRuleTest extends TestCase
                 'suffix' => null,
                 'date_of_birth' => '1990-01-15',
                 'sex' => 'MALE',
+                'email' => 'region.validation@example.test',
                 'contact_number' => '+639171234567',
             ],
             'address' => [
@@ -181,9 +176,11 @@ class ServedRegionRuleTest extends TestCase
                 'start_date' => '2020-03-01',
                 'end_date' => null,
                 'is_present' => true,
+                'last_country' => 'Saudi Arabia',
+                'last_position' => 'Welder',
+                'date_of_arrival' => '2020-03-01',
             ],
-            'summary' => 'I need help with unpaid wages from my employer for the past 3 months.',
-            'consent' => true,
+            'next_of_kin' => $noks !== null ? [$noks] : [],
         ];
     }
 }

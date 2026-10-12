@@ -4,7 +4,6 @@ namespace App\Services\Export\Queries;
 
 use App\Casts\EncryptedString;
 use App\Enums\UserRole;
-use App\Models\CaseFile;
 use App\Models\User;
 use App\Services\Export\Queries\Concerns\FiltersCaseCategories;
 use App\Services\Export\Queries\Concerns\ScopesForExportUser;
@@ -66,9 +65,9 @@ class ReferralQueries
                 'c.case_number',
                 'c.status AS case_status',
                 'c.tracker_number',
-                'c.client_type',
+                'cl.type AS client_type',
                 DB::raw("CASE
-                    WHEN c.client_type = 'NEXT_OF_KIN'
+                    WHEN cl.type = 'NEXT_OF_KIN'
                         THEN COALESCE(NULLIF(c.nok_vulnerability_indicator, 'None'), NULLIF(c.vulnerability_indicator, 'None'), 'None')
                     ELSE COALESCE(NULLIF(c.vulnerability_indicator, 'None'), NULLIF(c.nok_vulnerability_indicator, 'None'), 'None')
                 END AS vulnerability"),
@@ -206,7 +205,7 @@ class ReferralQueries
             }
 
             // --- Client Type display label ---
-            $row->client_type = $row->client_type === CaseFile::CLIENT_TYPE_NEXT_OF_KIN ? 'Next of Kin' : 'OFW';
+            $row->client_type = $row->client_type === 'NEXT_OF_KIN' ? 'Next of Kin' : 'OFW';
 
             // --- Client Full Address ---
             $addressResolver = app(PhilippineAddressService::class);

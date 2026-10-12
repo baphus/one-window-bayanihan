@@ -24,8 +24,6 @@ class DashboardService
     {
         $formatter = app(AuditLogFormatter::class);
 
-        $myDraftCount = $user ? CaseFile::where('status', 'DRAFT')->where('user_id', $user->id)->count() : 0;
-
         // Single aggregated query for case counts + referral counts (cached 60s)
         $countsKey = 'dashboard:cm_counts';
         [$caseCounts, $refCounts] = CacheHelper::safeRemember($countsKey, 60, function () {
@@ -70,13 +68,15 @@ class DashboardService
         // Unique client count + OFW/NOK split via DB query (avoids loading all clients into memory)
         $clientCounts = CacheHelper::safeRemember('dashboard:cm_client_counts', 120, function () {
             // Cache only arrays/scalars, never DB result objects.
+            // Client type lives on clients.type (cases.client_type dropped in Phase 1a).
             return (array) DB::selectOne('
                 SELECT
                     COUNT(DISTINCT c.client_id) AS total,
-                    COUNT(DISTINCT CASE WHEN c.client_type = \'OFW\' THEN c.client_id END) AS ofw,
-                    COUNT(DISTINCT CASE WHEN c.client_type = \'NEXT_OF_KIN\' THEN c.client_id END) AS nok
+                    COUNT(DISTINCT CASE WHEN cl.type = \'OFW\' THEN c.client_id END) AS ofw,
+                    COUNT(DISTINCT CASE WHEN cl.type = \'NEXT_OF_KIN\' THEN c.client_id END) AS nok
                 FROM referrals r
                 JOIN cases c ON r.case_id = c.id AND c.is_deleted = false
+                LEFT JOIN clients cl ON cl.id = c.client_id AND cl.is_deleted = false
                 WHERE r.is_deleted = false AND c.client_id IS NOT NULL
             ');
         });
@@ -134,7 +134,7 @@ class DashboardService
         // New-cases preview: 5 newest OPEN (or created <30d) rows. Count
         // totals above stay exact — this trim only affects the preview list.
         $allCases = CaseFile::with(['client'])
-            ->select('id', 'case_number', 'tracker_number', 'client_id', 'client_type', 'status', 'created_at', 'updated_at')
+            ->select('id', 'case_number', 'tracker_number', 'client_id', 'status', 'created_at', 'updated_at')
             ->whereNotIn('status', ['DRAFT', 'ARCHIVED'])
             ->where(function ($q) {
                 $q->where('status', 'OPEN')
@@ -148,7 +148,7 @@ class DashboardService
                 'caseNo' => $c->case_number,
                 'trackerNumber' => $c->tracker_number,
                 'clientName' => $c->client ? trim(($c->client->first_name ?? '').' '.($c->client->last_name ?? '')) : 'N/A',
-                'clientType' => $c->client_type === 'OFW' ? 'Overseas Filipino Worker' : 'Next of Kin',
+                'clientType' => ($c->client?->type ?? 'OFW') === 'NEXT_OF_KIN' ? 'Next of Kin' : 'Overseas Filipino Worker',
                 'status' => $c->status,
                 'createdAt' => $c->created_at?->toISOString() ?? now()->toISOString(),
                 'updatedAt' => $c->updated_at?->toISOString() ?? now()->toISOString(),
@@ -245,15 +245,9 @@ class DashboardService
             ")->cnt;
         });
 
-        $intakeReviewCount = CacheHelper::safeRemember('dashboard:cm_intake_review_count:'.($user?->id ?? 'guest'), 60, function () use ($user) {
-            return (int) CaseFile::where('status', 'DRAFT')
+        $intakeReviewCount = CacheHelper::safeRemember('dashboard:cm_intake_review_count:'.($user?->id ?? 'guest'), 60, function () {
+            return (int) CaseFile::where('status', CaseFile::STATUS_PENDING_REVIEW)
                 ->where('is_deleted', false)
-                ->where(function ($q) use ($user) {
-                    $q->where('source', CaseFile::SOURCE_SELF_FILED);
-                    if ($user) {
-                        $q->orWhere('user_id', $user->id);
-                    }
-                })
                 ->count();
         });
 
@@ -270,9 +264,8 @@ class DashboardService
             $this->queueItem('agingOpenCases', 'Aging open cases', $agingOpenCasesCount, 'Open seven days or more.', 'amber', 'folder_clock', '/cases?status=OPEN&age_min_days=7'),
             $this->queueItem('pendingReferrals', 'Pending referrals', $pendingReferrals, 'Waiting for agency action.', 'amber', 'schedule', '/referrals?status=PENDING'),
             $this->queueItem('rejectedReferrals', 'Rejected referrals', $rejectedReferrals, 'Needs reassignment or follow-up.', 'rose', 'assignment_return', '/referrals?status=REJECTED'),
-            $this->queueItem('draftCases', 'Draft cases', $myDraftCount, 'Your unfinished case drafts.', 'slate', 'edit_note', '/cases/drafts'),
             $this->queueItem('casesWithoutReferrals', 'Cases without referrals', $casesWithoutReferrals, 'Open cases that may need routing.', 'blue', 'hub', '/cases?status=OPEN&referral_state=none'),
-            $this->queueItem('intakeReview', 'Intake to review', $intakeReviewCount, 'Your drafts plus self-filed intakes awaiting review.', 'cyan', 'pending_actions', '/cases/intake-queue'),
+            $this->queueItem('intakeReview', 'Intake to review', $intakeReviewCount, 'OFW filings awaiting review.', 'cyan', 'pending_actions', route('cases.review-pending', [], false)),
             $this->queueItem('forComplianceReferrals', 'For compliance', $forComplianceReferrals, 'Waiting on missing requirements.', 'orange', 'fact_check', '/referrals?status=FOR_COMPLIANCE'),
             $this->queueItem('readyToClose', 'Ready to close', $readyToCloseCount, 'Open cases with all referrals completed.', 'emerald', 'task_alt', '/cases?status=OPEN'),
         ];
@@ -299,7 +292,6 @@ class DashboardService
             'workQueue' => $workQueue,
             'recentActivity' => $recentActivity,
             'averageCaseDaysToClose' => $averageCaseDaysToClose,
-            'myDraftCount' => $myDraftCount,
             'allCases' => $allCases,
             'agencyBreakdown' => $agencyBreakdown,
             'intakeReview' => $intakeReview,
@@ -665,7 +657,7 @@ class DashboardService
                     'case_number' => $c->case_number,
                     'tracker_number' => $c->tracker_number,
                     'client_name' => $c->client ? trim(($c->client->first_name ?? '').' '.($c->client->last_name ?? '')) : 'N/A',
-                    'client_type' => $c->client_type === 'OFW' ? 'Overseas Filipino Worker' : 'Next of Kin',
+                    'client_type' => ($c->client?->type ?? 'OFW') === 'NEXT_OF_KIN' ? 'Next of Kin' : 'Overseas Filipino Worker',
                     'status' => $c->status,
                     'created_at' => $c->created_at?->toISOString() ?? now()->toISOString(),
                     'updated_at' => $c->updated_at?->toISOString() ?? now()->toISOString(),

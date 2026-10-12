@@ -47,16 +47,18 @@ class DashboardPayloadTest extends TestCase
             'updated_at' => now()->subDays(10),
         ]);
 
-        // Intake-review seeds: one own DRAFT plus one self-filed intake.
-        $ownDraft = $this->makeCase([
+        // Review-queue seeds: two pending filings awaiting approval.
+        $ownPending = $this->makeCase([
             'user_id' => $manager->id,
-            'status' => 'DRAFT',
-            'source' => 'internal',
+            'status' => CaseFile::STATUS_PENDING_REVIEW,
+            'created_at' => now()->subDays(11),
+            'updated_at' => now()->subDays(11),
         ]);
-        $selfFiled = $this->makeCase([
+        $otherPending = $this->makeCase([
             'user_id' => null,
-            'status' => 'DRAFT',
-            'source' => CaseFile::SOURCE_SELF_FILED,
+            'status' => CaseFile::STATUS_PENDING_REVIEW,
+            'created_at' => now()->subDays(12),
+            'updated_at' => now()->subDays(12),
         ]);
 
         // FOR_COMPLIANCE seed on an OPEN case.
@@ -86,7 +88,7 @@ class DashboardPayloadTest extends TestCase
         $sorted = $createdAts;
         rsort($sorted);
         $this->assertSame($sorted, $createdAts, 'allCases must be newest first');
-        $this->assertSame(9, $data['totalCases']);
+        $this->assertSame(11, $data['totalCases']);
         $this->assertSame(8, $data['openCases']);
         $this->assertSame(1, $data['closedCases']);
 
@@ -95,8 +97,8 @@ class DashboardPayloadTest extends TestCase
             $this->assertArrayHasKey($key, $data);
         }
         $this->assertLessThanOrEqual(8, count($data['intakeReview']));
-        $this->assertContains($ownDraft->id, array_column($data['intakeReview'], 'id'));
-        $this->assertContains($selfFiled->id, array_column($data['intakeReview'], 'id'));
+        $this->assertContains($ownPending->id, array_column($data['intakeReview'], 'id'));
+        $this->assertContains($otherPending->id, array_column($data['intakeReview'], 'id'));
 
         $this->assertLessThanOrEqual(8, count($data['forComplianceList']));
         $this->assertNotEmpty($data['forComplianceList']);
