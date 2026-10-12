@@ -7,6 +7,7 @@ use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\SetPostgresSession;
 use App\Models\Agency;
 use App\Models\AuditLog;
+use App\Models\CaseCategory;
 use App\Models\CaseFile;
 use App\Models\Milestone;
 use App\Models\Referral;
@@ -22,38 +23,43 @@ class AuthorizationGapTest extends TestCase
     use RefreshDatabase;
 
     // ──────────────────────────────────────────────
-    // CaseController::publish()
+    // CaseController::reviewApprove() / reviewReject()
     // ──────────────────────────────────────────────
 
-    public function test_case_manager_can_publish_own_draft(): void
+    public function test_case_manager_can_approve_pending_filing(): void
     {
         $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-        $case = CaseFile::factory()->draft()->create(['user_id' => $manager->id]);
+        $filer = User::factory()->create(['role' => UserRole::OFW->value]);
+        $case = CaseFile::factory()->pendingReview()->create(['user_id' => $filer->id]);
+        // approveCase revalidates published categories; attach an active one
+        // so the fixture matches production behavior without weakening the gate.
+        $case->categories()->attach(CaseCategory::factory()->create()->id);
 
-        $response = $this->actingAs($manager)->post("/cases/{$case->id}/publish");
+        $response = $this->actingAs($manager)->post(route('cases.review-approve', $case));
 
-        // Successful publish redirects to cases.show
+        // Successful approve redirects to review-pending
         $response->assertRedirect();
+        $this->assertSame('OPEN', $case->fresh()->status);
     }
 
-    public function test_agency_without_referral_cannot_publish_case(): void
+    public function test_agency_without_referral_cannot_approve_pending_filing(): void
     {
         $agency = Agency::factory()->create();
         $agencyUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id]);
-        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-        $case = CaseFile::factory()->draft()->create(['user_id' => $manager->id]);
+        $filer = User::factory()->create(['role' => UserRole::OFW->value]);
+        $case = CaseFile::factory()->pendingReview()->create(['user_id' => $filer->id]);
 
-        $response = $this->actingAs($agencyUser)->post("/cases/{$case->id}/publish");
+        $response = $this->actingAs($agencyUser)->post(route('cases.review-approve', $case));
 
         $response->assertStatus(403);
     }
 
-    public function test_agency_cannot_publish_case_middleware_blocks(): void
+    public function test_agency_cannot_approve_pending_filing_middleware_blocks(): void
     {
         $agency = Agency::factory()->create();
         $agencyUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id]);
-        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-        $case = CaseFile::factory()->draft()->create(['user_id' => $manager->id]);
+        $filer = User::factory()->create(['role' => UserRole::OFW->value]);
+        $case = CaseFile::factory()->pendingReview()->create(['user_id' => $filer->id]);
 
         Referral::create([
             'required_services' => 'Test service',
@@ -62,7 +68,7 @@ class AuthorizationGapTest extends TestCase
             'agcy_id' => $agency->id,
         ]);
 
-        $response = $this->actingAs($agencyUser)->post("/cases/{$case->id}/publish");
+        $response = $this->actingAs($agencyUser)->post(route('cases.review-approve', $case));
 
         // Route is gated by role:CASE_MANAGER,ADMIN middleware
         $response->assertStatus(403);

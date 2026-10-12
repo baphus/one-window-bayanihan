@@ -13,7 +13,6 @@ use App\Models\User;
 use App\Notifications\CaseStatusUpdated;
 use App\Notifications\CaseUpdated;
 use App\Notifications\MilestoneAdded;
-use App\Notifications\NewIntakeSubmission;
 use App\Notifications\OverdueReferralNotification;
 use App\Notifications\PeerReferralCreated;
 use App\Notifications\ReferralClientRequestActivity;
@@ -45,7 +44,6 @@ class NotificationPayloadEnrichmentTest extends TestCase
             (new OverdueReferralNotification($referral, 9, 'Stu Torres'))->toDatabase($caseManager),
             (new ReferralCreated($referral, 'Stu Torres'))->toDatabase($caseManager),
             (new ReferralStatusChanged($referral, 'PENDING', 'PROCESSING', 'Stu Torres'))->toDatabase($caseManager),
-            (new NewIntakeSubmission($case, 'Juan Dela Cruz'))->toDatabase($caseManager),
             (new CaseUpdated($case, 'Stu Torres', ['summary' => ['old' => 'a', 'new' => 'b']]))->toDatabase($caseManager),
             (new CaseStatusUpdated($case, 'OPEN', 'CLOSED', 'Stu Torres'))->toDatabase($caseManager),
             (new PeerReferralCreated($referral, $referral, 'Stu Torres'))->toDatabase($caseManager),

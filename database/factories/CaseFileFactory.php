@@ -19,7 +19,6 @@ class CaseFileFactory extends Factory
             'tracker_number' => 'OWBAP-'.collect(range(1, 10))
                 ->map(fn () => '0123456789ABCDEFGHJKMNPQRSTVWXYZ'[random_int(0, 31)])
                 ->implode(''),
-            'client_type' => CaseFile::CLIENT_TYPE_OFW,
             'vulnerability_indicator' => $this->faker->randomElement(['PWD', 'Senior Citizen', 'Solo Parent', 'Indigenous Person', 'None', null]),
             'summary' => $this->faker->sentence(),
             'status' => 'OPEN',
@@ -41,6 +40,11 @@ class CaseFileFactory extends Factory
     public function draft(): static
     {
         return $this->state(['status' => 'DRAFT']);
+    }
+
+    public function pendingReview(): static
+    {
+        return $this->state(['status' => CaseFile::STATUS_PENDING_REVIEW]);
     }
 
     public function archived(): static

@@ -70,15 +70,18 @@ class CategoryVisibilityHardeningTest extends TestCase
         $foreignAgency = Agency::factory()->create();
         $viewer = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id]);
         $foreignManager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-        $client = Client::factory()->create();
+        // Client profile requires a published client: linked account + live OPEN case.
+        $client = Client::factory()->create(['user_id' => User::factory()->create()->id]);
 
         $visibleCase = CaseFile::factory()->create([
             'client_id' => $client->id,
+            'status' => 'OPEN',
             'created_at' => now()->subDay(),
         ]);
         $foreignNewestCase = CaseFile::factory()->create([
             'client_id' => $client->id,
             'user_id' => $foreignManager->id,
+            'status' => 'OPEN',
             'created_at' => now(),
         ]);
 

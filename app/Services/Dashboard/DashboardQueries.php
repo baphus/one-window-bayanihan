@@ -248,22 +248,16 @@ class DashboardQueries
     }
 
     /**
-     * Intake-review list: the manager's own DRAFTs plus unassigned self-filed
-     * intakes awaiting review. Oldest first so the longest-waiting intake
-     * surfaces at the top. Capped to keep the deferred payload light.
+     * Pending-review list: OFW-filed cases awaiting CM approval. Oldest first
+     * so the longest-waiting filing surfaces at the top. Capped to keep the
+     * deferred payload light.
      */
     public function buildIntakeReviewList(?string $userId, int $limit = 8): array
     {
         return CaseFile::with(['client'])
-            ->select('id', 'case_number', 'tracker_number', 'client_id', 'client_type', 'status', 'source', 'user_id', 'created_at', 'updated_at')
-            ->where('status', 'DRAFT')
+            ->select('id', 'case_number', 'tracker_number', 'client_id', 'status', 'user_id', 'created_at', 'updated_at')
+            ->where('status', CaseFile::STATUS_PENDING_REVIEW)
             ->where('is_deleted', false)
-            ->where(function ($q) use ($userId) {
-                $q->where('source', CaseFile::SOURCE_SELF_FILED);
-                if ($userId) {
-                    $q->orWhere('user_id', $userId);
-                }
-            })
             ->orderBy('created_at', 'asc')
             ->limit($limit)
             ->get()
@@ -273,10 +267,9 @@ class DashboardQueries
                 'trackerNumber' => $c->tracker_number,
                 'clientName' => $c->client ? trim(($c->client->first_name ?? '').' '.($c->client->last_name ?? '')) : 'N/A',
                 'status' => $c->status,
-                'source' => $c->source,
                 'isOwnDraft' => $userId ? $c->user_id === $userId : false,
                 'createdAt' => $c->created_at?->toISOString() ?? now()->toISOString(),
-                'href' => '/cases/'.$c->id,
+                'href' => route('cases.review-pending', [], false),
             ])
             ->values()
             ->toArray();

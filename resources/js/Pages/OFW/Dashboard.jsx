@@ -29,7 +29,7 @@ export default function Dashboard({ cases, caseStats }) {
     const { auth } = usePage().props;
     const caseList = cases?.data ?? [];
     const stats = caseStats ?? {};
-    const fileCaseHref = safeRoute('intake.index', undefined, '/intake');
+    const fileCaseHref = safeRoute('cases.create', undefined, '/cases/create');
 
     return (
         <OfwLayout title="My Cases">
@@ -78,7 +78,7 @@ export default function Dashboard({ cases, caseStats }) {
                                 { key: 'action', label: '', className: 'text-right', cellClassName: 'text-right' },
                             ]}
                             rows={caseList.map((caseItem) => {
-                                const isUnderReview = caseItem.status === 'DRAFT' && caseItem.source === 'self_filed';
+                                const isUnderReview = caseItem.status === 'PENDING_REVIEW';
                                 const href = route('ofw.case.show', caseItem.id);
 
                                 return {

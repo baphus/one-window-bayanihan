@@ -356,7 +356,6 @@ class AuditLogControllerTest extends TestCase
                 'module' => 'clients',
                 'description' => 'Private phrase one',
                 'timestamp' => $now,
-                'is_deleted' => false,
             ],
             [
                 'id' => $id2,
@@ -365,7 +364,6 @@ class AuditLogControllerTest extends TestCase
                 'module' => 'referrals',
                 'description' => 'Private phrase two',
                 'timestamp' => $now,
-                'is_deleted' => false,
             ],
         ]);
 

@@ -12,11 +12,17 @@ class ClientFactory extends Factory
     public function definition(): array
     {
         return [
+            'type' => 'OFW',
             'first_name' => $this->faker->firstName(),
             'last_name' => $this->faker->lastName(),
             'email' => $this->faker->email(),
             'contact_number' => $this->faker->phoneNumber(),
             'date_of_birth' => $this->faker->date(),
         ];
+    }
+
+    public function nextOfKin(): static
+    {
+        return $this->state(['type' => 'NEXT_OF_KIN']);
     }
 }

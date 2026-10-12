@@ -185,7 +185,6 @@ class CaseStatusAuditTrailTest extends TestCase
             'new_value' => [
                 'status' => 'DRAFT',
                 'case_number' => $case->case_number,
-                'client_type' => $case->client_type,
             ],
             'user_id' => $user->id,
             'timestamp' => now(),
@@ -257,7 +256,6 @@ class CaseStatusAuditTrailTest extends TestCase
             'new_value' => [
                 'status' => 'DRAFT',
                 'case_number' => $case->case_number,
-                'client_type' => $case->client_type,
             ],
             'user_id' => $user->id,
             'timestamp' => now()->subMinutes(10),

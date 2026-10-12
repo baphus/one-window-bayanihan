@@ -32,6 +32,9 @@ class Client extends Model
     }
 
     protected $fillable = [
+        'type',
+        'user_id',
+        'ofw_client_id',
         'first_name',
         'last_name',
         'middle_name',
@@ -46,7 +49,18 @@ class Client extends Model
     protected $casts = [
         'date_of_birth' => EncryptedDate::class,
         'is_deleted' => 'boolean',
+        // shortcut: contact_number/email stay plaintext — SQL ilike search (ClientQueries:232-236) breaks on ciphertext; encrypt when search moves off-DB.
     ];
+
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function ofwClient()
+    {
+        return $this->belongsTo(Client::class, 'ofw_client_id');
+    }
 
     public function caseFiles()
     {
@@ -54,80 +68,19 @@ class Client extends Model
     }
 
     /**
-     * Hide people who exist only because of a self-filed intake that was never
-     * accepted.
-     *
-     * IntakeService writes the Client row when the public form is submitted, so
-     * from that moment an unverified claim is indistinguishable from an
-     * established client in any plain `Client::where('is_deleted', false)` query.
-     * That put unreviewed filers in the case-creation client picker, where
-     * selecting one attaches a real case to data no Case Manager has checked.
-     *
-     * "Unaccepted" covers both halves of the review outcome, and the rejected
-     * half is the one that is easy to get wrong. rejectIntake() soft-deletes the
-     * CASE but leaves the CLIENT row behind, so a rule that only looked for a
-     * live pending draft would see "no pending intake" and make the record fully
-     * visible — a rejection, the strongest signal the data is bogus, would
-     * publish it. The pending check therefore runs withTrashed().
-     *
-     * A client is hidden only while they have such an intake AND no live case
-     * that establishes them. Any case that has been through review — open,
-     * closed, or a Case Manager's own internal draft — makes them visible, so
-     * repeat filers stay selectable. Clients with no cases at all are untouched.
-     *
-     * Deliberately a scope rather than a global scope: the intake queue and the
-     * review screens must still see these records, and a global scope would have
-     * to be fought off in exactly the places that matter most.
-     *
-     * DataExportQueries::getClientsExport() repeats this rule in raw SQL because
-     * it does not build on Eloquent. Change both together.
+     * Clients visible in staff pickers: linked to an account and holding at
+     * least one live OPEN case. Replaces the intake-gate visibility rule —
+     * review state now lives on cases.status (PENDING_REVIEW), not on a
+     * source+DRAFT predicate.
      */
-    public function scopeWithoutUnacceptedIntake(Builder $query): Builder
+    public function scopePublishedOnly(Builder $query): Builder
     {
-        return $query->where(function (Builder $outer) {
-            $outer->whereDoesntHave('caseFiles', function (Builder $unaccepted) {
-                // withTrashed: a rejected intake is soft-deleted but still means
-                // this person was never accepted.
-                $unaccepted->withTrashed()
-                    ->where('source', CaseFile::SOURCE_SELF_FILED)
-                    ->where('status', 'DRAFT');
-            })->orWhereHas('caseFiles', function (Builder $establishing) {
-                $establishing->where('is_deleted', false)
-                    ->whereNull('cases.deleted_at')
-                    ->where(function (Builder $notIntake) {
-                        $notIntake->where('source', '!=', CaseFile::SOURCE_SELF_FILED)
-                            ->orWhere('status', '!=', 'DRAFT');
-                    });
+        return $query->whereNotNull('user_id')
+            ->whereHas('caseFiles', function (Builder $cases) {
+                $cases->where('status', 'OPEN')
+                    ->where('is_deleted', false)
+                    ->whereNull('cases.deleted_at');
             });
-        });
-    }
-
-    /**
-     * True when this client's only case history is a self-filed intake that was
-     * never accepted — pending review, or rejected. The single-record
-     * counterpart to scopeWithoutUnacceptedIntake, for guarding detail routes.
-     */
-    public function hasOnlyUnacceptedIntake(): bool
-    {
-        $hasUnacceptedIntake = $this->caseFiles()
-            ->withTrashed()
-            ->where('source', CaseFile::SOURCE_SELF_FILED)
-            ->where('status', 'DRAFT')
-            ->exists();
-
-        if (! $hasUnacceptedIntake) {
-            return false;
-        }
-
-        $hasEstablishingCase = $this->caseFiles()
-            ->where('is_deleted', false)
-            ->where(function ($notIntake) {
-                $notIntake->where('source', '!=', CaseFile::SOURCE_SELF_FILED)
-                    ->orWhere('status', '!=', 'DRAFT');
-            })
-            ->exists();
-
-        return ! $hasEstablishingCase;
     }
 
     /**

@@ -252,7 +252,7 @@ class TrackingService
                 'id' => $case->id,
                 'caseNo' => $case->case_number,
                 'clientName' => $client ? "{$client->first_name} {$client->last_name}" : 'Unknown',
-                'clientType' => $case->client_type === 'OFW' ? 'Overseas Filipino Worker' : 'Next of Kin',
+                'clientType' => ($client?->type ?? 'OFW') === 'OFW' ? 'Overseas Filipino Worker' : 'Next of Kin',
                 'categories' => $this->categoryPresentation($case),
                 'service' => $referrals->first()?->services->pluck('name')->implode(', ') ?? '',
                 'milestone' => '',
@@ -370,7 +370,7 @@ class TrackingService
                 'trackedCase' => [
                     'caseNo' => $case->case_number,
                     'clientName' => $case->client ? trim("{$case->client->first_name} {$case->client->last_name}") : 'Unknown',
-                    'clientType' => $case->client_type === 'OFW' ? 'Overseas Filipino Worker' : 'Next of Kin',
+                    'clientType' => ($case->client?->type ?? 'OFW') === 'OFW' ? 'Overseas Filipino Worker' : 'Next of Kin',
                     'status' => match ($case->status) {
                         'OPEN' => 'IN_PROGRESS',
                         'CLOSED' => 'RESOLVED',

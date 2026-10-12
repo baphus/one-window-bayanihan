@@ -204,17 +204,11 @@ class CaseMetrics
 
     public function getCaseSourceDistribution(?string $userId = null, ?string $role = null, ?string $agencyId = null, ?string $fromDate = null, ?string $toDate = null, ?string $province = null, ?string $city = null): array
     {
-        $query = $this->caseQuery($userId, $role, $agencyId);
-        $this->applyCaseWindow($query, $fromDate, $toDate, $province, $city);
-
-        $sources = (clone $query)
-            ->select(DB::raw("COALESCE(cases.source, 'internal') as source"), DB::raw('count(*) as total'))
-            ->groupBy('source')
-            ->pluck('total', 'source');
-
+        // cases.source was dropped in Phase 1a (account-first redesign).
+        // Return empty distribution — this metric is no longer trackable.
         return [
             'labels' => ['Internal', 'Self-filed'],
-            'data' => [(int) ($sources['internal'] ?? 0), (int) ($sources['self_filed'] ?? 0)],
+            'data' => [0, 0],
             'colors' => ['#0b5a8c', '#0891b2'],
         ];
     }
@@ -425,8 +419,9 @@ class CaseMetrics
         $this->applyCaseWindow($query, $fromDate, $toDate, $province, $city);
 
         $types = (clone $query)
-            ->select('client_type', DB::raw('count(*) as total'))
-            ->groupBy('client_type')
+            ->join('clients', 'clients.id', '=', 'cases.client_id')
+            ->select('clients.type as client_type', DB::raw('count(*) as total'))
+            ->groupBy('clients.type')
             ->pluck('total', 'client_type');
 
         return [

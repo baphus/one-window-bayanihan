@@ -38,6 +38,13 @@ class ClientEmailCheckTest extends TestCase
             'first_name' => 'Maria',
             'last_name' => 'Santos',
             'email' => 'maria@example.com',
+            // The probe only matches published clients: linked account + live OPEN case.
+            'user_id' => User::factory()->create()->id,
+        ]);
+        CaseFile::factory()->create([
+            'client_id' => $existing->id,
+            'user_id' => User::factory()->create()->id,
+            'status' => 'OPEN',
         ]);
 
         $response = $this->checkEmail('MARIA@Example.com ');
@@ -66,13 +73,11 @@ class ClientEmailCheckTest extends TestCase
             ->assertJsonPath('client', null);
     }
 
-    public function test_hides_client_whose_only_case_is_an_unaccepted_intake(): void
+    public function test_hides_client_whose_only_case_is_pending_review(): void
     {
         $client = Client::factory()->create(['email' => 'pending@example.com']);
-        CaseFile::factory()->create([
+        CaseFile::factory()->pendingReview()->create([
             'client_id' => $client->id,
-            'source' => CaseFile::SOURCE_SELF_FILED,
-            'status' => 'DRAFT',
             'user_id' => null,
         ]);
 

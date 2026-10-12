@@ -169,13 +169,12 @@ class FindCaseByTrackerTest extends TestCase
 
     public function test_personnel_draft_returns_null(): void
     {
-        // ARRANGE — an internal draft created by staff against an existing client.
+        // ARRANGE — a personnel draft created by staff against an existing client.
         // The client already has an email, so without the clientVisible guard the
         // OTP email check would pass and the draft would be trackable.
         $client = Client::factory()->create(['email' => 'client@example.com']);
         $case = CaseFile::factory()->draft()->create([
             'client_id' => $client->id,
-            'source' => CaseFile::SOURCE_INTERNAL,
         ]);
 
         $service = app(TrackingService::class);
@@ -187,15 +186,14 @@ class FindCaseByTrackerTest extends TestCase
         $this->assertNull($found);
     }
 
-    public function test_self_filed_intake_is_findable(): void
+    public function test_pending_review_is_findable(): void
     {
-        // ARRANGE — a self-filed intake also sits in DRAFT, but the OFW submitted
-        // it and is handed the tracker on the success screen, so it must remain
-        // trackable through intake review.
+        // ARRANGE — an OFW-filed case sits in PENDING_REVIEW and the filer is
+        // handed the tracker on the success screen, so it must remain
+        // trackable through CM review.
         $client = Client::factory()->create(['email' => 'ofw@example.com']);
-        $case = CaseFile::factory()->draft()->create([
+        $case = CaseFile::factory()->pendingReview()->create([
             'client_id' => $client->id,
-            'source' => CaseFile::SOURCE_SELF_FILED,
         ]);
 
         $service = app(TrackingService::class);

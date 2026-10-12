@@ -146,8 +146,15 @@ class ReportsController extends Controller
         // Render before recording the outcome. `download()` is where dompdf
         // actually rasterises, so logging COMPLETED ahead of it would assert a
         // successful export for a document that never rendered.
-        $pdf = Pdf::loadView('pdf.report', $payload);
-        $output = $pdf->output();
+        try {
+            $pdf = Pdf::loadView('pdf.report', $payload);
+            $output = $pdf->output();
+        } catch (\Throwable $e) {
+            $this->recordExport($request, $criteria, 'pdf', 'FAILED', [
+                'error' => $e->getMessage(),
+            ]);
+            abort(500, 'PDF generation failed: '.$e->getMessage());
+        }
 
         $this->recordExport($request, $criteria, 'pdf', 'COMPLETED', [
             'filename' => $filename,

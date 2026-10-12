@@ -3,7 +3,7 @@ import { render, screen, fireEvent, within, cleanup } from '@testing-library/rea
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const setData = vi.fn();
-const pageProps = { existingDraft: null, categories: [], caseIssues: [], occupationOptions: [], auth: { user: { id: 'user-1' } } };
+const pageProps = { categories: [], caseIssues: [], occupationOptions: [], auth: { user: { id: 'user-1' } } };
 
 vi.mock('@/Layouts/AppLayout', () => ({ default: ({ children }) => <div>{children}</div> }));
 vi.mock('@/Components/AddressDropdowns', () => ({ default: () => <div /> }));
@@ -13,8 +13,6 @@ vi.mock('@/Components/SearchableSelect', () => ({ default: () => <div /> }));
 vi.mock('@/Components/InputError', () => ({ default: () => null }));
 vi.mock('@/Components/ClientProfileSummaryModal', () => ({ default: () => null }));
 vi.mock('@/Hooks/useUnsavedChanges', () => ({ default: () => ({ UnsavedModal: null, bypassNext: vi.fn() }) }));
-vi.mock('@/Hooks/useAutoSave', () => ({ default: () => ({ autoSaveStatus: 'idle', draftId: null, cancelPendingSave: vi.fn() }) }));
-vi.mock('@/Hooks/useLocalStorageDraft', () => ({ default: () => ({ hasLocalBackup: false, localBackup: null, clearLocalBackup: vi.fn() }) }));
 vi.mock('@/Hooks/useToast', () => ({ useToast: () => ({ success: vi.fn(), error: vi.fn() }) }));
 vi.mock('@/lib/addressResolver', () => ({ formatResolvedAddress: () => '' }));
 vi.mock('@inertiajs/react', async () => {
@@ -50,7 +48,6 @@ function renderCaseSetup() {
 describe('create case category checkbox dropdown', () => {
   afterEach(() => cleanup());
   beforeEach(() => {
-    pageProps.existingDraft = null;
     pageProps.categories = categories;
     setData.mockClear();
   });
@@ -102,21 +99,4 @@ describe('create case category checkbox dropdown', () => {
     expect(setData).toHaveBeenCalledWith('category_ids', ['cat-2']);
   });
 
-  it('reflects restored draft categories as checked options', () => {
-    pageProps.existingDraft = {
-      id: 'draft-cat', case_number: 'CASE-CAT', tracker_number: 'OWBAP-CATTEST',
-      client_type: 'OFW', category_ids: ['cat-1', 'cat-3'], draft_client_data: null,
-    };
-    renderCaseSetup();
-
-    const trigger = screen.getByRole('combobox', { name: /case categories/i });
-    expect(trigger).toBeInTheDocument();
-    expect(trigger).toHaveTextContent(/Legal Assistance, Welfare Concern/i);
-
-    fireEvent.click(trigger);
-    const menu = screen.getByRole('listbox', { name: /categories/i });
-    expect(within(menu).getByRole('option', { name: /Legal Assistance/ })).toHaveAttribute('aria-selected', 'true');
-    expect(within(menu).getByRole('option', { name: /Welfare Concern/ })).toHaveAttribute('aria-selected', 'true');
-    expect(within(menu).getByRole('option', { name: /Repatriation/ })).toHaveAttribute('aria-selected', 'false');
-  });
 });

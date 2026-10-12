@@ -42,6 +42,7 @@ class NextOfKin extends Model
         'phone_number' => EncryptedString::class,
         'email' => EncryptedString::class,
         'full_address' => EncryptedString::class,
+        'street' => EncryptedString::class,
         'is_deleted' => 'boolean',
     ];
 

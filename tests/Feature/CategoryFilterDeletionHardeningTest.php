@@ -64,10 +64,14 @@ class CategoryFilterDeletionHardeningTest extends TestCase
         $agency = Agency::factory()->create();
         $first = CaseCategory::factory()->create();
         $second = CaseCategory::factory()->create();
-        $firstCase = CaseFile::factory()->create(['category_id' => $first->id]);
-        $secondCase = CaseFile::factory()->create(['category_id' => $second->id]);
-        $firstClient = Client::factory()->create();
-        $secondClient = Client::factory()->create();
+        $firstCase = CaseFile::factory()->create(['category_id' => $first->id, 'status' => 'OPEN']);
+        $secondCase = CaseFile::factory()->create(['category_id' => $second->id, 'status' => 'OPEN']);
+        // Client directory/export list published clients only: linked account
+        // (clients.user_id) plus a live OPEN case.
+        $firstOwner = User::factory()->create();
+        $secondOwner = User::factory()->create();
+        $firstClient = Client::factory()->create(['user_id' => $firstOwner->id]);
+        $secondClient = Client::factory()->create(['user_id' => $secondOwner->id]);
         $firstCase->update(['client_id' => $firstClient->id]);
         $secondCase->update(['client_id' => $secondClient->id]);
         Referral::factory()->create(['case_id' => $firstCase->id, 'agcy_id' => $agency->id]);

@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Enums\UserRole;
-use App\Models\Client;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -19,7 +18,7 @@ class OfwRegistrationTest extends TestCase
         $response->assertInertia(fn ($page) => $page->component('Auth/Register'));
     }
 
-    public function test_guest_can_register_ofw_account(): void
+    public function test_guest_can_start_two_step_registration(): void
     {
         $response = $this->post(route('register.store'), [
             'name' => 'Juan Dela Cruz',
@@ -28,31 +27,10 @@ class OfwRegistrationTest extends TestCase
             'password_confirmation' => 'Password123',
         ]);
 
-        $response->assertRedirect(route('ofw.dashboard'));
-        $this->assertDatabaseHas('users', [
-            'email' => 'juan@example.com',
-            'role' => UserRole::OFW->value,
-            'is_active' => true,
-        ]);
-    }
-
-    public function test_registration_links_existing_client_by_email(): void
-    {
-        Client::factory()->create([
-            'email' => 'juan@example.com',
-            'first_name' => 'Juan',
-            'last_name' => 'Dela Cruz',
-        ]);
-
-        $this->post(route('register.store'), [
-            'name' => 'Juan Dela Cruz',
-            'email' => 'juan@example.com',
-            'password' => 'Password123',
-            'password_confirmation' => 'Password123',
-        ]);
-
-        $user = User::where('email', 'juan@example.com')->first();
-        $this->assertNotNull($user->client_id);
+        $response->assertRedirect(route('register.profile'));
+        $response->assertSessionHas('pending_registration');
+        $this->assertGuest();
+        $this->assertNull(User::where('email', 'juan@example.com')->first());
     }
 
     public function test_registration_rejects_duplicate_email(): void
@@ -86,24 +64,16 @@ class OfwRegistrationTest extends TestCase
         $user = User::factory()->create(['role' => UserRole::OFW->value]);
         $this->actingAs($user);
 
-        $this->get(route('register'));
         $response = $this->get(route('register'));
         $response->assertRedirect();
     }
 
-    public function test_unauthenticated_user_redirected_from_intake(): void
-    {
-        $response = $this->get(route('intake.index'));
-        $response->assertRedirect(route('login'));
-    }
-
-    public function test_ofw_can_access_intake(): void
+    public function test_ofw_can_access_registration_profile_step(): void
     {
         $user = User::factory()->create(['role' => UserRole::OFW->value]);
         $this->actingAs($user);
 
-        $response = $this->get(route('intake.index'));
-        $response->assertOk();
-        $response->assertInertia(fn ($page) => $page->component('Intake/Index'));
+        $response = $this->get(route('register.profile'));
+        $response->assertRedirect();
     }
 }

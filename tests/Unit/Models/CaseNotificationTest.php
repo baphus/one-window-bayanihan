@@ -87,7 +87,6 @@ class CaseNotificationTest extends TestCase
 
         return CaseFile::create([
             'case_number' => 'CASE-0001',
-            'client_type' => 'OFW',
             'tracker_number' => 'OWBAP-ABC1234',
             'summary' => 'Test case',
             'status' => 'OPEN',

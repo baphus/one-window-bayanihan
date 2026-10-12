@@ -32,11 +32,9 @@ class OfwDashboardTest extends TestCase
 
         $case1 = CaseFile::factory()->open()->create([
             'client_id' => $client->id,
-            'source' => CaseFile::SOURCE_SELF_FILED,
         ]);
-        $case2 = CaseFile::factory()->draft()->create([
+        $case2 = CaseFile::factory()->pendingReview()->create([
             'client_id' => $client->id,
-            'source' => CaseFile::SOURCE_SELF_FILED,
         ]);
 
         $response = $this->actingAs($ofwUser)
@@ -63,7 +61,6 @@ class OfwDashboardTest extends TestCase
         $otherClient = Client::factory()->create();
         $otherCase = CaseFile::factory()->open()->create([
             'client_id' => $otherClient->id,
-            'source' => CaseFile::SOURCE_SELF_FILED,
         ]);
 
         $response = $this->actingAs($ofwUser)
@@ -83,11 +80,9 @@ class OfwDashboardTest extends TestCase
 
         $open = CaseFile::factory()->open()->create([
             'client_id' => $client->id,
-            'source' => CaseFile::SOURCE_SELF_FILED,
         ]);
         CaseFile::factory()->draft()->create([
             'client_id' => $client->id,
-            'source' => CaseFile::SOURCE_INTERNAL,
         ]);
 
         $response = $this->actingAs($ofwUser)
@@ -111,7 +106,6 @@ class OfwDashboardTest extends TestCase
 
         $draft = CaseFile::factory()->draft()->create([
             'client_id' => $client->id,
-            'source' => CaseFile::SOURCE_INTERNAL,
         ]);
 
         $response = $this->actingAs($ofwUser)

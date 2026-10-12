@@ -4,8 +4,6 @@ namespace Tests\Feature;
 
 use App\Models\CaseFile;
 use App\Services\CaseNumberGenerator;
-use App\Services\CaseService;
-use App\Services\IntakeService;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -60,16 +58,19 @@ class CaseNumberFormatTest extends TestCase
             'Sanity check on the fixture: Manila should already be in January 2027.'
         );
 
-        foreach ([CaseService::class, IntakeService::class] as $class) {
-            $reflection = new \ReflectionMethod(app($class), 'generateCaseNumber');
-            $reflection->setAccessible(true);
+        // IntakeService was deleted in the OFW-account-first refactor; the
+        // canonical generator (CaseNumberGenerator) is now the single source of
+        // truth and both formats must agree with it.
+        $generator = app(CaseNumberGenerator::class);
 
-            $this->assertStringStartsWith(
-                'OWB-202701-',
-                $reflection->invoke(app($class)),
-                $class.' derived the period from UTC rather than the operating timezone.'
-            );
-        }
+        $reflection = new \ReflectionMethod($generator, 'nextCaseNumber');
+        $reflection->setAccessible(true);
+
+        $this->assertStringStartsWith(
+            'OWB-202701-',
+            $reflection->invoke($generator),
+            'CaseNumberGenerator derived the period from UTC rather than the operating timezone.'
+        );
 
         $this->travelBack();
     }
@@ -93,30 +94,24 @@ class CaseNumberFormatTest extends TestCase
 
     public function test_both_generators_agree_on_the_identifier_formats(): void
     {
-        // CaseService and IntakeService each generate identifiers independently.
-        // They had already diverged once: IntakeService returned
-        // strtoupper(bin2hex(random_bytes(4))) — eight hex characters with no
-        // OWBAP- prefix — so every self-filed OFW received a tracker the
-        // tracking portal and helpdesk article told them to type differently,
-        // and TrackingService matches tracker_number exactly. Only CaseService
-        // had a format assertion, which is why the divergence shipped.
-        $caseService = app(CaseService::class);
-        $intakeService = app(IntakeService::class);
+        // CaseService used to own its own generator; IntakeService did too and
+        // they had already diverged on the tracker format (hex without the
+        // OWBAP- prefix). The refactored code now routes both through a single
+        // CaseNumberGenerator, so only that class needs the format assertion.
+        $generator = app(CaseNumberGenerator::class);
 
         foreach (['case_number' => self::CASE_NUMBER_PATTERN, 'tracker' => self::TRACKER_PATTERN] as $label => $pattern) {
-            foreach (['CaseService' => $caseService, 'IntakeService' => $intakeService] as $name => $service) {
-                $method = $label === 'case_number' ? 'generateCaseNumber' : 'generateTrackerNumber';
+            $method = $label === 'case_number' ? 'nextCaseNumber' : 'nextTrackerNumber';
 
-                $reflection = new \ReflectionMethod($service, $method);
-                $reflection->setAccessible(true);
-                $value = $reflection->invoke($service);
+            $reflection = new \ReflectionMethod($generator, $method);
+            $reflection->setAccessible(true);
+            $value = $reflection->invoke($generator);
 
-                $this->assertMatchesRegularExpression(
-                    $pattern,
-                    $value,
-                    "{$name}::{$method}() produced '{$value}', which does not match the canonical format."
-                );
-            }
+            $this->assertMatchesRegularExpression(
+                $pattern,
+                $value,
+                "CaseNumberGenerator::{$method}() produced '{$value}', which does not match the canonical format."
+            );
         }
     }
 

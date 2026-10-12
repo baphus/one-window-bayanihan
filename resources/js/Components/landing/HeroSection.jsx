@@ -87,7 +87,7 @@ export default function HeroSection({ title, description, onTrackAction, agencie
             style={{ animationDelay: '0.5s', animationFillMode: 'both' }}
           >
             <Link
-              href={route('intake.index')}
+              href={route('register')}
               className="inline-flex items-center justify-center gap-2 rounded-none bg-secondary-container px-6 py-2.5 text-[14px] font-bold text-on-secondary-container transition-all hover:bg-secondary-fixed-dim disabled:cursor-not-allowed disabled:opacity-60 px-6 py-3 text-sm shadow-xl"
             >
               <span className="material-symbols-outlined">edit_note</span>

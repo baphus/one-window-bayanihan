@@ -20,14 +20,12 @@ class ClientSelectController extends Controller
             'q' => ['nullable', 'string', 'max:100'],
         ]);
 
-        // withoutUnacceptedIntake: this feeds the "select existing client" picker
-        // on the case-creation form. A self-filed intake that has not been
-        // accepted — pending review, or rejected — is an unverified claim, and
-        // attaching a new case to one would build on data no Case Manager has
-        // checked, or has already thrown out.
+        // publishedOnly: this feeds the "select existing client" picker
+        // on the case-creation form. Only linked accounts holding a live OPEN
+        // case are selectable.
         $query = Client::withCount('caseFiles')
             ->where('is_deleted', false)
-            ->withoutUnacceptedIntake();
+            ->publishedOnly();
 
         if ($search = $validated['q'] ?? null) {
             $query->where(function ($q) use ($search) {
@@ -66,7 +64,7 @@ class ClientSelectController extends Controller
 
         $client = Client::withCount('caseFiles')
             ->where('is_deleted', false)
-            ->withoutUnacceptedIntake()
+            ->publishedOnly()
             ->whereRaw('LOWER(TRIM(email)) = ?', [strtolower(trim($email))])
             ->first();
 
@@ -78,6 +76,37 @@ class ClientSelectController extends Controller
             'duplicate' => true,
             'client' => $this->clientSummary($client),
         ]);
+    }
+
+    /**
+     * Scoped NOK dropdown: OFW clients linked via ofw_client_id to the
+     * filer's own client. Minimal fields only — no broad PII search.
+     */
+    public function linkedOfws(Request $request)
+    {
+        $filer = $request->user();
+
+        if (! $filer->client) {
+            return response()->json(['data' => []]);
+        }
+
+        $clients = Client::where('is_deleted', false)
+            ->where('type', 'OFW')
+            ->where('ofw_client_id', $filer->client->id)
+            ->orderBy('first_name')
+            ->orderBy('last_name')
+            ->limit(50)
+            ->get()
+            ->map(fn ($client) => [
+                'id' => $client->id,
+                'first_name' => $client->first_name,
+                'middle_name' => $client->middle_name,
+                'last_name' => $client->last_name,
+                'suffix' => $client->suffix,
+                'email' => $client->email,
+            ]);
+
+        return response()->json(['data' => $clients]);
     }
 
     private function clientSummary(Client $client): array
@@ -114,7 +143,7 @@ class ClientSelectController extends Controller
         // Hiding the client from the picker is not enough on its own: this route
         // returns the filer's full PII for any id, so it has to refuse the same
         // records rather than rely on nobody holding the uuid.
-        abort_if($client->hasOnlyUnacceptedIntake(), 404);
+        abort_if(! Client::whereKey($client->id)->publishedOnly()->exists(), 404);
 
         return response()->json(['data' => [
             'id' => $client->id,

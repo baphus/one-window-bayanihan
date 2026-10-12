@@ -56,7 +56,6 @@ class CaseUpdatedTest extends TestCase
     {
         $case = new CaseFile([
             'case_number' => 'CASE-2026-001',
-            'client_type' => 'Individual',
             'vulnerability_indicator' => 'None',
             'summary' => 'Initial summary',
         ]);
@@ -73,9 +72,9 @@ class CaseUpdatedTest extends TestCase
                 'old' => 'Initial summary',
                 'new' => 'Updated summary',
             ],
-            'client_type' => [
-                'old' => 'Individual',
-                'new' => 'Organization',
+            'status' => [
+                'old' => 'OPEN',
+                'new' => 'CLOSED',
             ],
             'vulnerability_indicator' => [
                 'old' => 'None',

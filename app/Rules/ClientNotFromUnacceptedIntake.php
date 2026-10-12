@@ -7,15 +7,11 @@ use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
 
 /**
- * Rejects a client who is only in the system because of a self-filed intake that
- * was never accepted — either still awaiting review, or rejected outright.
+ * Rejects a client that is not published (no linked account or no live OPEN
+ * case). Hiding those people from the client picker stops the mistake being
+ * made through the UI; this closes the request itself.
  *
- * Hiding those people from the client picker stops the mistake being made through
- * the UI; this closes the request itself. Attaching a real case to an unverified
- * submission would carry unchecked identity data into a live case, and if that
- * intake is later accepted the two records describe the same person twice.
- *
- * @see Client::hasOnlyUnacceptedIntake()
+ * @see Client::scopePublishedOnly()
  */
 final class ClientNotFromUnacceptedIntake implements ValidationRule
 {
@@ -32,8 +28,8 @@ final class ClientNotFromUnacceptedIntake implements ValidationRule
             return;
         }
 
-        if ($client->hasOnlyUnacceptedIntake()) {
-            $fail('This person only has a self-filed request that has not been accepted. Handle it in the intake queue rather than creating a new case.');
+        if (! Client::whereKey($client->id)->publishedOnly()->exists()) {
+            $fail('This person is not a published client. Handle it in the intake queue rather than creating a new case.');
         }
     }
 }

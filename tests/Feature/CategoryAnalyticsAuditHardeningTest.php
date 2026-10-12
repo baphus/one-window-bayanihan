@@ -6,6 +6,7 @@ use App\Enums\UserRole;
 use App\Models\AuditLog;
 use App\Models\CaseCategory;
 use App\Models\CaseFile;
+use App\Models\Client;
 use App\Models\User;
 use App\Services\CaseService;
 use App\Services\DashboardService;
@@ -77,24 +78,18 @@ class CategoryAnalyticsAuditHardeningTest extends TestCase
         $this->assertArrayNotHasKey('Excluded', $reportCounts);
     }
 
-    public function test_category_audits_capture_sorted_complete_sets_and_skip_reorders_or_drafts(): void
+    public function test_category_audits_capture_sorted_complete_sets_and_skip_reorders(): void
     {
         $user = User::factory()->create();
         $first = CaseCategory::factory()->create(['name' => 'Publication first']);
         $second = CaseCategory::factory()->create(['name' => 'Publication second']);
-        $third = CaseCategory::factory()->create(['name' => 'Publication third']);
+        $client = Client::factory()->create();
 
-        $draft = app(CaseService::class)->createCase([
-            'client_type' => 'OFW',
+        $pending = app(CaseService::class)->createCase([
             'category_ids' => [$second->id, $first->id],
+            'selected_client_id' => $client->id,
         ], $user->id);
-        $this->assertCount(0, $this->categoryAudits($draft->id));
-
-        $beforeDraftSave = $this->categoryAudits($draft->id)->count();
-        app(CaseService::class)->updateDraft($draft->id, [
-            'category_ids' => [$third->id, $first->id],
-        ], $user->id);
-        $this->assertSame($beforeDraftSave, $this->categoryAudits($draft->id)->count());
+        $this->assertCount(0, $this->categoryAudits($pending->id));
 
         $published = CaseFile::factory()->create([
             'status' => 'OPEN',
@@ -105,7 +100,6 @@ class CategoryAnalyticsAuditHardeningTest extends TestCase
 
         $beforeMutation = $this->categoryAudits($published->id)->count();
         app(CaseService::class)->updateCase($published->id, [
-            'client_type' => 'OFW',
             'category_ids' => [$second->id, $first->id],
         ], $user->id);
         $audits = $this->categoryAudits($published->id);
@@ -115,57 +109,42 @@ class CategoryAnalyticsAuditHardeningTest extends TestCase
         $this->assertSame(sortIds([$first->id, $second->id]), $mutation->new_value['category_ids']);
 
         app(CaseService::class)->updateCase($published->id, [
-            'client_type' => 'OFW',
             'category_ids' => [$first->id, $second->id],
         ], $user->id);
         app(CaseService::class)->updateCase($published->id, [
-            'client_type' => 'OFW',
             'category_ids' => [$second->id, $first->id],
         ], $user->id);
         $this->assertSame($beforeMutation + 1, $this->categoryAudits($published->id)->count());
     }
 
-    public function test_publication_audits_final_categories_after_unaudited_draft_changes(): void
+    public function test_approve_audits_status_change_to_open(): void
     {
         $user = User::factory()->create();
-        $first = CaseCategory::factory()->create(['name' => 'Publish regression first']);
-        $second = CaseCategory::factory()->create(['name' => 'Publish regression second']);
-        $third = CaseCategory::factory()->create(['name' => 'Publish regression third']);
+        $category = CaseCategory::factory()->create();
+        $client = Client::factory()->create();
         $service = app(CaseService::class);
 
-        $draft = $service->createCase([
-            'client_type' => 'OFW',
-            'category_ids' => [$first->id],
-            'client' => [
-                'first_name' => 'Publish',
-                'last_name' => 'Audit',
-                'date_of_birth' => '1990-01-01',
-                'sex' => 'Male',
-                'email' => 'publish@example.test',
-                'contact_number' => '+639171234567',
-            ],
-            'address' => [
-                'region' => 'Region VII',
-                'province' => 'Cebu',
-                'city_municipality' => 'Cebu City',
-                'barangay' => 'Lahug',
-            ],
-            'consent' => true,
+        $pending = $service->createCase([
+            'category_ids' => [$category->id],
+            'selected_client_id' => $client->id,
         ], $user->id);
 
-        $this->assertCount(0, $this->categoryAudits($draft->id));
-        $service->updateDraft($draft->id, [
-            'category_ids' => [$third->id, $second->id],
-        ], $user->id);
-        $this->assertCount(0, $this->categoryAudits($draft->id));
+        $this->assertSame(CaseFile::STATUS_PENDING_REVIEW, $pending->status);
+        $this->assertCount(0, $this->categoryAudits($pending->id));
 
-        $published = $service->publishDraft($draft->id, $user->id);
-        $publicationAudit = $this->categoryAudits($published->id)->last();
+        $approved = $service->approveCase($pending->id, $user->id);
+
+        $this->assertSame('OPEN', $approved->status);
+        $publicationAudit = AuditLog::where('module', 'case')
+            ->where('entity_id', $pending->id)
+            ->where('action', 'PUBLISH')
+            ->orderBy('chain_seq')
+            ->get()
+            ->last();
 
         $this->assertNotNull($publicationAudit);
-        $this->assertSame('PUBLISH', $publicationAudit->action);
-        $this->assertSame(sortIds([$second->id, $third->id]), $publicationAudit->old_value['category_ids']);
-        $this->assertSame(sortIds([$second->id, $third->id]), $publicationAudit->new_value['category_ids']);
+        $this->assertSame(CaseFile::STATUS_PENDING_REVIEW, $publicationAudit->old_value['status']);
+        $this->assertSame('OPEN', $publicationAudit->new_value['status']);
     }
 
     public function test_published_category_sync_invalidates_observable_analytics_and_tracking_caches(): void
@@ -200,7 +179,6 @@ class CategoryAnalyticsAuditHardeningTest extends TestCase
         $beforeAdd = $case->fresh();
         $unchanged = [
             'status' => $beforeAdd->status,
-            'client_type' => $beforeAdd->client_type,
             'vulnerability_indicator' => $beforeAdd->vulnerability_indicator,
             'nok_vulnerability_indicator' => $beforeAdd->nok_vulnerability_indicator,
             'summary' => $beforeAdd->summary,

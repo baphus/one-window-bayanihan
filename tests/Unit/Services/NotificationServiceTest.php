@@ -246,7 +246,6 @@ class NotificationServiceTest extends TestCase
 
         return CaseFile::create([
             'case_number' => 'CASE-'.uniqid(),
-            'client_type' => 'OFW',
             'tracker_number' => 'OWBAP-'.uniqid(),
             'summary' => 'Test case for notification service',
             'status' => 'OPEN',

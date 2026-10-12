@@ -22,12 +22,18 @@ Route::middleware('guest')->group(function () {
     Route::get('login', [AuthenticatedSessionController::class, 'create'])
         ->name('login');
 
-    // OFW self-registration
+    // OFW self-registration (account-first, 2-step: credentials → profile)
     Route::get('register', [OfwRegistrationController::class, 'create'])
         ->name('register');
     Route::post('register', [OfwRegistrationController::class, 'store'])
         ->middleware(['turnstile', 'throttle:register'])
         ->name('register.store');
+    Route::get('register/profile', [OfwRegistrationController::class, 'showProfile'])
+        ->middleware('pending.registration')
+        ->name('register.profile');
+    Route::post('register/profile', [OfwRegistrationController::class, 'storeProfile'])
+        ->middleware(['pending.registration', 'throttle:otp'])
+        ->name('register.profile.store');
 
     // Named login.store, not login: two routes sharing the name breaks
     // `route:cache` with "Unable to prepare route [login] for serialization".

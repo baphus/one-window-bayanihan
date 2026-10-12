@@ -30,7 +30,7 @@ class ClientControllerAuthTest extends TestCase
     public function test_case_manager_can_view_own_client(): void
     {
         $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-        $client = Client::factory()->create();
+        $client = Client::factory()->create(['user_id' => User::factory()->create()->id]);
         CaseFile::factory()->create([
             'user_id' => $manager->id,
             'client_id' => $client->id,
@@ -47,7 +47,7 @@ class ClientControllerAuthTest extends TestCase
     {
         $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $otherManager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-        $client = Client::factory()->create();
+        $client = Client::factory()->create(['user_id' => User::factory()->create()->id]);
         CaseFile::factory()->create([
             'user_id' => $otherManager->id,
             'client_id' => $client->id,
@@ -64,7 +64,7 @@ class ClientControllerAuthTest extends TestCase
     {
         $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-        $client = Client::factory()->create();
+        $client = Client::factory()->create(['user_id' => User::factory()->create()->id]);
         CaseFile::factory()->create([
             'user_id' => $manager->id,
             'client_id' => $client->id,
@@ -85,7 +85,10 @@ class ClientControllerAuthTest extends TestCase
         $response = $this->actingAs($admin)
             ->get(route('clients.show', $client));
 
-        $response->assertStatus(200);
+        // OFW Account-First: unpublished clients (no linked account + live
+        // OPEN case) are read through the intake queue, not the profile —
+        // even for ADMIN.
+        $response->assertStatus(404);
     }
 
     public function test_case_manager_can_view_client_without_case_file(): void
@@ -96,7 +99,9 @@ class ClientControllerAuthTest extends TestCase
         $response = $this->actingAs($manager)
             ->get(route('clients.show', $client));
 
-        $response->assertStatus(200);
+        // OFW Account-First: unpublished clients are read through the intake
+        // queue, not the profile — even for CASE_MANAGER.
+        $response->assertStatus(404);
     }
 
     public function test_agency_can_view_client_with_referral_to_their_agency(): void
@@ -114,7 +119,8 @@ class ClientControllerAuthTest extends TestCase
         ]);
 
         $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-        $client = Client::factory()->create();
+        // Client profile requires a published client: linked account + live OPEN case.
+        $client = Client::factory()->create(['user_id' => User::factory()->create()->id]);
         $case = CaseFile::factory()->create([
             'user_id' => $manager->id,
             'client_id' => $client->id,
@@ -193,14 +199,14 @@ class ClientControllerAuthTest extends TestCase
         $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $otherManager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
-        $ownClient = Client::factory()->create();
+        $ownClient = Client::factory()->create(['user_id' => $manager->id]);
         CaseFile::factory()->create([
             'user_id' => $manager->id,
             'client_id' => $ownClient->id,
             'status' => 'OPEN',
         ]);
 
-        $otherClient = Client::factory()->create();
+        $otherClient = Client::factory()->create(['user_id' => $otherManager->id]);
         CaseFile::factory()->create([
             'user_id' => $otherManager->id,
             'client_id' => $otherClient->id,
@@ -220,11 +226,10 @@ class ClientControllerAuthTest extends TestCase
     public function test_client_index_counts_next_of_kin_cases_using_canonical_type(): void
     {
         $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-        $client = Client::factory()->create();
+        $client = Client::factory()->create(['type' => 'NEXT_OF_KIN']);
         CaseFile::factory()->create([
             'user_id' => $manager->id,
             'client_id' => $client->id,
-            'client_type' => CaseFile::CLIENT_TYPE_NEXT_OF_KIN,
             'status' => 'OPEN',
         ]);
 
@@ -245,9 +250,9 @@ class ClientControllerAuthTest extends TestCase
         $manager2 = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         Client::factory()->create(); // No case file — hidden from the directory
-        $client2 = Client::factory()->create();
+        $client2 = Client::factory()->create(['user_id' => $manager1->id]);
         CaseFile::factory()->create(['user_id' => $manager1->id, 'client_id' => $client2->id, 'status' => 'OPEN']);
-        $client3 = Client::factory()->create();
+        $client3 = Client::factory()->create(['user_id' => $manager2->id]);
         CaseFile::factory()->create(['user_id' => $manager2->id, 'client_id' => $client3->id, 'status' => 'OPEN']);
 
         $response = $this->actingAs($admin)

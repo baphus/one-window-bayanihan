@@ -113,7 +113,7 @@ class CaseEventRecordingTest extends TestCase
         $this->assertEquals('All submitted documents check out.', $event->description);
     }
 
-    public function test_publishing_a_draft_records_case_opened(): void
+    public function test_approving_a_pending_filing_records_case_opened(): void
     {
         $user = User::factory()->create();
         $client = Client::factory()->create(['sex' => 'FEMALE']);
@@ -126,16 +126,14 @@ class CaseEventRecordingTest extends TestCase
             'street' => '123 Test St',
         ]);
         $category = CaseCategory::factory()->create();
-        $case = CaseFile::factory()->create([
-            'status' => 'DRAFT',
+        $case = CaseFile::factory()->pendingReview()->create([
             'user_id' => $user->id,
             'client_id' => $client->id,
-            'client_type' => 'OFW',
             'category_id' => $category->id,
         ]);
         $case->categories()->attach($category->id);
 
-        app(CaseService::class)->publishDraft($case->id, $user->id);
+        app(CaseService::class)->approveCase($case->id, $user->id);
 
         $event = CaseEvent::where('case_id', $case->id)
             ->where('type', CaseEvent::TYPE_CASE_OPENED)
@@ -171,7 +169,6 @@ class CaseEventRecordingTest extends TestCase
 
         app(CaseService::class)->updateCase($case->id, [
             'status' => 'CLOSED',
-            'client_type' => $case->client_type,
         ], $result['user']->id);
 
         $this->assertNotNull(
@@ -182,7 +179,6 @@ class CaseEventRecordingTest extends TestCase
         // And reopening the same way records case_reopened
         app(CaseService::class)->updateCase($case->id, [
             'status' => 'OPEN',
-            'client_type' => $case->client_type,
         ], $result['user']->id);
 
         $this->assertNotNull(
@@ -198,7 +194,6 @@ class CaseEventRecordingTest extends TestCase
 
         app(CaseService::class)->updateCase($case->id, [
             'status' => $case->status,
-            'client_type' => $case->client_type,
             'summary' => 'Updated summary text for the client record.',
         ], $editor->id);
 
