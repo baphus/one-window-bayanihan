@@ -22,6 +22,10 @@ Route::middleware('guest')->group(function () {
     Route::get('login', [AuthenticatedSessionController::class, 'create'])
         ->name('login');
 
+    // Separate staff URL, same auth logic (OFW keeps using /login).
+    Route::get('staff/login', [AuthenticatedSessionController::class, 'createStaff'])
+        ->name('staff.login');
+
     // OFW self-registration (account-first, 2-step: credentials → profile)
     Route::get('register', [OfwRegistrationController::class, 'create'])
         ->name('register');
@@ -41,6 +45,10 @@ Route::middleware('guest')->group(function () {
     Route::post('login', [AuthenticatedSessionController::class, 'store'])
         ->middleware(['turnstile', 'throttle:login'])
         ->name('login.store');
+
+    Route::post('staff/login', [AuthenticatedSessionController::class, 'store'])
+        ->middleware(['turnstile', 'throttle:login'])
+        ->name('staff.login.store');
 
     Route::get('login/mfa', [MfaChallengeController::class, 'show'])
         ->middleware('mfa.pending')->name('mfa.challenge.show');

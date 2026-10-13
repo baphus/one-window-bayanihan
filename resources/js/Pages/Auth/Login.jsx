@@ -8,7 +8,7 @@ import { makeLoginSchema } from '@/Schemas/authSchemas';
 import useClientValidation from '@/Hooks/useClientValidation';
 import { getTurnstileError } from '@/lib/turnstile';
 
-export default function Login({ status, canResetPassword }) {
+export default function Login({ status, canResetPassword, loginUrl }) {
     const { turnstile } = usePage().props;
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -42,7 +42,7 @@ export default function Login({ status, canResetPassword }) {
 
         setProcessing(true);
 
-        router.post(route('login'), { email, password, remember, cf_turnstile_response: turnstileToken }, {
+        router.post(loginUrl || route('login'), { email, password, remember, cf_turnstile_response: turnstileToken }, {
             onFinish: () => setProcessing(false),
             onError: (err) => {
                 setLoginError(err.captcha || err.email || 'Invalid email or password.');

@@ -52,6 +52,7 @@ export default function AppFooter({ showImage = true }) {
             <Link href={route('privacy')} className="text-[10px] font-bold uppercase tracking-wider text-slate-500 transition-colors hover:text-sky-700">Privacy Policy</Link>
             <Link href={route('terms')} className="text-[10px] font-bold uppercase tracking-wider text-slate-500 transition-colors hover:text-sky-700">Terms of Service</Link>
             <Link href={route('track.index')} className="text-[10px] font-bold uppercase tracking-wider text-slate-500 transition-colors hover:text-sky-700">Track Your Case</Link>
+            <Link href={route('staff.login')} className="text-[10px] font-bold uppercase tracking-wider text-slate-500 transition-colors hover:text-sky-700">Staff Login</Link>
           </div>
           <div className="text-center text-[9px] uppercase tracking-widest text-slate-500 md:text-right">
             &copy; 2026 One Window Bayanihan Assistance Program. All Rights Reserved. Department of Migrant Workers.
