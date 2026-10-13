@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Enums\UserRole;
 use Illuminate\Foundation\Http\FormRequest;
 
 class InviteAdminUserRequest extends FormRequest
@@ -15,7 +16,7 @@ class InviteAdminUserRequest extends FormRequest
     {
         return [
             'email' => ['required', 'email', 'unique:users,email'],
-            'role' => ['required', 'in:ADMIN,AGENCY,CASE_MANAGER'],
+            'role' => ['required', 'in:'.implode(',', UserRole::staffValues())],
             'agcy_id' => ['nullable', 'exists:agencies,id'],
         ];
     }

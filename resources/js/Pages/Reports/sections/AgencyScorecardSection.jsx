@@ -1,7 +1,9 @@
 import ReportLazySection from '@/Components/Reports/ReportLazySection';
 import ChartSkeleton from '@/Components/Reports/ChartSkeleton';
+import { usePage } from '@inertiajs/react';
 
 export default function AgencyScorecardSection({ pageHeadingStyles, role }) {
+  const roles = usePage().props.roles;
   return (
     <ReportLazySection
       lazyKey="agencyScorecard"
@@ -22,7 +24,7 @@ export default function AgencyScorecardSection({ pageHeadingStyles, role }) {
             Agency Scorecard
           </h3>
           {data?.length > 0 ? (
-            role === 'AGENCY' ? (
+            role === roles.AGENCY ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
                 {(() => {
                   const a = data[0];

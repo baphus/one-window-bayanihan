@@ -2,11 +2,12 @@
 
 namespace App\Observers;
 
+use App\Casts\EncryptedDate;
+use App\Casts\EncryptedString;
 use App\Enums\AuditAction;
 use App\Models\AuditLog;
 use App\Services\AuditLogFormatter;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
 class AuditObserver
@@ -64,8 +65,8 @@ class AuditObserver
             'module' => method_exists($model, 'getAuditModuleName') ? $model->getAuditModuleName() : $model->getTable(),
             'entity_id' => $model->getKey(),
             'entity_label' => method_exists($model, 'getAuditEntityLabel') ? $model->getAuditEntityLabel() : null,
-            'old_value' => $old,
-            'new_value' => $new,
+            'old_value' => $this->decryptEncryptedAttributes($old, $model),
+            'new_value' => $this->decryptEncryptedAttributes($new, $model),
             'user_id' => Auth::id(),
             'timestamp' => now(),
             'ip_address' => $request?->ip() ?? 'cli',
@@ -87,10 +88,43 @@ class AuditObserver
 
         // Single INSERT
         $log = AuditLog::create($data);
+    }
 
-        // Invalidate cache for distinct action/module lists
-        Cache::forget('audit_log_available_actions');
-        Cache::forget('audit_log_available_modules');
+    /**
+     * Decrypt EncryptedString/EncryptedDate columns to their real values so
+     * the audit trail stays readable. Falls back to the raw stored value
+     * when decryption genuinely fails. Null payloads pass through untouched.
+     */
+    private function decryptEncryptedAttributes(?array $attributes, $model): ?array
+    {
+        if ($attributes === null || ! method_exists($model, 'getCasts')) {
+            return $attributes;
+        }
+
+        $casts = $model->getCasts();
+
+        foreach ($attributes as $key => $value) {
+            if (! is_string($value) || ! isset($casts[$key])) {
+                continue;
+            }
+
+            $cast = ltrim(strtok($casts[$key], ':'), '\\');
+
+            if ($cast !== EncryptedString::class && $cast !== EncryptedDate::class) {
+                continue;
+            }
+
+            try {
+                $decrypted = $model->castAttribute($key, $value);
+                $attributes[$key] = $decrypted instanceof \DateTimeInterface
+                    ? $decrypted->format('Y-m-d')
+                    : $decrypted;
+            } catch (\Throwable) {
+                // Genuinely undecryptable — keep the raw stored value.
+            }
+        }
+
+        return $attributes;
     }
 
     private function filterKeys(array $attributes, $model): array

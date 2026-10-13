@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Models\CaseCategory;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -16,7 +17,7 @@ class CaseCategoryAdminTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->admin = User::factory()->create(['role' => 'ADMIN']);
+        $this->admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
     }
 
     public function test_admin_can_list_categories(): void
@@ -82,7 +83,7 @@ class CaseCategoryAdminTest extends TestCase
 
     public function test_non_admin_cannot_create_category(): void
     {
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         $response = $this->actingAs($user)->post(route('admin.case-categories.store'), [
             'name' => 'Hacked',

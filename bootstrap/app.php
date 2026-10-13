@@ -6,6 +6,7 @@ use App\Http\Middleware\CheckUserActive;
 use App\Http\Middleware\ContentSecurityPolicy;
 use App\Http\Middleware\EnsureMfaChallenge;
 use App\Http\Middleware\EnsureMfaSession;
+use App\Http\Middleware\EnsurePendingRegistration;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\LogContext;
 use App\Http\Middleware\SecurityHeaders;
@@ -72,6 +73,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'turnstile' => VerifyTurnstile::class,
             'turnstile.session' => VerifyTurnstile::class,
             'mfa.pending' => EnsureMfaChallenge::class,
+            'pending.registration' => EnsurePendingRegistration::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
@@ -167,7 +169,7 @@ return Application::configure(basePath: dirname(__DIR__))
                 return null;
             }
 
-            $incidentId = method_exists(Uuid::class, 'uuid7') ? Uuid::uuid7()->toString() : Str::uuid()->toString();
+            $incidentId = Uuid::uuid7()->toString();
             Log::error('Unhandled exception', [
                 'incident_id' => $incidentId,
                 'exception' => $e,

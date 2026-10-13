@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import UserAvatar from '@/Components/ui/UserAvatar';
 import PeerProfileModal from '@/Components/PeerProfileModal';
 import safeRoute from '@/utils/safeRoute';
+import { clearAllDraftBackups } from '@/Hooks/useLocalStorageDraft';
 
 
 export const navByRole = {
@@ -15,8 +16,7 @@ export const navByRole = {
     ]},
     { label: 'Management', items: [
       { name: 'Cases', href: '/cases', route: 'cases.index', icon: 'folder' },
-      { name: 'Intake Queue', href: '/cases/intake-queue', route: 'cases.intake-queue', icon: 'pending_actions', badge: 'intakeQueueCount' },
-      { name: 'My Drafts', href: '/cases/drafts', route: 'cases.drafts', icon: 'drafts' },
+      { name: 'Pending Reviews', href: '/cases/review-pending', route: 'cases.review-pending', icon: 'pending_actions', badge: 'pendingReviewCount' },
       { name: 'Case Trash', href: '/cases/trash', route: 'cases.trash', icon: 'delete_outline' },
       { name: 'Clients', href: '/clients', route: 'clients.index', icon: 'people' },
       { name: 'Referrals', href: '/referrals', route: 'referrals.index', icon: 'send' },
@@ -68,8 +68,7 @@ export const navByRole = {
     ]},
     { label: 'Case Operations', items: [
       { name: 'Cases', href: '/cases', route: 'cases.index', icon: 'folder' },
-      { name: 'Intake Queue', href: '/cases/intake-queue', route: 'cases.intake-queue', icon: 'pending_actions', badge: 'intakeQueueCount' },
-      { name: 'My Drafts', href: '/cases/drafts', route: 'cases.drafts', icon: 'drafts' },
+      { name: 'Pending Reviews', href: '/cases/review-pending', route: 'cases.review-pending', icon: 'pending_actions', badge: 'pendingReviewCount' },
       { name: 'Case Trash', href: '/cases/trash', route: 'cases.trash', icon: 'delete_outline' },
       { name: 'Clients', href: '/clients', route: 'clients.index', icon: 'people' },
       { name: 'Referrals', href: '/referrals', route: 'referrals.index', icon: 'send' },
@@ -113,14 +112,15 @@ const roleLabels = {
 export default function AppSidebar() {
   const { url } = usePage();
   const user = usePage().props.auth.user;
-  const intakeQueueCount = usePage().props.intake_queue_count ?? 0;
+  const pendingReviewCount = usePage().props.pending_review_count ?? usePage().props.intake_queue_count ?? 0;
   const [peerProfileUser, setPeerProfileUser] = useState(null);
   const [collapsed, setCollapsed] = useState(() => {
     try { return localStorage.getItem('owb-sidebar-collapsed') === 'true'; }
     catch { return false; }
   });
+  const unreadStorageKey = `owb-unread-count-${user?.id ?? 'anonymous'}`;
   const [unreadCount, setUnreadCount] = useState(() => {
-    try { return parseInt(localStorage.getItem('owb-unread-count') || '0', 10) || 0; }
+    try { return parseInt(localStorage.getItem(unreadStorageKey) || '0', 10) || 0; }
     catch { return 0; }
   });
   const [hoveredItem, setHoveredItem] = useState(null);
@@ -138,6 +138,16 @@ export default function AppSidebar() {
     sessionStorage.setItem('owb-sidebar-scroll', e.target.scrollTop);
   }, []);
 
+  // Re-seed from the namespaced key on account switch; drop the legacy
+  // cross-user key so a stale count is never shown to the next user.
+  useEffect(() => {
+    try {
+      setUnreadCount(parseInt(localStorage.getItem(unreadStorageKey) || '0', 10) || 0);
+      localStorage.removeItem('owb-unread-count');
+    }
+    catch { /* noop */ }
+  }, [unreadStorageKey]);
+
   // Fetch unread notification count
   useEffect(() => {
     let timer;
@@ -149,7 +159,7 @@ export default function AppSidebar() {
         .then((data) => {
           if (data?.count != null) {
             setUnreadCount(data.count);
-            try { localStorage.setItem('owb-unread-count', String(data.count)); }
+            try { localStorage.setItem(unreadStorageKey, String(data.count)); }
             catch { /* noop */ }
           }
         })
@@ -161,6 +171,11 @@ export default function AppSidebar() {
     return () => {
       clearInterval(timer);
     };
+  }, [unreadStorageKey]);
+
+  const handleLogout = useCallback(() => {
+    clearAllDraftBackups();
+    router.post(route('logout'));
   }, []);
 
   const toggleCollapsed = useCallback(() => {
@@ -182,8 +197,8 @@ export default function AppSidebar() {
 
   const isActive = (href) => {
     if (href === '/dashboard') return url === '/dashboard';
-    if (href === '/cases') return url.startsWith('/cases') && !url.startsWith('/cases/drafts') && !url.startsWith('/cases/trash') && !url.startsWith('/cases/intake-queue');
-    if (href === '/cases/intake-queue') return url.startsWith('/cases/intake-queue');
+    if (href === '/cases') return url.startsWith('/cases') && !url.startsWith('/cases/trash') && !url.startsWith('/cases/review-pending');
+    if (href === '/cases/review-pending') return url.startsWith('/cases/review-pending');
     return url.startsWith(href);
   };
 
@@ -280,15 +295,15 @@ export default function AppSidebar() {
                   )
                 );
 
-                const isIntakeQueue = item.badge === 'intakeQueueCount';
-                const intakeBadge = isIntakeQueue && intakeQueueCount > 0 && (
+                const isPendingReview = item.badge === 'pendingReviewCount';
+                const pendingBadge = isPendingReview && pendingReviewCount > 0 && (
                   collapsed ? (
                     <span className="absolute -right-0.5 -top-0.5 flex items-center justify-center min-w-[16px] h-[16px] px-0.5 text-[9px] font-bold text-white bg-amber-500 rounded-full leading-none">
-                      {intakeQueueCount > 99 ? '99+' : intakeQueueCount}
+                      {pendingReviewCount > 99 ? '99+' : pendingReviewCount}
                     </span>
                   ) : (
                     <span className="ml-auto flex items-center justify-center min-w-[20px] h-[18px] px-1 text-[10px] font-bold text-white bg-amber-500 rounded-full leading-none shrink-0">
-                      {intakeQueueCount > 99 ? '99+' : intakeQueueCount}
+                      {pendingReviewCount > 99 ? '99+' : pendingReviewCount}
                     </span>
                   )
                 );
@@ -298,7 +313,7 @@ export default function AppSidebar() {
                     <span className="relative">
                       {icon}
                       {badge}
-                      {intakeBadge}
+                      {pendingBadge}
                     </span>
                   </>
                 ) : (
@@ -308,7 +323,7 @@ export default function AppSidebar() {
                     </span>
                     <span className="flex-1 min-w-0 truncate">{item.name}</span>
                     {badge}
-                    {intakeBadge}
+                    {pendingBadge}
                   </>
                 );
 
@@ -380,7 +395,7 @@ export default function AppSidebar() {
               {!collapsed && <span>EDIT PROFILE</span>}
             </Link>
             <button
-              onClick={() => router.post(route('logout'))}
+              onClick={handleLogout}
               className="flex items-center justify-center w-10 h-8 rounded-md border border-red-100 text-red-600 hover:bg-red-50 transition-all"
               title="Log Out"
             >

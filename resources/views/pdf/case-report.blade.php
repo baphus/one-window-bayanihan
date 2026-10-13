@@ -257,6 +257,10 @@
     <p class="section-note">No activity recorded for this case.</p>
     @endif
 
+    @if(!empty($eventsTruncated))
+    <p class="section-note">Showing the 500 most recent of {{ $eventsTotal }} timeline events; older events are omitted from this export.</p>
+    @endif
+
     <htmlpagefooter name="page-footer">
         <table style="width:100%; border-top:1px solid #e2e8f0; font-size:7px; color:#94a3b8; padding-top:4px;">
             <tr>

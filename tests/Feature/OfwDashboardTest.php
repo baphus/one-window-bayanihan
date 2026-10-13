@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\CaseFile;
 use App\Models\Client;
@@ -25,17 +26,15 @@ class OfwDashboardTest extends TestCase
     {
         $client = Client::factory()->create();
         $ofwUser = User::factory()->create([
-            'role' => 'OFW',
+            'role' => UserRole::OFW->value,
             'client_id' => $client->id,
         ]);
 
         $case1 = CaseFile::factory()->open()->create([
             'client_id' => $client->id,
-            'source' => CaseFile::SOURCE_SELF_FILED,
         ]);
-        $case2 = CaseFile::factory()->draft()->create([
+        $case2 = CaseFile::factory()->pendingReview()->create([
             'client_id' => $client->id,
-            'source' => CaseFile::SOURCE_SELF_FILED,
         ]);
 
         $response = $this->actingAs($ofwUser)
@@ -54,7 +53,7 @@ class OfwDashboardTest extends TestCase
     {
         $client = Client::factory()->create();
         $ofwUser = User::factory()->create([
-            'role' => 'OFW',
+            'role' => UserRole::OFW->value,
             'client_id' => $client->id,
         ]);
 
@@ -62,7 +61,6 @@ class OfwDashboardTest extends TestCase
         $otherClient = Client::factory()->create();
         $otherCase = CaseFile::factory()->open()->create([
             'client_id' => $otherClient->id,
-            'source' => CaseFile::SOURCE_SELF_FILED,
         ]);
 
         $response = $this->actingAs($ofwUser)
@@ -76,17 +74,15 @@ class OfwDashboardTest extends TestCase
     {
         $client = Client::factory()->create();
         $ofwUser = User::factory()->create([
-            'role' => 'OFW',
+            'role' => UserRole::OFW->value,
             'client_id' => $client->id,
         ]);
 
         $open = CaseFile::factory()->open()->create([
             'client_id' => $client->id,
-            'source' => CaseFile::SOURCE_SELF_FILED,
         ]);
         CaseFile::factory()->draft()->create([
             'client_id' => $client->id,
-            'source' => CaseFile::SOURCE_INTERNAL,
         ]);
 
         $response = $this->actingAs($ofwUser)
@@ -104,13 +100,12 @@ class OfwDashboardTest extends TestCase
     {
         $client = Client::factory()->create();
         $ofwUser = User::factory()->create([
-            'role' => 'OFW',
+            'role' => UserRole::OFW->value,
             'client_id' => $client->id,
         ]);
 
         $draft = CaseFile::factory()->draft()->create([
             'client_id' => $client->id,
-            'source' => CaseFile::SOURCE_INTERNAL,
         ]);
 
         $response = $this->actingAs($ofwUser)

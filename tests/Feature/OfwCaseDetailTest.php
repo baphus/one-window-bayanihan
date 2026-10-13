@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\CaseFile;
 use App\Models\Client;
@@ -26,13 +27,12 @@ class OfwCaseDetailTest extends TestCase
     {
         $client = Client::factory()->create();
         $ofwUser = User::factory()->create([
-            'role' => 'OFW',
+            'role' => UserRole::OFW->value,
             'client_id' => $client->id,
         ]);
 
         $case = CaseFile::factory()->open()->create([
             'client_id' => $client->id,
-            'source' => CaseFile::SOURCE_SELF_FILED,
         ]);
 
         $response = $this->actingAs($ofwUser)
@@ -48,13 +48,12 @@ class OfwCaseDetailTest extends TestCase
     {
         $client = Client::factory()->create();
         $ofwUser = User::factory()->create([
-            'role' => 'OFW',
+            'role' => UserRole::OFW->value,
             'client_id' => $client->id,
         ]);
 
         $case = CaseFile::factory()->open()->create([
             'client_id' => $client->id,
-            'source' => CaseFile::SOURCE_SELF_FILED,
         ]);
         $referral = Referral::factory()->create(['case_id' => $case->id]);
 
@@ -77,13 +76,12 @@ class OfwCaseDetailTest extends TestCase
     {
         $client = Client::factory()->create();
         $ofwUser = User::factory()->create([
-            'role' => 'OFW',
+            'role' => UserRole::OFW->value,
             'client_id' => $client->id,
         ]);
 
         $case = CaseFile::factory()->open()->create([
             'client_id' => $client->id,
-            'source' => CaseFile::SOURCE_SELF_FILED,
         ]);
         $referral = Referral::factory()->create(['case_id' => $case->id]);
 
@@ -102,12 +100,11 @@ class OfwCaseDetailTest extends TestCase
         $otherClient = Client::factory()->create();
         $case = CaseFile::factory()->open()->create([
             'client_id' => $otherClient->id,
-            'source' => CaseFile::SOURCE_SELF_FILED,
         ]);
         $referral = Referral::factory()->create(['case_id' => $case->id]);
 
         $ofwUser = User::factory()->create([
-            'role' => 'OFW',
+            'role' => UserRole::OFW->value,
             'client_id' => Client::factory()->create()->id,
         ]);
 
@@ -122,13 +119,12 @@ class OfwCaseDetailTest extends TestCase
     {
         $client = Client::factory()->create();
         $ofwUser = User::factory()->create([
-            'role' => 'OFW',
+            'role' => UserRole::OFW->value,
             'client_id' => $client->id,
         ]);
 
         $case = CaseFile::factory()->open()->create([
             'client_id' => $client->id,
-            'source' => CaseFile::SOURCE_SELF_FILED,
         ]);
         $otherCase = CaseFile::factory()->open()->create([
             'client_id' => $client->id,

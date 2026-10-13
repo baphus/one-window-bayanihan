@@ -20,6 +20,19 @@ class AuthenticatedSessionController extends Controller
         return Inertia::render('Auth/Login', [
             'canResetPassword' => Route::has('password.request'),
             'status' => session('status'),
+            'loginUrl' => route('login.store', absolute: false),
+        ]);
+    }
+
+    /**
+     * Separate staff sign-in page and URL; shared store() handles auth.
+     */
+    public function createStaff(): Response
+    {
+        return Inertia::render('Auth/StaffLogin', [
+            'canResetPassword' => Route::has('password.request'),
+            'status' => session('status'),
+            'loginUrl' => route('staff.login.store', absolute: false),
         ]);
     }
 

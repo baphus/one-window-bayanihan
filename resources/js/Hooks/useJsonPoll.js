@@ -29,6 +29,11 @@ export default function useJsonPoll(url, { interval = 60000 } = {}) {
     }, [url]);
 
     useEffect(() => {
+        // Re-enter loading when the URL changes so page switches show fresh
+        // state instead of stale rows. Interval re-polls call reload()
+        // directly and must not blank the list, so this lives here — not in
+        // reload().
+        setIsLoading(true);
         reload();
         const timer = setInterval(reload, interval);
         return () => clearInterval(timer);

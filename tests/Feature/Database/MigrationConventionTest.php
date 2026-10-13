@@ -25,6 +25,9 @@ class MigrationConventionTest extends TestCase
         '2026_06_01_000001_create_core_reference_tables.php',
         '2026_07_27_000001_create_case_number_counters_table.php',
         '2026_07_28_000001_switch_case_number_counters_to_monthly_periods.php',
+        // One-off OFW-account-first backfill (stub users + draft-derived
+        // clients), not reference seed data.
+        '2026_10_12_000003_backfill_ofw_account_first.php',
     ];
 
     /**

@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/Layouts/AppLayout', () => ({ default: ({ children }) => <div>{children}</div> }));
-vi.mock('@inertiajs/react', () => ({ Head: () => null, usePage: () => ({ props: {} }) }));
+vi.mock('@inertiajs/react', () => ({ Head: () => null, usePage: () => ({ props: { roles: { ADMIN: 'ADMIN', AGENCY: 'AGENCY', CASE_MANAGER: 'CASE_MANAGER', OFW: 'OFW' } } }) }));
 vi.mock('@/Hooks/useLazyProp', () => ({ useLazyProp: () => [undefined, false] }));
 vi.mock('@/Hooks/useReportFilters', () => ({
   useReportFilters: () => ({

@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\SoftDeleteFlag;
 use App\Models\Concerns\UsesUuid;
 use App\Services\StorageService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -60,6 +61,18 @@ class CaseDocument extends Model
     public function referral()
     {
         return $this->belongsTo(Referral::class, 'referral_id');
+    }
+
+    /**
+     * Documents an agency user may see: general case files (no referral)
+     * plus files linked to a referral addressed to that agency.
+     */
+    public function scopeVisibleToAgency(Builder $query, ?string $agencyId): Builder
+    {
+        return $query->where(function (Builder $q) use ($agencyId) {
+            $q->whereNull('referral_id')
+                ->orWhereHas('referral', fn ($referrals) => $referrals->where('agcy_id', $agencyId));
+        });
     }
 
     public function fileUrl(): Attribute

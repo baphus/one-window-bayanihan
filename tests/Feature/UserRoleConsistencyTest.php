@@ -3,7 +3,9 @@
 namespace Tests\Feature;
 
 use App\Enums\UserRole;
+use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\User;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Tests\TestCase;
 
@@ -22,6 +24,27 @@ class UserRoleConsistencyTest extends TestCase
         $this->assertSame(
             ['CASE_MANAGER', 'AGENCY', 'ADMIN', 'OFW'],
             UserRole::values(),
+        );
+    }
+
+    public function test_the_shared_roles_prop_matches_the_enum(): void
+    {
+        // The React pages read usePage().props.roles.ADMIN, so the prop has to
+        // stay an assoc map of "name => value" for every enum case. A shape
+        // change (a list, a subset, display labels) still renders as a falsey
+        // comparison rather than an error, so pin it here.
+        $version = app(HandleInertiaRequests::class)->version(Request::create(route('login'), 'GET'));
+
+        $response = $this->withHeaders([
+            'X-Inertia' => 'true',
+            'X-Inertia-Version' => $version ?? '',
+        ])->get(route('login'));
+
+        $response->assertOk();
+
+        $this->assertSame(
+            array_combine(UserRole::values(), UserRole::values()),
+            $response->json('props.roles'),
         );
     }
 
@@ -82,6 +105,6 @@ class UserRoleConsistencyTest extends TestCase
     {
         $role = User::factory()->create()->role;
 
-        $this->assertContains($role, UserRole::values());
+        $this->assertInstanceOf(UserRole::class, UserRole::tryFrom($role));
     }
 }

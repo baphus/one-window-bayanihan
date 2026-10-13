@@ -2,6 +2,7 @@
 
 namespace App\Services\Reports;
 
+use App\Enums\UserRole;
 use App\Services\ReportsService;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
@@ -131,7 +132,7 @@ class ReportsExportService
         }
 
         $user = $request->user();
-        if (! in_array($user->role, ['ADMIN', 'CASE_MANAGER', 'AGENCY'], true)) {
+        if (! in_array($user->role, [UserRole::ADMIN->value, UserRole::CASE_MANAGER->value, UserRole::AGENCY->value], true)) {
             return back()->with('error', 'Your account is not allowed to export reports.');
         }
 
@@ -141,8 +142,8 @@ class ReportsExportService
         }
 
         $agencyId = match ($user->role) {
-            'AGENCY' => $user->agcy_id,
-            'ADMIN', 'CASE_MANAGER' => $request->query('agency_id') ?: null,
+            UserRole::AGENCY->value => $user->agcy_id,
+            UserRole::ADMIN->value, UserRole::CASE_MANAGER->value => $request->query('agency_id') ?: null,
             default => null,
         };
 
@@ -318,7 +319,7 @@ class ReportsExportService
 
         if ($c['agency_id']) {
             $q->where('referrals.agcy_id', $c['agency_id']);
-        } elseif ($c['role'] === 'AGENCY') {
+        } elseif ($c['role'] === UserRole::AGENCY->value) {
             // Agency user without an assigned agency sees no data.
             $q->whereRaw('1=0');
         }
@@ -341,7 +342,7 @@ class ReportsExportService
 
         if ($c['agency_id']) {
             $q->whereExists(fn ($s) => $s->selectRaw('1')->from('referrals')->whereColumn('referrals.case_id', 'cases.id')->whereNull('referrals.deleted_at')->where('referrals.agcy_id', $c['agency_id']));
-        } elseif ($c['role'] === 'AGENCY') {
+        } elseif ($c['role'] === UserRole::AGENCY->value) {
             // Agency user without an assigned agency sees no data.
             $q->whereRaw('1=0');
         }
@@ -386,7 +387,8 @@ class ReportsExportService
         $category = "(SELECT STRING_AGG(DISTINCT cc.name, ', ' ORDER BY cc.name) FROM case_category ca JOIN case_categories cc ON cc.id = ca.case_category_id WHERE ca.case_id = cases.id)";
 
         return (clone $base)->leftJoin('case_issues', 'case_issues.id', '=', 'cases.case_issue_id')
-            ->selectRaw("cases.id as case_id, cases.case_number, cases.client_type, {$category} as category, case_issues.name as issue, cases.status, cases.created_at, cases.updated_at, cases.closed_at, DATE_PART('day', NOW() - cases.created_at)::int as age_days")
+            ->leftJoin('clients', 'clients.id', '=', 'cases.client_id')
+            ->selectRaw("cases.id as case_id, cases.case_number, clients.type as client_type, {$category} as category, case_issues.name as issue, cases.status, cases.created_at, cases.updated_at, cases.closed_at, DATE_PART('day', NOW() - cases.created_at)::int as age_days")
             ->orderByDesc('cases.created_at')->orderBy('cases.id');
     }
 
@@ -445,14 +447,14 @@ class ReportsExportService
             // other role falls back to the same computation directly so the
             // Trends section can cite the on-screen average finish time.
             'avgReferralCompletion' => $report['avgReferralCompletion']
-                ?? $this->reports->getAvgReferralCompletionDays($role === 'AGENCY' ? 'AGENCY' : null, $c['agency_id']),
+                ?? $this->reports->getAvgReferralCompletionDays($role === UserRole::AGENCY->value ? UserRole::AGENCY->value : null, $c['agency_id']),
             'caseTrends' => $this->trendFromBase($caseBase, 'cases.created_at'),
             'referralTrends' => $this->trendFromBase($refBase, 'referrals.created_at'),
         ];
 
-        $summary += $this->additionalSections($c, $refBase);
+        $summary += $this->additionalSections($c, $refBase, $report);
 
-        if ($role === 'AGENCY') {
+        if ($role === UserRole::AGENCY->value) {
             // Only the sections an agency actually sees belong in an agency
             // export. Empty these payload keys so the PDF's `!empty()` section
             // guards skip them and the Excel sheet list drops them.
@@ -485,10 +487,10 @@ class ReportsExportService
      * Without this the exports carried roughly half of what the Reports page
      * shows, and a reader could not reconcile the document against the screen.
      */
-    private function additionalSections(array $c, $refBase): array
+    private function additionalSections(array $c, $refBase, array $report = []): array
     {
-        $role = $c['role'] === 'CASE_MANAGER' ? 'CASE_MANAGER' : ($c['role'] === 'AGENCY' ? 'AGENCY' : null);
-        $userId = $c['role'] === 'CASE_MANAGER' ? $c['user_id'] : null;
+        $role = $c['role'] === UserRole::CASE_MANAGER->value ? UserRole::CASE_MANAGER->value : ($c['role'] === UserRole::AGENCY->value ? UserRole::AGENCY->value : null);
+        $userId = $c['role'] === UserRole::CASE_MANAGER->value ? $c['user_id'] : null;
         $from = $c['from']->toDateString();
         $to = $c['to']->toDateString();
         $scope = $c['dateScope'];
@@ -506,30 +508,34 @@ class ReportsExportService
         // caseBase() already `1=0` for exactly this case, so the state is
         // reachable, and without this an export would show a user data their
         // own dashboard refuses them.
-        if ($role === 'AGENCY' && ! $agency) {
+        if ($role === UserRole::AGENCY->value && ! $agency) {
             return $this->emptyAdditionalSections();
         }
 
+        // Prefer the already-computed getAll() payload (same filters, same
+        // request) over re-running each aggregate — like summaryFromReport()
+        // does for referralAging. Roles whose payload omits a key fall back
+        // to the direct call with the identical filter set.
         return [
-            'referralFunnel' => $this->funnelFromStatuses($this->reports->getReferralStatusDistribution($userId, $role, $from, $to, $scope, $prov, $city, $agency)),
-            'casesOverTime' => $this->reports->getCasesOverTime($userId, $role, $from, $to, $scope, $prov, $city, $agency),
-            'genderDistribution' => $this->reports->getGenderDistribution($userId, $role, $from, $to, $scope, $prov, $city, $agency),
-            'ageGroupDistribution' => $this->reports->getAgeGroupDistribution($userId, $role, $from, $to, $scope, $prov, $city, $agency),
-            'vulnerabilityDistribution' => $this->reports->getVulnerabilityDistribution($userId, $role, $agency, $from, $to, $prov, $city),
-            'clientTypeDistribution' => $this->reports->getClientTypeDistribution($userId, $role, $agency, $from, $to, $prov, $city),
-            'cityDistribution' => $this->reports->getCityDistribution($userId, $role, $from, $to, $scope, $prov, $city, $agency),
-            'agencyWorkload' => $this->reports->getAgencyWorkload($from, $to, $agency),
-            'referralAgencyDistribution' => $this->reports->getReferralAgencyDistribution($userId, $role, $from, $to, $scope, $prov, $city, $agency),
-            'employmentOccupationBreakdown' => $this->reports->getEmploymentOccupationBreakdown($userId, $role, $agency, $from, $to, $prov, $city),
+            'referralFunnel' => $this->funnelFromStatuses($report['referralStatusDistribution'] ?? $this->reports->getReferralStatusDistribution($userId, $role, $from, $to, $scope, $prov, $city, $agency)),
+            'casesOverTime' => $report['casesOverTime'] ?? $this->reports->getCasesOverTime($userId, $role, $from, $to, $scope, $prov, $city, $agency),
+            'genderDistribution' => $report['genderDistribution'] ?? $this->reports->getGenderDistribution($userId, $role, $from, $to, $scope, $prov, $city, $agency),
+            'ageGroupDistribution' => $report['ageGroupDistribution'] ?? $this->reports->getAgeGroupDistribution($userId, $role, $from, $to, $scope, $prov, $city, $agency),
+            'vulnerabilityDistribution' => $report['vulnerabilityDistribution'] ?? $this->reports->getVulnerabilityDistribution($userId, $role, $agency, $from, $to, $prov, $city),
+            'clientTypeDistribution' => $report['clientTypeDistribution'] ?? $this->reports->getClientTypeDistribution($userId, $role, $agency, $from, $to, $prov, $city),
+            'cityDistribution' => $report['cityDistribution'] ?? $this->reports->getCityDistribution($userId, $role, $from, $to, $scope, $prov, $city, $agency),
+            'agencyWorkload' => $report['agencyWorkload'] ?? $this->reports->getAgencyWorkload($from, $to, $agency),
+            'referralAgencyDistribution' => $report['referralAgencyDistribution'] ?? $this->reports->getReferralAgencyDistribution($userId, $role, $from, $to, $scope, $prov, $city, $agency),
+            'employmentOccupationBreakdown' => $report['employmentOccupationBreakdown'] ?? $this->reports->getEmploymentOccupationBreakdown($userId, $role, $agency, $from, $to, $prov, $city),
             'overdueReferrals' => $this->overdueFromBase($refBase),
-            'mostRequestedService' => $this->reports->getMostRequestedService($userId, $role, $from, $to, $scope, $prov, $city, $agency),
-            'rejectionReasonDistribution' => $this->reports->getRejectionReasonDistribution($userId, $role, $from, $to, $scope, $prov, $city, $agency),
-            'closedCasesOverTime' => $this->reports->getClosedCasesOverTime($userId, $role, $from, $to, $scope, $prov, $city, $agency),
-            'caseSourceDistribution' => $this->reports->getCaseSourceDistribution($userId, $role, $agency, $from, $to, $prov, $city),
-            'reopenedStats' => $this->reports->getReopenedStats($userId, $role, $from, $to, $scope, $prov, $city, $agency),
-            'caseEventActorDistribution' => $this->reports->getCaseEventActorDistribution($userId, $role, $from, $to, $scope, $prov, $city, $agency),
-            'agencyFirstResponse' => $this->reports->getAgencyFirstResponse($userId, $role, $from, $to, $scope, $prov, $city, $agency),
-            'clientRequestTypeDistribution' => $this->reports->getClientRequestTypeDistribution($userId, $role, $from, $to, $scope, $prov, $city, $agency),
+            'mostRequestedService' => $report['mostRequestedService'] ?? $this->reports->getMostRequestedService($userId, $role, $from, $to, $scope, $prov, $city, $agency),
+            'rejectionReasonDistribution' => $report['rejectionReasonDistribution'] ?? $this->reports->getRejectionReasonDistribution($userId, $role, $from, $to, $scope, $prov, $city, $agency),
+            'closedCasesOverTime' => $report['closedCasesOverTime'] ?? $this->reports->getClosedCasesOverTime($userId, $role, $from, $to, $scope, $prov, $city, $agency),
+            'caseSourceDistribution' => $report['caseSourceDistribution'] ?? $this->reports->getCaseSourceDistribution($userId, $role, $agency, $from, $to, $prov, $city),
+            'reopenedStats' => $report['reopenedStats'] ?? $this->reports->getReopenedStats($userId, $role, $from, $to, $scope, $prov, $city, $agency),
+            'caseEventActorDistribution' => $report['caseEventActorDistribution'] ?? $this->reports->getCaseEventActorDistribution($userId, $role, $from, $to, $scope, $prov, $city, $agency),
+            'agencyFirstResponse' => $report['agencyFirstResponse'] ?? $this->reports->getAgencyFirstResponse($userId, $role, $from, $to, $scope, $prov, $city, $agency),
+            'clientRequestTypeDistribution' => $report['clientRequestTypeDistribution'] ?? $this->reports->getClientRequestTypeDistribution($userId, $role, $from, $to, $scope, $prov, $city, $agency),
         ];
     }
 
@@ -555,7 +561,7 @@ class ReportsExportService
             'referralAgencyDistribution' => $emptyDist,
             'employmentOccupationBreakdown' => $emptyDist,
             'overdueReferrals' => ['count' => 0, 'threshold_days' => 14],
-            'mostRequestedService' => ['name' => 'N/A', 'value' => 0],
+            'mostRequestedService' => ['name' => 'N/A', 'value' => 0, 'agency' => 'N/A'],
             'rejectionReasonDistribution' => $emptyDist,
             'closedCasesOverTime' => ['labels' => [], 'datasets' => [['data' => []]]],
             'caseSourceDistribution' => $emptyDist,
@@ -941,7 +947,8 @@ class ReportsExportService
                 ['metric' => 'Overdue after (days)', 'value' => (string) ($p['overdueReferrals']['threshold_days'] ?? 14)],
             ])],
             ['title' => 'Most Requested Service', 'columnMap' => $kv, 'rows' => collect([
-                ['metric' => 'Service', 'value' => (string) ($p['mostRequestedService']['name'] ?? 'N/A')],
+                ['metric' => 'Most active service', 'value' => (string) ($p['mostRequestedService']['name'] ?? 'N/A')],
+                ['metric' => 'Agency', 'value' => (string) ($p['mostRequestedService']['agency'] ?? 'N/A')],
                 ['metric' => 'Requests', 'value' => (string) ($p['mostRequestedService']['value'] ?? 0)],
             ])],
 
@@ -982,7 +989,7 @@ class ReportsExportService
             ['title' => 'Case Details', 'columnMap' => $caseCols, 'rows' => $cases],
         ];
 
-        if ($role === 'AGENCY') {
+        if ($role === UserRole::AGENCY->value) {
             $sheets = array_values(array_filter(
                 $sheets,
                 fn ($sheet) => ! in_array($sheet['title'], self::AGENCY_HIDDEN_SHEETS, true)

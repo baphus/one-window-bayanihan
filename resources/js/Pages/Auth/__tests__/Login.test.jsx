@@ -34,7 +34,7 @@ import Login from '../Login';
 // ---------------------------------------------------------------------------
 
 describe('Login page — login step', () => {
-    it('renders email, password, remember me, and Sign In button', () => {
+    it('renders email, password, remember me, and Log In button', () => {
         mockPageProps = { errors: {} };
         render(<Login />);
 
@@ -43,7 +43,7 @@ describe('Login page — login step', () => {
         expect(screen.getByText(/password/i)).toBeInTheDocument();
         expect(screen.getByText(/remember me/i)).toBeInTheDocument();
         expect(screen.getByRole('checkbox')).toBeInTheDocument();
-        expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /log in/i })).toBeInTheDocument();
     });
 
     it('does not show error message when no login error exists', () => {
@@ -83,7 +83,7 @@ describe('Login page — turnstile validation', () => {
         fireEvent.change(screen.getByRole('textbox'), { target: { value: 'user@example.com' } });
         fireEvent.change(document.querySelector('input[type="password"]'), { target: { value: 'secret' } });
 
-        const signInButton = screen.getByRole('button', { name: /sign in/i });
+        const signInButton = screen.getByRole('button', { name: /log in/i });
         fireEvent.submit(signInButton.closest('form'));
 
         expect(screen.getByText('Please complete the security check to continue.')).toBeInTheDocument();
@@ -99,7 +99,7 @@ describe('Login page — turnstile validation', () => {
 
         fireEvent.click(screen.getByTestId('turnstile'));
 
-        const signInButton = screen.getByRole('button', { name: /sign in/i });
+        const signInButton = screen.getByRole('button', { name: /log in/i });
         fireEvent.submit(signInButton.closest('form'));
 
         expect(router.post).toHaveBeenCalledWith(

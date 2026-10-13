@@ -3,6 +3,28 @@ import { writeStoredValue } from './useLocalStorage';
 
 const STORAGE_KEY_PREFIX = 'owb_draft_backup';
 const BACKUP_VERSION = 1;
+// Local backups hold client PII — never keep them longer than a day.
+const BACKUP_TTL_MS = 24 * 60 * 60 * 1000;
+
+export function isBackupExpired(savedAt) {
+  if (!savedAt) return true;
+  return Date.now() - new Date(savedAt).getTime() > BACKUP_TTL_MS;
+}
+
+/** Remove every draft backup for every user — call on logout. */
+export function clearAllDraftBackups() {
+  try {
+    const prefix = `${STORAGE_KEY_PREFIX}_`;
+    const keys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith(prefix)) keys.push(key);
+    }
+    keys.forEach((key) => localStorage.removeItem(key));
+  } catch {
+    // Best-effort cleanup
+  }
+}
 
 /**
  * useLocalStorageDraft — localStorage backup of draft form data.
@@ -32,9 +54,16 @@ export default function useLocalStorageDraft({ formData, userId, enabled = true 
       const raw = localStorage.getItem(storageKey);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (parsed && parsed.version === BACKUP_VERSION && parsed.data) {
+        if (parsed && parsed.version === BACKUP_VERSION && parsed.data && !isBackupExpired(parsed.savedAt)) {
           setHasLocalBackup(true);
           setLocalBackup(parsed);
+        } else if (parsed && (parsed.version !== BACKUP_VERSION || isBackupExpired(parsed.savedAt))) {
+          // Stale or foreign-schema backup — drop it rather than leak PII.
+          try {
+            localStorage.removeItem(storageKey);
+          } catch (_) {
+            // Best-effort cleanup
+          }
         }
       }
     } catch (e) {

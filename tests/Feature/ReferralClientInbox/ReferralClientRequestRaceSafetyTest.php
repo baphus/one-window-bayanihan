@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\ReferralClientInbox;
 
+use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\CaseFile;
 use App\Models\Referral;
@@ -20,8 +21,8 @@ class ReferralClientRequestRaceSafetyTest extends TestCase
     private function context(): array
     {
         $agency = Agency::factory()->create();
-        $agencyUser = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agency->id, 'is_active' => true]);
-        $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $agencyUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id, 'is_active' => true]);
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $case = CaseFile::factory()->create(['user_id' => $manager->id]);
         $referral = Referral::factory()->create(['case_id' => $case->id, 'agcy_id' => $agency->id]);
         $request = ReferralClientRequest::factory()->create(['referral_id' => $referral->id]);

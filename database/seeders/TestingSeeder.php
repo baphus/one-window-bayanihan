@@ -25,7 +25,7 @@ namespace Database\Seeders;
  */
 
 use App\Models\AuditLog;
-use App\Models\CaseFile;
+use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -35,6 +35,8 @@ use Illuminate\Support\Str;
 
 class TestingSeeder extends Seeder
 {
+    use WithoutModelEvents;
+
     public function run(): void
     {
         // =====================================================================
@@ -508,7 +510,7 @@ class TestingSeeder extends Seeder
         $usedTrackers = [];
         $periodPrefix = now()->format('Ym');
 
-        // Status distribution: 40% OPEN, 30% CLOSED, 15% DRAFT, 15% ARCHIVED
+        // Status distribution: 40% OPEN, 30% CLOSED, 15% PENDING_REVIEW, 15% ARCHIVED
         $caseStatusDistribution = [];
         for ($i = 0; $i < $casesToCreate; $i++) {
             if ($i < 340) {
@@ -516,7 +518,7 @@ class TestingSeeder extends Seeder
             } elseif ($i < 595) {
                 $caseStatusDistribution[] = 'CLOSED';
             } elseif ($i < 723) {
-                $caseStatusDistribution[] = 'DRAFT';
+                $caseStatusDistribution[] = 'PENDING_REVIEW';
             } else {
                 $caseStatusDistribution[] = 'ARCHIVED';
             }
@@ -552,9 +554,8 @@ class TestingSeeder extends Seeder
             // Chronological: cases created between 180 and 5 days ago, distributed evenly
             $caseCreatedAt = now()->subDays(180 - intval($i * 175 / $casesToCreate))->addHours(rand(0, 12));
 
-            // Client assignment — DRAFT cases may or may not have a client
-            $assignClient = $status !== 'DRAFT' || rand(0, 100) < 50;
-            $clientId = $assignClient ? $clientIds[$i % 1000] : null;
+            // Client assignment — every case has a client (account-first)
+            $clientId = $clientIds[$i % 1000];
             if ($clientId) {
                 $caseClientMap[$caseId] = $clientId;
             }
@@ -583,8 +584,6 @@ class TestingSeeder extends Seeder
             $cases[] = [
                 'id' => $caseId,
                 'case_number' => $caseNumber,
-                'source' => CaseFile::SOURCE_INTERNAL,
-                'client_type' => $this->randomClientType(),
                 'vulnerability_indicator' => $vulnerabilities[array_rand($vulnerabilities)],
                 'nok_vulnerability_indicator' => null,
                 'tracker_number' => $tracker,
@@ -596,6 +595,8 @@ class TestingSeeder extends Seeder
                 'client_id' => $clientId,
                 'category_id' => $selectedCatId,
                 'case_issue_id' => $hasIssue ? $issueIds[array_rand($issueIds)] : null,
+                'reviewed_by' => $caseManagerId,
+                'reviewed_at' => $caseCreatedAt,
                 'created_at' => $caseCreatedAt,
                 'updated_at' => $closedAt ?? $caseCreatedAt->copy()->addDays(rand(0, 14)),
             ];
@@ -616,7 +617,7 @@ class TestingSeeder extends Seeder
 
         // =====================================================================
         // 6. REFERRALS  (variable — target 896)
-        //    Distribution: OPEN×2, CLOSED×2, DRAFT×0, ARCHIVED×2
+        //    Distribution: OPEN×2, CLOSED×2, PENDING_REVIEW×0, ARCHIVED×2
         //    Referral status: 30% PENDING, 25% PROCESSING, 15% FOR_COMPLIANCE,
         //                     20% COMPLETED, 10% REJECTED
         // =====================================================================
@@ -649,8 +650,8 @@ class TestingSeeder extends Seeder
 
             $caseStatus = $caseInsert->status;
 
-            // DRAFT cases get 0 referrals; all others get 2
-            if ($caseStatus === 'DRAFT') {
+            // PENDING_REVIEW cases get 0 referrals; all others get 2
+            if ($caseStatus === 'PENDING_REVIEW') {
                 continue;
             }
 
@@ -887,8 +888,7 @@ class TestingSeeder extends Seeder
                 'old_value' => null,
                 'new_value' => json_encode([
                     'case_number' => $case->case_number,
-                    'client_type' => $case->client_type,
-                    'status' => $case->status === 'DRAFT' ? 'DRAFT' : 'OPEN',
+                    'status' => $case->status,
                 ]),
                 'user_id' => $case->user_id,
                 'timestamp' => $baseTs,
@@ -959,14 +959,13 @@ class TestingSeeder extends Seeder
             // 5. Case status change (CLOSED or ARCHIVED — terminal event for the case)
             if ($case->status === 'CLOSED' || $case->status === 'ARCHIVED') {
                 $ts = $ts->addMinutes(rand(30, 1440));
-                $beforeStatus = $case->status === 'DRAFT' ? 'DRAFT' : 'OPEN';
                 $auditLogs[] = [
                     'id' => (string) Str::uuid(),
                     'action' => 'UPDATE',
                     'module' => 'case',
                     'entity_id' => $case->id,
                     'description' => null,
-                    'old_value' => json_encode(['status' => $beforeStatus]),
+                    'old_value' => json_encode(['status' => 'OPEN']),
                     'new_value' => json_encode([
                         'status' => $case->status,
                         'closed_at' => $case->closed_at,
@@ -1053,14 +1052,5 @@ class TestingSeeder extends Seeder
         DB::commit();
 
         unset($auditLogs);
-    }
-
-    private function randomClientType(): string
-    {
-        // Persist only the CaseFile model's supported client types:
-        // OFW or NOK (stored as NEXT_OF_KIN).
-        return rand(1, 100) <= 60
-            ? CaseFile::CLIENT_TYPE_OFW
-            : CaseFile::CLIENT_TYPE_NEXT_OF_KIN;
     }
 }

@@ -81,7 +81,7 @@ export default function OfwNotificationBell() {
 
     function handleItemClick(item) {
         setOpen(false);
-        if (!item.action_url) return;
+        if (!item.action_url || !item.action_url.startsWith('/')) return;
         if (!item.read_at) {
             markRead(item.id);
         }

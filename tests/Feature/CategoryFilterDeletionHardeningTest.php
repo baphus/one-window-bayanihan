@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\SetPostgresSession;
 use App\Models\Agency;
@@ -27,7 +28,7 @@ class CategoryFilterDeletionHardeningTest extends TestCase
 
     public function test_invalid_duplicate_and_oversized_category_filters_are_rejected_on_all_list_and_export_endpoints(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $tooMany = array_map(static fn () => (string) Str::uuid(), range(1, 51));
         $scalarPlusMaximumArray = array_map(static fn () => (string) Str::uuid(), range(1, 50));
         $scalarForMaximumArray = (string) Str::uuid();
@@ -59,14 +60,18 @@ class CategoryFilterDeletionHardeningTest extends TestCase
 
     public function test_scalar_and_array_category_filters_preserve_any_semantics(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $agency = Agency::factory()->create();
         $first = CaseCategory::factory()->create();
         $second = CaseCategory::factory()->create();
-        $firstCase = CaseFile::factory()->create(['category_id' => $first->id]);
-        $secondCase = CaseFile::factory()->create(['category_id' => $second->id]);
-        $firstClient = Client::factory()->create();
-        $secondClient = Client::factory()->create();
+        $firstCase = CaseFile::factory()->create(['category_id' => $first->id, 'status' => 'OPEN']);
+        $secondCase = CaseFile::factory()->create(['category_id' => $second->id, 'status' => 'OPEN']);
+        // Client directory/export list published clients only: linked account
+        // (clients.user_id) plus a live OPEN case.
+        $firstOwner = User::factory()->create();
+        $secondOwner = User::factory()->create();
+        $firstClient = Client::factory()->create(['user_id' => $firstOwner->id]);
+        $secondClient = Client::factory()->create(['user_id' => $secondOwner->id]);
         $firstCase->update(['client_id' => $firstClient->id]);
         $secondCase->update(['client_id' => $secondClient->id]);
         Referral::factory()->create(['case_id' => $firstCase->id, 'agcy_id' => $agency->id]);
@@ -87,7 +92,7 @@ class CategoryFilterDeletionHardeningTest extends TestCase
 
     public function test_used_category_cannot_be_deleted(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $category = CaseCategory::factory()->create();
         $case = CaseFile::factory()->create(['category_id' => $category->id]);
         $case->categories()->attach($category->id);
@@ -103,7 +108,7 @@ class CategoryFilterDeletionHardeningTest extends TestCase
 
     public function test_unused_category_is_soft_deleted_and_excluded_from_default_queries(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $category = CaseCategory::factory()->create(['is_active' => true]);
 
         $response = $this->actingAs($admin)->delete(route('admin.case-categories.destroy', $category));

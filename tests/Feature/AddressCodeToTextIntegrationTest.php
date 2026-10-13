@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Models\CaseFile;
 use App\Models\Client;
 use App\Models\ClientAddress;
@@ -18,7 +19,7 @@ class AddressCodeToTextIntegrationTest extends TestCase
 
     private PhilippineAddressService $addressService;
 
-    /** @var array<string, string> Real codes from resources/js/data/philippine-addresses.ts for Region VII */
+    /** @var array<string, string> Real codes from resources/js/data/philippine-addresses.json for Region VII */
     private const REGION_CODE = '0700000000';
 
     private const REGION_NAME = 'Region VII (Central Visayas)';
@@ -43,12 +44,11 @@ class AddressCodeToTextIntegrationTest extends TestCase
 
     public function test_full_flow_create_client_with_address(): void
     {
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $client = Client::factory()->create();
 
         $service = app(CaseService::class);
         $service->createCase([
-            'client_type' => 'OFW',
             'client' => ['first_name' => 'John', 'last_name' => 'Doe'],
             'selected_client_id' => $client->id,
             'address' => [
@@ -104,7 +104,7 @@ class AddressCodeToTextIntegrationTest extends TestCase
 
     public function test_reports_still_aggregate_correctly(): void
     {
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         $clientA = Client::factory()->create();
         $clientB = Client::factory()->create();
@@ -134,7 +134,7 @@ class AddressCodeToTextIntegrationTest extends TestCase
         ]);
 
         $reportService = app(ReportsService::class);
-        $distribution = $reportService->getGeographicDistribution($user->id, 'CASE_MANAGER');
+        $distribution = $reportService->getGeographicDistribution($user->id, UserRole::CASE_MANAGER->value);
 
         $this->assertArrayHasKey('labels', $distribution);
         $this->assertArrayHasKey('data', $distribution);

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\TrackingService;
 
+use App\Enums\UserRole;
 use App\Models\AuditLog;
 use App\Models\User;
 use App\Services\AuditLogFormatter;
@@ -39,9 +40,9 @@ class AuditLogFormatterTest extends TestCase
     {
         $f = $this->formatter;
 
-        $this->assertSame('Case Manager', $f->formatFieldValue('users', 'role', 'CASE_MANAGER'));
-        $this->assertSame('Agency Focal', $f->formatFieldValue('users', 'role', 'AGENCY'));
-        $this->assertSame('System Admin', $f->formatFieldValue('users', 'role', 'ADMIN'));
+        $this->assertSame('Case Manager', $f->formatFieldValue('users', 'role', UserRole::CASE_MANAGER->value));
+        $this->assertSame('Agency Focal', $f->formatFieldValue('users', 'role', UserRole::AGENCY->value));
+        $this->assertSame('System Admin', $f->formatFieldValue('users', 'role', UserRole::ADMIN->value));
     }
 
     public function test_format_field_value_client_type(): void

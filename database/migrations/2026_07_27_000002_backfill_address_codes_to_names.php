@@ -45,8 +45,8 @@ return new class extends Migration
         if ($probe === '0700000000' || $probe === '') {
             throw new RuntimeException(
                 'AddressNameResolver cannot resolve PSGC codes — '
-                .resource_path('js/data/philippine-addresses.ts')
-                .' is missing or unreadable. Refusing to run: this migration would '
+                .resource_path('js/data/philippine-addresses.json')
+                .' (or its .ts fallback) is missing or unreadable. Refusing to run: this migration would '
                 .'report success while changing nothing. Ensure the image retains '
                 .'resources/js/data.'
             );

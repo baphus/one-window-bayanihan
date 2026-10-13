@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\CaseFile;
 use App\Models\Milestone;
@@ -27,7 +28,7 @@ class ReferralMilestoneTest extends TestCase
 
         $this->agency = Agency::factory()->create();
 
-        $caseManager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $caseManager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         $this->case = CaseFile::factory()->create([
             'user_id' => $caseManager->id,
@@ -49,7 +50,7 @@ class ReferralMilestoneTest extends TestCase
         $this->referral->update(['status' => 'PROCESSING', 'decision' => 'ACCEPT']);
 
         $agencyUser = User::factory()->create([
-            'role' => 'AGENCY',
+            'role' => UserRole::AGENCY->value,
             'agcy_id' => $this->agency->id,
         ]);
 
@@ -76,7 +77,7 @@ class ReferralMilestoneTest extends TestCase
     public function milestone_requires_title(): void
     {
         $agencyUser = User::factory()->create([
-            'role' => 'AGENCY',
+            'role' => UserRole::AGENCY->value,
             'agcy_id' => $this->agency->id,
         ]);
 
@@ -97,7 +98,7 @@ class ReferralMilestoneTest extends TestCase
         $this->referral->update(['status' => 'PROCESSING', 'decision' => 'ACCEPT']);
 
         $agencyUser = User::factory()->create([
-            'role' => 'AGENCY',
+            'role' => UserRole::AGENCY->value,
             'agcy_id' => $this->agency->id,
         ]);
 
@@ -122,7 +123,7 @@ class ReferralMilestoneTest extends TestCase
         $this->referral->update(['status' => 'PROCESSING', 'decision' => 'ACCEPT']);
 
         $agencyUser = User::factory()->create([
-            'role' => 'AGENCY',
+            'role' => UserRole::AGENCY->value,
             'agcy_id' => $this->agency->id,
         ]);
 
@@ -155,7 +156,7 @@ class ReferralMilestoneTest extends TestCase
         $this->referral->update(['status' => 'PROCESSING', 'decision' => 'ACCEPT']);
 
         $agencyUser = User::factory()->create([
-            'role' => 'AGENCY',
+            'role' => UserRole::AGENCY->value,
             'agcy_id' => $this->agency->id,
         ]);
 
@@ -180,7 +181,7 @@ class ReferralMilestoneTest extends TestCase
     public function agency_cannot_add_milestone_before_accepting_referral(): void
     {
         $agencyUser = User::factory()->create([
-            'role' => 'AGENCY',
+            'role' => UserRole::AGENCY->value,
             'agcy_id' => $this->agency->id,
         ]);
 
@@ -206,7 +207,7 @@ class ReferralMilestoneTest extends TestCase
         $this->referral->update(['status' => 'PROCESSING', 'decision' => 'ACCEPT']);
 
         $agencyUser = User::factory()->create([
-            'role' => 'AGENCY',
+            'role' => UserRole::AGENCY->value,
             'agcy_id' => $this->agency->id,
         ]);
 

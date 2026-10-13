@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Enums\UserRole;
 use App\Models\SurveyForm;
 use App\Models\SurveyQuestion;
 use Illuminate\Foundation\Http\FormRequest;
@@ -16,7 +17,7 @@ class UpdateSurveyFormRequest extends FormRequest
         $form = $this->route('form');
 
         return $user !== null
-            && $user->role === 'AGENCY'
+            && $user->role === UserRole::AGENCY->value
             && $user->agcy_id !== null
             && $form instanceof SurveyForm
             && $form->agency_id === $user->agcy_id;

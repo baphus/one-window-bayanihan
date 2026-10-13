@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\SetPostgresSession;
 use App\Models\Agency;
@@ -45,7 +46,7 @@ class AgencyActivityLogScopeTest extends TestCase
     {
         $agencyA = Agency::factory()->create();
         $agencyB = Agency::factory()->create();
-        $focalA = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agencyA->id]);
+        $focalA = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agencyA->id]);
 
         $caseA = CaseFile::factory()->create();
         $referralA = Referral::factory()->create(['case_id' => $caseA->id, 'agcy_id' => $agencyA->id]);
@@ -77,7 +78,7 @@ class AgencyActivityLogScopeTest extends TestCase
 
     public function test_agency_without_an_agency_sees_nothing(): void
     {
-        $orphan = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => null]);
+        $orphan = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => null]);
 
         $case = CaseFile::factory()->create();
         AuditLog::truncate();
@@ -94,8 +95,8 @@ class AgencyActivityLogScopeTest extends TestCase
     public function test_view_title_is_activity_log_for_agency_and_audit_logs_for_admin(): void
     {
         $agency = Agency::factory()->create();
-        $focal = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agency->id]);
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $focal = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id]);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
 
         $agencyTitle = $this->actingAs($focal)
             ->withHeader('X-Inertia', 'true')

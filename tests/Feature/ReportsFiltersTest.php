@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -14,7 +15,7 @@ class ReportsFiltersTest extends TestCase
 
     public function test_reports_page_rejects_malformed_date_filters_instead_of_querying_with_them(): void
     {
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         $response = $this->actingAs($user)->get(route('reports.index', [
             'from' => '2026-99-99',
@@ -27,7 +28,7 @@ class ReportsFiltersTest extends TestCase
 
     public function test_reports_page_rejects_malformed_to_date(): void
     {
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         $this->actingAs($user)->get(route('reports.index', [
             'from' => '2026-01-01', 'to' => '2026-99-99',
@@ -36,7 +37,7 @@ class ReportsFiltersTest extends TestCase
 
     public function test_reports_page_rejects_reversed_and_excessive_ranges(): void
     {
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         foreach ([
             ['from' => '2026-02-01', 'to' => '2026-01-01'],
@@ -49,7 +50,7 @@ class ReportsFiltersTest extends TestCase
 
     public function test_reports_page_rejects_unsupported_date_scope_and_malformed_agency_id(): void
     {
-        $user = User::factory()->create(['role' => 'ADMIN']);
+        $user = User::factory()->create(['role' => UserRole::ADMIN->value]);
 
         $this->actingAs($user)->get(route('reports.index', [
             'date_scope' => 'created_by_attacker',
@@ -62,7 +63,7 @@ class ReportsFiltersTest extends TestCase
 
     public function test_reports_deferred_partial_props_are_available_over_http(): void
     {
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $inertiaRequest = Request::create(route('reports.index'), 'GET');
         $version = app(HandleInertiaRequests::class)->version($inertiaRequest);
 
@@ -80,7 +81,7 @@ class ReportsFiltersTest extends TestCase
 
     public function test_reports_page_exposes_the_new_aggregate_props(): void
     {
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $inertiaRequest = Request::create(route('reports.index'), 'GET');
         $version = app(HandleInertiaRequests::class)->version($inertiaRequest);
 

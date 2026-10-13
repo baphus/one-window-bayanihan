@@ -1,4 +1,4 @@
-import { Link, router } from '@inertiajs/react';
+import { Link, router, usePage } from '@inertiajs/react';
 import StatusBadge from '@/Components/ui/StatusBadge';
 
 function SeverityDots({ severity }) {
@@ -26,7 +26,8 @@ export default function OverdueCard({
   onSendReminder,
   sending,
 }) {
-  const canRemind = userRole === 'ADMIN' || userRole === 'CASE_MANAGER';
+  const roles = usePage().props.roles;
+  const canRemind = userRole === roles.ADMIN || userRole === roles.CASE_MANAGER;
   const isSending = sending === referral.id;
 
   return (

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -18,7 +19,7 @@ class PdfExportTest extends TestCase
     {
         parent::setUp();
         $this->withoutMiddleware(HandleInertiaRequests::class);
-        $this->user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $this->user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
     }
 
     #[Test]

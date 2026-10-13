@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Security;
 
+use App\Enums\UserRole;
 use App\Mail\ReferralOverdueMail;
 use App\Models\Agency;
 use App\Models\CaseFile;
@@ -49,7 +50,7 @@ class OverdueReferralsAccessTest extends TestCase
     #[Test]
     public function case_manager_can_access_overdue_referrals(): void
     {
-        $cm = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $cm = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         $response = $this->actingAs($cm)->get(route('overdue-referrals.index'));
 
@@ -59,7 +60,7 @@ class OverdueReferralsAccessTest extends TestCase
     #[Test]
     public function admin_can_access_overdue_referrals(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
 
         $response = $this->actingAs($admin)->get(route('overdue-referrals.index'));
 
@@ -69,7 +70,7 @@ class OverdueReferralsAccessTest extends TestCase
     #[Test]
     public function agency_can_access_overdue_referrals_page(): void
     {
-        $agencyUser = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => Agency::factory()]);
+        $agencyUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => Agency::factory()]);
 
         $response = $this->actingAs($agencyUser)->get(route('overdue-referrals.index'));
 
@@ -79,7 +80,7 @@ class OverdueReferralsAccessTest extends TestCase
     #[Test]
     public function page_has_correct_inertia_props(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
 
         $response = $this->actingAs($admin)->get(route('overdue-referrals.index'));
 
@@ -91,14 +92,14 @@ class OverdueReferralsAccessTest extends TestCase
                 ->has('referrals')
                 ->has('userRole')
                 ->has('overdueDays')
-                ->where('userRole', 'ADMIN')
+                ->where('userRole', UserRole::ADMIN->value)
             );
     }
 
     #[Test]
     public function admin_sees_all_agencies_overdue_referrals(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $agency1 = Agency::factory()->create();
         $agency2 = Agency::factory()->create();
 
@@ -117,8 +118,8 @@ class OverdueReferralsAccessTest extends TestCase
     #[Test]
     public function case_manager_sees_only_their_cases_overdue_referrals(): void
     {
-        $cm = User::factory()->create(['role' => 'CASE_MANAGER']);
-        $otherCm = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $cm = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $otherCm = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         $cmCase = CaseFile::factory()->create(['user_id' => $cm->id]);
         $otherCase = CaseFile::factory()->create(['user_id' => $otherCm->id]);
@@ -142,7 +143,7 @@ class OverdueReferralsAccessTest extends TestCase
         $agency = Agency::factory()->create();
         $otherAgency = Agency::factory()->create();
         $agencyUser = User::factory()->create([
-            'role' => 'AGENCY',
+            'role' => UserRole::AGENCY->value,
             'agcy_id' => $agency->id,
         ]);
 
@@ -162,7 +163,7 @@ class OverdueReferralsAccessTest extends TestCase
     #[Test]
     public function inactivity_based_overdue_excludes_referrals_with_recent_activity(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $agency = Agency::factory()->create();
         $caseFile = CaseFile::factory()->create();
 
@@ -197,10 +198,10 @@ class OverdueReferralsAccessTest extends TestCase
     public function case_manager_cannot_send_a_reminder_for_another_managers_referral(): void
     {
         Mail::fake();
-        $cm = User::factory()->create(['role' => 'CASE_MANAGER']);
-        $otherCm = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $cm = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $otherCm = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $agency = Agency::factory()->create();
-        User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agency->id]);
+        User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id]);
 
         $ownCase = CaseFile::factory()->create(['user_id' => $cm->id]);
         $otherCase = CaseFile::factory()->create(['user_id' => $otherCm->id]);
@@ -219,10 +220,10 @@ class OverdueReferralsAccessTest extends TestCase
     public function empty_reminder_selection_targets_the_same_scoped_inactive_set_as_display(): void
     {
         Mail::fake();
-        $cm = User::factory()->create(['role' => 'CASE_MANAGER']);
-        $otherCm = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $cm = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $otherCm = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $agency = Agency::factory()->create();
-        User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agency->id]);
+        User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id]);
         $ownCase = CaseFile::factory()->create(['user_id' => $cm->id]);
         $otherCase = CaseFile::factory()->create(['user_id' => $otherCm->id]);
         $this->createReferralWithAge(['case_id' => $ownCase->id, 'agcy_id' => $agency->id], 12);
@@ -243,7 +244,7 @@ class OverdueReferralsAccessTest extends TestCase
     #[Test]
     public function stats_cover_the_full_overdue_query_when_results_are_paginated(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $agency = Agency::factory()->create();
         $caseFile = CaseFile::factory()->create();
 
@@ -263,9 +264,9 @@ class OverdueReferralsAccessTest extends TestCase
     public function filtered_bulk_reminders_send_only_matching_status(): void
     {
         Mail::fake();
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $agency = Agency::factory()->create();
-        User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agency->id]);
+        User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id]);
         $caseFile = CaseFile::factory()->create();
         $this->createReferralWithAge(['case_id' => $caseFile->id, 'agcy_id' => $agency->id, 'status' => 'PENDING'], 12);
         $processing = $this->createReferralWithAge(['case_id' => $caseFile->id, 'agcy_id' => $agency->id, 'status' => 'PROCESSING'], 12);
@@ -283,7 +284,7 @@ class OverdueReferralsAccessTest extends TestCase
     {
         Mail::fake();
         $agency = Agency::factory()->create();
-        $agencyUser = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agency->id]);
+        $agencyUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id]);
 
         $this->actingAs($agencyUser)
             ->post(route('overdue-referrals.send-reminders'))
@@ -296,7 +297,7 @@ class OverdueReferralsAccessTest extends TestCase
     public function malformed_reminder_ids_fail_validation_instead_of_querying(): void
     {
         Mail::fake();
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
 
         $this->actingAs($admin)
             ->post(route('overdue-referrals.send-reminders'), ['referral_ids' => ['not-a-uuid']])

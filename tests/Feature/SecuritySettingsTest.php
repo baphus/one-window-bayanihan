@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\SystemSetting;
 use App\Models\User;
@@ -21,7 +22,7 @@ class SecuritySettingsTest extends TestCase
 
         $this->withoutMiddleware(HandleInertiaRequests::class);
 
-        $this->admin = User::factory()->create(['role' => 'ADMIN']);
+        $this->admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
     }
 
     #[Test]

@@ -6,15 +6,15 @@ import AgencyDashboard from './Dashboard/Agency';
 import CaseManagerDashboard from './Dashboard/CaseManager';
 
 function DashboardContent({ role }) {
-    const { auth, dashboard } = usePage().props;
+    const { auth, roles, dashboard } = usePage().props;
     const resolvedRole = role ?? auth?.user?.role;
     const dashboardData = dashboard ?? {};
 
-    if (resolvedRole === 'ADMIN') {
+    if (resolvedRole === roles.ADMIN) {
         return <AdminDashboard dashboard={dashboardData} />;
     }
 
-    if (resolvedRole === 'AGENCY') {
+    if (resolvedRole === roles.AGENCY) {
         return <AgencyDashboard dashboard={dashboardData} />;
     }
 

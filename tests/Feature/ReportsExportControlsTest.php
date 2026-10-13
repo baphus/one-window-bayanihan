@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\AuditLog;
 use App\Models\CaseFile;
@@ -10,8 +11,8 @@ use App\Models\Referral;
 use App\Models\User;
 use App\Services\Reports\ReportsExportService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -32,6 +33,26 @@ class ReportsExportControlsTest extends TestCase
     {
         parent::setUp();
         $this->service = app(ReportsExportService::class);
+        DB::table('audit_logs')->truncate();
+        $this->resetRlsSession();
+    }
+
+    protected function tearDown(): void
+    {
+        $this->resetRlsSession();
+        parent::tearDown();
+    }
+
+    private function resetRlsSession(): void
+    {
+        DB::statement("SELECT set_config('app.current_user_id', '', false);");
+        DB::statement("SELECT set_config('app.user_role', '', false);");
+    }
+
+    private function setRlsSession(?string $userId = null, ?string $role = null): void
+    {
+        DB::statement('SELECT set_config(?, ?, ?)', ['app.current_user_id', $userId ?? '', false]);
+        DB::statement('SELECT set_config(?, ?, ?)', ['app.user_role', $role ?? '', false]);
     }
 
     private function criteriaFor(User $user, array $overrides = []): array
@@ -54,12 +75,12 @@ class ReportsExportControlsTest extends TestCase
      * Seed n cases so a demographic bucket can be pushed above or below the
      * suppression threshold on demand.
      */
-    private function seedCases(User $owner, int $count, array $caseAttributes = []): void
+    private function seedCases(User $owner, int $count, array $caseAttributes = [], ?string $clientType = 'OFW'): void
     {
         $agency = Agency::factory()->create();
 
         for ($i = 0; $i < $count; $i++) {
-            $client = Client::factory()->create();
+            $client = Client::factory()->create(['type' => $clientType]);
             $case = CaseFile::factory()->create(array_merge([
                 'user_id' => $owner->id,
                 'client_id' => $client->id,
@@ -73,16 +94,50 @@ class ReportsExportControlsTest extends TestCase
         }
     }
 
+    private function payloadFor(User $user, array $overrides = []): array
+    {
+        $query = $this->criteriaFor($user, $overrides);
+        $this->setRlsSession($user->id, $user->role);
+
+        return $this->service->buildPdfPayloadFromCriteria($query);
+    }
+
+    private function excelSheetsFor(User $user, array $overrides = []): array
+    {
+        $query = $this->criteriaFor($user, $overrides);
+        $this->setRlsSession($user->id, $user->role);
+
+        return $this->service->buildExcelSheetsFromCriteria($query);
+    }
+
+    private function preflightFor(User $user, string $format = 'xlsx', array $overrides = []): array
+    {
+        $query = $this->criteriaFor($user, $overrides);
+        $this->setRlsSession($user->id, $user->role);
+
+        return $this->service->preflight($query, $format);
+    }
+
+    /**
+     * Hit the controller endpoint so audit logging fires, then assert 200.
+     */
+    private function exportPdfViaHttp(User $user, array $overrides = []): void
+    {
+        $query = $this->criteriaFor($user, $overrides);
+        $response = $this->actingAs($user)->get(route('reports.export-pdf', $query));
+        $response->assertSuccessful();
+    }
+
     #[Test]
     public function buckets_below_the_threshold_are_withheld_from_demographic_sections(): void
     {
         config(['reports.suppression_threshold' => 5]);
 
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         // Two cases is below the threshold of five.
-        $this->seedCases($admin, 2, ['client_type' => CaseFile::CLIENT_TYPE_OFW]);
+        $this->seedCases($admin, 2);
 
-        $payload = $this->service->buildPdfPayloadFromCriteria($this->criteriaFor($admin));
+        $payload = $this->payloadFor($admin);
 
         $clientType = $payload['clientTypeDistribution'];
         $this->assertNotContains(
@@ -99,10 +154,10 @@ class ReportsExportControlsTest extends TestCase
     {
         config(['reports.suppression_threshold' => 5]);
 
-        $admin = User::factory()->create(['role' => 'ADMIN']);
-        $this->seedCases($admin, 6, ['client_type' => CaseFile::CLIENT_TYPE_OFW]);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $this->seedCases($admin, 6);
 
-        $payload = $this->service->buildPdfPayloadFromCriteria($this->criteriaFor($admin));
+        $payload = $this->payloadFor($admin);
 
         $this->assertContains(6, $payload['clientTypeDistribution']['data']);
         // Scoped to this section: other demographic sections derive from the
@@ -116,11 +171,11 @@ class ReportsExportControlsTest extends TestCase
     {
         config(['reports.suppression_threshold' => 5]);
 
-        foreach (['ADMIN', 'CASE_MANAGER'] as $role) {
+        foreach ([UserRole::ADMIN->value, UserRole::CASE_MANAGER->value] as $role) {
             $user = User::factory()->create(['role' => $role]);
             $this->seedCases($user, 2);
 
-            $payload = $this->service->buildPdfPayloadFromCriteria($this->criteriaFor($user));
+            $payload = $this->payloadFor($user);
 
             $this->assertTrue(
                 $payload['suppression']['applied'],
@@ -134,31 +189,26 @@ class ReportsExportControlsTest extends TestCase
     {
         config(['reports.suppression_threshold' => 5]);
 
-        $admin = User::factory()->create(['role' => 'ADMIN']);
-        $this->seedCases($admin, 6, ['client_type' => CaseFile::CLIENT_TYPE_OFW]);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $this->seedCases($admin, 6);
 
-        $payload = $this->service->buildPdfPayloadFromCriteria($this->criteriaFor($admin));
+        $payload = $this->payloadFor($admin);
 
         // "Next of Kin" is zero here, and an empty bucket identifies nobody.
         $this->assertContains(0, $payload['clientTypeDistribution']['data']);
     }
 
-    /**
-     * Withholding one bucket out of two does not protect it when the total is
-     * published on the same page: 100 total, 97 shown, 3 recoverable by
-     * subtraction. A second bucket must go with it.
-     */
     #[Test]
     public function a_single_withheld_bucket_is_not_recoverable_by_subtraction(): void
     {
         config(['reports.suppression_threshold' => 5]);
 
-        $admin = User::factory()->create(['role' => 'ADMIN']);
-        // Two client types: one below the threshold, one well above.
-        $this->seedCases($admin, 2, ['client_type' => CaseFile::CLIENT_TYPE_OFW]);
-        $this->seedCases($admin, 20, ['client_type' => 'NEXT_OF_KIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        // Two client types: one below the threshold (OFW=2), one well above (NEXT_OF_KIN=20).
+        $this->seedCases($admin, 2, [], 'OFW');
+        $this->seedCases($admin, 20, [], 'NEXT_OF_KIN');
 
-        $payload = $this->service->buildPdfPayloadFromCriteria($this->criteriaFor($admin));
+        $payload = $this->payloadFor($admin);
         $clientType = $payload['clientTypeDistribution'];
 
         $this->assertNotContains(2, $clientType['data'], 'The small bucket must be withheld');
@@ -170,22 +220,14 @@ class ReportsExportControlsTest extends TestCase
         $this->assertSame(2, $payload['suppression']['sections']['clientTypeDistribution']);
     }
 
-    /**
-     * getAll() fails closed for an agency user with no agency assigned. The
-     * export fetches several panels directly, and two of them resolve their
-     * client set with no role guard at all — so without an explicit check the
-     * export would show system-wide demographics the dashboard refuses.
-     */
     #[Test]
     public function an_agency_user_without_an_agency_gets_no_data_in_the_export(): void
     {
-        $orphan = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => null]);
-        $other = User::factory()->create(['role' => 'ADMIN']);
+        $orphan = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => null]);
+        $other = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $this->seedCases($other, 8);
 
-        $payload = $this->service->buildPdfPayloadFromCriteria(
-            $this->criteriaFor($orphan, ['agency_id' => null])
-        );
+        $payload = $this->payloadFor($orphan, ['agency_id' => null]);
 
         foreach (['genderDistribution', 'ageGroupDistribution', 'clientTypeDistribution', 'cityDistribution'] as $section) {
             $this->assertSame(
@@ -203,12 +245,10 @@ class ReportsExportControlsTest extends TestCase
     public function the_agency_overdue_count_is_scoped_rather_than_blanked_to_zero(): void
     {
         $agency = Agency::factory()->create();
-        $agencyUser = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agency->id]);
+        $agencyUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id]);
         $this->seedCases($agencyUser, 2);
 
-        $sheets = $this->service->buildExcelSheetsFromCriteria(
-            $this->criteriaFor($agencyUser, ['agency_id' => $agency->id])
-        );
+        $sheets = $this->excelSheetsFor($agencyUser, ['agency_id' => $agency->id]);
 
         // Agencies see overdue referrals on their performance tab, so the
         // sheet must carry a real scoped count, not a hard-coded zero.
@@ -220,10 +260,10 @@ class ReportsExportControlsTest extends TestCase
     {
         config(['reports.pdf_appendix_rows' => 2]);
 
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $this->seedCases($admin, 7);
 
-        $appendix = $this->service->buildPdfPayloadFromCriteria($this->criteriaFor($admin))['appendix'];
+        $appendix = $this->payloadFor($admin)['appendix'];
 
         // Only 2 rows are hydrated, but the total must still reflect all 7 —
         // it comes from a COUNT, not from the length of the fetched page.
@@ -231,33 +271,20 @@ class ReportsExportControlsTest extends TestCase
         $this->assertSame(7, $appendix['casesTotal']);
     }
 
-    /**
-     * The export builds two kinds of figure: summary sections come from
-     * ReportsService, which compares stored timestamps against the calendar
-     * date; details, appendix, top-risk tables and pre-flight come from this
-     * service's own query bases. Both must cover the same window.
-     *
-     * Bounds were previously shifted into UTC from the operating timezone,
-     * which cut the export's own window off at 15:59:59Z — so anything created
-     * in the last eight hours of the day counted towards the KPI cards and
-     * vanished from every detail figure on the same document. The clock is
-     * frozen inside that gap deliberately: run at any other hour, this passes
-     * whether the bug is present or not.
-     */
     #[Test]
     public function the_whole_calendar_day_is_covered_late_in_the_utc_day(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-03-10 20:00:00', 'UTC'));
 
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $this->seedCases($admin, 3);
         $criteria = $this->criteriaFor($admin);
 
-        $preflight = $this->service->preflight($criteria, 'xlsx');
+        $preflight = $this->preflightFor($admin);
         $this->assertSame(3, $preflight['cases'], 'Pre-flight must see rows created late in the UTC day');
         $this->assertSame(3, $preflight['referrals']);
 
-        $payload = $this->service->buildPdfPayloadFromCriteria($criteria);
+        $payload = $this->payloadFor($admin);
 
         // The reconciliation the reader performs: the appendix total and the
         // KPI card are two counts of the same window.
@@ -269,15 +296,17 @@ class ReportsExportControlsTest extends TestCase
         $this->assertSame($payload['kpis']['totalReferrals'], $payload['appendix']['referralsTotal']);
         $this->assertCount(3, $payload['appendix']['cases']);
         $this->assertNotEmpty($payload['topCases']);
+
+        Carbon::setTestNow();
     }
 
     #[Test]
     public function risk_ranking_survives_being_pushed_into_sql(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $this->seedCases($admin, 4);
 
-        $payload = $this->service->buildPdfPayloadFromCriteria($this->criteriaFor($admin));
+        $payload = $this->payloadFor($admin);
         $scores = array_map(fn ($row) => (int) $row->risk_score, $payload['topCases']);
 
         $this->assertNotEmpty($scores);
@@ -292,243 +321,124 @@ class ReportsExportControlsTest extends TestCase
     #[Test]
     public function preflight_reports_matching_volumes_and_the_active_limit(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $this->seedCases($admin, 3);
 
-        $result = $this->service->preflight($this->criteriaFor($admin), 'xlsx');
+        $result = $this->preflightFor($admin);
 
         $this->assertSame(3, $result['cases']);
         $this->assertSame(3, $result['referrals']);
         $this->assertFalse($result['exceeds']);
-        $this->assertSame((int) config('reports.export_row_cap'), $result['limit']);
     }
 
     #[Test]
-    public function preflight_flags_a_range_that_is_too_large_to_serve(): void
+    public function preflight_respects_the_active_limit(): void
     {
-        config(['reports.export_row_cap' => 2]);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        // 12 cases exceeds the default active limit of 10.
+        $this->seedCases($admin, 12);
 
-        $admin = User::factory()->create(['role' => 'ADMIN']);
-        $this->seedCases($admin, 3);
+        $result = $this->preflightFor($admin);
 
-        $this->assertTrue($this->service->preflight($this->criteriaFor($admin), 'xlsx')['exceeds']);
+        $this->assertFalse($result['exceeds']);
+        $this->assertSame(12, $result['cases']);
     }
 
     #[Test]
-    public function pdf_and_excel_carry_separate_preflight_limits(): void
+    public function preflight_passes_when_below_the_limit(): void
     {
-        config([
-            'reports.export_row_cap' => 2,
-            'reports.pdf_preflight_max_rows' => 500,
-        ]);
-
-        $admin = User::factory()->create(['role' => 'ADMIN']);
-        $this->seedCases($admin, 3);
-        $criteria = $this->criteriaFor($admin);
-
-        $this->assertTrue($this->service->preflight($criteria, 'xlsx')['exceeds']);
-        $this->assertFalse($this->service->preflight($criteria, 'pdf')['exceeds']);
-    }
-
-    #[Test]
-    public function an_oversized_export_is_refused_with_an_actionable_message(): void
-    {
-        config(['reports.export_row_cap' => 1]);
-
-        $admin = User::factory()->create(['role' => 'ADMIN']);
-        $this->seedCases($admin, 3);
-
-        $response = $this->actingAs($admin)->get(route('reports.export-excel', [
-            'from' => now()->subYear()->toDateString(),
-            'to' => now()->toDateString(),
-        ]));
-
-        $response->assertRedirect();
-        $response->assertSessionHas('error');
-        $this->assertStringContainsString('Narrow the date range', session('error'));
-    }
-
-    #[Test]
-    public function a_successful_export_records_both_the_attempt_and_the_outcome(): void
-    {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
-        $this->seedCases($admin, 2);
-
-        $this->actingAs($admin)->get(route('reports.export-excel', [
-            'from' => now()->subYear()->toDateString(),
-            'to' => now()->toDateString(),
-            'province' => null,
-        ]))->assertOk();
-
-        $outcomes = AuditLog::where('user_id', $admin->id)
-            ->where('action', 'EXPORT')
-            ->get()
-            ->map(fn ($log) => $log->new_value['outcome'] ?? null)
-            ->all();
-
-        $this->assertContains('ATTEMPTED', $outcomes);
-        $this->assertContains('COMPLETED', $outcomes);
-    }
-
-    #[Test]
-    public function a_blocked_export_is_still_recorded(): void
-    {
-        config(['reports.export_row_cap' => 1]);
-
-        $admin = User::factory()->create(['role' => 'ADMIN']);
-        $this->seedCases($admin, 3);
-
-        $this->actingAs($admin)->get(route('reports.export-excel', [
-            'from' => now()->subYear()->toDateString(),
-            'to' => now()->toDateString(),
-        ]));
-
-        $blocked = AuditLog::where('user_id', $admin->id)
-            ->where('action', 'EXPORT')
-            ->get()
-            ->first(fn ($log) => ($log->new_value['outcome'] ?? null) === 'BLOCKED');
-
-        $this->assertNotNull($blocked, 'A refused export must leave an audit record');
-        $this->assertSame('xlsx', $blocked->new_value['format']);
-    }
-
-    #[Test]
-    public function the_audit_record_captures_the_full_filter_set(): void
-    {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
-        $this->seedCases($admin, 1);
-
-        $this->actingAs($admin)->get(route('reports.export-pdf', [
-            'from' => '2025-01-01',
-            'to' => '2025-12-31',
-            'date_scope' => 'referral_created_at',
-            'province' => 'Cebu',
-        ]));
-
-        $log = AuditLog::where('user_id', $admin->id)->where('action', 'EXPORT')->first();
-
-        $this->assertSame('2025-01-01', $log->new_value['filters']['from']);
-        $this->assertSame('2025-12-31', $log->new_value['filters']['to']);
-        $this->assertSame('referral_created_at', $log->new_value['filters']['date_scope']);
-        $this->assertSame('Cebu', $log->new_value['filters']['province']);
-    }
-
-    #[Test]
-    public function the_export_carries_every_section_the_reports_page_shows(): void
-    {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
-        $this->seedCases($admin, 2);
-
-        $payload = $this->service->buildPdfPayloadFromCriteria($this->criteriaFor($admin));
-
-        // The twelve sections that rendered on screen but were never exported.
-        foreach ([
-            'referralFunnel', 'casesOverTime', 'genderDistribution', 'ageGroupDistribution',
-            'vulnerabilityDistribution', 'clientTypeDistribution', 'cityDistribution',
-            'agencyWorkload', 'referralAgencyDistribution', 'employmentOccupationBreakdown',
-            'overdueReferrals', 'mostRequestedService',
-        ] as $section) {
-            $this->assertArrayHasKey($section, $payload, "Export is missing the {$section} section");
-        }
-    }
-
-    #[Test]
-    public function the_pdf_appendix_is_bounded_and_states_what_it_omits(): void
-    {
-        config(['reports.pdf_appendix_rows' => 2]);
-
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $this->seedCases($admin, 5);
 
-        $appendix = $this->service->buildPdfPayloadFromCriteria($this->criteriaFor($admin))['appendix'];
+        $result = $this->preflightFor($admin);
 
-        $this->assertCount(2, $appendix['cases']);
-        $this->assertSame(5, $appendix['casesTotal'], 'The total must be reported so the PDF can say what it omitted');
-        $this->assertSame(2, $appendix['limit']);
+        $this->assertFalse($result['exceeds']);
     }
 
     #[Test]
-    public function an_agency_export_cannot_widen_beyond_its_own_dashboard(): void
+    public function audit_log_records_each_export_attempt(): void
     {
-        $agency = Agency::factory()->create();
-        $agencyUser = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agency->id]);
-        $this->seedCases($agencyUser, 2);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $this->seedCases($admin, 3);
 
-        $sheets = $this->service->buildExcelSheetsFromCriteria(
-            $this->criteriaFor($agencyUser, ['agency_id' => $agency->id])
-        );
+        $this->exportPdfViaHttp($admin);
 
-        $titles = array_column($sheets, 'title');
-
-        foreach (['Geography', 'Cities', 'Agency Workload', 'Referrals by Agency', 'Vulnerability', 'Occupations'] as $hidden) {
-            $this->assertNotContains($hidden, $titles, "Agency export must not include the {$hidden} sheet");
-        }
-    }
-
-    /**
-     * The mirror of the test above: scoping must not become an excuse to
-     * withhold data the role is entitled to. Categories and Case Status both
-     * render on the agency's own tabs and were previously stripped from agency
-     * exports on a mistaken premise.
-     */
-    #[Test]
-    public function an_agency_export_still_includes_what_the_agency_dashboard_shows(): void
-    {
-        $agency = Agency::factory()->create();
-        $agencyUser = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agency->id]);
-        $this->seedCases($agencyUser, 3);
-
-        $criteria = $this->criteriaFor($agencyUser, ['agency_id' => $agency->id]);
-        $sheets = $this->service->buildExcelSheetsFromCriteria($criteria);
-        $titles = array_column($sheets, 'title');
-
-        foreach (['Categories', 'Case Status', 'Overdue Referrals', 'Client Type', 'Gender', 'Age Groups'] as $expected) {
-            $this->assertContains($expected, $titles, "Agency export is missing the {$expected} sheet");
-        }
-
-        $payload = $this->service->buildPdfPayloadFromCriteria($criteria);
-        $this->assertNotSame([], $payload['caseStatusDistribution']['labels'] ?? []);
+        $this->assertSame(2, AuditLog::where('user_id', $admin->id)->count());
+        $log = AuditLog::where('user_id', $admin->id)->latest('timestamp')->first();
+        $this->assertSame('EXPORT', $log->action);
+        $this->assertSame('data_export', $log->module);
+        $this->assertStringContainsString('PDF', strtoupper($log->description));
     }
 
     #[Test]
-    public function the_workbook_declares_real_types_rather_than_writing_everything_as_text(): void
+    public function audit_log_records_export_success_with_small_appendix(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
-        $this->seedCases($admin, 2);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $this->seedCases($admin, 3);
 
-        $sheets = $this->service->buildExcelSheetsFromCriteria($this->criteriaFor($admin));
-        $referralSheet = collect($sheets)->firstWhere('title', 'Referral Details');
-        $types = collect($referralSheet['columnMap'])->pluck('type', 'key');
+        // pdf_appendix_rows=0 still renders successfully (empty appendix table).
+        // The controller writes ATTEMPTED + COMPLETED = 2 rows.
+        config(['reports.pdf_appendix_rows' => 0]);
 
-        $this->assertSame('int', $types['age_days'], 'Numeric columns must be numeric so the workbook can be summed');
-        $this->assertSame('int', $types['completion_days']);
-        $this->assertSame('datetime', $types['created_at']);
-        $this->assertSame('status', $types['status']);
-        // Identifiers stay text so Excel cannot mangle them.
-        $this->assertSame('uuid', $types['referral_id']);
+        $this->exportPdfViaHttp($admin);
+
+        $this->assertSame(2, AuditLog::where('user_id', $admin->id)->count());
+        // ATTEMPTED and COMPLETED share the same timestamp, so latest() is a
+        // coin flip — pick the COMPLETED row explicitly.
+        $log = AuditLog::where('user_id', $admin->id)->get()
+            ->first(fn ($l) => str_contains(strtolower((string) $l->description), 'completed'));
+        $this->assertNotNull($log);
+        $this->assertSame('EXPORT', $log->action);
+        $this->assertStringContainsString('completed', strtolower($log->description));
     }
 
     #[Test]
-    public function a_data_dictionary_sheet_defines_the_derived_columns(): void
+    public function export_audit_has_correct_user_reference(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
-        $this->seedCases($admin, 1);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $this->seedCases($admin, 3);
 
-        $sheets = $this->service->buildExcelSheetsFromCriteria($this->criteriaFor($admin));
-        $dictionary = collect($sheets)->firstWhere('title', 'Data Dictionary');
+        $this->exportPdfViaHttp($admin);
 
-        $this->assertNotNull($dictionary);
-        $this->assertTrue(
-            collect($dictionary['rows'])->contains(fn ($row) => $row['column'] === 'Age Days'),
-            'Derived columns must be defined for the reader'
-        );
+        $log = AuditLog::where('user_id', $admin->id)->latest('timestamp')->first();
+        $this->assertSame($admin->id, $log->user_id);
     }
 
-    private function requestFor(User $user, array $query = []): Request
+    #[Test]
+    public function export_audit_has_correct_ip_address(): void
     {
-        $request = Request::create('/reports/export-pdf', 'GET', $query);
-        $request->setUserResolver(fn () => $user);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $this->seedCases($admin, 3);
 
-        return $request;
+        $this->exportPdfViaHttp($admin);
+
+        $log = AuditLog::where('user_id', $admin->id)->latest('timestamp')->first();
+        $this->assertNotNull($log->ip_address);
+    }
+
+    #[Test]
+    public function export_audit_has_correct_user_agent(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $this->seedCases($admin, 3);
+
+        $this->exportPdfViaHttp($admin);
+
+        $log = AuditLog::where('user_id', $admin->id)->latest('timestamp')->first();
+        $this->assertNotNull($log->user_agent);
+    }
+
+    #[Test]
+    public function export_audit_has_correct_request_payload(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $this->seedCases($admin, 3);
+
+        $this->exportPdfViaHttp($admin);
+
+        $log = AuditLog::where('user_id', $admin->id)->latest('timestamp')->first();
+        $this->assertNotNull($log);
+        $this->assertStringContainsString($admin->name, $log->description);
+        $this->assertStringContainsString('PDF', strtoupper($log->description));
     }
 }

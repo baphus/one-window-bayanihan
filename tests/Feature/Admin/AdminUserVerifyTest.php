@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Admin;
 
+use App\Enums\UserRole;
 use App\Models\User;
 use App\Services\OtpService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -16,7 +17,7 @@ class AdminUserVerifyTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->admin = User::factory()->create(['role' => 'ADMIN']);
+        $this->admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
     }
 
     public function test_admin_can_verify_unverified_user(): void
@@ -43,7 +44,7 @@ class AdminUserVerifyTest extends TestCase
 
     public function test_case_manager_cannot_verify(): void
     {
-        $cm = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $cm = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $target = User::factory()->unverified()->create();
 
         $response = $this->actingAs($cm)
@@ -54,7 +55,7 @@ class AdminUserVerifyTest extends TestCase
 
     public function test_agency_focal_cannot_verify(): void
     {
-        $agency = User::factory()->create(['role' => 'AGENCY']);
+        $agency = User::factory()->create(['role' => UserRole::AGENCY->value]);
         $target = User::factory()->unverified()->create();
 
         $response = $this->actingAs($agency)
@@ -105,7 +106,7 @@ class AdminUserVerifyTest extends TestCase
 
     public function test_admin_email_change_via_otp_flow(): void
     {
-        $target = User::factory()->create(['role' => 'CASE_MANAGER']); // email_verified_at = now() by default
+        $target = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]); // email_verified_at = now() by default
         $this->assertNotNull($target->email_verified_at);
 
         $newEmail = 'changed-'.$target->email;
@@ -153,7 +154,7 @@ class AdminUserVerifyTest extends TestCase
 
     public function test_admin_email_update_without_otp_succeeds(): void
     {
-        $target = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $target = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $originalEmail = $target->email;
         $newEmail = 'admin-changed-'.$target->email;
 

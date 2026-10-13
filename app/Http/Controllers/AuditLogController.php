@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\AuditAction;
 use App\Enums\AuditModule;
+use App\Enums\UserRole;
 use App\Helpers\CacheHelper;
 use App\Http\Controllers\Concerns\ResolvesPerPage;
 use App\Models\AuditLog;
@@ -43,7 +44,7 @@ class AuditLogController extends Controller
         // paginator supplies the `page` (and omits any stale cursor) itself.
         $logs = $query->paginate($perPage)->appends($request->except(['page', 'cursor']));
 
-        $this->presentLogs($logs, $formatter);
+        $this->presentLogs($logs, $formatter, $isAdmin);
 
         // Filter facets. Admins draw from the whole table (cached, shared);
         // scoped roles draw only from the rows they can actually see, so the
@@ -100,7 +101,7 @@ class AuditLogController extends Controller
             'viewSubtitle' => $viewSubtitle,
             'exportDefaultDays' => (int) config('audit.export.default_days'),
             'exportMaxDays' => (int) config('audit.retention_days'),
-            'filterValues' => (object) $request->only(['action', 'module', 'category', 'user_id', 'date_from', 'date_to', 'search', 'per_page']),
+            'filterValues' => (object) $request->only(['action', 'module', 'category', 'user_id', 'role', 'has_changes', 'date_from', 'date_to', 'search', 'per_page']),
         ]);
     }
 
@@ -169,8 +170,8 @@ class AuditLogController extends Controller
             $out = fopen('php://output', 'w');
             fputcsv($out, ['Timestamp (UTC)', 'Actor', 'Action', 'Module', 'Description', 'Category', 'Has Changes']);
 
-            foreach ($query->with('user')->orderBy('timestamp')->orderBy('id')->cursor() as $log) {
-                $display = $formatter->formatForAuditResponse($log);
+            foreach ($query->with('user')->orderBy('timestamp', 'desc')->orderBy('id', 'desc')->cursor() as $log) {
+                $display = $formatter->formatForAuditResponse($log, true);
                 fputcsv($out, array_map([$this, 'csvSafe'], [
                     $display['timestamp'],
                     $display['actor'],
@@ -184,6 +185,50 @@ class AuditLogController extends Controller
 
             fclose($out);
         }, $filename, ['Content-Type' => 'text/csv']);
+    }
+
+    /**
+     * JSON endpoint: the distinct actors present in the viewer's scoped audit
+     * trail, for the actor filter's search select. Admin-only (like export);
+     * deactivated accounts are included because their past actions still
+     * appear in the trail. `search` matches name or email case-insensitively.
+     */
+    public function actorOptions(Request $request)
+    {
+        abort_unless($request->user()->isAdmin(), 403);
+
+        $query = AuditLog::query()
+            ->join('users', 'users.id', '=', 'audit_logs.user_id')
+            ->whereNotNull('audit_logs.user_id')
+            ->select('users.id', 'users.name', 'users.email', 'users.is_active')
+            ->distinct();
+
+        // Admins see every actor; the scope helper keeps this correct if the
+        // endpoint is ever opened to a scoped role.
+        $entityIds = $this->scopedEntityIds($request->user());
+        if (! empty($entityIds)) {
+            $query->whereIn('audit_logs.entity_id', $entityIds);
+        }
+
+        $query->when($request->filled('search'), function ($q) use ($request) {
+            $search = (string) $request->input('search');
+            $q->where(function ($match) use ($search) {
+                $match->where('users.name', 'ILIKE', "%{$search}%")
+                    ->orWhere('users.email', 'ILIKE', "%{$search}%");
+            });
+        });
+
+        return response()->json(
+            $query->orderBy('users.name')->limit(50)->get()
+                ->map(fn ($row) => [
+                    'id' => (string) $row->id,
+                    'name' => $row->name,
+                    'email' => $row->email,
+                    'deactivated' => ! $row->is_active,
+                ])
+                ->values()
+                ->all()
+        );
     }
 
     /**
@@ -235,6 +280,35 @@ class AuditLogController extends Controller
             $q->where('user_id', $request->input('user_id'));
         });
 
+        // Actor-role filter: admin-only, so a scoped viewer can never narrow
+        // (or probe) the trail by role. Unrecognised roles are dropped; if
+        // nothing valid remains the filter is ignored, not applied empty.
+        $roles = $user->isAdmin() && $request->filled('role')
+            ? collect(explode(',', (string) $request->input('role')))
+                ->map(fn ($r) => strtoupper(trim($r)))
+                ->intersect(UserRole::values())
+                ->values()
+                ->all()
+            : [];
+
+        $query->when($roles !== [], fn ($q) => $q->whereHas('user', fn ($u) => $u->whereIn('role', $roles)));
+
+        // Rows with a real diff. Mirrors AuditLogFormatter::getStructuredChanges():
+        // no changes when both sides are null, and none when a side is an empty
+        // object/array. Noise-field filtering and UPDATE old!=new equality are
+        // not reproducible in SQL and stay formatter-side.
+        $query->when(
+            in_array($request->input('has_changes'), ['1', 'true'], true),
+            fn ($q) => $q->where(function ($diff) {
+                $diff->where(function ($either) {
+                    $either->whereNotNull('old_value')->orWhereNotNull('new_value');
+                })->where(function ($notEmpty) {
+                    $notEmpty->whereRaw("old_value NOT IN ('{}'::jsonb, '[]'::jsonb)")
+                        ->orWhereRaw("new_value NOT IN ('{}'::jsonb, '[]'::jsonb)");
+                });
+            })
+        );
+
         // Only apply date bounds when they are well-formed Y-m-d values, so a
         // malformed query param is ignored rather than raising a SQL cast error.
         $query->when($this->isValidYmd($request->input('date_from')), function ($q) use ($request) {
@@ -279,10 +353,18 @@ class AuditLogController extends Controller
                                 ->whereColumn('cases.id', 'audit_logs.entity_id')
                                 ->where('cases.case_number', 'ILIKE', "%{$search}%");
                         });
-                })
-                // Raw UUID prefix match on the entity identifier (covers
-                // referral/milestone short IDs and full UUIDs).
-                ->orWhereRaw('audit_logs.entity_id::text ILIKE ?', ["%{$search}%"]);
+                });
+            // Entity-identifier match without casting to text for an
+            // unanchored ILIKE (which forced a sequential scan on this
+            // append-only table): a full UUID hits the B-tree directly, and
+            // a UUID fragment (e.g. the 8-char short ID) uses an anchored
+            // prefix comparison the index can still serve.
+            $term = trim($search);
+            if (Str::isUuid($term)) {
+                $safeMetadata->orWhere('audit_logs.entity_id', $term);
+            } elseif (preg_match('/^[0-9a-f-]{8,36}$/i', $term)) {
+                $safeMetadata->orWhereRaw('left(audit_logs.entity_id::text, ?) = ?', [strlen($term), strtolower($term)]);
+            }
         });
     }
 
@@ -394,7 +476,7 @@ class AuditLogController extends Controller
             'description' => sprintf('%s requested an audit log export — %s', $request->user()->name, $result),
             'new_value' => [
                 'result' => $result,
-                'filters' => $request->only(['action', 'module', 'category', 'user_id', 'date_from', 'date_to', 'search']),
+                'filters' => $request->only(['action', 'module', 'category', 'user_id', 'role', 'has_changes', 'date_from', 'date_to', 'search']),
             ],
             'user_id' => $request->user()->id,
             'timestamp' => now(),
@@ -446,13 +528,13 @@ class AuditLogController extends Controller
             }
         });
 
-        $query->with('user')->orderBy('timestamp', 'desc');
+        $query->with('user')->orderBy('timestamp', 'desc')->orderBy('id', 'desc');
 
         $perPage = $this->perPage($request, 50);
         $logs = $query->cursorPaginate($perPage);
 
         $formatter = app(AuditLogFormatter::class);
-        $this->presentLogs($logs, $formatter);
+        $this->presentLogs($logs, $formatter, $user->isAdmin());
 
         return response()->json($logs);
     }
@@ -503,13 +585,13 @@ class AuditLogController extends Controller
             }
         });
 
-        $query->with('user')->orderBy('timestamp', 'desc');
+        $query->with('user')->orderBy('timestamp', 'desc')->orderBy('id', 'desc');
 
         $perPage = $this->perPage($request, 50);
         $logs = $query->cursorPaginate($perPage);
 
         $formatter = app(AuditLogFormatter::class);
-        $this->presentLogs($logs, $formatter);
+        $this->presentLogs($logs, $formatter, $user->isAdmin());
 
         return response()->json($logs);
     }
@@ -518,11 +600,11 @@ class AuditLogController extends Controller
      * Replace Eloquent records with the explicit safe audit response shape
      * before an Inertia page or JSON endpoint can serialize them.
      */
-    private function presentLogs($logs, AuditLogFormatter $formatter): void
+    private function presentLogs($logs, AuditLogFormatter $formatter, bool $isAdmin = false): void
     {
         $logs->setCollection(
             $logs->getCollection()
-                ->map(fn (AuditLog $log) => $formatter->formatForAuditResponse($log))
+                ->map(fn (AuditLog $log) => $formatter->formatForAuditResponse($log, $isAdmin))
                 ->values()
         );
     }

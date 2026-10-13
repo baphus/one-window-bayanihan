@@ -57,6 +57,8 @@ class SystemSettingsController extends Controller
                 'last_reindexed_at' => now()->toIso8601String(),
             ]);
         } catch (\Throwable $e) {
+            Log::error('Chatbot helpdesk cache refresh failed', ['exception' => $e]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Helpdesk cache refresh failed. Please try again.',

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\UserRole;
 use App\Helpers\CacheHelper;
 use App\Http\Controllers\Concerns\ResolvesPerPage;
 use App\Http\Requests\InviteAdminUserRequest;
@@ -54,7 +55,7 @@ class AdminUserController extends Controller
             $query->where('role', $role);
         } else {
             // Exclude OFW accounts from the default staff user list
-            $query->where('role', '!=', 'OFW');
+            $query->where('role', '!=', UserRole::OFW->value);
         }
 
         if ($request->has('status')) {
@@ -95,9 +96,9 @@ class AdminUserController extends Controller
             'stats' => CacheHelper::safeRemember('admin:user_stats', 120, fn () => [
                 'total' => User::count(),
                 'active' => User::where('is_active', true)->count(),
-                'case_managers' => User::where('role', 'CASE_MANAGER')->count(),
-                'agency_focals' => User::where('role', 'AGENCY')->count(),
-                'admins' => User::where('role', 'ADMIN')->count(),
+                'case_managers' => User::where('role', UserRole::CASE_MANAGER->value)->count(),
+                'agency_focals' => User::where('role', UserRole::AGENCY->value)->count(),
+                'admins' => User::where('role', UserRole::ADMIN->value)->count(),
             ]),
         ]);
     }
@@ -259,7 +260,7 @@ class AdminUserController extends Controller
         }
 
         // Prevent deleting the last admin
-        if ($user->isAdmin() && User::where('role', 'ADMIN')->where('is_deleted', false)->count() <= 1) {
+        if ($user->isAdmin() && User::where('role', UserRole::ADMIN->value)->where('is_deleted', false)->count() <= 1) {
             return redirect()->route('admin.users.index')
                 ->with('error', 'Cannot delete the only admin user.');
         }

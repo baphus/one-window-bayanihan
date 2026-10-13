@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\Test;
@@ -18,7 +19,7 @@ class QueueNotificationsExportsTest extends TestCase
     #[Test]
     public function cases_export_returns_xlsx_stream(): void
     {
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         $response = $this->actingAs($user)->get(route('cases.export-excel'));
 
@@ -30,7 +31,7 @@ class QueueNotificationsExportsTest extends TestCase
     #[Test]
     public function clients_export_returns_xlsx_stream(): void
     {
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         $response = $this->actingAs($user)->get(route('clients.export-excel'));
 
@@ -42,7 +43,7 @@ class QueueNotificationsExportsTest extends TestCase
     #[Test]
     public function referrals_export_returns_xlsx_stream(): void
     {
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         $response = $this->actingAs($user)->get(route('referrals.export-excel'));
 
@@ -54,7 +55,7 @@ class QueueNotificationsExportsTest extends TestCase
     #[Test]
     public function reports_pdf_export_returns_a_download(): void
     {
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         $response = $this->actingAs($user)->get(route('reports.export-pdf', [
             'from' => '2026-01-01',
@@ -69,7 +70,7 @@ class QueueNotificationsExportsTest extends TestCase
     #[Test]
     public function reports_excel_export_returns_xlsx_stream(): void
     {
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         $response = $this->actingAs($user)->get(route('reports.export-excel', [
             'from' => '2026-01-01',

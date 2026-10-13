@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Admin;
 
+use App\Enums\UserRole;
 use App\Mail\EmailChangedNotification;
 use App\Mail\UserInviteMail;
 use App\Models\User;
@@ -21,7 +22,7 @@ class AdminUserTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->admin = User::factory()->create(['role' => 'ADMIN']);
+        $this->admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
     }
 
     public function test_admin_can_create_user_and_audit_is_logged(): void
@@ -31,7 +32,7 @@ class AdminUserTest extends TestCase
                 'name' => 'New Case Manager',
                 'email' => 'new-cm@example.com',
                 'password' => 'Str0ng!Pass',
-                'role' => 'CASE_MANAGER',
+                'role' => UserRole::CASE_MANAGER->value,
             ]);
 
         $response->assertRedirect();
@@ -60,14 +61,14 @@ class AdminUserTest extends TestCase
 
     public function test_case_manager_cannot_create_user(): void
     {
-        $cm = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $cm = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         $response = $this->actingAs($cm)
             ->post(route('admin.users.store'), [
                 'name' => 'Nope',
                 'email' => 'nope@example.com',
                 'password' => 'Str0ng!Pass',
-                'role' => 'CASE_MANAGER',
+                'role' => UserRole::CASE_MANAGER->value,
             ]);
 
         $response->assertForbidden();
@@ -80,7 +81,7 @@ class AdminUserTest extends TestCase
         $response = $this->actingAs($this->admin)
             ->post(route('admin.users.invite'), [
                 'email' => 'invited@example.com',
-                'role' => 'AGENCY',
+                'role' => UserRole::AGENCY->value,
             ]);
 
         $response->assertRedirect();
@@ -88,7 +89,7 @@ class AdminUserTest extends TestCase
 
         $this->assertDatabaseHas('user_invites', [
             'email' => 'invited@example.com',
-            'role' => 'AGENCY',
+            'role' => UserRole::AGENCY->value,
             'created_by' => $this->admin->id,
         ]);
 
@@ -101,7 +102,7 @@ class AdminUserTest extends TestCase
 
         UserInvite::create([
             'email' => 'dup@example.com',
-            'role' => 'CASE_MANAGER',
+            'role' => UserRole::CASE_MANAGER->value,
             'token_hash' => hash('sha256', Str::random(64)),
             'expires_at' => now()->addDays(7),
             'created_by' => $this->admin->id,
@@ -110,7 +111,7 @@ class AdminUserTest extends TestCase
         $response = $this->actingAs($this->admin)
             ->post(route('admin.users.invite'), [
                 'email' => 'dup@example.com',
-                'role' => 'CASE_MANAGER',
+                'role' => UserRole::CASE_MANAGER->value,
             ]);
 
         $response->assertSessionHas('warning');
@@ -123,7 +124,7 @@ class AdminUserTest extends TestCase
 
         $invite = UserInvite::create([
             'email' => 'resend@example.com',
-            'role' => 'CASE_MANAGER',
+            'role' => UserRole::CASE_MANAGER->value,
             'token_hash' => hash('sha256', $rawToken = Str::random(64)),
             'expires_at' => now()->addDays(7),
             'created_by' => $this->admin->id,
@@ -142,7 +143,7 @@ class AdminUserTest extends TestCase
     {
         $invite = UserInvite::create([
             'email' => 'cancel@example.com',
-            'role' => 'CASE_MANAGER',
+            'role' => UserRole::CASE_MANAGER->value,
             'token_hash' => hash('sha256', Str::random(64)),
             'expires_at' => now()->addDays(7),
             'created_by' => $this->admin->id,
@@ -157,13 +158,13 @@ class AdminUserTest extends TestCase
 
     public function test_admin_can_update_user(): void
     {
-        $target = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $target = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         $response = $this->actingAs($this->admin)
             ->patch(route('admin.users.update', $target->id), [
                 'name' => 'Updated Name',
                 'email' => $target->email,
-                'role' => 'CASE_MANAGER',
+                'role' => UserRole::CASE_MANAGER->value,
                 'position' => 'Focal Person',
                 'is_active' => true,
             ]);
@@ -177,7 +178,7 @@ class AdminUserTest extends TestCase
     {
         Mail::fake();
 
-        $target = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $target = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $oldEmail = $target->email;
         $newEmail = 'changed-'.$oldEmail;
 
@@ -205,7 +206,7 @@ class AdminUserTest extends TestCase
 
     public function test_admin_destroy_deactivates_active_user_and_kills_sessions(): void
     {
-        $target = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $target = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         DB::table('sessions')->insert([
             'id' => Str::random(40),
@@ -229,7 +230,7 @@ class AdminUserTest extends TestCase
 
     public function test_admin_destroy_force_deletes_inactive_user(): void
     {
-        $target = User::factory()->create(['role' => 'CASE_MANAGER', 'is_active' => false]);
+        $target = User::factory()->create(['role' => UserRole::CASE_MANAGER->value, 'is_active' => false]);
 
         $response = $this->actingAs($this->admin)
             ->delete(route('admin.users.destroy', $target->id));
@@ -250,7 +251,7 @@ class AdminUserTest extends TestCase
     public function test_admin_can_reactivate_user_and_audit_is_logged(): void
     {
         $target = User::factory()->create([
-            'role' => 'CASE_MANAGER',
+            'role' => UserRole::CASE_MANAGER->value,
             'is_active' => false,
             'is_deleted' => true,
         ]);
@@ -274,7 +275,7 @@ class AdminUserTest extends TestCase
 
     public function test_admin_can_reset_mfa_and_kill_sessions_with_audit(): void
     {
-        $target = User::factory()->mfaEnabled()->create(['role' => 'CASE_MANAGER']);
+        $target = User::factory()->mfaEnabled()->create(['role' => UserRole::CASE_MANAGER->value]);
         $this->assertNotNull($target->fresh()->mfa_enabled_at);
 
         DB::table('sessions')->insert([
@@ -302,7 +303,7 @@ class AdminUserTest extends TestCase
 
     public function test_admin_reset_mfa_rejects_wrong_password(): void
     {
-        $target = User::factory()->mfaEnabled()->create(['role' => 'CASE_MANAGER']);
+        $target = User::factory()->mfaEnabled()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         $response = $this->actingAs($this->admin)
             ->post(route('admin.users.reset-mfa', $target->id), [

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\Agency;
 use App\Models\CaseFile;
@@ -43,11 +44,11 @@ class ReportsAgencyScopingTest extends TestCase
         $this->agencyBId = $this->agencyB->id;
 
         $this->agencyAUser = User::factory()->create([
-            'role' => 'AGENCY',
+            'role' => UserRole::AGENCY->value,
             'agcy_id' => $this->agencyAId,
         ]);
         $this->agencyBUser = User::factory()->create([
-            'role' => 'AGENCY',
+            'role' => UserRole::AGENCY->value,
             'agcy_id' => $this->agencyBId,
         ]);
     }
@@ -78,13 +79,13 @@ class ReportsAgencyScopingTest extends TestCase
 
         $kpisA = $this->service->getReferralKpis(
             userId: $this->agencyAUser->id,
-            role: 'AGENCY',
+            role: UserRole::AGENCY->value,
             agencyId: $this->agencyAId,
         );
 
         $kpisB = $this->service->getReferralKpis(
             userId: $this->agencyBUser->id,
-            role: 'AGENCY',
+            role: UserRole::AGENCY->value,
             agencyId: $this->agencyBId,
         );
 
@@ -100,13 +101,13 @@ class ReportsAgencyScopingTest extends TestCase
 
         $distA = $this->service->getReferralStatusDistribution(
             userId: $this->agencyAUser->id,
-            role: 'AGENCY',
+            role: UserRole::AGENCY->value,
             agencyId: $this->agencyAId,
         );
 
         $distB = $this->service->getReferralStatusDistribution(
             userId: $this->agencyBUser->id,
-            role: 'AGENCY',
+            role: UserRole::AGENCY->value,
             agencyId: $this->agencyBId,
         );
 
@@ -125,7 +126,7 @@ class ReportsAgencyScopingTest extends TestCase
 
         $scorecard = $this->service->getAgencyScorecard(
             userId: $this->agencyAUser->id,
-            role: 'AGENCY',
+            role: UserRole::AGENCY->value,
             agencyId: $this->agencyAId,
         );
 
@@ -142,7 +143,7 @@ class ReportsAgencyScopingTest extends TestCase
 
         $distA = $this->service->getCaseStatusDistribution(
             userId: $this->agencyAUser->id,
-            role: 'AGENCY',
+            role: UserRole::AGENCY->value,
             agencyId: $this->agencyAId,
         );
 
@@ -159,7 +160,7 @@ class ReportsAgencyScopingTest extends TestCase
 
         $distA = $this->service->getClientTypeDistribution(
             userId: $this->agencyAUser->id,
-            role: 'AGENCY',
+            role: UserRole::AGENCY->value,
             agencyId: $this->agencyAId,
         );
 
@@ -176,7 +177,7 @@ class ReportsAgencyScopingTest extends TestCase
 
         $options = $this->service->getProvinceOptions(
             userId: $this->agencyAUser->id,
-            role: 'AGENCY',
+            role: UserRole::AGENCY->value,
             agencyId: $this->agencyAId,
         );
 
@@ -188,12 +189,12 @@ class ReportsAgencyScopingTest extends TestCase
     #[Test]
     public function agency_user_without_agency_id_gets_an_empty_full_report_payload(): void
     {
-        $agencyless = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => null]);
+        $agencyless = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => null]);
         $this->createClientWithCase($this->agencyAUser->id, $this->agencyAId);
 
         $payload = $this->service->getAll(
             userId: $agencyless->id,
-            role: 'AGENCY',
+            role: UserRole::AGENCY->value,
             agencyId: null,
             fromDate: '2026-01-01',
             toDate: '2026-12-31',
@@ -221,36 +222,36 @@ class ReportsAgencyScopingTest extends TestCase
 
         $scoped = $this->service->getAll(
             userId: $this->agencyAUser->id,
-            role: 'AGENCY',
+            role: UserRole::AGENCY->value,
             agencyId: $this->agencyAId,
             fromDate: '2026-01-01',
             toDate: '2026-12-31',
         );
         $this->assertGreaterThan(0, $scoped['kpis']['totalReferrals']);
 
-        $agencyless = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => null]);
+        $agencyless = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => null]);
         $empty = $this->service->getAll(
             userId: $agencyless->id,
-            role: 'AGENCY',
+            role: UserRole::AGENCY->value,
             agencyId: null,
             fromDate: '2026-01-01',
             toDate: '2026-12-31',
         );
 
         $this->assertSame(0, $empty['kpis']['totalReferrals']);
-        $this->assertSame([], $this->service->getProvinceOptions($agencyless->id, 'AGENCY'));
-        $this->assertSame([], $this->service->getCityOptions(null, $agencyless->id, 'AGENCY'));
+        $this->assertSame([], $this->service->getProvinceOptions($agencyless->id, UserRole::AGENCY->value));
+        $this->assertSame([], $this->service->getCityOptions(null, $agencyless->id, UserRole::AGENCY->value));
         $this->assertEqualsCanonicalizing([
             ['value' => $this->agencyA->id, 'label' => 'Agency A'],
             ['value' => $this->agencyB->id, 'label' => 'Agency B'],
-        ], $this->service->getAgencyOptions(null, 'CASE_MANAGER'));
-        $this->assertSame([], $this->service->getAgencyOptions($agencyless->id, 'AGENCY'));
+        ], $this->service->getAgencyOptions(null, UserRole::CASE_MANAGER->value));
+        $this->assertSame([], $this->service->getAgencyOptions($agencyless->id, UserRole::AGENCY->value));
     }
 
     #[Test]
     public function public_reports_page_is_empty_for_an_agency_user_without_assignment(): void
     {
-        $agencyless = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => null]);
+        $agencyless = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => null]);
         $this->createClientWithCase($this->agencyAUser->id, $this->agencyAId);
 
         $this->actingAs($agencyless)->get(route('reports.index'))

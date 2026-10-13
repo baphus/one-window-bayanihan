@@ -8,7 +8,7 @@ const { routerGet, routerPatch } = vi.hoisted(() => ({ routerGet: vi.fn(), route
 vi.mock('@inertiajs/react', () => ({
     Head: () => null,
     router: { get: routerGet, patch: routerPatch, visit: vi.fn(), on: () => () => {} },
-    usePage: () => ({ props: { auth: { user: { role: 'AGENCY', agcy_id: 'agency-a' } } } }),
+    usePage: () => ({ props: { auth: { user: { role: 'AGENCY', agcy_id: 'agency-a' } }, roles: { ADMIN: 'ADMIN', AGENCY: 'AGENCY', CASE_MANAGER: 'CASE_MANAGER', OFW: 'OFW' } } }),
 }));
 vi.mock('@/Layouts/AppLayout', () => ({ default: ({ children }) => <main>{children}</main> }));
 vi.mock('@/Hooks/useToast', () => ({ useToast: () => ({ info: vi.fn() }) }));

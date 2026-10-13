@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Security;
 
+use App\Enums\UserRole;
 use App\Http\Middleware\LogContext;
 use App\Http\Middleware\SecurityHeaders;
 use App\Mail\ClientRequestMail;
@@ -131,11 +132,11 @@ class ReferralInboxSecurityRemediationTest extends TestCase
     {
         $agency = Agency::factory()->create();
         $agencyUser = User::factory()->create([
-            'role' => 'AGENCY',
+            'role' => UserRole::AGENCY->value,
             'agcy_id' => $agency->id,
             'is_active' => true,
         ]);
-        $owner = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $owner = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $client = Client::factory()->create();
         $case = CaseFile::factory()->create(['user_id' => $owner->id, 'client_id' => $client->id]);
         $referral = Referral::factory()->create(['case_id' => $case->id, 'agcy_id' => $agency->id]);

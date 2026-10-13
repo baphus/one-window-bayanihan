@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\UserRole;
 use App\Models\Milestone;
 use App\Models\Referral;
 use App\Models\ReferralClientAccessLink;
@@ -309,7 +310,7 @@ class ReferralClientRequestService
 
     private function assertCanManageReferral(?Referral $referral, User $actor): void
     {
-        if (! $referral || $actor->role !== 'AGENCY' || ! $actor->is_active || $actor->agcy_id !== $referral->agcy_id) {
+        if (! $referral || $actor->role !== UserRole::AGENCY->value || ! $actor->is_active || $actor->agcy_id !== $referral->agcy_id) {
             throw new AuthorizationException('Only the receiving agency may manage this referral request.');
         }
         $this->assertClientFacingWriteAllowed($referral);
@@ -317,10 +318,10 @@ class ReferralClientRequestService
 
     private function assertCanRevoke(Referral $referral, User $actor): void
     {
-        $isReceivingAgency = $actor->role === 'AGENCY' && $actor->is_active && $actor->agcy_id === $referral->agcy_id;
+        $isReceivingAgency = $actor->role === UserRole::AGENCY->value && $actor->is_active && $actor->agcy_id === $referral->agcy_id;
         $referral->loadMissing('caseFile');
 
-        if (! $isReceivingAgency && $actor->role !== 'ADMIN') {
+        if (! $isReceivingAgency && $actor->role !== UserRole::ADMIN->value) {
             throw new AuthorizationException('You may not revoke this access link.');
         }
     }
@@ -329,8 +330,8 @@ class ReferralClientRequestService
     {
         $referral->loadMissing('caseFile');
 
-        return ($actor->role === 'AGENCY' && $actor->is_active && $actor->agcy_id === $referral->agcy_id)
-            || $actor->role === 'ADMIN';
+        return ($actor->role === UserRole::AGENCY->value && $actor->is_active && $actor->agcy_id === $referral->agcy_id)
+            || $actor->role === UserRole::ADMIN->value;
     }
 
     private function assertClientFacingWriteAllowed(Referral $referral): void

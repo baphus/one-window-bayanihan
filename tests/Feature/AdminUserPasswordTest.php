@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Http\Middleware\CheckMfaEnrolled;
 use App\Http\Middleware\CheckUserActive;
 use App\Models\User;
@@ -21,7 +22,7 @@ class AdminUserPasswordTest extends TestCase
 
     public function test_getting_invite_as_a_user_route_is_not_a_valid_user_lookup(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
 
         $this->withoutMiddleware([CheckUserActive::class, CheckMfaEnrolled::class])
             ->actingAs($admin)
@@ -31,11 +32,11 @@ class AdminUserPasswordTest extends TestCase
 
     public function test_admin_invite_requires_valid_email(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
 
         $response = $this->actingAs($admin)->post('/admin/users/invite', [
             'email' => 'not-an-email',
-            'role' => 'CASE_MANAGER',
+            'role' => UserRole::CASE_MANAGER->value,
         ]);
 
         $response->assertSessionHasErrors('email');
@@ -43,7 +44,7 @@ class AdminUserPasswordTest extends TestCase
 
     public function test_admin_invite_requires_role(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
 
         $response = $this->actingAs($admin)->post('/admin/users/invite', [
             'email' => 'test@example.com',
@@ -54,17 +55,17 @@ class AdminUserPasswordTest extends TestCase
 
     public function test_admin_invite_creates_pending_invite(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
 
         $response = $this->actingAs($admin)->post('/admin/users/invite', [
             'email' => 'invite@example.com',
-            'role' => 'CASE_MANAGER',
+            'role' => UserRole::CASE_MANAGER->value,
         ]);
 
         $response->assertSessionHasNoErrors();
         $this->assertDatabaseHas('user_invites', [
             'email' => 'invite@example.com',
-            'role' => 'CASE_MANAGER',
+            'role' => UserRole::CASE_MANAGER->value,
         ]);
     }
 
@@ -73,10 +74,10 @@ class AdminUserPasswordTest extends TestCase
         $rawToken = Str::random(64);
         $invite = UserInvite::create([
             'email' => 'register@example.com',
-            'role' => 'CASE_MANAGER',
+            'role' => UserRole::CASE_MANAGER->value,
             'token_hash' => hash('sha256', $rawToken),
             'expires_at' => now()->addDays(7),
-            'created_by' => User::factory()->create(['role' => 'ADMIN'])->id,
+            'created_by' => User::factory()->create(['role' => UserRole::ADMIN->value])->id,
         ]);
 
         $response = $this->post("/invite/{$rawToken}", [
@@ -93,10 +94,10 @@ class AdminUserPasswordTest extends TestCase
         $rawToken = Str::random(64);
         $invite = UserInvite::create([
             'email' => 'register2@example.com',
-            'role' => 'CASE_MANAGER',
+            'role' => UserRole::CASE_MANAGER->value,
             'token_hash' => hash('sha256', $rawToken),
             'expires_at' => now()->addDays(7),
-            'created_by' => User::factory()->create(['role' => 'ADMIN'])->id,
+            'created_by' => User::factory()->create(['role' => UserRole::ADMIN->value])->id,
         ]);
 
         $response = $this->post("/invite/{$rawToken}", [
@@ -116,10 +117,10 @@ class AdminUserPasswordTest extends TestCase
         $rawToken = Str::random(64);
         $invite = UserInvite::create([
             'email' => 'register3@example.com',
-            'role' => 'CASE_MANAGER',
+            'role' => UserRole::CASE_MANAGER->value,
             'token_hash' => hash('sha256', $rawToken),
             'expires_at' => now()->addDays(7),
-            'created_by' => User::factory()->create(['role' => 'ADMIN'])->id,
+            'created_by' => User::factory()->create(['role' => UserRole::ADMIN->value])->id,
         ]);
 
         $response = $this->post("/invite/{$rawToken}", [
@@ -133,13 +134,13 @@ class AdminUserPasswordTest extends TestCase
 
     public function test_admin_update_rejects_weak_password(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
-        $targetUser = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $targetUser = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         $response = $this->actingAs($admin)->patch("/admin/users/{$targetUser->id}", [
             'name' => $targetUser->name,
             'email' => $targetUser->email,
-            'role' => 'CASE_MANAGER',
+            'role' => UserRole::CASE_MANAGER->value,
             'password' => 'weak',
         ]);
 

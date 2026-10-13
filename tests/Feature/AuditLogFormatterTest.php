@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Models\AuditLog;
 use App\Models\User;
 use App\Services\AuditLogFormatter;
@@ -180,7 +181,7 @@ class AuditLogFormatterTest extends TestCase
         $log = new AuditLog([
             'action' => 'CREATE',
             'module' => 'users',
-            'new_value' => ['name' => 'Doug Aufderhar', 'role' => 'CASE_MANAGER'],
+            'new_value' => ['name' => 'Doug Aufderhar', 'role' => UserRole::CASE_MANAGER->value],
             'timestamp' => now(),
         ]);
 
@@ -323,30 +324,6 @@ class AuditLogFormatterTest extends TestCase
         // Only client_type remains
         $this->assertCount(1, $changes);
         $this->assertSame('client_type', $changes[0]['field']);
-    }
-
-    public function test_get_structured_changes_draft_client_data(): void
-    {
-        $formatter = new AuditLogFormatter;
-
-        $changes = $formatter->getStructuredChanges(
-            null,
-            [
-                'draft_client_data' => [
-                    'first_name' => 'Juan',
-                    'last_name' => 'Dela Cruz',
-                    'email' => 'juan@example.com',
-                    'client_type' => 'OFW',
-                ],
-            ],
-            'CREATE',
-        );
-
-        $this->assertCount(1, $changes);
-        $this->assertSame('draft_client_data', $changes[0]['field']);
-        $this->assertStringContainsString('Juan Dela Cruz', $changes[0]['new']);
-        $this->assertStringContainsString('OFW', $changes[0]['new']);
-        $this->assertStringContainsString('juan@example.com', $changes[0]['new']);
     }
 
     public function test_get_structured_changes_uuid_field_unresolved(): void
@@ -530,7 +507,6 @@ class AuditLogFormatterTest extends TestCase
             ['decision', 'decision'],
             ['decision_reason', 'decision reason'],
             ['due_date', 'due date'],
-            ['draft_client_data', 'draft client data'],
             ['priority', 'priority'],
             ['suffix', 'suffix'],
         ];
@@ -545,9 +521,9 @@ class AuditLogFormatterTest extends TestCase
             ['case_files', 'is_active', false, 'No'],
             ['case_files', 'is_active', 1, 'Yes'],
             ['case_files', 'is_active', 0, 'No'],
-            ['users', 'role', 'CASE_MANAGER', 'Case Manager'],
-            ['users', 'role', 'AGENCY', 'Agency Focal'],
-            ['users', 'role', 'ADMIN', 'System Admin'],
+            ['users', 'role', UserRole::CASE_MANAGER->value, 'Case Manager'],
+            ['users', 'role', UserRole::AGENCY->value, 'Agency Focal'],
+            ['users', 'role', UserRole::ADMIN->value, 'System Admin'],
             ['case_files', 'status', null, 'not set'],
             ['case_files', 'notes', ['foo' => 'bar'], '1 fields'],
             ['clients', 'client_type', 'OFW', 'OFW'],

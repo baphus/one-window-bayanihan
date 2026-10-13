@@ -107,7 +107,7 @@ function renderNumbers(customDashboard = dashboard) {
 function renderIntake(customDashboard = dashboard) {
     renderNumbers(customDashboard);
 
-    return within(document.querySelector('[data-tour="dashboard-intake-queue"]'));
+    return within(document.querySelector('[data-tour="dashboard-pending-reviews"]'));
 }
 
 describe('CaseManager Numbers block', () => {
@@ -261,35 +261,32 @@ describe('CaseManager status pies', () => {
     });
 });
 
-describe('CaseManager Intake Queue block', () => {
+describe('CaseManager Pending Reviews block', () => {
     const dashboardWithIntakes = {
         ...dashboard,
-        intakeReview: [
-            { id: 'case-2', caseNo: 'CASE-002', trackerNumber: 'TRK-002', clientName: 'Maria Santos', status: 'DRAFT', source: 'self_filed', isOwnDraft: false, createdAt: '2026-09-20T00:00:00Z', href: '/cases/case-2' },
-            { id: 'case-1', caseNo: 'CASE-001', clientName: 'Juan Dela Cruz', status: 'DRAFT', source: 'self_filed', isOwnDraft: false, createdAt: '2026-09-10T00:00:00Z', href: '/cases/case-1' },
+        pendingReviews: [
+            { id: 'case-2', caseNo: 'CASE-002', trackerNumber: 'TRK-002', clientName: 'Maria Santos', status: 'PENDING_REVIEW', createdAt: '2026-09-20T00:00:00Z', href: '/cases/case-2' },
+            { id: 'case-1', caseNo: 'CASE-001', clientName: 'Juan Dela Cruz', status: 'PENDING_REVIEW', createdAt: '2026-09-10T00:00:00Z', href: '/cases/case-1' },
         ],
     };
 
-    it('renders portal-filed rows oldest-first with exact badges and Review routing', () => {
+    it('renders pending filings oldest-first with Review routing', () => {
         const intake = renderIntake(dashboardWithIntakes);
 
         // Payload arrives newest-first; the queue shows oldest first.
         const names = intake.getAllByText(/Juan Dela Cruz|Maria Santos/).map((node) => node.textContent);
         expect(names).toEqual(['Juan Dela Cruz', 'Maria Santos']);
 
-        expect(intake.getAllByText('Portal')).toHaveLength(2);
-        expect(intake.getAllByText('Draft')).toHaveLength(2);
-
         const reviews = intake.getAllByRole('link', { name: 'Review' }).map((node) => node.getAttribute('href'));
-        expect(reviews).toEqual(['/cases/case-1/review-intake', '/cases/case-2/review-intake']);
+        expect(reviews).toEqual(['/cases/case-1', '/cases/case-2']);
 
-        expect(intake.getByRole('link', { name: /View all/ })).toHaveAttribute('href', '/cases/intake-queue');
+        expect(intake.getByRole('link', { name: /View all/ })).toHaveAttribute('href', '/cases/review-pending');
     });
 
-    it('shows a plain one-line empty state with no intakes', () => {
+    it('shows a plain one-line empty state with no pending reviews', () => {
         const intake = renderIntake();
 
-        expect(intake.getByText('No pending intakes.')).toBeInTheDocument();
+        expect(intake.getByText('No filings waiting for review.')).toBeInTheDocument();
         expect(intake.queryByRole('link', { name: 'Review' })).not.toBeInTheDocument();
     });
 });

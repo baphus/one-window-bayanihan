@@ -4,7 +4,6 @@ namespace App\Services\Export\Queries;
 
 use App\Casts\EncryptedString;
 use App\Enums\UserRole;
-use App\Models\CaseFile;
 use App\Models\Client;
 use App\Models\User;
 use App\Services\Export\Queries\Concerns\FiltersCaseCategories;
@@ -38,9 +37,9 @@ class ClientQueries
                 'updated_at',
             ])
             ->where('is_deleted', false)
-            // Exports leave the system, so unaccepted self-filed intakes must not
-            // ride along in a client extract either.
-            ->withoutUnacceptedIntake();
+            // Exports leave the system, so unpublished clients must not ride
+            // along in a client extract either.
+            ->publishedOnly();
 
         // ADMIN/CASE_MANAGER: all. AGENCY: clients linked to their referrals.
         if ($user?->role === UserRole::AGENCY->value) {
@@ -64,19 +63,8 @@ class ClientQueries
         return $query->get();
     }
 
-    /**
-     * Get enriched clients for business export — no IDs or system fields.
-     * Joins case info, addresses, employments, next-of-kin, and referral parties.
-     * ADMIN/CASE_MANAGER: all. AGENCY: clients on their referrals.
-     *
-     * @param  array  $filters  Optional: search, sex, client_type
-     */
-    public function getClientsExport(?User $user = null, array $filters = []): Collection
+    private function clientsExportQuery(?User $user = null, array $filters = [])
     {
-        if ($user?->role === UserRole::AGENCY->value && ! $user->agcy_id) {
-            return collect();
-        }
-
         $query = DB::table('clients AS cl')
             ->select([
                 // Client info
@@ -92,11 +80,11 @@ class ClientQueries
                 DB::raw('(SELECT c.status FROM cases c WHERE c.client_id = cl.id AND c.is_deleted = false AND c.status != \'ARCHIVED\' ORDER BY c.created_at DESC, c.id DESC LIMIT 1) AS case_status'),
                 DB::raw('(SELECT c.tracker_number FROM cases c WHERE c.client_id = cl.id AND c.is_deleted = false AND c.status != \'ARCHIVED\' ORDER BY c.created_at DESC, c.id DESC LIMIT 1) AS tracker_number'),
                 DB::raw("(SELECT CASE
-                    WHEN c.client_type = 'NEXT_OF_KIN' THEN COALESCE(NULLIF(c.nok_vulnerability_indicator, 'None'), NULLIF(c.vulnerability_indicator, 'None'), 'None')
+                    WHEN cl.type = 'NEXT_OF_KIN' THEN COALESCE(NULLIF(c.nok_vulnerability_indicator, 'None'), NULLIF(c.vulnerability_indicator, 'None'), 'None')
                     ELSE COALESCE(NULLIF(c.vulnerability_indicator, 'None'), NULLIF(c.nok_vulnerability_indicator, 'None'), 'None')
                 END FROM cases c WHERE c.client_id = cl.id AND c.is_deleted = false AND c.status != 'ARCHIVED' ORDER BY c.created_at DESC, c.id DESC LIMIT 1) AS vulnerability"),
                 DB::raw("(SELECT CASE
-                    WHEN c.client_type = 'NEXT_OF_KIN' THEN 'Next of Kin'
+                    WHEN cl.type = 'NEXT_OF_KIN' THEN 'Next of Kin'
                     ELSE 'OFW'
                 END FROM cases c WHERE c.client_id = cl.id AND c.is_deleted = false AND c.status != 'ARCHIVED' ORDER BY c.created_at DESC, c.id DESC LIMIT 1) AS client_type"),
                 // Case issue — from latest case
@@ -123,39 +111,31 @@ class ClientQueries
             ->where('cl.is_deleted', false)
             ->orderBy('cl.created_at', 'desc');
 
-        // Drop clients whose only case history is a self-filed intake that was
-        // never accepted. Hand-written rather than Client::withoutUnacceptedIntake()
+        // Published-only rule, hand-written to match Client::scopePublishedOnly()
         // because this builds on the query builder, not Eloquent — same rule, so
-        // change the two together.
-        //
-        // The first EXISTS deliberately does NOT filter deleted cases. rejectIntake()
-        // soft-deletes the case and leaves the client row behind, so ignoring
-        // trashed rows here would read a rejected filer as established and write
-        // their PII into a spreadsheet that leaves the system.
-        //
-        // Grouped: an ungrouped orWhereExists would OR against cl.is_deleted above
-        // and let deleted clients back into the export.
-        $query->where(function ($outer) {
-            $outer->whereNotExists(function ($q) {
-                $q->selectRaw('1')
-                    ->from('cases AS cp')
-                    ->whereColumn('cp.client_id', 'cl.id')
-                    ->where('cp.source', CaseFile::SOURCE_SELF_FILED)
-                    ->where('cp.status', 'DRAFT');
-            })->orWhereExists(function ($q) {
-                $q->selectRaw('1')
-                    ->from('cases AS cr')
-                    ->whereColumn('cr.client_id', 'cl.id')
-                    ->where('cr.is_deleted', false)
-                    // Both columns: SoftDeleteFlag writes them together and the
-                    // Eloquent scope filters on deleted_at, so matching it here
-                    // stops listing and export drifting apart if one is set alone.
-                    ->whereNull('cr.deleted_at')
-                    ->where(function ($inner) {
-                        $inner->where('cr.source', '!=', CaseFile::SOURCE_SELF_FILED)
-                            ->orWhere('cr.status', '!=', 'DRAFT');
-                    });
-            });
+        // change the two together. Linked account plus at least one live OPEN case.
+        $query->whereNotNull('cl.user_id');
+        $query->whereExists(function ($q) {
+            $q->selectRaw('1')
+                ->from('cases AS cp')
+                ->whereColumn('cp.client_id', 'cl.id')
+                ->where('cp.status', 'OPEN')
+                ->where('cp.is_deleted', false)
+                ->whereNull('cp.deleted_at');
+        });
+
+        // Directory rule: only clients with at least one live non-DRAFT case are
+        // listed, so hide draft-only and caseless clients here too — hand-written
+        // to match ClientController@index's whereHas('caseFiles'). Top-level AND;
+        // grouping it inside the block above would let it OR past the filters.
+        $query->whereExists(function ($q) {
+            $q->selectRaw('1')
+                ->from('cases AS cd')
+                ->whereColumn('cd.client_id', 'cl.id')
+                ->whereNotNull('cd.client_id')
+                ->where('cd.is_deleted', false)
+                ->whereNull('cd.deleted_at')
+                ->where('cd.status', '!=', 'DRAFT');
         });
 
         // ADMIN/CASE_MANAGER: all. AGENCY: clients linked to their referrals.
@@ -182,13 +162,7 @@ class ClientQueries
             $query->where('cl.sex', $filters['sex']);
         }
         if (! empty($filters['client_type'])) {
-            $query->whereIn('cl.id', function ($q) use ($filters) {
-                $q->select('c7.client_id')
-                    ->from('cases AS c7')
-                    ->where('c7.client_type', $filters['client_type'])
-                    ->where('c7.is_deleted', false)
-                    ->whereNotNull('c7.client_id');
-            });
+            $query->where('cl.type', $filters['client_type']);
         }
         if (! empty($filters['vulnerability_indicator'])) {
             $vuln = $filters['vulnerability_indicator'];
@@ -263,11 +237,21 @@ class ClientQueries
             });
         }
 
+        return $query;
+    }
+
+    /**
+     * Get enriched clients for business export — no IDs or system fields.
+     * Joins case info, addresses, employments, next-of-kin, and referral parties.
+     * ADMIN/CASE_MANAGER: all. AGENCY: clients on their referrals.
+     *
+     * @param  array  $filters  Optional: search, sex, client_type
+     */
+    public function getClientsExport(?User $user = null, array $filters = []): Collection
+    {
         // Safety cap — prevents memory exhaustion on unbounded exports.
         // The DataExportService should eventually support streaming for larger sets.
-        $query->limit(10000);
-
-        return $query->get()->map(function ($row) {
+        return $this->clientsExportQuery($user, $filters)->limit(10000)->get()->map(function ($row) {
             $row = (object) $row;
 
             // --- Decrypt encrypted PII fields from raw subqueries ---
@@ -340,6 +324,6 @@ class ClientQueries
 
     public function countClientsExport(?User $user = null, array $filters = []): int
     {
-        return (int) $this->getClientsExport($user, $filters)->count();
+        return (int) $this->clientsExportQuery($user, $filters)->count();
     }
 }

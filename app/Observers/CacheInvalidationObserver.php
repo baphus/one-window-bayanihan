@@ -56,6 +56,16 @@ class CacheInvalidationObserver
         $this->invalidateFor($model);
     }
 
+    /**
+     * A restored case/referral is visible again on dashboards and reports, so
+     * the same keys cleared on delete must be cleared again — Eloquent fires
+     * only `restored`, never `updated`, for a restore.
+     */
+    public function restored(Model $model): void
+    {
+        $this->invalidateFor($model);
+    }
+
     private function invalidateFor(Model $model): void
     {
         match (true) {

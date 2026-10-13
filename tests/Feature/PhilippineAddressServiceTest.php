@@ -12,7 +12,7 @@ class PhilippineAddressServiceTest extends TestCase
 
     private PhilippineAddressService $service;
 
-    /** @var string Region VII code from philippine-addresses.ts */
+    /** @var string Region VII code from philippine-addresses.json */
     private const REGION = '0700000000';
 
     protected function setUp(): void

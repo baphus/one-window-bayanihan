@@ -20,19 +20,27 @@ class CaseFile extends Model
 
     public static array $auditExclude = ['id', 'created_at', 'updated_at', 'deleted_at', 'deleted_by', 'deletion_reason'];
 
+    public const STATUS_PENDING_REVIEW = 'PENDING_REVIEW';
+
+    /** @deprecated Intake-era constants. Cases no longer carry source/client_type; kept so Phase 1b callers fail loudly at review, not silently. */
     public const CLIENT_TYPE_OFW = 'OFW';
 
+    /** @deprecated See CLIENT_TYPE_OFW. */
     public const CLIENT_TYPE_NEXT_OF_KIN = 'NEXT_OF_KIN';
 
+    /** @deprecated See CLIENT_TYPE_OFW. */
     public const CLIENT_TYPES = [
         self::CLIENT_TYPE_OFW,
         self::CLIENT_TYPE_NEXT_OF_KIN,
     ];
 
+    /** @deprecated See CLIENT_TYPE_OFW. */
     public const SOURCE_INTERNAL = 'internal';
 
+    /** @deprecated See CLIENT_TYPE_OFW. */
     public const SOURCE_SELF_FILED = 'self_filed';
 
+    /** @deprecated See CLIENT_TYPE_OFW. */
     public const SOURCES = [
         self::SOURCE_INTERNAL,
         self::SOURCE_SELF_FILED,
@@ -50,20 +58,12 @@ class CaseFile extends Model
 
     /**
      * Cases a client may access through self-service surfaces (public tracking
-     * and the OFW portal).
-     *
-     * Personnel drafts — cases staff created internally that were never
-     * published — must not be trackable or listed. Self-filed intakes also sit
-     * in DRAFT but stay visible (source self_filed) so the OFW can follow their
-     * submission through intake review. Mirrors the "unaccepted intake" rule in
-     * Client::scopeWithoutUnacceptedIntake.
+     * and the OFW portal). Anything not a personnel draft is visible —
+     * PENDING_REVIEW included so filers can follow their submission.
      */
     public function scopeClientVisible(Builder $query): Builder
     {
-        return $query->where(function (Builder $q) {
-            $q->where('status', '!=', 'DRAFT')
-                ->orWhere('source', self::SOURCE_SELF_FILED);
-        });
+        return $query->where('status', '!=', 'DRAFT');
     }
 
     /**
@@ -107,11 +107,12 @@ class CaseFile extends Model
     }
 
     /**
-     * Filter by client type (OFW / NEXT_OF_KIN tiles).
+     * Filter by client type (OFW / NEXT_OF_KIN tiles). Type lives on
+     * clients.type — cases no longer carry client_type.
      */
     public function scopeOfClientType(Builder $query, string $clientType): Builder
     {
-        return $query->where('cases.client_type', $clientType);
+        return $query->whereHas('client', fn (Builder $c) => $c->where('type', $clientType));
     }
 
     /**
@@ -130,7 +131,6 @@ class CaseFile extends Model
 
     protected $fillable = [
         'case_number',
-        'client_type',
         'vulnerability_indicator',
         'nok_vulnerability_indicator',
         'tracker_number',
@@ -142,17 +142,16 @@ class CaseFile extends Model
         'client_id',
         'category_id',
         'case_issue_id',
-        'draft_client_data',
         'deletion_reason',
-        'source',
-        'intake_reviewed_by',
+        'reviewed_by',
+        'reviewed_at',
     ];
 
     protected $casts = [
         'is_deleted' => 'boolean',
         'closed_at' => 'datetime',
         'consent_given_at' => 'datetime',
-        'draft_client_data' => 'array',
+        'reviewed_at' => 'datetime',
     ];
 
     public function user()
@@ -160,9 +159,9 @@ class CaseFile extends Model
         return $this->belongsTo(User::class);
     }
 
-    public function reviewer()
+    public function reviewedBy()
     {
-        return $this->belongsTo(User::class, 'intake_reviewed_by');
+        return $this->belongsTo(User::class, 'reviewed_by');
     }
 
     public function client()

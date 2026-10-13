@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\CaseFile;
 use App\Models\CaseNotification;
@@ -12,7 +13,6 @@ use App\Models\User;
 use App\Notifications\CaseStatusUpdated;
 use App\Notifications\CaseUpdated;
 use App\Notifications\MilestoneAdded;
-use App\Notifications\NewIntakeSubmission;
 use App\Notifications\OverdueReferralNotification;
 use App\Notifications\PeerReferralCreated;
 use App\Notifications\ReferralClientRequestActivity;
@@ -31,7 +31,7 @@ class NotificationPayloadEnrichmentTest extends TestCase
 
     public function test_every_staff_notification_payload_has_consistent_inbox_keys(): void
     {
-        $caseManager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $caseManager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $case = CaseFile::factory()->create(['user_id' => $caseManager->id]);
         $referral = Referral::factory()->create([
             'case_id' => $case->id,
@@ -44,7 +44,6 @@ class NotificationPayloadEnrichmentTest extends TestCase
             (new OverdueReferralNotification($referral, 9, 'Stu Torres'))->toDatabase($caseManager),
             (new ReferralCreated($referral, 'Stu Torres'))->toDatabase($caseManager),
             (new ReferralStatusChanged($referral, 'PENDING', 'PROCESSING', 'Stu Torres'))->toDatabase($caseManager),
-            (new NewIntakeSubmission($case, 'Juan Dela Cruz'))->toDatabase($caseManager),
             (new CaseUpdated($case, 'Stu Torres', ['summary' => ['old' => 'a', 'new' => 'b']]))->toDatabase($caseManager),
             (new CaseStatusUpdated($case, 'OPEN', 'CLOSED', 'Stu Torres'))->toDatabase($caseManager),
             (new PeerReferralCreated($referral, $referral, 'Stu Torres'))->toDatabase($caseManager),
@@ -66,12 +65,12 @@ class NotificationPayloadEnrichmentTest extends TestCase
         Notification::fake();
         Mail::fake();
 
-        $caseManager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $caseManager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $case = $this->createCase($caseManager);
         $agency = Agency::factory()->create();
         $agencyUser = User::factory()->create([
             'agcy_id' => $agency->id,
-            'role' => 'AGENCY',
+            'role' => UserRole::AGENCY->value,
             'is_active' => true,
         ]);
 
@@ -99,7 +98,7 @@ class NotificationPayloadEnrichmentTest extends TestCase
     {
         Mail::fake();
 
-        $caseManager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $caseManager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $case = $this->createCase($caseManager);
         $agency = Agency::factory()->create();
 

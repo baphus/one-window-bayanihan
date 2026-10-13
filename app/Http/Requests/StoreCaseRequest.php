@@ -2,8 +2,6 @@
 
 namespace App\Http\Requests;
 
-use App\Models\CaseFile;
-use App\Rules\ClientNotFromUnacceptedIntake;
 use App\Rules\EmploymentStartAtWorkingAge;
 use App\Rules\ServedRegion;
 use App\Rules\VulnerabilityRule;
@@ -16,7 +14,7 @@ class StoreCaseRequest extends FormRequest
     {
         $user = $this->user();
 
-        return $user !== null && ($user->isAdmin() || $user->isCaseManager());
+        return $user !== null && ($user->isAdmin() || $user->isCaseManager() || $user->isOfw());
     }
 
     protected function prepareForValidation(): void
@@ -93,9 +91,8 @@ class StoreCaseRequest extends FormRequest
 
         return [
             'is_draft' => ['nullable', 'boolean'],
-            'client_type' => [$r, 'string', Rule::in(CaseFile::CLIENT_TYPES)],
             'vulnerability_indicator' => [$r, 'string', 'max:255', new VulnerabilityRule],
-            'nok_vulnerability_indicator' => [$r === 'required' ? 'required_if:client_type,'.CaseFile::CLIENT_TYPE_NEXT_OF_KIN : 'nullable', 'string', 'max:255', new VulnerabilityRule],
+            'nok_vulnerability_indicator' => ['nullable', 'string', 'max:255', new VulnerabilityRule],
             'summary' => ['nullable', 'string', 'max:5000'],
             // Drafts may be saved before categories are selected. Published case
             // creation must contain at least one category in either format.
@@ -128,8 +125,18 @@ class StoreCaseRequest extends FormRequest
             'next_of_kin.*.nok_address.barangay' => ['required_with:next_of_kin', 'string', 'max:255'],
             'next_of_kin.*.nok_address.street' => ['nullable', 'string'],
 
-            'selected_client_id' => ['nullable', 'string', 'exists:clients,id', new ClientNotFromUnacceptedIntake],
+            'selected_client_id' => ['nullable', 'string', 'exists:clients,id'],
             'selected_nok_index' => ['nullable', 'integer', 'min:0'],
+
+            'new_ofw' => ['nullable', 'array'],
+            'new_ofw.first_name' => ['required_with:new_ofw', 'string', 'max:255'],
+            'new_ofw.last_name' => ['required_with:new_ofw', 'string', 'max:255'],
+            'new_ofw.middle_name' => ['nullable', 'string', 'max:255'],
+            'new_ofw.suffix' => ['nullable', 'string', 'max:50'],
+            'new_ofw.date_of_birth' => ['nullable', 'date'],
+            'new_ofw.sex' => ['nullable', 'string', 'max:50'],
+            'new_ofw.email' => ['nullable', 'email', 'max:255'],
+            'new_ofw.contact_number' => ['nullable', 'string', 'max:50'],
 
             'confirm_duplicate_client' => ['nullable', 'boolean'],
 

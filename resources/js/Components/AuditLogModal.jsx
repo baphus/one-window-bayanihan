@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { formatDisplayDateTime } from '@/lib/utils';
-import { ChangesList, getActivityType } from '@/lib/audit';
+import { AuditLogRow, actionStyle } from '@/lib/audit';
 
 /**
  * AuditLogModal — full-screen modal displaying paginated audit log entries
@@ -163,39 +162,14 @@ export default function AuditLogModal({ show, onClose, entityType, entityId, tit
 }
 
 /**
- * Individual audit log entry card.
+ * Individual audit log entry row (dense, shares AuditLogRow styling).
  */
 function LogEntry({ log }) {
-    const activityType = getActivityType(log.action, log.module);
-    const description = log.message || '';
-    const changes = Array.isArray(log.changes) ? log.changes : [];
-    const timestamp = log.timestamp;
-    const actor = log.actor || 'System';
-    // Human module label; falls back to the raw module only if unformatted.
-    const module = log.formatted_module || log.module || '';
-    const metaSegments = [module, timestamp && formatDisplayDateTime(timestamp), actor].filter(Boolean);
-
+    const style = actionStyle(log.action);
     return (
-        <div className="rounded-[3px] border border-slate-200 bg-slate-50 p-3">
-            {/* Activity type — uppercase blue badge */}
-            <p className="text-[11px] font-extrabold uppercase tracking-[0.1em] text-blue-900">
-                {activityType}
-            </p>
-
-            {/* Details narrative */}
-            {description && (
-                <p className="mt-1 text-[12px] text-slate-700">{description}</p>
-            )}
-
-            {/* Changes list */}
-            <ChangesList changes={changes} variant="compact" maxRows={5} />
-
-            {/* Metadata line */}
-            {metaSegments.length > 0 && (
-                <p className="mt-1 text-[10px] text-slate-500">
-                    {metaSegments.join(' • ')}
-                </p>
-            )}
+        <div className="flex gap-3 border-b border-slate-100 pb-3 last:border-b-0 last:pb-0">
+            <div className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${style.dot}`} aria-hidden="true" />
+            <AuditLogRow log={log} maxRows={3} variant="compact" />
         </div>
     );
 }

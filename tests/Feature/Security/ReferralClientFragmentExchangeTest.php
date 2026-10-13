@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Security;
 
+use App\Enums\UserRole;
 use App\Mail\ClientRequestMail;
 use App\Models\Agency;
 use App\Models\CaseFile;
@@ -87,7 +88,7 @@ class ReferralClientFragmentExchangeTest extends TestCase
         Mail::fake();
 
         for ($attempt = 1; $attempt <= 3; $attempt++) {
-            $user = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agency->id, 'is_active' => true]);
+            $user = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id, 'is_active' => true]);
             $this->actingAs($user)->post(route('referrals.client-requests.store', $referral), [
                 'type' => ReferralClientRequest::TYPE_QUESTION,
                 'title' => 'Question '.$attempt,
@@ -96,13 +97,13 @@ class ReferralClientFragmentExchangeTest extends TestCase
         }
 
         for ($attempt = 1; $attempt <= 2; $attempt++) {
-            $user = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agency->id, 'is_active' => true]);
+            $user = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id, 'is_active' => true]);
             $this->actingAs($user)
                 ->post(route('referrals.client-requests.access.reissue', $clientRequest))
                 ->assertRedirect();
         }
 
-        $sixthUser = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agency->id, 'is_active' => true]);
+        $sixthUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id, 'is_active' => true]);
         $this->actingAs($sixthUser)
             ->post(route('referrals.client-requests.store', $referral), [
                 'type' => ReferralClientRequest::TYPE_QUESTION,
@@ -125,8 +126,8 @@ class ReferralClientFragmentExchangeTest extends TestCase
     private function makeRequestContext(): array
     {
         $agency = Agency::factory()->create();
-        $agencyUser = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agency->id, 'is_active' => true]);
-        $owner = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $agencyUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id, 'is_active' => true]);
+        $owner = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $client = Client::factory()->create();
         $case = CaseFile::factory()->create(['user_id' => $owner->id, 'client_id' => $client->id]);
         $referral = Referral::factory()->create(['case_id' => $case->id, 'agcy_id' => $agency->id]);

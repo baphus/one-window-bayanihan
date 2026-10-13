@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\AuditAction;
 use App\Enums\AuditModule;
+use App\Enums\UserRole;
 use App\Events\ReferralCompleted;
 use App\Exceptions\SafeException;
 use App\Helpers\CacheHelper;
@@ -80,12 +81,14 @@ class ReferralService
     }
 
     /**
-     * Create a referral plus its uploaded case documents atomically.
+     * Create a referral plus its uploaded case documents.
      *
-     * The referral row, the stored files, and the case-document rows share one
-     * database transaction (nested service transactions join it via savepoints),
-     * so a failed upload rolls everything back. Already-stored files are
-     * deleted from object storage so no orphans remain.
+     * Object-storage uploads happen BEFORE the database transaction: storage
+     * writes cannot be rolled back, so holding row locks during upload only
+     * lengthens lock hold time without adding atomicity. The referral row and
+     * its case-document rows are committed together in one transaction. On a
+     * failed upload, already-stored files are deleted from object storage; a
+     * hard crash between upload and commit may leave orphan objects.
      *
      * @param  array<string, mixed>  $data  Validated referral attributes.
      * @param  array<int, UploadedFile>|UploadedFile|null  $files  Uploaded documents.
@@ -96,23 +99,27 @@ class ReferralService
     {
         $files = is_array($files) ? $files : ($files instanceof UploadedFile ? [$files] : []);
         $storedPaths = [];
+        $uploadResults = [];
 
         try {
-            return DB::transaction(function () use ($data, $userId, $files, $storage, &$storedPaths) {
+            foreach ($files as $file) {
+                $result = $storage->store($file, 'case-documents/'.$data['case_id']);
+
+                if (! $result->success) {
+                    throw new SafeException(
+                        'REFERRAL_DOCUMENT_UPLOAD_FAILED',
+                        $result->error ?? 'Failed to store file.',
+                    );
+                }
+
+                $storedPaths[] = $result->path;
+                $uploadResults[] = $result;
+            }
+
+            return DB::transaction(function () use ($data, $userId, $uploadResults) {
                 $referral = $this->createReferral($data, $userId);
 
-                foreach ($files as $file) {
-                    $result = $storage->store($file, 'case-documents/'.$referral->case_id);
-
-                    if (! $result->success) {
-                        throw new SafeException(
-                            'REFERRAL_DOCUMENT_UPLOAD_FAILED',
-                            $result->error ?? 'Failed to store file.',
-                        );
-                    }
-
-                    $storedPaths[] = $result->path;
-
+                foreach ($uploadResults as $result) {
                     CaseDocument::create([
                         'file_name' => $result->originalName,
                         'file_path' => $result->path,
@@ -128,8 +135,7 @@ class ReferralService
                 return $referral;
             });
         } catch (SafeException $e) {
-            // Roll back the object-storage side; the DB transaction is rolled
-            // back automatically.
+            // Remove stored objects; no DB rows were committed.
             foreach ($storedPaths as $path) {
                 $storage->delete($path);
             }
@@ -143,7 +149,7 @@ class ReferralService
         $cacheKey = self::referralStatsCacheKey($userAgencyId, $userRole, $userId);
 
         return CacheHelper::safeRemember($cacheKey, 120, function () use ($userAgencyId, $userRole) {
-            if ($userRole === 'AGENCY' && ! $userAgencyId) {
+            if ($userRole === UserRole::AGENCY->value && ! $userAgencyId) {
                 return array_fill_keys(['total_referrals', 'pending', 'processing', 'for_compliance', 'completed', 'rejected'], 0);
             }
 
@@ -151,7 +157,7 @@ class ReferralService
             $bindings = [];
 
             // AGENCY: scoped to own agency referrals. ADMIN/CASE_MANAGER: all referrals.
-            if ($userRole === 'AGENCY' && $userAgencyId) {
+            if ($userRole === UserRole::AGENCY->value && $userAgencyId) {
                 $where .= ' AND agcy_id = ?';
                 $bindings[] = $userAgencyId;
             }
@@ -205,7 +211,7 @@ class ReferralService
             // A unique, deterministic tie-breaker prevents rows moving between pages.
             ->orderBy('id', $direction);
 
-        if ($userRole === 'AGENCY') {
+        if ($userRole === UserRole::AGENCY->value) {
             if (! $userAgencyId) {
                 $query->whereRaw('1 = 0');
             } else {
@@ -603,6 +609,23 @@ class ReferralService
         $requirement->delete();
     }
 
+    /**
+     * Soft-delete a referral. CascadeSoftDeletes flags the milestones,
+     * comments, attachments, client requests and service requirements too,
+     * and AuditObserver::deleted() writes the audit entry.
+     *
+     * Completed referrals are part of the delivered-service record and can
+     * only leave the case via rejection/withdrawal semantics, not deletion.
+     */
+    public function deleteReferral(Referral $referral): void
+    {
+        if ($referral->status === 'COMPLETED') {
+            throw new \InvalidArgumentException('A completed referral cannot be deleted.');
+        }
+
+        $referral->delete();
+    }
+
     public function updateStatus(string $id, string $status, ?string $decision, ?string $decisionComment, string $userId, ?string $rejectionReason = null): Referral
     {
         $changed = false;
@@ -728,11 +751,11 @@ class ReferralService
             ))) / 86400 > ?', [$overdueDays]);
 
         match ($userRole) {
-            'ADMIN' => null,
-            'CASE_MANAGER' => $userId
+            UserRole::ADMIN->value => null,
+            UserRole::CASE_MANAGER->value => $userId
                 ? $query->whereIn('case_id', CaseFile::where('user_id', $userId)->select('id'))
                 : $query->whereRaw('1 = 0'),
-            'AGENCY' => $userAgencyId
+            UserRole::AGENCY->value => $userAgencyId
                 ? $query->where('agcy_id', $userAgencyId)
                 : $query->whereRaw('1 = 0'),
             default => $query->whereRaw('1 = 0'),
@@ -744,13 +767,13 @@ class ReferralService
     public function getOverdueReferrals(int $overdueDays = 7, ?string $userAgencyId = null, ?string $userRole = null)
     {
         $query = $this->overdueReferralsQuery(
-            userRole: $userRole ?? 'ADMIN',
+            userRole: $userRole ?? UserRole::ADMIN->value,
             userId: null,
             userAgencyId: $userAgencyId,
             overdueDays: $overdueDays,
         )->with([
             'caseFile.client',
-            'agency.users' => fn ($q) => $q->where('role', 'AGENCY')->where('is_active', true),
+            'agency.users' => fn ($q) => $q->where('role', UserRole::AGENCY->value)->where('is_active', true),
         ]);
 
         return $query->orderBy('created_at')->paginate(15);
@@ -767,7 +790,7 @@ class ReferralService
         $query = $this->overdueReferralsQuery($userRole, $userId, $userAgencyId, $overdueDays)
             ->with([
                 'caseFile.client',
-                'agency.users' => fn ($q) => $q->where('role', 'AGENCY')->where('is_active', true),
+                'agency.users' => fn ($q) => $q->where('role', UserRole::AGENCY->value)->where('is_active', true),
             ]);
 
         $this->applyOverdueFilters($query, $filters);

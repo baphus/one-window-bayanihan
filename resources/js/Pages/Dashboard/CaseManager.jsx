@@ -385,10 +385,6 @@ function NotificationsBlock() {
         safeRoute('notifications.index', { per_page: 20 }, '/notifications?per_page=20'),
     );
 
-    const { data: unreadData, reload: reloadUnread } = useJsonPoll(
-        safeRoute('notifications.unread-count', undefined, '/notifications/unread-count'),
-    );
-
     const [marking, setMarking] = useState(false);
 
     const markRead = async (rawId) => {
@@ -403,14 +399,16 @@ function NotificationsBlock() {
             });
             if (!res.ok) throw new Error(`Failed to mark as read: ${res.status}`);
             await res.json();
-            await Promise.all([reloadList(), reloadUnread()]);
+            await reloadList();
         } finally {
             setMarking(false);
         }
     };
 
     const items = safeArray(notifData?.data).map((row) => normalizeNotification(row)).slice(0, 5);
-    const unreadCount = Number(unreadData?.count ?? items.filter((item) => !item.is_read).length);
+    // The list endpoint already reports the unread count in meta — the
+    // client-side count is only a fallback.
+    const unreadCount = Number(notifData?.meta?.unread ?? items.filter((item) => !item.is_read).length);
 
     return (
         <SectionCard
@@ -556,10 +554,10 @@ function NeedsYouBlock({ dashboard }) {
     );
 }
 
-function IntakeQueueBlock({ dashboard }) {
-    const intakes = useMemo(
+function PendingReviews({ dashboard }) {
+    const items = useMemo(
         () =>
-            safeArray(dashboard?.intakeReview)
+            safeArray(dashboard?.pendingReviews ?? dashboard?.intakeReview)
                 .slice()
                 .sort(
                     (a, b) =>
@@ -568,39 +566,38 @@ function IntakeQueueBlock({ dashboard }) {
                 .slice(0, 5),
         [dashboard],
     );
+    const count = dashboard?.pendingReviewCount ?? dashboard?.reviewQueueCount ?? items.length;
+    const listHref = safeRoute('cases.review-pending', undefined, '/cases/review-pending');
     const columns = [
         { key: 'trackingId', label: 'Tracking ID' },
         { key: 'client', label: 'Client' },
-        { key: 'source', label: 'Source' },
         { key: 'filed', label: 'Filed' },
         { key: 'status', label: 'Status' },
         { key: 'action', label: '', className: 'text-right', cellClassName: 'text-right' },
     ];
-    const rows = intakes.map((item) => {
+    const rows = items.map((item) => {
         const id = item.id;
         const filed = createdAtOf(item);
-        const isPortal = pick(item.source, item.channel) === 'self_filed';
-        const href = safeRoute('cases.review-intake', id, `/cases/${id}/review-intake`);
+        const href = item.href && typeof item.href === 'string' && item.href.length > 0 ? item.href : listHref;
 
         return {
             key: id,
-            trackingId: <Link href={href} className="font-bold text-primary hover:text-primary-container">{pick(item.trackerNumber, item.tracker_number, item.caseNo, item.case_number)}</Link>,
+            trackingId: <Link href={href} className="font-bold text-primary hover:text-primary-container">{pick(item.trackerNumber, item.tracker_number, item.caseNo, item.case_number, '—')}</Link>,
             client: <span className="font-semibold text-slate-900">{pick(item.clientName, item.client_name, 'Unnamed client')}</span>,
-            source: isPortal ? 'Portal' : 'Draft',
             filed: filed ? formatDisplayDate(String(filed)) : '—',
-            status: <StatusBadge status={pick(item.status, 'DRAFT')} label={humanizeStatus(pick(item.status, 'DRAFT'))} />,
+            status: <StatusBadge status={pick(item.status, 'PENDING_REVIEW')} label={humanizeStatus(pick(item.status, 'PENDING_REVIEW'))} />,
             action: <Link href={href} className="font-bold text-primary hover:text-primary-container">Review</Link>,
         };
     });
 
     return (
         <SectionCard
-            title="Intake Queue"
-            dataTour="dashboard-intake-queue"
-            action={<ViewAllLink href={safeRoute('cases.intake-queue', undefined, '/cases/intake-queue')}>View all</ViewAllLink>}
+            title={count > 0 ? `Pending Reviews (${formatCount(count)})` : 'Pending Reviews'}
+            dataTour="dashboard-pending-reviews"
+            action={<ViewAllLink href={listHref}>View all</ViewAllLink>}
             bodyClassName=""
         >
-            <DashboardTable columns={columns} rows={rows} empty={<EmptyState message="No pending intakes." />} />
+            <DashboardTable columns={columns} rows={rows} empty={<EmptyState message="No filings waiting for review." />} />
         </SectionCard>
     );
 }
@@ -822,7 +819,7 @@ export default function CaseManagerDashboard({ dashboard = {} }) {
             <div className="grid gap-6 xl:grid-cols-12">
                 <div className="space-y-6 xl:col-span-7">
                     <NotificationsBlock />
-                    <IntakeQueueBlock dashboard={dashboard} />
+                    <PendingReviews dashboard={dashboard} />
                     <ReferralNewsBlock dashboard={dashboard} />
                 </div>
 

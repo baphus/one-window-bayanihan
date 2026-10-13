@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\AuditLog;
 use App\Models\Milestone;
@@ -93,7 +94,7 @@ class AuditLogFormatterComprehensiveTest extends TestCase
             // ---- CREATE: Case ----
             'CREATE / case_files (auto-observer)' => [
                 'CREATE', 'case_files', null, ['case_number' => 'CASE-20260702-0001', 'client_type' => 'OFW', 'summary' => 'Test case'],
-                ['opened', 'CASE-20260702-0001', 'OFW'],
+                ['opened', 'CASE-20260702-0001', UserRole::OFW->value],
             ],
             'CREATE / case (singular module)' => [
                 'CREATE', 'case', null, ['case_number' => 'CASE-20260702-0002', 'client_type' => 'NON-OFW'],
@@ -131,9 +132,9 @@ class AuditLogFormatterComprehensiveTest extends TestCase
 
             // ---- CREATE: User ----
             'CREATE / user (with role)' => [
-                'CREATE', 'user', null, ['name' => 'Juan Dela Cruz', 'role' => 'CASE_MANAGER'],
+                'CREATE', 'user', null, ['name' => 'Juan Dela Cruz', 'role' => UserRole::CASE_MANAGER->value],
                 ['Juan Dela Cruz', 'registered as', 'Case Manager'],
-                ['CASE_MANAGER', 'role'], // Must format role as human-readable
+                [UserRole::CASE_MANAGER->value, 'role'], // Must format role as human-readable
             ],
 
             // ---- CREATE: Service ----
@@ -513,7 +514,6 @@ class AuditLogFormatterComprehensiveTest extends TestCase
             'escalation_reason' => ['escalation_reason', 'escalation reason'],
             'category_id' => ['category_id', 'category'],
             'case_issue_id' => ['case_issue_id', 'case issue'],
-            'draft_client_data' => ['draft_client_data', 'draft client data'],
 
             // Client fields
             'first_name' => ['first_name', 'first name'],
@@ -575,9 +575,9 @@ class AuditLogFormatterComprehensiveTest extends TestCase
             'status FOR_COMPLIANCE' => ['case_files', 'status', 'FOR_COMPLIANCE', 'For Compliance'],
 
             // Roles
-            'role CASE_MANAGER' => ['users', 'role', 'CASE_MANAGER', 'Case Manager'],
-            'role AGENCY' => ['users', 'role', 'AGENCY', 'Agency Focal'],
-            'role ADMIN' => ['users', 'role', 'ADMIN', 'System Admin'],
+            'role CASE_MANAGER' => ['users', 'role', UserRole::CASE_MANAGER->value, 'Case Manager'],
+            'role AGENCY' => ['users', 'role', UserRole::AGENCY->value, 'Agency Focal'],
+            'role ADMIN' => ['users', 'role', UserRole::ADMIN->value, 'System Admin'],
 
             // Client types
             'client_type OFW' => ['clients', 'client_type', 'OFW', 'OFW'],
@@ -791,11 +791,10 @@ class AuditLogFormatterComprehensiveTest extends TestCase
 
     public function test_publish_audit_shows_meaningful_changes_only(): void
     {
-        // Simulate what publishDraft() now produces: old (draft) vs new (published)
+        // Simulate what approveCase() now produces: old (pending) vs new (open)
         $old = [
-            'status' => 'DRAFT',
-            'summary' => 'Test case for client — DRAFT',
-            'client_type' => 'NON-OFW',
+            'status' => 'PENDING_REVIEW',
+            'summary' => 'Test case for client',
             'case_number' => 'CASE-20260702-0006',
             'tracker_number' => 'OWBAP-KCNHW6UO',
             'user_id' => '754da30c-3bd9-4a40-844b-2abea1b3b733',
@@ -808,20 +807,18 @@ class AuditLogFormatterComprehensiveTest extends TestCase
             'vulnerability_indicator' => null,
             'nok_vulnerability_indicator' => null,
             'is_deleted' => false,
-            'draft_client_data' => ['first_name' => 'Maria', 'last_name' => 'Santos'],
         ];
 
         $new = array_merge($old, [
             'status' => 'OPEN',
             'client_id' => 'd31e0a57-85f4-4f17-9b34-7699c787dfea',
             'consent_given_at' => '2026-07-03T00:00:00.000000Z',
-            'draft_client_data' => null,
         ]);
 
         $log = new AuditLog([
             'action' => 'PUBLISH',
             'module' => 'CASE',
-            'description' => 'Case CASE-20260702-0006 published — Test case for client — DRAFT',
+            'description' => 'Case CASE-20260702-0006 approved',
             'old_value' => $old,
             'new_value' => $new,
             'user_id' => null,
@@ -833,7 +830,7 @@ class AuditLogFormatterComprehensiveTest extends TestCase
 
         // Message should be clean: the description
         $this->assertStringContainsString('CASE-20260702-0006', $description);
-        $this->assertStringContainsString('published', $description);
+        $this->assertStringContainsString('approved', $description);
 
         // The changes should only show what actually changed
         $changes = $display['changes'];
@@ -844,7 +841,7 @@ class AuditLogFormatterComprehensiveTest extends TestCase
         $statusChanges = array_values(array_filter($changes, fn ($c) => $c['fieldLabel'] === 'status'));
         $this->assertNotEmpty($statusChanges);
         $this->assertStringContainsString('Open', $statusChanges[0]['new']);
-        $this->assertStringContainsString('Draft', $statusChanges[0]['old']);
+        $this->assertStringContainsString('PENDING_REVIEW', $statusChanges[0]['old']);
 
         // client_id change is meaningful
         $this->assertContains('client id', $fieldLabels);
@@ -856,8 +853,6 @@ class AuditLogFormatterComprehensiveTest extends TestCase
             'Tracker number did not change; changes should not mention it');
         $this->assertNotContains('case number', $fieldLabels,
             'Case number did not change; changes should not mention it');
-        $this->assertNotContains('client type', $fieldLabels,
-            'Client type did not change; changes should not mention it');
 
         // No UUIDs in the output (they're already in old/new values but formatFieldValue won't resolve them)
         // Actually UUIDs may appear because formatFieldValue just returns the raw string value for UUID columns
@@ -867,7 +862,7 @@ class AuditLogFormatterComprehensiveTest extends TestCase
 
     public function test_publish_audit_response_surfaces_new_publish_payload_fields(): void
     {
-        // The enriched PUBLISH payload produced by CaseService::publishDraft():
+        // The PUBLISH payload produced by CaseService::approveCase():
         // a single entry carrying case number, client details and case details.
         $log = AuditLog::create([
             'action' => 'PUBLISH',
@@ -920,8 +915,13 @@ class AuditLogFormatterComprehensiveTest extends TestCase
         $this->assertStringContainsString('Contract Dispute', $byField['category_names']['new']);
         $this->assertStringContainsString('Wage Claim', $byField['category_names']['new']);
 
-        $this->assertSame('client', $byField['client']['fieldLabel']);
-        $this->assertSame('Juan M. Dela Cruz Jr.', $byField['client']['new']);
+        // Non-admin safe path never surfaces the client snapshot full name.
+        $this->assertArrayNotHasKey('client', $byField);
+
+        // Admin path still surfaces the client snapshot full name.
+        $adminByField = collect($this->formatter->formatForAuditResponse($log, true)['changes'])->keyBy('field');
+        $this->assertSame('client', $adminByField['client']['fieldLabel']);
+        $this->assertSame('Juan M. Dela Cruz Jr.', $adminByField['client']['new']);
 
         $this->assertSame('next of kin count', $byField['next_of_kin_count']['fieldLabel']);
         $this->assertSame('2', $byField['next_of_kin_count']['new']);
@@ -1179,5 +1179,86 @@ class AuditLogFormatterComprehensiveTest extends TestCase
         // Should use the snapshot, not the live title
         $this->assertStringContainsString('Snapshot Label', $response['message']);
         $this->assertStringContainsString("Milestone 'Snapshot Label'", $response['message']);
+    }
+
+    // ========================================================================
+    //  TEST SUITE 11: Admin vs non-admin audit response
+    // ========================================================================
+
+    public function test_admin_publish_response_shows_case_number_and_client(): void
+    {
+        $log = new AuditLog([
+            'action' => 'PUBLISH',
+            'module' => 'CASE',
+            'entity_id' => 'd31e0a57-85f4-4f17-9b34-7699c787dfea',
+            'entity_label' => 'CASE-2026-00001',
+            'old_value' => ['status' => 'DRAFT'],
+            'new_value' => [
+                'case_number' => 'CASE-2026-00001',
+                'status' => 'OPEN',
+                'summary' => 'Contract dispute filed by the client',
+                'category_names' => ['Contract Dispute', 'Wage Claim'],
+                'case_issue' => 'Contract Dispute',
+                'client' => [
+                    'first_name' => 'Juan',
+                    'middle_name' => 'M.',
+                    'last_name' => 'Dela Cruz',
+                    'suffix' => 'Jr.',
+                ],
+            ],
+            'user_id' => null,
+            'timestamp' => now(),
+        ]);
+
+        $response = $this->formatter->formatForAuditResponse($log, true);
+
+        $this->assertStringContainsString('CASE-2026-00001', $response['message']);
+        $this->assertStringContainsString('Juan M. Dela Cruz Jr.', $response['message']);
+        $this->assertStringContainsString('Contract Dispute', $response['message']);
+        // Free text must never leak raw into the message
+        $this->assertStringNotContainsString('Contract dispute filed by the client', $response['message']);
+    }
+
+    public function test_admin_update_response_shows_old_and_new(): void
+    {
+        $log = new AuditLog([
+            'action' => 'UPDATE',
+            'module' => 'case',
+            'old_value' => ['status' => 'OPEN'],
+            'new_value' => ['status' => 'CLOSED'],
+            'user_id' => null,
+            'timestamp' => now(),
+        ]);
+
+        $response = $this->formatter->formatForAuditResponse($log, true);
+
+        $this->assertNotEmpty($response['changes']);
+        $change = collect($response['changes'])->firstWhere('field', 'status');
+        $this->assertNotNull($change);
+        $this->assertArrayHasKey('old', $change);
+        $this->assertArrayHasKey('new', $change);
+        $this->assertSame('Open', $change['old']);
+        $this->assertSame('Closed', $change['new']);
+    }
+
+    public function test_non_admin_response_stays_after_only(): void
+    {
+        $log = new AuditLog([
+            'action' => 'UPDATE',
+            'module' => 'case',
+            'old_value' => ['status' => 'OPEN'],
+            'new_value' => ['status' => 'CLOSED'],
+            'user_id' => null,
+            'timestamp' => now(),
+        ]);
+
+        $response = $this->formatter->formatForAuditResponse($log);
+
+        $this->assertNotEmpty($response['changes']);
+        $change = collect($response['changes'])->firstWhere('field', 'status');
+        $this->assertNotNull($change);
+        $this->assertArrayNotHasKey('old', $change);
+        $this->assertArrayHasKey('new', $change);
+        $this->assertSame('Closed', $change['new']);
     }
 }

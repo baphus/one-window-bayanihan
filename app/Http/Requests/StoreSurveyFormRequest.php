@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Enums\UserRole;
 use App\Models\SurveyQuestion;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -12,7 +13,7 @@ class StoreSurveyFormRequest extends FormRequest
     {
         $user = $this->user();
 
-        return $user !== null && $user->role === 'AGENCY' && $user->agcy_id !== null;
+        return $user !== null && $user->role === UserRole::AGENCY->value && $user->agcy_id !== null;
     }
 
     public function rules(): array

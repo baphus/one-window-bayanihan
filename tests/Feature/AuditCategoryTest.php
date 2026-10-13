@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Models\AuditLog;
 use App\Models\CaseCategory;
 use App\Models\User;
@@ -27,7 +28,7 @@ class AuditCategoryTest extends TestCase
 
     public function test_business_entity_change_by_a_user_is_stamped_data(): void
     {
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $this->actingAs($user);
 
         $entry = AuditLog::create([
@@ -44,7 +45,7 @@ class AuditCategoryTest extends TestCase
 
     public function test_configuration_change_by_a_user_is_stamped_admin(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
 
         $entry = AuditLog::create([
             'action' => 'CREATE',

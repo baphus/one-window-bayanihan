@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\UserRole;
 use App\Models\CaseEvent;
 use App\Models\CaseFile;
 use App\Models\Milestone;
@@ -126,8 +127,8 @@ class CaseEventRecorder
         }
 
         return match (User::find($userId)?->role) {
-            'AGENCY' => 'agency',
-            'CASE_MANAGER', 'ADMIN' => 'case_manager',
+            UserRole::AGENCY->value => 'agency',
+            UserRole::CASE_MANAGER->value, UserRole::ADMIN->value => 'case_manager',
             default => 'system',
         };
     }

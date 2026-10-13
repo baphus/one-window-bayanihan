@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Ai\Agents\HelpdeskAgent;
 use App\Ai\Tools\ReadHelpdeskArticle;
 use App\Ai\Tools\SearchHelpdesk;
+use App\Enums\UserRole;
 use App\Services\Chatbot\ChatbotAudience;
 use App\Services\Chatbot\ChatbotConversationService;
 use App\Services\Chatbot\ChatbotHelpdeskService;
@@ -61,7 +62,7 @@ class ChatbotAgentTest extends TestCase
         $this->assertSame([], $turn->metrics()['evidence_ids']);
         $read = new ReadHelpdeskArticle($knowledge, $public, $turn);
         foreach (['getting-started-system-admin', '../config', 'getting-started-case-managers'] as $slug) {
-            $result = json_decode($read->handle(new Request(['slug' => $slug, 'sections' => [], 'audience' => 'ADMIN'])), true);
+            $result = json_decode($read->handle(new Request(['slug' => $slug, 'sections' => [], 'audience' => UserRole::ADMIN->value])), true);
             $this->assertSame('not_found', $result['status']);
         }
         $this->assertSame([], $turn->metrics()['evidence_ids']);
@@ -70,7 +71,7 @@ class ChatbotAgentTest extends TestCase
     public function test_role_scopes_are_independent(): void
     {
         $knowledge = app(ChatbotKnowledge::class);
-        foreach (['CASE_MANAGER' => 'getting-started-case-managers', 'AGENCY' => 'getting-started-agency-focal', 'ADMIN' => 'getting-started-system-admin'] as $role => $slug) {
+        foreach ([UserRole::CASE_MANAGER->value => 'getting-started-case-managers', UserRole::AGENCY->value => 'getting-started-agency-focal', UserRole::ADMIN->value => 'getting-started-system-admin'] as $role => $slug) {
             $this->assertArrayHasKey($slug, $knowledge->articles(new ChatbotAudience($role)));
             $this->assertArrayNotHasKey($slug, $knowledge->articles(new ChatbotAudience('UNKNOWN')));
         }

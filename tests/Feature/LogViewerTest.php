@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\User;
 use App\Services\LogViewerService;
@@ -20,7 +21,7 @@ class LogViewerTest extends TestCase
     {
         parent::setUp();
         $this->withoutMiddleware(HandleInertiaRequests::class);
-        $this->user = User::factory()->create(['role' => 'ADMIN']);
+        $this->user = User::factory()->create(['role' => UserRole::ADMIN->value]);
 
         // Clean test log files between tests (both daily and single file)
         foreach (array_merge(glob(storage_path('logs/laravel-*.log')), glob(storage_path('logs/laravel.log'))) as $file) {

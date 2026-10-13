@@ -18,7 +18,7 @@ class PasswordComplexityTest extends TestCase
             'password_confirmation' => 'password123',
         ]);
 
-        $response->assertNotFound();
+        $response->assertSessionHasErrors('password');
     }
 
     public function test_registration_accepts_complex_password(): void
@@ -30,18 +30,18 @@ class PasswordComplexityTest extends TestCase
             'password_confirmation' => 'P@ssw0rd!',
         ]);
 
-        $response->assertNotFound();
+        $response->assertSessionDoesntHaveErrors('password');
     }
 
-    public function test_registration_rejects_password_without_symbol(): void
+    public function test_registration_rejects_password_without_uppercase(): void
     {
         $response = $this->post('/register', [
             'name' => 'Test User',
             'email' => 'test3@example.com',
-            'password' => 'Password1',
-            'password_confirmation' => 'Password1',
+            'password' => 'password1',
+            'password_confirmation' => 'password1',
         ]);
 
-        $response->assertNotFound();
+        $response->assertSessionHasErrors('password');
     }
 }

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\CaseFile;
 use App\Models\Client;
@@ -14,6 +15,7 @@ use App\Services\Reports\ReportsExportService;
 use App\Services\ReportsService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -31,8 +33,8 @@ class ReportsExportTest extends TestCase
     {
         parent::setUp();
 
-        $this->manager = User::factory()->create(['role' => 'CASE_MANAGER']);
-        $this->otherManager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $this->manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $this->otherManager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $this->agency = Agency::factory()->create();
     }
 
@@ -46,7 +48,10 @@ class ReportsExportTest extends TestCase
 
     private function makeCaseWithReferral(User $manager, ?string $province = null): CaseFile
     {
-        $client = Client::factory()->create();
+        // publishedOnly requires user_id; clients created without linked accounts
+        // are excluded from exports intentionally (same rule as ClientController).
+        $clientUser = User::factory()->create();
+        $client = Client::factory()->create(['user_id' => $clientUser->id]);
         if ($province) {
             ClientAddress::create([
                 'client_id' => $client->id,
@@ -69,7 +74,7 @@ class ReportsExportTest extends TestCase
         $this->makeCaseWithReferral($this->manager);
         $this->makeCaseWithReferral($this->otherManager);
 
-        $report = app(ReportsService::class)->getAll(userId: $this->manager->id, role: 'CASE_MANAGER');
+        $report = app(ReportsService::class)->getAll(userId: $this->manager->id, role: UserRole::CASE_MANAGER->value);
         $payload = $this->payloadFor($this->manager);
 
         // Export figures are the exact same computed dataset as the screen.
@@ -121,7 +126,7 @@ class ReportsExportTest extends TestCase
     #[Test]
     public function public_report_pdf_and_xlsx_endpoints_include_all_data_for_case_managers(): void
     {
-        $other = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $other = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $mine = $this->makeCaseWithReferral($this->manager);
         $theirs = $this->makeCaseWithReferral($other);
 
@@ -154,7 +159,7 @@ class ReportsExportTest extends TestCase
     #[Test]
     public function all_client_case_and_referral_workbooks_have_decrypted_employment_fields_and_unscoped_case_manager(): void
     {
-        $other = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $other = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $owned = $this->makeCaseWithReferral($this->manager);
         $otherCase = $this->makeCaseWithReferral($other);
 
@@ -172,7 +177,14 @@ class ReportsExportTest extends TestCase
         $queries = new DataExportQueries;
 
         foreach (['getCasesExport', 'getClientsExport', 'getReferralsExport'] as $method) {
+            // Set RLS context for $this->manager
+            DB::statement('SELECT set_config(?, ?, ?)', ['app.current_user_id', $this->manager->id, false]);
+            DB::statement('SELECT set_config(?, ?, ?)', ['app.user_role', UserRole::CASE_MANAGER->value, false]);
             $ownedData = $queries->$method($this->manager, []);
+
+            // Set RLS context for $other
+            DB::statement('SELECT set_config(?, ?, ?)', ['app.current_user_id', $other->id, false]);
+            DB::statement('SELECT set_config(?, ?, ?)', ['app.user_role', UserRole::CASE_MANAGER->value, false]);
             $otherData = $queries->$method($other, []);
 
             $ownedJson = json_encode($ownedData->toArray());
@@ -190,7 +202,7 @@ class ReportsExportTest extends TestCase
     #[Test]
     public function admin_full_data_export_includes_a_decrypted_client_employments_workbook(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $client = Client::factory()->create();
         ClientEmployment::create([
             'client_id' => $client->id,
@@ -207,6 +219,9 @@ class ReportsExportTest extends TestCase
 
         // Verify employment data via the queries layer directly
         $queries = new DataExportQueries;
+        // Set RLS session vars so admin sees all rows
+        DB::statement('SELECT set_config(?, ?, ?)', ['app.current_user_id', $admin->id, false]);
+        DB::statement('SELECT set_config(?, ?, ?)', ['app.user_role', UserRole::ADMIN->value, false]);
         $employments = $queries->getClientEmployments($admin);
         $json = json_encode($employments->toArray());
 

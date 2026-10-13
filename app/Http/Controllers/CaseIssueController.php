@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\UserRole;
 use App\Models\CaseIssue;
 use Illuminate\Http\Request;
 
@@ -10,7 +11,7 @@ class CaseIssueController extends Controller
     public function quickStore(Request $request)
     {
         $user = $request->user();
-        abort_unless(in_array($user->role, ['ADMIN', 'CASE_MANAGER']), 403, 'Only administrators and case managers can create case issues.');
+        abort_unless(in_array($user->role, [UserRole::ADMIN->value, UserRole::CASE_MANAGER->value]), 403, 'Only administrators and case managers can create case issues.');
 
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:case_issues,name',

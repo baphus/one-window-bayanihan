@@ -1,9 +1,11 @@
 import { useMemo } from 'react';
 import KpiCard from '@/Components/ui/KpiCard';
 import { useLazyProp } from '@/Hooks/useLazyProp';
+import { usePage } from '@inertiajs/react';
 
 export default function TopServiceRequestedCard({ role }) {
   const [data, isLoading] = useLazyProp('mostRequestedService');
+  const roles = usePage().props.roles;
 
   const { value, count } = useMemo(() => {
     const name = data?.name;
@@ -16,13 +18,20 @@ export default function TopServiceRequestedCard({ role }) {
     };
   }, [data]);
 
-  if (role && role !== 'CASE_MANAGER') return null;
+  if (role && role !== roles.CASE_MANAGER) return null;
+
+  const agency = data?.agency;
+  const description = isLoading
+    ? 'Loading most active service…'
+    : agency && agency !== 'N/A'
+      ? `from ${agency}`
+      : null;
 
   return (
     <KpiCard
-      title="Top Service Requested"
+      title="Most Active Service"
       value={isLoading ? '—' : value}
-      description={isLoading ? 'Loading top service…' : null}
+      description={description}
       trailing={!isLoading && count > 0 ? <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">{count} requests this period</span> : null}
     />
   );

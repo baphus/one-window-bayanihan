@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Enums\UserRole;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateAdminUserRequest extends FormRequest
@@ -16,7 +17,7 @@ class UpdateAdminUserRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'unique:users,email,'.$this->route('user', $this->route('id'))],
-            'role' => ['required', 'in:ADMIN,AGENCY,CASE_MANAGER'],
+            'role' => ['required', 'in:'.implode(',', UserRole::staffValues())],
             'agcy_id' => ['nullable', 'exists:agencies,id'],
             'contact_number' => ['nullable', 'string'],
             'position' => ['nullable', 'string', 'max:255'],

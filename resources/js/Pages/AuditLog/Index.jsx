@@ -68,7 +68,7 @@ function ExportDialog({ open, onClose, filterValues, defaultDays, maxDays }) {
     }
 
     const params = new URLSearchParams();
-    ['action', 'module', 'category', 'user_id', 'search'].forEach((key) => {
+    ['action', 'module', 'category', 'user_id', 'role', 'has_changes', 'search'].forEach((key) => {
       if (filterValues?.[key]) params.set(key, filterValues[key]);
     });
     params.set('date_from', dateFrom);
@@ -160,7 +160,7 @@ export default function AuditLogIndex({
 
   const handleFilterChange = useCallback((filters) => {
     const url = new URL(window.location);
-    const filterKeys = ['action', 'module', 'category', 'user_id', 'date_from', 'date_to', 'search', 'per_page', 'page', 'cursor'];
+    const filterKeys = ['action', 'module', 'category', 'user_id', 'role', 'has_changes', 'date_from', 'date_to', 'search', 'per_page', 'page', 'cursor'];
     filterKeys.forEach(k => url.searchParams.delete(k));
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== '' && value !== null && value !== undefined) {
@@ -230,6 +230,7 @@ export default function AuditLogIndex({
             activeCategories={activeCategories ?? []}
             filterValues={filterValues ?? {}}
             onFilterChange={handleFilterChange}
+            isScoped={isScoped}
             pagination={pagination}
             onPageChange={handlePageChange}
           />

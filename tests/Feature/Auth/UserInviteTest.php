@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Auth;
 
+use App\Enums\UserRole;
 use App\Mail\UserInviteMail;
 use App\Models\Agency;
 use App\Models\User;
@@ -25,7 +26,7 @@ class UserInviteTest extends TestCase
         Mail::fake();
 
         $this->agency = Agency::factory()->create();
-        $this->admin = User::factory()->create(['role' => 'ADMIN']);
+        $this->admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
     }
 
     public function test_admin_can_send_invite(): void
@@ -33,7 +34,7 @@ class UserInviteTest extends TestCase
         $response = $this->actingAs($this->admin)
             ->post(route('admin.users.invite'), [
                 'email' => 'newuser@example.com',
-                'role' => 'CASE_MANAGER',
+                'role' => UserRole::CASE_MANAGER->value,
                 'agcy_id' => $this->agency->id,
             ]);
 
@@ -42,7 +43,7 @@ class UserInviteTest extends TestCase
 
         $this->assertDatabaseHas('user_invites', [
             'email' => 'newuser@example.com',
-            'role' => 'CASE_MANAGER',
+            'role' => UserRole::CASE_MANAGER->value,
             'agcy_id' => $this->agency->id,
             'created_by' => $this->admin->id,
             'consumed_at' => null,
@@ -57,7 +58,7 @@ class UserInviteTest extends TestCase
         $this->actingAs($this->admin)
             ->post(route('admin.users.invite'), [
                 'email' => 'hashed@example.com',
-                'role' => 'CASE_MANAGER',
+                'role' => UserRole::CASE_MANAGER->value,
                 'agcy_id' => $this->agency->id,
             ]);
 
@@ -78,7 +79,7 @@ class UserInviteTest extends TestCase
         $response = $this->actingAs($this->admin)
             ->post(route('admin.users.invite'), [
                 'email' => 'existing@example.com',
-                'role' => 'CASE_MANAGER',
+                'role' => UserRole::CASE_MANAGER->value,
                 'agcy_id' => $this->agency->id,
             ]);
 
@@ -92,7 +93,7 @@ class UserInviteTest extends TestCase
     {
         UserInvite::create([
             'email' => 'pending@example.com',
-            'role' => 'CASE_MANAGER',
+            'role' => UserRole::CASE_MANAGER->value,
             'agcy_id' => $this->agency->id,
             'token_hash' => hash('sha256', 'existing-token'),
             'expires_at' => now()->addDays(7),
@@ -102,7 +103,7 @@ class UserInviteTest extends TestCase
         $response = $this->actingAs($this->admin)
             ->post(route('admin.users.invite'), [
                 'email' => 'pending@example.com',
-                'role' => 'CASE_MANAGER',
+                'role' => UserRole::CASE_MANAGER->value,
                 'agcy_id' => $this->agency->id,
             ]);
 
@@ -114,7 +115,7 @@ class UserInviteTest extends TestCase
     {
         $invite = UserInvite::create([
             'email' => 'resend@example.com',
-            'role' => 'CASE_MANAGER',
+            'role' => UserRole::CASE_MANAGER->value,
             'agcy_id' => $this->agency->id,
             'token_hash' => hash('sha256', 'original-token'),
             'expires_at' => now()->addDays(7),
@@ -152,7 +153,7 @@ class UserInviteTest extends TestCase
     {
         $invite = UserInvite::create([
             'email' => 'consumed@example.com',
-            'role' => 'CASE_MANAGER',
+            'role' => UserRole::CASE_MANAGER->value,
             'agcy_id' => $this->agency->id,
             'token_hash' => hash('sha256', 'consumed-token'),
             'expires_at' => now()->addDays(7),
@@ -171,7 +172,7 @@ class UserInviteTest extends TestCase
     {
         $invite = UserInvite::create([
             'email' => 'cancel@example.com',
-            'role' => 'CASE_MANAGER',
+            'role' => UserRole::CASE_MANAGER->value,
             'agcy_id' => $this->agency->id,
             'token_hash' => hash('sha256', 'cancel-token'),
             'expires_at' => now()->addDays(7),
@@ -192,7 +193,7 @@ class UserInviteTest extends TestCase
     {
         $invite = UserInvite::create([
             'email' => 'already-consumed@example.com',
-            'role' => 'CASE_MANAGER',
+            'role' => UserRole::CASE_MANAGER->value,
             'agcy_id' => $this->agency->id,
             'token_hash' => hash('sha256', 'consumed-token-2'),
             'expires_at' => now()->addDays(7),
@@ -212,7 +213,7 @@ class UserInviteTest extends TestCase
         $rawToken = 'registration-token-123';
         $invite = UserInvite::create([
             'email' => 'register-via@example.com',
-            'role' => 'CASE_MANAGER',
+            'role' => UserRole::CASE_MANAGER->value,
             'agcy_id' => $this->agency->id,
             'token_hash' => hash('sha256', $rawToken),
             'expires_at' => now()->addDays(7),
@@ -240,7 +241,7 @@ class UserInviteTest extends TestCase
         $this->assertDatabaseHas('users', [
             'email' => 'register-via@example.com',
             'name' => 'New Invited User',
-            'role' => 'CASE_MANAGER',
+            'role' => UserRole::CASE_MANAGER->value,
             'agcy_id' => $this->agency->id,
             'position' => 'Case Worker',
             'department' => 'Field Operations',
@@ -262,7 +263,7 @@ class UserInviteTest extends TestCase
         $rawToken = 'expired-token';
         $invite = UserInvite::create([
             'email' => 'expired@example.com',
-            'role' => 'CASE_MANAGER',
+            'role' => UserRole::CASE_MANAGER->value,
             'agcy_id' => $this->agency->id,
             'token_hash' => hash('sha256', $rawToken),
             'expires_at' => now()->subDay(),
@@ -285,7 +286,7 @@ class UserInviteTest extends TestCase
     {
         $response = $this->post(route('admin.users.invite'), [
             'email' => 'test@example.com',
-            'role' => 'CASE_MANAGER',
+            'role' => UserRole::CASE_MANAGER->value,
         ]);
 
         $response->assertRedirect(route('login'));
@@ -293,12 +294,12 @@ class UserInviteTest extends TestCase
 
     public function test_non_admin_cannot_send_invite(): void
     {
-        $caseManager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $caseManager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         $response = $this->actingAs($caseManager)
             ->post(route('admin.users.invite'), [
                 'email' => 'newuser@example.com',
-                'role' => 'CASE_MANAGER',
+                'role' => UserRole::CASE_MANAGER->value,
                 'agcy_id' => $this->agency->id,
             ]);
 

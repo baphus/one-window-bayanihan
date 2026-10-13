@@ -45,8 +45,8 @@ const COLUMN_DEFS = [
 ];
 
 export default function AdminUserIndex({ users, filters, stats, agencies = [], pendingInvites = [] }) {
-  const { auth } = usePage().props;
-  const isAdmin = auth.user.role === 'ADMIN';
+  const { auth, roles } = usePage().props;
+  const isAdmin = auth.user.role === roles.ADMIN;
 
   const [showForm, setShowForm] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
@@ -410,9 +410,9 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [], p
           className="w-full border border-slate-200 rounded-md px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
         >
           <option value="">All Roles</option>
-          <option value="CASE_MANAGER">Case Manager</option>
-          <option value="AGENCY">Agency Focal</option>
-          <option value="ADMIN">System Admin</option>
+          <option value={roles.CASE_MANAGER}>Case Manager</option>
+          <option value={roles.AGENCY}>Agency Focal</option>
+          <option value={roles.ADMIN}>System Admin</option>
         </select>
       </div>
       <div>
@@ -678,11 +678,11 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [], p
                         <td className="px-4 py-3 text-sm font-medium text-slate-800">{invite.email}</td>
                         <td className="px-4 py-3">
                           <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-bold border ${
-                            invite.role === 'ADMIN' ? 'bg-purple-100 text-purple-800 border-purple-300' :
-                            invite.role === 'CASE_MANAGER' ? 'bg-blue-100 text-blue-800 border-blue-300' :
+                            invite.role === roles.ADMIN ? 'bg-purple-100 text-purple-800 border-purple-300' :
+                            invite.role === roles.CASE_MANAGER ? 'bg-blue-100 text-blue-800 border-blue-300' :
                             'bg-amber-100 text-amber-800 border-amber-300'
                           }`}>
-                            {invite.role === 'ADMIN' ? 'System Admin' : invite.role === 'CASE_MANAGER' ? 'Case Manager' : 'Agency Focal'}
+                            {invite.role === roles.ADMIN ? 'System Admin' : invite.role === roles.CASE_MANAGER ? 'Case Manager' : 'Agency Focal'}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-sm text-slate-600">{invite.agency?.name || <span className="text-slate-400">&mdash;</span>}</td>

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\UserRole;
 use App\Models\SurveyInvitation;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -27,7 +28,7 @@ class SurveyResponseController extends Controller
         $responseRate = $totalSent > 0 ? round(($totalSubmitted / $totalSent) * 100, 1) : 0;
 
         $paginationQuery = ['per_page' => $perPage];
-        if ($user->role === 'ADMIN' && $request->filled('agency_id')) {
+        if ($user->role === UserRole::ADMIN->value && $request->filled('agency_id')) {
             $paginationQuery['agency_id'] = $request->input('agency_id');
         }
 
@@ -42,7 +43,7 @@ class SurveyResponseController extends Controller
         ));
 
         $filters = ['per_page' => $perPage];
-        if ($user->role === 'ADMIN' && $request->filled('agency_id')) {
+        if ($user->role === UserRole::ADMIN->value && $request->filled('agency_id')) {
             $filters['agency_id'] = $request->input('agency_id');
         }
 
@@ -77,9 +78,9 @@ class SurveyResponseController extends Controller
         $user = $request->user();
 
         return match ($user->role) {
-            'AGENCY' => SurveyInvitation::query()->where('agency_id', $user->agcy_id),
-            'CASE_MANAGER' => SurveyInvitation::query(),
-            'ADMIN' => SurveyInvitation::query()->when(
+            UserRole::AGENCY->value => SurveyInvitation::query()->where('agency_id', $user->agcy_id),
+            UserRole::CASE_MANAGER->value => SurveyInvitation::query(),
+            UserRole::ADMIN->value => SurveyInvitation::query()->when(
                 $request->filled('agency_id'),
                 fn ($query) => $query->where('agency_id', $request->input('agency_id')),
             ),
@@ -89,7 +90,7 @@ class SurveyResponseController extends Controller
 
     private function validateAgencyFilter(Request $request): void
     {
-        if ($request->user()->role === 'ADMIN') {
+        if ($request->user()->role === UserRole::ADMIN->value) {
             $request->validate([
                 'agency_id' => ['sometimes', 'nullable', 'uuid', Rule::exists('agencies', 'id')],
             ]);

@@ -85,11 +85,11 @@ export default function Register() {
                                 </span>
 
                                 <h2 className="font-headline text-2xl font-bold text-slate-900">
-                                    Create Account
+                                    Create your account
                                 </h2>
 
                                 <p className="mt-2 text-sm text-slate-500">
-                                    Fill in your details to create an account.
+                                    Step 1 of 2 — set up your login.
                                 </p>
                             </div>
 

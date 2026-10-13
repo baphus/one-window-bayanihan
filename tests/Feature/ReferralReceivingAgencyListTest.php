@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\Agency;
 use App\Models\Referral;
@@ -22,7 +23,7 @@ class ReferralReceivingAgencyListTest extends TestCase
     public function test_rejected_referrals_are_visible_to_the_receiving_agency_and_status_filter_resets_page(): void
     {
         $agency = Agency::factory()->create();
-        $user = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agency->id]);
+        $user = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id]);
 
         Referral::factory()->count(16)->rejected()->create(['agcy_id' => $agency->id]);
 
@@ -43,7 +44,7 @@ class ReferralReceivingAgencyListTest extends TestCase
     {
         $agency = Agency::factory()->create();
         $otherAgency = Agency::factory()->create();
-        $user = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agency->id]);
+        $user = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id]);
 
         $visible = Referral::factory()->rejected()->create([
             'agcy_id' => $agency->id,
@@ -67,7 +68,7 @@ class ReferralReceivingAgencyListTest extends TestCase
     public function test_referral_list_paginates_with_validated_page_size_and_orders_the_complete_scoped_result_set(): void
     {
         $agency = Agency::factory()->create();
-        $user = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agency->id]);
+        $user = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id]);
 
         Referral::factory()->count(11)->create(['agcy_id' => $agency->id, 'status' => 'PENDING']);
         Referral::factory()->count(11)->rejected()->create(['agcy_id' => $agency->id]);

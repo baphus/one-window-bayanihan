@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\AuditLog;
 use App\Models\CaseFile;
@@ -57,7 +58,7 @@ class DashboardServiceTest extends TestCase
         $agency = Agency::factory()->create(['name' => 'OWWA Cebu']);
         $otherAgency = Agency::factory()->create(['name' => 'Other Agency']);
         $agencyUser = User::factory()->create([
-            'role' => 'AGENCY',
+            'role' => UserRole::AGENCY->value,
             'agcy_id' => $agency->id,
         ]);
         $service = Service::create([
@@ -143,7 +144,7 @@ class DashboardServiceTest extends TestCase
     {
         $agency = Agency::factory()->create();
         $agencyUser = User::factory()->create([
-            'role' => 'AGENCY',
+            'role' => UserRole::AGENCY->value,
             'agcy_id' => $agency->id,
         ]);
 
@@ -161,7 +162,7 @@ class DashboardServiceTest extends TestCase
         $agency = Agency::factory()->create();
         $otherAgency = Agency::factory()->create();
         $agencyUser = User::factory()->create([
-            'role' => 'AGENCY',
+            'role' => UserRole::AGENCY->value,
             'agcy_id' => $agency->id,
         ]);
         $agencyCase = $this->createCaseForClient();
@@ -216,7 +217,7 @@ class DashboardServiceTest extends TestCase
     #[Test]
     public function case_manager_dashboard_insights_surface_coordination_bottlenecks(): void
     {
-        $caseManager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $caseManager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $agency = Agency::factory()->create(['name' => 'DMW Help Desk']);
         $slowAgency = Agency::factory()->create(['name' => 'Slow Partner']);
 
@@ -277,7 +278,7 @@ class DashboardServiceTest extends TestCase
     #[Test]
     public function case_manager_case_filters_support_age_and_no_referrals(): void
     {
-        $caseManager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $caseManager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $agency = Agency::factory()->create();
 
         $matchingCase = $this->createCaseForClient([
@@ -315,7 +316,7 @@ class DashboardServiceTest extends TestCase
     #[Test]
     public function case_manager_payload_omits_full_datasets(): void
     {
-        $caseManager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $caseManager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         $data = app(DashboardService::class)->getCaseManagerData($caseManager);
 

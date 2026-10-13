@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Auth;
 
+use App\Enums\UserRole;
 use App\Models\User;
 use App\Services\MfaService;
 use Illuminate\Cache\Repository;
@@ -105,7 +106,7 @@ class AuthenticationTest extends TestCase
     {
         // OFW role is not in enrollment_enforced_roles, so MFA is not enforced at login
         $user = User::factory()->create([
-            'role' => 'OFW',
+            'role' => UserRole::OFW->value,
             'mfa_secret' => 'JBSWY3DPEHPK3PXP',
             'mfa_recovery_codes' => [hash_hmac('sha256', 'ABCD-EFGH-IJKL', config('app.key'))],
             'mfa_enabled_at' => now(),
@@ -249,7 +250,7 @@ class AuthenticationTest extends TestCase
     public function test_admin_enrollment_is_enforced_on_dashboard_when_enabled(): void
     {
         config(['mfa.enrollment_enforcement_enabled' => true]);
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
 
         $this->actingAs($admin)->get(route('dashboard'))
             ->assertRedirect(route('profile.edit'));
@@ -289,7 +290,7 @@ class AuthenticationTest extends TestCase
     public function test_recovery_code_concurrent_consumption_yields_one_success(): void
     {
         $user = User::factory()->create([
-            'role' => 'ADMIN',
+            'role' => UserRole::ADMIN->value,
             'mfa_secret' => 'JBSWY3DPEHPK3PXP',
             'mfa_recovery_codes' => [
                 hash_hmac('sha256', 'ABCD-EFGH-IJKL', config('app.key')),
@@ -369,7 +370,7 @@ class AuthenticationTest extends TestCase
     private function createMfaUser(): User
     {
         $user = User::factory()->create([
-            'role' => 'ADMIN',
+            'role' => UserRole::ADMIN->value,
             'mfa_secret' => 'JBSWY3DPEHPK3PXP',
             'mfa_recovery_codes' => [hash_hmac('sha256', 'ABCD-EFGH-IJKL', config('app.key'))],
             'mfa_enabled_at' => now(),

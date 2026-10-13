@@ -1,6 +1,6 @@
 import AppLayout from '@/Layouts/AppLayout';
-import { Head } from '@inertiajs/react';
-import { useState, useMemo } from 'react';
+import { Head, usePage } from '@inertiajs/react';
+import { useState, useEffect, useMemo } from 'react';
 import { Users, Target, Clock, GitFork, CheckCircle2, Hourglass, ClipboardCheck } from 'lucide-react';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, PointElement, LineElement, Title, Tooltip, Legend, Filler } from 'chart.js';
 import { COLORS } from '@/Components/Reports/pageHeadingStyles';
@@ -14,16 +14,10 @@ import ProvinceCityFilter from '@/Components/Reports/ProvinceCityFilter';
 import ExportButtons from '@/Components/Reports/ExportButtons';
 import { useReportFilters } from '@/Hooks/useReportFilters';
 import { useLazyProp } from '@/Hooks/useLazyProp';
-import { philippineAddressData, getCitiesByProvince } from '@/data/philippine-addresses';
 import CasesTab from '@/Pages/Reports/sections/CasesTab';
 import ReferralsTab from '@/Pages/Reports/sections/ReferralsTab';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, PointElement, LineElement, Title, Tooltip, Legend, Filler);
-
-// Province name → PSGC code lookup built from PSGC master data
-const provinceNameToPsgcCode = Object.values(philippineAddressData.provincesByRegion)
-  .flat()
-  .reduce((acc, p) => { acc[p.name.toLowerCase()] = p.code; return acc; }, {});
 
 function ReportsDashboard({
   // Eager props
@@ -40,21 +34,36 @@ function ReportsDashboard({
   const [agencyId, setAgencyId] = useState(initialAgencyId || null);
   const [casesSeries] = useLazyProp('casesOverTime');
   const [referralSeries] = useLazyProp('referralTrends');
+  const roles = usePage().props.roles;
+
+  // PSGC dataset loads lazily so it stays out of the initial chunk; the city
+  // lookup below falls back to the server-provided options until it resolves.
+  const [addressData, setAddressData] = useState(null);
+
+  useEffect(() => {
+    let live = true;
+    import('@/data/philippine-addresses').then((mod) => {
+      if (live) setAddressData(mod);
+    });
+    return () => { live = false; };
+  }, []);
 
   const caseSparkline = casesSeries?.datasets?.[0]?.data;
   const referralSparkline = referralSeries?.datasets?.[0]?.data;
   const localCityOptions = useMemo(() => {
     if (!province) return cityOptions || [];
     const selected = provinceOptions.find((p) => p.value === province);
-    if (selected) {
-      const psgcCode = provinceNameToPsgcCode[selected.label.toLowerCase()];
+    if (selected && addressData) {
+      const psgcCode = Object.values(addressData.philippineAddressData.provincesByRegion)
+        .flat()
+        .find((p) => p.name.toLowerCase() === selected.label.toLowerCase())?.code;
       if (psgcCode) {
-        const cities = getCitiesByProvince(psgcCode);
+        const cities = addressData.getCitiesByProvince(psgcCode);
         if (cities.length > 0) return cities.map((c) => ({ value: c.code, label: c.name }));
       }
     }
     return cityOptions || [];
-  }, [province, cityOptions, provinceOptions]);
+  }, [province, cityOptions, provinceOptions, addressData]);
 
   // Everything on this page uses the case filed date. The server defaults
   // date_scope to case_created_at when it is absent, so no scope selector.
@@ -77,12 +86,12 @@ function ReportsDashboard({
     initialFrom, initialTo, extraDeps, appliedExtraDeps,
   );
 
-  const roleSubtitle = role === 'AGENCY'
+  const roleSubtitle = role === roles.AGENCY
     ? 'Agency performance overview.'
-    : role === 'ADMIN'
+    : role === roles.ADMIN
       ? 'System-wide performance metrics and trends.'
       : 'Numbers for the whole organization, on one page.';
-  const heroCols = role === 'CASE_MANAGER' ? 'xl:grid-cols-5' : 'xl:grid-cols-4';
+  const heroCols = role === roles.CASE_MANAGER ? 'xl:grid-cols-5' : 'xl:grid-cols-4';
 
   const mapProps = { province, setProvince, setCity, provinceOptions: provinceOptions || [] };
 
@@ -109,14 +118,14 @@ function ReportsDashboard({
           </div>
         </div>
         <div data-tour="reports-filters" className="flex flex-col gap-4">
-          {role !== 'AGENCY' && (
+          {role !== roles.AGENCY && (
             <div className="flex flex-wrap items-center gap-3">
               <AgencyFilter
                 agencyOptions={agencyOptions || []}
                 agencyId={agencyId}
                 onChange={setAgencyId}
               />
-              {role === 'CASE_MANAGER' && (
+              {role === roles.CASE_MANAGER && (
                 <ProvinceCityFilter
                   provinceOptions={provinceOptions || []}
                   cityOptions={localCityOptions}

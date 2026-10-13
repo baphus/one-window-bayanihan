@@ -100,33 +100,37 @@ class User extends Authenticatable implements MustVerifyEmail
 
     public function isAdmin(): bool
     {
-        return $this->role === 'ADMIN';
+        return $this->hasRole(UserRole::ADMIN);
     }
 
     public function isCaseManager(): bool
     {
-        return $this->role === 'CASE_MANAGER';
+        return $this->hasRole(UserRole::CASE_MANAGER);
     }
 
     public function isAgency(): bool
     {
-        return $this->role === 'AGENCY';
+        return $this->hasRole(UserRole::AGENCY);
     }
 
     public function isOfw(): bool
     {
-        return $this->role === 'OFW';
+        return $this->hasRole(UserRole::OFW);
     }
 
     public function isInMfaEnforcedRole(): bool
     {
+        if ($this->isOfw()) {
+            return false;
+        }
+
         if (function_exists('app')) {
             try {
                 if (app()->isProduction()) {
                     return $this->role !== null && $this->role !== '';
                 }
             } catch (\Throwable $e) {
-                // Fall through to config-driven behaviour when app context is unavailable.
+                // Fall through to config-driven behaviour when context is unavailable.
             }
         }
 
@@ -153,5 +157,15 @@ class User extends Authenticatable implements MustVerifyEmail
     public function client()
     {
         return $this->belongsTo(Client::class, 'client_id');
+    }
+
+    public function isOfType(string $type): bool
+    {
+        return $this->client?->type === $type;
+    }
+
+    public function isNextOfKin(): bool
+    {
+        return $this->isOfType('NEXT_OF_KIN');
     }
 }

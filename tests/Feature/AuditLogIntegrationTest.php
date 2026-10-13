@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\AuditLog;
 use App\Models\User;
@@ -19,7 +20,7 @@ class AuditLogIntegrationTest extends TestCase
         parent::setUp();
 
         $this->withoutMiddleware(HandleInertiaRequests::class);
-        $this->user = User::factory()->create(['role' => 'ADMIN']);
+        $this->user = User::factory()->create(['role' => UserRole::ADMIN->value]);
     }
 
     public function test_backfill_command_populates_descriptions(): void

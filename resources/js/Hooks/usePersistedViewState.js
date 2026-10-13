@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { usePage } from '@inertiajs/react';
 import useLocalStorage, { readStoredValue, writeStoredValue } from './useLocalStorage';
 
 /**
@@ -18,6 +19,10 @@ export function usePersistedViewMode(storageKey) {
  */
 export function usePersistedFilters(storageKey, filters, applyFilters) {
   const restoredRef = useRef(false);
+  // Namespace by user (ChatBot owner-key pattern) so the previous user's
+  // filters — including user_id/agcy_id — are never restored for the next user.
+  const userId = usePage().props?.auth?.user?.id ?? 'anonymous';
+  const namespacedKey = `${storageKey}:user-${userId}`;
   // Latest-callback refs: the restore below must run exactly once on mount
   // (it reads pre-persist storage before the persist effect overwrites it),
   // so it can't list the per-render `filters`/`applyFilters` values as deps.
@@ -33,7 +38,7 @@ export function usePersistedFilters(storageKey, filters, applyFilters) {
     if (restoredRef.current) return;
     restoredRef.current = true;
 
-    const saved = readStoredValue(storageKey, null);
+    const saved = readStoredValue(namespacedKey, null);
     if (!saved || typeof saved !== 'object' || Array.isArray(saved)) return;
 
     const { page: _page, per_page: _perPage, ...rest } = saved;
@@ -43,10 +48,10 @@ export function usePersistedFilters(storageKey, filters, applyFilters) {
     if (JSON.stringify(cleaned) !== JSON.stringify(filtersRef.current ?? {})) {
       applyFiltersRef.current(cleaned);
     }
-  }, [storageKey]);
+  }, [namespacedKey]);
 
   useEffect(() => {
     if (filters === undefined) return;
-    writeStoredValue(storageKey, filters);
-  }, [storageKey, filters]);
+    writeStoredValue(namespacedKey, filters);
+  }, [namespacedKey, filters]);
 }

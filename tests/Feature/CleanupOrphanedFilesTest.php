@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\CaseDocument;
 use App\Models\CaseFile;
@@ -25,12 +26,11 @@ class CleanupOrphanedFilesTest extends TestCase
     {
         parent::setUp();
 
-        $this->user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $this->user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         $this->case = CaseFile::create([
             'id' => fake()->uuid(),
             'case_number' => 'TEST-'.fake()->unique()->numberBetween(1000, 9999),
-            'client_type' => 'OFW',
             'tracker_number' => 'OWBAP-'.strtoupper(fake()->bothify('???????')),
             'status' => 'OPEN',
             'user_id' => $this->user->id,

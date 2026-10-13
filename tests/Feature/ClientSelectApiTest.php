@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Models\CaseFile;
 use App\Models\Client;
 use App\Models\User;
@@ -17,10 +18,31 @@ class ClientSelectApiTest extends TestCase
         parent::setUp();
     }
 
+    /**
+     * Published client for the select picker: linked account (clients.user_id
+     * is unique — one account per client) plus a live OPEN case.
+     */
+    private function makePublishedClient(array $attributes = []): Client
+    {
+        $client = Client::factory()->create(array_merge(
+            ['is_deleted' => false, 'user_id' => User::factory()->create()->id],
+            $attributes,
+        ));
+        CaseFile::factory()->create([
+            'client_id' => $client->id,
+            'user_id' => User::factory()->create()->id,
+            'status' => 'OPEN',
+        ]);
+
+        return $client;
+    }
+
     public function test_search_returns_all_clients_without_query(): void
     {
-        Client::factory()->count(3)->create(['is_deleted' => false]);
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $this->makePublishedClient();
+        $this->makePublishedClient();
+        $this->makePublishedClient();
 
         $response = $this->actingAs($user)->getJson('/api/clients');
 
@@ -31,34 +53,35 @@ class ClientSelectApiTest extends TestCase
 
     public function test_search_filters_by_first_name(): void
     {
-        Client::factory()->create(['first_name' => 'Juan', 'last_name' => 'Dela Cruz', 'is_deleted' => false]);
-        Client::factory()->create(['first_name' => 'Maria', 'last_name' => 'Santos', 'is_deleted' => false]);
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $juan = $this->makePublishedClient(['first_name' => 'Juan', 'last_name' => 'Dela Cruz']);
+        $this->makePublishedClient(['first_name' => 'Maria', 'last_name' => 'Santos']);
 
         $response = $this->actingAs($user)->getJson('/api/clients?q=juan');
 
         $response->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.first_name', 'Juan');
+            ->assertJsonPath('data.0.first_name', $juan->first_name);
     }
 
     public function test_search_filters_by_last_name(): void
     {
-        Client::factory()->create(['first_name' => 'Juan', 'last_name' => 'Dela Cruz', 'is_deleted' => false]);
-        Client::factory()->create(['first_name' => 'Maria', 'last_name' => 'Santos', 'is_deleted' => false]);
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $this->makePublishedClient(['first_name' => 'Juan', 'last_name' => 'Dela Cruz']);
+        $maria = $this->makePublishedClient(['first_name' => 'Maria', 'last_name' => 'Santos']);
 
         $response = $this->actingAs($user)->getJson('/api/clients?q=cruz');
 
         $response->assertOk()
             ->assertJsonCount(1, 'data')
+            // 'cruz' matches Juan Dela Cruz, not Maria Santos.
             ->assertJsonPath('data.0.last_name', 'Dela Cruz');
     }
 
     public function test_search_returns_empty_when_no_match(): void
     {
         Client::factory()->create(['first_name' => 'Juan', 'last_name' => 'Dela Cruz', 'is_deleted' => false]);
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         $response = $this->actingAs($user)->getJson('/api/clients?q=xxxxx');
 
@@ -69,8 +92,8 @@ class ClientSelectApiTest extends TestCase
     public function test_search_excludes_soft_deleted_clients(): void
     {
         Client::factory()->create(['first_name' => 'Juan', 'is_deleted' => true]);
-        Client::factory()->create(['first_name' => 'Maria', 'is_deleted' => false]);
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $this->makePublishedClient(['first_name' => 'Maria']);
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         $response = $this->actingAs($user)->getJson('/api/clients');
 
@@ -81,14 +104,13 @@ class ClientSelectApiTest extends TestCase
 
     public function test_search_response_structure(): void
     {
-        $client = Client::factory()->create([
+        $this->makePublishedClient([
             'first_name' => 'Juan',
             'last_name' => 'Dela Cruz',
             'sex' => 'MALE',
-            'is_deleted' => false,
         ]);
 
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         $response = $this->actingAs($user)->getJson('/api/clients');
 
@@ -112,8 +134,8 @@ class ClientSelectApiTest extends TestCase
 
     public function test_show_returns_full_client_detail(): void
     {
-        $client = Client::factory()->create(['is_deleted' => false]);
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $client = $this->makePublishedClient();
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         $response = $this->actingAs($user)->getJson("/api/clients/{$client->id}");
 
@@ -140,7 +162,7 @@ class ClientSelectApiTest extends TestCase
 
     public function test_show_returns_404_for_nonexistent_client(): void
     {
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         $response = $this->actingAs($user)->getJson('/api/clients/nonexistent-id');
 
@@ -149,7 +171,7 @@ class ClientSelectApiTest extends TestCase
 
     public function test_show_includes_related_models_when_present(): void
     {
-        $client = Client::factory()->create(['is_deleted' => false]);
+        $client = $this->makePublishedClient();
 
         // Add related data
         $client->addresses()->create([
@@ -173,12 +195,17 @@ class ClientSelectApiTest extends TestCase
             'phone_number' => '09170000000',
         ]);
 
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         $response = $this->actingAs($user)->getJson("/api/clients/{$client->id}");
 
         $response->assertOk()
-            ->assertJsonPath('data.addresses.0.region', 'Region X')
+            // Stored region names resolve to PSGC codes; region_name keeps the
+            // stored text. 'Region X' only fell through as-is before the
+            // resolver learned the "Region X" prefix of "Region X (Northern
+            // Mindanao)".
+            ->assertJsonPath('data.addresses.0.region', '1000000000')
+            ->assertJsonPath('data.addresses.0.region_name', 'Region X')
             ->assertJsonPath('data.addresses.0.province', 'Province A')
             ->assertJsonPath('data.employments.0.employer_name', 'ACME Corp')
             ->assertJsonPath('data.employments.0.last_country', 'SAUDI ARABIA')
@@ -195,11 +222,14 @@ class ClientSelectApiTest extends TestCase
 
     public function test_show_returns_case_file_when_present(): void
     {
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
-        $client = Client::factory()->create(['is_deleted' => false]);
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $client = $this->makePublishedClient();
         $caseFile = CaseFile::factory()->create([
             'client_id' => $client->id,
             'user_id' => $user->id,
+            // caseFile relation resolves the latest case; make the asserted
+            // case newer than the helper's OPEN case so it is the one returned.
+            'created_at' => now()->addSecond(),
         ]);
 
         $response = $this->actingAs($user)->getJson("/api/clients/{$client->id}");
@@ -210,8 +240,10 @@ class ClientSelectApiTest extends TestCase
 
     public function test_search_limits_to_20_results(): void
     {
-        Client::factory()->count(25)->create(['is_deleted' => false]);
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        for ($i = 0; $i < 25; $i++) {
+            $this->makePublishedClient();
+        }
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         $response = $this->actingAs($user)->getJson('/api/clients');
 
@@ -221,18 +253,16 @@ class ClientSelectApiTest extends TestCase
 
     public function test_search_orders_by_created_at_desc(): void
     {
-        $older = Client::factory()->create([
+        $older = $this->makePublishedClient([
             'first_name' => 'Older',
-            'is_deleted' => false,
             'created_at' => now()->subDay(),
         ]);
-        $newer = Client::factory()->create([
+        $newer = $this->makePublishedClient([
             'first_name' => 'Newer',
-            'is_deleted' => false,
             'created_at' => now(),
         ]);
 
-        $user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         $response = $this->actingAs($user)->getJson('/api/clients');
 

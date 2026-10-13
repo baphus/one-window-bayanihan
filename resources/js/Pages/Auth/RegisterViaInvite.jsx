@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import AppFooter from '@/Components/landing/AppFooter';
 import AppHeader from '@/Components/landing/AppHeader';
 
@@ -14,6 +14,7 @@ export default function RegisterViaInvite({ invite }) {
     });
 
     const [showPassword, setShowPassword] = useState(false);
+    const roles = usePage().props.roles ?? {};
 
     const submit = (e) => {
         e.preventDefault();
@@ -102,8 +103,8 @@ export default function RegisterViaInvite({ invite }) {
                             {/* Role + Agency badges */}
                             <div className="flex gap-2 mb-6">
                                 <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-bold border ${
-                                    invite.role === 'ADMIN' ? 'bg-purple-100 text-purple-800 border-purple-300' :
-                                    invite.role === 'CASE_MANAGER' ? 'bg-blue-100 text-blue-800 border-blue-300' :
+                                    invite.role === roles.ADMIN ? 'bg-purple-100 text-purple-800 border-purple-300' :
+                                    invite.role === roles.CASE_MANAGER ? 'bg-blue-100 text-blue-800 border-blue-300' :
                                     'bg-amber-100 text-amber-800 border-amber-300'
                                 }`}>
                                     {roleLabels[invite.role] || invite.role}

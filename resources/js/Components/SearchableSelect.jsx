@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useId, useState, useRef, useEffect } from 'react';
 
 // Words that carry no distinguishing meaning in PSGC place names. PSGC stores
 // highly urbanised cities as "City of Cebu", but users type "Cebu City", so a
@@ -49,6 +49,7 @@ export default function SearchableSelect({ value, onChange, options = [], placeh
     const wrapperRef = useRef(null);
     const inputRef = useRef(null);
     const listRef = useRef(null);
+    const listboxId = useId();
 
     const selectedOption = options.find((o) => o.value === value);
 
@@ -164,6 +165,11 @@ export default function SearchableSelect({ value, onChange, options = [], placeh
                 placeholder={placeholder}
                 disabled={disabled}
                 autoComplete="off"
+                role="combobox"
+                aria-expanded={open}
+                aria-controls={listboxId}
+                aria-autocomplete="list"
+                aria-activedescendant={open && highlightedIndex >= 0 ? `${listboxId}-${highlightedIndex}` : undefined}
                 className={`h-10 w-full rounded-[3px] border border-slate-300 px-3 pr-8 text-[13px] outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 ${
                     disabled ? 'bg-slate-50 text-slate-400 cursor-not-allowed' : 'bg-white text-slate-700'
                 }`}
@@ -173,11 +179,14 @@ export default function SearchableSelect({ value, onChange, options = [], placeh
             </span>
 
             {open && !disabled && (
-                <ul ref={listRef} className="absolute z-50 mt-1 w-full max-h-48 overflow-y-auto rounded-md border border-slate-200 bg-white py-1 shadow-lg owb-scroll-wide">
+                <ul ref={listRef} id={listboxId} role="listbox" aria-label="Options" className="absolute z-50 mt-1 w-full max-h-48 overflow-y-auto rounded-md border border-slate-200 bg-white py-1 shadow-lg owb-scroll-wide">
                     {filtered.length > 0 ? (
                         filtered.map((option, idx) => (
                             <li
                                 key={option.value}
+                                id={`${listboxId}-${idx}`}
+                                role="option"
+                                aria-selected={option.value === value}
                                 onMouseDown={(e) => { e.preventDefault(); handleSelect(option.value); }}
                                 onMouseEnter={() => setHighlightedIndex(idx)}
                                 className={`px-3 py-1.5 text-[12px] cursor-pointer transition-colors ${
@@ -192,11 +201,14 @@ export default function SearchableSelect({ value, onChange, options = [], placeh
                             </li>
                         ))
                     ) : !showCustomOption ? (
-                        <li className="px-3 py-2 text-[11px] text-slate-400 italic">No results found</li>
+                        <li role="presentation" className="px-3 py-2 text-[11px] text-slate-400 italic">No results found</li>
                     ) : null}
 
                     {showCustomOption && (
                         <li
+                            id={`${listboxId}-${filtered.length}`}
+                            role="option"
+                            aria-selected={false}
                             onMouseDown={(e) => { e.preventDefault(); handleSelect(query.trim()); }}
                             onMouseEnter={() => setHighlightedIndex(filtered.length)}
                             className={`px-3 py-1.5 text-[12px] cursor-pointer transition-colors border-t border-slate-100 ${

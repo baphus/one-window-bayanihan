@@ -35,32 +35,42 @@ class ClientController extends Controller
         $categoryFilter = CategoryFilter::fromRequest($request);
         $categoryIds = $categoryFilter->ids();
 
-        // The client directory lists established clients. Self-filed intakes that
-        // have not been accepted belong in the intake queue only, which reads
-        // cases directly and is unaffected by this scope.
-        $clients = Client::where('is_deleted', false)->withoutUnacceptedIntake()->with([
-            'caseFile' => function ($q) use ($user) {
-                // ADMIN/CASE_MANAGER: all cases. AGENCY: cases with own referrals.
-                if ($user?->isAgency()) {
-                    $q->whereHas('referrals', fn ($referrals) => $referrals
-                        ->where('agcy_id', $user->agcy_id)
-                        ->where('is_deleted', false));
-                }
+        // The client directory lists published clients only (linked account +
+        // live OPEN case). The intake queue reads cases directly and is
+        // unaffected by this scope.
+        $clients = Client::where('is_deleted', false)->publishedOnly()
+            // Established means at least one live non-DRAFT case; a client whose
+            // cases are all DRAFT, or who has no case yet, is not in the
+            // directory. caseFiles (all cases), not caseFile: an older OPEN case
+            // plus a newer DRAFT still counts.
+            ->whereHas('caseFiles', function ($q) {
+                $q->where('is_deleted', false)
+                    ->whereNull('cases.deleted_at')
+                    ->where('status', '!=', 'DRAFT');
+            })
+            ->with([
+                'caseFile' => function ($q) use ($user) {
+                    // ADMIN/CASE_MANAGER: all cases. AGENCY: cases with own referrals.
+                    if ($user?->isAgency()) {
+                        $q->whereHas('referrals', fn ($referrals) => $referrals
+                            ->where('agcy_id', $user->agcy_id)
+                            ->where('is_deleted', false));
+                    }
 
-                $q->with([
-                    'referrals' => function ($referrals) use ($user) {
-                        $referrals->where('is_deleted', false)->with('agency');
-                        if ($user?->isAgency()) {
-                            $referrals->where('agcy_id', $user->agcy_id);
-                        }
-                    },
-                    'category', 'categories', 'caseIssue',
-                ]);
-            },
-            'addresses',
-            'employments',
-            'nextOfKin',
-        ]);
+                    $q->with([
+                        'referrals' => function ($referrals) use ($user) {
+                            $referrals->where('is_deleted', false)->with('agency');
+                            if ($user?->isAgency()) {
+                                $referrals->where('agcy_id', $user->agcy_id);
+                            }
+                        },
+                        'category', 'categories', 'caseIssue',
+                    ]);
+                },
+                'addresses',
+                'employments',
+                'nextOfKin',
+            ]);
 
         // An agency user without an agency has no visible client scope.
         if ($user?->isAgency() && ! $user->agcy_id) {
@@ -96,9 +106,7 @@ class ClientController extends Controller
         }
 
         if (! empty($request->client_type)) {
-            $clients->whereHas('caseFile', function ($q) use ($request) {
-                $q->where('client_type', $request->client_type);
-            });
+            $clients->where('type', $request->client_type);
         }
 
         if (! empty($request->vulnerability_indicator)) {
@@ -186,9 +194,9 @@ class ClientController extends Controller
             'nextOfKin',
         ])->findOrFail($id);
 
-        // Same rule as the directory listing: an unaccepted self-filed intake is
-        // read through the intake queue, not the client profile.
-        abort_if($client->hasOnlyUnacceptedIntake(), 404, 'Client not found.');
+        // Same rule as the directory listing: unpublished clients are read
+        // through the intake queue, not the client profile.
+        abort_if(! Client::whereKey($client->id)->publishedOnly()->exists(), 404, 'Client not found.');
 
         $user = $request->user();
         $caseQuery = $client->caseFiles()
@@ -405,7 +413,7 @@ class ClientController extends Controller
         // A client the directory and profile refuse to show must not be
         // mutable either. Without this the avatar routes accepted a write and
         // then redirected to a profile that 404s.
-        if ($client->hasOnlyUnacceptedIntake()) {
+        if (! Client::whereKey($client->id)->publishedOnly()->exists()) {
             abort(404, 'Client not found.');
         }
 

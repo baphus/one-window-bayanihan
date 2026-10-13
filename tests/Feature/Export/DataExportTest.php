@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Export;
 
+use App\Enums\UserRole;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Jobs\GenerateSystemReport;
 use App\Models\User;
@@ -32,7 +33,7 @@ class DataExportTest extends TestCase
     #[Test]
     public function case_manager_cannot_access_admin_export_page(): void
     {
-        $caseManager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $caseManager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         $response = $this->actingAs($caseManager)->get(route('admin.data-export.index'));
 
@@ -42,7 +43,7 @@ class DataExportTest extends TestCase
     #[Test]
     public function admin_can_access_export_page(): void
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
 
         $response = $this->actingAs($admin)->get(route('admin.data-export.index'));
 
@@ -54,7 +55,7 @@ class DataExportTest extends TestCase
     {
         Bus::fake();
 
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
 
         $response = $this->actingAs($admin)->get(route('admin.data-export.export'));
 

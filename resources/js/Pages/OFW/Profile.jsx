@@ -10,40 +10,16 @@ import { getAvatarColor } from '@/Components/ui/UserAvatar';
 import CountrySelect from '@/Components/CountrySelect';
 import SearchableSelect from '@/Components/SearchableSelect';
 import { DEFAULT_OCCUPATIONS } from '@/data/defaultOccupations';
+import { SectionCard, MaterialSymbol } from '@/Components/Dashboard/primitives';
 
 const MAX = 'Must be 255 characters or fewer.';
 
-/* ---------- Facebook-style building blocks ---------- */
-
-function Card({ id, children, className = '' }) {
-    return (
-        <div id={id} className={`scroll-mt-24 rounded-xl border border-slate-200 bg-white p-5 shadow-sm ${className}`}>
-            {children}
-        </div>
-    );
-}
-
-function SectionHeader({ icon, title, description, badge }) {
-    return (
-        <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3">
-            <div className="flex items-start gap-3">
-                <span className="material-symbols-outlined mt-0.5 text-[20px] text-primary" aria-hidden="true">
-                    {icon}
-                </span>
-                <div>
-                    <h2 className="font-headline text-[15px] font-bold tracking-tight text-slate-900">{title}</h2>
-                    {description && <p className="mt-0.5 text-xs text-slate-500">{description}</p>}
-                </div>
-            </div>
-            {badge}
-        </div>
-    );
-}
+/* ---------- Profile-specific building blocks ---------- */
 
 function ReadOnlyBadge() {
     return (
         <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-500">
-            <span className="material-symbols-outlined text-[13px]" aria-hidden="true">lock</span>
+            <MaterialSymbol name="lock" className="text-[13px]" />
             Read-only
         </span>
     );
@@ -53,13 +29,26 @@ function IntroRow({ icon, label, value }) {
     if (!value) return null;
     return (
         <div className="flex items-start gap-3 text-sm text-slate-700">
-            <span className="material-symbols-outlined mt-0.5 text-[18px] text-slate-400" aria-hidden="true">
-                {icon}
-            </span>
+            <MaterialSymbol name={icon} className="mt-0.5 text-[18px] text-slate-400" />
             <div className="min-w-0">
                 <p className="truncate">{value}</p>
                 {label && <p className="text-xs text-slate-400">{label}</p>}
             </div>
+        </div>
+    );
+}
+
+function SectionHeader({ icon, title, description, badge }) {
+    return (
+        <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3">
+            <div className="flex items-start gap-3">
+                <MaterialSymbol name={icon} className="mt-0.5 text-[20px] text-primary" />
+                <div>
+                    <h2 className="font-headline text-[15px] font-bold tracking-tight text-slate-900">{title}</h2>
+                    {description && <p className="mt-0.5 text-xs text-slate-500">{description}</p>}
+                </div>
+            </div>
+            {badge}
         </div>
     );
 }
@@ -87,7 +76,7 @@ function TextInput({ id, label, value, onChange, error, type = 'text', placehold
                 placeholder={placeholder}
                 maxLength={maxLength}
                 autoComplete={autoComplete}
-                className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 shadow-sm transition-colors focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             />
         </Field>
     );
@@ -98,7 +87,7 @@ function SaveButton({ processing, children }) {
         <button
             type="submit"
             disabled={processing}
-            className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-container disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-container disabled:cursor-not-allowed disabled:opacity-60"
         >
             {processing && (
                 <span className="material-symbols-outlined animate-spin text-[18px]" aria-hidden="true">progress_activity</span>
@@ -119,6 +108,10 @@ function formatSex(value) {
     if (!value) return null;
     return value.charAt(0) + value.slice(1).toLowerCase();
 }
+
+const SUFFIX_OPTIONS = ['Jr', 'Sr', 'II', 'III', 'IV', 'V'];
+const SEX_OPTIONS = ['Male', 'Female'];
+const NOK_RELATIONSHIP_OPTIONS = ['Mother', 'Father', 'Spouse', 'Sibling', 'Other'];
 
 const EMPTY_NOK_ROW = {
     first_name: '',
@@ -159,12 +152,19 @@ export default function Profile({ user, client }) {
         contact_number: client?.contact_number ?? '',
     });
 
+    const identityForm = useForm({
+        sex: client?.sex ?? '',
+        suffix: client?.suffix ?? '',
+    });
+
     const addressForm = useForm({
         region: client?.address?.region ?? '',
         province: client?.address?.province ?? '',
         city_municipality: client?.address?.city_municipality ?? '',
         barangay: client?.address?.barangay ?? '',
         street: client?.address?.street ?? '',
+        sex: client?.sex ?? '',
+        suffix: client?.suffix ?? '',
     });
 
     const employmentForm = useForm({
@@ -300,6 +300,18 @@ export default function Profile({ user, client }) {
             });
     }
 
+    function handleIdentitySubmit(e) {
+        e.preventDefault();
+        identityForm.clearErrors();
+        identityForm.put(route('ofw.profile.update'), {
+            preserveScroll: true,
+            onSuccess: (page) => {
+                identityForm.setData('sex', page.props.client?.sex ?? '');
+                identityForm.setData('suffix', page.props.client?.suffix ?? '');
+            },
+        });
+    }
+
     function handleEmploymentSubmit(e) {
         e.preventDefault();
         employmentForm.clearErrors();
@@ -373,7 +385,8 @@ export default function Profile({ user, client }) {
         || addressForm.isDirty
         || employmentForm.isDirty
         || nokForm.isDirty
-        || passwordForm.isDirty;
+        || passwordForm.isDirty
+        || identityForm.isDirty;
     const { UnsavedModal } = useUnsavedChanges(dirty);
 
     function scrollToSection(id) {
@@ -466,7 +479,7 @@ export default function Profile({ user, client }) {
                 <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,320px)_1fr]">
                     {/* ---------- Left column: Intro sidebar ---------- */}
                     <div className="space-y-6 lg:sticky lg:top-6 lg:self-start">
-                        <Card>
+                        <SectionCard>
                             <SectionHeader icon="info" title="Intro" badge={<ReadOnlyBadge />} />
                             <div className="mt-4 space-y-3">
                                 <IntroRow icon="cake" label="Date of Birth" value={formatDate(client.date_of_birth)} />
@@ -491,10 +504,10 @@ export default function Profile({ user, client }) {
                             <p className="mt-4 border-t border-slate-100 pt-3 text-xs text-slate-400">
                                 Identity details are verified by our office. Contact your case manager to correct any of these.
                             </p>
-                        </Card>
+                        </SectionCard>
 
                         {nokForm.data.next_of_kin.length > 0 && (
-                            <Card>
+                            <SectionCard>
                                 <SectionHeader icon="group" title="Family & Friends" />
                                 <ul className="mt-4 space-y-3">
                                     {nokForm.data.next_of_kin.slice(0, 4).map((row, i) => {
@@ -514,37 +527,56 @@ export default function Profile({ user, client }) {
                                         );
                                     })}
                                 </ul>
-                            </Card>
+                            </SectionCard>
                         )}
                     </div>
 
                     {/* ---------- Right column: editable sections as a feed ---------- */}
                     <div className="space-y-6">
-                        <Card id="section-identity">
-                            <SectionHeader
-                                icon="badge"
-                                title="Identity"
-                                badge={<ReadOnlyBadge />}
-                                description="Verified by our office. Contact your case manager to correct any of these."
-                            />
-                            <dl className="mt-4 grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-3">
-                                <div>
-                                    <dt className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">Date of Birth</dt>
-                                    <dd className="mt-1 text-sm font-medium text-slate-800">{formatDate(client.date_of_birth) || '—'}</dd>
+                        <form onSubmit={handleContactSubmit}>
+                            <SectionCard>
+                                <SectionHeader
+                                    icon="badge"
+                                    title="Identity"
+                                    description="Your verified identity details. Suffix and sex can be updated here."
+                                />
+                                <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+                                    <Field label="Date of Birth">
+                                        <span className="mt-1 block text-sm font-medium text-slate-800">{formatDate(client.date_of_birth) || '—'}</span>
+                                    </Field>
+                                    <Field label="Sex" error={identityForm.errors.sex}>
+                                        <select
+                                            value={identityForm.data.sex}
+                                            onChange={(e) => identityForm.setData('sex', e.target.value)}
+                                            className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 shadow-sm transition-colors focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                                        >
+                                            <option value="">Select sex...</option>
+                                            {SEX_OPTIONS.map((s) => (
+                                                <option key={s} value={s}>{s}</option>
+                                            ))}
+                                        </select>
+                                    </Field>
+                                    <Field label="Suffix" error={identityForm.errors.suffix}>
+                                        <select
+                                            value={identityForm.data.suffix}
+                                            onChange={(e) => identityForm.setData('suffix', e.target.value)}
+                                            className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 shadow-sm transition-colors focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                                        >
+                                            <option value="">None</option>
+                                            {SUFFIX_OPTIONS.map((s) => (
+                                                <option key={s} value={s}>{s}</option>
+                                            ))}
+                                        </select>
+                                    </Field>
                                 </div>
-                                <div>
-                                    <dt className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">Sex</dt>
-                                    <dd className="mt-1 text-sm font-medium text-slate-800">{formatSex(client.sex) || '—'}</dd>
+                                <div className="mt-4 flex justify-end">
+                                    <SaveButton processing={identityForm.processing}>Save Identity</SaveButton>
                                 </div>
-                                <div>
-                                    <dt className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">Suffix</dt>
-                                    <dd className="mt-1 text-sm font-medium text-slate-800">{client.suffix || '—'}</dd>
-                                </div>
-                            </dl>
-                        </Card>
+                            </SectionCard>
+                        </form>
 
                         <form onSubmit={handleContactSubmit}>
-                            <Card id="section-contact">
+                            <SectionCard>
                                 <SectionHeader
                                     icon="call"
                                     title="Contact Information"
@@ -566,11 +598,11 @@ export default function Profile({ user, client }) {
                                 <div className="mt-4 flex justify-end">
                                     <SaveButton processing={contactForm.processing}>Save Contact</SaveButton>
                                 </div>
-                            </Card>
+                            </SectionCard>
                         </form>
 
                         <form onSubmit={handleAddressSubmit}>
-                            <Card id="section-address">
+                            <SectionCard>
                                 <SectionHeader
                                     icon="home_pin"
                                     title="Address"
@@ -588,11 +620,11 @@ export default function Profile({ user, client }) {
                                 <div className="mt-4 flex justify-end">
                                     <SaveButton processing={addressForm.processing}>Save Address</SaveButton>
                                 </div>
-                            </Card>
+                            </SectionCard>
                         </form>
 
                         <form onSubmit={handleEmploymentSubmit}>
-                            <Card id="section-employment">
+                            <SectionCard>
                                 <SectionHeader
                                     icon="work"
                                     title="Employment"
@@ -619,11 +651,11 @@ export default function Profile({ user, client }) {
                                 <div className="mt-4 flex justify-end">
                                     <SaveButton processing={employmentForm.processing}>Save Employment</SaveButton>
                                 </div>
-                            </Card>
+                            </SectionCard>
                         </form>
 
                         <form onSubmit={handleNokSubmit}>
-                            <Card id="section-nok">
+                            <SectionCard>
                                 <SectionHeader
                                     icon="group"
                                     title="Next of Kin"
@@ -652,7 +684,19 @@ export default function Profile({ user, client }) {
                                                 <TextInput id={`nok_${i}_first`} label="First Name" value={row.first_name ?? ''} onChange={(v) => setNokField(i, 'first_name', v)} error={nokError(i, 'first_name')} />
                                                 <TextInput id={`nok_${i}_middle`} label="Middle Name" value={row.middle_name ?? ''} onChange={(v) => setNokField(i, 'middle_name', v)} error={nokError(i, 'middle_name')} maxLength={255} />
                                                 <TextInput id={`nok_${i}_last`} label="Last Name" value={row.last_name ?? ''} onChange={(v) => setNokField(i, 'last_name', v)} error={nokError(i, 'last_name')} />
-                                                <TextInput id={`nok_${i}_rel`} label="Relationship" value={row.relationship ?? ''} onChange={(v) => setNokField(i, 'relationship', v)} error={nokError(i, 'relationship')} />
+                                                <Field label="Relationship" error={nokError(i, 'relationship')}>
+                                                    <select
+                                                        value={row.relationship ?? ''}
+                                                        onChange={(e) => setNokField(i, 'relationship', e.target.value)}
+                                                        className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 shadow-sm transition-colors focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                                                    >
+                                                        <option value="">Select relationship...</option>
+                                                        {NOK_RELATIONSHIP_OPTIONS.map((r) => (
+                                                            <option key={r} value={r}>{r}</option>
+                                                        ))}
+                                                    </select>
+                                                    {nokError(i, 'relationship') && <p className="mt-1 text-sm text-red-600">{nokError(i, 'relationship')}</p>}
+                                                </Field>
                                                 <TextInput id={`nok_${i}_phone`} label="Phone Number" type="tel" value={row.phone_number ?? ''} onChange={(v) => setNokField(i, 'phone_number', v)} error={nokError(i, 'phone_number')} maxLength={20} />
                                                 <TextInput id={`nok_${i}_email`} label="Email" type="email" value={row.email ?? ''} onChange={(v) => setNokField(i, 'email', v)} error={nokError(i, 'email')} />
                                                 <TextInput id={`nok_${i}_region`} label="Region" value={row.region ?? ''} onChange={(v) => setNokField(i, 'region', v)} error={nokError(i, 'region')} />
@@ -677,11 +721,11 @@ export default function Profile({ user, client }) {
                                 <div className="mt-4 flex justify-end">
                                     <SaveButton processing={nokForm.processing}>Save Next of Kin</SaveButton>
                                 </div>
-                            </Card>
+                            </SectionCard>
                         </form>
 
                         <form onSubmit={handlePasswordSubmit}>
-                            <Card id="section-security">
+                            <SectionCard>
                                 <SectionHeader
                                     icon="password"
                                     title="Change Password"
@@ -719,7 +763,7 @@ export default function Profile({ user, client }) {
                                 <div className="mt-4 flex justify-end">
                                     <SaveButton processing={passwordForm.processing}>Save Password</SaveButton>
                                 </div>
-                            </Card>
+                            </SectionCard>
                         </form>
                     </div>
                 </div>

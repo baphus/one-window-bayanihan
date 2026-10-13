@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use App\Enums\AuditAction;
-use App\Models\Concerns\SoftDeleteFlag;
 use App\Models\Concerns\UsesUuid;
 use App\Services\AuditCategory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -13,7 +12,7 @@ use Illuminate\Support\Facades\Log;
 
 class AuditLog extends Model
 {
-    use HasFactory, SoftDeleteFlag, UsesUuid;
+    use HasFactory, UsesUuid;
 
     public $timestamps = false;
 
@@ -38,7 +37,6 @@ class AuditLog extends Model
         'old_value' => 'array',
         'new_value' => 'array',
         'timestamp' => 'datetime',
-        'is_deleted' => 'boolean',
         'request_id' => 'string',
     ];
 

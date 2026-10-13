@@ -2,12 +2,14 @@
 
 namespace App\Services;
 
+use Illuminate\Support\Facades\Cache;
+
 class PhilippineAddressService
 {
     private static ?array $data = null;
 
     /**
-     * Load and parse the philippine-addresses.ts file into a nested array.
+     * Load and index the address dataset into a nested array.
      *
      * Structure:
      *   regions: [{code, name}]
@@ -15,7 +17,6 @@ class PhilippineAddressService
      *   citiesByProvince: [provinceCode => [{code, name}]]
      *   citiesByRegion: [regionCode => [{code, name}]]
      *   barangaysByCity: [cityCode => [{code, name}]]
-     *   allByCode: [code => {code, name, type, parent_code}]
      *   codeToName: [code => name]
      */
     private static function load(): array
@@ -24,80 +25,84 @@ class PhilippineAddressService
             return self::$data;
         }
 
-        $path = resource_path('js/data/philippine-addresses.ts');
-        if (! is_file($path)) {
-            return self::$data = [];
+        // ponytail: parse once per cache TTL instead of once per cold worker;
+        // bump the key if the dataset format ever changes.
+        try {
+            return self::$data = Cache::remember('ph-addresses-v1', now()->addDay(), fn (): array => self::buildIndex());
+        } catch (\Throwable) {
+            // Cache backend (e.g. Redis) may be unreachable in console /
+            // migrate contexts; the dataset is a local file, so parse it
+            // directly instead of failing the whole call.
+            return self::$data = self::buildIndex();
+        }
+    }
+
+    private static function buildIndex(): array
+    {
+        $decoded = self::readDataset();
+
+        if ($decoded === null) {
+            return [];
         }
 
-        $source = file_get_contents($path) ?: '';
-
-        // Extract JSON portion between the data section opening { and the final };
-        $start = strrpos($source, 'export const philippineAddressData');
-        if ($start === false) {
-            $start = strpos($source, 'philippineAddressData');
-        }
-        if ($start === false) {
-            return self::$data = [];
-        }
-        $start = strpos($source, '{', $start);
-        $end = strrpos($source, '};');
-        if ($start === false || $end === false || $end <= $start) {
-            return self::$data = [];
-        }
-
-        $json = substr($source, $start, $end - $start + 1);
-
-        // Remove trailing commas before } or ] (JSON5 cleanup)
-        $json = preg_replace('/,\s*([}\]])/', '$1', $json);
-
-        $decoded = json_decode($json, true);
-        if (! is_array($decoded)) {
-            return self::$data = [];
-        }
-
-        // Build flat code→name map for resolveNames
+        // ponytail: the former allByCode index (code => {code, name, type,
+        // parent_code}) had no callers; derive it on demand from PSGC code
+        // prefixes (2/4/7/9 digits = region/province/city_municipality/
+        // barangay) if it is ever needed again.
         $codeToName = [];
-        $allByCode = [];
 
-        foreach ($decoded['regions'] ?? [] as $r) {
-            $codeToName[$r['code']] = $r['name'];
-            $allByCode[$r['code']] = ['code' => $r['code'], 'name' => $r['name'], 'type' => 'region', 'parent_code' => null];
+        foreach ($decoded['regions'] ?? [] as $region) {
+            $codeToName[$region['code']] = $region['name'];
         }
 
-        foreach ($decoded['provincesByRegion'] ?? [] as $regionCode => $provinces) {
-            foreach ($provinces as $p) {
-                $codeToName[$p['code']] = $p['name'];
-                $allByCode[$p['code']] = ['code' => $p['code'], 'name' => $p['name'], 'type' => 'province', 'parent_code' => $regionCode];
+        foreach ($decoded['provincesByRegion'] ?? [] as $provinces) {
+            foreach ($provinces as $province) {
+                $codeToName[$province['code']] = $province['name'];
             }
         }
 
-        foreach ($decoded['citiesByProvince'] ?? [] as $provinceCode => $cities) {
-            foreach ($cities as $c) {
-                $codeToName[$c['code']] = $c['name'];
-                // Determine if city or municipality (city codes end in 000, but this is heuristic)
-                $type = in_array($c['code'], array_column($decoded['citiesByRegion'][$provinceCode] ?? [], 'code')) ? 'city' : 'municipality';
-                $allByCode[$c['code']] = ['code' => $c['code'], 'name' => $c['name'], 'type' => $type, 'parent_code' => $provinceCode];
+        foreach ($decoded['citiesByProvince'] ?? [] as $cities) {
+            foreach ($cities as $city) {
+                $codeToName[$city['code']] = $city['name'];
             }
         }
 
-        foreach ($decoded['barangaysByCity'] ?? [] as $cityCode => $barangays) {
-            foreach ($barangays as $b) {
-                $codeToName[$b['code']] = $b['name'];
-                $allByCode[$b['code']] = ['code' => $b['code'], 'name' => $b['name'], 'type' => 'barangay', 'parent_code' => $cityCode];
+        foreach ($decoded['citiesByRegion'] ?? [] as $cities) {
+            foreach ($cities as $city) {
+                $codeToName[$city['code']] = $city['name'];
             }
         }
 
-        self::$data = [
+        foreach ($decoded['barangaysByCity'] ?? [] as $barangays) {
+            foreach ($barangays as $barangay) {
+                $codeToName[$barangay['code']] = $barangay['name'];
+            }
+        }
+
+        return [
             'regions' => $decoded['regions'] ?? [],
             'provincesByRegion' => $decoded['provincesByRegion'] ?? [],
             'citiesByProvince' => $decoded['citiesByProvince'] ?? [],
             'citiesByRegion' => $decoded['citiesByRegion'] ?? [],
             'barangaysByCity' => $decoded['barangaysByCity'] ?? [],
-            'allByCode' => $allByCode,
             'codeToName' => $codeToName,
         ];
+    }
 
-        return self::$data;
+    /**
+     * The dataset is a plain JSON file; nothing else is parsed at runtime.
+     */
+    private static function readDataset(): ?array
+    {
+        $jsonPath = resource_path('js/data/philippine-addresses.json');
+
+        if (! is_file($jsonPath)) {
+            return null;
+        }
+
+        $decoded = json_decode(file_get_contents($jsonPath) ?: '', true);
+
+        return is_array($decoded) ? $decoded : null;
     }
 
     public function getRegions(): array
@@ -116,28 +121,6 @@ class PhilippineAddressService
         $data = self::load();
 
         return $data['provincesByRegion'][$regionCode] ?? [];
-    }
-
-    public function getCities(?string $provinceCode = null): array
-    {
-        if (! $provinceCode) {
-            return [];
-        }
-
-        $data = self::load();
-
-        return $data['citiesByProvince'][$provinceCode] ?? [];
-    }
-
-    public function getBarangays(?string $parentCode = null): array
-    {
-        if (! $parentCode) {
-            return [];
-        }
-
-        $data = self::load();
-
-        return $data['barangaysByCity'][$parentCode] ?? [];
     }
 
     public function resolveNames(array $codes): array
@@ -195,21 +178,32 @@ class PhilippineAddressService
 
         $data = self::load();
 
-        // Find region by name. Region display names have the form
-        // "Region VII (Central Visayas)" but stored values sometimes only keep
-        // the parenthesized part ("Central Visayas"), so compare a normalized
-        // form of each side: the parenthesized label when present, otherwise
-        // the full name, lower-cased.
-        $normalizeRegion = function (string $name): string {
-            $short = preg_replace('/^region\s+[^()]*\((.+)\)$/i', '$1', trim($name));
+        // Find region by name. Display names have the form
+        // "Region VII (Central Visayas)" while stored and resubmitted values
+        // may keep the full name, the parenthesized short form
+        // ("Central Visayas"), the "Region VII" prefix, or the bare numeral
+        // ("VII") — compare the label sets both sides can produce. Tightening
+        // this to codes only would break those name resubmits.
+        $regionForms = static function (string $name): array {
+            $name = trim($name);
 
-            return strtolower(trim($short ?: $name));
+            if (preg_match('/^Region\s+(.+?)\s*\((.+)\)$/i', $name, $matches)) {
+                return [
+                    strtolower($name),
+                    strtolower('Region '.$matches[1]),
+                    strtolower($matches[1]),
+                    strtolower($matches[2]),
+                ];
+            }
+
+            return [strtolower($name)];
         };
-        $targetRegion = $normalizeRegion($address['region']);
+
+        $targetForms = $regionForms($address['region']);
 
         $regionCode = null;
-        foreach ($data['regions'] as $region) {
-            if ($normalizeRegion($region['name']) === $targetRegion) {
+        foreach ($data['regions'] ?? [] as $region) {
+            if (array_intersect($targetForms, $regionForms($region['name'])) !== []) {
                 $regionCode = $region['code'];
                 break;
             }

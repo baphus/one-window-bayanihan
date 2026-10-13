@@ -2,10 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\RejectIntakeRequest;
+use App\Enums\UserRole;
 use App\Http\Requests\StoreCaseRequest;
 use App\Http\Requests\UpdateCaseRequest;
-use App\Http\Requests\UpdateDraftRequest;
 use App\Models\CaseFile;
 use App\Models\Client;
 use App\Models\SystemSetting;
@@ -13,7 +12,6 @@ use App\Services\CaseService;
 use App\Services\Export\DataExportQueries;
 use App\Services\Export\DataExportService;
 use App\Services\OnboardingService;
-use App\Services\PhilippineAddressService;
 use App\Services\ReferenceDataService;
 use App\Services\TrackingService;
 use App\Support\CategoryFilter;
@@ -25,10 +23,8 @@ class CaseController extends Controller
 {
     public function __construct(
         private readonly CaseService $caseService,
-        private readonly PhilippineAddressService $addressService,
         private readonly TrackingService $trackingService,
         private readonly ReferenceDataService $referenceData,
-        private readonly PhilippineAddressService $addressNames,
         private readonly DataExportQueries $exportQueries,
         private readonly DataExportService $exportService,
         private readonly OnboardingService $onboardingService,
@@ -36,17 +32,30 @@ class CaseController extends Controller
 
     public function index(Request $request)
     {
-        $filterKeys = ['status', 'search', 'client_type', 'vulnerability_indicator', 'user_id', 'agcy_id', 'category_id', 'category_ids', 'case_issue_id', 'age_min_days', 'referral_state', 'date_from', 'date_to', 'sort', 'direction', 'per_page'];
         $categoryFilters = CategoryFilter::fromRequest($request)->toArray();
 
+        // agcy_id is the agencies FK column name (also on users/referrals),
+        // not a typo for agency_id — keep the query param name in sync.
         $listing = $request->validate([
-            'sort' => ['sometimes', 'string', 'in:case_number,tracker_number,client_type,status,created_at'],
-            'direction' => ['sometimes', 'string', 'in:asc,desc'],
-            'per_page' => ['sometimes', 'integer', 'min:10', 'max:100'],
+            'status' => ['nullable', 'string', 'in:OPEN,CLOSED,ARCHIVED'],
+            'search' => ['nullable', 'string', 'max:255'],
+            'vulnerability_indicator' => ['nullable', 'string', 'max:255'],
+            'user_id' => ['nullable', 'string', 'uuid'],
+            'agcy_id' => ['nullable', 'string', 'uuid'],
+            'case_issue_id' => ['nullable', 'string', 'uuid'],
+            'age_min_days' => ['nullable', 'integer', 'min:0', 'max:3650'],
+            'referral_state' => ['nullable', 'string', 'in:none'],
+            'date_from' => ['nullable', 'string', 'date_format:Y-m-d'],
+            'date_to' => ['nullable', 'string', 'date_format:Y-m-d'],
+            'sort' => ['nullable', 'string', 'in:case_number,tracker_number,status,created_at'],
+            'direction' => ['nullable', 'string', 'in:asc,desc'],
+            'per_page' => ['nullable', 'integer', 'min:10', 'max:100'],
         ]);
 
+        $filters = array_merge($listing, $categoryFilters);
+
         $cases = $this->caseService->getCases(
-            array_merge($request->only($filterKeys), $categoryFilters),
+            $filters,
             $listing['sort'] ?? 'created_at',
             $listing['direction'] ?? 'desc',
             (int) ($listing['per_page'] ?? 15)
@@ -54,7 +63,7 @@ class CaseController extends Controller
 
         return Inertia::render('Case/Index', [
             'cases' => $cases,
-            'filters' => (object) array_merge($request->only($filterKeys), $categoryFilters),
+            'filters' => (object) $filters,
             'stats' => $this->caseService->getCaseStats($request->user()),
             'users' => $this->referenceData->getCaseManagerUsers(),
             'agencies' => $this->referenceData->getAgenciesDropdown(),
@@ -66,16 +75,24 @@ class CaseController extends Controller
     public function create(Request $request)
     {
         $client = null;
+        $linkedOfws = [];
+        $filerIsNextOfKin = $request->user()->isNextOfKin();
         if ($request->has('client_id')) {
             $client = Client::with(['addresses', 'employments', 'nextOfKin', 'caseFiles'])->find($request->client_id);
-
-            // ?client_id= prefills the form with the client's full record, so it
-            // is a second way into the same data the picker now hides. An
-            // unaccepted self-filed intake is handled from the intake queue, not
-            // used as the starting point for a new case.
-            if ($client?->hasOnlyUnacceptedIntake()) {
-                $client = null;
+            // OFW self-file: only their own linked client may prefill.
+            if ($request->user()->isOfw() && (! $client || $client->id !== $request->user()->client_id)) {
+                $client = $request->user()->client
+                    ? $request->user()->client->load(['addresses', 'employments', 'nextOfKin', 'caseFiles'])
+                    : null;
             }
+        } elseif ($request->user()->isOfw() && $request->user()->client) {
+            $client = $request->user()->client->load(['addresses', 'employments', 'nextOfKin', 'caseFiles']);
+        } elseif ($filerIsNextOfKin && $request->user()->client) {
+            $linkedOfws = Client::where('is_deleted', false)
+                ->where('type', 'OFW')
+                ->where('ofw_client_id', $request->user()->client->id)
+                ->orderBy('first_name')->orderBy('last_name')->limit(50)
+                ->get(['id', 'first_name', 'middle_name', 'last_name', 'suffix', 'email']);
         }
 
         $categories = $this->referenceData->getActiveCategories();
@@ -83,6 +100,8 @@ class CaseController extends Controller
 
         return Inertia::render('Case/Create', [
             'client' => $client,
+            'linkedOfws' => $linkedOfws,
+            'filerIsNextOfKin' => $filerIsNextOfKin,
             'categories' => $categories,
             'caseIssues' => $caseIssues,
             'occupationOptions' => $this->referenceData->getOccupationOptions(),
@@ -98,119 +117,91 @@ class CaseController extends Controller
             $request->user()->id,
         );
 
-        $isDraft = $validated['is_draft'] ?? true;
-
-        if (! $isDraft) {
-            $case = $this->caseService->publishDraft(
-                $case->id,
-                $request->user()->id,
-                (bool) ($validated['confirm_duplicate_client'] ?? false),
-            );
-
-            $this->onboardingService
-                ->markChecklistItemQuietly($request->user(), 'create-first-case');
-
-            return redirect()
-                ->route('cases.show', $case)
-                ->with('success', 'Case created successfully.')
-                ->with('just_published', true);
-        }
+        $this->onboardingService
+            ->markChecklistItemQuietly($request->user(), 'create-first-case');
 
         return redirect()
-            ->route('cases.drafts')
-            ->with('success', 'Draft saved successfully.');
+            ->route('cases.show', $case)
+            ->with('success', 'Case created successfully.');
     }
 
-    public function editDraft(Request $request, string $id)
+    public function reviewPending(Request $request)
     {
-        $case = $this->caseService->getCase($id);
-        abort_unless($case->status === 'DRAFT', 404);
+        $listing = $request->validate([
+            'direction' => ['sometimes', 'string', 'in:asc,desc'],
+            'per_page' => ['sometimes', 'integer', 'min:10', 'max:100'],
+        ]);
+        $direction = $listing['direction'] ?? 'asc';
 
-        // Allow CMs/Admins to edit self-filed drafts (user_id is null)
-        $isSelfFiled = $case->source === CaseFile::SOURCE_SELF_FILED && $case->user_id === null;
-        if (! $isSelfFiled) {
-            abort_unless($case->user_id === $request->user()->id, 403);
-        }
+        $cases = CaseFile::with(['client'])
+            ->where('status', CaseFile::STATUS_PENDING_REVIEW)
+            ->where('is_deleted', false)
+            ->when($request->user()->isAgency() && $request->user()->agcy_id, function ($query) use ($request) {
+                $query->whereHas('referrals', fn ($q) => $q->where('agcy_id', $request->user()->agcy_id));
+            })
+            ->orderBy('created_at', $direction)
+            ->paginate((int) ($listing['per_page'] ?? 15));
 
-        $categories = $this->referenceData->getActiveCategories();
-        $caseIssues = $this->referenceData->getActiveIssues();
-
-        $draftResolvedAddress = $this->resolveDraftAddressForCascade($case->draft_client_data);
-
-        return Inertia::render('Case/Create', [
-            'existingDraft' => $case,
-            'categories' => $categories,
-            'caseIssues' => $caseIssues,
-            'occupationOptions' => $this->referenceData->getOccupationOptions(),
-            'draftResolvedAddress' => $draftResolvedAddress,
+        return Inertia::render('Case/ReviewPending', [
+            'cases' => $cases,
+            'filters' => (object) $request->only(['search']),
+            'sort' => 'created_at',
+            'direction' => $direction,
         ]);
     }
 
-    public function reviewIntake(Request $request, string $id)
+    public function reviewApprove(CaseFile $case)
     {
-        $case = $this->caseService->getCase($id);
+        $user = request()->user();
 
-        // Only self-filed DRAFT cases can be reviewed via this route
-        abort_unless(
-            $case->source === CaseFile::SOURCE_SELF_FILED && $case->status === 'DRAFT',
-            404,
-        );
+        abort_unless(in_array($user->role, [UserRole::CASE_MANAGER->value, UserRole::ADMIN->value], true), 403);
 
-        $categories = $this->referenceData->getActiveCategories();
-        $caseIssues = $this->referenceData->getActiveIssues();
+        abort_unless($case->status === CaseFile::STATUS_PENDING_REVIEW, 404);
 
-        $draftData = $case->draft_client_data;
-        $draftResolvedAddress = $this->resolveDraftAddressForCascade($draftData);
-
-        // draftResolvedAddress carries PSGC *codes* so the cascade dropdowns can
-        // pre-select. The review screen also needs human-readable *names*, and
-        // reusing the codes prop there rendered the reviewer four raw numbers
-        // (e.g. "0730600041, 0730600000, ...") instead of the OFW's address.
-        $draftAddressNames = [];
-        if (! empty($draftData['address'])) {
-            $a = $draftData['address'];
-            $draftAddressNames = [
-                'barangay' => $this->addressNames->resolve($a['barangay'] ?? null),
-                'city_municipality' => $this->addressNames->resolve($a['city_municipality'] ?? null),
-                'province' => $this->addressNames->resolve($a['province'] ?? null),
-                'region' => $this->addressNames->resolve($a['region'] ?? null),
-                'street' => $a['street'] ?? '',
-            ];
-        }
-
-        return Inertia::render('Case/ReviewIntake', [
-            'case' => $case,
-            'categories' => $categories,
-            'caseIssues' => $caseIssues,
-            'occupationOptions' => $this->referenceData->getOccupationOptions(),
-            'draftResolvedAddress' => $draftResolvedAddress,
-            'draftAddressNames' => $draftAddressNames,
-        ]);
-    }
-
-    public function updateDraft(UpdateDraftRequest $request, string $id)
-    {
-        $case = $this->caseService->updateDraft($id, $request->validated(), $request->user()->id);
-
-        if ($request->expectsJson()) {
-            return response()->json([
-                'ok' => true,
-                'id' => $case->id,
-                'saved_at' => $case->updated_at?->toIso8601String() ?? now()->toIso8601String(),
-            ]);
-        }
+        $this->caseService->approveCase($case->id, $user->id);
 
         return redirect()
-            ->route('cases.drafts')
-            ->with('success', 'Draft updated successfully.');
+            ->route('cases.review-pending')
+            ->with('success', 'Case approved successfully.');
+    }
+
+    public function reviewReject(Request $request, CaseFile $case)
+    {
+        $user = $request->user();
+
+        abort_unless(in_array($user->role, [UserRole::CASE_MANAGER->value, UserRole::ADMIN->value], true), 403);
+
+        abort_unless($case->status === CaseFile::STATUS_PENDING_REVIEW, 404);
+
+        $validated = $request->validate([
+            'reason' => ['required', 'string', 'max:1000'],
+        ]);
+
+        $this->caseService->rejectCase($case->id, $validated['reason'], $user->id);
+
+        return redirect()
+            ->route('cases.review-pending')
+            ->with('success', 'Case rejected.');
     }
 
     public function show(string $id, Request $request)
     {
         $case = $this->caseService->getCase($id);
         $this->authorizeCaseAccess($case, $request->user());
-        if ($case->status === 'DRAFT' && $case->user_id !== $request->user()->id) {
-            abort(403, 'You do not have access to this draft.');
+
+        // Agency users only receive general case files plus their own
+        // referral's files; other agencies' referral documents stay
+        // server-side (download routes re-check regardless).
+        if ($request->user()->isAgency()) {
+            $case->load(['documents' => fn ($q) => $q
+                ->where('is_deleted', false)
+                ->visibleToAgency($request->user()->agcy_id)]);
+            $userAgencyId = $request->user()->agcy_id;
+            foreach ($case->referrals as $referral) {
+                if (! $userAgencyId || $referral->agcy_id !== $userAgencyId) {
+                    $referral->unsetRelation('attachments');
+                }
+            }
         }
         $overdueDays = (int) SystemSetting::getValue('referral_overdue_days', 7);
 
@@ -254,25 +245,6 @@ class CaseController extends Controller
             ->with('success', 'Case status updated successfully.');
     }
 
-    public function publish(Request $request, CaseFile $case)
-    {
-        $this->authorizeCaseAccess($case, $request->user());
-
-        $case = $this->caseService->publishDraft(
-            $case->id,
-            $request->user()->id,
-            $request->boolean('confirm_duplicate_client'),
-        );
-
-        $this->onboardingService
-            ->markChecklistItemQuietly($request->user(), 'create-first-case');
-
-        return redirect()
-            ->route('cases.show', $case)
-            ->with('success', 'Draft published successfully.')
-            ->with('just_published', true);
-    }
-
     public function archive(Request $request, string $id)
     {
         $case = $this->caseService->getCase($id);
@@ -299,66 +271,6 @@ class CaseController extends Controller
         return redirect()
             ->route('cases.show', $case)
             ->with('success', 'Case restored from archive successfully.');
-    }
-
-    public function drafts(Request $request)
-    {
-        $filters = $request->only(['search', 'date_from', 'date_to']);
-        $drafts = $this->caseService->getUserDrafts($request->user()->id, $filters);
-
-        return Inertia::render('Draft/Index', [
-            'drafts' => $drafts,
-            'filters' => $filters,
-        ]);
-    }
-
-    public function intakeQueue(Request $request)
-    {
-        $filters = $request->only(['search']);
-        $listing = $request->validate([
-            'sort' => ['sometimes', 'string', 'in:created_at,client_name,vulnerability_indicator'],
-            'direction' => ['sometimes', 'string', 'in:asc,desc'],
-            'per_page' => ['sometimes', 'integer', 'min:10', 'max:100'],
-        ]);
-        $sort = $listing['sort'] ?? 'created_at';
-        $direction = $listing['direction'] ?? 'asc';
-
-        $cases = $this->caseService->getIntakeQueue(
-            $filters,
-            (int) ($listing['per_page'] ?? 15),
-            $sort,
-            $direction,
-        );
-
-        return Inertia::render('Case/IntakeQueue', [
-            'cases' => $cases,
-            'filters' => (object) $filters,
-            'stats' => $this->caseService->getIntakeQueueStats(),
-            'sort' => $sort,
-            'direction' => $direction,
-        ]);
-    }
-
-    public function rejectIntake(RejectIntakeRequest $request, string $id)
-    {
-        $this->caseService->rejectIntake(
-            $id,
-            $request->validated()['deletion_reason'],
-            $request->user()->id,
-        );
-
-        return redirect()
-            ->route('cases.intake-queue')
-            ->with('success', 'Intake submission rejected successfully.');
-    }
-
-    public function destroyDraft(string $id, Request $request)
-    {
-        $this->caseService->deleteDraft($id, $request->user()->id);
-
-        return redirect()
-            ->route('cases.drafts')
-            ->with('success', 'Draft deleted successfully.');
     }
 
     public function exportExcel(Request $request)
@@ -413,41 +325,6 @@ class CaseController extends Controller
         return response()->json(['count' => $count]);
     }
 
-    /**
-     * Business-export column map — no IDs or system fields.
-     */
-    public static function casesExportColumnMap(): array
-    {
-        return [
-            ['key' => 'case_number',       'label' => 'Case Number',          'type' => 'string'],
-            ['key' => 'status',             'label' => 'Case Status',          'type' => 'status'],
-            ['key' => 'tracker_number',     'label' => 'Case Tracking ID',     'type' => 'string'],
-            ['key' => 'client_type',        'label' => 'Client Type',          'type' => 'string'],
-            ['key' => 'ofw_full_name',      'label' => 'OFW Full Name',        'type' => 'string'],
-            ['key' => 'ofw_sex',            'label' => 'OFW Sex/Gender',       'type' => 'string'],
-            ['key' => 'ofw_date_of_birth',  'label' => 'OFW Date of Birth',    'type' => 'date'],
-            ['key' => 'ofw_contact_number', 'label' => 'OFW Contact No.',      'type' => 'string'],
-            ['key' => 'ofw_email',          'label' => 'OFW Email Address',    'type' => 'string'],
-            ['key' => 'ofw_age',            'label' => 'OFW Age',              'type' => 'string'],
-            ['key' => 'barangay',           'label' => 'Barangay',             'type' => 'string'],
-            ['key' => 'municipality',       'label' => 'Municipality',         'type' => 'string'],
-            ['key' => 'province',           'label' => 'Province',             'type' => 'string'],
-            ['key' => 'region',             'label' => 'Region',               'type' => 'string'],
-            ['key' => 'vulnerability',      'label' => 'Vulnerability',        'type' => 'string'],
-            ['key' => 'date_of_arrival',    'label' => 'Date of Arrival in PH', 'type' => 'date'],
-            ['key' => 'previous_country',   'label' => 'Previous Country',     'type' => 'string'],
-            ['key' => 'work_position',      'label' => 'Work Occupation',        'type' => 'string'],
-            ['key' => 'issue_concern',      'label' => 'Issues/Concern',       'type' => 'string'],
-            ['key' => 'categories',         'label' => 'Categories',           'type' => 'string'],
-            ['key' => 'case_summary',       'label' => 'Case Summary',         'type' => 'string'],
-            ['key' => 'receiving_parties',  'label' => 'Receiving Party/s',    'type' => 'string'],
-            ['key' => 'nok_full_name',      'label' => 'NOK Full Name',        'type' => 'string'],
-            ['key' => 'nok_contact_number', 'label' => 'NOK Contact No.',      'type' => 'string'],
-            ['key' => 'nok_email',          'label' => 'NOK Email',            'type' => 'string'],
-            ['key' => 'exported_at',        'label' => 'Exported At',          'type' => 'string'],
-        ];
-    }
-
     public function exportPdf(string $id, Request $request)
     {
         $case = $this->caseService->getCase($id);
@@ -458,6 +335,12 @@ class CaseController extends Controller
         $primaryAddress = $client->addresses->first();
         $primaryNok = $client->nextOfKin->first();
 
+        // dompdf builds the whole DOM before paging, so cap the timeline: a
+        // case with thousands of events would otherwise exhaust the 256M limit.
+        $eventsQuery = $case->caseEvents()->latest('occurred_at');
+        $eventsTotal = $eventsQuery->count();
+        $eventsLimit = 500;
+
         $data = [
             'case' => $case,
             'client' => $client,
@@ -465,7 +348,9 @@ class CaseController extends Controller
             'address' => $primaryAddress,
             'nok' => $primaryNok,
             'referrals' => $case->referrals,
-            'milestones' => $case->caseEvents()->latest('occurred_at')->get(),
+            'milestones' => $eventsQuery->limit($eventsLimit)->get(),
+            'eventsTruncated' => $eventsTotal > $eventsLimit,
+            'eventsTotal' => $eventsTotal,
             'exportedAt' => now()->format('M d, Y h:i A'),
         ];
 
@@ -523,24 +408,37 @@ class CaseController extends Controller
     }
 
     /**
-     * Resolve draft address names to PSGC codes for cascade dropdown
-     * pre-population. Returns the address as-is when it already holds codes.
+     * Business-export column map — no IDs or system fields.
      */
-    private function resolveDraftAddressForCascade(?array $draftClientData): array
+    public static function casesExportColumnMap(): array
     {
-        $address = $draftClientData['address'] ?? null;
-
-        if (empty($address) || ! is_array($address)) {
-            return [];
-        }
-
-        $region = $address['region'] ?? '';
-
-        if (! empty($region) && preg_match('/[a-zA-Z]/', $region)) {
-            return $this->addressService->resolveAddressToCodes($address);
-        }
-
-        return $address;
+        return [
+            ['key' => 'case_number', 'label' => 'Case Number', 'type' => 'string'],
+            ['key' => 'status', 'label' => 'Case Status', 'type' => 'status'],
+            ['key' => 'tracker_number', 'label' => 'Case Tracking ID', 'type' => 'string'],
+            ['key' => 'ofw_full_name', 'label' => 'OFW Full Name', 'type' => 'string'],
+            ['key' => 'ofw_sex', 'label' => 'OFW Sex/Gender', 'type' => 'string'],
+            ['key' => 'ofw_date_of_birth', 'label' => 'OFW Date of Birth', 'type' => 'date'],
+            ['key' => 'ofw_contact_number', 'label' => 'OFW Contact No.', 'type' => 'string'],
+            ['key' => 'ofw_email', 'label' => 'OFW Email Address', 'type' => 'string'],
+            ['key' => 'ofw_age', 'label' => 'OFW Age', 'type' => 'string'],
+            ['key' => 'barangay', 'label' => 'Barangay', 'type' => 'string'],
+            ['key' => 'municipality', 'label' => 'Municipality', 'type' => 'string'],
+            ['key' => 'province', 'label' => 'Province', 'type' => 'string'],
+            ['key' => 'region', 'label' => 'Region', 'type' => 'string'],
+            ['key' => 'vulnerability', 'label' => 'Vulnerability', 'type' => 'string'],
+            ['key' => 'date_of_arrival', 'label' => 'Date of Arrival in PH', 'type' => 'date'],
+            ['key' => 'previous_country', 'label' => 'Previous Country', 'type' => 'string'],
+            ['key' => 'work_position', 'label' => 'Work Occupation', 'type' => 'string'],
+            ['key' => 'issue_concern', 'label' => 'Issues/Concern', 'type' => 'string'],
+            ['key' => 'categories', 'label' => 'Categories', 'type' => 'string'],
+            ['key' => 'case_summary', 'label' => 'Case Summary', 'type' => 'string'],
+            ['key' => 'receiving_parties', 'label' => 'Receiving Party/s', 'type' => 'string'],
+            ['key' => 'nok_full_name', 'label' => 'NOK Full Name', 'type' => 'string'],
+            ['key' => 'nok_contact_number', 'label' => 'NOK Contact No.', 'type' => 'string'],
+            ['key' => 'nok_email', 'label' => 'NOK Email', 'type' => 'string'],
+            ['key' => 'exported_at', 'label' => 'Exported At', 'type' => 'string'],
+        ];
     }
 
     private function authorizeCaseAccess($case, $user)

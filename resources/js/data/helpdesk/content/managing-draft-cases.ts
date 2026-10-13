@@ -16,7 +16,7 @@ Do not treat a draft as an active case. Public tracking, formal referrals, and c
 2. Select your draft to open the edit-draft view.
 3. Review each intake section.
 4. Complete missing information.
-5. Save again (save-draft) or publish when ready (publish moves the case to **OPEN**). A draft you no longer need can be permanently deleted (destroy-draft).
+5. Submit when ready (submit moves the case to **PENDING_REVIEW** for Case Manager approval).
 
 ![Client information section](/assets/helpdesk/cases-create-client.png)
 ![Address section](/assets/helpdesk/cases-create-address.png)

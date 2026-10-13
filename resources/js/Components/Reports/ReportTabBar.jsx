@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { COLORS } from '@/Components/Reports/pageHeadingStyles';
+import { usePage } from '@inertiajs/react';
 
 const ALL_TABS = [
   { value: 'overview', label: 'Overview' },
@@ -12,12 +13,13 @@ const AGENCY_TABS = ALL_TABS.filter(
   (tab) => tab.value === 'overview' || tab.value === 'performance',
 );
 
-function getTabsForRole(role) {
-  return role === 'AGENCY' ? AGENCY_TABS : ALL_TABS;
+function getTabsForRole(role, roles) {
+  return role === roles.AGENCY ? AGENCY_TABS : ALL_TABS;
 }
 
 export default function ReportTabBar({ value = 'overview', onChange, role }) {
-  const tabs = getTabsForRole(role);
+  const roles = usePage().props.roles;
+  const tabs = getTabsForRole(role, roles);
 
   useEffect(() => {
     const isValid = tabs.some((tab) => tab.value === value);

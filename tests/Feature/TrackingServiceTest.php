@@ -73,7 +73,7 @@ class TrackingServiceTest extends TestCase
             'action' => 'UPDATE',
             'module' => 'case',
             'entity_id' => $case->id,
-            'description' => 'set draft_client_data to {"foo":"bar"}; set category_id to a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+            'description' => 'set summary to "follow up"; set category_id to a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
             'user_id' => null,
             'timestamp' => now(),
         ]);

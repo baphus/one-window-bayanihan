@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Client;
 
+use App\Enums\UserRole;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\SetPostgresSession;
 use App\Models\Agency;
@@ -33,59 +34,52 @@ class ClientCaseQueryTest extends TestCase
      */
     private function seedDirectory(): array
     {
-        $admin = User::factory()->create(['role' => 'ADMIN']);
-        $manager = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $agencyA = Agency::factory()->create();
         $agencyB = Agency::factory()->create();
 
-        $ofwOpen = Client::factory()->create();
+        $ofwOpen = Client::factory()->create(['type' => 'OFW']);
         CaseFile::factory()->create([
             'client_id' => $ofwOpen->id,
             'user_id' => $manager->id,
-            'client_type' => CaseFile::CLIENT_TYPE_OFW,
             'status' => 'OPEN',
             'vulnerability_indicator' => 'PWD',
             'nok_vulnerability_indicator' => null,
         ]);
 
-        $nokOpen = Client::factory()->create();
+        $nokOpen = Client::factory()->nextOfKin()->create();
         $nokCase = CaseFile::factory()->create([
             'client_id' => $nokOpen->id,
             'user_id' => $manager->id,
-            'client_type' => CaseFile::CLIENT_TYPE_NEXT_OF_KIN,
             'status' => 'OPEN',
             'vulnerability_indicator' => 'Senior Citizen',
             'nok_vulnerability_indicator' => null,
         ]);
 
-        $ofwClosed = Client::factory()->create();
+        $ofwClosed = Client::factory()->create(['type' => 'OFW']);
         CaseFile::factory()->create([
             'client_id' => $ofwClosed->id,
             'user_id' => $manager->id,
-            'client_type' => CaseFile::CLIENT_TYPE_OFW,
             'status' => 'CLOSED',
             'vulnerability_indicator' => null,
             'nok_vulnerability_indicator' => null,
         ]);
 
-        $ofwArchived = Client::factory()->create();
+        $ofwArchived = Client::factory()->create(['type' => 'OFW']);
         CaseFile::factory()->create([
             'client_id' => $ofwArchived->id,
             'user_id' => $manager->id,
-            'client_type' => CaseFile::CLIENT_TYPE_OFW,
             'status' => 'ARCHIVED',
             'vulnerability_indicator' => null,
             'nok_vulnerability_indicator' => null,
         ]);
 
-        // Unaccepted self-filed intake: hidden from the directory entirely.
-        $intakeOnly = Client::factory()->create();
-        CaseFile::factory()->create([
+        // Unaccepted OFW-filed case: hidden from the directory entirely.
+        $intakeOnly = Client::factory()->create(['type' => 'OFW']);
+        CaseFile::factory()->pendingReview()->create([
             'client_id' => $intakeOnly->id,
             'user_id' => null,
-            'source' => CaseFile::SOURCE_SELF_FILED,
-            'status' => 'DRAFT',
-            'client_type' => CaseFile::CLIENT_TYPE_OFW,
         ]);
 
         // Soft-deleted client: excluded everywhere.
@@ -93,7 +87,6 @@ class ClientCaseQueryTest extends TestCase
         $deletedCase = CaseFile::factory()->create([
             'client_id' => $deleted->id,
             'user_id' => $manager->id,
-            'client_type' => CaseFile::CLIENT_TYPE_OFW,
             'status' => 'OPEN',
         ]);
         $deleted->delete();
@@ -117,8 +110,8 @@ class ClientCaseQueryTest extends TestCase
 
         $stats = app(CaseService::class)->getClientDirectoryStats($admin);
 
-        $this->assertSame(4, $stats['total_clients']);
-        $this->assertSame(2, $stats['ofw_clients']);
+        $this->assertSame(5, $stats['total_clients']);
+        $this->assertSame(3, $stats['ofw_clients']);
         $this->assertSame(1, $stats['nok_clients']);
         $this->assertSame([
             'PWD' => 1,
@@ -143,7 +136,7 @@ class ClientCaseQueryTest extends TestCase
     {
         [$admin, $agencyA, $agencyB] = $this->seedDirectory();
 
-        $agencyUser = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agencyA->id]);
+        $agencyUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agencyA->id]);
         $stats = app(CaseService::class)->getClientDirectoryStats($agencyUser);
 
         $this->assertSame(2, $stats['total_clients']);
@@ -154,13 +147,13 @@ class ClientCaseQueryTest extends TestCase
         $this->assertSame(2, $stats['clients_with_open_cases']);
         $this->assertSame(2, $stats['total_referrals']);
 
-        $otherAgencyUser = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $agencyB->id]);
+        $otherAgencyUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agencyB->id]);
         $otherStats = app(CaseService::class)->getClientDirectoryStats($otherAgencyUser);
 
         $this->assertSame(0, $otherStats['total_clients']);
         $this->assertSame(0, $otherStats['total_referrals']);
 
-        $orphanAgencyUser = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => null]);
+        $orphanAgencyUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => null]);
         $this->assertSame([
             'total_clients' => 0,
             'ofw_clients' => 0,

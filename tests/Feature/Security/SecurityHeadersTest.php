@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Security;
 
+use App\Enums\UserRole;
 use App\Http\Middleware\SetPostgresSession;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -61,7 +62,7 @@ class SecurityHeadersTest extends TestCase
         // Our goal is only to verify SecurityHeaders runs on API routes too.
         $this->withoutMiddleware(SetPostgresSession::class);
 
-        $user = User::factory()->create(['role' => 'ADMIN']);
+        $user = User::factory()->create(['role' => UserRole::ADMIN->value]);
 
         $response = $this->actingAs($user)->getJson('/api/reports');
 

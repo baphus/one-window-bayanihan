@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Models\CaseFile;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -83,32 +82,23 @@ class CaseNumberGenerator
     }
 
     /**
-     * Allocate an unused tracker number.
+     * Allocate a tracker number: one CSPRNG draw, no lookup.
      *
-     * Drawn uniformly from an unambiguous 32-character alphabet using random_int,
-     * which is CSPRNG-backed. Ten characters give 32^10, about 50 bits.
-     *
-     * The previous implementation used strtoupper(Str::random(7)). That drew from
-     * 62 characters and then collapsed case, so each letter was twice as likely
-     * as each digit — roughly 35.8 bits rather than the 36.2 a uniform 36^7 would
-     * give. Non-uniformity there was an accident of implementation, not a choice.
-     *
-     * Retries on collision rather than relying solely on the unique index, so the
-     * caller receives a usable value instead of an exception.
+     * ponytail: no exists() pre-check — a genuine collision (~n/2^50) surfaces
+     * as QueryException 23505 on the unique index
+     * (database/migrations/2026_06_01_000002_create_case_tables.php:41), which
+     * CaseService/IntakeService retry; covered by EdgeCasesTest:250-259.
      */
     public function nextTrackerNumber(): string
     {
         $max = strlen(self::TRACKER_ALPHABET) - 1;
 
-        do {
-            $token = '';
-            for ($i = 0; $i < self::TRACKER_LENGTH; $i++) {
-                $token .= self::TRACKER_ALPHABET[random_int(0, $max)];
-            }
-            $tracker = 'OWBAP-'.$token;
-        } while (CaseFile::withoutGlobalScopes()->where('tracker_number', $tracker)->exists());
+        $token = '';
+        for ($i = 0; $i < self::TRACKER_LENGTH; $i++) {
+            $token .= self::TRACKER_ALPHABET[random_int(0, $max)];
+        }
 
-        return $tracker;
+        return 'OWBAP-'.$token;
     }
 
     /**

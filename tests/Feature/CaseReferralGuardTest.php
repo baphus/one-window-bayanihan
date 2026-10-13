@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\CaseFile;
 use App\Models\Referral;
@@ -28,7 +29,7 @@ class CaseReferralGuardTest extends TestCase
     {
         parent::setUp();
         $this->caseService = app(CaseService::class);
-        $this->user = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $this->user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $this->agency = Agency::create([
             'id' => fake()->uuid(),
             'name' => 'Test Agency',
@@ -39,7 +40,6 @@ class CaseReferralGuardTest extends TestCase
         $this->case = CaseFile::create([
             'id' => fake()->uuid(),
             'case_number' => 'TEST-'.fake()->unique()->numberBetween(1000, 9999),
-            'client_type' => 'OFW',
             'tracker_number' => 'OWBAP-'.strtoupper(fake()->bothify('???????')),
             'status' => 'OPEN',
             'user_id' => $this->user->id,

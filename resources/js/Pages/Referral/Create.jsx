@@ -45,7 +45,7 @@ function formatFileSize(bytes) {
 
 export default function ReferralCreate({ case_id, agencies, cases: paginatedCases, caseReferrals = {}, filters = {} }) {
     const cases = paginatedCases.data || [];
-    const { current_page: currentPage, last_page: lastPage, from, to, total } = paginatedCases.meta || {};
+    const { current_page: currentPage, last_page: lastPage, from, to, total } = paginatedCases || {};
     const { data, setData, post, processing, errors, setError, clearErrors, transform } = useForm({
         case_id: case_id || '',
         agcy_id: '',
@@ -124,6 +124,7 @@ export default function ReferralCreate({ case_id, agencies, cases: paginatedCase
 
         router.get(route('referrals.create'), {
             search: debouncedSearch || null,
+            page: 1,
             case_id: data.case_id || null,
         }, {
             preserveState: true,

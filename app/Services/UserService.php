@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\AuditAction;
 use App\Enums\AuditModule;
+use App\Enums\UserRole;
 use App\Mail\EmailChangedNotification;
 use App\Mail\UserInviteMail;
 use App\Models\AuditLog;
@@ -241,7 +242,7 @@ class UserService
     {
         $agcyId = $data['agcy_id'] ?? null;
 
-        if (! $agcyId && ($data['role'] ?? null) === 'AGENCY') {
+        if (! $agcyId && ($data['role'] ?? null) === UserRole::AGENCY->value) {
             $agcyId = $this->referenceData->getDefaultAgency()?->id;
         }
 

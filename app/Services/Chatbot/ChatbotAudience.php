@@ -2,6 +2,7 @@
 
 namespace App\Services\Chatbot;
 
+use App\Enums\UserRole;
 use App\Models\User;
 
 final class ChatbotAudience
@@ -16,9 +17,9 @@ final class ChatbotAudience
     public function groups(): ?array
     {
         return match ($this->role) {
-            'ADMIN' => null,
-            'CASE_MANAGER' => ['OFW & Public', 'General', 'Case Managers'],
-            'AGENCY' => ['OFW & Public', 'General', 'Agency Focal Persons'],
+            UserRole::ADMIN->value => null,
+            UserRole::CASE_MANAGER->value => ['OFW & Public', 'General', 'Case Managers'],
+            UserRole::AGENCY->value => ['OFW & Public', 'General', 'Agency Focal Persons'],
             default => ['OFW & Public', 'General'],
         };
     }

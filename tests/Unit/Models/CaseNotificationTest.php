@@ -2,6 +2,7 @@
 
 namespace Tests\Unit\Models;
 
+use App\Enums\UserRole;
 use App\Models\CaseFile;
 use App\Models\CaseNotification;
 use App\Models\User;
@@ -81,12 +82,11 @@ class CaseNotificationTest extends TestCase
             'name' => 'Case Manager',
             'email' => 'manager@example.com',
             'password' => bcrypt('password'),
-            'role' => 'CASE_MANAGER',
+            'role' => UserRole::CASE_MANAGER->value,
         ]);
 
         return CaseFile::create([
             'case_number' => 'CASE-0001',
-            'client_type' => 'OFW',
             'tracker_number' => 'OWBAP-ABC1234',
             'summary' => 'Test case',
             'status' => 'OPEN',

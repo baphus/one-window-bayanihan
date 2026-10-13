@@ -12,9 +12,9 @@ import IntakeSection from '@/Components/landing/IntakeSection';
 import AppFooter from '@/Components/landing/AppFooter';
 
 export default function Welcome({ agencies }) {
-  const { auth } = usePage().props;
+  const { auth, roles } = usePage().props;
   const user = auth?.user ?? null;
-  const isStaff = user && ['CASE_MANAGER', 'AGENCY', 'ADMIN'].includes(user.role);
+  const isStaff = user && [roles.CASE_MANAGER, roles.AGENCY, roles.ADMIN].includes(user.role);
 
   return (
     <div className="bg-surface font-body text-on-surface">

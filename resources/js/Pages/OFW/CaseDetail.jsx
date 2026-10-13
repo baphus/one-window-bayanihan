@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link } from '@inertiajs/react';
 import OfwLayout from '@/Layouts/OfwLayout';
 import UnifiedTimeline from '@/Components/Timeline';
+import { SectionCard } from '@/Components/Dashboard/primitives';
 
 /**
  * My Cases — case record detail.
@@ -96,7 +97,7 @@ function AgencyChapter({ agency, events, defaultOpen = false }) {
     const services = agency.services ?? [];
 
     return (
-        <section className="rounded-md border border-slate-300 bg-white shadow-sm">
+        <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
             <button
                 type="button"
                 onClick={() => setOpen((v) => !v)}
@@ -139,7 +140,7 @@ function AgencyChapter({ agency, events, defaultOpen = false }) {
                                         {services.map((svc) => (
                                             <span
                                                 key={svc}
-                                                className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-[11px] font-medium text-blue-700"
+                                                className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-medium text-primary"
                                             >
                                                 {svc}
                                             </span>
@@ -184,9 +185,8 @@ function OfwProfile({ ofw, workHistory, nextOfKin }) {
     const hasAny = ofw || workHistory || nextOfKin;
 
     return hasAny ? (
-        <section className="mt-4 rounded-md border border-slate-300 bg-white px-5 py-4 shadow-sm">
-            <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-blue-600">Case overview</h2>
-            <dl className="mt-3 grid grid-cols-1 gap-3 text-[13px] sm:grid-cols-2">
+        <SectionCard title="Case overview" className="mt-4" bodyClassName="px-5 py-4">
+            <dl className="grid grid-cols-1 gap-3 text-[13px] sm:grid-cols-2">
                 {ofw?.fullName && (
                     <div>
                         <dt className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">OFW</dt>
@@ -235,7 +235,7 @@ function OfwProfile({ ofw, workHistory, nextOfKin }) {
                     </div>
                 )}
             </dl>
-        </section>
+        </SectionCard>
     ) : null;
 }
 
@@ -349,10 +349,9 @@ export default function CaseDetail({
                 {/* Left column — main content */}
                 <div className="min-w-0">
                     {caseOverview?.narrative && (
-                        <section className="rounded-md border border-slate-300 bg-white px-5 py-4 shadow-sm">
-                            <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-blue-600">Case summary</h2>
-                            <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-slate-800">{caseOverview.narrative}</p>
-                        </section>
+                        <SectionCard title="Case summary">
+                            <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-800">{caseOverview.narrative}</p>
+                        </SectionCard>
                     )}
 
                     <OfwProfile ofw={ofw} workHistory={workHistory} nextOfKin={nextOfKin} />
@@ -388,9 +387,9 @@ export default function CaseDetail({
                 {/* Right column — complete case history (sticky on desktop) */}
                 {milestoneTimeline.length > 0 && (
                     <aside className="lg:sticky lg:top-24 lg:self-start">
-                        <section className="rounded-md border border-slate-300 bg-white shadow-sm">
-                            <header className="rounded-t-md border-b border-slate-300 bg-blue-50/60 px-4 py-3">
-                                <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-blue-600">
+                        <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
+                            <header className="rounded-t-xl border-b border-slate-100 bg-surface-container-low px-4 py-3">
+                                <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-primary">
                                     Complete case history
                                 </h2>
                                 <p className="mt-0.5 text-[11px] text-slate-400">

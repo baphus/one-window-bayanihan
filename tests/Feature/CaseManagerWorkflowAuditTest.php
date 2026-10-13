@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Models\CaseFile;
 use App\Models\Referral;
 use App\Models\User;
@@ -25,21 +26,21 @@ class CaseManagerWorkflowAuditTest extends TestCase
         $this->cmUser = User::factory()->create([
             'name' => 'Test Case Manager',
             'email' => 'cm.audit@test.local',
-            'role' => 'CASE_MANAGER',
+            'role' => UserRole::CASE_MANAGER->value,
             'password' => bcrypt('password'),
         ]);
 
         $this->adminUser = User::factory()->create([
             'name' => 'Test Admin',
             'email' => 'admin.audit@test.local',
-            'role' => 'ADMIN',
+            'role' => UserRole::ADMIN->value,
             'password' => bcrypt('password'),
         ]);
 
         $this->ofwUser = User::factory()->create([
             'name' => 'Test OFW',
             'email' => 'ofw.audit@test.local',
-            'role' => 'OFW',
+            'role' => UserRole::OFW->value,
             'password' => bcrypt('password'),
         ]);
     }
@@ -56,9 +57,9 @@ class CaseManagerWorkflowAuditTest extends TestCase
         $response->assertStatus(200);
     }
 
-    public function test_cm_can_access_drafts(): void
+    public function test_cm_can_access_review_pending(): void
     {
-        $response = $this->actingAs($this->cmUser)->get('/cases/drafts');
+        $response = $this->actingAs($this->cmUser)->get('/cases/review-pending');
         $response->assertStatus(200);
     }
 
@@ -91,7 +92,7 @@ class CaseManagerWorkflowAuditTest extends TestCase
      */
     public function test_cm_can_show_another_cm_case(): void
     {
-        $otherCM = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $otherCM = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $case = CaseFile::factory()->create(['user_id' => $otherCM->id]);
 
         $response = $this->actingAs($this->cmUser)
@@ -101,7 +102,7 @@ class CaseManagerWorkflowAuditTest extends TestCase
 
     public function test_cm_can_edit_another_cm_case(): void
     {
-        $otherCM = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $otherCM = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $case = CaseFile::factory()->create([
             'user_id' => $otherCM->id,
             'status' => 'OPEN',
@@ -114,7 +115,7 @@ class CaseManagerWorkflowAuditTest extends TestCase
 
     public function test_cm_can_toggle_status_of_another_cm_case(): void
     {
-        $otherCM = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $otherCM = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $case = CaseFile::factory()->create([
             'user_id' => $otherCM->id,
             'status' => 'OPEN',
@@ -134,7 +135,7 @@ class CaseManagerWorkflowAuditTest extends TestCase
      */
     public function test_trashed_case_route_binding_blocks_delete_archived(): void
     {
-        $otherCM = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $otherCM = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $case = CaseFile::factory()->create([
             'user_id' => $otherCM->id,
             'status' => 'ARCHIVED',
@@ -153,7 +154,7 @@ class CaseManagerWorkflowAuditTest extends TestCase
 
     public function test_cm_can_see_all_referrals(): void
     {
-        $otherCM = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $otherCM = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $caseA = CaseFile::factory()->create(['user_id' => $otherCM->id]);
         $caseB = CaseFile::factory()->create(['user_id' => $this->cmUser->id]);
 
@@ -171,32 +172,6 @@ class CaseManagerWorkflowAuditTest extends TestCase
     {
         $response = $this->actingAs($this->ofwUser)->get('/referrals');
         // Confirmed bug: OFW gets 200 instead of 403
-        $response->assertStatus(200);
-    }
-
-    public function test_draft_ownership_block(): void
-    {
-        $otherCM = User::factory()->create(['role' => 'CASE_MANAGER']);
-        $draft = CaseFile::factory()->create([
-            'user_id' => $otherCM->id,
-            'status' => 'DRAFT',
-        ]);
-
-        $response = $this->actingAs($this->cmUser)
-            ->get("/cases/{$draft->id}/edit-draft");
-        $response->assertStatus(403);
-    }
-
-    public function test_self_filed_draft_editable_by_any_cm(): void
-    {
-        $draft = CaseFile::factory()->create([
-            'user_id' => null,
-            'status' => 'DRAFT',
-            'source' => 'self_filed',
-        ]);
-
-        $response = $this->actingAs($this->cmUser)
-            ->get("/cases/{$draft->id}/edit-draft");
         $response->assertStatus(200);
     }
 }

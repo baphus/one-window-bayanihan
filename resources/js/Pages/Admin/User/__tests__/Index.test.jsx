@@ -7,7 +7,7 @@ const router = vi.hoisted(() => ({ get: vi.fn() }));
 const UserFormModalMock = vi.hoisted(() => ({ default: vi.fn(() => null) }));
 
 vi.mock('@/Layouts/AppLayout', () => ({ default: ({ children }) => <main>{children}</main> }));
-vi.mock('@inertiajs/react', () => ({ Head: () => null, router, usePage: () => ({ props: { auth: { user: { role: 'ADMIN' } } } }) }));
+vi.mock('@inertiajs/react', () => ({ Head: () => null, router, usePage: () => ({ props: { auth: { user: { role: 'ADMIN' } }, roles: { ADMIN: 'ADMIN', AGENCY: 'AGENCY', CASE_MANAGER: 'CASE_MANAGER', OFW: 'OFW' } } }) }));
 vi.mock('@/Hooks/useUnsavedChanges', () => ({ default: () => ({ UnsavedModal: null, bypassNext: vi.fn() }) }));
 vi.mock('@/Hooks/useTableVisitLoading', () => ({ default: () => ({ isLoading: false, withLoading: (options) => options }) }));
 vi.mock('@/Hooks/usePersistedColumns', () => ({ default: () => [['name', 'email', 'role', 'agency', 'email_verified', 'status', 'actions'], vi.fn()] }));

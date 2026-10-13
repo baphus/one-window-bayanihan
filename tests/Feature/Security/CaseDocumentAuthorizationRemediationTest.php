@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Security;
 
+use App\Enums\UserRole;
 use App\Models\CaseDocument;
 use App\Models\CaseFile;
 use App\Models\User;
@@ -26,8 +27,8 @@ class CaseDocumentAuthorizationRemediationTest extends TestCase
 
     public function test_any_case_manager_can_list_show_or_download(): void
     {
-        $owner = User::factory()->create(['role' => 'CASE_MANAGER']);
-        $other = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $owner = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $other = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $case = CaseFile::factory()->create(['user_id' => $owner->id]);
         $document = $this->document($case, $owner->id);
 
@@ -43,7 +44,7 @@ class CaseDocumentAuthorizationRemediationTest extends TestCase
 
     public function test_document_json_never_contains_file_url(): void
     {
-        $owner = User::factory()->create(['role' => 'CASE_MANAGER']);
+        $owner = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $case = CaseFile::factory()->create(['user_id' => $owner->id]);
         $document = $this->document($case, $owner->id);
 
@@ -56,8 +57,8 @@ class CaseDocumentAuthorizationRemediationTest extends TestCase
 
     public function test_owner_and_admin_retain_authorized_download_redirects(): void
     {
-        $owner = User::factory()->create(['role' => 'CASE_MANAGER']);
-        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $owner = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $case = CaseFile::factory()->create(['user_id' => $owner->id]);
         $document = $this->document($case, $owner->id);
 

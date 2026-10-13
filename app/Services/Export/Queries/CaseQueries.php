@@ -4,7 +4,6 @@ namespace App\Services\Export\Queries;
 
 use App\Casts\EncryptedString;
 use App\Enums\UserRole;
-use App\Models\CaseFile;
 use App\Models\User;
 use App\Services\Export\Queries\Concerns\FiltersCaseCategories;
 use App\Services\Export\Queries\Concerns\ScopesForExportUser;
@@ -27,7 +26,6 @@ class CaseQueries
             ->select([
                 'id',
                 'case_number',
-                'client_type',
                 'vulnerability_indicator',
                 'nok_vulnerability_indicator',
                 'tracker_number',
@@ -59,26 +57,17 @@ class CaseQueries
         });
     }
 
-    /**
-     * Get enriched cases for business export — joins related client data,
-     * addresses, employments, next-of-kin, case issues, and referral parties.
-     * No IDs or system fields. ADMIN/CASE_MANAGER see all; AGENCY sees own.
-     *
-     * @param  array  $filters  Optional: status, search, client_type, vulnerability_indicator,
-     *                          user_id, agcy_id, category_id/category_ids, case_issue_id,
-     *                          age_min_days, referral_state
-     */
-    public function getCasesExport(?User $user = null, array $filters = []): Collection
+    private function casesExportQuery(?User $user = null, array $filters = [])
     {
         $query = DB::table('cases AS c')
             ->select([
                 'c.case_number',
                 'c.status',
                 'c.tracker_number',
-                'c.client_type',
+                'cl.type AS client_type',
                 // Vulnerability — combine both indicators; prefer the one matching client type
                 DB::raw("CASE
-                    WHEN c.client_type = 'NEXT_OF_KIN'
+                    WHEN cl.type = 'NEXT_OF_KIN'
                         THEN COALESCE(NULLIF(c.nok_vulnerability_indicator, 'None'), NULLIF(c.vulnerability_indicator, 'None'), 'None')
                     ELSE COALESCE(NULLIF(c.vulnerability_indicator, 'None'), NULLIF(c.nok_vulnerability_indicator, 'None'), 'None')
                 END AS vulnerability"),
@@ -142,11 +131,7 @@ class CaseQueries
             $query->where('c.status', $filters['status']);
         }
         if (! empty($filters['client_type'])) {
-            if ($filters['client_type'] === CaseFile::CLIENT_TYPE_NEXT_OF_KIN) {
-                $query->where('c.client_type', CaseFile::CLIENT_TYPE_NEXT_OF_KIN);
-            } else {
-                $query->where('c.client_type', CaseFile::CLIENT_TYPE_OFW);
-            }
+            $query->where('cl.type', $filters['client_type']);
         }
         if (! empty($filters['vulnerability_indicator'])) {
             $query->where(function ($q) use ($filters) {
@@ -195,11 +180,23 @@ class CaseQueries
             });
         }
 
+        return $query;
+    }
+
+    /**
+     * Get enriched cases for business export — joins related client data,
+     * addresses, employments, next-of-kin, case issues, and referral parties.
+     * No IDs or system fields. ADMIN/CASE_MANAGER see all; AGENCY sees own.
+     *
+     * @param  array  $filters  Optional: status, search, client_type, vulnerability_indicator,
+     *                          user_id, agcy_id, category_id/category_ids, case_issue_id,
+     *                          age_min_days, referral_state
+     */
+    public function getCasesExport(?User $user = null, array $filters = []): Collection
+    {
         // Safety cap — prevents memory exhaustion on unbounded exports.
         // The DataExportService should eventually support streaming for larger sets.
-        $query->limit(10000);
-
-        return $query->get()->map(function ($row) {
+        return $this->casesExportQuery($user, $filters)->limit(10000)->get()->map(function ($row) {
             // Convert stdClass to a mutable object we can add properties to
             $row = (object) $row;
 
@@ -239,7 +236,7 @@ class CaseQueries
             }
 
             // --- Client Type display label ---
-            $row->client_type = $row->client_type === CaseFile::CLIENT_TYPE_NEXT_OF_KIN ? 'Next of Kin' : 'OFW';
+            $row->client_type = $row->client_type === 'NEXT_OF_KIN' ? 'Next of Kin' : 'OFW';
 
             // --- NOK Full Name: "Last, First M." ---
             $nokFirstName = $row->nok_first_name ?? '';
@@ -269,6 +266,6 @@ class CaseQueries
 
     public function countCasesExport(?User $user = null, array $filters = []): int
     {
-        return (int) $this->getCasesExport($user, $filters)->count();
+        return (int) $this->casesExportQuery($user, $filters)->count();
     }
 }

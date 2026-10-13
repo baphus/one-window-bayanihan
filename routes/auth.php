@@ -6,6 +6,7 @@ use App\Http\Controllers\Auth\EmailVerificationNotificationController;
 use App\Http\Controllers\Auth\EmailVerificationPromptController;
 use App\Http\Controllers\Auth\MfaChallengeController;
 use App\Http\Controllers\Auth\NewPasswordController;
+use App\Http\Controllers\Auth\OfwRegistrationController;
 use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\RegisterViaInviteController;
@@ -21,12 +22,33 @@ Route::middleware('guest')->group(function () {
     Route::get('login', [AuthenticatedSessionController::class, 'create'])
         ->name('login');
 
+    // Separate staff URL, same auth logic (OFW keeps using /login).
+    Route::get('staff/login', [AuthenticatedSessionController::class, 'createStaff'])
+        ->name('staff.login');
+
+    // OFW self-registration (account-first, 2-step: credentials → profile)
+    Route::get('register', [OfwRegistrationController::class, 'create'])
+        ->name('register');
+    Route::post('register', [OfwRegistrationController::class, 'store'])
+        ->middleware(['turnstile', 'throttle:register'])
+        ->name('register.store');
+    Route::get('register/profile', [OfwRegistrationController::class, 'showProfile'])
+        ->middleware('pending.registration')
+        ->name('register.profile');
+    Route::post('register/profile', [OfwRegistrationController::class, 'storeProfile'])
+        ->middleware(['pending.registration', 'throttle:otp'])
+        ->name('register.profile.store');
+
     // Named login.store, not login: two routes sharing the name breaks
     // `route:cache` with "Unable to prepare route [login] for serialization".
     // route('login') still resolves to this same /login path for form actions.
     Route::post('login', [AuthenticatedSessionController::class, 'store'])
         ->middleware(['turnstile', 'throttle:login'])
         ->name('login.store');
+
+    Route::post('staff/login', [AuthenticatedSessionController::class, 'store'])
+        ->middleware(['turnstile', 'throttle:login'])
+        ->name('staff.login.store');
 
     Route::get('login/mfa', [MfaChallengeController::class, 'show'])
         ->middleware('mfa.pending')->name('mfa.challenge.show');
@@ -56,6 +78,7 @@ Route::middleware('guest')->group(function () {
         ->name('password.reset');
 
     Route::post('reset-password', [NewPasswordController::class, 'store'])
+        ->middleware('throttle:password-reset-request')
         ->name('password.store');
 
     Route::get('forgot-email', function () {

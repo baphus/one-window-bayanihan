@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\CaseFile;
 use App\Models\Client;
@@ -34,12 +35,12 @@ class ReferralServiceNotificationTest extends TestCase
     {
         Notification::fake();
 
-        $caseManager = $this->createUser('CASE_MANAGER');
+        $caseManager = $this->createUser(UserRole::CASE_MANAGER->value);
         $case = $this->createCase($caseManager);
         $agency = Agency::factory()->create();
         $agencyUser = User::factory()->create([
             'agcy_id' => $agency->id,
-            'role' => 'AGENCY',
+            'role' => UserRole::AGENCY->value,
             'is_active' => true,
         ]);
 
@@ -54,7 +55,7 @@ class ReferralServiceNotificationTest extends TestCase
 
     public function test_creating_referral_creates_ofw_notification(): void
     {
-        $caseManager = $this->createUser('CASE_MANAGER');
+        $caseManager = $this->createUser(UserRole::CASE_MANAGER->value);
         $case = $this->createCase($caseManager);
         $agency = Agency::factory()->create();
 
@@ -73,7 +74,7 @@ class ReferralServiceNotificationTest extends TestCase
     {
         Notification::fake();
 
-        $caseManager = $this->createUser('CASE_MANAGER');
+        $caseManager = $this->createUser(UserRole::CASE_MANAGER->value);
         $case = $this->createCase($caseManager);
         $agency = Agency::factory()->create();
 
@@ -91,7 +92,7 @@ class ReferralServiceNotificationTest extends TestCase
 
     public function test_updating_referral_status_creates_ofw_notification(): void
     {
-        $caseManager = $this->createUser('CASE_MANAGER');
+        $caseManager = $this->createUser(UserRole::CASE_MANAGER->value);
         $case = $this->createCase($caseManager);
         $agency = Agency::factory()->create();
 
@@ -112,7 +113,7 @@ class ReferralServiceNotificationTest extends TestCase
     {
         Notification::fake();
 
-        $caseManager = $this->createUser('CASE_MANAGER');
+        $caseManager = $this->createUser(UserRole::CASE_MANAGER->value);
         $case = $this->createCase($caseManager);
         $agency = Agency::factory()->create();
 
@@ -134,12 +135,12 @@ class ReferralServiceNotificationTest extends TestCase
     {
         Notification::fake();
 
-        $caseManager = $this->createUser('CASE_MANAGER');
+        $caseManager = $this->createUser(UserRole::CASE_MANAGER->value);
         $case = $this->createCase($caseManager);
         $agency = Agency::factory()->create();
         User::factory()->create([
             'agcy_id' => $agency->id,
-            'role' => 'AGENCY',
+            'role' => UserRole::AGENCY->value,
             'is_active' => true,
         ]);
 
@@ -157,7 +158,7 @@ class ReferralServiceNotificationTest extends TestCase
 
     public function test_adding_milestone_creates_ofw_notification(): void
     {
-        $caseManager = $this->createUser('CASE_MANAGER');
+        $caseManager = $this->createUser(UserRole::CASE_MANAGER->value);
         $case = $this->createCase($caseManager);
         $agency = Agency::factory()->create();
 
@@ -178,14 +179,14 @@ class ReferralServiceNotificationTest extends TestCase
     {
         Notification::fake();
 
-        $caseManager = $this->createUser('CASE_MANAGER');
+        $caseManager = $this->createUser(UserRole::CASE_MANAGER->value);
         $case = $this->createCase($caseManager);
 
         // First agency already has an active referral on this case
         $agencyA = Agency::factory()->create();
         $agencyAUser = User::factory()->create([
             'agcy_id' => $agencyA->id,
-            'role' => 'AGENCY',
+            'role' => UserRole::AGENCY->value,
             'is_active' => true,
         ]);
 
@@ -210,13 +211,13 @@ class ReferralServiceNotificationTest extends TestCase
     {
         Notification::fake();
 
-        $caseManager = $this->createUser('CASE_MANAGER');
+        $caseManager = $this->createUser(UserRole::CASE_MANAGER->value);
         $case = $this->createCase($caseManager);
 
         $agencyA = Agency::factory()->create();
         $agencyAUser = User::factory()->create([
             'agcy_id' => $agencyA->id,
-            'role' => 'AGENCY',
+            'role' => UserRole::AGENCY->value,
             'is_active' => true,
         ]);
 
@@ -240,13 +241,13 @@ class ReferralServiceNotificationTest extends TestCase
     {
         Notification::fake();
 
-        $caseManager = $this->createUser('CASE_MANAGER');
+        $caseManager = $this->createUser(UserRole::CASE_MANAGER->value);
         $case = $this->createCase($caseManager);
 
         $agency = Agency::factory()->create();
         $agencyUser = User::factory()->create([
             'agcy_id' => $agency->id,
-            'role' => 'AGENCY',
+            'role' => UserRole::AGENCY->value,
             'is_active' => true,
         ]);
 
@@ -261,7 +262,7 @@ class ReferralServiceNotificationTest extends TestCase
 
     public function test_referral_can_be_rejected_after_processing_begins(): void
     {
-        $caseManager = $this->createUser('CASE_MANAGER');
+        $caseManager = $this->createUser(UserRole::CASE_MANAGER->value);
         $case = $this->createCase($caseManager);
         $agency = Agency::factory()->create();
 
@@ -281,7 +282,7 @@ class ReferralServiceNotificationTest extends TestCase
 
     public function test_referral_can_be_rejected_from_for_compliance(): void
     {
-        $caseManager = $this->createUser('CASE_MANAGER');
+        $caseManager = $this->createUser(UserRole::CASE_MANAGER->value);
         $case = $this->createCase($caseManager);
         $agency = Agency::factory()->create();
 
@@ -299,7 +300,7 @@ class ReferralServiceNotificationTest extends TestCase
 
     public function test_completed_referral_cannot_be_rejected(): void
     {
-        $caseManager = $this->createUser('CASE_MANAGER');
+        $caseManager = $this->createUser(UserRole::CASE_MANAGER->value);
         $case = $this->createCase($caseManager);
         $agency = Agency::factory()->create();
 
@@ -323,7 +324,7 @@ class ReferralServiceNotificationTest extends TestCase
 
     public function test_rejecting_without_a_reason_is_refused(): void
     {
-        $caseManager = $this->createUser('CASE_MANAGER');
+        $caseManager = $this->createUser(UserRole::CASE_MANAGER->value);
         $case = $this->createCase($caseManager);
         $agency = Agency::factory()->create();
 
@@ -344,7 +345,7 @@ class ReferralServiceNotificationTest extends TestCase
 
     public function test_rejecting_with_other_reason_requires_a_detailed_comment(): void
     {
-        $caseManager = $this->createUser('CASE_MANAGER');
+        $caseManager = $this->createUser(UserRole::CASE_MANAGER->value);
         $case = $this->createCase($caseManager);
         $agency = Agency::factory()->create();
 
@@ -370,7 +371,7 @@ class ReferralServiceNotificationTest extends TestCase
 
     public function test_rejection_reason_is_cleared_when_referral_moves_out_of_rejected(): void
     {
-        $caseManager = $this->createUser('CASE_MANAGER');
+        $caseManager = $this->createUser(UserRole::CASE_MANAGER->value);
         $case = $this->createCase($caseManager);
         $agency = Agency::factory()->create();
 

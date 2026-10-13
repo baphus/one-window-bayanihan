@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Mail\ReferralOverdueMail;
 use App\Models\SystemSetting;
@@ -39,7 +40,7 @@ class OverdueReferralController extends Controller
     public function sendReminders(Request $request)
     {
         $user = $request->user();
-        abort_if($user->role === 'AGENCY', 403);
+        abort_if($user->role === UserRole::AGENCY->value, 403);
 
         $validated = $request->validate([
             'referral_ids' => ['sometimes', 'array', 'max:500'],
