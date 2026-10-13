@@ -9,12 +9,11 @@ use DateTimeInterface;
 
 /**
  * Persists the self-service profile sections an OFW may edit themselves
- * (contact number, address, employment, next of kin) and notifies the client's
- * case managers when something actually changed.
+ * (contact number, sex, suffix, address, employment, next of kin) and notifies
+ * the client's case managers when something actually changed.
  *
- * Identity-critical fields (name, date of birth, sex) and the account email are
- * deliberately never accepted here — those remain staff-owned and read-only in
- * the OFW UI.
+ * Identity-critical fields (name, date of birth, email) remain staff-owned and
+ * read-only in the OFW UI.
  */
 class OfwProfileService
 {
@@ -39,6 +38,14 @@ class OfwProfileService
 
         if (array_key_exists('contact_number', $data)) {
             $this->syncContactNumber($user, $client, $data['contact_number'], $changes);
+        }
+
+        if (array_key_exists('sex', $data)) {
+            $this->syncSex($client, $data['sex'], $changes);
+        }
+
+        if (array_key_exists('suffix', $data)) {
+            $this->syncSuffix($client, $data['suffix'], $changes);
         }
 
         if (isset($data['address']) && is_array($data['address'])) {
@@ -76,6 +83,34 @@ class OfwProfileService
 
         // Keep the login account in sync with the client record.
         $user->contact_number = $newContact;
+    }
+
+    private function syncSex(Client $client, mixed $newSex, array &$changes): void
+    {
+        $newSex = $this->normalize($newSex);
+
+        if ((string) ($client->sex ?? '') !== (string) ($newSex ?? '')) {
+            $changes['Sex'] = [
+                'old' => $client->sex,
+                'new' => $newSex,
+            ];
+            $client->sex = $newSex;
+            $client->save();
+        }
+    }
+
+    private function syncSuffix(Client $client, mixed $newSuffix, array &$changes): void
+    {
+        $newSuffix = $this->normalize($newSuffix);
+
+        if ((string) ($client->suffix ?? '') !== (string) ($newSuffix ?? '')) {
+            $changes['Suffix'] = [
+                'old' => $client->suffix,
+                'new' => $newSuffix,
+            ];
+            $client->suffix = $newSuffix;
+            $client->save();
+        }
     }
 
     private function syncAddress(Client $client, array $address, array &$changes): void

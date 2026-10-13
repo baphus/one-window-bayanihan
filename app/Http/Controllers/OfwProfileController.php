@@ -56,6 +56,8 @@ class OfwProfileController extends Controller
             ],
             'password' => ['nullable', 'confirmed', Password::defaults()],
             'contact_number' => ['nullable', 'string', 'max:20'],
+            'sex' => ['nullable', 'in:Male,Female'],
+            'suffix' => ['nullable', 'in:Jr,Sr,II,III,IV,V'],
             'address' => ['sometimes', 'array'],
             'address.region' => ['nullable', 'string', 'max:255'],
             'address.province' => ['nullable', 'string', 'max:255'],
