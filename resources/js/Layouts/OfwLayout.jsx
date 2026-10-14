@@ -66,7 +66,7 @@ export default function OfwLayout({ children, title }) {
                                 Notifications
                             </Link>
                             <Link
-                                href={safeRoute('cases.create', undefined, '/cases/create')}
+                                href={safeRoute('ofw.intake', undefined, '/my-cases/intake')}
                                 className="text-sm font-semibold text-slate-700 transition hover:text-primary"
                             >
                                 File a Case
@@ -179,7 +179,7 @@ export default function OfwLayout({ children, title }) {
                                         Profile
                                     </Link>
                                     <Link
-                                        href={safeRoute('cases.create', undefined, '/cases/create')}
+                                        href={safeRoute('ofw.intake', undefined, '/my-cases/intake')}
                                         className="rounded-md border border-gray-200 px-4 py-3 text-left text-sm font-medium text-slate-600 transition hover:bg-slate-50 hover:text-primary"
                                     >
                                         File a Case

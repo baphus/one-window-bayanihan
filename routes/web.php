@@ -449,6 +449,8 @@ Route::middleware(['auth', 'role:OFW'])->prefix('my-cases')->name('ofw.')->group
     Route::get('/', [OfwDashboardController::class, 'index'])->name('dashboard');
     Route::get('/notifications', [OfwDashboardController::class, 'notifications'])->name('notifications');
     Route::patch('/notifications/{id}/read', [OfwDashboardController::class, 'markNotificationAsRead'])->name('notifications.mark-as-read');
+    Route::get('/intake', [CaseController::class, 'intake'])->name('intake');
+    Route::post('/intake', [CaseController::class, 'storeIntake'])->name('intake.store');
     Route::get('/{case}/agencies/{referral}/milestones', [OfwDashboardController::class, 'agencyMilestones'])->name('case.milestones');
     Route::get('/profile', [OfwProfileController::class, 'edit'])->name('profile.edit');
     Route::put('/profile', [OfwProfileController::class, 'update'])->name('profile.update');

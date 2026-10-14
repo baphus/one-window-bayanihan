@@ -29,7 +29,7 @@ export default function Dashboard({ cases, caseStats }) {
     const { auth } = usePage().props;
     const caseList = cases?.data ?? [];
     const stats = caseStats ?? {};
-    const fileCaseHref = safeRoute('cases.create', undefined, '/cases/create');
+    const fileCaseHref = safeRoute('ofw.intake', undefined, '/my-cases/intake');
 
     return (
         <OfwLayout title="My Cases">

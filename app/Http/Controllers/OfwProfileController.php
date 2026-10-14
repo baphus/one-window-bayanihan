@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Rules\ServedRegion;
 use App\Services\OfwProfileService;
 use App\Services\ReferenceDataService;
 use Illuminate\Http\Request;
@@ -48,6 +49,12 @@ class OfwProfileController extends Controller
     {
         $user = $request->user();
 
+        // Normalize sex case to match DB strtoupper storage (registration &
+        // ClientProfileService both uppercase before persisting).
+        if ($request->filled('sex')) {
+            $request->merge(['sex' => strtoupper($request->input('sex'))]);
+        }
+
         $validated = $request->validate([
             'current_password' => [
                 'nullable',
@@ -55,11 +62,11 @@ class OfwProfileController extends Controller
                 Rule::when(fn () => filled($request->input('password')), ['current_password']),
             ],
             'password' => ['nullable', 'confirmed', Password::defaults()],
-            'contact_number' => ['nullable', 'string', 'max:20'],
-            'sex' => ['nullable', 'in:Male,Female'],
-            'suffix' => ['nullable', 'in:Jr,Sr,II,III,IV,V'],
+            'contact_number' => ['nullable', 'string', 'max:50'],
+            'sex' => ['nullable', 'in:MALE,FEMALE'],
+            'suffix' => ['nullable', 'string', 'max:50'],
             'address' => ['sometimes', 'array'],
-            'address.region' => ['nullable', 'string', 'max:255'],
+            'address.region' => ['nullable', 'string', 'max:255', new ServedRegion],
             'address.province' => ['nullable', 'string', 'max:255'],
             'address.city_municipality' => ['nullable', 'string', 'max:255'],
             'address.barangay' => ['nullable', 'string', 'max:255'],
@@ -69,7 +76,8 @@ class OfwProfileController extends Controller
             'employment.position' => ['nullable', 'string', 'max:255'],
             'employment.country' => ['nullable', 'string', 'max:255'],
             'employment.start_date' => ['nullable', 'date'],
-            'employment.end_date' => ['nullable', 'date', 'after_or_equal:employment.start_date'],
+            'employment.end_date' => ['nullable', 'date', 'after_or_equal:employment.start_date', 'required_unless:employment.is_present,true'],
+            'employment.is_present' => ['nullable', 'boolean'],
             'employment.last_country' => ['nullable', 'string', 'max:255'],
             'employment.last_position' => ['nullable', 'string', 'max:255'],
             'employment.date_of_arrival' => ['nullable', 'date'],
@@ -85,6 +93,11 @@ class OfwProfileController extends Controller
             'next_of_kin.*.city_municipality' => ['nullable', 'string', 'max:255'],
             'next_of_kin.*.barangay' => ['nullable', 'string', 'max:255'],
             'next_of_kin.*.street' => ['nullable', 'string', 'max:255'],
+            'next_of_kin.*.nok_address.region' => ['required_with:next_of_kin', 'string', 'max:255', new ServedRegion],
+            'next_of_kin.*.nok_address.province' => ['nullable', 'string', 'max:255'],
+            'next_of_kin.*.nok_address.city_municipality' => ['required_with:next_of_kin', 'string', 'max:255'],
+            'next_of_kin.*.nok_address.barangay' => ['required_with:next_of_kin', 'string', 'max:255'],
+            'next_of_kin.*.nok_address.street' => ['nullable', 'string'],
         ]);
 
         if (! empty($validated['password'])) {

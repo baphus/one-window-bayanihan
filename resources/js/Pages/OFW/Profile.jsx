@@ -9,6 +9,7 @@ import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import { getAvatarColor } from '@/Components/ui/UserAvatar';
 import CountrySelect from '@/Components/CountrySelect';
 import SearchableSelect from '@/Components/SearchableSelect';
+import AddressDropdowns from '@/Components/AddressDropdowns';
 import { DEFAULT_OCCUPATIONS } from '@/data/defaultOccupations';
 import { SectionCard, MaterialSymbol } from '@/Components/Dashboard/primitives';
 
@@ -138,6 +139,9 @@ const NAV_TABS = [
 
 export default function Profile({ user, client }) {
     const { passwordRules, occupationOptions } = usePage().props;
+    // Another lane owns the controller; fall back so the meter/schema still
+    // enforce a sensible policy when the prop is absent.
+    const effectivePasswordRules = passwordRules ?? { min_length: 8 };
     const [activeTab, setActiveTab] = useState(NAV_TABS[0].id);
 
     const fullName = client
@@ -173,6 +177,7 @@ export default function Profile({ user, client }) {
         country: client?.employment?.country ?? '',
         start_date: client?.employment?.start_date ?? '',
         end_date: client?.employment?.end_date ?? '',
+        is_present: client?.employment?.is_present ?? false,
         last_country: client?.employment?.last_country ?? '',
         last_position: client?.employment?.last_position ?? '',
         date_of_arrival: client?.employment?.date_of_arrival ?? '',
@@ -206,13 +211,14 @@ export default function Profile({ user, client }) {
         country: z.string().max(255, MAX),
         start_date: z.string().max(10, 'Enter a valid date.'),
         end_date: z.string().max(10, 'Enter a valid date.'),
+        is_present: z.boolean().optional(),
         last_country: z.string().max(255, MAX),
         last_position: z.string().max(255, MAX),
         date_of_arrival: z.string().max(10, 'Enter a valid date.'),
     }).superRefine((data, ctx) => {
         // ISO dates (YYYY-MM-DD) compare lexicographically.
         const dob = client?.date_of_birth;
-        if (data.start_date && data.end_date && data.start_date > data.end_date) {
+        if (!data.is_present && data.start_date && data.end_date && data.start_date > data.end_date) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'End date must be on or after the start date.', path: ['end_date'] });
         }
         if (dob && data.start_date && data.start_date < dob) {
@@ -251,7 +257,7 @@ export default function Profile({ user, client }) {
     // password is actually being set. Leave everything blank to keep it.
     const passwordSchema = useMemo(() => z.object({
         current_password: z.string().optional(),
-        password: createPasswordSchema(passwordRules).or(z.literal('')),
+        password: createPasswordSchema(effectivePasswordRules).or(z.literal('')),
         password_confirmation: z.string(),
     }).superRefine((data, ctx) => {
         if (!data.password) return;
@@ -261,7 +267,7 @@ export default function Profile({ user, client }) {
         if (data.password !== data.password_confirmation) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Passwords do not match.', path: ['password_confirmation'] });
         }
-    }), [passwordRules]);
+    }), [effectivePasswordRules]);
 
     const contactValidation = useClientValidation(contactSchema, contactForm.data, contactForm.setError);
     const addressValidation = useClientValidation(addressSchema, addressForm.data, addressForm.setError);
@@ -327,6 +333,7 @@ export default function Profile({ user, client }) {
                         country: emp.country ?? '',
                         start_date: emp.start_date ?? '',
                         end_date: emp.end_date ?? '',
+                        is_present: emp.is_present ?? false,
                         last_country: emp.last_country ?? '',
                         last_position: emp.last_position ?? '',
                         date_of_arrival: emp.date_of_arrival ?? '',
@@ -566,6 +573,10 @@ export default function Profile({ user, client }) {
                                             {SUFFIX_OPTIONS.map((s) => (
                                                 <option key={s} value={s}>{s}</option>
                                             ))}
+                                            {/* Stored free-text values predate the select; keep them selectable. */}
+                                            {identityForm.data.suffix && !SUFFIX_OPTIONS.includes(identityForm.data.suffix) && (
+                                                <option value={identityForm.data.suffix}>{identityForm.data.suffix}</option>
+                                            )}
                                         </select>
                                     </Field>
                                 </div>
@@ -608,14 +619,12 @@ export default function Profile({ user, client }) {
                                     title="Address"
                                     description="Where we can reach you while abroad or at home."
                                 />
-                                <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                                    <TextInput id="address_region" label="Region" value={addressForm.data.region} onChange={(v) => addressForm.setData('region', v)} error={addressForm.errors.region} />
-                                    <TextInput id="address_province" label="Province" value={addressForm.data.province} onChange={(v) => addressForm.setData('province', v)} error={addressForm.errors.province} />
-                                    <TextInput id="address_city" label="City / Municipality" value={addressForm.data.city_municipality} onChange={(v) => addressForm.setData('city_municipality', v)} error={addressForm.errors.city_municipality} />
-                                    <TextInput id="address_barangay" label="Barangay" value={addressForm.data.barangay} onChange={(v) => addressForm.setData('barangay', v)} error={addressForm.errors.barangay} />
-                                    <div className="sm:col-span-2">
-                                        <TextInput id="address_street" label="House No. / Street" value={addressForm.data.street} onChange={(v) => addressForm.setData('street', v)} error={addressForm.errors.street} />
-                                    </div>
+                                <div className="mt-4">
+                                    <AddressDropdowns
+                                        values={addressForm.data}
+                                        onChange={addressForm.setData}
+                                        errors={addressForm.errors}
+                                    />
                                 </div>
                                 <div className="mt-4 flex justify-end">
                                     <SaveButton processing={addressForm.processing}>Save Address</SaveButton>
@@ -639,7 +648,39 @@ export default function Profile({ user, client }) {
                                         <CountrySelect value={employmentForm.data.country} onChange={(v) => employmentForm.setData('country', v)} />
                                     </Field>
                                     <TextInput id="emp_start" label="Start Date" type="date" value={employmentForm.data.start_date} onChange={(v) => employmentForm.setData('start_date', v)} error={employmentForm.errors.start_date} />
-                                    <TextInput id="emp_end" label="End Date" type="date" value={employmentForm.data.end_date} onChange={(v) => employmentForm.setData('end_date', v)} error={employmentForm.errors.end_date} />
+                                    <div>
+                                        <Field label="End Date" htmlFor="emp_end" error={employmentForm.errors.end_date}>
+                                            {employmentForm.data.is_present ? (
+                                                <span className="mt-1 flex w-full items-center rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-emerald-700 shadow-sm">
+                                                    Present
+                                                </span>
+                                            ) : (
+                                                <input
+                                                    id="emp_end"
+                                                    type="date"
+                                                    value={employmentForm.data.end_date ?? ''}
+                                                    onChange={(e) => employmentForm.setData('end_date', e.target.value)}
+                                                    className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 shadow-sm transition-colors focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                                                />
+                                            )}
+                                        </Field>
+                                        <label className="mt-2 inline-flex cursor-pointer select-none items-center gap-2 text-sm text-slate-600">
+                                            <input
+                                                type="checkbox"
+                                                checked={!!employmentForm.data.is_present}
+                                                onChange={(e) => {
+                                                    const checked = e.target.checked;
+                                                    employmentForm.setData({
+                                                        ...employmentForm.data,
+                                                        is_present: checked,
+                                                        end_date: checked ? '' : employmentForm.data.end_date,
+                                                    });
+                                                }}
+                                                className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary"
+                                            />
+                                            Currently employed here
+                                        </label>
+                                    </div>
                                     <Field label="Last Country" error={employmentForm.errors.last_country}>
                                         <CountrySelect value={employmentForm.data.last_country} onChange={(v) => employmentForm.setData('last_country', v)} />
                                     </Field>
@@ -748,7 +789,7 @@ export default function Profile({ user, client }) {
                                         error={passwordForm.errors.password}
                                         autoComplete="new-password"
                                         showStrengthMeter
-                                        rules={passwordRules}
+                                        rules={effectivePasswordRules}
                                         confirmation={passwordForm.data.password_confirmation}
                                     />
                                     <PasswordInput
@@ -793,7 +834,7 @@ export default function Profile({ user, client }) {
                             error={passwordForm.errors.password}
                             autoComplete="new-password"
                             showStrengthMeter
-                            rules={passwordRules}
+                            rules={effectivePasswordRules}
                             confirmation={passwordForm.data.password_confirmation}
                         />
                         <PasswordInput

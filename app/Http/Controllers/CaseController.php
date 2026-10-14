@@ -8,6 +8,7 @@ use App\Http\Requests\UpdateCaseRequest;
 use App\Models\CaseFile;
 use App\Models\Client;
 use App\Models\SystemSetting;
+use App\Rules\VulnerabilityRule;
 use App\Services\CaseService;
 use App\Services\Export\DataExportQueries;
 use App\Services\Export\DataExportService;
@@ -125,6 +126,60 @@ class CaseController extends Controller
             ->with('success', 'Case created successfully.');
     }
 
+    public function intake()
+    {
+        $user = auth()->user();
+
+        // Resolve linked client same way storeIntake does: OFW always files for
+        // their own linked client. If no client yet, profile is empty so the
+        // intake form can prompt the user to complete their profile first.
+        $client = $user && $user->client
+            ? $user->client->load(['addresses', 'employments', 'nextOfKin'])
+            : null;
+
+        $categories = $this->referenceData->getActiveCategories();
+        $caseIssues = $this->referenceData->getActiveIssues();
+
+        return Inertia::render('OFW/Intake', [
+            'profile' => $client,
+            'vulnerabilityOptions' => VulnerabilityRule::VALUES,
+            'categories' => $categories,
+            'caseIssues' => $caseIssues,
+        ]);
+    }
+
+    public function storeIntake(StoreIntakeRequest $request)
+    {
+        $validated = $request->validated();
+
+        // Resolve client_id from the authenticated OFW user
+        $user = $request->user();
+        $client = $user->client;
+
+        if (! $client) {
+            return back()
+                ->withInput()
+                ->withErrors(['client' => 'No linked client found. Please complete your profile first.']);
+        }
+
+        // Build case data: only summary, vulnerability, consent + user/client
+        // category_id, category_ids, case_issue_id are intentionally omitted
+        // so the case lands in PENDING_REVIEW without categories (sync only if non-empty later)
+        $caseData = array_merge($validated, [
+            'user_id' => $user->id,
+            'client_id' => $client->id,
+        ]);
+
+        $case = $this->caseService->createCase(
+            $caseData,
+            $user->id,
+        );
+
+        return redirect()
+            ->route('ofw.dashboard')
+            ->with('success', 'Case submitted successfully. It is now pending review.');
+    }
+
     public function reviewPending(Request $request)
     {
         $listing = $request->validate([
@@ -147,18 +202,49 @@ class CaseController extends Controller
             'filters' => (object) $request->only(['search']),
             'sort' => 'created_at',
             'direction' => $direction,
+            'categories' => $this->referenceData->getActiveCategories(),
+            'caseIssues' => $this->referenceData->getActiveIssues(),
         ]);
     }
 
-    public function reviewApprove(CaseFile $case)
+    public function reviewApprove(Request $request, CaseFile $case)
     {
-        $user = request()->user();
+        $user = $request->user();
 
         abort_unless(in_array($user->role, [UserRole::CASE_MANAGER->value, UserRole::ADMIN->value], true), 403);
 
         abort_unless($case->status === CaseFile::STATUS_PENDING_REVIEW, 404);
 
-        $this->caseService->approveCase($case->id, $user->id);
+        // Require category_ids and case_issue_id at approve time for cases
+        // that don't already have categories (backward compat: staff-created
+        // cases already have categories so approve still works without re-entry).
+        $hasExistingCategories = $case->categories()->exists();
+
+        $categoryIds = [];
+        $caseIssueId = null;
+
+        if (! $hasExistingCategories) {
+            // Validate category_ids and case_issue_id for intake-created cases
+            $validated = $request->validate([
+                'category_ids' => ['required', 'array', 'min:1'],
+                'category_ids.*' => ['bail', 'uuid', 'distinct', Rule::exists('case_categories', 'id')->where('is_active', true)],
+                'case_issue_id' => ['required', 'string', 'exists:case_issues,id'],
+            ]);
+
+            $categoryIds = $validated['category_ids'];
+            $caseIssueId = $validated['case_issue_id'];
+        }
+        // Backward compat: staff-created cases already have categories;
+        // no need to re-validate or re-sync
+
+        // Flip to OPEN via approveCase (atomic transaction, sets reviewed_by/Reviewed_at).
+        // Category IDs and case issue ID are synced within the transaction if provided.
+        $case = $this->caseService->approveCase(
+            $case->id,
+            $user->id,
+            $categoryIds,
+            $caseIssueId,
+        );
 
         return redirect()
             ->route('cases.review-pending')
