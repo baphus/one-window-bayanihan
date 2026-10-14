@@ -80,6 +80,8 @@ class ClientCaseQueryTest extends TestCase
         CaseFile::factory()->pendingReview()->create([
             'client_id' => $intakeOnly->id,
             'user_id' => null,
+            'vulnerability_indicator' => null,
+            'nok_vulnerability_indicator' => null,
         ]);
 
         // Soft-deleted client: excluded everywhere.
@@ -88,6 +90,8 @@ class ClientCaseQueryTest extends TestCase
             'client_id' => $deleted->id,
             'user_id' => $manager->id,
             'status' => 'OPEN',
+            'vulnerability_indicator' => null,
+            'nok_vulnerability_indicator' => null,
         ]);
         $deleted->delete();
         $deletedCase->delete();

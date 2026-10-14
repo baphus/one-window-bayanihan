@@ -147,7 +147,7 @@ class OfwProfileService
 
     private function syncEmployment(Client $client, array $employment, array &$changes): void
     {
-        $fields = ['employer_name', 'position', 'country', 'start_date', 'end_date', 'last_country', 'last_position', 'date_of_arrival'];
+        $fields = ['employer_name', 'position', 'country', 'start_date', 'end_date', 'last_country', 'last_position', 'date_of_arrival', 'is_present'];
 
         $row = $client->employments()->orderBy('created_at')->first();
 
@@ -157,6 +157,10 @@ class OfwProfileService
             }
 
             $new = $this->pickFields($employment, $fields);
+            // When is_present is true, end_date must be null
+            if (! empty($new['is_present'])) {
+                $new['end_date'] = null;
+            }
             $client->employments()->create($new);
             $changes['Employment'] = ['old' => null, 'new' => $new];
 
@@ -171,6 +175,10 @@ class OfwProfileService
 
         foreach ($dirty as $field => $_) {
             $row->{$field} = $dirty[$field]['new'];
+        }
+        // When is_present is set to true, clear end_date
+        if (! empty($employment['is_present']) ?? false) {
+            $row->end_date = null;
         }
         $row->save();
 
