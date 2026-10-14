@@ -28,6 +28,10 @@ class MigrationConventionTest extends TestCase
         // One-off OFW-account-first backfill (stub users + draft-derived
         // clients), not reference seed data.
         '2026_10_12_000003_backfill_ofw_account_first.php',
+        // Post-squash restore of the canonical case_statuses seeded by the
+        // squashed (allowlisted) 2026_06_01_000001 file. Deploys run migrate
+        // only, never db:seed, so reference rows must ship in a migration.
+        '2026_10_15_000001_seed_canonical_case_statuses.php',
     ];
 
     /**
