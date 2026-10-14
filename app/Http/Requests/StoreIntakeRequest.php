@@ -2,11 +2,10 @@
 
 namespace App\Http\Requests;
 
-use App\Rules\EmploymentStartAtWorkingAge;
-use App\Rules\ServedRegion;
 use App\Rules\VulnerabilityRule;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreIntakeRequest extends FormRequest
 {
@@ -15,43 +14,38 @@ class StoreIntakeRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return true; // Public form, no auth required
+        $user = $this->user();
+
+        return $user !== null && ($user->isOfw() || $user->isAdmin() || $user->isCaseManager());
     }
 
     /**
-     * Next of kin is optional. Drop fully-empty contact entries so restored
-     * sessions and older clients with placeholder rows do not trip the
-     * per-entry required_with rule.
+     * Prepare the data for validation.
      */
     protected function prepareForValidation(): void
     {
-        $noks = $this->input('next_of_kin');
-
-        if (! is_array($noks)) {
-            return;
+        // Convert empty strings to null for category fields so 'nullable' rules skip them
+        if ($this->has('category_id') && $this->category_id === '') {
+            $this->merge(['category_id' => null]);
         }
 
-        $filled = array_values(array_filter($noks, function ($nok) {
-            if (! is_array($nok)) {
-                return false;
-            }
+        if ($this->has('category_ids') && $this->input('category_ids') === '') {
+            $this->merge(['category_ids' => null]);
+        }
 
-            foreach ($nok as $value) {
-                if (is_string($value) && trim($value) !== '') {
-                    return true;
+        if ($this->has('case_issue_id') && $this->case_issue_id === '') {
+            $this->merge(['case_issue_id' => null]);
+        }
+
+        // Normalize vulnerability fields — accept comma-separated multi-select, validate each segment
+        foreach (['vulnerability_indicator'] as $field) {
+            if ($this->has($field)) {
+                $raw = $this->input($field);
+                if (is_string($raw)) {
+                    $this->merge([$field => VulnerabilityRule::normalize($raw)]);
                 }
             }
-
-            return false;
-        }));
-
-        if (empty($filled)) {
-            $this->merge(['next_of_kin' => []]);
-
-            return;
         }
-
-        $this->merge(['next_of_kin' => $filled]);
     }
 
     /**
@@ -61,49 +55,20 @@ class StoreIntakeRequest extends FormRequest
      */
     public function rules(): array
     {
-        // Applicants must be 15–100 years old.
-        $dobMax = now()->subYears(15)->toDateString();
-        $dobMin = now()->subYears(100)->toDateString();
-
         return [
-            'client.first_name' => ['required', 'string', 'max:255'],
-            'client.last_name' => ['required', 'string', 'max:255'],
-            'client.middle_name' => ['nullable', 'string', 'max:255'],
-            'client.suffix' => ['nullable', 'string', 'max:20'],
-            'client.date_of_birth' => ['required', 'date', 'before_or_equal:'.$dobMax, 'after_or_equal:'.$dobMin],
-            'client.sex' => ['nullable', 'string', 'in:Male,Female,male,female,MALE,FEMALE'],
-            'client.contact_number' => ['required', 'string', 'max:20'],
-            'address.region' => ['required', 'string', new ServedRegion],
-            'address.province' => ['nullable', 'string'],
-            'address.city_municipality' => ['required', 'string'],
-            'address.barangay' => ['required', 'string'],
-            'address.street' => ['nullable', 'string'],
-            'employment.employer_name' => ['nullable', 'string', 'max:255'],
-            'employment.position' => ['nullable', 'string', 'max:255'],
-            'employment.country' => ['nullable', 'string', 'max:100'],
-            'employment.start_date' => ['nullable', 'date', 'after_or_equal:client.date_of_birth', 'before_or_equal:today', new EmploymentStartAtWorkingAge($this->input('client.date_of_birth'))],
-            'employment.end_date' => ['nullable', 'date', 'after_or_equal:employment.start_date', 'before_or_equal:today'],
-            'employment.is_present' => ['nullable', 'boolean'],
-            'employment.last_country' => ['nullable', 'string', 'max:100'],
-            'employment.last_position' => ['nullable', 'string', 'max:255'],
-            'employment.date_of_arrival' => ['nullable', 'date', 'after_or_equal:client.date_of_birth'],
-            'vulnerability' => ['nullable', 'array'],
-            'vulnerability.*' => ['nullable', 'string', 'in:'.implode(',', VulnerabilityRule::VALUES)],
-            'next_of_kin' => ['sometimes', 'array'],
-            'next_of_kin.*.first_name' => ['required_with:next_of_kin', 'string', 'max:255'],
-            'next_of_kin.*.last_name' => ['nullable', 'string', 'max:255'],
-            'next_of_kin.*.middle_name' => ['nullable', 'string', 'max:255'],
-            'next_of_kin.*.relationship' => ['nullable', 'string', 'max:100'],
-            'next_of_kin.*.phone_number' => ['nullable', 'string', 'max:50'],
-            'next_of_kin.*.email' => ['nullable', 'string', 'email', 'max:255'],
-            'next_of_kin.*.region' => ['nullable', 'string', new ServedRegion],
-            'next_of_kin.*.province' => ['nullable', 'string'],
-            'next_of_kin.*.city_municipality' => ['nullable', 'string'],
-            'next_of_kin.*.barangay' => ['nullable', 'string'],
-            'next_of_kin.*.street' => ['nullable', 'string'],
-            'summary' => ['nullable', 'string', 'max:5000'],
+            'summary' => ['required', 'string', 'max:2000'],
+            'vulnerability_indicator' => ['required', 'string', 'max:255', new VulnerabilityRule],
             'consent' => ['required', 'accepted'],
 
+            // Intake-specific: category and case_issue are NOT required here.
+            // They are prohibited for OFW self-intake (will be empty/null on create).
+            'category_id' => ['nullable', 'string', 'uuid', Rule::exists('case_categories', 'id')->where('is_active', true)],
+            'category_ids' => ['nullable', 'array', 'min:1'],
+            'category_ids.*' => ['bail', 'uuid', 'distinct', Rule::exists('case_categories', 'id')->where('is_active', true)],
+            'case_issue_id' => ['nullable', 'string', 'exists:case_issues,id'],
+
+            // Profile fields that are prefilled and NOT editable through intake.
+            // These are explicitly excluded; Inertia should not send them.
         ];
     }
 
@@ -113,17 +78,12 @@ class StoreIntakeRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'client.first_name.required' => 'Please provide your first name.',
-            'client.last_name.required' => 'Please provide your last name.',
-            'client.date_of_birth.required' => 'Please provide your date of birth.',
-            'client.contact_number.required' => 'Please provide your contact number.',
-            'address.region.required' => 'Please select your region.',
-            'address.city_municipality.required' => 'Please select your city/municipality.',
-            'address.barangay.required' => 'Please select your barangay.',
-            'next_of_kin.*.first_name.required_with' => 'Emergency contact name is required when a contact is provided.',
+            'summary.required' => 'Please provide a summary of your case.',
+            'summary.max' => 'Summary must not exceed 2000 characters.',
+            'vulnerability_indicator.required' => 'Please indicate if you have a vulnerability indicator.',
+            'vulnerability_indicator.*.*' => 'Please provide valid vulnerability indicator values.',
             'consent.required' => 'You must consent to data processing to submit this form.',
             'consent.accepted' => 'You must consent to data processing to submit this form.',
-
         ];
     }
 }

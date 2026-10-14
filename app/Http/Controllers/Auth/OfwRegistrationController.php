@@ -6,6 +6,10 @@ use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Models\Client;
 use App\Models\User;
+use App\Rules\EmploymentStartAtWorkingAge;
+use App\Rules\ServedRegion;
+use App\Services\NotificationService;
+use App\Services\OfwProfileService;
 use App\Services\OtpService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -19,6 +23,7 @@ class OfwRegistrationController extends Controller
 {
     public function __construct(
         private readonly OtpService $otpService,
+        private readonly NotificationService $notificationService,
     ) {}
 
     public function create()
@@ -87,9 +92,27 @@ class OfwRegistrationController extends Controller
             'last_name' => 'required|string|max:255',
             'middle_name' => 'nullable|string|max:255',
             'suffix' => 'nullable|string|max:50',
-            'date_of_birth' => 'nullable|date',
+            'date_of_birth' => ['required', 'date', 'before_or_equal:'.now()->subYears(15)->toDateString(), 'after_or_equal:'.now()->subYears(100)->toDateString()],
             'sex' => 'nullable|string|max:50',
             'contact_number' => 'nullable|string|max:50',
+            'address' => ['required', 'array',
+                'region' => ['required', 'string', new ServedRegion],
+                'province' => ['nullable', 'string', 'max:255'],
+                'city_municipality' => ['required', 'string', 'max:255'],
+                'barangay' => ['required', 'string', 'max:255'],
+                'street' => ['nullable', 'string'],
+            ],
+            'employment' => ['required', 'array',
+                'employer_name' => ['required', 'string', 'max:255'],
+                'position' => ['nullable', 'string', 'max:255'],
+                'country' => ['nullable', 'string', 'max:255'],
+                'start_date' => ['required', 'date', 'after_or_equal:client.date_of_birth', 'before_or_equal:today', new EmploymentStartAtWorkingAge($this->input('date_of_birth'))],
+                'end_date' => ['required_unless:employment.is_present,true', 'nullable', 'date', 'after_or_equal:employment.start_date', 'before_or_equal:today'],
+                'is_present' => ['nullable', 'boolean'],
+                'last_country' => ['required', 'string', 'max:255'],
+                'last_position' => ['required', 'string', 'max:255'],
+                'date_of_arrival' => ['required', 'date', 'after_or_equal:client.date_of_birth'],
+            ],
         ]);
 
         $email = $pending['credentials']['email'];
@@ -124,6 +147,11 @@ class OfwRegistrationController extends Controller
 
             $user->client_id = $client->id;
             $user->save();
+
+            // Persist address to ClientAddress
+            $service = new OfwProfileService($this->notificationService);
+            $service->syncAddress($client, $validated['address'] ?? [], []);
+            $service->syncEmployment($client, $validated['employment'] ?? [], []);
 
             return $user;
         });

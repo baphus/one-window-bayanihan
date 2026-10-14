@@ -198,21 +198,38 @@ class CaseService
 
     /**
      * Approve a pending filing: stamp the reviewer and open the case.
+     *
+     * Optionally sync category_ids and case_issue_id before flipping to OPEN.
+     * For backward compat: staff-created cases already have categories so
+     * these may be omitted and the existing categories will be revalidated.
      */
-    public function approveCase(string $id, string $userId): CaseFile
+    public function approveCase(string $id, string $userId, array $categoryIds = [], ?string $caseIssueId = null): CaseFile
     {
-        return DB::transaction(function () use ($id, $userId) {
+        return DB::transaction(function () use ($id, $userId, $categoryIds, $caseIssueId) {
             $case = CaseFile::where('status', CaseFile::STATUS_PENDING_REVIEW)
                 ->lockForUpdate()
                 ->findOrFail($id);
 
+            // If category_ids were provided, sync them before revalidation
+            if (! empty($categoryIds)) {
+                $this->lockActiveCategories($categoryIds);
+                $this->syncCaseCategories($case, $categoryIds);
+            }
+
             $this->revalidatePublishedCategories($case);
 
-            $case->update([
+            $updateData = [
                 'status' => 'OPEN',
                 'reviewed_by' => $userId,
                 'reviewed_at' => now(),
-            ]);
+            ];
+
+            // Override case_issue_id if provided at approve time
+            if (! is_null($caseIssueId)) {
+                $updateData['case_issue_id'] = $caseIssueId;
+            }
+
+            $case->update($updateData);
 
             $this->eventRecorder->caseOpened($case, $userId);
 
