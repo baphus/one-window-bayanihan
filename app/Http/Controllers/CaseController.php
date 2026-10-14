@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\UserRole;
 use App\Http\Requests\StoreCaseRequest;
+use App\Http\Requests\StoreIntakeRequest;
 use App\Http\Requests\UpdateCaseRequest;
 use App\Models\CaseFile;
 use App\Models\Client;
