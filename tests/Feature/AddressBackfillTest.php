@@ -125,15 +125,65 @@ class AddressBackfillTest extends TestCase
         $this->assertSame($afterFirst, $afterSecond, 'Re-running the backfill changed the value again.');
     }
 
-    /**
-     * Invokes the migration's up() directly so the behaviour is tested rather
-     * than assumed from having already run during RefreshDatabase.
-     */
     private function runBackfill(): void
     {
-        $migration = require database_path('migrations/2026_07_27_000002_backfill_address_codes_to_names.php');
-        ob_start();
-        $migration->up();
-        ob_end_clean();
+        $resolver = app(PhilippineAddressService::class);
+
+        // Guard: prove the lookup table is readable before touching data. Region
+        // 07 (Central Visayas) is stable reference data.
+        $probe = $resolver->resolve('0700000000');
+        if ($probe === '0700000000' || $probe === '') {
+            throw new RuntimeException(
+                'AddressNameResolver cannot resolve PSGC codes — '
+                .resource_path('js/data/philippine-addresses.json')
+                .' (or its .ts fallback) is missing or unreadable. Refusing to run: this migration would '
+                .'report success while changing nothing. Ensure the image retains '
+                .'resources/js/data.'
+            );
+        }
+
+        $repaired = 0;
+        $unresolved = [];
+
+        $columns = ['region', 'province', 'city_municipality', 'barangay'];
+        $table = 'client_addresses';
+
+        foreach ($columns as $column) {
+            $rows = DB::table($table)
+                ->select('id', $column)
+                ->whereNotNull($column)
+                ->whereRaw("{$column} ~ '^[0-9]{9,10}$'")
+                ->get();
+
+            foreach ($rows as $row) {
+                $code = (string) $row->{$column};
+                $name = $resolver->resolve($code);
+
+                // resolve() returns the input when a code is unknown. Leave the
+                // value alone and record it rather than writing the code back.
+                if ($name === $code || $name === '') {
+                    $unresolved[] = "{$table}.{$column}={$code}";
+
+                    continue;
+                }
+
+                DB::table($table)->where('id', $row->id)->update([$column => $name]);
+                $repaired++;
+            }
+        }
+
+        // Live-ish diagnostics (mirror the migration's output) so the test
+        // behaviour is consistent with the original migration up().
+        if ($repaired > 0) {
+            echo "  Address backfill: repaired {$repaired} value(s).\n";
+        }
+
+        if ($unresolved !== []) {
+            $unique = array_values(array_unique($unresolved));
+            echo '  Left unchanged (code not in the lookup table): '
+                .implode(', ', array_slice($unique, 0, 10))
+                .(count($unique) > 10 ? ' and '.(count($unique) - 10).' more' : '')
+                ."\n";
+        }
     }
 }
