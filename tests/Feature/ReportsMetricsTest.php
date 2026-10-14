@@ -14,7 +14,6 @@ use App\Models\ReferralClientRequest;
 use App\Models\User;
 use App\Services\ReportsService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -38,19 +37,6 @@ class ReportsMetricsTest extends TestCase
         $this->managerA = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $this->managerB = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $this->agency = Agency::factory()->create();
-
-        // Seed canonical case_statuses (regression: squash lost migration-seeded rows).
-        // Original source: 2026_06_01_000001_create_core_reference_tables.php
-        // These are the referral statuses that the reference_data test expects.
-        CaseStatus::insert([
-            ['id' => (string) Str::uuid(), 'name' => 'Open',           'slug' => 'OPEN',           'type' => 'case',     'color' => '#22c55e', 'sort_order' => 1, 'is_system' => true, 'is_active' => true],
-            ['id' => (string) Str::uuid(), 'name' => 'Closed',         'slug' => 'CLOSED',         'type' => 'case',     'color' => '#64748b', 'sort_order' => 2, 'is_system' => true, 'is_active' => true],
-            ['id' => (string) Str::uuid(), 'name' => 'Pending',        'slug' => 'PENDING',        'type' => 'referral', 'color' => '#f59e0b', 'sort_order' => 1, 'is_system' => true, 'is_active' => true],
-            ['id' => (string) Str::uuid(), 'name' => 'Processing',     'slug' => 'PROCESSING',     'type' => 'referral', 'color' => '#3b82f6', 'sort_order' => 2, 'is_system' => true, 'is_active' => true],
-            ['id' => (string) Str::uuid(), 'name' => 'For Compliance', 'slug' => 'FOR_COMPLIANCE', 'type' => 'referral', 'color' => '#f97316', 'sort_order' => 3, 'is_system' => true, 'is_active' => true],
-            ['id' => (string) Str::uuid(), 'name' => 'Completed',      'slug' => 'COMPLETED',      'type' => 'referral', 'color' => '#22c55e', 'sort_order' => 4, 'is_system' => true, 'is_active' => true],
-            ['id' => (string) Str::uuid(), 'name' => 'Rejected',       'slug' => 'REJECTED',       'type' => 'referral', 'color' => '#ef4444', 'sort_order' => 5, 'is_system' => true, 'is_active' => true],
-        ]);
     }
 
     private function kpisFor(User $manager): array
