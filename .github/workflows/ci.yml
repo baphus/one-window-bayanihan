@@ -191,6 +191,9 @@ jobs:
             php artisan "${step}:clear" --no-interaction
           done
 
+      - name: Install PostgreSQL client (for schema dump loading via psql)
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
       - name: Check Migrations
         run: php artisan migrate --pretend --force
         env:
