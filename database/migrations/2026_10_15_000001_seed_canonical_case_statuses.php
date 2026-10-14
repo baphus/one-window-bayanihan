@@ -1,6 +1,5 @@
 <?php
 
-use App\Models\CaseStatus;
 use Illuminate\Database\Migrations\Migration;
 
 return new class extends Migration
@@ -9,6 +8,8 @@ return new class extends Migration
     {
         // Idempotent insert: only insert missing slugs so re-running never duplicates.
         // Canonical case_statuses from 2026_06_01_000001_create_core_reference_tables.php
+        // NOTE: query builder on purpose — the CaseStatus model fires cache
+        // observers (Redis) that must not run inside migrations.
         $canonicals = [
             ['slug' => 'OPEN',     'name' => 'Open',           'type' => 'case',     'color' => '#22c55e', 'sort_order' => 1],
             ['slug' => 'CLOSED',   'name' => 'Closed',         'type' => 'case',     'color' => '#64748b', 'sort_order' => 2],
@@ -20,18 +21,22 @@ return new class extends Migration
         ];
 
         foreach ($canonicals as $data) {
-            CaseStatus::where('slug', $data['slug'])
-                ->firstOrCreate(
-                    ['slug' => $data['slug']],
-                    array_merge($data, ['is_system' => true, 'is_active' => true])
-                );
+            if (! DB::table('case_statuses')->where('slug', $data['slug'])->exists()) {
+                DB::table('case_statuses')->insert(array_merge($data, [
+                    'id' => (string) Str::uuid(),
+                    'is_system' => true,
+                    'is_active' => true,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]));
+            }
         }
     }
 
     public function down(): void
     {
         // Delete rows with the 7 canonical slugs where is_system=true
-        CaseStatus::whereIn('slug', [
+        DB::table('case_statuses')->whereIn('slug', [
             'OPEN', 'CLOSED', 'PENDING', 'PROCESSING',
             'FOR_COMPLIANCE', 'COMPLETED', 'REJECTED',
         ])
