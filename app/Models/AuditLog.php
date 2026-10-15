@@ -20,6 +20,7 @@ class AuditLog extends Model
         'action',
         'module',
         'category',
+        'chain_seq',
         'entity_id',
         'entity_label',
         'description',

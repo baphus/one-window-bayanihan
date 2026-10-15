@@ -113,7 +113,7 @@ class OfwProfileService
         }
     }
 
-    private function syncAddress(Client $client, array $address, array &$changes): void
+    public function syncAddress(Client $client, array $address, array &$changes): void
     {
         $fields = ['region', 'province', 'city_municipality', 'barangay', 'street'];
 
@@ -145,7 +145,7 @@ class OfwProfileService
         $changes['Address'] = $dirty;
     }
 
-    private function syncEmployment(Client $client, array $employment, array &$changes): void
+    public function syncEmployment(Client $client, array $employment, array &$changes): void
     {
         $fields = ['employer_name', 'position', 'country', 'start_date', 'end_date', 'last_country', 'last_position', 'date_of_arrival', 'is_present'];
 

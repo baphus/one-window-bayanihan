@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Services\OtpService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\WithFaker;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
@@ -86,8 +87,10 @@ class RegistrationTest extends TestCase
         $pending = $this->preparePendingRegistration('ofw-one@example.test');
         $userCount = User::count();
 
+        $file = UploadedFile::fake()->image('avatar.jpg', 600, 600);
+
         $response = $this->withSession(['pending_registration' => $pending])
-            ->postJson(route('register.profile.store'), [
+            ->post(route('register.profile.store'), [
                 'otp' => $pending['otp'],
                 'type' => 'OFW',
                 'first_name' => 'Juan',
@@ -96,6 +99,25 @@ class RegistrationTest extends TestCase
                 'date_of_birth' => '1995-03-15',
                 'sex' => 'Male',
                 'contact_number' => '+639171234567',
+                'address' => [
+                    'region' => '0700000000',
+                    'city_municipality' => 'Cebu City',
+                    'barangay' => 'Lahug',
+                    'province' => 'Cebu',
+                    'street' => 'Test Street',
+                ],
+                'employment' => [
+                    'employer_name' => 'Test Employer',
+                    'position' => 'Test Position',
+                    'country' => 'Philippines',
+                    'start_date' => '2010-04-01',
+                    'is_present' => true,
+                    'end_date' => null,
+                    'last_country' => 'Philippines',
+                    'last_position' => 'Test Last Position',
+                    'date_of_arrival' => '1995-05-01',
+                ],
+                'avatar' => $file,
             ]);
 
         // Authenticated after step 2 + redirect to dashboard.
@@ -123,12 +145,36 @@ class RegistrationTest extends TestCase
     {
         $pending = $this->preparePendingRegistration('nok-one@example.test');
 
+        $file = UploadedFile::fake()->image('avatar.jpg', 600, 600);
+
         $this->withSession(['pending_registration' => $pending])
-            ->postJson(route('register.profile.store'), [
+            ->post(route('register.profile.store'), [
                 'otp' => $pending['otp'],
                 'type' => 'NEXT_OF_KIN',
                 'first_name' => 'Maria',
                 'last_name' => 'Reyes',
+                'date_of_birth' => '1995-03-15',
+                'sex' => 'Female',
+                'contact_number' => '+639171234567',
+                'address' => [
+                    'region' => '0700000000',
+                    'city_municipality' => 'Cebu City',
+                    'barangay' => 'Lahug',
+                    'province' => 'Cebu',
+                    'street' => 'Test Street',
+                ],
+                'employment' => [
+                    'employer_name' => 'Test Employer',
+                    'position' => 'Test Position',
+                    'country' => 'Philippines',
+                    'start_date' => '2010-04-01',
+                    'is_present' => true,
+                    'end_date' => null,
+                    'last_country' => 'Philippines',
+                    'last_position' => 'Test Last Position',
+                    'date_of_arrival' => '1995-05-01',
+                ],
+                'avatar' => $file,
             ]);
 
         $user = User::where('email', 'nok-one@example.test')->sole();
@@ -146,12 +192,36 @@ class RegistrationTest extends TestCase
         $pending = $this->preparePendingRegistration('otp-wrong@example.test');
         $wrongOtp = $pending['otp'] === '000000' ? '111111' : '000000';
 
+        $file = UploadedFile::fake()->image('avatar.jpg', 600, 600);
+
         $response = $this->withSession(['pending_registration' => $pending])
-            ->postJson(route('register.profile.store'), [
+            ->post(route('register.profile.store'), [
                 'otp' => $wrongOtp,
                 'type' => 'OFW',
                 'first_name' => 'Wrong',
                 'last_name' => 'OTP',
+                'date_of_birth' => '1995-03-15',
+                'sex' => 'Male',
+                'contact_number' => '+639171234567',
+                'address' => [
+                    'region' => '0700000000',
+                    'city_municipality' => 'Cebu City',
+                    'barangay' => 'Lahug',
+                    'province' => 'Cebu',
+                    'street' => 'Test Street',
+                ],
+                'employment' => [
+                    'employer_name' => 'Test Employer',
+                    'position' => 'Test Position',
+                    'country' => 'Philippines',
+                    'start_date' => '2010-04-01',
+                    'is_present' => true,
+                    'end_date' => null,
+                    'last_country' => 'Philippines',
+                    'last_position' => 'Test Last Position',
+                    'date_of_arrival' => '1995-05-01',
+                ],
+                'avatar' => $file,
             ]);
 
         $response->assertRedirect();
@@ -163,7 +233,7 @@ class RegistrationTest extends TestCase
     public function test_step2_guest_redirects_to_register_without_session(): void
     {
         // No pending_registration in session → should be redirected back to register.
-        $response = $this->postJson(route('register.profile.store'), [
+        $response = $this->post(route('register.profile.store'), [
             'otp' => '123456',
             'type' => 'OFW',
             'first_name' => 'Guest',

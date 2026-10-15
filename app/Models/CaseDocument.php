@@ -16,7 +16,7 @@ class CaseDocument extends Model
 
     public static array $auditExclude = [
         'id', 'created_at', 'updated_at', 'deleted_at', 'deleted_by',
-        'case_id', 'uploaded_by', 'file_path', 'storage_disk',
+        'case_id', 'uploaded_by', 'file_path',
     ];
 
     public function getAuditModuleName(): string
