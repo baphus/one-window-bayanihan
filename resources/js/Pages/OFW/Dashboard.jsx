@@ -2,6 +2,7 @@ import { Link, usePage } from '@inertiajs/react';
 import { Hourglass } from 'lucide-react';
 import OfwLayout from '@/Layouts/OfwLayout';
 import StatusBadge from '@/Components/ui/StatusBadge';
+import OfwNotificationBell from '@/Components/OfwNotificationBell';
 import { DashboardTable, EmptyState, PageHeader, QuickActions, SectionCard, StatRow } from '@/Components/Dashboard/primitives';
 import safeRoute from '@/utils/safeRoute';
 
@@ -38,14 +39,17 @@ export default function Dashboard({ cases, caseStats }) {
                 title={`Welcome back, ${auth?.user?.name}`}
                 subtitle="Here's where your requests stand today."
             >
-                <QuickActions
-                    actions={[
-                        { href: route('ofw.profile.edit'), label: 'View Profile', icon: 'person' },
-                        ...(caseList.length > 0
-                            ? [{ href: fileCaseHref, label: 'File a New Case', icon: 'add', primary: true }]
-                            : []),
-                    ]}
-                />
+                <div className="flex items-center gap-2">
+                    <OfwNotificationBell />
+                    <QuickActions
+                        actions={[
+                            { href: route('ofw.profile.edit'), label: 'View Profile', icon: 'person' },
+                            ...(caseList.length > 0
+                                ? [{ href: fileCaseHref, label: 'File a New Case', icon: 'add', primary: true }]
+                                : []),
+                        ]}
+                    />
+                </div>
             </PageHeader>
 
             {/* Overview stat cards */}

@@ -177,7 +177,12 @@ export default function Profile({ user, client }) {
         country: client?.employment?.country ?? '',
         start_date: client?.employment?.start_date ?? '',
         end_date: client?.employment?.end_date ?? '',
-        is_present: client?.employment?.is_present ?? false,
+        // The edit payload carries no is_present flag (there is no such
+        // column — presence is end_date being empty), so derive it like
+        // Case/Create.jsx's buildEmployment: a record with no end date
+        // means currently employed.
+        is_present: client?.employment?.is_present
+            ?? (client?.employment ? !client.employment.end_date : false),
         last_country: client?.employment?.last_country ?? '',
         last_position: client?.employment?.last_position ?? '',
         date_of_arrival: client?.employment?.date_of_arrival ?? '',
@@ -540,7 +545,7 @@ export default function Profile({ user, client }) {
 
                     {/* ---------- Right column: editable sections as a feed ---------- */}
                     <div className="space-y-6">
-                        <form onSubmit={handleContactSubmit}>
+                        <form onSubmit={handleIdentitySubmit} id="section-identity" className="scroll-mt-24">
                             <SectionCard>
                                 <SectionHeader
                                     icon="badge"
@@ -559,7 +564,7 @@ export default function Profile({ user, client }) {
                                         >
                                             <option value="">Select sex...</option>
                                             {SEX_OPTIONS.map((s) => (
-                                                <option key={s} value={s}>{s}</option>
+                                                <option key={s} value={s.toUpperCase()}>{s}</option>
                                             ))}
                                         </select>
                                     </Field>
@@ -586,7 +591,7 @@ export default function Profile({ user, client }) {
                             </SectionCard>
                         </form>
 
-                        <form onSubmit={handleContactSubmit}>
+                        <form onSubmit={handleContactSubmit} id="section-contact" className="scroll-mt-24">
                             <SectionCard>
                                 <SectionHeader
                                     icon="call"
@@ -612,7 +617,7 @@ export default function Profile({ user, client }) {
                             </SectionCard>
                         </form>
 
-                        <form onSubmit={handleAddressSubmit}>
+                        <form onSubmit={handleAddressSubmit} id="section-address" className="scroll-mt-24">
                             <SectionCard>
                                 <SectionHeader
                                     icon="home_pin"
@@ -632,7 +637,7 @@ export default function Profile({ user, client }) {
                             </SectionCard>
                         </form>
 
-                        <form onSubmit={handleEmploymentSubmit}>
+                        <form onSubmit={handleEmploymentSubmit} id="section-employment" className="scroll-mt-24">
                             <SectionCard>
                                 <SectionHeader
                                     icon="work"
@@ -695,7 +700,7 @@ export default function Profile({ user, client }) {
                             </SectionCard>
                         </form>
 
-                        <form onSubmit={handleNokSubmit}>
+                        <form onSubmit={handleNokSubmit} id="section-nok" className="scroll-mt-24">
                             <SectionCard>
                                 <SectionHeader
                                     icon="group"
@@ -765,7 +770,7 @@ export default function Profile({ user, client }) {
                             </SectionCard>
                         </form>
 
-                        <form onSubmit={handlePasswordSubmit}>
+                        <form onSubmit={handlePasswordSubmit} id="section-security" className="scroll-mt-24">
                             <SectionCard>
                                 <SectionHeader
                                     icon="password"

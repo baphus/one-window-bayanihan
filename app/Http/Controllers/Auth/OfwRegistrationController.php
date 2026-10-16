@@ -160,7 +160,7 @@ class OfwRegistrationController extends Controller
 
         Auth::login($user);
 
-        return redirect()->route('ofw.dashboard');
+        return redirect()->route('ofw.intake');
     }
 
     private function otpThrottleKey(Request $request, string $email): string

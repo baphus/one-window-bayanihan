@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { FlashMessageWatcher } from '@/Components/ToastProvider';
-import OfwNotificationBell from '@/Components/OfwNotificationBell';
 import safeRoute from '@/utils/safeRoute';
 import { clearAllDraftBackups } from '@/Hooks/useLocalStorageDraft';
 
@@ -48,9 +47,6 @@ export default function OfwLayout({ children, title }) {
 
                     {/* Right-side actions */}
                     <div className="flex items-center gap-2 self-center">
-                        {/* Notification bell — visible at all breakpoints */}
-                        <OfwNotificationBell />
-
                         {/* Desktop actions */}
                         <div className="hidden items-center gap-3 lg:flex">
                             <Link
@@ -60,14 +56,8 @@ export default function OfwLayout({ children, title }) {
                                 My Cases
                             </Link>
                             <Link
-                                href={safeRoute('ofw.notifications', undefined, '/my-cases/notifications')}
-                                className="text-sm font-semibold text-slate-700 transition hover:text-primary"
-                            >
-                                Notifications
-                            </Link>
-                            <Link
                                 href={safeRoute('ofw.intake', undefined, '/my-cases/intake')}
-                                className="text-sm font-semibold text-slate-700 transition hover:text-primary"
+                                className="inline-flex items-center justify-center gap-2 rounded-none bg-primary px-6 py-2.5 text-[14px] font-bold text-white transition-all hover:brightness-110 active:scale-95"
                             >
                                 File a Case
                             </Link>
