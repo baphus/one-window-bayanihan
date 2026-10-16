@@ -120,8 +120,8 @@ class RegistrationTest extends TestCase
                 'avatar' => $file,
             ]);
 
-        // Authenticated after step 2 + redirect to dashboard.
-        $response->assertRedirect(route('ofw.dashboard'));
+        // Authenticated after step 2 + redirect to intake filing.
+        $response->assertRedirect(route('ofw.intake'));
         $this->assertAuthenticated();
 
         $user = User::where('email', 'ofw-one@example.test')->sole();
