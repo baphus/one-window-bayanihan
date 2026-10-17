@@ -45,7 +45,7 @@ export default function Register() {
                 <div className="flex-1 flex flex-col lg:flex-row">
 
                     {/* Left: Branding */}
-                    <div className="lg:w-[60%] relative min-h-[320px] lg:min-h-full flex flex-col justify-center text-white overflow-hidden">
+                    <div className="lg:w-[60%] relative min-h-[320px] lg:min-h-full lg:sticky lg:top-[72px] flex flex-col justify-center text-white overflow-hidden bg-[#01010d]">
                         <div className="absolute inset-0 z-0">
                             <img
                                 src="/images/auth/login-bg.jpg"
@@ -76,8 +76,8 @@ export default function Register() {
                         </div>
                     </div>
 
-                    {/* Right: Form */}
-                    <div className="lg:w-[40%] flex items-center justify-center p-10 lg:p-14 bg-surface">
+                    {/* Right: Form — min-h mirrors profile Step 1 content height (851px) so both steps match */}
+                    <div className="lg:w-[40%] flex items-center justify-center p-10 lg:p-14 lg:min-h-[max(851px,calc(100dvh-72px))] bg-surface">
                         <div className="w-full max-w-md">
                             <div className="mb-8">
                                 <span className="material-symbols-outlined mb-4 block text-primary text-[32px]">

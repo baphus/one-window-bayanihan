@@ -19,6 +19,7 @@ class OfwProfileService
 {
     public function __construct(
         private readonly NotificationService $notificationService,
+        private readonly PhilippineAddressService $addressService = new PhilippineAddressService,
     ) {}
 
     /**
@@ -115,6 +116,8 @@ class OfwProfileService
 
     public function syncAddress(Client $client, array $address, array &$changes): void
     {
+        $address = $this->resolveAddressNames($address);
+
         $fields = ['region', 'province', 'city_municipality', 'barangay', 'street'];
 
         $row = $client->addresses()->orderBy('created_at')->first();
@@ -253,6 +256,30 @@ class OfwProfileService
 
                 $notifiedUserIds[$case->user_id] = true;
             });
+    }
+
+    private function resolveAddressNames(array $address): array
+    {
+        $codes = array_filter([
+            $address['region'] ?? null,
+            $address['province'] ?? null,
+            $address['city_municipality'] ?? null,
+            $address['barangay'] ?? null,
+        ]);
+
+        if (empty($codes)) {
+            return $address;
+        }
+
+        $names = $this->addressService->resolveNames($codes);
+
+        foreach (['region', 'province', 'city_municipality', 'barangay'] as $key) {
+            if (isset($address[$key])) {
+                $address[$key] = $names[$address[$key]] ?? $address[$key];
+            }
+        }
+
+        return $address;
     }
 
     private function diffFields($row, array $source, array $fields): array

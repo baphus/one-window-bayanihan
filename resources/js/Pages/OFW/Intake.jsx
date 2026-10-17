@@ -149,22 +149,36 @@ export default function Intake({ profile: profileProp, client, vulnerabilityOpti
 
                 {/* (c) Vulnerability indicator */}
                 <SectionCard title="Vulnerability status">
-                    <label htmlFor="intake-vulnerability" className="block text-sm font-medium text-slate-700">
-                        Do you belong to any vulnerable sector? <span className="text-red-600">*</span>
-                    </label>
-                    <select
-                        id="intake-vulnerability"
-                        value={form.data.vulnerability_indicator}
-                        onChange={(e) => form.setData('vulnerability_indicator', e.target.value)}
-                        className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 shadow-sm transition-colors focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                    >
-                        <option value="">Select one...</option>
-                        {options.map((option) => (
-                            <option key={option.value} value={option.value}>
-                                {option.label}
-                            </option>
-                        ))}
-                    </select>
+                    <span id="intake-vulnerability-label" className="block text-sm font-medium text-slate-700">
+                        Do you belong to any vulnerable sector? <span className="text-red-600">*</span>{' '}
+                        <span className="font-normal text-slate-400">Select all that apply.</span>
+                    </span>
+                    <div className="mt-2 flex flex-wrap gap-x-5 gap-y-2" role="group" aria-labelledby="intake-vulnerability-label">
+                        {options
+                            .filter((option) => option.value !== 'None')
+                            .map((option) => {
+                                const selected = form.data.vulnerability_indicator && form.data.vulnerability_indicator !== 'None'
+                                    ? form.data.vulnerability_indicator.split(',').map((s) => s.trim()).filter(Boolean)
+                                    : [];
+                                const checked = selected.includes(option.value);
+                                return (
+                                    <label key={option.value} className="inline-flex cursor-pointer items-center gap-2">
+                                        <input
+                                            type="checkbox"
+                                            checked={checked}
+                                            onChange={() => {
+                                                const next = checked
+                                                    ? selected.filter((v) => v !== option.value)
+                                                    : [...selected, option.value];
+                                                form.setData('vulnerability_indicator', next.length > 0 ? next.join(', ') : 'None');
+                                            }}
+                                            className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary/40"
+                                        />
+                                        <span className="text-sm text-slate-700">{option.label}</span>
+                                    </label>
+                                );
+                            })}
+                    </div>
                     <InputError message={form.errors.vulnerability_indicator} className="mt-1" />
                 </SectionCard>
 

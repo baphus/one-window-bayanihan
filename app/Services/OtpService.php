@@ -45,6 +45,15 @@ class OtpService
 
         $cachedOtp = Cache::get($key);
 
+        // If the code is already gone (expired or consumed), do not count an
+        // attempt or touch state — there is nothing left to verify against.
+        // Without this, a correct PIN presented after expiry can never succeed
+        // because every call keeps incrementing the now-stale counter until the
+        // MAX_ATTEMPTS branch forget()/denies.
+        if (! is_string($cachedOtp)) {
+            return false;
+        }
+
         // Increment-first: each guess consumes an attempt atomically before
         // the code is checked, so concurrent guesses cannot slip past the
         // limit through a read-modify-write race. increment() creates the

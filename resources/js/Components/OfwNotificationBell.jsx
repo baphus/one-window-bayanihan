@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, router } from '@inertiajs/react';
 import useJsonPoll from '@/Hooks/useJsonPoll';
 import safeRoute from '@/utils/safeRoute';
@@ -32,12 +32,34 @@ function formatTimestamp(value) {
     });
 }
 
-export default function OfwNotificationBell() {
+// Module-level shared feed — keeps a single poller. The header instance
+// (owner) polls and publishes; page-level <OfwNotificationBell shared />
+// instances render from this state instead of polling again.
+const sharedFeedState = {
+    feed: { data: null, isLoading: true, error: null },
+    reload: null,
+    listeners: new Set(),
+};
+
+function publishSharedFeed(patch) {
+    sharedFeedState.feed = { ...sharedFeedState.feed, ...patch };
+    sharedFeedState.listeners.forEach((listener) => listener(sharedFeedState.feed));
+}
+
+function useSharedFeed() {
+    const [feed, setFeed] = useState(sharedFeedState.feed);
+    useEffect(() => {
+        sharedFeedState.listeners.add(setFeed);
+        return () => {
+            sharedFeedState.listeners.delete(setFeed);
+        };
+    }, []);
+    return feed;
+}
+
+function NotificationBellView({ listData, isLoading, error, reload }) {
     const [open, setOpen] = useState(false);
     const wrapperRef = useRef(null);
-
-    // One query — the list endpoint also reports the unread count in meta.
-    const { data: listData, isLoading, error, reload } = useJsonPoll('/my-cases/notifications');
 
     const notifications = listData?.data ?? [];
     const unreadCount = error ? 0 : (listData?.meta?.unread ?? 0);
@@ -49,13 +71,6 @@ export default function OfwNotificationBell() {
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
             },
         }).then(reload);
-
-    // Keep the badge fresh after every Inertia navigation (the layout persists
-    // between OFW pages, so a mount-only fetch would go stale).
-    useEffect(() => {
-        const off = router.on('success', reload);
-        return off;
-    }, [reload]);
 
     // Close on outside click
     useEffect(() => {
@@ -205,4 +220,45 @@ export default function OfwNotificationBell() {
             )}
         </div>
     );
+}
+
+function LiveBell() {
+    // The single poller — header usage. Publishes into the shared feed so
+    // <OfwNotificationBell shared /> instances never fetch.
+    const { data: listData, isLoading, error, reload } = useJsonPoll('/my-cases/notifications');
+
+    useEffect(() => {
+        sharedFeedState.reload = reload;
+        return () => {
+            if (sharedFeedState.reload === reload) sharedFeedState.reload = null;
+        };
+    }, [reload]);
+
+    useEffect(() => {
+        publishSharedFeed({ data: listData, isLoading, error });
+    }, [listData, isLoading, error]);
+
+    // Keep the badge fresh after every Inertia navigation (the layout persists
+    // between OFW pages, so a mount-only fetch would go stale).
+    useEffect(() => {
+        const off = router.on('success', reload);
+        return off;
+    }, [reload]);
+
+    return <NotificationBellView listData={listData} isLoading={isLoading} error={error} reload={reload} />;
+}
+
+function SharedBell() {
+    const feed = useSharedFeed();
+    const reload = useCallback(() => {
+        sharedFeedState.reload?.();
+    }, []);
+    return <NotificationBellView listData={feed.data} isLoading={feed.isLoading} error={feed.error} reload={reload} />;
+}
+
+export default function OfwNotificationBell({ shared = false }) {
+    // Early return before any hooks — `shared` page instances render from the
+    // header instance's feed and never poll.
+    if (shared) return <SharedBell />;
+    return <LiveBell />;
 }

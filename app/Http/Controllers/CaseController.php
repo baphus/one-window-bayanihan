@@ -19,6 +19,7 @@ use App\Services\TrackingService;
 use App\Support\CategoryFilter;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
 class CaseController extends Controller
@@ -138,11 +139,41 @@ class CaseController extends Controller
             ? $user->client->load(['addresses', 'employments', 'nextOfKin'])
             : null;
 
+        // Mirror OfwProfileController's singular address/employment payload so the
+        // Intake "Review your details" panel reads profile.address.* / profile.employment.*
+        // (the raw loaded addresses[]/employments[] collections are retained too).
+        $profile = null;
+        if ($client) {
+            $profile = $client->toArray();
+
+            $address = $client->addresses()->orderBy('created_at')->first();
+            $employment = $client->employments()->orderBy('created_at')->first();
+
+            $profile['address'] = $address ? [
+                'region' => $address->region,
+                'province' => $address->province,
+                'city_municipality' => $address->city_municipality,
+                'barangay' => $address->barangay,
+                'street' => $address->street,
+            ] : null;
+
+            $profile['employment'] = $employment ? [
+                'employer_name' => $employment->employer_name,
+                'position' => $employment->position,
+                'country' => $employment->country,
+                'start_date' => $employment->start_date?->toDateString(),
+                'end_date' => $employment->end_date?->toDateString(),
+                'last_country' => $employment->last_country,
+                'last_position' => $employment->last_position,
+                'date_of_arrival' => $employment->date_of_arrival?->toDateString(),
+            ] : null;
+        }
+
         $categories = $this->referenceData->getActiveCategories();
         $caseIssues = $this->referenceData->getActiveIssues();
 
         return Inertia::render('OFW/Intake', [
-            'profile' => $client,
+            'profile' => $profile,
             'vulnerabilityOptions' => VulnerabilityRule::VALUES,
             'categories' => $categories,
             'caseIssues' => $caseIssues,
