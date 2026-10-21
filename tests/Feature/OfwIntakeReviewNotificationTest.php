@@ -20,10 +20,14 @@ class OfwIntakeReviewNotificationTest extends TestCase
         Mail::fake();
         $client = Client::factory()->create();
         $ofw = User::factory()->create(['role' => UserRole::OFW->value, 'client_id' => $client->id]);
-        $caseManager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $inactiveManager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value, 'is_active' => false]);
         $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $agency = User::factory()->create(['role' => UserRole::AGENCY->value]);
+        $activeManagerEmails = User::where('role', UserRole::CASE_MANAGER->value)
+            ->where('is_active', true)
+            ->where('id', '!=', $ofw->id)
+            ->pluck('email');
 
         $response = $this->actingAs($ofw)->post(route('ofw.intake.store'), [
             'summary' => 'Please help me.',
@@ -36,7 +40,7 @@ class OfwIntakeReviewNotificationTest extends TestCase
             'client_id' => $client->id,
             'status' => CaseFile::STATUS_PENDING_REVIEW,
         ]);
-        Mail::assertQueued(IntakeReviewMail::class, 2);
+        Mail::assertQueued(IntakeReviewMail::class, $activeManagerEmails->count() + 1);
         Mail::assertQueued(IntakeReviewMail::class, function (IntakeReviewMail $mail) use ($ofw): bool {
             $this->assertSame('New case awaiting review', $mail->envelope()->subject);
             $this->assertStringContainsString(
@@ -46,7 +50,9 @@ class OfwIntakeReviewNotificationTest extends TestCase
 
             return $mail->hasTo($ofw->email);
         });
-        Mail::assertQueued(IntakeReviewMail::class, fn (IntakeReviewMail $mail) => $mail->hasTo($caseManager->email));
+        foreach ($activeManagerEmails as $email) {
+            Mail::assertQueued(IntakeReviewMail::class, fn (IntakeReviewMail $mail) => $mail->hasTo($email));
+        }
         Mail::assertQueued(IntakeReviewMail::class, fn (IntakeReviewMail $mail) => ! $mail->hasTo($inactiveManager->email)
             && ! $mail->hasTo($admin->email)
             && ! $mail->hasTo($agency->email)
