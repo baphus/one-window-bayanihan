@@ -1,5 +1,6 @@
 import InputError from '@/Components/InputError';
 import TextInput from '@/Components/TextInput';
+import Select from '@/Components/Select';
 import { CardSection as Section } from '@/Components/ui/CardSection';
 import { useRef, useEffect } from 'react';
 
@@ -8,6 +9,8 @@ const timezones = [
     'Asia/Shanghai', 'Pacific/Guam', 'Australia/Sydney',
     'America/New_York', 'America/Los_Angeles', 'Europe/London', 'UTC',
 ];
+
+const SUFFIX_OPTIONS = ['', 'Jr', 'Sr', 'II', 'III', 'IV', 'V'];
 
 function FieldLabel({ children }) {
     return (
@@ -27,6 +30,7 @@ export default function PersonalInfoForm({ data, setData, errors, onDirtyChange 
         || data.bio !== initialRef.current.bio
         || data.timezone !== initialRef.current.timezone
         || data.contact_number !== initialRef.current.contact_number
+        || data.suffix !== initialRef.current.suffix
         || data.emergency_contact?.name !== initialRef.current.emergency_contact?.name
         || data.emergency_contact?.relation !== initialRef.current.emergency_contact?.relation
         || data.emergency_contact?.phone !== initialRef.current.emergency_contact?.phone;
@@ -43,6 +47,19 @@ export default function PersonalInfoForm({ data, setData, errors, onDirtyChange 
                     <FieldLabel>Name</FieldLabel>
                     <TextInput id="name" className="block w-full" value={data.name} onChange={(e) => setData('name', e.target.value)} required isFocused autoComplete="name" />
                     <InputError className="mt-1.5" message={errors.name} />
+                </div>
+
+                <div>
+                    <FieldLabel>Suffix</FieldLabel>
+                    <Select
+                        id="suffix"
+                        className="block w-full"
+                        value={data.suffix || ''}
+                        onChange={(e) => setData('suffix', e.target.value)}
+                        options={SUFFIX_OPTIONS.filter(Boolean).map((s) => ({ label: s, value: s }))}
+                        placeholder="None"
+                    />
+                    <InputError className="mt-1.5" message={errors.suffix} />
                 </div>
 
                 <div>

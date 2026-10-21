@@ -5,6 +5,7 @@ import AppHeader from '@/Components/landing/AppHeader';
 import AddressDropdowns from '@/Components/AddressDropdowns';
 import CountrySelect from '@/Components/CountrySelect';
 import SearchableSelect from '@/Components/SearchableSelect';
+import Select from '@/Components/Select';
 import { DEFAULT_OCCUPATIONS } from '@/data/defaultOccupations';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import { useToast } from '@/Hooks/useToast';
@@ -51,6 +52,8 @@ const TODAY = (() => {
 })();
 
 const WORKING_AGE_FLOOR_YEARS = 15;
+const SUFFIX_OPTIONS = ['', 'Jr', 'Sr', 'II', 'III', 'IV', 'V'];
+
 function employmentStartFloor(dob) {
     if (!dob) return '';
     const [y, m, d] = dob.split('-').map(Number);
@@ -296,11 +299,6 @@ export default function RegisterProfile() {
         }
 
         if (step === 3) {
-            if (!data.employment.employer_name.trim()) {
-                setError('employment.employer_name', 'Employer name is required.');
-                isValid = false;
-                missing.push('Employer Name');
-            }
             if (!data.employment.start_date) {
                 setError('employment.start_date', 'Employment start date is required.');
                 isValid = false;
@@ -371,8 +369,7 @@ export default function RegisterProfile() {
                 && data.address.barangay.length > 0
                 && /^\d{6}$/.test(data.otp);
         }
-        return Boolean(data.employment.employer_name.trim())
-            && data.employment.start_date.length > 0
+        return data.employment.start_date.length > 0
             && (data.employment.is_present || data.employment.end_date.length > 0)
             && data.employment.last_country.length > 0
             && data.employment.last_position.trim().length > 0
@@ -396,7 +393,6 @@ export default function RegisterProfile() {
             if (!/^\d{6}$/.test(data.otp)) missing.push('Email Code');
         }
         if (step === 3) {
-            if (!data.employment.employer_name.trim()) missing.push('Employer Name');
             if (!data.employment.start_date) missing.push('Start Date');
             if (!data.employment.is_present && !data.employment.end_date) missing.push('End Date');
             if (!data.employment.last_country) missing.push('Last Country');
@@ -669,13 +665,12 @@ export default function RegisterProfile() {
                                             <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-on-surface-variant">
                                                 Suffix
                                             </label>
-                                            <input
-                                                type="text"
+                                            <Select
                                                 value={data.suffix}
                                                 onChange={(e) => setData('suffix', e.target.value)}
-                                                placeholder="Jr, Sr, III"
+                                                options={SUFFIX_OPTIONS.filter(Boolean).map((s) => ({ label: s, value: s }))}
+                                                placeholder="None"
                                                 className={inputClass}
-                                                maxLength={50}
                                             />
                                             <FieldError message={errors.suffix} />
                                         </div>
@@ -793,20 +788,6 @@ export default function RegisterProfile() {
 
                                         <div>
                                             <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-on-surface-variant">
-                                                Employer Name
-                                            </label>
-                                            <input
-                                                value={data.employment.employer_name}
-                                                onChange={(e) => handleEmploymentChange('employer_name', e.target.value)}
-                                                className={inputClass}
-                                                required
-                                                maxLength={255}
-                                            />
-                                            <FieldError message={errors['employment.employer_name']} />
-                                        </div>
-
-                                        <div>
-                                            <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-on-surface-variant">
                                                 Position
                                             </label>
                                             <input
@@ -816,18 +797,6 @@ export default function RegisterProfile() {
                                                 maxLength={255}
                                             />
                                             <FieldError message={errors['employment.position']} />
-                                        </div>
-
-                                        <div>
-                                            <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-on-surface-variant">
-                                                Country
-                                            </label>
-                                            <CountrySelect
-                                                value={data.employment.country}
-                                                onChange={(v) => handleEmploymentChange('country', v)}
-                                                placeholder="Select country..."
-                                            />
-                                            <FieldError message={errors['employment.country']} />
                                         </div>
 
                                         <div className="grid grid-cols-2 gap-3">
@@ -910,7 +879,7 @@ export default function RegisterProfile() {
 
                                         <div>
                                             <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-on-surface-variant">
-                                                Date of Arrival
+                                                Arrival Date in Philippines
                                             </label>
                                             <input
                                                 type="date"
