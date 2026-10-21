@@ -6,9 +6,11 @@ use App\Enums\UserRole;
 use App\Http\Requests\StoreCaseRequest;
 use App\Http\Requests\StoreIntakeRequest;
 use App\Http\Requests\UpdateCaseRequest;
+use App\Mail\IntakeReviewMail;
 use App\Models\CaseFile;
 use App\Models\Client;
 use App\Models\SystemSetting;
+use App\Models\User;
 use App\Rules\VulnerabilityRule;
 use App\Services\CaseService;
 use App\Services\Export\DataExportQueries;
@@ -19,6 +21,7 @@ use App\Services\TrackingService;
 use App\Support\CategoryFilter;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
@@ -206,6 +209,17 @@ class CaseController extends Controller
             $caseData,
             $user->id,
         );
+
+        Mail::to($user->email)->queue((new IntakeReviewMail($case))->afterCommit());
+
+        $caseManagers = User::where('role', UserRole::CASE_MANAGER->value)
+            ->where('is_active', true)
+            ->where('id', '!=', $user->id)
+            ->get(['id', 'email']);
+
+        foreach ($caseManagers as $caseManager) {
+            Mail::to($caseManager->email)->queue((new IntakeReviewMail($case))->afterCommit());
+        }
 
         return redirect()
             ->route('ofw.dashboard')

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\TrackController;
 
+use App\Models\CaseFile;
 use App\Services\TrackingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Feature\TrackingService\Traits\CreatesTrackingCase;
@@ -20,6 +21,7 @@ class ShowTest extends TestCase
         // ARRANGE
         $result = $this->createCompleteCase();
         $case = $result['case'];
+        $case->update(['status' => CaseFile::STATUS_PENDING_REVIEW]);
 
         // ACT
         $response = $this->withSession([
@@ -35,6 +37,7 @@ class ShowTest extends TestCase
         $response->assertInertia(fn ($page) => $page
             ->component('Tracking/Show')
             ->has('trackingId')
+            ->where('trackedCase.status', 'BEING_REVIEWED')
             ->has('trackedCase')
             ->has('caseOverview')
             ->missing('caseTimeline')
