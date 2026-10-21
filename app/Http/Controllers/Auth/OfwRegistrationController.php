@@ -73,6 +73,26 @@ class OfwRegistrationController extends Controller
         return Inertia::render('Auth/RegisterProfile');
     }
 
+    public function resendOtp(Request $request)
+    {
+        $pending = $request->session()->get('pending_registration');
+
+        if (! is_array($pending) || empty($pending['credentials']['email'])) {
+            return redirect()->route('register');
+        }
+
+        $email = $pending['credentials']['email'];
+        $otpKey = $this->otpThrottleKey($request, $email);
+        if (RateLimiter::tooManyAttempts($otpKey, 5)) {
+            return back()->withErrors(['otp' => 'Too many attempts. Try again in a few minutes.']);
+        }
+        RateLimiter::hit($otpKey, 300);
+
+        $this->otpService->generate($email, 'register');
+
+        return back()->with('success', 'A new verification code has been sent.');
+    }
+
     /**
      * Step 2: verify OTP, then create User + Client in one transaction.
      * users.role stays OFW always; the asked role lands on clients.type.

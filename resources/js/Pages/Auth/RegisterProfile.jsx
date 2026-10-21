@@ -765,9 +765,19 @@ export default function RegisterProfile() {
                                             className={`${inputClass} tracking-[0.3em] text-center font-bold`}
                                             required
                                         />
-                                        <p className="mt-1 text-xs text-slate-500">
-                                            Enter the 6-digit code we sent to your email address.
-                                        </p>
+                                        <div className="mt-1 flex items-center justify-between gap-3">
+                                            <p className="text-xs text-slate-500">
+                                                Enter the 6-digit code we sent to your email address.
+                                            </p>
+                                            <button
+                                                type="button"
+                                                disabled={processing}
+                                                onClick={() => post(route('register.profile.resend-otp'), { preserveScroll: true })}
+                                                className="shrink-0 text-xs font-semibold text-primary underline disabled:opacity-50"
+                                            >
+                                                Resend code
+                                            </button>
+                                        </div>
                                         <FieldError message={errors.otp} />
                                     </div>
                                 </div>
