@@ -177,6 +177,22 @@ class TrackingServiceTest extends TestCase
         $this->assertEquals('IN_PROGRESS', $data['trackedCase']['status']);
     }
 
+    public function test_case_status_mapping_pending_review_returns_being_reviewed(): void
+    {
+        $service = app(TrackingService::class);
+        $case = CaseFile::factory()->pendingReview()->create();
+        $this->loadRelations($case);
+
+        $data = $service->buildTrackingData($case, true);
+
+        $this->assertSame('BEING_REVIEWED', $data['trackedCase']['status']);
+
+        $referral = Referral::factory()->create(['case_id' => $case->id]);
+        $milestonesData = $service->buildAgencyMilestonesData($case, $referral);
+
+        $this->assertSame('BEING_REVIEWED', $milestonesData['trackedCase']['status']);
+    }
+
     public function test_case_status_mapping_draft_returns_being_prepared(): void
     {
         $service = app(TrackingService::class);

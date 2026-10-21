@@ -258,6 +258,7 @@ class TrackingService
                 'milestone' => '',
                 'status' => match ($case->status) {
                     'OPEN' => 'IN_PROGRESS',
+                    'PENDING_REVIEW' => 'BEING_REVIEWED',
                     'CLOSED' => 'RESOLVED',
                     'ARCHIVED' => 'ARCHIVED',
                     'DRAFT' => 'BEING_PREPARED',
@@ -373,6 +374,7 @@ class TrackingService
                     'clientType' => ($case->client?->type ?? 'OFW') === 'OFW' ? 'Overseas Filipino Worker' : 'Next of Kin',
                     'status' => match ($case->status) {
                         'OPEN' => 'IN_PROGRESS',
+                        'PENDING_REVIEW' => 'BEING_REVIEWED',
                         'CLOSED' => 'RESOLVED',
                         'ARCHIVED' => 'ARCHIVED',
                         'DRAFT' => 'BEING_PREPARED',

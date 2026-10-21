@@ -655,6 +655,8 @@ export default function TrackingShow({
         return `This case has been resolved.${rejectedNote}`;
       case 'BEING_PREPARED':
         return 'This case is still being prepared by the One Window Bayanihan team.';
+      case 'BEING_REVIEWED':
+        return 'Being reviewed by a case manager.';
       case 'ARCHIVED':
         return 'This case has been archived.';
       case 'IN_PROGRESS':
