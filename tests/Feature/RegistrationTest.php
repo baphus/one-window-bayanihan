@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\UserRole;
 use App\Http\Middleware\EnsurePendingRegistration;
+use App\Mail\OtpMail;
 use App\Models\Client;
 use App\Models\User;
 use App\Services\OtpService;
@@ -50,6 +51,26 @@ class RegistrationTest extends TestCase
         $this->assertGuest();
         $this->assertNull(User::where('email', 'juan-test@example.test')->first());
         $this->assertTrue(Cache::has('otp:register:juan-test@example.test'));
+    }
+
+    public function test_pending_registration_can_resend_email_verification_code(): void
+    {
+        $email = 'juan-test@example.test';
+
+        $this->withSession(['pending_registration' => [
+            'credentials' => ['email' => $email],
+            'register_otp_verified' => false,
+        ]])->postJson(route('register.profile.resend-otp'))
+            ->assertRedirect();
+
+        $this->assertTrue(Cache::has('otp:register:'.$email));
+        Mail::assertQueued(OtpMail::class);
+    }
+
+    public function test_resend_code_requires_pending_registration(): void
+    {
+        $this->postJson(route('register.profile.resend-otp'))
+            ->assertRedirect(route('register'));
     }
 
     public function test_step1_422_on_duplicate_email(): void

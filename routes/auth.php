@@ -35,6 +35,9 @@ Route::middleware('guest')->group(function () {
     Route::get('register/profile', [OfwRegistrationController::class, 'showProfile'])
         ->middleware('pending.registration')
         ->name('register.profile');
+    Route::post('register/profile/resend-otp', [OfwRegistrationController::class, 'resendOtp'])
+        ->middleware(['pending.registration', 'throttle:otp'])
+        ->name('register.profile.resend-otp');
     Route::post('register/profile', [OfwRegistrationController::class, 'storeProfile'])
         ->middleware(['pending.registration', 'throttle:otp'])
         ->name('register.profile.store');
