@@ -34,7 +34,6 @@ export default function Intake({ profile: profileProp, client, vulnerabilityOpti
 
     const form = useForm({
         summary: '',
-        narrative: '',
         vulnerability_indicator: '',
         consent: false,
     });
@@ -112,37 +111,23 @@ export default function Intake({ profile: profileProp, client, vulnerabilityOpti
                     </p>
                 </SectionCard>
 
-                {/* (b) Summary + narrative */}
+                {/* Your concern */}
                 <SectionCard title="Your concern">
                     <div className="space-y-4">
                         <div>
                             <label htmlFor="intake-summary" className="block text-sm font-medium text-slate-700">
                                 Case summary <span className="text-red-600">*</span>
                             </label>
-                            <input
+                            <textarea
                                 id="intake-summary"
-                                type="text"
+                                rows={6}
                                 value={form.data.summary}
                                 onChange={(e) => form.setData('summary', e.target.value)}
-                                placeholder="Short title, e.g. Unpaid salary claim"
-                                maxLength={2000}
+                                placeholder="Describe what happened, the desired outcome, and any other relevant details."
+                                maxLength={5000}
                                 className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 shadow-sm transition-colors focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                             />
                             <InputError message={form.errors.summary} className="mt-1" />
-                        </div>
-                        <div>
-                            <label htmlFor="intake-narrative" className="block text-sm font-medium text-slate-700">
-                                Narrative <span className="font-normal text-slate-400">(optional)</span>
-                            </label>
-                            <textarea
-                                id="intake-narrative"
-                                rows={6}
-                                value={form.data.narrative}
-                                onChange={(e) => form.setData('narrative', e.target.value)}
-                                placeholder="Describe what happened and what outcome you are hoping for."
-                                className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 shadow-sm transition-colors focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                            />
-                            <InputError message={form.errors.narrative} className="mt-1" />
                         </div>
                     </div>
                 </SectionCard>
