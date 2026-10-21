@@ -65,6 +65,31 @@ class LogViewerTest extends TestCase
     }
 
     #[Test]
+    public function test_download_streams_filtered_logs_in_pages_with_text_attachment(): void
+    {
+        $path = storage_path('logs/laravel-2026-05-28.log');
+        File::ensureDirectoryExists(dirname($path));
+        $lines = [];
+        for ($i = 1; $i <= 205; $i++) {
+            $level = $i % 2 === 0 ? 'ERROR' : 'INFO';
+            $lines[] = "[2026-05-28 09:15:00] local.{$level}: message {$i}";
+        }
+        File::put($path, implode("\n", $lines)."\n");
+
+        $response = $this->actingAs($this->user)
+            ->get('/admin/system/logs/download?level=error&search=message&date_from=2026-05-28&date_to=2026-05-28');
+
+        $response->assertOk();
+        $this->assertStringStartsWith('text/plain', $response->headers->get('Content-Type'));
+        $response->assertHeader('Content-Disposition', 'attachment; filename=system-logs-'.date('Y-m-d').'.txt');
+        $content = $response->streamedContent();
+        $this->assertSame(102, substr_count($content, "\n"));
+        $this->assertStringStartsWith('[2026-05-28 09:15:00] local.error: message 2'."\n", $content);
+        $this->assertStringEndsWith('[2026-05-28 09:15:00] local.error: message 204'."\n", $content);
+        $this->assertStringNotContainsString('message 1'."\n", $content);
+    }
+
+    #[Test]
     public function test_log_viewer_works_with_temp_log_file(): void
     {
         $path = storage_path('logs/laravel-2026-05-28.log');

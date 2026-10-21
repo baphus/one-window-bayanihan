@@ -28,22 +28,27 @@ class LogViewerController extends Controller
 
     public function download(LogViewerService $service, LogViewerRequest $request)
     {
-        $logs = $service->getLogs(
-            perPage: 100000,
-            level: $request->validated('level'),
-            search: $request->validated('search'),
-            dateFrom: $request->validated('date_from'),
-            dateTo: $request->validated('date_to'),
-        );
+        return response()->streamDownload(function () use ($service, $request) {
+            for ($page = 1; ; $page++) {
+                $logs = $service->getLogs(
+                    perPage: 100,
+                    level: $request->validated('level'),
+                    search: $request->validated('search'),
+                    dateFrom: $request->validated('date_from'),
+                    dateTo: $request->validated('date_to'),
+                    page: $page,
+                );
 
-        $content = '';
-        foreach ($logs['entries'] as $entry) {
-            $content .= "[{$entry['timestamp']}] {$entry['environment']}.{$entry['level']}: {$entry['message']}\n";
-        }
+                foreach ($logs['entries'] as $entry) {
+                    echo "[{$entry['timestamp']}] {$entry['environment']}.{$entry['level']}: {$entry['message']}\n";
+                }
 
-        return response($content, 200, [
+                if ($page >= $logs['last_page']) {
+                    break;
+                }
+            }
+        }, 'system-logs-'.date('Y-m-d').'.txt', [
             'Content-Type' => 'text/plain',
-            'Content-Disposition' => 'attachment; filename="system-logs-'.date('Y-m-d').'.txt"',
         ]);
     }
 }
