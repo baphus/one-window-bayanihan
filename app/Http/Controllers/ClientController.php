@@ -15,12 +15,39 @@ use App\Services\Export\DataExportQueries;
 use App\Services\Export\DataExportService;
 use App\Services\ReferenceDataService;
 use App\Support\CategoryFilter;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Inertia\Inertia;
 
 class ClientController extends Controller
 {
     use ResolvesPerPage;
+
+    /**
+     * Sortable client-directory columns, and how each maps onto the `clients`
+     * table. The array keys ARE the allowlist: a key that is absent falls back
+     * to `created_at` silently, exactly as before, so the two can never drift.
+     *
+     * `name` and `age` are the keys Client/Index.jsx actually sends — they were
+     * previously not on the allowlist, so both header clicks silently sorted by
+     * `created_at` instead. `name` is the directory's own sort accessor
+     * ("last name, first name"), and `age` is the DOB read in reverse so the
+     * arrow means what the Age column's heading says. `date_of_birth` holds
+     * ciphertext (Client's EncryptedDate cast), so any entry whose columns
+     * include it is ordered in PHP (paginateByDecryptedDob), never in SQL.
+     *
+     * @var array<string, array{columns: array<int, string>, invert?: bool}>
+     */
+    private const CLIENT_SORT_MAP = [
+        'created_at' => ['columns' => ['created_at']],
+        'first_name' => ['columns' => ['first_name']],
+        'last_name' => ['columns' => ['last_name']],
+        'date_of_birth' => ['columns' => ['date_of_birth']],
+        'sex' => ['columns' => ['sex']],
+        'name' => ['columns' => ['last_name', 'first_name']],
+        'age' => ['columns' => ['date_of_birth'], 'invert' => true],
+    ];
 
     public function __construct(
         private readonly DataExportQueries $exportQueries,
@@ -64,6 +91,9 @@ class ClientController extends Controller
                                 $referrals->where('agcy_id', $user->agcy_id);
                             }
                         },
+                        // client_type is derived from client.type — eager-load the
+                        // back-reference so the directory listing stays at one query.
+                        'client',
                         'category', 'categories', 'caseIssue',
                     ]);
                 },
@@ -155,24 +185,88 @@ class ClientController extends Controller
         }
 
         // --- Sorting ---
-        $sort = $request->input('sort', 'created_at');
-        $sort = in_array($sort, ['created_at', 'first_name', 'last_name', 'date_of_birth', 'sex']) ? $sort : 'created_at';
-        $direction = $request->input('direction', 'desc');
-        $direction = in_array(strtolower($direction), ['asc', 'desc']) ? $direction : 'desc';
+        $requested = $request->input('sort');
+        $sort = self::CLIENT_SORT_MAP[is_string($requested) ? $requested : 'created_at']
+            ?? self::CLIENT_SORT_MAP['created_at'];
+        $rawDirection = $request->input('direction', 'desc');
+        $direction = is_string($rawDirection) && in_array(strtolower($rawDirection), ['asc', 'desc'], true)
+            ? strtolower($rawDirection)
+            : 'desc';
+
+        // `age` is stored inverted: the younger the client, the larger the DOB,
+        // so sorting the age column in the arrow's direction means sorting DOB
+        // against it. Sorting the DOB in the arrow's own direction would put the
+        // oldest client first under "Age ascending", which reads backwards.
+        $order = ($sort['invert'] ?? false)
+            ? ($direction === 'asc' ? 'desc' : 'asc')
+            : $direction;
 
         $perPage = $this->perPage($request, 15);
 
-        $clients = $clients->orderBy($sort, $direction)->paginate($perPage);
+        // Two clients can share a name or a birth date; without a tiebreak the
+        // order is unstable and a row can appear on two pages or on neither.
+        // date_of_birth sorts bypass SQL entirely: the column holds ciphertext,
+        // so paginateByDecryptedDob() orders the rows in PHP instead.
+        if (in_array('date_of_birth', $sort['columns'], true)) {
+            $clients = $this->paginateByDecryptedDob($clients, $order, $perPage);
+        } else {
+            foreach ($sort['columns'] as $column) {
+                $clients->orderBy($column, $order);
+            }
+
+            $clients->orderBy('clients.id', $order);
+            $clients = $clients->paginate($perPage);
+        }
 
         return Inertia::render('Client/Index', [
             'clients' => $clients,
             'filters' => (object) $request->only($filterKeys),
             'stats' => $this->getClientStats($user),
-            'users' => User::select('id', 'name')->orderBy('name')->get(),
             'agencies' => app(ReferenceDataService::class)->getAgenciesDropdown(),
             'categories' => app(ReferenceDataService::class)->getActiveCategories(),
             'caseIssues' => app(ReferenceDataService::class)->getActiveIssues(),
         ]);
+    }
+
+    /**
+     * Order the client directory by the clients' date of birth.
+     *
+     * clients.date_of_birth holds ciphertext (Client's EncryptedDate cast), so
+     * it cannot be ordered in SQL: encrypting the same value yields a fresh
+     * payload each save, and comparing those bytes is meaningless. The case
+     * directory runs into the same wall (CaseService::SORT_KEYS documents it).
+     * Here the matching DOBs are decrypted in PHP (the same approach
+     * ClientMetrics uses for age metrics), sorted there, and only the
+     * current page's rows are hydrated with their eager-loaded relations — in
+     * that order. Null DOBs sort after every dated client regardless of
+     * direction; the client id breaks ties.
+     *
+     * @param  Builder<Client>  $query
+     * @param  'asc'|'desc'  $order
+     * @return LengthAwarePaginator<int, Client>
+     */
+    private function paginateByDecryptedDob(Builder $query, string $order, int $perPage): LengthAwarePaginator
+    {
+        $rows = (clone $query)
+            ->setEagerLoads([])
+            ->get(['clients.id', 'clients.date_of_birth']);
+
+        $hasDate = fn (Client $client) => $client->date_of_birth !== null;
+        $dated = $rows->filter($hasDate)->sortBy([['date_of_birth', $order], ['id', $order]]);
+        $undated = $rows->reject($hasDate)->pluck('id');
+        $orderedIds = $dated->pluck('id')->merge($undated);
+
+        $page = LengthAwarePaginator::resolveCurrentPage();
+        $pageIds = $orderedIds->forPage($page, $perPage)->values();
+
+        $position = $pageIds->flip();
+        $items = (clone $query)
+            ->whereIn('clients.id', $pageIds->all())
+            ->get()
+            ->sortBy(fn (Client $client) => $position[$client->id])
+            ->values();
+
+        return new LengthAwarePaginator($items, $orderedIds->count(), $perPage, $page);
     }
 
     private function getClientStats(?User $user): array
@@ -201,7 +295,9 @@ class ClientController extends Controller
         $user = $request->user();
         $caseQuery = $client->caseFiles()
             ->where('cases.is_deleted', false)
-            ->with(['user', 'category', 'caseIssue'])
+            // client_type is derived from client.type — eager-load the
+            // back-reference so the case table stays at one query.
+            ->with(['user', 'client', 'category', 'caseIssue'])
             ->withCount(['referrals' => fn ($q) => $q->where('is_deleted', false)]);
 
         // ADMIN/CASE_MANAGER: all cases. AGENCY: own referral cases only.
@@ -303,6 +399,13 @@ class ClientController extends Controller
             );
         } catch (\RuntimeException $e) {
             return redirect()->route('clients.show', $client)->withErrors(['profile_picture' => $e->getMessage()]);
+        } catch (\Throwable $e) {
+            // No exception type escaping from the upload path may produce a
+            // 500 — the service already normalizes Cloudinary failures, this
+            // covers anything else that slips through.
+            return redirect()->route('clients.show', $client)->withErrors([
+                'profile_picture' => 'The image could not be uploaded. Please try again later.',
+            ]);
         }
         $client->save();
 
@@ -314,12 +417,20 @@ class ClientController extends Controller
         $client = Client::findOrFail($id);
         $this->authorizeClientAccess($client, $request->user());
 
-        if ($client->avatar_url) {
-            app(CloudinaryAvatarService::class)->deleteByUrl($client->getRawOriginal('avatar_url'));
-        }
+        try {
+            if ($client->avatar_url) {
+                app(CloudinaryAvatarService::class)->deleteByUrl($client->getRawOriginal('avatar_url'));
+            }
 
-        $client->avatar_url = null;
-        $client->save();
+            $client->avatar_url = null;
+            $client->save();
+        } catch (\RuntimeException $e) {
+            return redirect()->route('clients.show', $client)->withErrors(['profile_picture' => $e->getMessage()]);
+        } catch (\Throwable $e) {
+            return redirect()->route('clients.show', $client)->withErrors([
+                'profile_picture' => 'The profile picture could not be removed. Please try again later.',
+            ]);
+        }
 
         return redirect()->route('clients.show', $client)->with('success', 'Profile picture removed successfully.');
     }

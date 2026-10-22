@@ -57,6 +57,25 @@ class CaseFile extends Model
     }
 
     /**
+     * Derived from the case's client (`clients.type` — 'OFW' or 'NEXT_OF_KIN').
+     *
+     * Uses the eager-loaded `client` relation when present and falls back to a
+     * lazy load, so callers that build payloads must eager-load `client` to
+     * avoid N+1 (see CaseService::getCases/getCase, ClientController, and
+     * ReferralService::getReferral, which all do).
+     */
+    public function getClientTypeAttribute(): ?string
+    {
+        if (! $this->client_id) {
+            return null;
+        }
+
+        $client = $this->relationLoaded('client') ? $this->getRelation('client') : $this->client;
+
+        return $client?->type;
+    }
+
+    /**
      * Cases a client may access through self-service surfaces (public tracking
      * and the OFW portal). Anything not a personnel draft is visible —
      * PENDING_REVIEW included so filers can follow their submission.
@@ -153,6 +172,16 @@ class CaseFile extends Model
         'consent_given_at' => 'datetime',
         'reviewed_at' => 'datetime',
     ];
+
+    /**
+     * The `client_type` column was dropped (2026_10_15_072238); the source of
+     * truth is `clients.type`. It is re-exposed as an appended accessor so the
+     * case index, case detail, referral screens, client directory and the case
+     * report PDF keep reading `case.client_type` in Inertia payloads and Blade.
+     *
+     * @see CaseFile::getClientTypeAttribute()
+     */
+    protected $appends = ['client_type'];
 
     public function user()
     {

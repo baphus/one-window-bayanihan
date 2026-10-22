@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\CaseFile;
 use App\Models\Milestone;
 use App\Models\Referral;
+use App\Services\TrackingService as TrackingCacheKeys;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use PHPUnit\Framework\Attributes\Test;
@@ -18,7 +19,7 @@ class CacheInvalidationObserverTest extends TestCase
     public function referral_changes_invalidate_the_tracking_caches(): void
     {
         $referral = Referral::factory()->create();
-        $milestonesKey = 'tracking:milestones:'.$referral->case_id.':'.$referral->id;
+        $milestonesKey = TrackingCacheKeys::trackingMilestonesCacheKey($referral->case_id, $referral->id);
 
         Cache::put($milestonesKey, ['milestones' => 'cached']);
 
@@ -32,7 +33,7 @@ class CacheInvalidationObserverTest extends TestCase
     {
         $referral = Referral::factory()->create();
         $milestone = Milestone::factory()->create(['refr_id' => $referral->id]);
-        $milestonesKey = 'tracking:milestones:'.$referral->case_id.':'.$referral->id;
+        $milestonesKey = TrackingCacheKeys::trackingMilestonesCacheKey($referral->case_id, $referral->id);
 
         Cache::put($milestonesKey, ['milestones' => 'cached']);
 
@@ -45,7 +46,7 @@ class CacheInvalidationObserverTest extends TestCase
     public function milestone_creation_invalidates_the_tracking_caches(): void
     {
         $referral = Referral::factory()->create();
-        $milestonesKey = 'tracking:milestones:'.$referral->case_id.':'.$referral->id;
+        $milestonesKey = TrackingCacheKeys::trackingMilestonesCacheKey($referral->case_id, $referral->id);
 
         Cache::put($milestonesKey, ['milestones' => 'cached']);
 

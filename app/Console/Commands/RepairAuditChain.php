@@ -39,18 +39,27 @@ class RepairAuditChain extends Command
     protected $signature = 'audit:chain:repair
                             {--dry-run : Run the pre-flight check only, without backing up or modifying data}
                             {--force : Skip the confirmation prompt}
-                            {--skip-backup : Skip creating the in-database backup table (NOT recommended)}';
+                            {--skip-backup : Skip creating the in-database backup table (NOT recommended)}
+                            {--chunk=500 : Audit rows held in memory per chunk while walking the chain}';
 
     protected $description = 'One-off guarded repair: relink NULL-prev_hash audit rows (seeder bypass) into the hash chain';
 
+    /**
+     * Rows fetched per query while walking the chain. Kept small enough that
+     * memory does not scale with table size; raise only after benchmarking.
+     */
+    private const DEFAULT_CHUNK_SIZE = 500;
+
     public function handle(): int
     {
+        $chunkSize = max(1, (int) $this->option('chunk'));
+
         // ------------------------------------------------------------------
         // Phase 1 — PRE-FLIGHT (strictly read-only, no mutations yet).
         // ------------------------------------------------------------------
-        $logs = AuditLog::orderBy('chain_seq')->get();
+        $totalCount = AuditLog::count();
 
-        if ($logs->isEmpty()) {
+        if ($totalCount === 0) {
             $this->info('No audit log entries found — nothing to repair.');
 
             return Command::SUCCESS;
@@ -63,7 +72,7 @@ class RepairAuditChain extends Command
         $repairCount = 0;
         $firstRepairSeq = null;
 
-        foreach ($logs as $log) {
+        foreach ($this->auditRows($chunkSize) as $log) {
             if ($previous === null) {
                 // Oldest surviving row: must anchor at the prune checkpoint
                 // when one exists, otherwise it is the chain root (or the
@@ -106,7 +115,7 @@ class RepairAuditChain extends Command
         }
 
         if ($repairCount === 0) {
-            $this->info("Pre-flight passed: {$logs->count()} entries checked, chain is already consistent — nothing to repair.");
+            $this->info("Pre-flight passed: {$totalCount} entries checked, chain is already consistent — nothing to repair.");
 
             return Command::SUCCESS;
         }
@@ -114,7 +123,7 @@ class RepairAuditChain extends Command
         $this->info(sprintf(
             'Pre-flight passed: %d of %d entries have NULL prev_hash (first at chain_seq %d) and all other links are intact. '
             .'The ONLY mismatches are the repairable seeder-bypass pattern.',
-            $repairCount, $logs->count(), $firstRepairSeq
+            $repairCount, $totalCount, $firstRepairSeq
         ));
 
         if ($this->option('dry-run')) {
@@ -124,7 +133,7 @@ class RepairAuditChain extends Command
         }
 
         if (! $this->option('force') && ! $this->confirm(
-            "Repair {$repairCount} audit chain link(s), cascading to the end of the table ({$logs->count()} entries total)?"
+            "Repair {$repairCount} audit chain link(s), cascading to the end of the table ({$totalCount} entries total)?"
         )) {
             $this->info('Repair cancelled — no data was modified.');
 
@@ -153,13 +162,13 @@ class RepairAuditChain extends Command
         // ------------------------------------------------------------------
         $updated = 0;
 
-        DB::transaction(function () use ($logs, &$updated) {
+        DB::transaction(function () use ($chunkSize, &$updated) {
             DB::statement("SET LOCAL app.allow_audit_mutations = 'true'");
             DB::statement("SELECT pg_advisory_xact_lock(hashtext('audit_log_chain'))");
 
             $previous = null;
 
-            foreach ($logs as $log) {
+            foreach ($this->auditRows($chunkSize) as $log) {
                 if ($previous === null) {
                     $previous = $log;
 
@@ -181,12 +190,11 @@ class RepairAuditChain extends Command
         // ------------------------------------------------------------------
         // Phase 4 — POST-REPAIR VERIFICATION (fresh read, strict walk).
         // ------------------------------------------------------------------
-        $fresh = AuditLog::orderBy('chain_seq')->get();
         $previous = null;
         $chainStarted = false;
         $break = null;
 
-        foreach ($fresh as $log) {
+        foreach ($this->auditRows($chunkSize) as $log) {
             if ($previous === null) {
                 $expected = $checkpoint?->anchor_hash;
                 if ($expected !== null && $log->prev_hash !== $expected) {
@@ -223,10 +231,40 @@ class RepairAuditChain extends Command
 
         $this->info(sprintf(
             'Repair complete: %d prev_hash value(s) relinked across %d entries; post-repair verification passed.',
-            $updated, $fresh->count()
+            $updated, $totalCount
         ));
         $this->info('Confirm with: php artisan audit:verify');
 
         return Command::SUCCESS;
+    }
+
+    /**
+     * Walk audit rows in chain_seq order, fetching bounded chunks so memory
+     * stays constant regardless of table size. The hash chain is sequential,
+     * so callers carry their per-chain state (the previous row's digest) across
+     * chunk boundaries; only the current chunk is ever resident.
+     *
+     * @param  int  $chunkSize  Rows fetched per query.
+     * @return \Generator<int, AuditLog>
+     */
+    private function auditRows(int $chunkSize): \Generator
+    {
+        $cursor = -1;
+
+        do {
+            $chunk = AuditLog::query()
+                ->where('chain_seq', '>', $cursor)
+                ->orderBy('chain_seq')
+                ->limit($chunkSize)
+                ->get();
+
+            foreach ($chunk as $log) {
+                yield $log;
+            }
+
+            if ($chunk->isNotEmpty()) {
+                $cursor = $chunk->last()->chain_seq;
+            }
+        } while ($chunk->isNotEmpty());
     }
 }

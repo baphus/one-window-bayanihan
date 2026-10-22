@@ -14,6 +14,13 @@ class Referral extends Model
 
     /**
      * Relationships to cascade on soft-delete and restore.
+     *
+     * `clientRequests` is the top of a chain rather than a leaf: it carries its
+     * own CascadeSoftDeletes list, so trashing a referral reaches
+     * clientRequests -> messages -> attachments. That last hop matters because
+     * a client-request message attachment is a file the citizen uploaded — the
+     * attachment row has to reach is_deleted before `storage:cleanup-orphans`
+     * can retire the object behind it.
      */
     protected array $cascadeSoftDeletes = ['comments', 'attachments', 'milestones', 'clientRequests', 'serviceRequirements'];
 

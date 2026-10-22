@@ -4,13 +4,24 @@ namespace App\Services;
 
 use App\DTOs\FileStoreResult;
 use App\Services\Contracts\MalwareScannerInterface;
+use DateTimeInterface;
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
+use InvalidArgumentException;
+use RuntimeException;
 
 class StorageService
 {
+    /**
+     * Route that streams a file for an application-signed temporary URL. Used
+     * as the fallback for disks whose driver cannot mint temporary URLs.
+     */
+    public const TEMP_FILE_ROUTE = 'files.temp';
+
     /**
      * The storage disk to use. Resolved from config so it's
      * environment-agnostic — swap to any S3-compatible or local disk
@@ -129,26 +140,84 @@ class StorageService
     /**
      * Generate a temporary (signed) URL for a private file.
      *
+     * Drivers that mint their own temporary URLs (S3-compatible object storage)
+     * are asked first and own signing and expiry. A local disk cannot mint one
+     * — Laravel's local adapter refuses outright — so the application signs the
+     * link itself: the same expiring route the browser would follow for a
+     * presigned object-storage URL, streamed by TemporaryFileController with
+     * the same expiry.
+     *
      * @param  string  $path  The storage path of the file.
      * @param  int  $ttlHours  Time-to-live in hours (default: 24).
-     * @return string|null The temporary URL, or null on failure.
+     * @param  string|null  $disk  Disk holding the file (default: the configured disk).
+     * @return string|null The temporary URL, or null only for an unknown/unconfigured disk.
      */
-    public function temporaryUrl(string $path, int $ttlHours = 24): ?string
+    public function temporaryUrl(string $path, int $ttlHours = 24, ?string $disk = null): ?string
     {
+        return $this->temporaryUrlUntil($path, now()->addHours($ttlHours), $disk);
+    }
+
+    /**
+     * Generate a temporary (signed) URL that expires at a given moment.
+     *
+     * Same fallback chain as temporaryUrl(), but for callers that need
+     * sub-hour expiry (avatar and logo links) and can only express a deadline.
+     *
+     * @param  string  $path  The storage path of the file.
+     * @param  DateTimeInterface  $expiresAt  The moment the link stops working.
+     * @param  string|null  $disk  Disk holding the file (default: the configured disk).
+     * @return string|null The temporary URL, or null only for an unknown/unconfigured disk.
+     */
+    public function temporaryUrlUntil(string $path, DateTimeInterface $expiresAt, ?string $disk = null): ?string
+    {
+        $diskName = $disk ?? $this->disk;
+
         try {
-            return Storage::disk($this->disk)->temporaryUrl(
-                $path,
-                now()->addHours($ttlHours)
-            );
-        } catch (\Throwable $e) {
-            Log::warning('StorageService: failed to generate temporary URL', [
-                'disk' => $this->disk,
+            /** @var FilesystemAdapter $filesystem Driver-specific disk, always a concrete adapter. */
+            $filesystem = Storage::disk($diskName);
+        } catch (InvalidArgumentException $e) {
+            Log::warning('StorageService: unknown storage disk', [
+                'disk' => $diskName,
                 'path' => $path,
                 'exception' => $e->getMessage(),
             ]);
 
             return null;
         }
+
+        try {
+            return $filesystem->temporaryUrl($path, $expiresAt);
+        } catch (RuntimeException $e) {
+            // A local disk is the one driver expected to refuse here, because
+            // there is no presigned URL it could mint — that refusal is the whole
+            // reason this fallback exists, and it is the only thing that is
+            // caught. The same exception from any other disk is a genuine
+            // credential or IO failure, so it is rethrown and surfaces as a 500
+            // rather than being flattened into a misleading "file not found".
+            if (! $this->isLocalDisk($diskName)) {
+                throw $e;
+            }
+        }
+
+        return URL::temporarySignedRoute(self::TEMP_FILE_ROUTE, $expiresAt, [
+            'disk' => $diskName,
+            'path' => $path,
+        ]);
+    }
+
+    /**
+     * Determine whether the named disk is a local (filesystem) disk.
+     *
+     * Local disks are the ones the application has to serve itself: they are
+     * rooted inside storage/ and cannot mint a presigned URL. Read from the same
+     * config TemporaryFileController whitelists, so a link handed out here and
+     * the endpoint that honours it can never disagree about what is servable.
+     *
+     * @param  string  $diskName  Configured disk name.
+     */
+    private function isLocalDisk(string $diskName): bool
+    {
+        return (config("filesystems.disks.{$diskName}.driver") ?? null) === 'local';
     }
 
     /**

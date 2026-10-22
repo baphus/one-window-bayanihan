@@ -39,9 +39,11 @@ use App\Http\Controllers\StakeholderController;
 use App\Http\Controllers\SurveyFormController;
 use App\Http\Controllers\SurveyResponseController;
 use App\Http\Controllers\SystemSettingsController;
+use App\Http\Controllers\TemporaryFileController;
 use App\Http\Controllers\TrackController;
 use App\Http\Controllers\TrackRegistrationController;
 use App\Models\Agency;
+use App\Services\StorageService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
@@ -429,6 +431,18 @@ Route::prefix('help')->name('helpdesk.')->group(function () {
         'slug' => $slug,
     ]))->name('show');
 });
+
+// Application-hosted expiring file links. StorageService falls back to these
+// for disks whose driver cannot mint temporary URLs of its own (local and
+// private), so downloads, attachments and avatars keep working the same way
+// they do on object storage. The signature is the capability: the link is only
+// minted after the caller authorized the download, and it may be opened in a
+// new tab, so — exactly like an S3 presigned URL — there is no session or role
+// check here. The disk and the path are both signed route parameters.
+Route::get('/files/temp/{disk}/{path}', TemporaryFileController::class)
+    ->name(StorageService::TEMP_FILE_ROUTE)
+    ->where('path', '.*')
+    ->middleware(['signed', 'throttle:60,1']);
 
 // API routes (authenticated via web session) — in web.php for session middleware support
 // Client picker PII: staff only. OFW self-file resolves filer->client

@@ -31,6 +31,7 @@ use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Notifications\Events\NotificationSent;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\Vite;
@@ -40,10 +41,57 @@ use Illuminate\Validation\Rules\Password;
 class AppServiceProvider extends ServiceProvider
 {
     /**
+     * Set once the disabled-scanner warning has been emitted, so the warning
+     * logs once per process instead of on every container boot (tests spin up
+     * the provider repeatedly).
+     */
+    private static bool $malwareScannerWarningLogged = false;
+
+    /**
+     * Logged once per process, at first boot, when no malware scanner is
+     * configured. The fail-open default is silent by design for dev; the
+     * warning line makes it visible in every environment's logs so a
+     * production deploy without MALWARE_SCANNER=clamav cannot slip through
+     * unnoticed.
+     *
+     * Best-effort: the StreamHandler opens the log file on the first write,
+     * so when another local process holds storage/logs/laravel.log open
+     * without sharing (Windows queues/watchers), logging throws while we
+     * still have no LogFacility to fall back to. A visibility warning must
+     * never prevent the application from booting, so a failed write is
+     * swallowed and retried on the next boot.
+     */
+    private static function warnIfMalwareScannerDisabled(): void
+    {
+        if (self::$malwareScannerWarningLogged) {
+            return;
+        }
+
+        $scanner = (string) config('services.malware.scanner', 'null');
+
+        if ($scanner === 'clamav') {
+            return;
+        }
+
+        try {
+            Log::warning('Malware scanner is DISABLED: uploaded files are accepted UNSCANNED (fail-open). Set MALWARE_SCANNER=clamav for any non-development deployment.', [
+                'scanner' => $scanner,
+                'fail_open' => (bool) config('services.malware.fail_open', true),
+            ]);
+
+            self::$malwareScannerWarningLogged = true;
+        } catch (\Throwable) {
+            // Log destination unavailable — retry on the next boot.
+        }
+    }
+
+    /**
      * Register any application services.
      */
     public function register(): void
     {
+        self::warnIfMalwareScannerDisabled();
+
         $this->app->bind(MalwareScannerInterface::class, function ($app) {
             return config('services.malware.scanner', 'null') === 'clamav'
                 ? new ClamAvScanner

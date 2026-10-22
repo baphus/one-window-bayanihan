@@ -39,7 +39,7 @@ class WarmCache extends Command
         $this->components->task('Dashboard counts', function () {
             $dashboard = app(DashboardService::class);
             // Trigger the cached count queries by calling getAdminData
-            // (which populates cm_counts, admin_counts, user counts, agency counts)
+            // (which populates dashboard:admin_counts_v2, user counts, agency counts)
             $dashboard->getAdminData();
         });
 
