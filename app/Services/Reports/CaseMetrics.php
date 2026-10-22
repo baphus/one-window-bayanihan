@@ -7,6 +7,8 @@ use App\Models\CaseEvent;
 use App\Models\CaseFile;
 use App\Models\Referral;
 use App\Services\Reports\Concerns\ScopesReportQueries;
+use Carbon\Carbon;
+use DateTimeInterface;
 use Illuminate\Support\Facades\DB;
 
 class CaseMetrics
@@ -99,8 +101,8 @@ class CaseMetrics
                 DB::raw("to_char(cases.created_at, 'YYYY-MM') as month"),
                 DB::raw('count(*) as total')
             )
-            ->where('cases.created_at', '>=', $fromDate ?: now()->subMonths(12))
-            ->where('cases.created_at', '<=', $toDate ?: now())
+            ->whereDate('cases.created_at', '>=', $this->windowBound($fromDate ?: now()->subMonths(12)))
+            ->whereDate('cases.created_at', '<=', $this->windowBound($toDate ?: now()))
             ->groupBy('month')
             ->orderBy('month')
             ->get();
@@ -132,8 +134,8 @@ class CaseMetrics
                 DB::raw('count(*) as total')
             )
             ->where('cases.status', 'CLOSED')
-            ->whereRaw('COALESCE(cases.closed_at, cases.updated_at) >= ?', [$fromDate ?: now()->subMonths(12)])
-            ->whereRaw('COALESCE(cases.closed_at, cases.updated_at) <= ?', [$toDate ?: now()])
+            ->whereRaw('DATE(COALESCE(cases.closed_at, cases.updated_at)) >= ?', [$this->windowBound($fromDate ?: now()->subMonths(12))])
+            ->whereRaw('DATE(COALESCE(cases.closed_at, cases.updated_at)) <= ?', [$this->windowBound($toDate ?: now())])
             ->groupBy('month')
             ->orderBy('month')
             ->get();
@@ -432,5 +434,25 @@ class CaseMetrics
             ],
             'colors' => ['#6366f1', '#a5b4fc'],
         ];
+    }
+
+    /**
+     * Normalize a reporting-window bound to a `Y-m-d` string.
+     *
+     * Callers hand down `Y-m-d` date strings while the fallbacks inside these
+     * methods are Carbon instances, and both were compared straight against a
+     * `timestamp` column. PostgreSQL reads a bare date as midnight, so a case
+     * filed or closed at 15:00 on the final day of the window sat outside it
+     * and a report running "through today" silently dropped it — while every
+     * panel using `whereDate()` (see ScopesReportQueries::applyCaseWindow())
+     * counted the same row, so two panels on the same page disagreed.
+     *
+     * Resolving both edges to a calendar date makes the end bound inclusive of
+     * the whole day, which is the single convention the rest of the report
+     * already uses.
+     */
+    private function windowBound(DateTimeInterface|string $bound): string
+    {
+        return Carbon::parse($bound)->toDateString();
     }
 }

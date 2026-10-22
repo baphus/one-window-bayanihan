@@ -6,6 +6,7 @@ use App\Models\SystemSetting;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 
 class SystemSettingsController extends Controller
@@ -24,8 +25,12 @@ class SystemSettingsController extends Controller
             'referral_overdue_days' => ['nullable', 'integer', 'min:1', 'max:365'],
         ]);
 
-        if ($request->has('referral_overdue_days')) {
-            SystemSetting::setValue('referral_overdue_days', (int) $request->input('referral_overdue_days'));
+        // Only write when a usable value is present. A cleared field arrives as null
+        // (ConvertEmptyStringsToNull) and would cast to 0, which makes every active
+        // referral look overdue and triggers mass reminder emails. Null/empty means
+        // "leave the stored value unchanged", never zero.
+        if ($request->filled('referral_overdue_days')) {
+            SystemSetting::setValue('referral_overdue_days', (int) $validated['referral_overdue_days']);
         }
 
         return back()->with('success', 'Settings updated successfully.');

@@ -188,6 +188,15 @@ class ReferralMessageService
             return;
         }
 
+        // A message sent by the viewer's own agency is never unread for that
+        // viewer. This must not depend on the read marker, which only the
+        // sending user holds — otherwise an own-agency message written by a
+        // colleague would be mis-flagged as unread for everyone else at the
+        // same agency.
+        if ($message->sender?->agcy_id === $pair[0]) {
+            return;
+        }
+
         $marker = $markers[$card->case_id.':'.$card->agcy_id] ?? null;
 
         if ($marker === null || $message->created_at->gt($marker)) {

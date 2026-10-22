@@ -264,6 +264,61 @@ class ReportsMetricsTest extends TestCase
     }
 
     #[Test]
+    public function cases_over_time_counts_cases_filed_earlier_on_the_last_day_of_the_window(): void
+    {
+        // 15:00 on the `to` date must still land inside a window that ends
+        // that day: the end bound is a calendar date, not midnight.
+        CaseFile::factory()->create([
+            'user_id' => $this->managerA->id,
+            'status' => 'OPEN',
+            'created_at' => '2026-04-30 15:00:00',
+        ]);
+        // Next-day filings stay outside the window.
+        CaseFile::factory()->create([
+            'user_id' => $this->managerA->id,
+            'status' => 'OPEN',
+            'created_at' => '2026-05-01 09:00:00',
+        ]);
+
+        $trend = $this->service->getCasesOverTime(
+            $this->managerA->id,
+            UserRole::CASE_MANAGER->value,
+            '2026-04-01',
+            '2026-04-30',
+        );
+
+        $this->assertSame(['2026-04'], $trend['labels']);
+        $this->assertSame([1], array_map('intval', $trend['datasets'][0]['data']));
+    }
+
+    #[Test]
+    public function closed_cases_over_time_counts_cases_closed_earlier_on_the_last_day_of_the_window(): void
+    {
+        CaseFile::factory()->closed()->create([
+            'user_id' => $this->managerA->id,
+            'created_at' => '2026-04-02 08:00:00',
+            'closed_at' => '2026-04-30 15:00:00',
+            'updated_at' => '2026-04-30 15:00:00',
+        ]);
+        CaseFile::factory()->closed()->create([
+            'user_id' => $this->managerA->id,
+            'created_at' => '2026-05-02 08:00:00',
+            'closed_at' => '2026-05-03 15:00:00',
+            'updated_at' => '2026-05-03 15:00:00',
+        ]);
+
+        $trend = $this->service->getClosedCasesOverTime(
+            $this->managerA->id,
+            UserRole::CASE_MANAGER->value,
+            '2026-04-01',
+            '2026-04-30',
+        );
+
+        $this->assertSame(['2026-04'], $trend['labels']);
+        $this->assertSame([1], array_map('intval', $trend['datasets'][0]['data']));
+    }
+
+    #[Test]
     public function reopened_stats_counts_reopens_and_repeat_clients(): void
     {
         $client = Client::factory()->create();
@@ -408,9 +463,10 @@ class ReportsMetricsTest extends TestCase
 
         $this->assertSame([0, 0], $payload['caseSourceDistribution']['data']);
         $this->assertSame([], $payload['closedCasesOverTime']);
-        $this->assertSame(0, $payload['reopenedStats']['reopenedCount']);
-        $this->assertSame(0, $payload['reopenedStats']['repeatClientRate']);
-        $this->assertSame([0, 0, 0], $payload['caseEventActorDistribution']['data']);
+        // reopenedStats and caseEventActorDistribution left the payload when
+        // their chart sections were retired — including the empty arm here.
+        $this->assertArrayNotHasKey('reopenedStats', $payload);
+        $this->assertArrayNotHasKey('caseEventActorDistribution', $payload);
         $this->assertSame([], $payload['agencyFirstResponse']);
         $this->assertSame([0, 0, 0], $payload['clientRequestTypeDistribution']['data']);
     }

@@ -205,9 +205,8 @@ class ReportsAgencyScopingTest extends TestCase
             'avgReferralCompletion', 'cycleTimeDistribution', 'agencyScorecard',
             'categoryDistribution', 'caseStatusDistribution', 'genderDistribution',
             'ageGroupDistribution', 'clientTypeDistribution', 'geographicMapData',
-            'caseSourceDistribution', 'closedCasesOverTime', 'reopenedStats',
-            'caseEventActorDistribution', 'agencyFirstResponse', 'clientRequestTypeDistribution',
-            'role',
+            'caseSourceDistribution', 'closedCasesOverTime', 'agencyFirstResponse',
+            'clientRequestTypeDistribution', 'role',
         ], array_keys($payload));
         $this->assertSame(0, $payload['kpis']['totalReferrals']);
         $this->assertSame(0, array_sum($payload['referralStatusDistribution']['data']));

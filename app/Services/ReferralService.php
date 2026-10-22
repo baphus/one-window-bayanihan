@@ -1239,6 +1239,8 @@ class ReferralService
     {
         return ReferralAttachment::where('referral_id', $referralId)
             ->where('version_group_id', $versionGroupId)
+            ->where('is_deleted', false)
+            ->whereNull('deleted_at')
             ->orderBy('created_at', 'desc')
             ->get();
     }

@@ -552,10 +552,12 @@ class ReferralController extends Controller
     {
         $user = $request->user();
 
+        // Drop only unset inputs: a bare array_filter would also strip numbers
+        // that are legitimately 0 (e.g. age_min_days).
         $filters = array_filter(array_merge($request->only([
             'status', 'search', 'age_min_days', 'age_max_days',
             'date_from', 'date_to', 'agcy_id', 'category_id', 'category_ids', 'case_issue_id',
-        ]), CategoryFilter::fromRequest($request)->toArray()));
+        ]), CategoryFilter::fromRequest($request)->toArray()), fn ($value) => $value !== null);
 
         $queries = $this->exportQueries;
         $exportService = $this->exportService;
@@ -588,10 +590,12 @@ class ReferralController extends Controller
     {
         $user = $request->user();
 
+        // Drop only unset inputs: a bare array_filter would also strip numbers
+        // that are legitimately 0 (e.g. age_max_days).
         $filters = array_filter(array_merge($request->only([
             'status', 'search', 'age_min_days', 'age_max_days',
             'date_from', 'date_to', 'agcy_id', 'category_id', 'category_ids', 'case_issue_id',
-        ]), CategoryFilter::fromRequest($request)->toArray()));
+        ]), CategoryFilter::fromRequest($request)->toArray()), fn ($value) => $value !== null);
 
         $count = $this->exportQueries->countReferralsExport($user, $filters);
 

@@ -8,6 +8,7 @@ use App\Models\Referral;
 use App\Models\ReferralClientRequest;
 use App\Services\Reports\Concerns\ScopesReportQueries;
 use Carbon\Carbon;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 
 class ReferralMetrics
@@ -264,45 +265,6 @@ class ReferralMetrics
         ];
     }
 
-    public function getReferralAging(
-        ?string $userId = null,
-        ?string $role = null,
-        ?string $fromDate = null,
-        ?string $toDate = null,
-        string $dateScope = 'case_created_at',
-        ?string $province = null,
-        ?string $city = null,
-        ?string $agencyId = null,
-    ): array {
-        $query = $this->referralQuery($userId, $role, $agencyId, $fromDate, $toDate, $dateScope);
-        $this->applyGeoFilter($query, $province, $city);
-
-        $referrals = (clone $query)
-            ->whereIn('status', ['PENDING', 'PROCESSING', 'FOR_COMPLIANCE'])
-            ->select(DB::raw('EXTRACT(EPOCH FROM (NOW() - created_at)) / 86400 as days'))
-            ->get()
-            ->pluck('days');
-
-        $buckets = ['< 1 week' => 0, '1-2 weeks' => 0, '2-4 weeks' => 0, '> 1 month' => 0];
-        foreach ($referrals as $days) {
-            if ($days < 7) {
-                $buckets['< 1 week']++;
-            } elseif ($days < 14) {
-                $buckets['1-2 weeks']++;
-            } elseif ($days < 30) {
-                $buckets['2-4 weeks']++;
-            } else {
-                $buckets['> 1 month']++;
-            }
-        }
-
-        return [
-            'labels' => array_keys($buckets),
-            'data' => array_values($buckets),
-            'colors' => ['#22c55e', '#84cc16', '#f59e0b', '#ef4444'],
-        ];
-    }
-
     public function getAgencyScorecard(
         ?string $userId = null,
         ?string $role = null,
@@ -481,17 +443,27 @@ class ReferralMetrics
         return round((float) ($avg ?? 0), 1);
     }
 
+    /**
+     * Active referrals older than 14 days, with the client record attached.
+     *
+     * Rows carry client PII, so this takes the same scoped base query every
+     * other referral metric does rather than its own unrestricted one: before,
+     * it ignored both the role and the agencyId, so the overdue panel listed
+     * every filer's name, address and phone number beside the case-manager
+     * charts no matter who asked. hasRequiredRoleScope() fails closed for a
+     * role outside the report allowlist (OFW and any unknown value), so an
+     * unrecognised caller gets an empty list rather than the whole table.
+     *
+     * @return array{count: int, referrals: LengthAwarePaginator}
+     */
     public function getOverdueReferrals(?string $userId = null, ?string $role = null, ?string $province = null, ?string $city = null, ?string $agencyId = null): array
     {
-        $query = Referral::whereIn('status', ['PENDING', 'PROCESSING', 'FOR_COMPLIANCE'])
-            ->whereRaw('EXTRACT(EPOCH FROM (NOW() - created_at)) / 86400 > 14');
-
-        if ($agencyId) {
-            $query->where('agcy_id', $agencyId);
-        }
+        $query = $this->referralQuery($userId, $role, $agencyId)
+            ->whereIn('referrals.status', ['PENDING', 'PROCESSING', 'FOR_COMPLIANCE'])
+            ->whereRaw('EXTRACT(EPOCH FROM (NOW() - referrals.created_at)) / 86400 > 14');
 
         if ($province || $city) {
-            $query->whereIn('case_id', function ($q) use ($province, $city) {
+            $query->whereIn('referrals.case_id', function ($q) use ($province, $city) {
                 $q->select('cases.id')->from('cases')
                     ->join('clients', 'clients.id', '=', 'cases.client_id')
                     ->join('client_addresses', 'client_addresses.client_id', '=', 'clients.id');
@@ -507,7 +479,7 @@ class ReferralMetrics
         $count = (clone $query)->count();
 
         $referrals = $query->with(['caseFile.client', 'agency'])
-            ->orderBy('created_at', 'asc')
+            ->orderBy('referrals.created_at', 'asc')
             ->paginate(10);
 
         return [

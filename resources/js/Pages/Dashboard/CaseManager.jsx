@@ -33,15 +33,6 @@ const OVERDUE_DAYS = 5;
 const CASE_STATUSES = ['DRAFT', 'OPEN', 'CLOSED'];
 const REFERRAL_STATUSES = ['PENDING', 'PROCESSING', 'FOR_COMPLIANCE', 'COMPLETED', 'REJECTED'];
 
-const CASE_EVENT_TYPES = new Set([
-    'case_opened',
-    'referral_sent',
-    'referral_status_changed',
-    'milestone_added',
-    'case_closed',
-    'case_reopened',
-]);
-
 function pick(...values) {
     for (const value of values) {
         if (value !== undefined && value !== null && value !== '') {
@@ -96,7 +87,7 @@ function normalizeTrend(dashboard) {
     // then referral trends — so the chart renders whenever any source
     // has labels. Shapes differ (datasets[0].data vs flat data), hence
     // both are read. Short data arrays are zero-padded to the labels.
-    const sources = [dashboard?.casesOverTime, dashboard?.caseTrends, dashboard?.referralTrends];
+    const sources = [dashboard?.casesOverTime, dashboard?.referralTrends];
     for (const source of sources) {
         const labels = safeArray(source?.labels);
         if (labels.length === 0) {
@@ -152,14 +143,14 @@ function getStatusCounts(dashboard) {
 
     return {
         caseCounts: {
-            DRAFT: dashboard?.myDraftCount ?? dashboard?.draftCases ?? 0,
-            OPEN: dashboard?.openCases ?? dashboard?.totalOpenCases ?? 0,
+            DRAFT: dashboard?.myDraftCount ?? 0,
+            OPEN: dashboard?.openCases ?? 0,
             CLOSED: dashboard?.closedCases ?? 0,
         },
         referralCounts: {
             PENDING: dashboard?.pendingReferrals ?? countFor('PENDING') ?? 0,
             PROCESSING: dashboard?.processingReferrals ?? countFor('PROCESSING') ?? 0,
-            FOR_COMPLIANCE: dashboard?.forComplianceReferrals ?? countFor('FOR_COMPLIANCE') ?? 0,
+            FOR_COMPLIANCE: countFor('FOR_COMPLIANCE') ?? 0,
             COMPLETED: dashboard?.completedReferrals ?? countFor('COMPLETED') ?? 0,
             REJECTED: dashboard?.rejectedReferrals ?? countFor('REJECTED') ?? 0,
         },
@@ -486,7 +477,7 @@ function NotificationsBlock() {
 const URGENCY = { REJECTED: 5, FOR_COMPLIANCE: 4, PENDING: 3, OPEN: 2, PROCESSING: 1 };
 
 function buildNeedsYou(dashboard) {
-    const referrals = safeArray(dashboard?.priorityReferrals ?? dashboard?.needsYou).map((item) => {
+    const referrals = safeArray(dashboard?.priorityReferrals).map((item) => {
         const age = toAgeDays(pick(item.age_days, item.ageDays, getCaseAgeInDays(createdAtOf(item) ?? '')), 0);
         const status = pick(item.status, 'PENDING');
         const overdueBoost = age >= OVERDUE_DAYS ? 0.5 : 0;
@@ -557,7 +548,7 @@ function NeedsYouBlock({ dashboard }) {
 function PendingReviews({ dashboard }) {
     const items = useMemo(
         () =>
-            safeArray(dashboard?.pendingReviews ?? dashboard?.intakeReview)
+            safeArray(dashboard?.intakeReview)
                 .slice()
                 .sort(
                     (a, b) =>
@@ -566,7 +557,7 @@ function PendingReviews({ dashboard }) {
                 .slice(0, 5),
         [dashboard],
     );
-    const count = dashboard?.pendingReviewCount ?? dashboard?.reviewQueueCount ?? items.length;
+    const count = dashboard?.pendingReviewCount ?? items.length;
     const listHref = safeRoute('cases.review-pending', undefined, '/cases/review-pending');
     const columns = [
         { key: 'trackingId', label: 'Tracking ID' },
@@ -603,45 +594,19 @@ function PendingReviews({ dashboard }) {
 }
 
 function normalizeReferralNews(dashboard) {
-    const supplied = safeArray(dashboard?.referralNews);
-    if (supplied.length > 0) {
-        return supplied
-            .map((item) => ({
-                id: pick(item.id, `${item.from}-${item.to}-${item.occurredAt}`),
-                from: pick(item.from, item.fromStatus, item.oldStatus, item.meta?.from),
-                to: pick(item.to, item.toStatus, item.newStatus, item.meta?.to),
-                kind: pick(item.kind, item.type, item.from || item.to ? 'status' : 'milestone'),
-                caseNumber: pick(item.caseNumber, item.case_number, item.meta?.case_number),
-                clientName: pick(item.clientName, item.client_name, item.meta?.client_name),
-                milestone: pick(item.milestone, item.milestoneTitle, item.title),
-                href: pick(item.href, item.referral_id ? safeRoute('referrals.show', item.referral_id, `/referrals/${item.referral_id}`) : item.case_id ? safeRoute('cases.show', item.case_id, `/cases/${item.case_id}`) : safeRoute('referrals.index', undefined, '/referrals')),
-                at: createdAtOf(item) ?? pick(item.time),
-                raw: item,
-            }))
-            .sort((a, b) => new Date(b.at ?? 0).getTime() - new Date(a.at ?? 0).getTime());
-    }
-
-    // CaseEvent-shaped fallback (backend 1.x has not wired referralNews yet).
-    const events = safeArray(dashboard?.caseEvents);
-    const news = events
-        .filter((event) => ['referral_status_changed', 'milestone_added'].includes(event.type ?? event.kind))
-        .map((event) => ({
-            id: event.id,
-            from: pick(event.meta?.from, event.from),
-            to: pick(event.meta?.to, event.to),
-            kind: event.type ?? event.kind,
-            caseNumber: pick(event.case_number, event.meta?.case_number),
-            clientName: pick(event.client_name, event.meta?.client_name),
-            milestone: pick(event.title, event.description),
-            href: event.referral_id
-                ? safeRoute('referrals.show', event.referral_id, `/referrals/${event.referral_id}`)
-                : safeRoute('cases.show', event.case_id, event.case_id ? `/cases/${event.case_id}` : '/referrals'),
-            at: pick(event.occurred_at, event.occurredAt, event.created_at, event.timestamp),
-            raw: event,
+    return safeArray(dashboard?.referralNews)
+        .map((item) => ({
+            id: pick(item.id, `${item.from}-${item.to}-${item.occurredAt}`),
+            from: pick(item.from, item.fromStatus, item.oldStatus, item.meta?.from),
+            to: pick(item.to, item.toStatus, item.newStatus, item.meta?.to),
+            kind: pick(item.kind, item.type),
+            caseNumber: pick(item.caseNumber, item.case_number, item.meta?.case_number),
+            clientName: pick(item.clientName, item.client_name, item.meta?.client_name),
+            milestone: pick(item.milestone, item.milestoneTitle, item.title),
+            href: pick(item.href, item.referral_id ? safeRoute('referrals.show', item.referral_id, `/referrals/${item.referral_id}`) : item.case_id ? safeRoute('cases.show', item.case_id, `/cases/${item.case_id}`) : safeRoute('referrals.index', undefined, '/referrals')),
+            at: createdAtOf(item) ?? pick(item.time),
         }))
         .sort((a, b) => new Date(b.at ?? 0).getTime() - new Date(a.at ?? 0).getTime());
-
-    return news;
 }
 
 function ReferralNewsBlock({ dashboard }) {
@@ -749,27 +714,10 @@ function AgenciesBlock({ dashboard }) {
 }
 
 function normalizeCaseEvents(dashboard) {
-    const events = safeArray(dashboard?.caseEvents ?? dashboard?.caseActivityLog);
-    if (events.length > 0) {
-        return events
-            .filter((event) => CASE_EVENT_TYPES.has(event.type ?? event.kind))
-            .slice(0, 8)
-            .map((event) => ({
-                id: event.id,
-                title: pick(event.title, 'Case update'),
-                desc: pick(event.description, event.detail),
-                time: relativeOf(event),
-                logoSrc: '/logo.png',
-                message: pick(event.title, 'Case update'),
-                detail: pick(event.description, event.detail),
-                timestamp: createdAtOf(event),
-            }));
-    }
-
-    // Fallback: case-only slice of the AuditLog feed (no login / system noise).
+    // Case-only slice of the AuditLog feed (no login / system noise).
     const noisyModules = new Set(['auth', 'user', 'users', 'session', 'sessions', 'system', 'settings']);
     const noisyActions = new Set(['login', 'logout', 'permission', 'password']);
-    return safeArray(dashboard?.recentActivity ?? dashboard?.recentLogs)
+    return safeArray(dashboard?.recentActivity)
         .filter((item) => !noisyModules.has(String(item.module ?? '').toLowerCase()))
         .filter((item) => !noisyActions.has(String(item.actionType ?? item.action ?? '').toLowerCase()))
         .slice(0, 8);

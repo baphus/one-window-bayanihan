@@ -5,10 +5,22 @@ namespace App\Http\Controllers;
 use App\Models\Agency;
 use App\Models\Service;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class AdminServiceController extends Controller
 {
+    /**
+     * Referral statuses that still need a service's display name and
+     * requirement tracking — PENDING/PROCESSING/FOR_COMPLIANCE are the
+     * non-terminal states of the referral workflow (COMPLETED and REJECTED
+     * end it), the same list the dashboards and reminder tooling use.
+     *
+     * @var array<int, string>
+     */
+    private const ACTIVE_REFERRAL_STATUSES = ['PENDING', 'PROCESSING', 'FOR_COMPLIANCE'];
+
     public function index()
     {
         $services = Service::with('agency')
@@ -37,7 +49,10 @@ class AdminServiceController extends Controller
             'requirements.*.is_required' => 'boolean',
         ]);
 
-        $service = Service::create($validated);
+        // `requirements` is a relation, not a column: the mass write below
+        // must not receive it (strict-mode mass assignment would throw), so it
+        // is excluded here and consumed only by syncRequirements().
+        $service = Service::create(Arr::except($validated, 'requirements'));
 
         if ($request->has('requirements')) {
             $this->syncRequirements($service, $validated['requirements'] ?? []);
@@ -75,7 +90,9 @@ class AdminServiceController extends Controller
             }
         }
 
-        $service->update($validated);
+        // Same exclusion as store(): `requirements` drives syncRequirements()
+        // below and must not reach the model's mass update.
+        $service->update(Arr::except($validated, 'requirements'));
 
         if ($request->has('requirements')) {
             $this->syncRequirements($service, $validated['requirements'] ?? []);
@@ -88,6 +105,27 @@ class AdminServiceController extends Controller
     public function destroy(string $id)
     {
         $service = Service::findOrFail($id);
+
+        // A soft-deleted service drops out of every default-scope query that
+        // renders referral services, so deleting one mid-flight strands the
+        // referrals attached through the referral_services pivot: their
+        // service display and requirement tracking lose their subject. Only
+        // allow the delete while nothing in-flight still references it.
+        $activeReferrals = DB::table('referral_services')
+            ->join('referrals', 'referrals.id', '=', 'referral_services.referral_id')
+            ->where('referral_services.service_id', $service->id)
+            ->where('referrals.is_deleted', false)
+            ->whereIn('referrals.status', self::ACTIVE_REFERRAL_STATUSES)
+            ->count();
+
+        if ($activeReferrals > 0) {
+            $unit = $activeReferrals === 1 ? 'referral' : 'referrals';
+            $verb = $activeReferrals === 1 ? 'uses' : 'use';
+
+            return redirect()->route('admin.services.index')
+                ->with('error', "Cannot delete {$service->name}: {$activeReferrals} active {$unit} still {$verb} this service. Complete or reject the referrals first.");
+        }
+
         $service->delete();
 
         return redirect()->route('admin.services.index')

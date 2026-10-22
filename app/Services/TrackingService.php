@@ -16,6 +16,14 @@ class TrackingService
     public const SESSION_KEY = 'tracking.verified';
 
     /**
+     * Payload version for the cached agency-milestones payload. Bump whenever
+     * a key is removed or reshaped so already-cached entries from a previous
+     * release are orphaned instead of served. v2: dropped the internal
+     * `agencyMilestones.notes` key (staff free text).
+     */
+    private const MILESTONES_PAYLOAD_VERSION = 'v2';
+
+    /**
      * Raw internal code fields stored in CaseNotification.data by the
      * writers (referral_created / referral_status_changed /
      * case_status_updated). Stripped from the client-facing payload.
@@ -37,7 +45,7 @@ class TrackingService
 
     public static function trackingMilestonesCacheKey(string $caseId, string $referralId): string
     {
-        return 'tracking:milestones:'.$caseId.':'.$referralId;
+        return 'tracking:milestones:'.$caseId.':'.$referralId.':'.self::MILESTONES_PAYLOAD_VERSION;
     }
 
     public function __construct(
@@ -158,11 +166,14 @@ class TrackingService
             ->get();
 
         // Agency cards with dynamic step progress.
-        // There is deliberately no `note` key: staff free-text referral
-        // notes are never client-safe, and no consumer page renders one
-        // (verified: zero `.note` references in Tracking/Show and
-        // OFW/CaseDetail, and Case/Show never receives agency cards —
-        // CaseController forwards only milestoneTimeline).
+        // INVARIANT (applies to every client-facing payload in this service,
+        // i.e. both this builder and buildAgencyMilestonesData): staff
+        // free-text referral notes are NEVER client-safe and must not be
+        // read here, even indirectly. Consumers of these payloads are the
+        // public /track page, the OFW portal, and nothing else — so a
+        // `note`/`notes` key added to either builder leaks internal text to
+        // an anonymous or citizen-owned client. Staff read notes from the
+        // referral record on Referral/Show, never from a tracking payload.
         $agencyCards = $referrals->map(function ($ref) use ($case, $forOfwPortal) {
             $latestMilestone = $ref->milestones->sortByDesc('created_at')->first();
             $hasCompliance = $ref->status === 'FOR_COMPLIANCE';
@@ -330,6 +341,26 @@ class TrackingService
         return $case->category ? [['name' => $case->category->name, 'color' => $case->category->color]] : [];
     }
 
+    /**
+     * Client-facing payload for a single referral's milestone page.
+     *
+     * Served by the public `track.milestones` route (anonymous, gated only by
+     * the tracking-number OTP session binding) and by the authenticated OFW
+     * portal's equivalent route. Both audiences are the client — the OFW or
+     * their representative — so this payload must obey the same INVARIANT as
+     * buildTrackingData(): staff free-text referral notes are never
+     * client-safe. There is deliberately no `notes` key here; it was removed
+     * because it leaked internal agency/case-manager text to the public
+     * portal. Staff read notes on Referral/Show from the referral record
+     * itself. No staff-facing consumer of this payload exists, so no
+     * staff-only variant is needed.
+     *
+     * The result is cached (see self::MILESTONES_PAYLOAD_VERSION), so a
+     * removal like this one must also bump that version to orphan entries
+     * already written by an earlier release.
+     *
+     * @return array<string, mixed>
+     */
     public function buildAgencyMilestonesData(CaseFile $case, Referral $referral): array
     {
         return CacheHelper::safeRemember(self::trackingMilestonesCacheKey($case->id, $referral->id), 120, function () use ($case, $referral) {
@@ -388,7 +419,6 @@ class TrackingService
                     'requiredServices' => $referral->relationLoaded('services') && $referral->services->isNotEmpty()
                         ? $referral->services->pluck('name')->implode(', ')
                         : ($referral->required_services ?? ''),
-                    'notes' => $referral->notes ?? '',
                     'milestoneCount' => $referral->milestones->count(),
                     'latestUpdate' => $latestMilestone
                         ? [

@@ -227,4 +227,46 @@ class CaseServiceScopeTest extends TestCase
         $this->assertCount(1, $nextOfKinCases);
         $this->assertSame('NEXT_OF_KIN', $nextOfKinCases->first()->client->type);
     }
+
+    public function test_client_type_is_restored_from_clients_type_in_case_payloads(): void
+    {
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $ofwClient = Client::factory()->create(['type' => 'OFW']);
+        $nokClient = Client::factory()->create(['type' => 'NEXT_OF_KIN']);
+
+        $ofwCase = CaseFile::factory()->create([
+            'user_id' => $manager->id,
+            'status' => 'OPEN',
+            'client_id' => $ofwClient->id,
+        ]);
+        $nokCase = CaseFile::factory()->create([
+            'user_id' => $manager->id,
+            'status' => 'OPEN',
+            'client_id' => $nokClient->id,
+        ]);
+
+        // cases.client_type was dropped; the UI and the case-report PDF still
+        // read it, so the accessor must answer on the model and on toArray()
+        // (the shape Inertia hands to Case/Index, Case/Show, Referral/* and
+        // Client/Index).
+        $this->assertSame('OFW', $ofwCase->client_type);
+        $this->assertSame('NEXT_OF_KIN', $nokCase->client_type);
+        $this->assertSame('OFW', $ofwCase->toArray()['client_type']);
+        $this->assertSame('NEXT_OF_KIN', $nokCase->toArray()['client_type']);
+
+        $this->actingAs($manager);
+        $cases = $this->service->getCases();
+
+        $byNumber = $cases->keyBy('case_number');
+        $this->assertSame('OFW', $byNumber[$ofwCase->case_number]->toArray()['client_type']);
+        $this->assertSame('NEXT_OF_KIN', $byNumber[$nokCase->case_number]->toArray()['client_type']);
+    }
+
+    public function test_client_type_is_null_without_a_client(): void
+    {
+        $case = CaseFile::factory()->create();
+
+        $this->assertNull($case->client_type);
+        $this->assertNull($case->toArray()['client_type']);
+    }
 }
