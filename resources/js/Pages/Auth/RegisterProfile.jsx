@@ -5,7 +5,6 @@ import AppHeader from '@/Components/landing/AppHeader';
 import AddressDropdowns from '@/Components/AddressDropdowns';
 import CountrySelect from '@/Components/CountrySelect';
 import SearchableSelect from '@/Components/SearchableSelect';
-import Select from '@/Components/Select';
 import { DEFAULT_OCCUPATIONS } from '@/data/defaultOccupations';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import { useToast } from '@/Hooks/useToast';
@@ -665,13 +664,16 @@ export default function RegisterProfile() {
                                             <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-on-surface-variant">
                                                 Suffix
                                             </label>
-                                            <Select
+                                            <select
                                                 value={data.suffix}
                                                 onChange={(e) => setData('suffix', e.target.value)}
-                                                options={SUFFIX_OPTIONS.filter(Boolean).map((s) => ({ label: s, value: s }))}
-                                                placeholder="None"
                                                 className={inputClass}
-                                            />
+                                            >
+                                                <option value="">None</option>
+                                                {SUFFIX_OPTIONS.filter(Boolean).map((suffix) => (
+                                                    <option key={suffix} value={suffix}>{suffix}</option>
+                                                ))}
+                                            </select>
                                             <FieldError message={errors.suffix} />
                                         </div>
                                     </div>

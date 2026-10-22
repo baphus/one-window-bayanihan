@@ -1,6 +1,5 @@
 import InputError from '@/Components/InputError';
 import TextInput from '@/Components/TextInput';
-import Select from '@/Components/Select';
 import { CardSection as Section } from '@/Components/ui/CardSection';
 import { useRef, useEffect } from 'react';
 
@@ -51,14 +50,17 @@ export default function PersonalInfoForm({ data, setData, errors, onDirtyChange 
 
                 <div>
                     <FieldLabel>Suffix</FieldLabel>
-                    <Select
+                    <select
                         id="suffix"
                         className="block w-full"
                         value={data.suffix || ''}
                         onChange={(e) => setData('suffix', e.target.value)}
-                        options={SUFFIX_OPTIONS.filter(Boolean).map((s) => ({ label: s, value: s }))}
-                        placeholder="None"
-                    />
+                    >
+                        <option value="">None</option>
+                        {SUFFIX_OPTIONS.filter(Boolean).map((suffix) => (
+                            <option key={suffix} value={suffix}>{suffix}</option>
+                        ))}
+                    </select>
                     <InputError className="mt-1.5" message={errors.suffix} />
                 </div>
 
