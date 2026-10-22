@@ -31,6 +31,7 @@ export default function Edit({ mustVerifyEmail, status, mfaEnabled, defaultAgenc
         bio: user.bio || '',
         timezone: user.timezone || 'Asia/Manila',
         contact_number: user.contact_number || '',
+        suffix: user.suffix || '',
         emergency_contact: {
             name: user.emergency_contact?.name || '',
             relation: user.emergency_contact?.relation || '',
