@@ -11,8 +11,12 @@ use App\Models\ClientEmployment;
 use App\Models\NextOfKin;
 use App\Models\User;
 use App\Notifications\CaseUpdated;
+use App\Services\OfwProfileService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -165,6 +169,54 @@ class OfwProfileTest extends TestCase
     }
 
     #[Test]
+    public function test_next_of_kin_survives_a_failure_part_way_through_the_profile_update(): void
+    {
+        $client = Client::factory()->create(['contact_number' => '09171234567']);
+        NextOfKin::create([
+            'client_id' => $client->id,
+            'first_name' => 'Juan',
+            'last_name' => 'Soriano',
+            'relationship' => 'Spouse',
+            'is_primary' => true,
+            'sort_order' => 0,
+        ]);
+        $user = $this->ofwUserFor($client);
+
+        // Fail on the first replacement row, i.e. after the existing rows have
+        // already been force-deleted.
+        NextOfKin::creating(function () {
+            throw new \RuntimeException('simulated next of kin insert failure');
+        });
+
+        try {
+            app(OfwProfileService::class)->updateClientProfile($user, [
+                'contact_number' => '09182222222',
+                'next_of_kin' => [
+                    ['first_name' => 'Ana', 'last_name' => 'Soriano', 'relationship' => 'Sibling'],
+                ],
+            ]);
+
+            $this->fail('Expected the profile update to abort.');
+        } catch (\RuntimeException $e) {
+            $this->assertSame('simulated next of kin insert failure', $e->getMessage());
+        } finally {
+            Event::forget('eloquent.creating: '.NextOfKin::class);
+        }
+
+        // The force-deleted row is restored by the rollback and the replacement
+        // is not partially applied.
+        $this->assertDatabaseHas('next_of_kin', [
+            'client_id' => $client->id,
+            'first_name' => 'Juan',
+            'last_name' => 'Soriano',
+        ]);
+        $this->assertDatabaseMissing('next_of_kin', ['client_id' => $client->id, 'first_name' => 'Ana']);
+
+        // The earlier contact number write in the same request is rolled back too.
+        $this->assertDatabaseHas('clients', ['id' => $client->id, 'contact_number' => '09171234567']);
+    }
+
+    #[Test]
     public function test_ofw_can_change_password(): void
     {
         $client = Client::factory()->create();
@@ -177,6 +229,62 @@ class OfwProfileTest extends TestCase
         ])->assertRedirect(route('ofw.profile.edit'));
 
         $this->assertTrue(Hash::check('NewPassword123!', $user->fresh()->password));
+    }
+
+    #[Test]
+    public function test_ofw_password_change_invalidates_other_sessions_and_remember_token(): void
+    {
+        $client = Client::factory()->create();
+        $user = $this->ofwUserFor($client);
+        $originalRememberToken = $user->remember_token;
+
+        DB::table('sessions')->insert([
+            'id' => Str::random(40),
+            'user_id' => $user->id,
+            'ip_address' => '127.0.0.1',
+            'user_agent' => 'phpunit',
+            'payload' => 'test',
+            'last_activity' => time(),
+        ]);
+
+        $this->actingAs($user)->put('/my-cases/profile', [
+            'current_password' => 'P@ssw0rd!',
+            'password' => 'NewPassword123!',
+            'password_confirmation' => 'NewPassword123!',
+        ])->assertRedirect(route('ofw.profile.edit'));
+
+        // Rotating the hash on its own leaves every other browser signed in,
+        // which makes the change pointless: the old password stays usable
+        // somewhere the OFW never sees.
+        $this->assertDatabaseMissing('sessions', ['user_id' => $user->id]);
+        $this->assertNotSame($originalRememberToken, $user->fresh()->remember_token);
+    }
+
+    #[Test]
+    public function test_profile_update_without_a_password_keeps_other_sessions_alive(): void
+    {
+        $client = Client::factory()->create();
+        $user = $this->ofwUserFor($client);
+        $originalRememberToken = $user->remember_token;
+        $sessionId = Str::random(40);
+
+        DB::table('sessions')->insert([
+            'id' => $sessionId,
+            'user_id' => $user->id,
+            'ip_address' => '127.0.0.1',
+            'user_agent' => 'phpunit',
+            'payload' => 'test',
+            'last_activity' => time(),
+        ]);
+
+        $this->actingAs($user)->put('/my-cases/profile', [
+            'contact_number' => '09182222222',
+        ])->assertRedirect(route('ofw.profile.edit'));
+
+        // Only the password branch is a credential change; saving a contact
+        // number must not sign the OFW out of their other devices.
+        $this->assertDatabaseHas('sessions', ['id' => $sessionId]);
+        $this->assertSame($originalRememberToken, $user->fresh()->remember_token);
     }
 
     #[Test]

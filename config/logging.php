@@ -123,6 +123,18 @@ return [
             'handler' => NullHandler::class,
         ],
 
+        // Test-suite channel: discards every record. Selected by phpunit.xml via
+        // LOG_CHANNEL=testing because the literal env value "null" is converted
+        // to PHP null by env(), which the default-channel expression below turns
+        // back into 'stack' — so the 'null' channel above cannot be selected
+        // that way. Without this, the suite writes to storage/logs/laravel.log,
+        // and on Windows that fails with "Permission denied" whenever another
+        // process (e.g. `php artisan boost:mcp`) holds the file open.
+        'testing' => [
+            'driver' => 'monolog',
+            'handler' => NullHandler::class,
+        ],
+
         'emergency' => [
             'path' => storage_path('logs/laravel.log'),
         ],

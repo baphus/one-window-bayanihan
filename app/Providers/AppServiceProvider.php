@@ -93,16 +93,47 @@ class AppServiceProvider extends ServiceProvider
             $model::observe(CacheInvalidationObserver::class);
         }
 
+        // Per-email and per-IP, for the same reason as password-reset-request
+        // below: the email field is attacker-controlled and always present, so
+        // the `?: $request->ip()` fallback this replaced could never fire. One
+        // host could therefore take a fresh password guess at an invented
+        // address every ten requests and spray the whole directory, while
+        // LoginRequest::throttleKey()'s per-pair limit never noticed because each
+        // guess used a different address. The per-IP limit is what caps the
+        // sprayer; the per-email limit keeps one account's attackers out of
+        // everyone else's budget, and is the key LoginRequest::authenticate()
+        // clears on a successful sign-in.
+        //
+        // The per-IP ceiling is deliberately above the per-account one, and it
+        // counts successful sign-ins too. Staff share office egress IPs, so a
+        // per-IP number as low as the per-account one would lock out a whole
+        // floor during a morning login rush; thirty a minute still caps a
+        // sprayer at a bounded number of guesses per host per minute, which is
+        // the point of the limit.
         RateLimiter::for('login', function (Request $request) {
-            return Limit::perMinute(10)->by($request->input('email') ?: $request->ip());
+            return [
+                Limit::perMinute(10)->by(($request->input('email', '') ?: 'anonymous').'|'.$request->ip()),
+                Limit::perMinute(30)->by('ip|'.$request->ip()),
+            ];
         });
 
         RateLimiter::for('register', function (Request $request) {
             return Limit::perMinute(10)->by($request->input('email') ?: $request->ip());
         });
 
+        // Keyed on the identity that owns the code, not on the pending-registration
+        // email alone: profile.email-change.send-otp / verify-otp reach this same
+        // limiter while authenticated, so a session-only key left every one of
+        // them reading `guest|<ip>` and put a whole office behind one router in
+        // a single five-per-minute bucket. Authenticated callers now key on
+        // their own user id; guest registration still falls through to the
+        // pending email so a filer cannot rotate the field for a fresh budget.
         RateLimiter::for('otp', function (Request $request) {
-            return Limit::perMinute(5)->by($request->session()->get('pending_registration.credentials.email', 'guest').'|'.$request->ip());
+            return Limit::perMinute(5)->by(
+                ($request->user()?->id
+                    ?: $request->session()->get('pending_registration.credentials.email', 'guest')
+                ).'|'.$request->ip()
+            );
         });
 
         RateLimiter::for('tracking', function (Request $request) {
@@ -230,6 +261,15 @@ class AppServiceProvider extends ServiceProvider
 
         RateLimiter::for('api-mutations', function (Request $request) {
             return Limit::perMinute(10)->by($request->user()?->id ?: $request->ip());
+        });
+
+        // These endpoints re-check the account password before acting (MFA
+        // disable, recovery-code regenerate, admin reset-MFA and email change),
+        // so each hit is a password guess that must never be free to repeat.
+        // Five a minute per user is far above one person confirming themselves,
+        // and it stops a hijacked session brute-forcing its way past the check.
+        RateLimiter::for('password-confirm', function (Request $request) {
+            return Limit::perMinute(5)->by($request->user()?->id ?: $request->ip());
         });
 
         $recipientEmail = static function (Request $request): ?string {

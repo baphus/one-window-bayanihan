@@ -11,9 +11,7 @@ use Illuminate\Mail\Events\MessageSent;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\SendQueuedMailable;
 use Illuminate\Mail\SentMessage;
-use Illuminate\Queue\SyncQueue;
 use Illuminate\Support\Facades\Event;
-use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\Test;
 use Symfony\Component\Mailer\Envelope;
@@ -219,25 +217,18 @@ class EmailLoggingTest extends TestCase
     }
 
     #[Test]
-    public function resend_with_job_uuid_retries_queue(): void
+    public function resend_with_job_uuid_retries_the_failed_job(): void
     {
         $jobUuid = (string) Str::uuid();
 
-        // SyncQueue has no retry(); swap a recording subclass since the
-        // controller ignores the return value.
-        $queue = new class extends SyncQueue
-        {
-            /** @var array<int, string> */
-            public array $retried = [];
-
-            public function retry(string $id): int
-            {
-                $this->retried[] = $id;
-
-                return 1;
-            }
-        };
-        Queue::swap($queue);
+        \DB::table('failed_jobs')->insert([
+            'uuid' => $jobUuid,
+            'connection' => 'database',
+            'queue' => 'default',
+            'payload' => json_encode(['uuid' => $jobUuid, 'displayName' => 'Illuminate\Mail\SendQueuedMailable']),
+            'exception' => 'Connection refused',
+            'failed_at' => now(),
+        ]);
 
         $log = EmailLog::create([
             'to_email' => 'resend@example.com',
@@ -252,6 +243,10 @@ class EmailLoggingTest extends TestCase
             ->post("/admin/system/email-logs/{$log->id}/resend");
 
         $response->assertStatus(302); // redirect back
-        $this->assertSame([$jobUuid], $queue->retried);
+        $response->assertSessionHas('success');
+
+        // Consumed from failed_jobs and pushed back onto the queue.
+        $this->assertSame(0, \DB::table('failed_jobs')->where('uuid', $jobUuid)->count());
+        $this->assertSame(1, \DB::table('jobs')->count());
     }
 }

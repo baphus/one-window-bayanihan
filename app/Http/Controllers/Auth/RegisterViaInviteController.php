@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\UserInvite;
 use App\Services\OnboardingService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules\Password;
 use Inertia\Inertia;
@@ -52,26 +53,40 @@ class RegisterViaInviteController extends Controller
             'contact_number' => 'nullable|string|max:20',
         ]);
 
-        $user = User::create([
-            'name' => $validated['name'],
-            'email' => $invite->email,
-            'password' => Hash::make($validated['password']),
-            'role' => $invite->role,
-            'agcy_id' => $invite->agcy_id,
-            'position' => $validated['position'] ?? null,
-            'department' => $validated['department'] ?? null,
-            'contact_number' => $validated['contact_number'] ?? null,
-            'is_active' => true,
-        ]);
+        DB::transaction(function () use ($token, $validated): void {
+            // Re-read under a row lock. Between the check above and this
+            // transaction the invite may have been consumed by a duplicate
+            // POST or cancelled by an administrator; creating the account and
+            // consuming the invite must land together or a crash leaves a live
+            // invite next to an account that can never be registered again.
+            $lockedInvite = $this->findByToken($token, lockForUpdate: true);
 
-        // Set email_verified_at outside mass-assignment since it's not fillable
-        $user->email_verified_at = now();
-        $user->save();
+            if (! $lockedInvite || $lockedInvite->isExpired()) {
+                abort(410, 'This invitation has expired or is invalid.');
+            }
 
-        // Consume the invite
-        $invite->update(['consumed_at' => now()]);
+            $user = User::create([
+                'name' => $validated['name'],
+                'email' => $lockedInvite->email,
+                'password' => Hash::make($validated['password']),
+                'role' => $lockedInvite->role,
+                'agcy_id' => $lockedInvite->agcy_id,
+                'position' => $validated['position'] ?? null,
+                'department' => $validated['department'] ?? null,
+                'contact_number' => $validated['contact_number'] ?? null,
+                'is_active' => true,
+            ]);
 
-        // Mark onboarding for the inviter
+            // Set email_verified_at outside mass-assignment since it's not fillable
+            $user->email_verified_at = now();
+            $user->save();
+
+            // Consume the invite
+            $lockedInvite->update(['consumed_at' => now()]);
+        });
+
+        // Mark onboarding for the inviter (only once the registration above
+        // has actually committed; a 410 or a failed create must not count).
         app(OnboardingService::class)
             ->markChecklistItemQuietly($invite->invitedBy, 'add-first-user');
 
@@ -79,11 +94,16 @@ class RegisterViaInviteController extends Controller
             ->with('success', 'Registration complete! Please log in with your credentials.');
     }
 
-    private function findByToken(string $token): ?UserInvite
+    private function findByToken(string $token, bool $lockForUpdate = false): ?UserInvite
     {
-        return UserInvite::where('token_hash', hash('sha256', $token))
+        $query = UserInvite::where('token_hash', hash('sha256', $token))
             ->whereNull('consumed_at')
-            ->whereNull('cancelled_at')
-            ->first();
+            ->whereNull('cancelled_at');
+
+        if ($lockForUpdate) {
+            $query->lockForUpdate();
+        }
+
+        return $query->first();
     }
 }

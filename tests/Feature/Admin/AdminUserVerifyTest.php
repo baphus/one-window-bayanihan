@@ -152,13 +152,33 @@ class AdminUserVerifyTest extends TestCase
         $this->assertEquals($newEmail, $target->email, 'Email should be updated');
     }
 
-    public function test_admin_email_update_without_otp_succeeds(): void
+    public function test_admin_email_change_otp_proof_is_single_use(): void
+    {
+        $target = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $verified = 'verified-'.$target->email;
+
+        $response = $this->actingAs($this->admin)
+            ->withSession(['verified_new_email_admin_'.$target->id => $verified])
+            ->patch(route('admin.users.update', $target->id), [
+                'name' => $target->name,
+                'email' => $verified,
+                'role' => $target->role,
+            ]);
+
+        $response->assertRedirect();
+        $this->assertEquals($verified, $target->fresh()->email);
+        $this->assertFalse(
+            $this->app['session.store']->has('verified_new_email_admin_'.$target->id),
+            'The verified OTP flag must be consumed once the email is committed.'
+        );
+    }
+
+    public function test_admin_email_update_without_otp_is_rejected(): void
     {
         $target = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $originalEmail = $target->email;
         $newEmail = 'admin-changed-'.$target->email;
 
-        // Admin can update email directly without OTP verification
         $response = $this->actingAs($this->admin)
             ->patch(route('admin.users.update', $target->id), [
                 'name' => $target->name,
@@ -167,10 +187,25 @@ class AdminUserVerifyTest extends TestCase
                 'is_active' => true,
             ]);
 
-        $response->assertRedirect();
-        $response->assertSessionHasNoErrors();
-        $target->refresh();
-        $this->assertEquals($newEmail, $target->email, 'Email should be updated by admin directly');
-        $this->assertNotNull($target->email_verified_at, 'email_verified_at should be set after admin email change');
+        $response->assertSessionHasErrors(['email']);
+        $this->assertEquals($originalEmail, $target->fresh()->email, 'Email must not change without OTP verification');
+    }
+
+    public function test_admin_email_update_with_otp_flag_for_another_address_is_rejected(): void
+    {
+        $target = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $originalEmail = $target->email;
+        $newEmail = 'admin-changed-'.$target->email;
+
+        $response = $this->actingAs($this->admin)
+            ->withSession(['verified_new_email_admin_'.$target->id => 'somebody-else@example.com'])
+            ->patch(route('admin.users.update', $target->id), [
+                'name' => $target->name,
+                'email' => $newEmail,
+                'role' => $target->role,
+            ]);
+
+        $response->assertSessionHasErrors(['email']);
+        $this->assertEquals($originalEmail, $target->fresh()->email);
     }
 }

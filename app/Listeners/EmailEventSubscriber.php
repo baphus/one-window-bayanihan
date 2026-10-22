@@ -9,12 +9,29 @@ use Illuminate\Queue\Events\JobFailed;
 
 class EmailEventSubscriber
 {
+    /**
+     * How far back a resent row stays eligible for promotion on delivery.
+     *
+     * A retry can sit on the queue behind a backlog before the transport runs,
+     * so the window is generous; it is bounded because resent_at is the only
+     * thing separating "an admin asked for this mail again" from a fresh send.
+     */
+    private const RESEND_MATCH_WINDOW_HOURS = 24;
+
     public function handleMessageSent(MessageSent $event): void
     {
         $to = $this->extractToAddress($event);
         $subject = $event->message->getSubject() ?? '(no subject)';
         $mailableType = $this->extractMailableType($event);
         $providerMessageId = $this->extractProviderMessageId($event);
+
+        // A retry that finally went out has to advance the failed row it
+        // belongs to. Inserting a second 'sent' row here instead would leave
+        // the original stuck on 'failed' — so the admin sees a delivered email
+        // next to a resend button for it, and clicks the button.
+        if ($this->promoteResentFailedLog($to, $subject, $mailableType, $providerMessageId)) {
+            return;
+        }
 
         if ($this->isDuplicate($to, $subject, $mailableType, $providerMessageId)) {
             return;
@@ -31,11 +48,53 @@ class EmailEventSubscriber
     }
 
     /**
+     * Turn a resent 'failed' row into a delivered one, in place.
+     *
+     * The controller stamps resent_at when it re-queues a row, and clears it
+     * again if that retry fails, so a non-null value identifies exactly the
+     * rows an admin asked to retry. MessageSent carries no job reference, so
+     * recipient + subject + mailable class within that window is the join back
+     * to the original failure; the most recently resent row wins when several
+     * match.
+     *
+     * The provider message id is carried onto the promoted row so the webhook
+     * endpoint keeps resolving delivery events for this message.
+     *
+     * @return bool Whether a failed row was advanced instead of a new one inserted.
+     */
+    private function promoteResentFailedLog(string $to, string $subject, string $mailableType, ?string $providerMessageId): bool
+    {
+        $log = EmailLog::where('to_email', $to)
+            ->where('subject', $subject)
+            ->where('mailable_type', $mailableType)
+            ->where('status', 'failed')
+            ->whereNotNull('resent_at')
+            ->where('resent_at', '>=', now()->subHours(self::RESEND_MATCH_WINDOW_HOURS))
+            ->orderByDesc('resent_at')
+            ->first();
+
+        if ($log === null) {
+            return false;
+        }
+
+        $log->forceFill([
+            'status' => 'sent',
+            'sent_at' => now(),
+            'error_message' => null,
+            'provider_message_id' => $providerMessageId ?? $log->provider_message_id,
+        ])->save();
+
+        return true;
+    }
+
+    /**
      * Guard against a double-fired MessageSent creating two rows.
      *
      * When the provider supplied a message id, that is an exact test. Otherwise
      * fall back to a short time window — imprecise in both directions, but the
-     * only signal available for the log and smtp transports.
+     * only signal available for the log and smtp transports. sent_at is checked
+     * alongside created_at because a row promoted from 'failed' keeps its
+     * original creation time while its send time is now.
      */
     private function isDuplicate(string $to, string $subject, string $mailableType, ?string $providerMessageId): bool
     {
@@ -47,7 +106,10 @@ class EmailEventSubscriber
             ->where('subject', $subject)
             ->where('mailable_type', $mailableType)
             ->where('status', 'sent')
-            ->where('created_at', '>=', now()->subSeconds(2))
+            ->where(function ($query) {
+                $query->where('created_at', '>=', now()->subSeconds(2))
+                    ->orWhere('sent_at', '>=', now()->subSeconds(2));
+            })
             ->exists();
     }
 
@@ -89,6 +151,23 @@ class EmailEventSubscriber
         $validUuid = ($jobUuid && preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $jobUuid))
             ? $jobUuid : null;
 
+        // A failed retry must land on the row it came from. queue:retry keeps
+        // the payload uuid, so a retried job reports the same job_uuid as the
+        // original failure; a mailable rebuilt by the resend controller gets a
+        // fresh uuid instead, so fall back to the resent row it was rebuilt for.
+        $log = $this->findFailedLog($data, $validUuid);
+
+        if ($log !== null) {
+            $log->forceFill([
+                'job_uuid' => $validUuid ?? $log->job_uuid,
+                'error_message' => $event->exception->getMessage(),
+                // Reopens the row for another attempt without a second row.
+                'resent_at' => null,
+            ])->save();
+
+            return;
+        }
+
         EmailLog::create([
             'to_email' => $data['to_email'],
             'subject' => $data['subject'],
@@ -97,6 +176,31 @@ class EmailEventSubscriber
             'job_uuid' => $validUuid,
             'error_message' => $event->exception->getMessage(),
         ]);
+    }
+
+    /**
+     * Locate the failed row a re-failed job belongs to.
+     *
+     * @param  array<string, string>  $data
+     */
+    private function findFailedLog(array $data, ?string $jobUuid): ?EmailLog
+    {
+        if ($jobUuid !== null) {
+            $log = EmailLog::where('job_uuid', $jobUuid)->first();
+
+            if ($log !== null) {
+                return $log;
+            }
+        }
+
+        return EmailLog::where('to_email', $data['to_email'])
+            ->where('subject', $data['subject'])
+            ->where('mailable_type', $data['mailable_type'])
+            ->where('status', 'failed')
+            ->whereNotNull('resent_at')
+            ->where('resent_at', '>=', now()->subHours(self::RESEND_MATCH_WINDOW_HOURS))
+            ->orderByDesc('resent_at')
+            ->first();
     }
 
     /**

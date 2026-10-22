@@ -67,12 +67,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/profile/mfa/status', [MfaController::class, 'status'])->name('profile.mfa.status');
     Route::post('/profile/mfa/generate', [MfaController::class, 'generateSecret'])->name('profile.mfa.generate');
     Route::post('/profile/mfa/verify', [MfaController::class, 'verifyAndEnable'])->name('profile.mfa.verify');
-    Route::post('/profile/mfa/disable', [MfaController::class, 'disable'])->name('profile.mfa.disable');
-    Route::post('/profile/mfa/recovery-codes/regenerate', [MfaController::class, 'regenerateRecoveryCodes'])->name('profile.mfa.recovery-codes.regenerate');
+    Route::post('/profile/mfa/disable', [MfaController::class, 'disable'])->name('profile.mfa.disable')->middleware('throttle:password-confirm');
+    Route::post('/profile/mfa/recovery-codes/regenerate', [MfaController::class, 'regenerateRecoveryCodes'])->name('profile.mfa.recovery-codes.regenerate')->middleware('throttle:password-confirm');
 
-    // All-roles routes: referrals, reports, notifications
-    Route::get('/referrals', [ReferralController::class, 'index'])->name('referrals.index');
-    Route::get('/referrals/create', [ReferralController::class, 'create'])->name('referrals.create');
+    // Staff-only routes: referrals, reports, notifications.
+    // The referral index/create and the reports pages below expose other
+    // people's records (client addresses, system-wide aggregates, overdue
+    // referral PII) and the reports exports were already refused OFW further
+    // down in the controller, so the routes themselves are closed here too.
+    Route::get('/referrals', [ReferralController::class, 'index'])->name('referrals.index')->middleware('role:CASE_MANAGER,ADMIN,AGENCY');
+    Route::get('/referrals/create', [ReferralController::class, 'create'])->name('referrals.create')->middleware('role:CASE_MANAGER,ADMIN,AGENCY');
     Route::post('/referrals', [ReferralController::class, 'store'])->name('referrals.store');
     Route::get('/referrals/export-excel', [ReferralController::class, 'exportExcel'])->name('referrals.export-excel')->middleware('role:CASE_MANAGER,ADMIN,AGENCY');
     Route::get('/referrals/export-count', [ReferralController::class, 'exportCount'])->name('referrals.export-count')->middleware('role:CASE_MANAGER,ADMIN,AGENCY');
@@ -105,13 +109,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('/api/referrals/{referral}/audit-logs', [AuditLogController::class, 'referralAuditLogs'])->name('api.referrals.audit-logs')->middleware('throttle:api-global');
 
-    Route::get('/reports', [ReportsController::class, 'index'])->name('reports.index')->middleware('throttle:reports-view');
+    Route::get('/reports', [ReportsController::class, 'index'])->name('reports.index')->middleware(['role:CASE_MANAGER,ADMIN,AGENCY', 'throttle:reports-view']);
     // The exports are the expensive half of this controller (DomPDF + GD chart
     // images, PhpSpreadsheet) and php-fpm, the queue worker and scheduler share
     // one container, so they get their own limit rather than relying on the
     // generic web throttle. The index above keeps its own budget.
-    Route::get('/reports/export-pdf', [ReportsController::class, 'exportPdf'])->name('reports.export-pdf')->middleware('throttle:reports-export');
-    Route::get('/reports/export-excel', [ReportsController::class, 'exportExcel'])->name('reports.export-excel')->middleware('throttle:reports-export');
+    Route::get('/reports/export-pdf', [ReportsController::class, 'exportPdf'])->name('reports.export-pdf')->middleware(['role:CASE_MANAGER,ADMIN,AGENCY', 'throttle:reports-export']);
+    Route::get('/reports/export-excel', [ReportsController::class, 'exportExcel'])->name('reports.export-excel')->middleware(['role:CASE_MANAGER,ADMIN,AGENCY', 'throttle:reports-export']);
 
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index')->withoutMiddleware('verified');
     Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount'])->name('notifications.unread-count')->withoutMiddleware('verified');
@@ -261,14 +265,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/users/invite', fn () => abort(404));
         Route::post('/users/invites/{inviteId}/resend', [AdminUserController::class, 'resendInvite'])->name('users.invites.resend')->whereUuid('inviteId');
         Route::delete('/users/invites/{inviteId}', [AdminUserController::class, 'cancelInvite'])->name('users.invites.cancel')->whereUuid('inviteId');
+        // No `throttle:password-confirm` here on purpose: it would also meter every
+        // ordinary profile edit (this route carries the whole record, not just the
+        // credential fields). AdminUserController::update() meters only the password
+        // and email branches, which are the ones that re-check a password.
         Route::patch('/users/{user}', [AdminUserController::class, 'update'])->name('users.update')->whereUuid('user');
         Route::get('/users/{user}', [AdminUserController::class, 'show'])->name('users.show')->whereUuid('user');
         Route::delete('/users/{user}', [AdminUserController::class, 'destroy'])->name('users.destroy')->whereUuid('user');
         Route::patch('/users/{user}/reactivate', [AdminUserController::class, 'reactivate'])->name('users.reactivate')->whereUuid('user');
         Route::patch('/users/{user}/verify', [AdminUserController::class, 'verify'])->name('users.verify')->whereUuid('user');
-        Route::post('/users/{user}/reset-mfa', [AdminUserController::class, 'resetMfa'])->name('users.reset-mfa')->whereUuid('user');
-        Route::post('/users/{user}/email-change/send-otp', [AdminUserController::class, 'sendEmailChangeOtp'])->name('users.email-change.send-otp')->whereUuid('user');
-        Route::post('/users/{user}/email-change/verify-otp', [AdminUserController::class, 'verifyEmailChangeOtp'])->name('users.email-change.verify-otp')->whereUuid('user');
+        Route::post('/users/{user}/reset-mfa', [AdminUserController::class, 'resetMfa'])->name('users.reset-mfa')->whereUuid('user')->middleware('throttle:password-confirm');
+        Route::post('/users/{user}/email-change/send-otp', [AdminUserController::class, 'sendEmailChangeOtp'])->name('users.email-change.send-otp')->whereUuid('user')->middleware('throttle:password-confirm');
+        Route::post('/users/{user}/email-change/verify-otp', [AdminUserController::class, 'verifyEmailChangeOtp'])->name('users.email-change.verify-otp')->whereUuid('user')->middleware('throttle:password-confirm');
 
         Route::get('/system-settings', [SystemSettingsController::class, 'index'])->name('system-settings.index');
         Route::post('/system-settings', [SystemSettingsController::class, 'update'])->name('system-settings.update');
