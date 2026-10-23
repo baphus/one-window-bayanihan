@@ -37,13 +37,34 @@ class SystemSetting extends Model
         return static::query()->where('category', $category)->get();
     }
 
+    /**
+     * Store a setting value, creating the row when it does not exist yet.
+     *
+     * Category and description are metadata seeded in the database; they are only
+     * written when the row is created, or when the caller explicitly passes a
+     * replacement. An update that omits them preserves whatever is already stored
+     * instead of nulling it out.
+     *
+     * @param  string  $key  Setting key.
+     * @param  mixed  $value  Value to persist; booleans are stored as 'true'/'false'.
+     * @param  string|null  $category  Optional category, applied on create or when non-null.
+     * @param  string|null  $description  Optional description, applied on create or when non-null.
+     */
     public static function setValue(string $key, mixed $value, ?string $category = null, ?string $description = null): void
     {
-        static::updateOrCreate(['key' => $key], [
-            'value' => is_bool($value) ? ($value ? 'true' : 'false') : (string) $value,
-            'category' => $category,
-            'description' => $description,
-        ]);
+        $setting = static::query()->firstOrNew(['key' => $key]);
+
+        $setting->value = is_bool($value) ? ($value ? 'true' : 'false') : (string) $value;
+
+        if ($category !== null || ! $setting->exists) {
+            $setting->category = $category;
+        }
+
+        if ($description !== null || ! $setting->exists) {
+            $setting->description = $description;
+        }
+
+        $setting->save();
 
         Cache::forget('system_settings');
     }

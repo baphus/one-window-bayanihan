@@ -94,7 +94,11 @@ Route::middleware('auth')->group(function () {
     Route::get('confirm-password', [ConfirmablePasswordController::class, 'show'])
         ->name('password.confirm');
 
-    Route::post('confirm-password', [ConfirmablePasswordController::class, 'store']);
+    // Both of these re-check the account password on every request, so each hit
+    // is a password guess. They share the `password-confirm` limiter with the
+    // other self-service endpoints that confirm the user first.
+    Route::post('confirm-password', [ConfirmablePasswordController::class, 'store'])
+        ->middleware('throttle:password-confirm');
 
     Route::get('verify-email', EmailVerificationPromptController::class)
         ->name('verification.notice');
@@ -108,6 +112,7 @@ Route::middleware('auth')->group(function () {
         ->name('verification.send');
 
     Route::put('password', [PasswordController::class, 'update'])
+        ->middleware('throttle:password-confirm')
         ->name('password.update');
 
     Route::get('profile/email-change', [EmailChangeController::class, 'init'])->name('profile.email-change.init');

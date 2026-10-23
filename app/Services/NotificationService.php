@@ -10,6 +10,7 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Notifications\Notification;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification as NotificationFacade;
 
@@ -25,6 +26,15 @@ class NotificationService
 
     /**
      * Create a CaseNotification record for an OFW client (unauthenticated user).
+     *
+     * The CaseNotification row is written inline so it shares the caller's
+     * transaction, but the client email is pushed to the queue after commit.
+     * The queue connections run with `after_commit => false`, so a push made
+     * before COMMIT hands the worker a job it can run while the surrounding
+     * transaction later rolls back — the client would be emailed about a case
+     * update that never persisted. `DB::afterCommit` runs the callback straight
+     * away when no transaction is open, so callers outside a transaction keep
+     * their current behaviour.
      *
      * @param  bool  $sendEmail  Queue a ClientUpdateMail alongside the in-app
      *                           notification. Callers that ship their own
@@ -48,11 +58,11 @@ class NotificationService
 
         if ($sendEmail) {
             // Queue a friendly email to the client with case update details.
-            Mail::to($clientEmail)->queue(new ClientUpdateMail(
+            DB::afterCommit(fn () => Mail::to($clientEmail)->queue(new ClientUpdateMail(
                 case: $case,
                 message: $message,
                 updatedBy: 'system',
-            ));
+            )));
         }
 
         return CaseNotification::create([

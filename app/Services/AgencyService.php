@@ -5,9 +5,20 @@ namespace App\Services;
 use App\Models\Service;
 use App\Models\ServiceRequirement;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class AgencyService
 {
+    /**
+     * Referral statuses that still need a service's display name and
+     * requirement tracking — PENDING/PROCESSING/FOR_COMPLIANCE are the
+     * non-terminal states of the referral workflow (COMPLETED and REJECTED
+     * end it), the same list the dashboards and reminder tooling use.
+     *
+     * @var array<int, string>
+     */
+    private const ACTIVE_REFERRAL_STATUSES = ['PENDING', 'PROCESSING', 'FOR_COMPLIANCE'];
+
     public function getServices(string $agencyId, array $filters = [])
     {
         $query = Service::with('requirements')
@@ -95,6 +106,30 @@ class AgencyService
     {
         DB::transaction(function () use ($id, $agencyId) {
             $service = Service::where('agcy_id', $agencyId)->findOrFail($id);
+
+            // A soft-deleted service drops out of every default-scope query
+            // that renders referral services, so deleting one mid-flight
+            // strands the referrals attached through the referral_services
+            // pivot: their service display and requirement tracking lose
+            // their subject. Refuse while anything in-flight still uses it.
+            $activeReferrals = DB::table('referral_services')
+                ->join('referrals', 'referrals.id', '=', 'referral_services.referral_id')
+                ->where('referral_services.service_id', $service->id)
+                ->where('referrals.is_deleted', false)
+                ->whereIn('referrals.status', self::ACTIVE_REFERRAL_STATUSES)
+                ->count();
+
+            if ($activeReferrals > 0) {
+                $unit = $activeReferrals === 1 ? 'referral' : 'referrals';
+                $verb = $activeReferrals === 1 ? 'uses' : 'use';
+
+                // Same contract as UserService::forceDelete(): the web caller
+                // does not re-catch this, Inertia bounces it back with the
+                // errors bag intact.
+                throw ValidationException::withMessages([
+                    'service' => "Cannot delete {$service->name}: {$activeReferrals} active {$unit} still {$verb} this service. Complete or reject the referrals first.",
+                ]);
+            }
 
             // Audit logging is handled by AuditObserver::deleted() — no manual log needed.
 

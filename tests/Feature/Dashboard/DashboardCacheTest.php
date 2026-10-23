@@ -99,10 +99,13 @@ class DashboardCacheTest extends TestCase
             'agcy_id' => $agency->id,
             'case_id' => CaseFile::factory()->create(['client_id' => $client->id])->id,
         ]);
+        // Overdue threshold is the referral_overdue_days setting (default 7),
+        // so the seed must age beyond it to land in the overdue queue.
         $overdue = Referral::factory()->pending()->create([
             'agcy_id' => $agency->id,
             'case_id' => CaseFile::factory()->create(['client_id' => $client->id])->id,
-            'created_at' => now()->subDays(6),
+            'created_at' => now()->subDays(8),
+            'updated_at' => now()->subDays(8),
         ]);
         Referral::factory()->processing()->create();
 

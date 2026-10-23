@@ -31,6 +31,7 @@ use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Notifications\Events\NotificationSent;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\Vite;
@@ -40,10 +41,57 @@ use Illuminate\Validation\Rules\Password;
 class AppServiceProvider extends ServiceProvider
 {
     /**
+     * Set once the disabled-scanner warning has been emitted, so the warning
+     * logs once per process instead of on every container boot (tests spin up
+     * the provider repeatedly).
+     */
+    private static bool $malwareScannerWarningLogged = false;
+
+    /**
+     * Logged once per process, at first boot, when no malware scanner is
+     * configured. The fail-open default is silent by design for dev; the
+     * warning line makes it visible in every environment's logs so a
+     * production deploy without MALWARE_SCANNER=clamav cannot slip through
+     * unnoticed.
+     *
+     * Best-effort: the StreamHandler opens the log file on the first write,
+     * so when another local process holds storage/logs/laravel.log open
+     * without sharing (Windows queues/watchers), logging throws while we
+     * still have no LogFacility to fall back to. A visibility warning must
+     * never prevent the application from booting, so a failed write is
+     * swallowed and retried on the next boot.
+     */
+    private static function warnIfMalwareScannerDisabled(): void
+    {
+        if (self::$malwareScannerWarningLogged) {
+            return;
+        }
+
+        $scanner = (string) config('services.malware.scanner', 'null');
+
+        if ($scanner === 'clamav') {
+            return;
+        }
+
+        try {
+            Log::warning('Malware scanner is DISABLED: uploaded files are accepted UNSCANNED (fail-open). Set MALWARE_SCANNER=clamav for any non-development deployment.', [
+                'scanner' => $scanner,
+                'fail_open' => (bool) config('services.malware.fail_open', true),
+            ]);
+
+            self::$malwareScannerWarningLogged = true;
+        } catch (\Throwable) {
+            // Log destination unavailable — retry on the next boot.
+        }
+    }
+
+    /**
      * Register any application services.
      */
     public function register(): void
     {
+        self::warnIfMalwareScannerDisabled();
+
         $this->app->bind(MalwareScannerInterface::class, function ($app) {
             return config('services.malware.scanner', 'null') === 'clamav'
                 ? new ClamAvScanner
@@ -93,16 +141,47 @@ class AppServiceProvider extends ServiceProvider
             $model::observe(CacheInvalidationObserver::class);
         }
 
+        // Per-email and per-IP, for the same reason as password-reset-request
+        // below: the email field is attacker-controlled and always present, so
+        // the `?: $request->ip()` fallback this replaced could never fire. One
+        // host could therefore take a fresh password guess at an invented
+        // address every ten requests and spray the whole directory, while
+        // LoginRequest::throttleKey()'s per-pair limit never noticed because each
+        // guess used a different address. The per-IP limit is what caps the
+        // sprayer; the per-email limit keeps one account's attackers out of
+        // everyone else's budget, and is the key LoginRequest::authenticate()
+        // clears on a successful sign-in.
+        //
+        // The per-IP ceiling is deliberately above the per-account one, and it
+        // counts successful sign-ins too. Staff share office egress IPs, so a
+        // per-IP number as low as the per-account one would lock out a whole
+        // floor during a morning login rush; thirty a minute still caps a
+        // sprayer at a bounded number of guesses per host per minute, which is
+        // the point of the limit.
         RateLimiter::for('login', function (Request $request) {
-            return Limit::perMinute(10)->by($request->input('email') ?: $request->ip());
+            return [
+                Limit::perMinute(10)->by(($request->input('email', '') ?: 'anonymous').'|'.$request->ip()),
+                Limit::perMinute(30)->by('ip|'.$request->ip()),
+            ];
         });
 
         RateLimiter::for('register', function (Request $request) {
             return Limit::perMinute(10)->by($request->input('email') ?: $request->ip());
         });
 
+        // Keyed on the identity that owns the code, not on the pending-registration
+        // email alone: profile.email-change.send-otp / verify-otp reach this same
+        // limiter while authenticated, so a session-only key left every one of
+        // them reading `guest|<ip>` and put a whole office behind one router in
+        // a single five-per-minute bucket. Authenticated callers now key on
+        // their own user id; guest registration still falls through to the
+        // pending email so a filer cannot rotate the field for a fresh budget.
         RateLimiter::for('otp', function (Request $request) {
-            return Limit::perMinute(5)->by($request->session()->get('pending_registration.credentials.email', 'guest').'|'.$request->ip());
+            return Limit::perMinute(5)->by(
+                ($request->user()?->id
+                    ?: $request->session()->get('pending_registration.credentials.email', 'guest')
+                ).'|'.$request->ip()
+            );
         });
 
         RateLimiter::for('tracking', function (Request $request) {
@@ -230,6 +309,15 @@ class AppServiceProvider extends ServiceProvider
 
         RateLimiter::for('api-mutations', function (Request $request) {
             return Limit::perMinute(10)->by($request->user()?->id ?: $request->ip());
+        });
+
+        // These endpoints re-check the account password before acting (MFA
+        // disable, recovery-code regenerate, admin reset-MFA and email change),
+        // so each hit is a password guess that must never be free to repeat.
+        // Five a minute per user is far above one person confirming themselves,
+        // and it stops a hijacked session brute-forcing its way past the check.
+        RateLimiter::for('password-confirm', function (Request $request) {
+            return Limit::perMinute(5)->by($request->user()?->id ?: $request->ip());
         });
 
         $recipientEmail = static function (Request $request): ?string {

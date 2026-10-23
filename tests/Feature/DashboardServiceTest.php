@@ -117,10 +117,7 @@ class DashboardServiceTest extends TestCase
         $data = app(DashboardService::class)->getAgencyData($agencyUser);
 
         $this->assertSame(3, $data['totalReferrals']);
-        $this->assertSame(1, $data['forComplianceReferrals']);
         $this->assertSame(1, collect($data['workQueue'])->firstWhere('key', 'overdueReferrals')['count']);
-        $this->assertNotEmpty($data['referralAgingBands']);
-        $this->assertContains('11+ days', array_column($data['referralAgingBands'], 'label'));
         $this->assertArrayNotHasKey('priorityReferrals', $data);
         $this->assertCount(1, $data['pendingReferrals']);
         $this->assertContains($oldPending->id, array_column($data['pendingReferrals'], 'id'));
@@ -128,90 +125,11 @@ class DashboardServiceTest extends TestCase
         $this->assertCount(1, $data['overdueReferrals']);
         $this->assertContains($oldPending->id, array_column($data['overdueReferrals'], 'id'));
         $this->assertSame($service->name, $data['serviceDemand'][0]['serviceName']);
-        $this->assertTrue($data['feedbackPulse']['hasData']);
         $this->assertLessThanOrEqual(5, count($data['pendingReferrals']));
         $this->assertLessThanOrEqual(5, count($data['overdueReferrals']));
         $this->assertSame('/referrals?status=PENDING', collect($data['workQueue'])->firstWhere('key', 'pendingReferrals')['href']);
-        $this->assertSame('/referrals?status=REJECTED', collect($data['workQueue'])->firstWhere('key', 'returnedReferrals')['href']);
-        $this->assertSame('/referrals?age_max_days=2', collect($data['workQueue'])->firstWhere('key', 'newReferrals')['href']);
-        $this->assertSame('/referrals?age_min_days=5', collect($data['workQueue'])->firstWhere('key', 'overdueReferrals')['href']);
-        $this->assertSame('/referrals?status=FOR_COMPLIANCE', collect($data['workQueue'])->firstWhere('key', 'forComplianceReferrals')['href']);
+        $this->assertSame('/referrals?age_min_days=7', collect($data['workQueue'])->firstWhere('key', 'overdueReferrals')['href']);
         $this->assertSame('/referrals?status=PROCESSING', collect($data['workQueue'])->firstWhere('key', 'processingReferrals')['href']);
-    }
-
-    #[Test]
-    public function agency_dashboard_feedback_pulse_handles_sparse_data(): void
-    {
-        $agency = Agency::factory()->create();
-        $agencyUser = User::factory()->create([
-            'role' => UserRole::AGENCY->value,
-            'agcy_id' => $agency->id,
-        ]);
-
-        $data = app(DashboardService::class)->getAgencyData($agencyUser);
-
-        $this->assertFalse($data['feedbackPulse']['hasData']);
-        $this->assertSame(0, $data['feedbackPulse']['totalSent']);
-        $this->assertSame(0, $data['feedbackPulse']['totalSubmitted']);
-        $this->assertSame('/surveys', $data['feedbackPulse']['href']);
-    }
-
-    #[Test]
-    public function agency_dashboard_feedback_pulse_counts_only_the_current_agency(): void
-    {
-        $agency = Agency::factory()->create();
-        $otherAgency = Agency::factory()->create();
-        $agencyUser = User::factory()->create([
-            'role' => UserRole::AGENCY->value,
-            'agcy_id' => $agency->id,
-        ]);
-        $agencyCase = $this->createCaseForClient();
-        $otherCase = $this->createCaseForClient();
-        $pendingCase = $this->createCaseForClient();
-        $agencyReferral = Referral::factory()->create(['case_id' => $agencyCase->id, 'agcy_id' => $agency->id]);
-        $otherReferral = Referral::factory()->create(['case_id' => $otherCase->id, 'agcy_id' => $otherAgency->id]);
-        $pendingReferral = Referral::factory()->create(['case_id' => $pendingCase->id, 'agcy_id' => $agency->id]);
-
-        SurveyInvitation::create([
-            'agency_id' => $agency->id,
-            'case_id' => $agencyCase->id,
-            'referral_id' => $agencyReferral->id,
-            'client_name' => 'Submitted Client',
-            'client_email' => 'submitted@example.com',
-            'service_name' => 'Test service',
-            'token_hash' => hash('sha256', 'submitted-survey-token'),
-            'expires_at' => now()->addDay(),
-            'submitted_at' => now(),
-        ]);
-        SurveyInvitation::create([
-            'agency_id' => $agency->id,
-            'case_id' => $pendingCase->id,
-            'referral_id' => $pendingReferral->id,
-            'client_name' => 'Pending Client',
-            'client_email' => 'pending@example.com',
-            'service_name' => 'Test service',
-            'token_hash' => hash('sha256', 'pending-survey-token'),
-            'expires_at' => now()->addDay(),
-        ]);
-        SurveyInvitation::create([
-            'agency_id' => $otherAgency->id,
-            'case_id' => $otherCase->id,
-            'referral_id' => $otherReferral->id,
-            'client_name' => 'Other Client',
-            'client_email' => 'other@example.com',
-            'service_name' => 'Other service',
-            'token_hash' => hash('sha256', 'other-survey-token'),
-            'expires_at' => now()->addDay(),
-            'submitted_at' => now(),
-        ]);
-
-        $pulse = app(DashboardService::class)->getAgencyData($agencyUser)['feedbackPulse'];
-
-        $this->assertTrue($pulse['hasData']);
-        $this->assertSame(2, $pulse['totalSent']);
-        $this->assertSame(1, $pulse['totalSubmitted']);
-        $this->assertSame(50.0, $pulse['responseRate']);
-        $this->assertSame('/surveys', $pulse['href']);
     }
 
     #[Test]
@@ -260,13 +178,6 @@ class DashboardServiceTest extends TestCase
 
         $data = app(DashboardService::class)->getCaseManagerData($caseManager);
 
-        $this->assertSame(1, collect($data['workQueue'])->firstWhere('key', 'casesWithoutReferrals')['count']);
-        $this->assertSame(1, collect($data['workQueue'])->firstWhere('key', 'rejectedReferrals')['count']);
-        $this->assertSame('/cases?status=OPEN&age_min_days=7', collect($data['workQueue'])->firstWhere('key', 'agingOpenCases')['href']);
-        $this->assertSame('/referrals?status=PENDING', collect($data['workQueue'])->firstWhere('key', 'pendingReferrals')['href']);
-        $this->assertSame('/referrals?status=REJECTED', collect($data['workQueue'])->firstWhere('key', 'rejectedReferrals')['href']);
-        $this->assertSame('/cases?status=OPEN&referral_state=none', collect($data['workQueue'])->firstWhere('key', 'casesWithoutReferrals')['href']);
-        $this->assertNotEmpty($data['priorityCases']);
         $this->assertSame($caseWithoutReferral->id, collect($data['priorityCases'])->firstWhere('reason', 'No referral yet')['id']);
         $this->assertSame($returnedReferral->id, $data['priorityReferrals'][0]['id']);
         $this->assertNotEmpty($data['agencyResponseScorecard']);
@@ -322,8 +233,8 @@ class DashboardServiceTest extends TestCase
 
         $this->assertArrayNotHasKey('allReferrals', $data);
         $this->assertArrayHasKey('priorityCases', $data);
-        $this->assertArrayHasKey('workQueue', $data);
         $this->assertArrayHasKey('referralStatusDistribution', $data);
+        $this->assertArrayHasKey('referralNews', $data);
     }
 
     #[Test]

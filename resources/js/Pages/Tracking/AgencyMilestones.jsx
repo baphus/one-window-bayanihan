@@ -52,7 +52,6 @@ function InfoCard({ icon, label, value, tone = 'slate' }) {
     slate: 'bg-slate-50 text-slate-700 border-slate-200',
     info: 'bg-info-container text-on-info-container border-info',
     emerald: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    amber: 'bg-amber-50 text-amber-700 border-amber-200',
   }[tone];
 
   return (
@@ -144,13 +143,6 @@ export default function AgencyMilestones({ trackingId, trackedCase, agencyMilest
             label="Requested services"
             value={agencyMilestones?.requiredServices || 'No service request details were provided.'}
             tone={agencyMilestones?.requiredServices ? 'info' : 'slate'}
-          />
-
-          <InfoCard
-            icon="sticky_note_2"
-            label="Agency notes"
-            value={agencyMilestones?.notes || 'No notes were added for this referral.'}
-            tone={agencyMilestones?.notes ? 'amber' : 'slate'}
           />
         </section>
 

@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
+use Inertia\Response;
 
 class EmailChangeController extends Controller
 {
@@ -23,20 +24,26 @@ class EmailChangeController extends Controller
         private readonly OtpService $otpService,
     ) {}
 
-    public function init(EmailChangeInitRequest $request)
+    public function init(EmailChangeInitRequest $request): Response
     {
         // The FormRequest already validated the current_password
         // Store the email_change_step in session
         $request->session()->put('email_change_step', 1);
 
-        // Return to Profile/Edit with email_change_step prop
+        // Return to Profile/Edit with email_change_step prop.
+        //
+        // The shared props come from ProfileController because this page binds
+        // them on mount: without them mfaEnabled was undefined (MFA shown as
+        // disabled mid-flow) and notifications_config resolved to {} so the
+        // next save overwrote the stored preferences with all-off defaults.
         return Inertia::render('Profile/Edit', [
+            ...ProfileController::editProps($request),
             'email_change_step' => 'new-email',
             'email_change_hint' => null,
         ]);
     }
 
-    public function sendOtp(EmailChangeSendOtpRequest $request)
+    public function sendOtp(EmailChangeSendOtpRequest $request): Response
     {
         $newEmail = $request->input('new_email');
 
@@ -58,6 +65,7 @@ class EmailChangeController extends Controller
         ]);
 
         return Inertia::render('Profile/Edit', [
+            ...ProfileController::editProps($request),
             'email_change_step' => 'otp',
             'email_change_hint' => $hint,
         ]);

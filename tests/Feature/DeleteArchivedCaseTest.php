@@ -158,7 +158,7 @@ class DeleteArchivedCaseTest extends TestCase
         $this->assertTrue($case->fresh()->trashed());
 
         // Restore
-        $service->restoreTrashedCase($case->fresh(), $user->id);
+        $service->restoreTrashedCase($case->id, $user);
 
         // Case restored
         $case->refresh();
@@ -186,7 +186,7 @@ class DeleteArchivedCaseTest extends TestCase
         $this->actingAs($user);
         $service = app(CaseService::class);
         $service->deleteArchivedCase($case, 'Delete before restore test', $user->id);
-        $service->restoreTrashedCase($case->fresh(), $user->id);
+        $service->restoreTrashedCase($case->id, $user);
 
         $this->assertDatabaseHas('audit_logs', [
             'action' => AuditAction::RESTORE->value,

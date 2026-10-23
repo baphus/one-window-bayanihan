@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\CascadeSoftDeletes;
 use App\Models\Concerns\SoftDeleteFlag;
 use App\Models\Concerns\UsesUuid;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -9,7 +10,19 @@ use Illuminate\Database\Eloquent\Model;
 
 class ReferralClientRequest extends Model
 {
-    use HasFactory, SoftDeleteFlag, UsesUuid;
+    use CascadeSoftDeletes, HasFactory, SoftDeleteFlag, UsesUuid;
+
+    /**
+     * Relationships to cascade on soft-delete and restore.
+     *
+     * A client request reached from a referral is only ever deleted through its
+     * parent: trashing the case cascades referrals, and the messages hanging off
+     * a request carry the client's uploaded documents. Without this the chain
+     * stopped one level short and left those messages live against a trashed
+     * referral — and their attachment rows, which nothing else marks trashed or
+     * empties from the bucket, with it.
+     */
+    protected array $cascadeSoftDeletes = ['messages'];
 
     public const TYPE_DOCUMENT_REQUEST = 'DOCUMENT_REQUEST';
 

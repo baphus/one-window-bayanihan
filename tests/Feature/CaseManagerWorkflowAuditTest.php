@@ -166,12 +166,18 @@ class CaseManagerWorkflowAuditTest extends TestCase
     }
 
     /**
-     * P0 — OFW has no role guard on /referrals index or export.
+     * P0 — OFW had no role guard on the /referrals index or create form, so the
+     * unscoped listing (client addresses included) was readable by any filer.
      */
-    public function test_ofw_can_access_referrals_index(): void
+    public function test_ofw_is_denied_the_referrals_index(): void
     {
         $response = $this->actingAs($this->ofwUser)->get('/referrals');
-        // Confirmed bug: OFW gets 200 instead of 403
-        $response->assertStatus(200);
+        $response->assertStatus(403);
+    }
+
+    public function test_ofw_is_denied_the_referrals_create_form(): void
+    {
+        $response = $this->actingAs($this->ofwUser)->get('/referrals/create');
+        $response->assertStatus(403);
     }
 }

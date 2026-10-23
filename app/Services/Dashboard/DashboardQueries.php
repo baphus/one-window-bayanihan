@@ -2,13 +2,33 @@
 
 namespace App\Services\Dashboard;
 
+use App\Models\CaseEvent;
 use App\Models\CaseFile;
+use App\Models\SystemSetting;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class DashboardQueries
 {
-    public const OVERDUE_DAYS = 5;
+    /**
+     * Fallback used when no `referral_overdue_days` row exists. Mirrors the
+     * default every overdue consumer passes to SystemSetting::getValue().
+     */
+    public const DEFAULT_OVERDUE_DAYS = 7;
+
+    /**
+     * Resolve the overdue cutoff from the `referral_overdue_days` system
+     * setting — the single source of truth the Overdue Referrals page, the
+     * referral list, and the case index already read — so dashboard counts
+     * can never disagree with them. Resolved per call through SystemSetting's
+     * own settings cache; never frozen into a class constant.
+     */
+    public static function overdueDays(): int
+    {
+        $days = (int) SystemSetting::getValue('referral_overdue_days', self::DEFAULT_OVERDUE_DAYS);
+
+        return $days > 0 ? $days : self::DEFAULT_OVERDUE_DAYS;
+    }
 
     // ──────────────────────────────────────────────────────────────────────────────
     // Optimized SQL-based dashboard builders
@@ -58,6 +78,11 @@ class DashboardQueries
      */
     public function buildReferralListSQL(?string $agencyId = null, int $limit = 8, bool $includeAgency = true, ?string $status = null, bool $overdueOnly = false, bool $priorityOnly = false): array
     {
+        // overdueDays() is an int-returning accessor, so interpolating it into
+        // the expression below cannot inject; the cutoff must repeat inside
+        // both the filter and the CASE score, which positional bindings cannot.
+        $overdueDays = self::overdueDays();
+
         $filter = '';
         $bindings = [];
         if ($agencyId) {
@@ -69,19 +94,19 @@ class DashboardQueries
             $bindings[] = $status;
         }
         if ($overdueOnly) {
-            $filter .= " AND r.status IN ('PENDING','PROCESSING','FOR_COMPLIANCE') AND EXTRACT(EPOCH FROM (NOW() - r.created_at))/86400 >= 5";
+            $filter .= " AND r.status IN ('PENDING','PROCESSING','FOR_COMPLIANCE') AND EXTRACT(EPOCH FROM (NOW() - r.created_at))/86400 >= {$overdueDays}";
         }
         $bindings[] = $limit;
 
-        $scoreColumn = $priorityOnly ? ',
+        $scoreColumn = $priorityOnly ? ",
                     CASE
-                        WHEN r.status = \'REJECTED\' THEN 100 + EXTRACT(EPOCH FROM (NOW() - r.created_at))/86400
-                        WHEN r.status = \'FOR_COMPLIANCE\' THEN 80 + EXTRACT(EPOCH FROM (NOW() - r.created_at))/86400
-                        WHEN r.status = \'PENDING\' THEN 60 + EXTRACT(EPOCH FROM (NOW() - r.created_at))/86400
-                        WHEN r.status = \'PROCESSING\' AND EXTRACT(EPOCH FROM (NOW() - r.created_at))/86400 >= 5 THEN 40 + EXTRACT(EPOCH FROM (NOW() - r.created_at))/86400
-                        WHEN r.status IN (\'PENDING\',\'PROCESSING\',\'FOR_COMPLIANCE\') AND EXTRACT(EPOCH FROM (NOW() - r.created_at))/86400 >= 5 THEN 30 + EXTRACT(EPOCH FROM (NOW() - r.created_at))/86400
+                        WHEN r.status = 'REJECTED' THEN 100 + EXTRACT(EPOCH FROM (NOW() - r.created_at))/86400
+                        WHEN r.status = 'FOR_COMPLIANCE' THEN 80 + EXTRACT(EPOCH FROM (NOW() - r.created_at))/86400
+                        WHEN r.status = 'PENDING' THEN 60 + EXTRACT(EPOCH FROM (NOW() - r.created_at))/86400
+                        WHEN r.status = 'PROCESSING' AND EXTRACT(EPOCH FROM (NOW() - r.created_at))/86400 >= {$overdueDays} THEN 40 + EXTRACT(EPOCH FROM (NOW() - r.created_at))/86400
+                        WHEN r.status IN ('PENDING','PROCESSING','FOR_COMPLIANCE') AND EXTRACT(EPOCH FROM (NOW() - r.created_at))/86400 >= {$overdueDays} THEN 30 + EXTRACT(EPOCH FROM (NOW() - r.created_at))/86400
                         ELSE 0
-                    END AS priority_score' : '';
+                    END AS priority_score" : '';
 
         $inner = "
             SELECT r.id, r.case_id, r.status,
@@ -122,6 +147,8 @@ class DashboardQueries
 
     public function buildAgencyResponseScorecardSQL(?string $agencyId = null): array
     {
+        $overdueDays = self::overdueDays();
+
         $agencyFilter = '';
         $bindings = [];
         if ($agencyId) {
@@ -134,13 +161,13 @@ class DashboardQueries
                 COUNT(*) AS total,
                 COUNT(*) FILTER (WHERE r.status IN ('PENDING','PROCESSING','FOR_COMPLIANCE')) AS active_count,
                 COUNT(*) FILTER (WHERE r.status = 'COMPLETED') AS completed_count,
-                COUNT(*) FILTER (WHERE r.status IN ('PENDING','PROCESSING','FOR_COMPLIANCE') AND EXTRACT(EPOCH FROM (NOW() - r.created_at))/86400 >= 5) AS overdue_count,
+                COUNT(*) FILTER (WHERE r.status IN ('PENDING','PROCESSING','FOR_COMPLIANCE') AND EXTRACT(EPOCH FROM (NOW() - r.created_at))/86400 >= {$overdueDays}) AS overdue_count,
                 AVG(EXTRACT(EPOCH FROM (r.updated_at - r.created_at))/86400) FILTER (WHERE r.status = 'COMPLETED') AS avg_days
             FROM referrals r
             JOIN agencies a ON a.id = r.agcy_id
             WHERE r.is_deleted = false {$agencyFilter}
             GROUP BY r.agcy_id, a.name
-            ORDER BY (COUNT(*) FILTER (WHERE r.status IN ('PENDING','PROCESSING','FOR_COMPLIANCE') AND EXTRACT(EPOCH FROM (NOW() - r.created_at))/86400 >= 5) * 10 + COUNT(*) FILTER (WHERE r.status IN ('PENDING','PROCESSING','FOR_COMPLIANCE'))) DESC
+            ORDER BY (COUNT(*) FILTER (WHERE r.status IN ('PENDING','PROCESSING','FOR_COMPLIANCE') AND EXTRACT(EPOCH FROM (NOW() - r.created_at))/86400 >= {$overdueDays})) * 10 + COUNT(*) FILTER (WHERE r.status IN ('PENDING','PROCESSING','FOR_COMPLIANCE')) DESC
             LIMIT 6
         ", $bindings);
 
@@ -160,11 +187,13 @@ class DashboardQueries
 
     public function buildAgencyBreakdownSQL(): array
     {
+        $overdueDays = self::overdueDays();
+
         $rows = DB::select("
             SELECT r.agcy_id, a.name AS agency_name,
                 COUNT(*) AS total_referrals,
                 COUNT(*) FILTER (WHERE r.status IN ('PENDING','PROCESSING','FOR_COMPLIANCE')) AS active_count,
-                COUNT(*) FILTER (WHERE r.status IN ('PENDING','PROCESSING','FOR_COMPLIANCE') AND EXTRACT(EPOCH FROM (NOW() - r.created_at))/86400 >= 5) AS overdue_count
+                COUNT(*) FILTER (WHERE r.status IN ('PENDING','PROCESSING','FOR_COMPLIANCE') AND EXTRACT(EPOCH FROM (NOW() - r.created_at))/86400 >= {$overdueDays}) AS overdue_count
             FROM referrals r
             JOIN agencies a ON a.id = r.agcy_id
             WHERE r.is_deleted = false
@@ -276,39 +305,6 @@ class DashboardQueries
     }
 
     /**
-     * Ready-to-close list: OPEN cases that have at least one referral and
-     * zero non-COMPLETED referrals. Row shape mirrors buildPriorityCasesSQL.
-     */
-    public function buildReadyToCloseListSQL(int $limit = 8): array
-    {
-        $rows = DB::select("
-            SELECT c.id, c.case_number, c.tracker_number, c.status, c.created_at,
-                cl.first_name, cl.last_name,
-                'Ready to close' AS reason,
-                'COMPLETED' AS latest_referral_status
-            FROM cases c
-            LEFT JOIN clients cl ON cl.id = c.client_id
-            WHERE c.status = 'OPEN' AND c.is_deleted = false
-                AND EXISTS (SELECT 1 FROM referrals WHERE case_id = c.id AND is_deleted = false)
-                AND NOT EXISTS (SELECT 1 FROM referrals WHERE case_id = c.id AND status != 'COMPLETED' AND is_deleted = false)
-            ORDER BY c.updated_at DESC
-            LIMIT ?
-        ", [$limit]);
-
-        return array_map(fn ($row) => [
-            'id' => $row->id,
-            'caseNo' => $row->case_number ?? 'N/A',
-            'trackerNumber' => $row->tracker_number,
-            'clientName' => trim(($row->first_name ?? '').' '.($row->last_name ?? '')) ?: 'N/A',
-            'status' => $row->status,
-            'latestReferralStatus' => $row->latest_referral_status,
-            'ageDays' => (int) round(Carbon::parse($row->created_at)->diffInDays(now())),
-            'reason' => $row->reason,
-            'href' => '/cases/'.$row->id,
-        ], $rows);
-    }
-
-    /**
      * Aggregate referral stats for a set of case IDs in a single query.
      * Returns [case_id => [...aggregates...]].
      *
@@ -321,7 +317,8 @@ class DashboardQueries
         }
 
         $placeholders = implode(',', array_fill(0, count($caseIds), '?'));
-        $overdueThreshold = now()->subDays(self::OVERDUE_DAYS);
+        $overdueDays = self::overdueDays();
+        $overdueThreshold = now()->subDays($overdueDays);
 
         // Single query: per-case aggregates for total, active, overdue counts,
         // worst status, and max age of active referrals.
@@ -365,7 +362,7 @@ class DashboardQueries
                 'overdue_referral_count' => $overdueCount,
                 'worst_referral_status' => $severityToStatus[(int) $row->worst_severity] ?? null,
                 'max_referral_age_days' => $maxAge !== null ? (int) round($maxAge) : null,
-                'is_overdue' => $overdueCount > 0 || ($maxAge !== null && $maxAge >= self::OVERDUE_DAYS),
+                'is_overdue' => $overdueCount > 0 || ($maxAge !== null && $maxAge >= $overdueDays),
             ];
         }
 
@@ -404,36 +401,44 @@ class DashboardQueries
         ], $rows);
     }
 
-    public function buildFeedbackPulse(?string $agencyId): array
+    /**
+     * Referral News feed for the case-manager dashboard. Reads the
+     * append-only CaseEvent log — the same source the client tracking
+     * timeline renders — and reshapes it into the frontend's news contract.
+     * Only client-safe fields are surfaced; the actor stays an actor_type
+     * category, never a staff name or user ID.
+     */
+    public function buildReferralNews(int $limit = 8): array
     {
-        if (! $agencyId) {
-            return [
-                'hasData' => false,
-                'totalSent' => 0,
-                'totalSubmitted' => 0,
-                'responseRate' => 0,
-                'avgRating' => null,
-                'href' => '/surveys',
-            ];
-        }
+        return CaseEvent::with('caseFile.client')
+            ->whereIn('type', [CaseEvent::TYPE_REFERRAL_STATUS_CHANGED, CaseEvent::TYPE_MILESTONE_ADDED])
+            ->orderByDesc('occurred_at')
+            ->limit($limit)
+            ->get()
+            ->map(function (CaseEvent $event) {
+                $case = $event->caseFile;
+                $client = $case?->client;
+                $clientName = $client ? trim(($client->first_name ?? '').' '.($client->last_name ?? '')) : '';
+                $meta = is_array($event->meta) ? $event->meta : [];
+                $isMilestone = $event->type === CaseEvent::TYPE_MILESTONE_ADDED;
 
-        $row = DB::selectOne('
-            SELECT
-                COUNT(*) AS total_sent,
-                COUNT(*) FILTER (WHERE submitted_at IS NOT NULL) AS total_submitted
-            FROM survey_invitations WHERE agency_id = ?
-        ', [$agencyId]);
-
-        $totalSent = (int) ($row->total_sent ?? 0);
-        $totalSubmitted = (int) ($row->total_submitted ?? 0);
-
-        return [
-            'hasData' => $totalSubmitted > 0 || $totalSent > 0,
-            'totalSent' => $totalSent,
-            'totalSubmitted' => $totalSubmitted,
-            'responseRate' => $totalSent > 0 ? round(($totalSubmitted / $totalSent) * 100, 1) : 0,
-            'avgRating' => null,
-            'href' => '/surveys',
-        ];
+                return [
+                    'id' => $event->id,
+                    'kind' => $event->type,
+                    'from' => $meta['from'] ?? null,
+                    'to' => $meta['to'] ?? null,
+                    'milestone' => $isMilestone ? $event->title : null,
+                    'caseNumber' => $case?->case_number,
+                    'clientName' => $clientName !== '' ? $clientName : null,
+                    'href' => match (true) {
+                        $event->referral_id !== null => '/referrals/'.$event->referral_id,
+                        $case !== null => '/cases/'.$case->id,
+                        default => '/referrals',
+                    },
+                    'at' => $event->occurred_at?->toISOString(),
+                ];
+            })
+            ->values()
+            ->toArray();
     }
 }

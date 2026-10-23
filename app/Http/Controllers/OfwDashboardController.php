@@ -32,14 +32,34 @@ class OfwDashboardController extends Controller
 
         // Overview counts across all of the OFW's cases (not just the current
         // page) so the dashboard stat cards stay accurate under pagination.
-        $caseStats = CaseFile::where('client_id', $user->client_id)
+        //
+        // Bucketed by the canonical case statuses (case_statuses type=case plus
+        // the intake/archive lifecycle states used by CaseService::updateCase /
+        // getCaseStats): PENDING_REVIEW, OPEN, CLOSED, ARCHIVED. clientVisible()
+        // excludes DRAFT, and DRAFT was the only status with no bucket — the
+        // legacy PENDING/PROCESSING/IN_PROGRESS/BEING_PREPARED/COMPLETED/RESOLVED
+        // slugs are referral-status vocabulary and never occur on a case, so the
+        // buckets always sum to the total: every visible case lands in exactly
+        // one card (archived cases remain client-visible and count as completed).
+        $caseStatsRow = CaseFile::where('client_id', $user->client_id)
             ->where('is_deleted', false)
             ->clientVisible()
             ->selectRaw('count(*) as total')
             ->selectRaw("count(*) filter (where status = '".CaseFile::STATUS_PENDING_REVIEW."') as under_review")
-            ->selectRaw("count(*) filter (where status in ('OPEN', 'PENDING', 'PROCESSING', 'FOR_COMPLIANCE', 'IN_PROGRESS', 'BEING_PREPARED')) as in_progress")
-            ->selectRaw("count(*) filter (where status in ('CLOSED', 'COMPLETED', 'RESOLVED')) as completed")
+            ->selectRaw("count(*) filter (where status = 'OPEN') as in_progress")
+            ->selectRaw("count(*) filter (where status in ('CLOSED', 'ARCHIVED')) as completed")
             ->first();
+
+        // Map to an explicit array instead of passing the Eloquent row through:
+        // serializing the model would auto-include the client_type accessor
+        // (and lazy-load its relation), so the payload must carry exactly the
+        // four keys OFW/Dashboard.jsx reads.
+        $caseStats = [
+            'total' => (int) ($caseStatsRow->total ?? 0),
+            'under_review' => (int) ($caseStatsRow->under_review ?? 0),
+            'in_progress' => (int) ($caseStatsRow->in_progress ?? 0),
+            'completed' => (int) ($caseStatsRow->completed ?? 0),
+        ];
 
         return Inertia::render('OFW/Dashboard', [
             'cases' => $cases,

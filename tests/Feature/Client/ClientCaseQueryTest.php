@@ -136,6 +136,44 @@ class ClientCaseQueryTest extends TestCase
             ->assertOk();
     }
 
+    public function test_client_index_exposes_client_type_on_each_case_file(): void
+    {
+        [$admin] = $this->seedDirectory();
+
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+
+        // publishedOnly() requires a linked account plus a live OPEN case.
+        $ofw = Client::factory()->create([
+            'type' => 'OFW',
+            'user_id' => User::factory()->create(['role' => UserRole::OFW->value])->id,
+        ]);
+        CaseFile::factory()->create([
+            'client_id' => $ofw->id,
+            'user_id' => $manager->id,
+            'status' => 'OPEN',
+        ]);
+
+        $nok = Client::factory()->nextOfKin()->create([
+            'user_id' => User::factory()->create(['role' => UserRole::OFW->value])->id,
+        ]);
+        CaseFile::factory()->create([
+            'client_id' => $nok->id,
+            'user_id' => $manager->id,
+            'status' => 'OPEN',
+        ]);
+
+        $response = $this->actingAs($admin)->get(route('clients.index'));
+        $response->assertOk();
+
+        // Client/Index.jsx reads row.case_file.client_type for the type and
+        // vulnerability columns; cases.client_type is gone, so the payload has
+        // to carry the value derived from clients.type.
+        $rows = collect($response->viewData('page')['props']['clients']['data'])->keyBy('id');
+
+        $this->assertSame('OFW', $rows[$ofw->id]['case_file']['client_type']);
+        $this->assertSame('NEXT_OF_KIN', $rows[$nok->id]['case_file']['client_type']);
+    }
+
     public function test_agency_stats_scoped_to_own_referrals(): void
     {
         [$admin, $agencyA, $agencyB] = $this->seedDirectory();

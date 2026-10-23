@@ -131,32 +131,6 @@ class DashboardService
                 ->toArray();
         });
 
-        // New-cases preview: 5 newest OPEN (or created <30d) rows. Count
-        // totals above stay exact — this trim only affects the preview list.
-        $allCases = CaseFile::with(['client'])
-            ->select('id', 'case_number', 'tracker_number', 'client_id', 'status', 'created_at', 'updated_at')
-            ->whereNotIn('status', ['DRAFT', 'ARCHIVED'])
-            ->where(function ($q) {
-                $q->where('status', 'OPEN')
-                    ->orWhere('created_at', '>', now()->subDays(30));
-            })
-            ->orderBy('created_at', 'desc')
-            ->limit(5)
-            ->get()
-            ->map(fn ($c) => [
-                'id' => $c->id,
-                'caseNo' => $c->case_number,
-                'trackerNumber' => $c->tracker_number,
-                'clientName' => $c->client ? trim(($c->client->first_name ?? '').' '.($c->client->last_name ?? '')) : 'N/A',
-                'clientType' => ($c->client?->type ?? 'OFW') === 'NEXT_OF_KIN' ? 'Next of Kin' : 'Overseas Filipino Worker',
-                'status' => $c->status,
-                'createdAt' => $c->created_at?->toISOString() ?? now()->toISOString(),
-                'updatedAt' => $c->updated_at?->toISOString() ?? now()->toISOString(),
-                'ofwProfile' => null,
-            ])
-            ->values()
-            ->toArray();
-
         // Average days to close (SQL AVG instead of loading all into PHP)
         $averageCaseDaysToClose = CacheHelper::safeRemember('dashboard:cm_closed_days', 300, function () {
             $result = DB::selectOne("
@@ -211,11 +185,8 @@ class DashboardService
         $intakeReview = CacheHelper::safeRemember('dashboard:cm_intake_review:'.($user?->id ?? 'guest'), 60, function () use ($user) {
             return $this->queries->buildIntakeReviewList($user?->id, 8);
         });
-        $forComplianceList = CacheHelper::safeRemember('dashboard:cm_for_compliance_list', 60, function () {
-            return $this->queries->buildReferralListSQL(status: 'FOR_COMPLIANCE', priorityOnly: true);
-        });
-        $readyToClose = CacheHelper::safeRemember('dashboard:cm_ready_to_close', 60, function () {
-            return $this->queries->buildReadyToCloseListSQL(8);
+        $referralNews = CacheHelper::safeRemember('dashboard:cm_referral_news', 60, function () {
+            return $this->queries->buildReferralNews(8);
         });
 
         // Trend datasets for the Numbers block chart toggle. Reuses the
@@ -229,51 +200,27 @@ class DashboardService
             return $reportsService->getReferralTrends(null, UserRole::CASE_MANAGER->value);
         });
 
-        // Work queue counts via targeted SQL
-        $agingOpenCasesCount = CacheHelper::safeRemember('dashboard:cm_aging_open_count', 60, function () {
-            return (int) DB::selectOne("
-                SELECT COUNT(*) AS cnt FROM cases
-                WHERE status = 'OPEN' AND is_deleted = false AND created_at < NOW() - INTERVAL '7 days'
-            ")->cnt;
-        });
-
-        $casesWithoutReferrals = CacheHelper::safeRemember('dashboard:cm_no_referral_count', 60, function () {
-            return (int) DB::selectOne("
-                SELECT COUNT(*) AS cnt FROM cases
-                WHERE status = 'OPEN' AND is_deleted = false
-                AND NOT EXISTS (SELECT 1 FROM referrals WHERE referrals.case_id = cases.id AND referrals.is_deleted = false)
-            ")->cnt;
-        });
-
-        $intakeReviewCount = CacheHelper::safeRemember('dashboard:cm_intake_review_count:'.($user?->id ?? 'guest'), 60, function () {
+        // Pending-review and draft counters. Both are per-user counts behind a
+        // visible widget, so they are keyed by user and capped to the same
+        // 60s window as the review list itself.
+        $pendingReviewCount = CacheHelper::safeRemember('dashboard:cm_pending_review_count:'.($user?->id ?? 'guest'), 60, function () {
             return (int) CaseFile::where('status', CaseFile::STATUS_PENDING_REVIEW)
                 ->where('is_deleted', false)
                 ->count();
         });
 
-        $readyToCloseCount = CacheHelper::safeRemember('dashboard:cm_ready_to_close_count', 60, function () {
-            return (int) DB::selectOne("
-                SELECT COUNT(*) AS cnt FROM cases c
-                WHERE c.status = 'OPEN' AND c.is_deleted = false
-                    AND EXISTS (SELECT 1 FROM referrals WHERE case_id = c.id AND is_deleted = false)
-                    AND NOT EXISTS (SELECT 1 FROM referrals WHERE case_id = c.id AND status != 'COMPLETED' AND is_deleted = false)
-            ")->cnt;
+        $myDraftCount = CacheHelper::safeRemember('dashboard:cm_my_draft_count:'.($user?->id ?? 'guest'), 60, function () use ($user) {
+            return (int) CaseFile::where('status', 'DRAFT')
+                ->where('user_id', $user?->id)
+                ->where('is_deleted', false)
+                ->count();
         });
-
-        $workQueue = [
-            $this->queueItem('agingOpenCases', 'Aging open cases', $agingOpenCasesCount, 'Open seven days or more.', 'amber', 'folder_clock', '/cases?status=OPEN&age_min_days=7'),
-            $this->queueItem('pendingReferrals', 'Pending referrals', $pendingReferrals, 'Waiting for agency action.', 'amber', 'schedule', '/referrals?status=PENDING'),
-            $this->queueItem('rejectedReferrals', 'Rejected referrals', $rejectedReferrals, 'Needs reassignment or follow-up.', 'rose', 'assignment_return', '/referrals?status=REJECTED'),
-            $this->queueItem('casesWithoutReferrals', 'Cases without referrals', $casesWithoutReferrals, 'Open cases that may need routing.', 'blue', 'hub', '/cases?status=OPEN&referral_state=none'),
-            $this->queueItem('intakeReview', 'Intake to review', $intakeReviewCount, 'OFW filings awaiting review.', 'cyan', 'pending_actions', route('cases.review-pending', [], false)),
-            $this->queueItem('forComplianceReferrals', 'For compliance', $forComplianceReferrals, 'Waiting on missing requirements.', 'orange', 'fact_check', '/referrals?status=FOR_COMPLIANCE'),
-            $this->queueItem('readyToClose', 'Ready to close', $readyToCloseCount, 'Open cases with all referrals completed.', 'emerald', 'task_alt', '/cases?status=OPEN'),
-        ];
 
         return [
             'totalCases' => $totalCases,
             'openCases' => $openCases,
             'closedCases' => $closedCases,
+            'myDraftCount' => $myDraftCount,
             'pendingReferrals' => $pendingReferrals,
             'processingReferrals' => $processingReferrals,
             'completedReferrals' => $completedReferrals,
@@ -289,14 +236,12 @@ class DashboardService
             'priorityReferrals' => $priorityReferrals,
             'priorityCases' => $priorityCases,
             'agencyResponseScorecard' => $agencyResponseScorecard,
-            'workQueue' => $workQueue,
             'recentActivity' => $recentActivity,
             'averageCaseDaysToClose' => $averageCaseDaysToClose,
-            'allCases' => $allCases,
             'agencyBreakdown' => $agencyBreakdown,
             'intakeReview' => $intakeReview,
-            'forComplianceList' => $forComplianceList,
-            'readyToClose' => $readyToClose,
+            'pendingReviewCount' => $pendingReviewCount,
+            'referralNews' => $referralNews,
             'casesOverTime' => $casesOverTime,
             'referralTrends' => $referralTrends,
         ];
@@ -335,9 +280,6 @@ class DashboardService
             ['PENDING' => $pendingReferrals, 'PROCESSING' => $processingReferrals, 'FOR_COMPLIANCE' => $forComplianceReferrals, 'COMPLETED' => $completedReferrals, 'REJECTED' => $rejectedReferrals],
             $totalReferrals
         );
-        $referralAgingBands = CacheHelper::safeRemember('dashboard:agency_aging_bands:'.$agencyId, 60, function () use ($agencyId) {
-            return $this->queries->buildReferralAgingBandsSQL($agencyId);
-        });
         $pendingReferralsList = CacheHelper::safeRemember('dashboard:agency_pending_referrals:'.$agencyId, 60, function () use ($agencyId) {
             return $this->queries->buildReferralListSQL($agencyId, 5, false, 'PENDING');
         });
@@ -350,32 +292,27 @@ class DashboardService
         $serviceDemand = CacheHelper::safeRemember('dashboard:agency_service_demand:'.$agencyId, 120, function () use ($agencyId) {
             return $this->queries->buildAgencyServiceDemand($agencyId);
         });
-        $feedbackPulse = CacheHelper::safeRemember('dashboard:agency_feedback_pulse:'.$agencyId, 300, function () use ($agencyId) {
-            return $this->queries->buildFeedbackPulse($agencyId);
-        });
 
-        // Overdue + new referrals counts via targeted SQL (cached 60s)
-        $queueCounts = CacheHelper::safeRemember('dashboard:agency_queue_counts:'.$agencyId, 60, function () use ($agencyId) {
+        // Overdue count via targeted SQL (cached 60s). The cutoff is read from
+        // the referral_overdue_days setting so this queue cell always matches
+        // the Overdue Referrals page and the overdueReferrals list above.
+        $overdueDays = DashboardQueries::overdueDays();
+        $queueCounts = CacheHelper::safeRemember('dashboard:agency_queue_counts:'.$agencyId, 60, function () use ($agencyId, $overdueDays) {
             $row = DB::selectOne("
                 SELECT
-                    COUNT(*) FILTER (WHERE status IN ('PENDING','PROCESSING','FOR_COMPLIANCE') AND EXTRACT(EPOCH FROM (NOW() - created_at))/86400 >= 5) AS overdue,
-                    COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '2 days') AS new_count
+                    COUNT(*) FILTER (WHERE status IN ('PENDING','PROCESSING','FOR_COMPLIANCE') AND EXTRACT(EPOCH FROM (NOW() - created_at))/86400 >= ?) AS overdue
                 FROM referrals
                 WHERE agcy_id = ? AND is_deleted = false
-            ", [$agencyId]);
+            ", [$overdueDays, $agencyId]);
 
-            return ['overdue' => (int) $row->overdue, 'new_count' => (int) $row->new_count];
+            return ['overdue' => (int) $row->overdue];
         });
         $overdueReferrals = $queueCounts['overdue'];
-        $newReferralsCount = $queueCounts['new_count'];
 
         $workQueue = [
-            $this->queueItem('newReferrals', 'New referrals', $newReferralsCount, 'Received in the last two days.', 'blue', 'move_to_inbox', '/referrals?age_max_days=2'),
             $this->queueItem('pendingReferrals', 'Pending', $pendingReferrals, 'Needs acknowledgement or first action.', 'amber', 'schedule', '/referrals?status=PENDING'),
-            $this->queueItem('forComplianceReferrals', 'For compliance', $forComplianceReferrals, 'Waiting on missing requirements.', 'orange', 'fact_check', '/referrals?status=FOR_COMPLIANCE'),
             $this->queueItem('processingReferrals', 'Processing', $processingReferrals, 'Currently being handled.', 'cyan', 'sync', '/referrals?status=PROCESSING'),
-            $this->queueItem('overdueReferrals', 'Overdue', $overdueReferrals, 'Active referrals older than five days.', 'rose', 'warning', '/referrals?age_min_days=5'),
-            $this->queueItem('returnedReferrals', 'Rejected', $rejectedReferrals, 'Needs review or clarification.', 'rose', 'assignment_return', '/referrals?status=REJECTED'),
+            $this->queueItem('overdueReferrals', 'Overdue', $overdueReferrals, "Active referrals older than {$overdueDays} days.", 'rose', 'warning', "/referrals?age_min_days={$overdueDays}"),
         ];
 
         // Recent activity via subquery instead of loading all referral IDs.
@@ -433,16 +370,11 @@ class DashboardService
             'totalReferrals' => $totalReferrals,
             'pendingReferrals' => $pendingReferralsList,
             'processingReferrals' => $processingReferralsList,
-            'forComplianceReferrals' => $forComplianceReferrals,
-            'completedReferrals' => $completedReferrals,
-            'rejectedReferrals' => $rejectedReferrals,
             'overdueReferrals' => $overdueReferralsList,
             'recentActivity' => $recentActivity,
             'workQueue' => $workQueue,
             'referralStatusDistribution' => $referralStatusDistribution,
-            'referralAgingBands' => $referralAgingBands,
             'serviceDemand' => $serviceDemand,
-            'feedbackPulse' => $feedbackPulse,
         ];
     }
 
@@ -450,8 +382,8 @@ class DashboardService
     {
         $formatter = app(AuditLogFormatter::class);
 
-        $activeReferralStatuses = ['PENDING', 'PROCESSING', 'FOR_COMPLIANCE'];
-        $dashboardWindow = now()->subDays(5);
+        $overdueDays = DashboardQueries::overdueDays();
+        $dashboardWindow = now()->subDays($overdueDays);
 
         // Single aggregated query for case + referral counts (cached 60s)
         $countsKey = 'dashboard:admin_counts_v2';
@@ -517,7 +449,7 @@ class DashboardService
 
         // Worst-case age per queue for triage severity (cached 60s).
         $worstAges = CacheHelper::safeRemember('dashboard:admin_worst_ages', 60, function () {
-            $overdueThreshold = now()->subDays(DashboardQueries::OVERDUE_DAYS);
+            $overdueThreshold = now()->subDays(DashboardQueries::overdueDays());
 
             return (array) DB::selectOne("
                 SELECT
@@ -574,7 +506,7 @@ class DashboardService
                 'key' => 'overdueReferrals',
                 'label' => 'Overdue referrals',
                 'count' => $overdueReferrals,
-                'note' => 'Older than five days.',
+                'note' => "Older than {$overdueDays} days.",
                 'tone' => 'rose',
                 'icon' => 'warning',
                 'href' => '/overdue-referrals',

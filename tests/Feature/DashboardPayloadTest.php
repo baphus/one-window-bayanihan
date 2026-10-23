@@ -26,8 +26,8 @@ class DashboardPayloadTest extends TestCase
         $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $agency = Agency::factory()->create();
 
-        // Seven OPEN cases with staggered timestamps: the preview must cap
-        // at the 5 newest while the count totals stay exact.
+        // Seven OPEN cases with staggered timestamps: the count totals stay
+        // exact even though every rendered preview list is capped.
         $openCases = collect();
         foreach (range(6, 0) as $daysAgo) {
             $openCases->push($this->makeCase([
@@ -37,7 +37,6 @@ class DashboardPayloadTest extends TestCase
                 'updated_at' => now()->subDays($daysAgo),
             ]));
         }
-        $newestOpen = $openCases->last();
 
         $this->makeCase([
             'user_id' => $manager->id,
@@ -62,59 +61,25 @@ class DashboardPayloadTest extends TestCase
         ]);
 
         // FOR_COMPLIANCE seed on an OPEN case.
-        $complianceReferral = Referral::factory()->forCompliance()->create([
+        Referral::factory()->forCompliance()->create([
             'case_id' => $openCases->first()->id,
-            'agcy_id' => $agency->id,
-        ]);
-
-        // Ready-to-close seed: OPEN case whose only referral is COMPLETED.
-        $readyCase = $this->makeCase([
-            'user_id' => $manager->id,
-            'status' => 'OPEN',
-            'created_at' => now()->subDays(9),
-            'updated_at' => now()->subDays(9),
-        ]);
-        Referral::factory()->completed()->create([
-            'case_id' => $readyCase->id,
             'agcy_id' => $agency->id,
         ]);
 
         $data = app(DashboardService::class)->getCaseManagerData($manager);
 
-        // 1.1 — 5-row cap with exact totals.
-        $this->assertCount(5, $data['allCases']);
-        $this->assertSame($newestOpen->id, $data['allCases'][0]['id']);
-        $createdAts = array_column($data['allCases'], 'createdAt');
-        $sorted = $createdAts;
-        rsort($sorted);
-        $this->assertSame($sorted, $createdAts, 'allCases must be newest first');
-        $this->assertSame(11, $data['totalCases']);
-        $this->assertSame(8, $data['openCases']);
+        // Count totals stay exact even though the preview lists are capped.
+        $this->assertSame(10, $data['totalCases']);
+        $this->assertSame(7, $data['openCases']);
         $this->assertSame(1, $data['closedCases']);
+        $this->assertSame(0, $data['myDraftCount']);
 
-        // 1.2 — new lists present, correctly filtered, capped.
-        foreach (['intakeReview', 'forComplianceList', 'readyToClose'] as $key) {
-            $this->assertArrayHasKey($key, $data);
-        }
+        // Intake review list present, correctly filtered, capped.
+        $this->assertArrayHasKey('intakeReview', $data);
         $this->assertLessThanOrEqual(8, count($data['intakeReview']));
         $this->assertContains($ownPending->id, array_column($data['intakeReview'], 'id'));
         $this->assertContains($otherPending->id, array_column($data['intakeReview'], 'id'));
-
-        $this->assertLessThanOrEqual(8, count($data['forComplianceList']));
-        $this->assertNotEmpty($data['forComplianceList']);
-        $this->assertContains($complianceReferral->id, array_column($data['forComplianceList'], 'id'));
-        foreach ($data['forComplianceList'] as $row) {
-            $this->assertSame('FOR_COMPLIANCE', $row['status']);
-        }
-
-        $this->assertLessThanOrEqual(8, count($data['readyToClose']));
-        $this->assertContains($readyCase->id, array_column($data['readyToClose'], 'id'));
-
-        // Backward-compatible work-queue additions.
-        foreach (['intakeReview', 'forComplianceReferrals', 'readyToClose'] as $key) {
-            $this->assertNotNull(collect($data['workQueue'])->firstWhere('key', $key), "workQueue must include {$key}");
-        }
-        $this->assertSame(1, collect($data['workQueue'])->firstWhere('key', 'readyToClose')['count']);
+        $this->assertSame(2, $data['pendingReviewCount']);
 
         // 1.3 — trend datasets are non-empty.
         $this->assertNotEmpty($data['casesOverTime']['labels']);
@@ -135,10 +100,13 @@ class DashboardPayloadTest extends TestCase
         $agencyUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id]);
         $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
-        // Six stale PENDING referrals plus one fresh: the pending list caps
-        // at the 5 oldest.
+        // Six PENDING referrals plus one fresh: the pending list caps at the
+        // 5 oldest. The ages deliberately skip the overdue cutoff (7 days by
+        // default): the SQL filter compares the raw fractional age while the
+        // payload rounds it for display, so a referral sitting exactly on the
+        // cutoff would flip in and out of the overdue list between runs.
         $stalePending = collect();
-        foreach ([10, 9, 8, 7, 6, 5] as $daysAgo) {
+        foreach ([12, 11, 10, 9, 8, 6] as $daysAgo) {
             $stalePending->push(Referral::factory()->pending()->create([
                 'case_id' => $this->makeCase(['user_id' => $manager->id, 'status' => 'OPEN'])->id,
                 'agcy_id' => $agency->id,
@@ -163,11 +131,13 @@ class DashboardPayloadTest extends TestCase
             'case_id' => $this->makeCase(['user_id' => $manager->id, 'status' => 'OPEN'])->id,
             'agcy_id' => $agency->id,
         ]);
+        // Oldest active referral for the agency, so it is unambiguously
+        // inside the capped overdue list.
         $compliance = Referral::factory()->forCompliance()->create([
             'case_id' => $this->makeCase(['user_id' => $manager->id, 'status' => 'OPEN'])->id,
             'agcy_id' => $agency->id,
-            'created_at' => now()->subDays(8),
-            'updated_at' => now()->subDays(8),
+            'created_at' => now()->subDays(13),
+            'updated_at' => now()->subDays(13),
         ]);
         Referral::factory()->pending()->create([
             'case_id' => $this->makeCase(['user_id' => $manager->id, 'status' => 'OPEN'])->id,
@@ -196,7 +166,8 @@ class DashboardPayloadTest extends TestCase
         rsort($pendingDesc);
         $this->assertSame($pendingDesc, $pendingAges, 'pendingReferrals must be oldest first');
 
-        // overdueReferrals: active + age >= 5d, oldest first, capped at 5.
+        // overdueReferrals: active referrals whose raw age reaches the
+        // configured cutoff (7 days by default), oldest first, capped at 5.
         $overdue = $data['overdueReferrals'];
         $this->assertCount(5, $overdue);
         foreach ($overdue as $row) {
@@ -221,7 +192,13 @@ class DashboardPayloadTest extends TestCase
         // Count totals stay exact (processingReferrals is a list in the agency payload).
         $this->assertSame(10, $data['totalReferrals']);
         $this->assertCount(1, $data['processingReferrals']);
-        $this->assertSame(1, $data['completedReferrals']);
+
+        // Counts the agency UI never renders are not produced (YAGNI).
+        $this->assertArrayNotHasKey('completedReferrals', $data);
+        $this->assertArrayNotHasKey('rejectedReferrals', $data);
+        $this->assertArrayNotHasKey('forComplianceReferrals', $data);
+        $this->assertArrayNotHasKey('feedbackPulse', $data);
+        $this->assertArrayNotHasKey('referralAgingBands', $data);
     }
 
     private function makeCase(array $attributes = []): CaseFile

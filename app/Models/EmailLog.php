@@ -15,6 +15,7 @@ class EmailLog extends Model
     protected $casts = [
         'sent_at' => 'datetime',
         'delivered_at' => 'datetime',
+        'resent_at' => 'datetime',
     ];
 
     /**

@@ -42,8 +42,11 @@ class CaseController extends Controller
 
         // agcy_id is the agencies FK column name (also on users/referrals),
         // not a typo for agency_id — keep the query param name in sync.
+        // The sort rule is generated from CaseService::SORT_KEYS so an accepted
+        // sort key can never drift from one getCases() can actually order by.
         $listing = $request->validate([
             'status' => ['nullable', 'string', 'in:OPEN,CLOSED,ARCHIVED'],
+            'client_type' => ['nullable', 'string', 'in:'.implode(',', CaseService::CLIENT_TYPE_FILTERS)],
             'search' => ['nullable', 'string', 'max:255'],
             'vulnerability_indicator' => ['nullable', 'string', 'max:255'],
             'user_id' => ['nullable', 'string', 'uuid'],
@@ -53,7 +56,7 @@ class CaseController extends Controller
             'referral_state' => ['nullable', 'string', 'in:none'],
             'date_from' => ['nullable', 'string', 'date_format:Y-m-d'],
             'date_to' => ['nullable', 'string', 'date_format:Y-m-d'],
-            'sort' => ['nullable', 'string', 'in:case_number,tracker_number,status,created_at'],
+            'sort' => ['nullable', 'string', 'in:'.implode(',', array_keys(CaseService::SORT_KEYS))],
             'direction' => ['nullable', 'string', 'in:asc,desc'],
             'per_page' => ['nullable', 'integer', 'min:10', 'max:100'],
         ]);
@@ -81,8 +84,6 @@ class CaseController extends Controller
     public function create(Request $request)
     {
         $client = null;
-        $linkedOfws = [];
-        $filerIsNextOfKin = $request->user()->isNextOfKin();
         if ($request->has('client_id')) {
             $client = Client::with(['addresses', 'employments', 'nextOfKin', 'caseFiles'])->find($request->client_id);
             // OFW self-file: only their own linked client may prefill.
@@ -93,23 +94,12 @@ class CaseController extends Controller
             }
         } elseif ($request->user()->isOfw() && $request->user()->client) {
             $client = $request->user()->client->load(['addresses', 'employments', 'nextOfKin', 'caseFiles']);
-        } elseif ($filerIsNextOfKin && $request->user()->client) {
-            $linkedOfws = Client::where('is_deleted', false)
-                ->where('type', 'OFW')
-                ->where('ofw_client_id', $request->user()->client->id)
-                ->orderBy('first_name')->orderBy('last_name')->limit(50)
-                ->get(['id', 'first_name', 'middle_name', 'last_name', 'suffix', 'email']);
         }
-
-        $categories = $this->referenceData->getActiveCategories();
-        $caseIssues = $this->referenceData->getActiveIssues();
 
         return Inertia::render('Case/Create', [
             'client' => $client,
-            'linkedOfws' => $linkedOfws,
-            'filerIsNextOfKin' => $filerIsNextOfKin,
-            'categories' => $categories,
-            'caseIssues' => $caseIssues,
+            'categories' => $this->referenceData->getActiveCategories(),
+            'caseIssues' => $this->referenceData->getActiveIssues(),
             'occupationOptions' => $this->referenceData->getOccupationOptions(),
         ]);
     }
@@ -172,14 +162,9 @@ class CaseController extends Controller
             ] : null;
         }
 
-        $categories = $this->referenceData->getActiveCategories();
-        $caseIssues = $this->referenceData->getActiveIssues();
-
         return Inertia::render('OFW/Intake', [
             'profile' => $profile,
             'vulnerabilityOptions' => VulnerabilityRule::VALUES,
-            'categories' => $categories,
-            'caseIssues' => $caseIssues,
         ]);
     }
 
@@ -530,9 +515,9 @@ class CaseController extends Controller
 
     public function restore(Request $request, string $id)
     {
-        $case = CaseFile::onlyTrashed()->findOrFail($id);
-
-        $this->caseService->restoreTrashedCase($case, $request->user()->id);
+        // Ownership scoping (CASE_MANAGER → own cases only) and the row lock live
+        // in the service, so the controller never resolves a trashed case itself.
+        $this->caseService->restoreTrashedCase($id, $request->user());
 
         return redirect()
             ->route('cases.trash')

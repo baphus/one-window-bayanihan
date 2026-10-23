@@ -69,7 +69,7 @@ class CacheInvalidationObserver
     private function invalidateFor(Model $model): void
     {
         match (true) {
-            $model instanceof Agency => $this->invalidateAgency(),
+            $model instanceof Agency => $this->invalidateAgency($model),
             $model instanceof CaseCategory => $this->invalidateCategory(),
             $model instanceof CaseIssue => $this->invalidateIssue(),
             $model instanceof CaseStatus => $this->invalidateCaseStatus(),
@@ -83,13 +83,14 @@ class CacheInvalidationObserver
         };
     }
 
-    private function invalidateAgency(): void
+    private function invalidateAgency(Agency $agency): void
     {
         ReferenceDataService::invalidateAgencies();
         Cache::forget('admin:agency_stats');
         Cache::forget('dashboard:active_agencies_count');
         Cache::forget('dashboard:admin_agency_counts');
         Cache::forget('stakeholder:agencies_list');
+        Cache::forget('stakeholder:agency:'.$agency->id);
         ReportsService::invalidateAll();
     }
 
@@ -124,6 +125,7 @@ class CacheInvalidationObserver
     {
         ReferralService::invalidateReferralStats();
         Cache::forget('stats:cases');
+        Cache::forget('intake_queue:count');
         Cache::forget('dashboard:cm_counts');
         Cache::forget('dashboard:admin_counts_v2');
         Cache::forget('dashboard:cm_closed_days');

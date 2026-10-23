@@ -21,20 +21,39 @@ class ProfileController extends Controller
      */
     public function edit(Request $request): Response
     {
+        return Inertia::render('Profile/Edit', self::editProps($request));
+    }
+
+    /**
+     * The prop set that every Profile/Edit render must carry.
+     *
+     * The page binds these once on mount: `useState(mfaEnabled)` inside
+     * MfaSetup, and `useForm({ notifications_config: { ...notificationPrefs } })`
+     * for the notification section. A partial payload is therefore not a
+     * cosmetic gap — an MFA-enrolled user is shown as unenrolled, and saving
+     * the form writes the all-off defaults back over the stored preferences.
+     *
+     * The email-change steps render this same page from a second controller,
+     * so both producers build from here and cannot drift apart again.
+     *
+     * @return array<string, mixed>
+     */
+    public static function editProps(Request $request): array
+    {
         $user = $request->user()->load('agency');
 
-        return Inertia::render('Profile/Edit', [
-            'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
+        return [
+            'mustVerifyEmail' => $user instanceof MustVerifyEmail,
             'status' => session('status'),
-            'mfaEnabled' => $request->user()->mfa_enabled_at !== null,
+            'mfaEnabled' => $user->mfa_enabled_at !== null,
             'defaultAgency' => app(ReferenceDataService::class)->getDefaultAgency(),
-            'notificationPrefs' => $request->user()->notifications_config ?? [
+            'notificationPrefs' => $user->notifications_config ?? [
                 'email_on_case_assigned' => true,
                 'email_on_case_status_change' => true,
                 'email_on_referral' => true,
                 'in_app_notifications' => true,
             ],
-        ]);
+        ];
     }
 
     /**

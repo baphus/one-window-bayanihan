@@ -717,9 +717,9 @@ class ReportsExportService
 
     /**
      * Referral aging buckets computed from the identically filtered referral
-     * base. Mirrors ReportsService::getReferralAging so agency exports can
-     * include this section (it renders on the agency performance tab) even
-     * though the AGENCY payload omits the key.
+     * base. No ReportsService payload carries `referralAging` any more — the
+     * page computes none of them — so exports always take this path to keep
+     * the Referral Aging sheet.
      */
     private function agingFromBase($base): array
     {

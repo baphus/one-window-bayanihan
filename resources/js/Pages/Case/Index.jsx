@@ -408,8 +408,10 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
           case 'age':
             return {
               ...base,
-              sortable: true,
-              sortAccessor: (row) => (row.client?.date_of_birth ? new Date(row.client.date_of_birth).getTime() : 0),
+              // Not sortable: clients.date_of_birth is an encrypted column, so
+              // age cannot be ordered in SQL. The table sorts server-side, so
+              // offering it here would only ever produce a rejected request.
+              sortable: false,
               render: (row) => (
                 <span className="text-xs text-slate-600">{getClientAge(row.client?.date_of_birth)}</span>
               ),

@@ -69,7 +69,14 @@ class AdminCaseStatusController extends Controller
                 ->with('error', 'System statuses cannot be deleted.');
         }
 
-        $status->update(['is_deleted' => true, 'is_active' => false]);
+        // Deletion is a real soft delete: `delete()` routes through
+        // SoftDeleteFlag::runSoftDelete(), which writes is_deleted, deleted_by
+        // and deleted_at together in one UPDATE. The previous flag-only update
+        // left deleted_at null, so the SoftDeletes global scope — the thing
+        // every default-scope query relies on — kept serving the status as if
+        // it were still live.
+        $status->is_active = false;
+        $status->delete();
 
         return redirect()->route('admin.case-statuses.index')
             ->with('success', 'Status deleted successfully.');

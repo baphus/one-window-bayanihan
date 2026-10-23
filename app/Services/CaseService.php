@@ -8,17 +8,24 @@ use App\Enums\UserRole;
 use App\Helpers\CacheHelper;
 use App\Models\AuditLog;
 use App\Models\CaseCategory;
+use App\Models\CaseDocument;
 use App\Models\CaseFile;
 use App\Models\Client;
 use App\Models\Referral;
+use App\Models\ReferralAttachment;
+use App\Models\ReferralClientMessage;
+use App\Models\ReferralClientMessageAttachment;
+use App\Models\ReferralClientRequest;
 use App\Models\User;
 use App\Notifications\CaseStatusUpdated;
 use App\Notifications\CaseUpdated;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 class CaseService
@@ -255,7 +262,12 @@ class CaseService
     public function rejectCase(string $id, string $reason, string $userId): CaseFile
     {
         return DB::transaction(function () use ($id, $reason, $userId) {
+            // Same lock as approveCase: the two transitions must serialize. Without
+            // it a concurrent approve can commit status=OPEN between this read and
+            // the soft-delete below, and the rejection would then land on an
+            // already-published case (categories detached, "rejected" audit entry).
             $case = CaseFile::where('status', CaseFile::STATUS_PENDING_REVIEW)
+                ->lockForUpdate()
                 ->findOrFail($id);
 
             $case->deletion_reason = $reason;
@@ -390,24 +402,67 @@ class CaseService
         }
     }
 
+    /**
+     * Sort keys the case index accepts, mapped to the ORDER BY columns that
+     * implement them plus, for keys that read a related table, the join needed
+     * to reach it.
+     *
+     * Single source of truth for both sides of the contract: CaseController
+     * builds its request `in:` rule from these keys and getCases() resolves
+     * them here, so a key can never be accepted by validation without also
+     * being sortable.
+     *
+     * `age` is deliberately absent — clients.date_of_birth is an encrypted
+     * column (Client's EncryptedDate cast), so it holds ciphertext and cannot
+     * be ordered in SQL. The column is not offered as sortable in the UI.
+     *
+     * @var array<string, array{columns: array<int, string>, join?: string, foreign_key?: string}>
+     */
+    public const SORT_KEYS = [
+        'case_number' => ['columns' => ['cases.case_number']],
+        'tracker_number' => ['columns' => ['cases.tracker_number']],
+        'status' => ['columns' => ['cases.status']],
+        'created_at' => ['columns' => ['cases.created_at']],
+        'client_type' => ['columns' => ['clients.type'], 'join' => 'clients', 'foreign_key' => 'client_id'],
+        'client_name' => ['columns' => ['clients.last_name', 'clients.first_name'], 'join' => 'clients', 'foreign_key' => 'client_id'],
+        'author' => ['columns' => ['users.name'], 'join' => 'users', 'foreign_key' => 'user_id'],
+    ];
+
+    /**
+     * Values the case index accepts for `client_type`. Lives on clients.type;
+     * the same pair the registration flow enforces (OfwRegistrationController).
+     */
+    public const CLIENT_TYPE_FILTERS = ['OFW', 'NEXT_OF_KIN'];
+
     public function getCases(array $filters = [], string $sort = 'created_at', string $direction = 'desc', int $perPage = 15)
     {
-        $sortMap = [
-            'case_number' => 'case_number',
-            'tracker_number' => 'tracker_number',
-            'status' => 'status',
-            'created_at' => 'created_at',
-        ];
-        $sortColumn = $sortMap[$sort] ?? 'created_at';
+        $sortSpec = self::SORT_KEYS[$sort] ?? self::SORT_KEYS['created_at'];
 
         $query = CaseFile::with(['client', 'user', 'category', 'categories', 'caseIssue', 'referrals.agency', 'referrals.milestones']);
 
-        $query->where('status', '!=', 'DRAFT');
+        // A sort that reads a related table needs it joined. The join exists
+        // only to ORDER BY, so it is added only for that sort and always with
+        // select('cases.*') — the hydrated columns stay exactly what the
+        // un-joined query produced.
+        if (isset($sortSpec['join'])) {
+            $query->leftJoin($sortSpec['join'], "{$sortSpec['join']}.id", '=', "cases.{$sortSpec['foreign_key']}")
+                ->select('cases.*');
+        }
+
+        // Every column below is qualified with `cases.`: a sort key that reads
+        // clients/users joins that table in, and several of these names
+        // (status, user_id, created_at, case_number) exist on more than one
+        // side of such a join.
+        $query->where('cases.status', '!=', 'DRAFT');
 
         if (! empty($filters['status'])) {
-            $query->where('status', $filters['status']);
+            $query->where('cases.status', $filters['status']);
         } else {
-            $query->whereNotIn('status', ['ARCHIVED']);
+            $query->whereNotIn('cases.status', ['ARCHIVED']);
+        }
+
+        if (! empty($filters['client_type'])) {
+            $query->ofClientType($filters['client_type']);
         }
 
         // Role-based scoping — restrict which cases the current user can see
@@ -427,26 +482,26 @@ class CaseService
             });
         } elseif ($user && in_array($user->role, [UserRole::ADMIN->value, UserRole::CASE_MANAGER->value]) && ! empty($filters['user_id'])) {
             // ADMIN and CASE_MANAGER can filter by user_id
-            $query->where('user_id', $filters['user_id']);
+            $query->where('cases.user_id', $filters['user_id']);
         }
 
         if (! empty($filters['vulnerability_indicator'])) {
             $query->where(function ($q) use ($filters) {
-                $q->where('vulnerability_indicator', 'LIKE', "%{$filters['vulnerability_indicator']}%")
-                    ->orWhere('nok_vulnerability_indicator', 'LIKE', "%{$filters['vulnerability_indicator']}%");
+                $q->where('cases.vulnerability_indicator', 'LIKE', "%{$filters['vulnerability_indicator']}%")
+                    ->orWhere('cases.nok_vulnerability_indicator', 'LIKE', "%{$filters['vulnerability_indicator']}%");
             });
         }
 
         if (! empty($filters['category_ids']) && is_array($filters['category_ids'])) {
             $query->where(function ($q) use ($filters) {
-                $q->whereIn('category_id', $filters['category_ids'])
+                $q->whereIn('cases.category_id', $filters['category_ids'])
                     ->orWhereHas('categories', function ($categoryQuery) use ($filters) {
                         $categoryQuery->whereIn('case_categories.id', $filters['category_ids']);
                     });
             });
         } elseif (! empty($filters['category_id'])) {
             $query->where(function ($q) use ($filters) {
-                $q->where('category_id', $filters['category_id'])
+                $q->where('cases.category_id', $filters['category_id'])
                     ->orWhereHas('categories', function ($categoryQuery) use ($filters) {
                         $categoryQuery->where('case_categories.id', $filters['category_id']);
                     });
@@ -454,7 +509,7 @@ class CaseService
         }
 
         if (! empty($filters['case_issue_id'])) {
-            $query->where('case_issue_id', $filters['case_issue_id']);
+            $query->where('cases.case_issue_id', $filters['case_issue_id']);
         }
 
         if (! empty($filters['agcy_id'])) {
@@ -464,27 +519,27 @@ class CaseService
         }
 
         if (! empty($filters['age_min_days']) && is_numeric($filters['age_min_days'])) {
-            $query->where('created_at', '<=', now()->subDays((int) $filters['age_min_days']));
+            $query->where('cases.created_at', '<=', now()->subDays((int) $filters['age_min_days']));
         }
 
         if (($filters['referral_state'] ?? null) === 'none') {
             $query->whereDoesntHave('referrals', function ($q) {
-                $q->where('is_deleted', false);
+                $q->where('referrals.is_deleted', false);
             });
         }
 
         if (! empty($filters['date_from'])) {
-            $query->whereDate('created_at', '>=', $filters['date_from']);
+            $query->whereDate('cases.created_at', '>=', $filters['date_from']);
         }
         if (! empty($filters['date_to'])) {
-            $query->whereDate('created_at', '<=', $filters['date_to']);
+            $query->whereDate('cases.created_at', '<=', $filters['date_to']);
         }
 
         if (! empty($filters['search'])) {
             $search = $filters['search'];
             $query->where(function ($q) use ($search) {
-                $q->where('case_number', 'ilike', "%{$search}%")
-                    ->orWhere('tracker_number', 'ilike', "%{$search}%")
+                $q->where('cases.case_number', 'ilike', "%{$search}%")
+                    ->orWhere('cases.tracker_number', 'ilike', "%{$search}%")
                     ->orWhereHas('client', function ($q) use ($search) {
                         $q->where('first_name', 'ilike', "%{$search}%")
                             ->orWhere('last_name', 'ilike', "%{$search}%")
@@ -496,7 +551,12 @@ class CaseService
         }
 
         $direction = in_array(strtolower($direction), ['asc', 'desc']) ? $direction : 'desc';
-        $query->orderBy($sortColumn, $direction)->orderBy('id', $direction);
+
+        foreach ($sortSpec['columns'] as $sortColumn) {
+            $query->orderBy($sortColumn, $direction);
+        }
+
+        $query->orderBy('cases.id', $direction);
 
         return $query->paginate(min(max($perPage, 10), 100));
     }
@@ -535,21 +595,30 @@ class CaseService
             $old = $case->toArray();
             $oldStatus = $case->status;
 
-            if ($newStatus !== $case->status && in_array($newStatus, ['CLOSED', 'ARCHIVED'], true)) {
-                $canClose = $this->canClose($id);
-                if (! $canClose['can_close']) {
-                    abort(422, $canClose['reason']);
+            if ($newStatus !== $case->status) {
+                $this->assertStatusTransitionAllowed($case->status, $newStatus);
+
+                if (in_array($newStatus, ['CLOSED', 'ARCHIVED'], true)) {
+                    $canClose = $this->canClose($id);
+                    if (! $canClose['can_close']) {
+                        abort(422, $canClose['reason']);
+                    }
                 }
             }
 
-            $updateData = [
-                'status' => $newStatus,
-                'vulnerability_indicator' => $data['vulnerability_indicator'] ?? null,
-                'nok_vulnerability_indicator' => $data['nok_vulnerability_indicator'] ?? null,
-                'summary' => $data['summary'] ?? null,
-                'category_id' => $categoryMutation === null ? $case->category_id : $this->primaryCategoryId($categoryIds, $case->category_id, $categoryMutation['legacy']),
-                'case_issue_id' => $data['case_issue_id'] ?? $case->case_issue_id,
-            ];
+            $updateData = ['status' => $newStatus];
+
+            // Partial edits: every field is optional, so only the keys actually
+            // present in the payload are written. Writing them unconditionally
+            // meant a status-only save (e.g. `{status: 'CLOSED'}`) nulled the
+            // case's vulnerability markers, summary and issue.
+            foreach (['vulnerability_indicator', 'nok_vulnerability_indicator', 'summary', 'case_issue_id'] as $field) {
+                if (array_key_exists($field, $data)) {
+                    $updateData[$field] = $data[$field];
+                }
+            }
+
+            $updateData['category_id'] = $categoryMutation === null ? $case->category_id : $this->primaryCategoryId($categoryIds, $case->category_id, $categoryMutation['legacy']);
 
             if ($newStatus === 'CLOSED' && $case->status !== 'CLOSED') {
                 $updateData['closed_at'] = now();
@@ -608,6 +677,31 @@ class CaseService
                 'caseIssue',
             ]);
         });
+    }
+
+    /**
+     * Transitions the edit endpoint is not allowed to perform.
+     *
+     * The edit form carries a status field, but two status changes belong to
+     * dedicated flows and must not be reachable by patching the case:
+     *  - PENDING_REVIEW → OPEN is publication (approveCase stamps reviewed_by /
+     *    reviewed_at, revalidates categories and writes the PUBLISH audit entry);
+     *  - ARCHIVED is only reachable from CLOSED (archiveCase's rule).
+     *
+     * OPEN ↔ CLOSED stays available here — it is the same transition
+     * toggleCaseStatus performs and records the same client-facing events.
+     *
+     * @throws \Symfony\Component\HttpKernel\Exception\HttpResponseException 422 on a forbidden transition
+     */
+    private function assertStatusTransitionAllowed(string $from, string $to): void
+    {
+        if ($to === 'OPEN' && $from === CaseFile::STATUS_PENDING_REVIEW) {
+            abort(422, 'Pending cases must be published through the review queue.');
+        }
+
+        if ($to === 'ARCHIVED' && $from !== 'CLOSED') {
+            abort(422, 'Only closed cases can be archived.');
+        }
     }
 
     public function archiveCase(string $id, string $userId): CaseFile
@@ -903,12 +997,19 @@ class CaseService
             // Aggregate counts via PostgreSQL FILTER clauses. Client-type
             // counts now read clients.type through the case's client, since
             // cases no longer carry client_type.
-            $counts = (clone $caseQuery)->selectRaw("
-                    COUNT(*) FILTER (WHERE status NOT IN ('DRAFT','ARCHIVED')) AS active,
-                    COUNT(*) FILTER (WHERE status = 'OPEN') AS open,
-                    COUNT(*) FILTER (WHERE status = 'CLOSED') AS closed,
-                    COUNT(*) FILTER (WHERE status = 'ARCHIVED') AS archived,
-                    COUNT(*) FILTER (WHERE status = 'PENDING_REVIEW') AS pending_review
+            // The client-type tile uses the same population as total_cases
+            // (everything outside DRAFT/ARCHIVED), matching the ofw/nok tiles
+            // getClientDirectoryStats() already reports.
+            $counts = (clone $caseQuery)
+                ->leftJoin('clients as stat_clients', 'stat_clients.id', '=', 'cases.client_id')
+                ->selectRaw("
+                    COUNT(*) FILTER (WHERE cases.status NOT IN ('DRAFT','ARCHIVED')) AS active,
+                    COUNT(*) FILTER (WHERE cases.status = 'OPEN') AS open,
+                    COUNT(*) FILTER (WHERE cases.status = 'CLOSED') AS closed,
+                    COUNT(*) FILTER (WHERE cases.status = 'ARCHIVED') AS archived,
+                    COUNT(*) FILTER (WHERE cases.status = 'PENDING_REVIEW') AS pending_review,
+                    COUNT(*) FILTER (WHERE cases.status NOT IN ('DRAFT','ARCHIVED') AND stat_clients.type = 'OFW') AS ofw_cases,
+                    COUNT(*) FILTER (WHERE cases.status NOT IN ('DRAFT','ARCHIVED') AND stat_clients.type = 'NEXT_OF_KIN') AS nok_cases
                 ")->first();
 
             // Total referrals — ADMIN and CASE_MANAGER see all; AGENCY sees own only
@@ -935,6 +1036,8 @@ class CaseService
                 'closed_cases' => (int) $counts->closed,
                 'archived_cases' => (int) $counts->archived,
                 'pending_review_cases' => (int) $counts->pending_review,
+                'ofw_cases' => (int) $counts->ofw_cases,
+                'nok_cases' => (int) $counts->nok_cases,
                 'total_referrals' => $totalReferrals,
                 'category_breakdown' => $categoryBreakdown,
             ];
@@ -969,7 +1072,7 @@ class CaseService
                 // Same rule as ClientController@index: at least one live
                 // non-DRAFT case, or the tile counts clients the listing hides.
                 ->whereHas('caseFiles', function ($q) {
-                    $q->where('is_deleted', false)
+                    $q->where('cases.is_deleted', false)
                         ->whereNull('cases.deleted_at')
                         ->where('status', '!=', 'DRAFT');
                 })
@@ -1091,13 +1194,27 @@ class CaseService
     /**
      * Restore a soft-deleted case back to ARCHIVED status.
      *
+     * Resolved, ownership-scoped and row-locked in one statement inside the
+     * transaction: the caller hands over a bare id, so a case that is not the
+     * actor's (CASE_MANAGER) and a case that purgeTrashedCases() has already
+     * force-deleted both surface as a 404 instead of being restored, or being
+     * reported as restored when nothing happened.
+     *
      * Cascaded restore is triggered by the CascadeSoftDeletes trait on restore().
+     *
+     * @throws ModelNotFoundException 404 when the trashed case is gone or not the actor's
      */
-    public function restoreTrashedCase(CaseFile $case, string $userId): CaseFile
+    public function restoreTrashedCase(string $id, User $actor): CaseFile
     {
-        return DB::transaction(function () use ($case, $userId) {
+        return DB::transaction(function () use ($id, $actor) {
+            $case = $this->scopeToTrashOwner(CaseFile::onlyTrashed()->whereKey($id), $actor)
+                ->lockForUpdate()
+                ->firstOrFail();
+
             // Restore case (and cascaded referrals/documents via CascadeSoftDeletes)
-            $case->restore();
+            if (! $case->restore()) {
+                abort(404, 'Case not found in trash.');
+            }
 
             // Ensure case returns to ARCHIVED, not some other status
             $case->update(['status' => 'ARCHIVED', 'deletion_reason' => null]);
@@ -1109,7 +1226,7 @@ class CaseService
                 'description' => "Case {$case->case_number} restored from trash",
                 'old_value' => ['is_deleted' => true],
                 'new_value' => ['is_deleted' => false, 'status' => 'ARCHIVED'],
-                'user_id' => $userId,
+                'user_id' => $actor->id,
                 'timestamp' => now(),
             ]);
 
@@ -1129,6 +1246,21 @@ class CaseService
     }
 
     /**
+     * Trash visibility: a CASE_MANAGER only ever reaches their own trashed
+     * cases, ADMIN keeps global access. Single source of truth for the trash
+     * listing and the restore lookup — a case outside the scope is simply not
+     * found, so its existence is not disclosed to a non-owner.
+     */
+    private function scopeToTrashOwner(Builder $query, ?User $user): Builder
+    {
+        if ($user && $user->isCaseManager()) {
+            $query->where('user_id', $user->id);
+        }
+
+        return $query;
+    }
+
+    /**
      * Paginated list of soft-deleted cases for the trash view.
      *
      * CASE_MANAGER role sees only their own trashed cases.
@@ -1136,14 +1268,12 @@ class CaseService
      */
     public function getTrashedCases(array $filters = [], ?User $user = null): LengthAwarePaginator
     {
-        $query = CaseFile::onlyTrashed()
-            ->with(['client', 'user'])
-            ->orderBy('deleted_at', 'desc');
-
-        // Role-based ownership filter
-        if ($user && $user->isCaseManager()) {
-            $query->where('user_id', $user->id);
-        }
+        $query = $this->scopeToTrashOwner(
+            CaseFile::onlyTrashed()
+                ->with(['client', 'user'])
+                ->orderBy('deleted_at', 'desc'),
+            $user
+        );
 
         if (! empty($filters['search'])) {
             $search = $filters['search'];
@@ -1163,51 +1293,239 @@ class CaseService
     }
 
     /**
+     * PostgreSQL SQLSTATEs raised when a delete is refused by a foreign key:
+     * restrict_violation (23001) for an explicit ON DELETE RESTRICT and
+     * foreign_key_violation (23503) for the non-RESTRICT actions. Either one
+     * means the row still has children the cascade did not reach.
+     */
+    private const FK_BLOCKING_SQLSTATES = ['23001', '23503'];
+
+    /**
      * Permanently delete soft-deleted cases older than the retention period.
      *
-     * Called by the PurgeTrashedCases artisan command. Returns the count of
-     * purged cases.
+     * Called by the PurgeTrashedCases artisan command. Every case is purged in
+     * its own transaction, so a case that still has rows behind a RESTRICT
+     * foreign key — in practice a referral whose client-request access-links
+     * were never cleaned up — is logged and skipped instead of aborting the
+     * whole batch. One such case used to roll the transaction back on every
+     * scheduled run, so the batch permanently purged nothing.
+     *
+     * Returns the number of cases actually purged. Skipped cases are written
+     * to the application log and counted in the batch audit entry, so a run
+     * that matched cases but purged none is still visible.
+     *
+     * A retention period below one day is rejected before anything is computed:
+     * 0 or a negative value would flip the cutoff to "now" (or into the
+     * future) and purge every trashed case regardless of the configured
+     * policy. The method returns 0 (nothing purged) and logs the abort.
+     *
+     * The stored files behind a purged case are deleted here rather than left
+     * to storage:cleanup-orphans. That sweep keys on case_documents and
+     * referral_attachments rows, and forceDelete() takes exactly those rows
+     * away — so a purge that lands before a successful sweep (storage outage, a
+     * failed try) would leave the objects behind with nothing left pointing at
+     * them, permanently.
      */
     public function purgeTrashedCases(int $retentionDays): int
     {
+        if ($retentionDays < 1) {
+            Log::warning('cases:purge-trashed — retention below 1 day aborted the purge before any case was touched.', [
+                'retention_days' => $retentionDays,
+            ]);
+
+            return 0;
+        }
+
         $cutoff = now()->subDays($retentionDays);
 
         $cases = CaseFile::onlyTrashed()
             ->where('deleted_at', '<', $cutoff)
             ->get();
 
-        $count = $cases->count();
-
-        if ($count === 0) {
+        if ($cases->isEmpty()) {
             return 0;
         }
 
-        DB::transaction(function () use ($cases, $cutoff, $count) {
-            $ids = $cases->pluck('id')->all();
+        $purgedCount = 0;
+        $purgedFileCount = 0;
+        $skippedCaseIds = [];
 
-            // case_events has no soft-delete flag and its FK is RESTRICT, so it cannot go through
-            // $cascadeSoftDeletes (CaseEvent is append-only; its deleting hook throws).
-            // Limit: event rows go without per-row audit, and referrals with request access-links can still hit RESTRICT.
-            DB::table('case_events')->whereIn('case_id', $ids)->delete();
+        foreach ($cases as $case) {
+            // Read the paths before the transaction: once forceDelete() runs,
+            // CascadeSoftDeletes and the ON DELETE CASCADE constraints remove
+            // the rows that hold them. A purge that is later rolled back must
+            // not have already emptied the bucket.
+            $filePaths = $this->purgeableFilePaths($case);
 
-            foreach ($cases as $case) {
-                // CascadeSoftDeletes handles child force-deletes when forceDelete() is called.
-                $case->forceDelete();
+            try {
+                DB::transaction(function () use ($case) {
+                    // case_events has no soft-delete flag and its FK is RESTRICT, so it cannot go through
+                    // $cascadeSoftDeletes (CaseEvent is append-only; its deleting hook throws).
+                    // Limit: event rows go without per-row audit.
+                    DB::table('case_events')->where('case_id', $case->id)->delete();
+
+                    // CascadeSoftDeletes handles child force-deletes when forceDelete() is called.
+                    $case->forceDelete();
+                });
+
+                $purgedCount++;
+
+                // Outside the transaction on purpose: a storage failure here
+                // must not roll back a purge that has already committed, and
+                // must not abort the rest of the batch.
+                $purgedFileCount += $this->deletePurgedFiles($case, $filePaths);
+            } catch (QueryException $e) {
+                // Only a blocking foreign key is survivable; anything else is a
+                // real failure and must keep bubbling up.
+                if (! in_array($e->getCode(), self::FK_BLOCKING_SQLSTATES, true)) {
+                    throw $e;
+                }
+
+                $skippedCaseIds[] = $case->id;
+
+                Log::warning('cases:purge-trashed — skipped case held by a RESTRICT foreign key.', [
+                    'case_id' => $case->id,
+                    'case_number' => $case->case_number,
+                    'retention_days' => $retentionDays,
+                    'cutoff' => $cutoff->toDateString(),
+                    'sqlstate' => $e->getCode(),
+                ]);
+            }
+        }
+
+        // Audit the purge batch, including what the run could not purge.
+        $skippedCount = count($skippedCaseIds);
+
+        AuditLog::create([
+            'action' => AuditAction::PURGE->value,
+            'module' => AuditModule::CASE->value,
+            'entity_id' => null,
+            'description' => "Auto-purged {$purgedCount} case(s) with deleted_at before {$cutoff->toDateString()}"
+                .($skippedCount > 0 ? "; skipped {$skippedCount} held by a RESTRICT foreign key" : ''),
+            'old_value' => [
+                'purged_count' => $purgedCount,
+                'purged_file_count' => $purgedFileCount,
+                'skipped_count' => $skippedCount,
+                'skipped_case_ids' => $skippedCaseIds,
+                'cutoff_date' => $cutoff->toDateString(),
+            ],
+            'new_value' => null,
+            'user_id' => null,
+            'timestamp' => now(),
+        ]);
+
+        return $purgedCount;
+    }
+
+    /**
+     * Every stored file a force-purged case takes with it.
+     *
+     * Three chains, all read with withTrashed() because a cascade may already
+     * have trashed the row before the case reached its retention date:
+     *
+     *   case_documents.case_id
+     *   referrals.case_id -> referral_attachments.referral_id
+     *   referrals -> client_requests -> messages -> attachments
+     *
+     * The last one is the citizen-uploaded path (passport and residence scans
+     * arriving through a public tracking link); it is included because the
+     * rows cascade away with the referral just like the first two.
+     *
+     * @return list<string>
+     */
+    private function purgeableFilePaths(CaseFile $case): array
+    {
+        $paths = CaseDocument::withTrashed()
+            ->where('case_id', $case->id)
+            ->pluck('file_path')
+            ->all();
+
+        $referralIds = Referral::withTrashed()
+            ->where('case_id', $case->id)
+            ->pluck('id');
+
+        if ($referralIds->isEmpty()) {
+            return $this->uniquePaths($paths);
+        }
+
+        $paths = array_merge($paths, ReferralAttachment::withTrashed()
+            ->whereIn('referral_id', $referralIds)
+            ->pluck('file_path')
+            ->all());
+
+        $requestIds = ReferralClientRequest::withTrashed()
+            ->whereIn('referral_id', $referralIds)
+            ->pluck('id');
+
+        if ($requestIds->isNotEmpty()) {
+            $messageIds = ReferralClientMessage::withTrashed()
+                ->whereIn('request_id', $requestIds)
+                ->pluck('id');
+
+            if ($messageIds->isNotEmpty()) {
+                $paths = array_merge($paths, ReferralClientMessageAttachment::withTrashed()
+                    ->whereIn('message_id', $messageIds)
+                    ->pluck('file_path')
+                    ->all());
+            }
+        }
+
+        return $this->uniquePaths($paths);
+    }
+
+    /**
+     * Drop blank and duplicate paths so a shared object is deleted once.
+     *
+     * @param  array<int, mixed>  $paths
+     * @return list<string>
+     */
+    private function uniquePaths(array $paths): array
+    {
+        return array_values(array_unique(array_filter($paths, fn ($path) => is_string($path) && $path !== '')));
+    }
+
+    /**
+     * Delete the objects a purged case owned. Returns how many went away.
+     *
+     * Nothing in here may throw: the purge has already committed, and a bucket
+     * that is briefly unavailable must cost one leaked object and a log line,
+     * not the whole scheduled run.
+     */
+    private function deletePurgedFiles(CaseFile $case, array $filePaths): int
+    {
+        if ($filePaths === []) {
+            return 0;
+        }
+
+        $storage = app(StorageService::class);
+        $deleted = 0;
+
+        foreach ($filePaths as $path) {
+            try {
+                $succeeded = $storage->delete($path);
+            } catch (\Throwable $e) {
+                Log::warning('cases:purge-trashed — storage threw while deleting a purged file.', [
+                    'case_id' => $case->id,
+                    'path' => $path,
+                    'exception' => $e->getMessage(),
+                ]);
+
+                continue;
             }
 
-            // Audit the purge batch
-            AuditLog::create([
-                'action' => AuditAction::PURGE->value,
-                'module' => AuditModule::CASE->value,
-                'entity_id' => null,
-                'description' => "Auto-purged {$count} case(s) with deleted_at before {$cutoff->toDateString()}",
-                'old_value' => ['purged_count' => $count, 'cutoff_date' => $cutoff->toDateString()],
-                'new_value' => null,
-                'user_id' => null,
-                'timestamp' => now(),
-            ]);
-        });
+            if ($succeeded) {
+                $deleted++;
 
-        return $count;
+                continue;
+            }
+
+            Log::warning('cases:purge-trashed — could not delete a file behind a purged case.', [
+                'case_id' => $case->id,
+                'case_number' => $case->case_number,
+                'path' => $path,
+            ]);
+        }
+
+        return $deleted;
     }
 }

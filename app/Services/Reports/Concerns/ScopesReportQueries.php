@@ -14,11 +14,38 @@ trait ScopesReportQueries
      * this check centralized so payloads, options, and individual metrics do
      * not accidentally fall back to an unrestricted query.
      *
+     * Allowlist, not a deny list: only ADMIN, CASE_MANAGER and AGENCY may reach
+     * a report query at all. OFW (and any role value this build does not know)
+     * used to pass the old `$role !== AGENCY` test and then fell through the
+     * dispatch in ReportsService::getAll() to the case-manager payload, which
+     * reads system-wide aggregates and returns client PII in the overdue
+     * referral rows. Failing closed here means an unrecognised role gets the
+     * empty payload instead.
+     *
      * CASE_MANAGER sees all (no userId needed for scoping).
      * AGENCY must have an agencyId.
+     *
+     * A null role is the internal "unscoped" marker the admin payload builder
+     * passes down to the metrics it calls; it is not reachable from a request
+     * (ReportsService::getAll and the export service both pass the resolved
+     * user's role), so it keeps its previous unscoped behaviour.
      */
     private function hasRequiredRoleScope(?string $userId, ?string $role, ?string $agencyId): bool
     {
+        if ($role === null) {
+            return true;
+        }
+
+        $allowed = [
+            UserRole::ADMIN->value,
+            UserRole::CASE_MANAGER->value,
+            UserRole::AGENCY->value,
+        ];
+
+        if (! in_array($role, $allowed, true)) {
+            return false;
+        }
+
         return $role !== UserRole::AGENCY->value || (bool) $agencyId;
     }
 

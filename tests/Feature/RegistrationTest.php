@@ -251,6 +251,47 @@ class RegistrationTest extends TestCase
         $this->assertNull(User::where('email', 'otp-wrong@example.test')->first());
     }
 
+    /**
+     * Regression for the lost-race dead end: verify() consumes the code before
+     * the registration transaction runs, so a rolled-back transaction (here the
+     * `users_email_unique` violation the step-1 check could not yet see) used to
+     * leave pending_registration pointing at a dead code — every retry answered
+     * "Invalid or expired code" until the whole wizard restarted. The same code
+     * must still be accepted on the next attempt.
+     */
+    public function test_step2_failed_transaction_keeps_the_otp_usable_for_the_retry(): void
+    {
+        $pending = $this->preparePendingRegistration('race@example.test');
+
+        // Another registration lands between step 1 and step 2, so the unique
+        // constraint trips inside the transaction.
+        User::factory()->create(['email' => 'race@example.test', 'role' => UserRole::OFW->value]);
+
+        $response = $this->withSession(['pending_registration' => $pending])
+            ->from(route('register.profile'))
+            ->post(route('register.profile.store'), $this->profilePayload($pending['otp']));
+
+        $response->assertRedirect(route('register.profile'));
+        $response->assertSessionHasErrors('email');
+        $this->assertGuest();
+        $this->assertSame(1, User::where('email', 'race@example.test')->count(), 'The failed transaction must not leave a partial user behind.');
+
+        // The code verify() consumed is back in the cache, unchanged.
+        $this->assertTrue(Cache::has('otp:register:race@example.test'));
+        $this->assertSame($pending['otp'], Cache::get('otp:register:race@example.test'));
+
+        // Clear the blocker and resubmit the very same code.
+        User::withTrashed()->where('email', 'race@example.test')->forceDelete();
+
+        $retry = $this->withSession(['pending_registration' => $pending])
+            ->post(route('register.profile.store'), $this->profilePayload($pending['otp']));
+
+        $retry->assertRedirect(route('ofw.intake'));
+        $this->assertAuthenticated();
+        $this->assertDatabaseHas('users', ['email' => 'race@example.test']);
+        $this->assertFalse(Cache::has('otp:register:race@example.test'), 'A committed registration still consumes the code.');
+    }
+
     public function test_step2_guest_redirects_to_register_without_session(): void
     {
         // No pending_registration in session → should be redirected back to register.
@@ -281,6 +322,43 @@ class RegistrationTest extends TestCase
             ],
             'register_otp_verified' => false,
             'otp' => $otp, // pass through so tests can read it
+        ];
+    }
+
+    /**
+     * Step-2 payload that clears validation, so any failure downstream comes
+     * from the registration transaction itself.
+     */
+    private function profilePayload(string $otp): array
+    {
+        return [
+            'otp' => $otp,
+            'type' => 'OFW',
+            'first_name' => 'Juan',
+            'last_name' => 'Cruz',
+            'middle_name' => 'Santos',
+            'date_of_birth' => '1995-03-15',
+            'sex' => 'Male',
+            'contact_number' => '+639171234567',
+            'address' => [
+                'region' => '0700000000',
+                'city_municipality' => 'Cebu City',
+                'barangay' => 'Lahug',
+                'province' => 'Cebu',
+                'street' => 'Test Street',
+            ],
+            'employment' => [
+                'employer_name' => 'Test Employer',
+                'position' => 'Test Position',
+                'country' => 'Philippines',
+                'start_date' => '2010-04-01',
+                'is_present' => true,
+                'end_date' => null,
+                'last_country' => 'Philippines',
+                'last_position' => 'Test Last Position',
+                'date_of_arrival' => '1995-05-01',
+            ],
+            'avatar' => UploadedFile::fake()->image('avatar.jpg', 600, 600),
         ];
     }
 }

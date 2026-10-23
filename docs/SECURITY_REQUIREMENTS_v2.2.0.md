@@ -168,7 +168,8 @@ authenticated user ID and falls back to IP for guests.
 
 - MIME type validation (server-side, not just extension)
 - File size limits (configurable via `config/file-uploads.php`)
-- Malware scanning — scanner is wired through `StorageService` (confirmed by `MalwareScannerTest`) but **disabled by default**: `MALWARE_SCANNER` defaults to `null` (`config/services.php:56-58`), which binds the `NullScanner` that passes every upload. Set `MALWARE_SCANNER=clamav` to activate it
+- Malware scanning — scanner is wired through `StorageService` (confirmed by `MalwareScannerTest`) but **disabled by default**: `MALWARE_SCANNER` defaults to `null` (`config/services.php:33-39`), which binds the `NullScanner` that passes every upload. Set `MALWARE_SCANNER=clamav` to activate it
+- **Fail-open default:** when the scanner is disabled, uploads are accepted completely **UNSCANNED** — this default is deliberate for local development but must never reach a shared or production deployment. To make the silent default visible, the application logs one boot-time `Log::warning` ("Malware scanner is DISABLED ... uploads accepted UNSCANNED") whenever the scanner is not active. Production deployments should set `MALWARE_SCANNER=clamav` (plus a reachable ClamAV daemon) and `MALWARE_FAIL_OPEN=false` where unscanned uploads must be blocked outright
 - File extension whitelist
 
 ### Storage

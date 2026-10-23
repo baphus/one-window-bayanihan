@@ -13,6 +13,16 @@ use App\Services\NotificationService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 
+/**
+ * Every queue push this notifier makes is wrapped in DB::afterCommit().
+ *
+ * All three methods run inside the caller's DB::transaction (createReferral,
+ * updateStatus and addMilestone), and the queue connections keep
+ * `after_commit => false`, so a pre-commit push would hand the worker a job
+ * describing a referral, status change or milestone that a later failure
+ * rolls back. DB::afterCommit executes the callback immediately when no
+ * transaction is open, so direct callers keep their current behaviour.
+ */
 class ReferralNotifier
 {
     public function __construct(
@@ -27,7 +37,13 @@ class ReferralNotifier
         $agencyUsers = User::where('agcy_id', $referral->agcy_id)
             ->where('is_active', true)
             ->get();
-        Notification::send($agencyUsers, new ReferralCreated($referral, $actorName));
+
+        // Deferred until after commit: every notification in this method
+        // implements ShouldQueue and the queue connections run with
+        // `after_commit => false`, so pushing before COMMIT lets the worker
+        // notify agencies (and mail them) about a referral that later rolls
+        // back — e.g. when a case-document row fails to insert.
+        DB::afterCommit(fn () => Notification::send($agencyUsers, new ReferralCreated($referral, $actorName)));
 
         // Notify peer agencies already involved in this case
         $peerReferrals = Referral::where('case_id', $referral->case_id)
@@ -44,7 +60,9 @@ class ReferralNotifier
                 ->get();
 
             if ($peerUsers->isNotEmpty()) {
-                Notification::send($peerUsers, new PeerReferralCreated($referral, $peerReferrals->first(), $actorName));
+                $peerReferral = $peerReferrals->first();
+
+                DB::afterCommit(fn () => Notification::send($peerUsers, new PeerReferralCreated($referral, $peerReferral, $actorName)));
             }
         }
 
@@ -86,7 +104,7 @@ class ReferralNotifier
 
             $caseManager = User::find($referral->caseFile->user_id);
             if ($caseManager) {
-                Notification::send([$caseManager], $statusNotification);
+                DB::afterCommit(fn () => Notification::send([$caseManager], $statusNotification));
             }
 
             $agencyUsers = User::where('agcy_id', $referral->agcy_id)
@@ -94,7 +112,7 @@ class ReferralNotifier
                 ->when($caseManager, fn ($query) => $query->where('id', '!=', $caseManager->id))
                 ->get();
             if ($agencyUsers->isNotEmpty()) {
-                Notification::send($agencyUsers, $statusNotification);
+                DB::afterCommit(fn () => Notification::send($agencyUsers, $statusNotification));
             }
 
             // Also create OFW notification (plain language, no status codes).
@@ -146,10 +164,15 @@ class ReferralNotifier
             $actorName = User::whereKey($userId)->value('name');
             $agencyName = $referral->agency?->name ?? 'the agency';
             $caseNumber = $referral->caseFile?->case_number ?? '';
+            $notifyUsers = $notifyUsers->unique('id')->all();
 
-            $this->notificationService->notifyAll(
+            // Deferred until after commit: notifyAll pushes a queued
+            // MilestoneAdded notification plus the client ClientUpdateMail, and
+            // neither may reach the worker while the milestone transaction can
+            // still roll back.
+            DB::afterCommit(fn () => $this->notificationService->notifyAll(
                 $referral->caseFile,
-                $notifyUsers->unique('id')->all(),
+                $notifyUsers,
                 $clientEmail,
                 new MilestoneAdded($milestone, $referral, $actorName),
                 'milestone_added',
@@ -157,7 +180,7 @@ class ReferralNotifier
                 "{$agencyName} posted an update on your case {$caseNumber}: '{$title}'. Open your case to read the details.",
                 ['referral_id' => $referral->id, 'milestone_id' => $milestone->id, 'milestone_title' => $title],
                 route('referrals.show', $referral->id),
-            );
+            ));
         }
     }
 

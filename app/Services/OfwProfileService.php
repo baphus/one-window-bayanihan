@@ -6,6 +6,7 @@ use App\Models\Client;
 use App\Models\User;
 use App\Notifications\CaseUpdated;
 use DateTimeInterface;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Persists the self-service profile sections an OFW may edit themselves
@@ -26,6 +27,14 @@ class OfwProfileService
      * Apply whatever profile sections are present in the payload. Returns nothing;
      * the audit trail is written by AuditObserver on the observed models, and the
      * case-manager notification is dispatched only when a section changed.
+     *
+     * Every write runs inside a single transaction. The next-of-kin sync replaces
+     * the list wholesale (force-deleting the existing rows first), so a failure
+     * part-way through would otherwise destroy real data and leave a half-applied
+     * profile. Rolling back restores the deleted rows on Postgres.
+     *
+     * The case-manager notification is dispatched after the transaction commits
+     * so a rolled-back update never notifies anyone.
      */
     public function updateClientProfile(User $user, array $data): void
     {
@@ -35,33 +44,37 @@ class OfwProfileService
             return;
         }
 
-        $changes = [];
+        $changes = DB::transaction(function () use ($user, $client, $data) {
+            $changes = [];
 
-        if (array_key_exists('contact_number', $data)) {
-            $this->syncContactNumber($user, $client, $data['contact_number'], $changes);
-        }
+            if (array_key_exists('contact_number', $data)) {
+                $this->syncContactNumber($user, $client, $data['contact_number'], $changes);
+            }
 
-        if (array_key_exists('sex', $data)) {
-            $this->syncSex($client, $data['sex'], $changes);
-        }
+            if (array_key_exists('sex', $data)) {
+                $this->syncSex($client, $data['sex'], $changes);
+            }
 
-        if (array_key_exists('suffix', $data)) {
-            $this->syncSuffix($client, $data['suffix'], $changes);
-        }
+            if (array_key_exists('suffix', $data)) {
+                $this->syncSuffix($client, $data['suffix'], $changes);
+            }
 
-        if (isset($data['address']) && is_array($data['address'])) {
-            $this->syncAddress($client, $data['address'], $changes);
-        }
+            if (isset($data['address']) && is_array($data['address'])) {
+                $this->syncAddress($client, $data['address'], $changes);
+            }
 
-        if (isset($data['employment']) && is_array($data['employment'])) {
-            $this->syncEmployment($client, $data['employment'], $changes);
-        }
+            if (isset($data['employment']) && is_array($data['employment'])) {
+                $this->syncEmployment($client, $data['employment'], $changes);
+            }
 
-        if (isset($data['next_of_kin']) && is_array($data['next_of_kin'])) {
-            $this->syncNextOfKin($client, $data['next_of_kin'], $changes);
-        }
+            if (isset($data['next_of_kin']) && is_array($data['next_of_kin'])) {
+                $this->syncNextOfKin($client, $data['next_of_kin'], $changes);
+            }
 
-        $user->save();
+            $user->save();
+
+            return $changes;
+        });
 
         if (! empty($changes)) {
             $this->notifyCaseManagers($client, $user, $changes);
@@ -205,6 +218,8 @@ class OfwProfileService
         }
 
         // Replace the list wholesale (same strategy as IntakeService::syncNextOfKin).
+        // Destructive, so callers must already hold this in a transaction: a
+        // failure after these deletes rolls the rows back on Postgres.
         $client->nextOfKin()->each(fn ($nok) => $nok->forceDelete());
 
         foreach ($nokList as $index => $nok) {

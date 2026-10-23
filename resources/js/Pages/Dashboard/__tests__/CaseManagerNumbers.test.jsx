@@ -62,13 +62,14 @@ const dashboard = {
     closedCases: 3,
     pendingReferrals: 4,
     processingReferrals: 7,
-    forComplianceReferrals: 6,
+    // The CM payload no longer carries a top-level forComplianceReferrals
+    // count — For Compliance only arrives via referralStatusDistribution.
+    referralStatusDistribution: [{ status: 'FOR_COMPLIANCE', count: 6 }],
     completedReferrals: 8,
     rejectedReferrals: 1,
     totalCases: 10,
     totalReferrals: 26,
-    caseTrends: { labels: ['2026-01', '2026-02'], data: [3, 9] },
-    allCases: [],
+    casesOverTime: { labels: ['2026-01', '2026-02'], data: [3, 9] },
     priorityReferrals: [],
     priorityCases: [],
     agencyBreakdown: [],
@@ -164,7 +165,6 @@ describe('CaseManager Numbers block', () => {
         const numbers = renderNumbers({
             ...dashboard,
             casesOverTime: { labels: [], datasets: [{ data: [] }] },
-            caseTrends: { labels: [], data: [] },
             referralTrends: {
                 labels: ['2026-08', '2026-09'],
                 datasets: [{ label: 'Referrals Created', data: [12, 18] }],
@@ -184,7 +184,6 @@ describe('CaseManager Numbers block', () => {
         const numbers = renderNumbers({
             ...dashboard,
             casesOverTime: { labels: [], datasets: [{ data: [] }] },
-            caseTrends: { labels: [], data: [] },
             referralTrends: { labels: [], datasets: [{ data: [] }] },
         });
 
@@ -264,7 +263,8 @@ describe('CaseManager status pies', () => {
 describe('CaseManager Pending Reviews block', () => {
     const dashboardWithIntakes = {
         ...dashboard,
-        pendingReviews: [
+        pendingReviewCount: 2,
+        intakeReview: [
             { id: 'case-2', caseNo: 'CASE-002', trackerNumber: 'TRK-002', clientName: 'Maria Santos', status: 'PENDING_REVIEW', createdAt: '2026-09-20T00:00:00Z', href: '/cases/case-2' },
             { id: 'case-1', caseNo: 'CASE-001', clientName: 'Juan Dela Cruz', status: 'PENDING_REVIEW', createdAt: '2026-09-10T00:00:00Z', href: '/cases/case-1' },
         ],

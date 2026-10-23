@@ -89,8 +89,6 @@ class ReportsFiltersTest extends TestCase
             'rejectionReasonDistribution',
             'caseSourceDistribution',
             'closedCasesOverTime',
-            'reopenedStats',
-            'caseEventActorDistribution',
             'agencyFirstResponse',
             'clientRequestTypeDistribution',
         ]);

@@ -8,11 +8,11 @@ use App\Helpers\CacheHelper;
 use App\Http\Controllers\Concerns\ResolvesPerPage;
 use App\Models\Agency;
 use App\Models\AuditLog;
-use App\Models\User;
 use App\Services\CloudinaryAvatarService;
 use App\Services\OnboardingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
 class AdminAgencyController extends Controller
@@ -23,7 +23,12 @@ class AdminAgencyController extends Controller
     {
         $filters = $request->only(['search', 'status', 'is_default']);
 
-        $query = Agency::withCount('referrals');
+        // withTrashed(): the agency list is the only place a deactivated agency
+        // can be seen (and reactivated from) — there is no "show deleted"
+        // filter on this screen — and deactivation is a real soft delete. The
+        // Inactive status filter and the Reactivate action both depend on those
+        // rows staying visible here.
+        $query = Agency::withTrashed()->withCount('referrals');
 
         if ($search = $request->search) {
             $query->where(function ($q) use ($search) {
@@ -54,7 +59,6 @@ class AdminAgencyController extends Controller
                 'active' => Agency::where('is_active', true)->count(),
                 'inactive' => Agency::where('is_active', false)->count(),
                 'default' => Agency::where('is_default', true)->count(),
-                'total_users' => User::count(),
             ]),
         ]);
     }
@@ -101,7 +105,9 @@ class AdminAgencyController extends Controller
 
     public function update(Request $request, string $id)
     {
-        $agency = Agency::findOrFail($id);
+        // withTrashed(): a deactivated agency is still listed and its detail
+        // page still edits it, so the update has to resolve the trashed row.
+        $agency = Agency::withTrashed()->findOrFail($id);
 
         if ($request->has('is_default') && $request->is_default === false && $agency->is_default) {
             if (Agency::where('is_default', true)->count() <= 1) {
@@ -114,7 +120,12 @@ class AdminAgencyController extends Controller
             'short' => 'required|string|max:50',
             'description' => 'nullable|string',
             'contact_info' => 'nullable|string',
-            'logo_url' => 'nullable',
+            // Mirrors the store rule, but only when a file was actually
+            // uploaded. The edit form resubmits the *current* logo URL as a
+            // plain string whenever no new file is picked — that string is
+            // discarded by the branch below, so it must not be measured against
+            // the image rule or every ordinary agency edit would fail.
+            'logo_url' => ['nullable', Rule::when($request->hasFile('logo_url'), ['image', 'max:2048'])],
             'location_query' => 'nullable|string',
             'is_active' => 'boolean',
             'latitude' => 'nullable|numeric|between:-90,90',
@@ -229,7 +240,9 @@ class AdminAgencyController extends Controller
 
     public function show(Request $request, string $id)
     {
-        $agency = Agency::withCount('referrals')->findOrFail($id);
+        // withTrashed(): the agency list surfaces deactivated agencies, and
+        // their detail page still has to open.
+        $agency = Agency::withTrashed()->withCount('referrals')->findOrFail($id);
         $agency->load([
             'services',
             'services.requirements',
@@ -257,8 +270,7 @@ class AdminAgencyController extends Controller
         }
 
         $agency->is_active = false;
-        $agency->is_deleted = true;
-        $agency->save();
+        $agency->delete();
 
         return redirect()->route('admin.agencies.index')
             ->with('success', 'Agency deactivated successfully.');
@@ -276,6 +288,7 @@ class AdminAgencyController extends Controller
         $agency->is_active = true;
         $agency->is_deleted = false;
         $agency->deleted_at = null;
+        $agency->deleted_by = null;
         $agency->save();
 
         AuditLog::create([
