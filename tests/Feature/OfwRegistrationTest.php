@@ -21,7 +21,9 @@ class OfwRegistrationTest extends TestCase
     public function test_guest_can_start_two_step_registration(): void
     {
         $response = $this->post(route('register.store'), [
-            'name' => 'Juan Dela Cruz',
+            'first_name' => 'Juan',
+            'middle_name' => 'Dela',
+            'last_name' => 'Cruz',
             'email' => 'juan@example.com',
             'password' => 'Password123',
             'password_confirmation' => 'Password123',
@@ -38,7 +40,9 @@ class OfwRegistrationTest extends TestCase
         User::factory()->create(['email' => 'juan@example.com', 'role' => UserRole::OFW->value]);
 
         $response = $this->post(route('register.store'), [
-            'name' => 'Juan Dela Cruz',
+            'first_name' => 'Juan',
+            'middle_name' => 'Dela',
+            'last_name' => 'Cruz',
             'email' => 'juan@example.com',
             'password' => 'Password123',
             'password_confirmation' => 'Password123',
@@ -50,7 +54,9 @@ class OfwRegistrationTest extends TestCase
     public function test_registration_requires_valid_password(): void
     {
         $response = $this->post(route('register.store'), [
-            'name' => 'Juan Dela Cruz',
+            'first_name' => 'Juan',
+            'middle_name' => 'Dela',
+            'last_name' => 'Cruz',
             'email' => 'juan@example.com',
             'password' => 'weak',
             'password_confirmation' => 'weak',

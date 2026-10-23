@@ -14,7 +14,9 @@ export default function Register() {
     const [turnstileStatus, setTurnstileStatus] = useState('idle');
 
     const { data, setData, post, processing, errors, reset, setError, clearErrors } = useForm({
-        name: '',
+        first_name: '',
+        middle_name: '',
+        last_name: '',
         email: '',
         password: '',
         password_confirmation: '',
@@ -95,28 +97,58 @@ export default function Register() {
 
                             <form onSubmit={submit} className="space-y-5">
                                 {/* Name */}
-                                <div>
-                                    <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-on-surface-variant">
-                                        Full Name
-                                    </label>
-                                    <div className="relative">
-                                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant/40 text-[20px] material-symbols-outlined">
-                                            person
-                                        </span>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-on-surface-variant">
+                                            First Name
+                                        </label>
                                         <input
                                             type="text"
-                                            value={data.name}
-                                            onChange={(e) => setData('name', e.target.value)}
-                                            className="w-full border border-outline-variant bg-surface-container px-4 py-3 pl-12 text-sm focus:border-primary focus:outline-none rounded-md"
-                                            autoComplete="name"
+                                            value={data.first_name}
+                                            onChange={(e) => setData('first_name', e.target.value)}
+                                            className="w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none rounded-md"
+                                            autoComplete="given-name"
                                             autoFocus
                                             required
                                             maxLength={255}
                                         />
+                                        {errors.first_name && (
+                                            <p className="mt-1 text-xs text-red-600">{errors.first_name}</p>
+                                        )}
                                     </div>
-                                    {errors.name && (
-                                        <p className="mt-1 text-xs text-red-600">{errors.name}</p>
-                                    )}
+                                    <div>
+                                        <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-on-surface-variant">
+                                            Last Name
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={data.last_name}
+                                            onChange={(e) => setData('last_name', e.target.value)}
+                                            className="w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none rounded-md"
+                                            autoComplete="family-name"
+                                            required
+                                            maxLength={255}
+                                        />
+                                        {errors.last_name && (
+                                            <p className="mt-1 text-xs text-red-600">{errors.last_name}</p>
+                                        )}
+                                    </div>
+                                    <div className="col-span-2">
+                                        <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-on-surface-variant">
+                                            Middle Name
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={data.middle_name}
+                                            onChange={(e) => setData('middle_name', e.target.value)}
+                                            className="w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none rounded-md"
+                                            autoComplete="additional-name"
+                                            maxLength={255}
+                                        />
+                                        {errors.middle_name && (
+                                            <p className="mt-1 text-xs text-red-600">{errors.middle_name}</p>
+                                        )}
+                                    </div>
                                 </div>
 
                                 {/* Email */}

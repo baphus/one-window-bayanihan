@@ -28,7 +28,7 @@ const ROLE_CARDS = [
 
 // Mirrors Case/Create.jsx STEPS — compact horizontal stepper fits the narrow auth card.
 const STEPS = [
-    { id: 1, title: 'Identity', description: 'Name, birth date, and sex' },
+    { id: 1, title: 'Identity', description: 'Birth date, sex, and suffix' },
     { id: 2, title: 'Contact & Address', description: 'Contact number, address, and email code' },
     { id: 3, title: 'Employment & Review', description: 'Work history and final review' },
 ];
@@ -142,13 +142,10 @@ function ReviewConfirmModal({ show, rows, onConfirm, onCancel, processing }) {
     );
 }
 
-export default function RegisterProfile() {
+export default function RegisterProfile({ pendingName = {} }) {
     const { data, setData, post, processing, errors, setError, clearErrors, isDirty } = useForm({
         type: 'OFW',
         otp: '',
-        first_name: '',
-        last_name: '',
-        middle_name: '',
         suffix: '',
         date_of_birth: '',
         sex: '',
@@ -231,16 +228,6 @@ export default function RegisterProfile() {
                 setError('type', 'Please choose who this account is for.');
                 isValid = false;
                 missing.push('Account type');
-            }
-            if (!data.first_name.trim()) {
-                setError('first_name', 'First name is required.');
-                isValid = false;
-                missing.push('First Name');
-            }
-            if (!data.last_name.trim()) {
-                setError('last_name', 'Last name is required.');
-                isValid = false;
-                missing.push('Last Name');
             }
             if (!data.date_of_birth) {
                 setError('date_of_birth', 'Date of birth is required.');
@@ -353,8 +340,6 @@ export default function RegisterProfile() {
     function canProceedStep(step) {
         if (step === 1) {
             return Boolean(data.type)
-                && data.first_name.trim().length > 0
-                && data.last_name.trim().length > 0
                 && data.date_of_birth.length > 0
                 && data.date_of_birth <= DOB_BOUNDS.max
                 && data.date_of_birth >= DOB_BOUNDS.min
@@ -378,8 +363,6 @@ export default function RegisterProfile() {
     function getMissingFields(step) {
         const missing = [];
         if (step === 1) {
-            if (!data.first_name.trim()) missing.push('First Name');
-            if (!data.last_name.trim()) missing.push('Last Name');
             if (!data.date_of_birth) missing.push('Date of Birth');
             if (!data.sex) missing.push('Sex');
         }
@@ -464,7 +447,7 @@ export default function RegisterProfile() {
     const reviewAddress = formatResolvedAddress(data.address, '');
     const reviewRows = [
         { label: 'Account for', value: selectedRole?.title ?? '—' },
-        { label: 'Name', value: [data.first_name, data.middle_name, data.last_name, data.suffix].filter(Boolean).join(' ') || '—' },
+        { label: 'Name', value: [pendingName.first_name, pendingName.middle_name, pendingName.last_name, data.suffix].filter(Boolean).join(' ') || '—' },
         { label: 'Birth / Sex', value: [data.date_of_birth, data.sex].filter(Boolean).join(' · ') || '—' },
         { label: 'Contact', value: data.contact_number || '—' },
         { label: 'Address', value: reviewAddress || '—', wide: true },
@@ -615,51 +598,8 @@ export default function RegisterProfile() {
                                         <FieldError message={errors.type} />
                                     </div>
 
-                                    {/* Name */}
+                                    {/* Suffix — name itself was collected in step 1 */}
                                     <div className="grid grid-cols-2 gap-3">
-                                        <div>
-                                            <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-on-surface-variant">
-                                                First Name
-                                            </label>
-                                            <input
-                                                type="text"
-                                                value={data.first_name}
-                                                onChange={(e) => setData('first_name', e.target.value)}
-                                                className={inputClass}
-                                                autoComplete="given-name"
-                                                required
-                                                maxLength={255}
-                                            />
-                                            <FieldError message={errors.first_name} />
-                                        </div>
-                                        <div>
-                                            <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-on-surface-variant">
-                                                Last Name
-                                            </label>
-                                            <input
-                                                type="text"
-                                                value={data.last_name}
-                                                onChange={(e) => setData('last_name', e.target.value)}
-                                                className={inputClass}
-                                                autoComplete="family-name"
-                                                required
-                                                maxLength={255}
-                                            />
-                                            <FieldError message={errors.last_name} />
-                                        </div>
-                                        <div>
-                                            <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-on-surface-variant">
-                                                Middle Name
-                                            </label>
-                                            <input
-                                                type="text"
-                                                value={data.middle_name}
-                                                onChange={(e) => setData('middle_name', e.target.value)}
-                                                className={inputClass}
-                                                maxLength={255}
-                                            />
-                                            <FieldError message={errors.middle_name} />
-                                        </div>
                                         <div>
                                             <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-on-surface-variant">
                                                 Suffix

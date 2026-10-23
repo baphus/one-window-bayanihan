@@ -38,7 +38,9 @@ class RegistrationTest extends TestCase
     public function test_step1_stores_credentials_in_session_without_creating_user(): void
     {
         $response = $this->postJson(route('register.store'), [
-            'name' => 'Juan Dela Cruz',
+            'first_name' => 'Juan',
+            'middle_name' => 'Santos',
+            'last_name' => 'Dela Cruz',
             'email' => 'juan-test@example.test',
             'password' => 'Str0ngPass!123',
             'password_confirmation' => 'Str0ngPass!123',
@@ -51,6 +53,11 @@ class RegistrationTest extends TestCase
         $this->assertGuest();
         $this->assertNull(User::where('email', 'juan-test@example.test')->first());
         $this->assertTrue(Cache::has('otp:register:juan-test@example.test'));
+
+        $credentials = session('pending_registration.credentials');
+        $this->assertSame('Juan', $credentials['first_name']);
+        $this->assertSame('Santos', $credentials['middle_name']);
+        $this->assertSame('Dela Cruz', $credentials['last_name']);
     }
 
     public function test_pending_registration_can_resend_email_verification_code(): void
@@ -78,7 +85,8 @@ class RegistrationTest extends TestCase
         User::factory()->create(['email' => 'dup@example.test', 'role' => UserRole::OFW->value]);
 
         $response = $this->postJson(route('register.store'), [
-            'name' => 'Dup Test',
+            'first_name' => 'Dup',
+            'last_name' => 'Test',
             'email' => 'dup@example.test',
             'password' => 'Str0ngPass!123',
             'password_confirmation' => 'Str0ngPass!123',
@@ -91,7 +99,8 @@ class RegistrationTest extends TestCase
     public function test_step1_422_on_weak_password(): void
     {
         $response = $this->postJson(route('register.store'), [
-            'name' => 'Weak Pass',
+            'first_name' => 'Weak',
+            'last_name' => 'Pass',
             'email' => 'weak@example.test',
             'password' => 'short',
             'password_confirmation' => 'short',
@@ -105,7 +114,7 @@ class RegistrationTest extends TestCase
 
     public function test_step2_creates_user_ofw_with_linked_ofw_client(): void
     {
-        $pending = $this->preparePendingRegistration('ofw-one@example.test');
+        $pending = $this->preparePendingRegistration('ofw-one@example.test', 'Juan', 'Santos', 'Cruz');
         $userCount = User::count();
 
         $file = UploadedFile::fake()->image('avatar.jpg', 600, 600);
@@ -114,9 +123,6 @@ class RegistrationTest extends TestCase
             ->post(route('register.profile.store'), [
                 'otp' => $pending['otp'],
                 'type' => 'OFW',
-                'first_name' => 'Juan',
-                'last_name' => 'Cruz',
-                'middle_name' => 'Santos',
                 'date_of_birth' => '1995-03-15',
                 'sex' => 'Male',
                 'contact_number' => '+639171234567',
@@ -147,6 +153,7 @@ class RegistrationTest extends TestCase
 
         $user = User::where('email', 'ofw-one@example.test')->sole();
         $this->assertSame(UserRole::OFW->value, $user->role);
+        $this->assertSame('Juan Santos Cruz', $user->name);
         $this->assertTrue(Hash::check('Str0ngPass!123', $user->password));
         $this->assertNotNull($user->email_verified_at);
         $this->assertTrue((bool) $user->is_active);
@@ -157,6 +164,7 @@ class RegistrationTest extends TestCase
             'type' => 'OFW',
             'first_name' => 'Juan',
             'last_name' => 'Cruz',
+            'middle_name' => 'Santos',
             'email' => 'ofw-one@example.test',
         ]);
         $this->assertEquals($userCount + 1, User::count());
@@ -164,7 +172,7 @@ class RegistrationTest extends TestCase
 
     public function test_step2_creates_user_with_next_of_kin_type(): void
     {
-        $pending = $this->preparePendingRegistration('nok-one@example.test');
+        $pending = $this->preparePendingRegistration('nok-one@example.test', 'Maria', null, 'Reyes');
 
         $file = UploadedFile::fake()->image('avatar.jpg', 600, 600);
 
@@ -172,8 +180,6 @@ class RegistrationTest extends TestCase
             ->post(route('register.profile.store'), [
                 'otp' => $pending['otp'],
                 'type' => 'NEXT_OF_KIN',
-                'first_name' => 'Maria',
-                'last_name' => 'Reyes',
                 'date_of_birth' => '1995-03-15',
                 'sex' => 'Female',
                 'contact_number' => '+639171234567',
@@ -199,6 +205,7 @@ class RegistrationTest extends TestCase
             ]);
 
         $user = User::where('email', 'nok-one@example.test')->sole();
+        $this->assertSame('Maria Reyes', $user->name);
         $this->assertSame(UserRole::OFW->value, $user->role); // role stays OFW; type is on client.
         $this->assertDatabaseHas('clients', [
             'id' => $user->client_id,
@@ -219,8 +226,6 @@ class RegistrationTest extends TestCase
             ->post(route('register.profile.store'), [
                 'otp' => $wrongOtp,
                 'type' => 'OFW',
-                'first_name' => 'Wrong',
-                'last_name' => 'OTP',
                 'date_of_birth' => '1995-03-15',
                 'sex' => 'Male',
                 'contact_number' => '+639171234567',
@@ -298,8 +303,6 @@ class RegistrationTest extends TestCase
         $response = $this->post(route('register.profile.store'), [
             'otp' => '123456',
             'type' => 'OFW',
-            'first_name' => 'Guest',
-            'last_name' => 'File',
         ]);
 
         // Middleware redirects guest to /register.
@@ -310,13 +313,19 @@ class RegistrationTest extends TestCase
     /**
      * Prime step-1 session with a real OTP captured from the generated cache entry.
      */
-    private function preparePendingRegistration(string $email): array
-    {
+    private function preparePendingRegistration(
+        string $email,
+        string $firstName = 'Test',
+        ?string $middleName = null,
+        string $lastName = 'Registrant',
+    ): array {
         $otp = app(OtpService::class)->generate($email, 'register');
 
         return [
             'credentials' => [
-                'name' => 'Test Registrant',
+                'first_name' => $firstName,
+                'middle_name' => $middleName,
+                'last_name' => $lastName,
                 'email' => $email,
                 'password' => Hash::make('Str0ngPass!123'),
             ],
