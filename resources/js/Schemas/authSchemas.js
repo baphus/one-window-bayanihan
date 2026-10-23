@@ -6,10 +6,18 @@ import createPasswordSchema, { withPasswordConfirmation } from '@/utils/createPa
  */
 export function makeRegisterSchema(rules) {
   return withPasswordConfirmation(z.object({
-    name: z
+    first_name: z
       .string()
-      .min(1, 'Name is required.')
-      .max(255, 'Name must not exceed 255 characters.'),
+      .min(1, 'First name is required.')
+      .max(255, 'First name must not exceed 255 characters.'),
+    last_name: z
+      .string()
+      .min(1, 'Last name is required.')
+      .max(255, 'Last name must not exceed 255 characters.'),
+    middle_name: z
+      .string()
+      .max(255, 'Middle name must not exceed 255 characters.')
+      .optional(),
     email: z
       .string()
       .min(1, 'Email is required.')

@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password;
 use Inertia\Inertia;
 use Throwable;
@@ -40,7 +41,9 @@ class OfwRegistrationController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
+            'first_name' => 'required|string|max:255',
+            'middle_name' => 'nullable|string|max:255',
+            'last_name' => 'required|string|max:255',
             'email' => 'required|string|lowercase|email|max:255|unique:users,email',
             'password' => ['required', 'confirmed', Password::min(8)->mixedCase()->numbers()],
         ]);
@@ -59,7 +62,9 @@ class OfwRegistrationController extends Controller
 
         $request->session()->put('pending_registration', [
             'credentials' => [
-                'name' => $validated['name'],
+                'first_name' => $validated['first_name'],
+                'middle_name' => $validated['middle_name'] ?? null,
+                'last_name' => $validated['last_name'],
                 'email' => $email,
                 'password' => Hash::make($validated['password']),
             ],
@@ -70,9 +75,17 @@ class OfwRegistrationController extends Controller
         return redirect()->route('register.profile');
     }
 
-    public function showProfile()
+    public function showProfile(Request $request)
     {
-        return Inertia::render('Auth/RegisterProfile');
+        $credentials = $request->session()->get('pending_registration.credentials', []);
+
+        return Inertia::render('Auth/RegisterProfile', [
+            'pendingName' => [
+                'first_name' => $credentials['first_name'] ?? '',
+                'middle_name' => $credentials['middle_name'] ?? '',
+                'last_name' => $credentials['last_name'] ?? '',
+            ],
+        ]);
     }
 
     public function resendOtp(Request $request)
@@ -110,16 +123,13 @@ class OfwRegistrationController extends Controller
     {
         $pending = $request->session()->get('pending_registration');
 
-        if (! is_array($pending) || empty($pending['credentials'])) {
+        if (! is_array($pending) || empty($pending['credentials']) || empty($pending['credentials']['first_name']) || empty($pending['credentials']['last_name'])) {
             return redirect()->route('register');
         }
 
         $validated = $request->validate([
             'otp' => 'required|string|size:6',
             'type' => 'required|string|in:OFW,NEXT_OF_KIN',
-            'first_name' => 'required|string|max:255',
-            'last_name' => 'required|string|max:255',
-            'middle_name' => 'nullable|string|max:255',
             'suffix' => 'nullable|string|max:50',
             'date_of_birth' => ['required', 'date', 'before_or_equal:'.now()->subYears(15)->toDateString(), 'after_or_equal:'.now()->subYears(100)->toDateString()],
             'sex' => 'nullable|string|max:50',
@@ -143,15 +153,18 @@ class OfwRegistrationController extends Controller
         ]);
 
         $email = $pending['credentials']['email'];
+        $firstName = $pending['credentials']['first_name'];
+        $middleName = $pending['credentials']['middle_name'] ?? null;
+        $lastName = $pending['credentials']['last_name'];
 
         if (! $this->otpService->verify($email, 'register', $validated['otp'])) {
             return back()->withErrors(['otp' => 'Invalid or expired code.']);
         }
 
         try {
-            $user = DB::transaction(function () use ($pending, $validated, $email) {
+            $user = DB::transaction(function () use ($pending, $validated, $email, $firstName, $middleName, $lastName) {
                 $user = User::create([
-                    'name' => $pending['credentials']['name'],
+                    'name' => Str::limit(implode(' ', array_filter([$firstName, $middleName, $lastName])), 255, ''),
                     'email' => $email,
                     'password' => $pending['credentials']['password'],
                     'role' => UserRole::OFW->value,
@@ -163,9 +176,9 @@ class OfwRegistrationController extends Controller
                 $client = Client::create([
                     'type' => $validated['type'],
                     'user_id' => $user->id,
-                    'first_name' => $validated['first_name'],
-                    'last_name' => $validated['last_name'],
-                    'middle_name' => $validated['middle_name'] ?? null,
+                    'first_name' => $firstName,
+                    'last_name' => $lastName,
+                    'middle_name' => $middleName,
                     'suffix' => $validated['suffix'] ?? null,
                     'date_of_birth' => $validated['date_of_birth'] ?? null,
                     'sex' => ! empty($validated['sex']) ? strtoupper($validated['sex']) : null,
