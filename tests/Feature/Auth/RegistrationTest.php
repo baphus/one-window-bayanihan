@@ -20,7 +20,9 @@ class RegistrationTest extends TestCase
     public function test_public_registration_submits_credentials_and_redirects_to_profile(): void
     {
         $response = $this->post('/register', [
-            'name' => 'Test User',
+            'first_name' => 'Test',
+            'middle_name' => 'A',
+            'last_name' => 'User',
             'email' => 'test@example.com',
             'password' => 'P@ssw0rd!',
             'password_confirmation' => 'P@ssw0rd!',
