@@ -143,6 +143,11 @@ class EmailChangeTest extends TestCase
 
         $response->assertRedirect(route('profile.edit'));
         $response->assertSessionHasErrors(['otp']);
+        $response->assertSessionHas('email_change_step', 'otp');
+        $this->assertSame(
+            'That verification code was not accepted. Please check the latest code and try again.',
+            session('errors')->get('otp')[0],
+        );
 
         $this->user->refresh();
         $this->assertEquals('old@example.com', $this->user->email);

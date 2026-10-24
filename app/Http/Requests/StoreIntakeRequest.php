@@ -42,7 +42,7 @@ class StoreIntakeRequest extends FormRequest
             if ($this->has($field)) {
                 $raw = $this->input($field);
                 if (is_string($raw)) {
-                    $this->merge([$field => VulnerabilityRule::normalize($raw)]);
+                    $this->merge([$field => trim($raw) === '' ? null : VulnerabilityRule::normalize($raw)]);
                 }
             }
         }
@@ -57,7 +57,7 @@ class StoreIntakeRequest extends FormRequest
     {
         return [
             'summary' => ['required', 'string', 'max:2000'],
-            'vulnerability_indicator' => ['required', 'string', 'max:255', new VulnerabilityRule],
+            'vulnerability_indicator' => ['nullable', 'string', 'max:255', new VulnerabilityRule],
             'consent' => ['required', 'accepted'],
 
             // Intake-specific: category and case_issue are NOT required here.
@@ -80,7 +80,6 @@ class StoreIntakeRequest extends FormRequest
         return [
             'summary.required' => 'Please provide a summary of your case.',
             'summary.max' => 'Summary must not exceed 2000 characters.',
-            'vulnerability_indicator.required' => 'Please indicate if you have a vulnerability indicator.',
             'vulnerability_indicator.*.*' => 'Please provide valid vulnerability indicator values.',
             'consent.required' => 'You must consent to data processing to submit this form.',
             'consent.accepted' => 'You must consent to data processing to submit this form.',

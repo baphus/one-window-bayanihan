@@ -53,6 +53,8 @@ class ProfileController extends Controller
                 'email_on_referral' => true,
                 'in_app_notifications' => true,
             ],
+            'email_change_step' => $request->session()->get('email_change_step'),
+            'email_change_hint' => $request->session()->get('email_change_hint'),
         ];
     }
 

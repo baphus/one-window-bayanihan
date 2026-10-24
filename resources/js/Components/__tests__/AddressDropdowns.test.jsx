@@ -1,6 +1,7 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import AddressDropdowns from '../AddressDropdowns';
+import { resolveAddressToCodes } from '@/data/philippine-addresses';
 
 const state = { servedRegions: ['0700000000', '1800000000'] };
 
@@ -29,6 +30,18 @@ function renderDropdowns(overrides = {}) {
 }
 
 describe('AddressDropdowns region scope', () => {
+    it('resolves persisted address names to PSGC codes', () => {
+        expect(resolveAddressToCodes({
+            region: 'VII',
+            province: 'Cebu',
+            city_municipality: 'Cebu City',
+        })).toMatchObject({
+            region: '0700000000',
+            province: '0702200000',
+            city_municipality: '0730600000',
+        });
+    });
+
     it('only lists the served regions in the region dropdown', () => {
         renderDropdowns();
 

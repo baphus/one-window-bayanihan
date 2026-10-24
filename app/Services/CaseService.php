@@ -1067,29 +1067,23 @@ class CaseService
 
         $agencyId = ($user?->isAgency() && $user->agcy_id) ? $user->agcy_id : null;
 
-        $totalClients = $user?->isAdmin()
-            ? Client::where('is_deleted', false)
-                // Same rule as ClientController@index: at least one live
-                // non-DRAFT case, or the tile counts clients the listing hides.
-                ->whereHas('caseFiles', function ($q) {
-                    $q->where('cases.is_deleted', false)
-                        ->whereNull('cases.deleted_at')
-                        ->where('status', '!=', 'DRAFT');
-                })
-                ->count()
-            : $this->countDistinctClientsWithCases($agencyId, function ($q) {
-                // A live draft alone does not establish a client either (the
-                // caseFiles whereHas already rules out caseless clients).
-                $q->where('cases.status', '!=', 'DRAFT');
-            });
+        $totalClients = $user?->isAgency()
+            ? $this->countDistinctClientsWithCases($agencyId, fn ($q) => $q->withVisibleStatus())
+            : Client::where('clients.is_deleted', false)->count();
 
-        $ofwClients = $this->countDistinctClientsWithCases($agencyId, function ($q) {
-            $q->withVisibleStatus()->whereHas('client', fn ($c) => $c->where('type', 'OFW'));
-        });
+        $typeCounts = Client::query()
+            ->where('clients.is_deleted', false)
+            ->when($user?->isAgency(), function ($query) use ($agencyId) {
+                $query->whereHas('caseFiles', function ($cases) use ($agencyId) {
+                    $cases->live()->forAgency($agencyId);
+                });
+            })
+            ->selectRaw('type, COUNT(*) as aggregate')
+            ->groupBy('type')
+            ->pluck('aggregate', 'type');
 
-        $nokClients = $this->countDistinctClientsWithCases($agencyId, function ($q) {
-            $q->withVisibleStatus()->whereHas('client', fn ($c) => $c->where('type', 'NEXT_OF_KIN'));
-        });
+        $ofwClients = (int) ($typeCounts['OFW'] ?? 0);
+        $nokClients = (int) ($typeCounts['NEXT_OF_KIN'] ?? 0);
 
         $vulnerabilityCounts = [];
         foreach (['PWD', 'Senior Citizen', 'Solo Parent', 'Indigenous Person'] as $marker) {

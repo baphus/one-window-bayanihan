@@ -249,7 +249,7 @@ class ClientControllerAuthTest extends TestCase
         $manager1 = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $manager2 = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
-        Client::factory()->create(); // No case file — hidden from the directory
+        Client::factory()->create(); // No account or case — still listed in the directory
         $client2 = Client::factory()->create(['user_id' => $manager1->id]);
         CaseFile::factory()->create(['user_id' => $manager1->id, 'client_id' => $client2->id, 'status' => 'OPEN']);
         $client3 = Client::factory()->create(['user_id' => $manager2->id]);
@@ -261,7 +261,7 @@ class ClientControllerAuthTest extends TestCase
         $response->assertStatus(200);
         $response->assertInertia(fn ($page) => $page
             ->component('Client/Index')
-            ->has('clients.data', 2)
+            ->has('clients.data', 3)
         );
     }
 }

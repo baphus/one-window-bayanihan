@@ -41,6 +41,7 @@ class OfwRegistrationController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
+            'suffix' => 'nullable|string|max:50',
             'email' => 'required|string|lowercase|email|max:255|unique:users,email',
             'password' => ['required', 'confirmed', Password::min(8)->mixedCase()->numbers()],
         ]);
@@ -60,6 +61,7 @@ class OfwRegistrationController extends Controller
         $request->session()->put('pending_registration', [
             'credentials' => [
                 'name' => $validated['name'],
+                'suffix' => $validated['suffix'] ?? null,
                 'email' => $email,
                 'password' => Hash::make($validated['password']),
             ],
