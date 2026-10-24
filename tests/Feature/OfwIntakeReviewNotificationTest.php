@@ -75,6 +75,25 @@ class OfwIntakeReviewNotificationTest extends TestCase
         Mail::assertNothingQueued();
     }
 
+    public function test_intake_accepts_an_empty_vulnerability_status(): void
+    {
+        Mail::fake();
+        $client = Client::factory()->create();
+        $ofw = User::factory()->create(['role' => UserRole::OFW->value, 'client_id' => $client->id]);
+
+        $response = $this->actingAs($ofw)->post(route('ofw.intake.store'), [
+            'summary' => 'Please help me.',
+            'vulnerability_indicator' => '',
+            'consent' => true,
+        ]);
+
+        $response->assertRedirect(route('ofw.dashboard'));
+        $this->assertDatabaseHas('cases', [
+            'client_id' => $client->id,
+            'vulnerability_indicator' => null,
+        ]);
+    }
+
     public function test_intake_without_linked_client_does_not_send_review_email(): void
     {
         Mail::fake();

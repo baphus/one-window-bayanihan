@@ -85,10 +85,7 @@ class ClientControllerAuthTest extends TestCase
         $response = $this->actingAs($admin)
             ->get(route('clients.show', $client));
 
-        // OFW Account-First: unpublished clients (no linked account + live
-        // OPEN case) are read through the intake queue, not the profile —
-        // even for ADMIN.
-        $response->assertStatus(404);
+        $response->assertStatus(200);
     }
 
     public function test_case_manager_can_view_client_without_case_file(): void
@@ -99,9 +96,7 @@ class ClientControllerAuthTest extends TestCase
         $response = $this->actingAs($manager)
             ->get(route('clients.show', $client));
 
-        // OFW Account-First: unpublished clients are read through the intake
-        // queue, not the profile — even for CASE_MANAGER.
-        $response->assertStatus(404);
+        $response->assertStatus(200);
     }
 
     public function test_agency_can_view_client_with_referral_to_their_agency(): void
@@ -249,7 +244,7 @@ class ClientControllerAuthTest extends TestCase
         $manager1 = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $manager2 = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
-        Client::factory()->create(); // No case file — hidden from the directory
+        Client::factory()->create(); // No account or case — still listed in the directory
         $client2 = Client::factory()->create(['user_id' => $manager1->id]);
         CaseFile::factory()->create(['user_id' => $manager1->id, 'client_id' => $client2->id, 'status' => 'OPEN']);
         $client3 = Client::factory()->create(['user_id' => $manager2->id]);
@@ -261,7 +256,7 @@ class ClientControllerAuthTest extends TestCase
         $response->assertStatus(200);
         $response->assertInertia(fn ($page) => $page
             ->component('Client/Index')
-            ->has('clients.data', 2)
+            ->has('clients.data', 3)
         );
     }
 }

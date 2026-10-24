@@ -4,11 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Services\OfwProfileService;
 use App\Services\ReferenceDataService;
-use App\Services\UserService;
 use Illuminate\Auth\SessionGuard;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 use Inertia\Inertia;
@@ -18,7 +19,6 @@ class OfwProfileController extends Controller
     public function __construct(
         private readonly OfwProfileService $profileService,
         private readonly ReferenceDataService $referenceData,
-        private readonly UserService $users,
     ) {}
 
     /**
@@ -108,14 +108,13 @@ class OfwProfileController extends Controller
             $user->password = Hash::make($validated['password']);
             $user->save();
 
-            // Rotating the hash on its own leaves every other browser signed
-            // in, which is the whole point of changing a password: the user
-            // assumes the old one is now worthless everywhere. Delegated to
-            // UserService so the OFW path ends exactly what deactivating,
-            // force-deleting or resetting an account's MFA ends, and the guard
-            // then re-issues this device's own recaller against the rotated
-            // token so the OFW who just changed it is not signed straight out.
-            $this->users->invalidateSessions($user);
+            DB::table('sessions')
+                ->where('user_id', $user->id)
+                ->where('id', '!=', $request->session()->getId())
+                ->delete();
+
+            $user->setRememberToken(Str::random(60));
+            $user->save();
 
             /** @var SessionGuard $webGuard */
             $webGuard = Auth::guard('web');

@@ -75,7 +75,8 @@ class ClientCaseQueryTest extends TestCase
             'nok_vulnerability_indicator' => null,
         ]);
 
-        // Unaccepted OFW-filed case: hidden from the directory entirely.
+        // Pending-review clients remain visible; case status is an explicit
+        // filter rather than an implicit directory exclusion.
         $intakeOnly = Client::factory()->create(['type' => 'OFW']);
         CaseFile::factory()->pendingReview()->create([
             'client_id' => $intakeOnly->id,
@@ -115,7 +116,7 @@ class ClientCaseQueryTest extends TestCase
         $stats = app(CaseService::class)->getClientDirectoryStats($admin);
 
         $this->assertSame(5, $stats['total_clients']);
-        $this->assertSame(3, $stats['ofw_clients']);
+        $this->assertSame(4, $stats['ofw_clients']);
         $this->assertSame(1, $stats['nok_clients']);
         $this->assertSame([
             'PWD' => 1,
@@ -142,7 +143,8 @@ class ClientCaseQueryTest extends TestCase
 
         $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
-        // publishedOnly() requires a linked account plus a live OPEN case.
+        // Client type is derived from the client record even when the account
+        // and case have different owners.
         $ofw = Client::factory()->create([
             'type' => 'OFW',
             'user_id' => User::factory()->create(['role' => UserRole::OFW->value])->id,

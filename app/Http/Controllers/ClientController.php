@@ -57,24 +57,14 @@ class ClientController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
-        $filterKeys = ['search', 'client_type', 'sex', 'vulnerability_indicator', 'case_status', 'category_id', 'category_ids', 'case_issue_id', 'agcy_id', 'date_from', 'date_to', 'sort', 'direction', 'per_page'];
+        $filterKeys = ['search', 'account_status', 'client_type', 'sex', 'vulnerability_indicator', 'case_status', 'category_id', 'category_ids', 'case_issue_id', 'agcy_id', 'date_from', 'date_to', 'sort', 'direction', 'per_page'];
 
         $categoryFilter = CategoryFilter::fromRequest($request);
         $categoryIds = $categoryFilter->ids();
 
-        // The client directory lists published clients only (linked account +
-        // live OPEN case). The intake queue reads cases directly and is
-        // unaffected by this scope.
-        $clients = Client::where('is_deleted', false)->publishedOnly()
-            // Established means at least one live non-DRAFT case; a client whose
-            // cases are all DRAFT, or who has no case yet, is not in the
-            // directory. caseFiles (all cases), not caseFile: an older OPEN case
-            // plus a newer DRAFT still counts.
-            ->whereHas('caseFiles', function ($q) {
-                $q->where('is_deleted', false)
-                    ->whereNull('cases.deleted_at')
-                    ->where('status', '!=', 'DRAFT');
-            })
+        // The directory includes every active client. Account and case
+        // visibility are explicit filters rather than implicit exclusions.
+        $clients = Client::where('is_deleted', false)
             ->with([
                 'caseFile' => function ($q) use ($user) {
                     // ADMIN/CASE_MANAGER: all cases. AGENCY: cases with own referrals.
@@ -131,6 +121,12 @@ class ClientController extends Controller
         }
 
         // --- Filters ---
+        if ($request->input('account_status') === 'linked') {
+            $clients->whereNotNull('clients.user_id');
+        } elseif ($request->input('account_status') === 'no_account') {
+            $clients->whereNull('clients.user_id');
+        }
+
         if (! empty($request->sex)) {
             $clients->where('sex', $request->sex);
         }
@@ -271,7 +267,7 @@ class ClientController extends Controller
 
     private function getClientStats(?User $user): array
     {
-        $cacheKey = 'client_stats:'.$user?->id;
+        $cacheKey = 'client_stats:v2:'.$user?->id;
 
         return CacheHelper::safeRemember($cacheKey, 30, function () use ($user) {
             // Task 2.2: stats query lives in CaseService (Eloquent/query-builder,
@@ -287,10 +283,6 @@ class ClientController extends Controller
             'employments',
             'nextOfKin',
         ])->findOrFail($id);
-
-        // Same rule as the directory listing: unpublished clients are read
-        // through the intake queue, not the client profile.
-        abort_if(! Client::whereKey($client->id)->publishedOnly()->exists(), 404, 'Client not found.');
 
         $user = $request->user();
         $caseQuery = $client->caseFiles()
@@ -440,7 +432,7 @@ class ClientController extends Controller
         $user = $request->user();
 
         $filters = array_filter(array_merge($request->only([
-            'search', 'sex', 'client_type', 'vulnerability_indicator', 'case_status', 'category_id', 'case_issue_id', 'agcy_id', 'date_from', 'date_to',
+            'search', 'account_status', 'sex', 'client_type', 'vulnerability_indicator', 'case_status', 'category_id', 'case_issue_id', 'agcy_id', 'date_from', 'date_to',
         ]), CategoryFilter::fromRequest($request)->toArray()));
 
         $queries = $this->exportQueries;
@@ -475,7 +467,7 @@ class ClientController extends Controller
         $user = $request->user();
 
         $filters = array_filter(array_merge($request->only([
-            'search', 'sex', 'client_type', 'vulnerability_indicator', 'case_status', 'category_id', 'case_issue_id', 'agcy_id', 'date_from', 'date_to',
+            'search', 'account_status', 'sex', 'client_type', 'vulnerability_indicator', 'case_status', 'category_id', 'case_issue_id', 'agcy_id', 'date_from', 'date_to',
         ]), CategoryFilter::fromRequest($request)->toArray()));
 
         $count = $this->exportQueries->countClientsExport($user, $filters);
@@ -521,13 +513,6 @@ class ClientController extends Controller
      */
     private function authorizeClientAccess(Client $client, User $user): void
     {
-        // A client the directory and profile refuse to show must not be
-        // mutable either. Without this the avatar routes accepted a write and
-        // then redirected to a profile that 404s.
-        if (! Client::whereKey($client->id)->publishedOnly()->exists()) {
-            abort(404, 'Client not found.');
-        }
-
         // ADMIN and CASE_MANAGER: full access to all clients
         if ($user->isAdmin() || $user->isCaseManager()) {
             return;

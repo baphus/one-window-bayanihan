@@ -36,10 +36,7 @@ class ClientQueries
                 'created_at',
                 'updated_at',
             ])
-            ->where('is_deleted', false)
-            // Exports leave the system, so unpublished clients must not ride
-            // along in a client extract either.
-            ->publishedOnly();
+            ->where('is_deleted', false);
 
         // ADMIN/CASE_MANAGER: all. AGENCY: clients linked to their referrals.
         if ($user?->role === UserRole::AGENCY->value) {
@@ -163,6 +160,12 @@ class ClientQueries
         }
         if (! empty($filters['client_type'])) {
             $query->where('cl.type', $filters['client_type']);
+        }
+
+        if (($filters['account_status'] ?? null) === 'linked') {
+            $query->whereNotNull('cl.user_id');
+        } elseif (($filters['account_status'] ?? null) === 'no_account') {
+            $query->whereNull('cl.user_id');
         }
         if (! empty($filters['vulnerability_indicator'])) {
             $vuln = $filters['vulnerability_indicator'];

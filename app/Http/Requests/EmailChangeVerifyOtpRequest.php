@@ -27,4 +27,13 @@ class EmailChangeVerifyOtpRequest extends FormRequest
             'otp' => ['required', 'string', 'size:6'],
         ];
     }
+
+    protected function prepareForValidation(): void
+    {
+        if (! $this->filled('new_email') && $this->session()->has('pending_new_email')) {
+            $this->merge([
+                'new_email' => $this->session()->get('pending_new_email'),
+            ]);
+        }
+    }
 }

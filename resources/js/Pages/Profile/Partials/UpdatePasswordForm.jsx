@@ -6,9 +6,11 @@ import { useForm, usePage } from '@inertiajs/react';
 import { useRef, useEffect, useMemo } from 'react';
 import { makeUpdatePasswordSchema } from '@/Schemas/profileSchemas';
 import useClientValidation from '@/Hooks/useClientValidation';
+import { useToast } from '@/Hooks/useToast';
 
 export default function UpdatePasswordForm({ className = '', onDirtyChange, onBypass }) {
     const { passwordRules } = usePage().props;
+    const toast = useToast();
     const passwordInput = useRef();
     const currentPasswordInput = useRef();
     const initialRef = useRef({ current_password: '', password: '', password_confirmation: '' });
@@ -20,7 +22,6 @@ export default function UpdatePasswordForm({ className = '', onDirtyChange, onBy
         put,
         reset,
         processing,
-        recentlySuccessful,
         setError,
         clearErrors,
     } = useForm({
@@ -51,6 +52,7 @@ export default function UpdatePasswordForm({ className = '', onDirtyChange, onBy
             onSuccess: () => {
                 reset();
                 onDirtyChange?.(false);
+                toast.success('Password updated successfully.');
             },
             onError: (errors) => {
                 if (errors.password) {
@@ -106,11 +108,6 @@ export default function UpdatePasswordForm({ className = '', onDirtyChange, onBy
                 <div className="flex items-center gap-4">
                     <PrimaryButton disabled={processing}>Save</PrimaryButton>
 
-                    {recentlySuccessful && (
-                        <p className="text-sm text-gray-600 transition-opacity ease-in-out">
-                            Saved.
-                        </p>
-                    )}
                 </div>
             </form>
         </Section>

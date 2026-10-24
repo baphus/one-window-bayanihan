@@ -14,7 +14,6 @@ use App\Services\OtpService;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
-use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -28,7 +27,8 @@ class EmailChangeController extends Controller
     {
         // The FormRequest already validated the current_password
         // Store the email_change_step in session
-        $request->session()->put('email_change_step', 1);
+        $request->session()->put('email_change_step', 'new-email');
+        $request->session()->forget(['email_change_hint', 'pending_new_email']);
 
         // Return to Profile/Edit with email_change_step prop.
         //
@@ -48,16 +48,20 @@ class EmailChangeController extends Controller
         $newEmail = $request->input('new_email');
 
         // Generate OTP to the new email
-        $otp = $this->otpService->generate($newEmail, 'email_change', $request->session()->getId());
-
-        // Store pending new email in session
-        $request->session()->put('pending_new_email', $newEmail);
+        $this->otpService->generate($newEmail, 'email_change', $request->session()->getId());
 
         // Create masked hint for the new email
         $emailParts = explode('@', $newEmail);
         $hint = strlen($emailParts[0]) > 2
             ? substr($emailParts[0], 0, 2).str_repeat('*', strlen($emailParts[0]) - 2).'@'.$emailParts[1]
             : $newEmail;
+
+        // Store pending new email and the current step in session
+        $request->session()->put([
+            'pending_new_email' => $newEmail,
+            'email_change_step' => 'otp',
+            'email_change_hint' => $hint,
+        ]);
 
         Log::info('email_change_otp_sent', [
             'new_email' => $this->redactEmail($newEmail),
@@ -85,9 +89,11 @@ class EmailChangeController extends Controller
         );
 
         if (! $verified) {
-            throw ValidationException::withMessages([
-                'otp' => 'Invalid or expired OTP. Please request a new code.',
-            ]);
+            $request->session()->put('email_change_step', 'otp');
+
+            return redirect()->route('profile.edit')
+                ->withErrors(['otp' => 'That verification code was not accepted. Please check the latest code and try again.'])
+                ->with('email_change_hint', $this->maskEmail($newEmail));
         }
 
         $user = $request->user();
@@ -121,7 +127,7 @@ class EmailChangeController extends Controller
         ]);
 
         // Clear email change session state so the section resets
-        $request->session()->forget(['email_change_step', 'pending_new_email']);
+        $request->session()->forget(['email_change_step', 'email_change_hint', 'pending_new_email']);
 
         Log::info('email_change_successful', [
             'user_id' => $user->id,
@@ -142,5 +148,16 @@ class EmailChangeController extends Controller
         }
 
         return substr($parts[0], 0, 2).'***@'.$parts[1];
+    }
+
+    private function maskEmail(string $email): string
+    {
+        $parts = explode('@', $email);
+
+        if (count($parts) !== 2 || strlen($parts[0]) <= 2) {
+            return $email;
+        }
+
+        return substr($parts[0], 0, 2).str_repeat('*', strlen($parts[0]) - 2).'@'.$parts[1];
     }
 }

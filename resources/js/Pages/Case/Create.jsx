@@ -1134,6 +1134,7 @@ export default function CaseCreate() {
 
         post(route('cases.store'), {
             preserveScroll: true,
+            onSuccess: () => toast.success('Case created successfully.'),
             onError: (formErrors) => {
                 const msgs = Object.values(formErrors || {});
                 toast.error(msgs[0] || 'Validation failed.');
