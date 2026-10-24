@@ -728,18 +728,32 @@ export default function RegisterProfile({ pendingName = {} }) {
                                             Employment
                                         </h4>
 
-                                        <div>
-                                            <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-on-surface-variant">
-                                                Position
-                                            </label>
-                                            <input
-                                                value={data.employment.position}
-                                                onChange={(e) => handleEmploymentChange('position', e.target.value)}
-                                                className={inputClass}
-                                                maxLength={255}
-                                            />
-                                            <FieldError message={errors['employment.position']} />
-                                        </div>
+                                    <div>
+                                        <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-on-surface-variant">
+                                            Employer Name <span className="text-red-500">*</span>
+                                        </label>
+                                        <input
+                                            value={data.employment.employer_name}
+                                            onChange={(e) => handleEmploymentChange('employer_name', e.target.value)}
+                                            className={inputClass}
+                                            maxLength={255}
+                                            required
+                                        />
+                                        <FieldError message={errors['employment.employer_name']} />
+                                    </div>
+
+                                    <div>
+                                        <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-on-surface-variant">
+                                            Current Position / Job Title
+                                        </label>
+                                        <input
+                                            value={data.employment.position}
+                                            onChange={(e) => handleEmploymentChange('position', e.target.value)}
+                                            className={inputClass}
+                                            maxLength={255}
+                                        />
+                                        <FieldError message={errors['employment.position']} />
+                                    </div>
 
                                         <div className="grid grid-cols-2 gap-3">
                                             <div>
@@ -761,15 +775,20 @@ export default function RegisterProfile({ pendingName = {} }) {
                                                 <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-on-surface-variant">
                                                     End Date
                                                 </label>
-                                                <input
-                                                    type="date"
-                                                    value={data.employment.end_date}
-                                                    onChange={(e) => handleEmploymentChange('end_date', e.target.value)}
-                                                    min={data.employment.start_date || undefined}
-                                                    max={TODAY}
-                                                    disabled={data.employment.is_present}
-                                                    className={`${inputClass} disabled:opacity-50`}
-                                                />
+                                                {data.employment.is_present ? (
+                                                    <div className="w-full border border-outline-variant bg-surface-container/60 px-4 py-3 text-sm rounded-md text-slate-600">
+                                                        Present
+                                                    </div>
+                                                ) : (
+                                                    <input
+                                                        type="date"
+                                                        value={data.employment.end_date}
+                                                        onChange={(e) => handleEmploymentChange('end_date', e.target.value)}
+                                                        min={data.employment.start_date || undefined}
+                                                        max={TODAY}
+                                                        className={inputClass}
+                                                    />
+                                                )}
                                                 <FieldError message={errors['employment.end_date']} />
                                             </div>
                                         </div>

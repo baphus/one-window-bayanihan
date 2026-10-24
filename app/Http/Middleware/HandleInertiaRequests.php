@@ -97,7 +97,7 @@ class HandleInertiaRequests extends Middleware
                     ...$request->user()->only([
                         'id', 'name', 'email', 'role', 'agcy_id', 'avatar_url',
                         'is_active', 'contact_number', 'position', 'department',
-                        'office_location', 'bio', 'timezone',
+                        'office_location', 'bio', 'emergency_contact', 'timezone',
                         'profile_completed_at',
                     ]),
                     'agency' => $this->getCachedUserAgency($request),

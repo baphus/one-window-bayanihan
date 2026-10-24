@@ -24,8 +24,12 @@ class EmailChangeSendOtpRequest extends FormRequest
      */
     public function rules(): array
     {
+        $hasPendingEmailChange = $this->session()->has('pending_new_email');
+
         return [
-            'password' => ['required', 'string', 'current_password'],
+            'password' => $hasPendingEmailChange
+                ? ['nullable', 'string']
+                : ['required', 'string', 'current_password'],
             'new_email' => [
                 'required',
                 'string',
@@ -35,5 +39,14 @@ class EmailChangeSendOtpRequest extends FormRequest
                 Rule::unique(User::class, 'email')->ignore($this->user()->id),
             ],
         ];
+    }
+
+    protected function prepareForValidation(): void
+    {
+        if (! $this->filled('new_email') && $this->session()->has('pending_new_email')) {
+            $this->merge([
+                'new_email' => $this->session()->get('pending_new_email'),
+            ]);
+        }
     }
 }

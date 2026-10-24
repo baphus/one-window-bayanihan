@@ -54,6 +54,12 @@ class ProfileEditTest extends TestCase
                     'relation' => 'Spouse',
                     'phone' => '09179876543',
                 ],
+                'notifications_config' => [
+                    'email_on_case_assigned' => false,
+                    'email_on_case_status_change' => true,
+                    'email_on_referral' => false,
+                    'in_app_notifications' => true,
+                ],
                 'timezone' => 'Asia/Manila',
             ])
             ->assertRedirect(route('profile.edit'));
@@ -63,6 +69,17 @@ class ProfileEditTest extends TestCase
         $this->assertEquals('Field Operations', $user->department);
         $this->assertEquals('Cebu City Main Office', $user->office_location);
         $this->assertEquals('Experienced case manager dedicated to serving OFWs.', $user->bio);
+        $this->assertSame([
+            'name' => 'Jane Doe',
+            'relation' => 'Spouse',
+            'phone' => '09179876543',
+        ], $user->emergency_contact);
+        $this->assertSame([
+            'email_on_case_assigned' => false,
+            'email_on_case_status_change' => true,
+            'email_on_referral' => false,
+            'in_app_notifications' => true,
+        ], $user->notifications_config);
         $this->assertEquals('Asia/Manila', $user->timezone);
     }
 

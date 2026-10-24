@@ -4,6 +4,7 @@ import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import { PageHeader, SectionCard, MaterialSymbol } from '@/Components/Dashboard/primitives';
 import InputError from '@/Components/InputError';
 import safeRoute from '@/utils/safeRoute';
+import { useToast } from '@/Hooks/useToast';
 
 // Same values as Case/Create.jsx / VulnerabilityRule — used when the backend
 // has not passed vulnerabilityOptions yet.
@@ -31,6 +32,7 @@ export default function Intake({ profile: profileProp, client, vulnerabilityOpti
     const { auth } = usePage().props;
     const profile = profileProp ?? client ?? null;
     const options = normalizeOptions(vulnerabilityOptions);
+    const toast = useToast();
 
     const form = useForm({
         summary: '',
@@ -61,6 +63,8 @@ export default function Intake({ profile: profileProp, client, vulnerabilityOpti
         form.clearErrors();
         form.post(safeRoute('ofw.intake.store', undefined, '/my-cases/intake'), {
             preserveScroll: true,
+            onSuccess: () => toast.success('Case submitted successfully.'),
+            onError: (errors) => toast.error(Object.values(errors)[0] || 'Unable to submit your case.'),
         });
     }
 
@@ -75,7 +79,6 @@ export default function Intake({ profile: profileProp, client, vulnerabilityOpti
             </Link>
 
             <PageHeader
-                eyebrow="New Case"
                 title="File a new case"
                 subtitle="Tell us what you need help with. A case manager will review your request."
             />
@@ -135,7 +138,7 @@ export default function Intake({ profile: profileProp, client, vulnerabilityOpti
                 {/* (c) Vulnerability indicator */}
                 <SectionCard title="Vulnerability status">
                     <span id="intake-vulnerability-label" className="block text-sm font-medium text-slate-700">
-                        Do you belong to any vulnerable sector? <span className="text-red-600">*</span>{' '}
+                        Do you belong to any vulnerable sector?{' '}
                         <span className="font-normal text-slate-400">Select all that apply.</span>
                     </span>
                     <div className="mt-2 flex flex-wrap gap-x-5 gap-y-2" role="group" aria-labelledby="intake-vulnerability-label">
@@ -155,7 +158,7 @@ export default function Intake({ profile: profileProp, client, vulnerabilityOpti
                                                 const next = checked
                                                     ? selected.filter((v) => v !== option.value)
                                                     : [...selected, option.value];
-                                                form.setData('vulnerability_indicator', next.length > 0 ? next.join(', ') : 'None');
+                                                form.setData('vulnerability_indicator', next.join(', '));
                                             }}
                                             className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary/40"
                                         />

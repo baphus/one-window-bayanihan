@@ -31,7 +31,6 @@ export default function Edit({ mustVerifyEmail, status, mfaEnabled, defaultAgenc
         bio: user.bio || '',
         timezone: user.timezone || 'Asia/Manila',
         contact_number: user.contact_number || '',
-        suffix: user.suffix || '',
         emergency_contact: {
             name: user.emergency_contact?.name || '',
             relation: user.emergency_contact?.relation || '',
@@ -202,15 +201,15 @@ export default function Edit({ mustVerifyEmail, status, mfaEnabled, defaultAgenc
                 {/* Personal Information & Emergency Contact */}
                 <PersonalInfoForm data={data} setData={setData} errors={errors} />
 
+                {/* Notification Preferences */}
+                <NotificationPreferencesSection prefs={data.notifications_config} onToggle={handleNotificationToggle} />
+
                 {/* Save Button */}
                 <div className="flex justify-end">
                     <PrimaryButton onClick={handleSubmit} disabled={!isDirty || processing}>
                         {processing ? 'Saving...' : 'Save Changes'}
                     </PrimaryButton>
                 </div>
-
-                {/* Notification Preferences */}
-                <NotificationPreferencesSection prefs={data.notifications_config} onToggle={handleNotificationToggle} />
 
                 {/* Email Change */}
                 <ChangeEmailForm

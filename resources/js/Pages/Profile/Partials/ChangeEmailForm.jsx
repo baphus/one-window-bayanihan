@@ -4,12 +4,14 @@ import PrimaryButton from '@/Components/PrimaryButton';
 import InputLabel from '@/Components/InputLabel';
 import TextInput from '@/Components/TextInput';
 import { CardSection as Section } from '@/Components/ui/CardSection';
+import { useToast } from '@/Hooks/useToast';
 
 export default function ChangeEmailForm({
     initialStep,
     hint: propHint,
 }) {
     const pageProps = usePage().props;
+    const toast = useToast();
     const stepFromServer = initialStep || pageProps.email_change_step;
     const hintFromServer = propHint || pageProps.email_change_hint || '';
 
@@ -120,8 +122,11 @@ export default function ChangeEmailForm({
             new_email: newEmail,
             otp: otpValue,
         }, {
+            preserveState: true,
             onError: (errors) => {
-                setOtpError(errors.otp || 'Invalid or expired OTP.');
+                const message = errors.otp || 'That verification code was not accepted. Please check the latest code and try again.';
+                setOtpError(message);
+                toast.error(message);
                 setProcessing(false);
             },
             onFinish: () => setProcessing(false),
@@ -136,6 +141,7 @@ export default function ChangeEmailForm({
         setOtpError('');
 
         router.post(route('profile.email-change.send-otp'), {
+            password,
             new_email: newEmail,
         }, {
             onSuccess: () => {
@@ -143,7 +149,6 @@ export default function ChangeEmailForm({
                 setResendCooldown(30);
                 setOtp(['', '', '', '', '', '']);
                 otpRefs.current[0]?.focus();
-                autoFilled.current = false;
             },
             onError: (errors) => {
                 setProcessing(false);
@@ -158,11 +163,12 @@ export default function ChangeEmailForm({
             <Section
                 title="Change Email"
                 description="Update your email address associated with your account."
+                className="border-t-2 border-t-slate-200 pt-6"
             >
                 <p className="text-sm text-slate-600">
                     Your email address is used for account notifications and password recovery.
                 </p>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-4 border-t border-slate-200 pt-5">
                     <PrimaryButton onClick={handleInit}>
                         Change Email
                     </PrimaryButton>
@@ -177,6 +183,7 @@ export default function ChangeEmailForm({
             <Section
                 title="Change Email Address"
                 description="Enter your current password and new email address to begin."
+                className="border-t-2 border-t-slate-200 pt-6"
             >
                 <div>
                     <InputLabel htmlFor="current_password" value="Current Password" />
@@ -210,7 +217,7 @@ export default function ChangeEmailForm({
                     )}
                 </div>
 
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-4 border-t border-slate-200 pt-5">
                     <PrimaryButton onClick={handleSendOtp} disabled={processing}>
                         {processing ? 'Sending...' : 'Send Verification Code'}
                     </PrimaryButton>
@@ -229,6 +236,7 @@ export default function ChangeEmailForm({
                         ? `Code sent to: ${hintFromServer}`
                         : 'Enter the verification code sent to your new email.'
                 }
+                className="border-t-2 border-t-slate-200 pt-6"
             >
                 {otpError && (
                     <div className="rounded-md bg-red-50 border border-red-200 p-3">

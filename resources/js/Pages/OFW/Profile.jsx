@@ -11,7 +11,9 @@ import CountrySelect from '@/Components/CountrySelect';
 import SearchableSelect from '@/Components/SearchableSelect';
 import AddressDropdowns from '@/Components/AddressDropdowns';
 import { DEFAULT_OCCUPATIONS } from '@/data/defaultOccupations';
+import { resolveAddressToCodes } from '@/data/philippine-addresses';
 import { SectionCard, MaterialSymbol } from '@/Components/Dashboard/primitives';
+import { useToast } from '@/Hooks/useToast';
 
 const MAX = 'Must be 255 characters or fewer.';
 
@@ -143,6 +145,7 @@ export default function Profile({ user, client }) {
     // enforce a sensible policy when the prop is absent.
     const effectivePasswordRules = passwordRules ?? { min_length: 8 };
     const [activeTab, setActiveTab] = useState(NAV_TABS[0].id);
+    const toast = useToast();
 
     const fullName = client
         ? [client.first_name, client.middle_name, client.last_name].filter(Boolean).join(' ')
@@ -161,14 +164,10 @@ export default function Profile({ user, client }) {
         suffix: client?.suffix ?? '',
     });
 
+    const addressCodes = resolveAddressToCodes(client?.address);
     const addressForm = useForm({
-        region: client?.address?.region ?? '',
-        province: client?.address?.province ?? '',
-        city_municipality: client?.address?.city_municipality ?? '',
-        barangay: client?.address?.barangay ?? '',
+        ...addressCodes,
         street: client?.address?.street ?? '',
-        sex: client?.sex ?? '',
-        suffix: client?.suffix ?? '',
     });
 
     const employmentForm = useForm({
@@ -301,10 +300,7 @@ export default function Profile({ user, client }) {
                 onSuccess: (page) => {
                     const a = page.props.client?.address ?? {};
                     addressForm.setData({
-                        region: a.region ?? '',
-                        province: a.province ?? '',
-                        city_municipality: a.city_municipality ?? '',
-                        barangay: a.barangay ?? '',
+                        ...resolveAddressToCodes(a),
                         street: a.street ?? '',
                     });
                 },
@@ -375,7 +371,10 @@ export default function Profile({ user, client }) {
         if (!passwordValidation.validate()) return;
         passwordForm.put(route('ofw.profile.update'), {
             preserveScroll: true,
-            onSuccess: () => passwordForm.reset('current_password', 'password', 'password_confirmation'),
+            onSuccess: () => {
+                passwordForm.reset('current_password', 'password', 'password_confirmation');
+                toast.success('Password updated successfully.');
+            },
         });
     }
 
@@ -501,7 +500,13 @@ export default function Profile({ user, client }) {
                                 <IntroRow
                                     icon="home_pin"
                                     label="Address"
-                                    value={[addressForm.data.city_municipality, addressForm.data.province]
+                                    value={[
+                                        client.address?.street,
+                                        client.address?.barangay,
+                                        client.address?.city_municipality,
+                                        client.address?.province,
+                                        client.address?.region,
+                                    ]
                                         .filter(Boolean)
                                         .join(', ')}
                                 />
@@ -627,7 +632,13 @@ export default function Profile({ user, client }) {
                                 <div className="mt-4">
                                     <AddressDropdowns
                                         values={addressForm.data}
-                                        onChange={addressForm.setData}
+                                        onChange={(field, value) => {
+                                            if (typeof field === 'object') {
+                                                addressForm.setData({ ...addressForm.data, ...field });
+                                            } else {
+                                                addressForm.setData({ ...addressForm.data, [field]: value });
+                                            }
+                                        }}
                                         errors={addressForm.errors}
                                     />
                                 </div>

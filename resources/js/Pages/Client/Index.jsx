@@ -127,6 +127,7 @@ export default function ClientIndex({ clients, filters: rawFilters, stats, users
   const buildExportQuery = useCallback(({ dateFrom, dateTo }) => {
     const params = new URLSearchParams();
     if (filters.search) params.set('search', filters.search);
+    if (filters.account_status) params.set('account_status', filters.account_status);
     if (filters.sex) params.set('sex', filters.sex);
     if (filters.client_type) params.set('client_type', filters.client_type);
     if (filters.vulnerability_indicator) params.set('vulnerability_indicator', filters.vulnerability_indicator);
@@ -155,6 +156,9 @@ export default function ClientIndex({ clients, filters: rawFilters, stats, users
   const activeFilterChips = useMemo(() => {
     const chips = [];
     if (filters?.client_type) chips.push({ label: 'Client Type', value: filters.client_type });
+    if (filters?.account_status) {
+      chips.push({ label: 'Account', value: filters.account_status === 'linked' ? 'With account' : 'No account' });
+    }
     if (filters?.sex) chips.push({ label: 'Sex', value: filters.sex });
     if (filters?.case_status) chips.push({ label: 'Case Status', value: filters.case_status });
     if (filters?.vulnerability_indicator) chips.push({ label: 'Vulnerability', value: filters.vulnerability_indicator });
@@ -232,6 +236,13 @@ export default function ClientIndex({ clients, filters: rawFilters, stats, users
   const activeFilters = useMemo(() => {
     const chips = [];
     if (filters?.client_type) chips.push({ key: 'client_type', label: 'Client Type', value: filters.client_type === 'OFW' ? 'OFW' : 'NOK' });
+    if (filters?.account_status) {
+      chips.push({
+        key: 'account_status',
+        label: 'Account',
+        value: filters.account_status === 'linked' ? 'With account' : 'No account',
+      });
+    }
     if (filters?.sex) chips.push({ key: 'sex', label: 'Sex', value: filters.sex });
     if (filters?.case_status) chips.push({ key: 'case_status', label: 'Case Status', value: filters.case_status });
     if (filters?.vulnerability_indicator) chips.push({ key: 'vulnerability_indicator', label: 'Vulnerability', value: filters.vulnerability_indicator });
@@ -262,6 +273,7 @@ export default function ClientIndex({ clients, filters: rawFilters, stats, users
 
   const handleClearFilters = () => {
     updateTable({
+      account_status: undefined,
       client_type: undefined,
       sex: undefined,
       case_status: undefined,
@@ -621,6 +633,21 @@ export default function ClientIndex({ clients, filters: rawFilters, stats, users
 
   const advancedFilterContent = useMemo(() => (
     <div className="space-y-4">
+      <div>
+        <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Account</label>
+        <select
+          value={filters?.account_status ?? ''}
+          onChange={(e) => {
+            const val = e.target.value;
+            updateTable({ ...filters, account_status: val || undefined, page: undefined });
+          }}
+          className="w-full border border-slate-300 rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
+        >
+          <option value="">All Clients</option>
+          <option value="linked">With account</option>
+          <option value="no_account">No account</option>
+        </select>
+      </div>
       <div>
         <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Client Type</label>
         <select
