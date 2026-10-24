@@ -100,10 +100,11 @@ class EmailChangePropsTest extends TestCase
         $plainProps = array_keys($plain->viewData('page')['props']);
         $initProps = array_keys($init->viewData('page')['props']);
 
-        // The email-change render may add the step props, never drop one.
+        // The email-change render shares the same profile props and may add
+        // flow-specific props when they are not already shared.
         $this->assertSame([], array_values(array_diff($plainProps, $initProps)));
         $this->assertEqualsCanonicalizing(
-            ['email_change_step', 'email_change_hint'],
+            [],
             array_values(array_diff($initProps, $plainProps))
         );
 

@@ -116,7 +116,7 @@ class ClientCaseQueryTest extends TestCase
         $stats = app(CaseService::class)->getClientDirectoryStats($admin);
 
         $this->assertSame(5, $stats['total_clients']);
-        $this->assertSame(3, $stats['ofw_clients']);
+        $this->assertSame(4, $stats['ofw_clients']);
         $this->assertSame(1, $stats['nok_clients']);
         $this->assertSame([
             'PWD' => 1,

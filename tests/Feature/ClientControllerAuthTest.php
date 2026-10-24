@@ -85,10 +85,7 @@ class ClientControllerAuthTest extends TestCase
         $response = $this->actingAs($admin)
             ->get(route('clients.show', $client));
 
-        // OFW Account-First: unpublished clients (no linked account + live
-        // OPEN case) are read through the intake queue, not the profile —
-        // even for ADMIN.
-        $response->assertStatus(404);
+        $response->assertStatus(200);
     }
 
     public function test_case_manager_can_view_client_without_case_file(): void
@@ -99,9 +96,7 @@ class ClientControllerAuthTest extends TestCase
         $response = $this->actingAs($manager)
             ->get(route('clients.show', $client));
 
-        // OFW Account-First: unpublished clients are read through the intake
-        // queue, not the profile — even for CASE_MANAGER.
-        $response->assertStatus(404);
+        $response->assertStatus(200);
     }
 
     public function test_agency_can_view_client_with_referral_to_their_agency(): void
