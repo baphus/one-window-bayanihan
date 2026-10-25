@@ -41,7 +41,7 @@ class AuditObserver
 
     public function restored($model): void
     {
-        $this->log(AuditAction::UPDATE->value, $model, ['is_deleted' => true], ['is_deleted' => false]);
+        $this->log(AuditAction::RESTORE->value, $model, ['is_deleted' => true], ['is_deleted' => false]);
     }
 
     private function log(string $action, $model, ?array $old, ?array $new): void

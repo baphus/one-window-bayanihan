@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\AuditAction;
 use App\Models\SystemSetting;
+use App\Services\SecurityAuditLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
@@ -31,6 +33,13 @@ class SystemSettingsController extends Controller
         // "leave the stored value unchanged", never zero.
         if ($request->filled('referral_overdue_days')) {
             SystemSetting::setValue('referral_overdue_days', (int) $validated['referral_overdue_days']);
+
+            SecurityAuditLogger::log(
+                'system_setting',
+                'System setting updated: referral_overdue_days = '.(int) $validated['referral_overdue_days'],
+                null,
+                AuditAction::UPDATE->value,
+            );
         }
 
         return back()->with('success', 'Settings updated successfully.');
@@ -55,6 +64,13 @@ class SystemSettingsController extends Controller
             }
 
             SystemSetting::setValue('chatbot_last_reindexed_at', now()->toIso8601String());
+
+            SecurityAuditLogger::log(
+                'system_setting',
+                'Chatbot helpdesk content cache refreshed (reindexed)',
+                null,
+                AuditAction::UPDATE->value,
+            );
 
             return response()->json([
                 'success' => true,

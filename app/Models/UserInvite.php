@@ -9,6 +9,8 @@ class UserInvite extends Model
 {
     use UsesUuid;
 
+    public static array $auditExclude = ['id', 'created_at', 'updated_at', 'token', 'token_hash'];
+
     protected $fillable = [
         'email',
         'role',
@@ -52,6 +54,11 @@ class UserInvite extends Model
     public function isCancelled(): bool
     {
         return $this->cancelled_at !== null;
+    }
+
+    public function getAuditModuleName(): string
+    {
+        return 'user_invite';
     }
 
     public function invitedBy()

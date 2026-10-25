@@ -289,12 +289,15 @@ class AdminAgencyController extends Controller
         $agency->is_deleted = false;
         $agency->deleted_at = null;
         $agency->deleted_by = null;
-        $agency->save();
+        $agency->saveQuietly();
 
         AuditLog::create([
             'action' => AuditAction::UPDATE->value,
             'module' => AuditModule::AGENCY->value,
             'entity_id' => $agency->id,
+            'description' => 'Agency '.$agency->name.' reactivated',
+            'old_value' => ['is_active' => false, 'is_deleted' => true],
+            'new_value' => ['is_active' => true, 'is_deleted' => false],
             'user_id' => auth()->id(),
             'timestamp' => now(),
         ]);

@@ -115,12 +115,15 @@ class AdminCaseCategoryController extends Controller
         $category->is_active = true;
         $category->is_deleted = false;
         $category->deleted_at = null;
-        $category->save();
+        $category->saveQuietly();
 
         AuditLog::create([
             'action' => AuditAction::UPDATE->value,
             'module' => AuditModule::CASE_CATEGORY->value,
             'entity_id' => $category->id,
+            'description' => 'Case category '.$category->name.' reactivated',
+            'old_value' => ['is_active' => false, 'is_deleted' => true],
+            'new_value' => ['is_active' => true, 'is_deleted' => false],
             'user_id' => auth()->id(),
             'timestamp' => now(),
         ]);
