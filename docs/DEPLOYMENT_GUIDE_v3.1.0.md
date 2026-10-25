@@ -173,7 +173,7 @@ The deploy override is deliberate: the hosted container runs cache+queue on `dat
 
 **Compose services (7):** `nginx` (`nginx:1.27-alpine`, `:80` → app, health-gated on app) · `app` (target `app`, `.env` with `DB_HOST=db`, `REDIS_HOST=redis`, health `curl -sf http://nginx/up`) · `queue` (`queue:listen --tries=3 --timeout=320`) · `scheduler` (`schedule:work`) · `migrate` (profile `migrate`, one-shot `migrate --force --no-interaction`) · `db` (`postgres:15-alpine`) · `redis` (`redis:7-alpine`, appendonly, 128 MB, allkeys-lru).
 
-**Dockerfile:** stage 1 `node:22-bookworm`, `npm ci --ignore-scripts` + `npm run build` → `public/build/`; stage 2 `php:8.4-fpm` + nginx + supervisor, `phpredis 6.1.0`, GD configured `--with-freetype --with-jpeg`, extensions `pdo/pdo_pgsql/sockets/bcmath/gd/intl/opcache/pcntl/exif/mbstring/zip`. Healthcheck `curl -f http://127.0.0.1:8080/up`. `ENTRYPOINT docker-entrypoint.sh`, `CMD supervisord`.
+**Dockerfile:** stage 1 `node:22-bookworm`, `npm ci --ignore-scripts` + `npm run build` → `public/build/`; stage 2 `php:8.4.27-fpm` (pinned via `ARG PHP_VERSION`, asserted at build time against a security floor — see §6a) + nginx + supervisor, `phpredis 6.1.0`, GD configured `--with-freetype --with-jpeg`, extensions `pdo/pdo_pgsql/sockets/bcmath/gd/intl/opcache/pcntl/exif/mbstring/zip`. Healthcheck `curl -f http://127.0.0.1:8080/up`. `ENTRYPOINT docker-entrypoint.sh`, `CMD supervisord`.
 
 **Supervisord** (`docker/supervisord.conf`): `php-fpm`, `nginx`, `queue-worker` (`queue:work --queue=default,notifications,heavy --sleep=3 --tries=3 --timeout=320 --max-jobs=500 --max-time=3600`, `RUN_QUEUE_WORKER` guard, stopwait 340 s), `scheduler` (`schedule:work`, `RUN_SCHEDULER` guard — exactly one instance cluster-wide; scale-out recipe: web replicas `RUN_SCHEDULER=false` + one single-instance scheduler service).
 
@@ -186,6 +186,18 @@ Production build steps are unchanged from v3.0.0. The provider-agnostic trigger 
 3. **Rolling-deploy safety still requires backward-compatible migrations** (expand → migrate → contract): the old container serves while the new one migrates.
 4. **Gates:** `/up` (liveness, no side effects) **and** `/api/readyz` (deep readiness: DB + queue + scheduler heartbeat, `X-Monitoring-Token` required). The pipeline polls deployment `ACTIVE`-on-expected-image, then `/up` × 10, then `/api/readyz` × 8 (after a 75 s scheduler-heartbeat settle). `/up` 200 with `/api/readyz` failing = serving but degraded.
 5. **Pre-deploy snapshot** is taken by the runner before submitting the deployment; `migrate:rollback` remains a schema tool, not a data rollback.
+
+## 6a. Base image patch discipline (VULN-2026-10)
+
+**Finding.** CVE-2026-109618 / CVE-2026-109619 ("PHP2Shell") are unauthenticated RCE and remote memory disclosure via use-after-free in PHP's request lifecycle, present in every release since PHP 5.4, CVSS v4.0 9.2, disclosed and exploited in the wild from 2026-10-21. An unauthenticated attacker could execute code and read freed worker memory — including session tokens, encrypted at rest but decrypted in-process, object-storage keys and DB credentials — returning it to the client in the `PHPSESSID` response cookie, before any application code ran.
+
+**Exposure.** `Dockerfile` used a floating `php:8.4-fpm` tag, so the shipped patch level depended on when the image was built rather than on a reviewed decision. `composer.json` allows `>=8.4.1 <9.0`, which does not constrain the patch level either. Locally relevant preconditions were present: file uploads enabled at 64 MB (`multipart/form-data` is a normal code path for case documents, referral attachments and survey uploads, so the documented blanket "block multipart" interim mitigation was not available), `memory_limit = 256M`, and OPcache JIT enabled — the surface CVE-2026-109619's type confusion targets. Combined with `fastcgi_read_timeout 60`, the documented `memory_limit = -1` stopgap was also unavailable: one request could exhaust the 512 MB container cgroup before the timeout fired.
+
+**Remediation.** (1) Rebuilt and redeployed on `php:8.4-fpm` ≥ 8.4.27, forcibly past the GHA build cache so a pre-disclosure base layer could not satisfy the `FROM`. (2) Pinned the base image to `ARG PHP_VERSION=8.4.27`. (3) Added a `build-image.yml` assertion that the built image's `PHP_VERSION` meets a declared security floor, so a stale pin fails the build. (4) Recorded this entry.
+
+**Residual risk accepted.** None for these CVEs at the pinned version. The pin defers, but does not remove, the obligation to track PHP security releases on the 8.4 branch; the CI floor is the mechanism that makes that obligation fail loudly. PHP 8.4 leaves active support 2026-12-31 and receives security-only fixes until 2028-12-31, so the branch is acceptable for this audit year with an 8.5 migration scheduled, not deferred indefinitely.
+
+**Verified by.** `build-image.yml` step "Verify PHP patch level meets the security floor"; `docker run --rm --entrypoint php <image> -v` on the deployed tag.
 
 ## 12. Platform binding inventory (sole vendor pit — unchanged rule)
 
