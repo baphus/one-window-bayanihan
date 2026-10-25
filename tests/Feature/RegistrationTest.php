@@ -3,19 +3,16 @@
 namespace Tests\Feature;
 
 use App\Enums\UserRole;
-use App\Http\Middleware\EnsurePendingRegistration;
 use App\Mail\OtpMail;
 use App\Models\Client;
 use App\Models\User;
 use App\Services\OtpService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\WithFaker;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\Route;
 use Tests\TestCase;
 
 class RegistrationTest extends TestCase
@@ -27,15 +24,11 @@ class RegistrationTest extends TestCase
         parent::setUp();
         Mail::fake();
         $this->withoutMiddleware([ThrottleRequests::class]);
-        // Workaround for missing import in bootstrap/app.php:75 (reported as
-        // blocker): re-register the alias with its FQCN so the middleware
-        // under test actually resolves. No source files touched.
-        Route::aliasMiddleware('pending.registration', EnsurePendingRegistration::class);
     }
 
     // ── Step 1: POST /register ──────────────────────────────────────────────
 
-    public function test_step1_stores_credentials_in_session_without_creating_user(): void
+    public function test_step1_stores_credentials_and_profile_in_session_without_creating_user(): void
     {
         $response = $this->postJson(route('register.store'), [
             'first_name' => 'Juan',
@@ -44,56 +37,68 @@ class RegistrationTest extends TestCase
             'email' => 'juan-test@example.test',
             'password' => 'Str0ngPass!123',
             'password_confirmation' => 'Str0ngPass!123',
-        ]);
+        ] + $this->stepOneProfile());
 
-        // Step 1 redirects to the profile page.
-        $response->assertRedirect(route('register.profile'));
+        $response->assertRedirect(route('register.review'));
 
-        // No User row yet; OTP was generated and session holds pending data.
         $this->assertGuest();
         $this->assertNull(User::where('email', 'juan-test@example.test')->first());
-        $this->assertTrue(Cache::has('otp:register:juan-test@example.test'));
+
+        // No code is issued at step 1 any more — it is sent from the review step.
+        $this->assertFalse(Cache::has('otp:register:juan-test@example.test'));
+        Mail::assertNothingQueued();
 
         $credentials = session('pending_registration.credentials');
         $this->assertSame('Juan', $credentials['first_name']);
         $this->assertSame('Santos', $credentials['middle_name']);
         $this->assertSame('Dela Cruz', $credentials['last_name']);
+
+        $profile = session('pending_registration.profile');
+        $this->assertSame('OFW', $profile['type']);
+        $this->assertSame('1995-03-15', $profile['date_of_birth']);
+        $this->assertSame('Cebu City', $profile['address']['city_municipality']);
+        $this->assertSame('Test Employer', $profile['employment']['employer_name']);
     }
 
-    public function test_pending_registration_can_resend_email_verification_code(): void
+    public function test_step1_requires_profile_fields(): void
     {
-        $email = 'juan-test@example.test';
-
-        $this->withSession(['pending_registration' => [
-            'credentials' => ['email' => $email],
-            'register_otp_verified' => false,
-        ]])->postJson(route('register.profile.resend-otp'))
-            ->assertRedirect();
-
-        $this->assertTrue(Cache::has('otp:register:'.$email));
-        Mail::assertQueued(OtpMail::class);
-    }
-
-    public function test_resend_code_requires_pending_registration(): void
-    {
-        $this->postJson(route('register.profile.resend-otp'))
-            ->assertRedirect(route('register'));
-    }
-
-    public function test_step1_422_on_duplicate_email(): void
-    {
-        User::factory()->create(['email' => 'dup@example.test', 'role' => UserRole::OFW->value]);
-
         $response = $this->postJson(route('register.store'), [
-            'first_name' => 'Dup',
-            'last_name' => 'Test',
-            'email' => 'dup@example.test',
+            'first_name' => 'No',
+            'last_name' => 'Profile',
+            'email' => 'noprofile@example.test',
             'password' => 'Str0ngPass!123',
             'password_confirmation' => 'Str0ngPass!123',
         ]);
 
         $response->assertStatus(422);
-        $response->assertJsonValidationErrors(['email']);
+        $response->assertJsonValidationErrors([
+            'type',
+            'date_of_birth',
+            'address.region',
+            'address.city_municipality',
+            'address.barangay',
+            'employment.employer_name',
+            'employment.start_date',
+            'employment.last_country',
+            'employment.last_position',
+            'employment.date_of_arrival',
+        ]);
+        $this->assertNull(session('pending_registration'));
+    }
+
+    public function test_step1_does_not_reject_a_duplicate_email(): void
+    {
+        // Uniqueness is re-checked at review time so a user is not bounced back
+        // to a long form after spending 5 minutes on it.
+        User::factory()->create(['email' => 'dup-late@example.test', 'role' => UserRole::OFW->value]);
+
+        $this->postJson(route('register.store'), [
+            'first_name' => 'Dup',
+            'last_name' => 'Late',
+            'email' => 'dup-late@example.test',
+            'password' => 'Str0ngPass!123',
+            'password_confirmation' => 'Str0ngPass!123',
+        ] + $this->stepOneProfile())->assertRedirect(route('register.review'));
     }
 
     public function test_step1_422_on_weak_password(): void
@@ -104,48 +109,96 @@ class RegistrationTest extends TestCase
             'email' => 'weak@example.test',
             'password' => 'short',
             'password_confirmation' => 'short',
-        ]);
+        ] + $this->stepOneProfile());
 
         $response->assertStatus(422);
         $response->assertJsonValidationErrors(['password']);
     }
 
-    // ── Step 2: POST /register/profile ──────────────────────────────────────
+    // ── Step 2: review step ─────────────────────────────────────────────────
 
-    public function test_step2_creates_user_ofw_with_linked_ofw_client(): void
+    public function test_review_step_renders_saved_profile(): void
+    {
+        $pending = $this->preparePendingRegistration('review-view@example.test', 'Juan', 'Santos', 'Cruz');
+
+        $this->withSession(['pending_registration' => $pending])
+            ->get(route('register.review'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('Auth/RegisterReview')
+                ->where('pendingName.first_name', 'Juan')
+                ->where('pending.employment.employer_name', 'Test Employer')
+                ->where('pending.address.city_municipality', 'Cebu City'));
+    }
+
+    public function test_review_step_sends_the_verification_code(): void
+    {
+        $email = 'review-send@example.test';
+        $pending = $this->preparePendingRegistration($email);
+        // preparePendingRegistration() already issued one code; start clean.
+        Cache::forget('otp:register:'.$email);
+        Mail::fake();
+
+        $this->withSession(['pending_registration' => $pending])
+            ->from(route('register.review'))
+            ->postJson(route('register.review.send-otp'))
+            ->assertRedirect(route('register.review'));
+
+        $this->assertTrue(Cache::has('otp:register:'.$email));
+        Mail::assertQueued(OtpMail::class);
+    }
+
+    public function test_send_code_requires_pending_registration(): void
+    {
+        $this->postJson(route('register.review.send-otp'))
+            ->assertRedirect(route('register'));
+    }
+
+    public function test_send_code_issues_a_register_subject_email(): void
+    {
+        $email = 'review-subject@example.test';
+        $pending = $this->preparePendingRegistration($email);
+        Cache::forget('otp:register:'.$email);
+
+        $this->withSession(['pending_registration' => $pending])
+            ->from(route('register.review'))
+            ->post(route('register.review.send-otp'));
+
+        Mail::assertQueued(OtpMail::class, fn (OtpMail $mail) => $mail->purpose === 'register'
+            && $mail->envelope()->subject === 'Verify your One Window Bayanihan email');
+    }
+
+    public function test_review_step_ignores_smuggled_profile_fields(): void
+    {
+        $pending = $this->preparePendingRegistration('smuggle@example.test', 'Juan', 'Santos', 'Cruz');
+
+        $this->withSession(['pending_registration' => $pending])
+            ->post(route('register.review.store'), [
+                'otp' => $pending['otp'],
+                // Attacker-supplied identity + profile data — must be ignored.
+                'first_name' => 'Injected',
+                'type' => 'NEXT_OF_KIN',
+                'employment' => ['employer_name' => 'Injected Employer'],
+            ])
+            ->assertRedirect(route('ofw.intake'));
+
+        $user = User::where('email', 'smuggle@example.test')->sole();
+        $this->assertSame('Juan Santos Cruz', $user->name);
+
+        $client = Client::find($user->client_id);
+        $this->assertSame('Juan', $client->first_name);
+        $this->assertSame('OFW', $client->type);
+        // employer_name is encrypted at rest, so assert through the model cast.
+        $this->assertSame('Test Employer', $client->employments()->orderBy('created_at')->first()->employer_name);
+    }
+
+    public function test_review_step_creates_user_ofw_with_linked_ofw_client(): void
     {
         $pending = $this->preparePendingRegistration('ofw-one@example.test', 'Juan', 'Santos', 'Cruz');
         $userCount = User::count();
 
-        $file = UploadedFile::fake()->image('avatar.jpg', 600, 600);
-
         $response = $this->withSession(['pending_registration' => $pending])
-            ->post(route('register.profile.store'), [
-                'otp' => $pending['otp'],
-                'type' => 'OFW',
-                'date_of_birth' => '1995-03-15',
-                'sex' => 'Male',
-                'contact_number' => '+639171234567',
-                'address' => [
-                    'region' => '0700000000',
-                    'city_municipality' => 'Cebu City',
-                    'barangay' => 'Lahug',
-                    'province' => 'Cebu',
-                    'street' => 'Test Street',
-                ],
-                'employment' => [
-                    'employer_name' => 'Test Employer',
-                    'position' => 'Test Position',
-                    'country' => 'Philippines',
-                    'start_date' => '2010-04-01',
-                    'is_present' => true,
-                    'end_date' => null,
-                    'last_country' => 'Philippines',
-                    'last_position' => 'Test Last Position',
-                    'date_of_arrival' => '1995-05-01',
-                ],
-                'avatar' => $file,
-            ]);
+            ->post(route('register.review.store'), ['otp' => $pending['otp']]);
 
         // Authenticated after step 2 + redirect to intake filing.
         $response->assertRedirect(route('ofw.intake'));
@@ -170,39 +223,14 @@ class RegistrationTest extends TestCase
         $this->assertEquals($userCount + 1, User::count());
     }
 
-    public function test_step2_creates_user_with_next_of_kin_type(): void
+    public function test_review_step_creates_user_with_next_of_kin_type(): void
     {
         $pending = $this->preparePendingRegistration('nok-one@example.test', 'Maria', null, 'Reyes');
-
-        $file = UploadedFile::fake()->image('avatar.jpg', 600, 600);
+        $pending['profile']['type'] = 'NEXT_OF_KIN';
+        $pending['profile']['sex'] = 'Female';
 
         $this->withSession(['pending_registration' => $pending])
-            ->post(route('register.profile.store'), [
-                'otp' => $pending['otp'],
-                'type' => 'NEXT_OF_KIN',
-                'date_of_birth' => '1995-03-15',
-                'sex' => 'Female',
-                'contact_number' => '+639171234567',
-                'address' => [
-                    'region' => '0700000000',
-                    'city_municipality' => 'Cebu City',
-                    'barangay' => 'Lahug',
-                    'province' => 'Cebu',
-                    'street' => 'Test Street',
-                ],
-                'employment' => [
-                    'employer_name' => 'Test Employer',
-                    'position' => 'Test Position',
-                    'country' => 'Philippines',
-                    'start_date' => '2010-04-01',
-                    'is_present' => true,
-                    'end_date' => null,
-                    'last_country' => 'Philippines',
-                    'last_position' => 'Test Last Position',
-                    'date_of_arrival' => '1995-05-01',
-                ],
-                'avatar' => $file,
-            ]);
+            ->post(route('register.review.store'), ['otp' => $pending['otp']]);
 
         $user = User::where('email', 'nok-one@example.test')->sole();
         $this->assertSame('Maria Reyes', $user->name);
@@ -215,40 +243,13 @@ class RegistrationTest extends TestCase
         ]);
     }
 
-    public function test_step2_rejects_wrong_otp_with_422(): void
+    public function test_review_step_rejects_wrong_otp(): void
     {
         $pending = $this->preparePendingRegistration('otp-wrong@example.test');
         $wrongOtp = $pending['otp'] === '000000' ? '111111' : '000000';
 
-        $file = UploadedFile::fake()->image('avatar.jpg', 600, 600);
-
         $response = $this->withSession(['pending_registration' => $pending])
-            ->post(route('register.profile.store'), [
-                'otp' => $wrongOtp,
-                'type' => 'OFW',
-                'date_of_birth' => '1995-03-15',
-                'sex' => 'Male',
-                'contact_number' => '+639171234567',
-                'address' => [
-                    'region' => '0700000000',
-                    'city_municipality' => 'Cebu City',
-                    'barangay' => 'Lahug',
-                    'province' => 'Cebu',
-                    'street' => 'Test Street',
-                ],
-                'employment' => [
-                    'employer_name' => 'Test Employer',
-                    'position' => 'Test Position',
-                    'country' => 'Philippines',
-                    'start_date' => '2010-04-01',
-                    'is_present' => true,
-                    'end_date' => null,
-                    'last_country' => 'Philippines',
-                    'last_position' => 'Test Last Position',
-                    'date_of_arrival' => '1995-05-01',
-                ],
-                'avatar' => $file,
-            ]);
+            ->post(route('register.review.store'), ['otp' => $wrongOtp]);
 
         $response->assertRedirect();
         $response->assertSessionHasErrors(['otp']);
@@ -262,9 +263,11 @@ class RegistrationTest extends TestCase
      * `users_email_unique` violation the step-1 check could not yet see) used to
      * leave pending_registration pointing at a dead code — every retry answered
      * "Invalid or expired code" until the whole wizard restarted. The same code
-     * must still be accepted on the next attempt.
+     * must still be accepted on the next attempt — unless the profile re-check
+     * itself rejects the duplicate first, which is why this test also asserts
+     * the code survives that path.
      */
-    public function test_step2_failed_transaction_keeps_the_otp_usable_for_the_retry(): void
+    public function test_review_step_failed_transaction_keeps_the_otp_usable_for_the_retry(): void
     {
         $pending = $this->preparePendingRegistration('race@example.test');
 
@@ -273,10 +276,10 @@ class RegistrationTest extends TestCase
         User::factory()->create(['email' => 'race@example.test', 'role' => UserRole::OFW->value]);
 
         $response = $this->withSession(['pending_registration' => $pending])
-            ->from(route('register.profile'))
-            ->post(route('register.profile.store'), $this->profilePayload($pending['otp']));
+            ->from(route('register.review'))
+            ->post(route('register.review.store'), ['otp' => $pending['otp']]);
 
-        $response->assertRedirect(route('register.profile'));
+        $response->assertRedirect(route('register.review'));
         $response->assertSessionHasErrors('email');
         $this->assertGuest();
         $this->assertSame(1, User::where('email', 'race@example.test')->count(), 'The failed transaction must not leave a partial user behind.');
@@ -289,7 +292,7 @@ class RegistrationTest extends TestCase
         User::withTrashed()->where('email', 'race@example.test')->forceDelete();
 
         $retry = $this->withSession(['pending_registration' => $pending])
-            ->post(route('register.profile.store'), $this->profilePayload($pending['otp']));
+            ->post(route('register.review.store'), ['otp' => $pending['otp']]);
 
         $retry->assertRedirect(route('ofw.intake'));
         $this->assertAuthenticated();
@@ -297,13 +300,24 @@ class RegistrationTest extends TestCase
         $this->assertFalse(Cache::has('otp:register:race@example.test'), 'A committed registration still consumes the code.');
     }
 
-    public function test_step2_guest_redirects_to_register_without_session(): void
+    public function test_review_step_rejects_a_duplicate_email(): void
+    {
+        $pending = $this->preparePendingRegistration('dup-review@example.test');
+        User::factory()->create(['email' => 'dup-review@example.test', 'role' => UserRole::OFW->value]);
+
+        $this->withSession(['pending_registration' => $pending])
+            ->from(route('register.review'))
+            ->post(route('register.review.store'), ['otp' => $pending['otp']])
+            ->assertRedirect(route('register.review'))
+            ->assertSessionHasErrors('email');
+
+        $this->assertGuest();
+    }
+
+    public function test_review_step_guest_redirects_to_register_without_session(): void
     {
         // No pending_registration in session → should be redirected back to register.
-        $response = $this->post(route('register.profile.store'), [
-            'otp' => '123456',
-            'type' => 'OFW',
-        ]);
+        $response = $this->post(route('register.review.store'), ['otp' => '123456']);
 
         // Middleware redirects guest to /register.
         $response->assertRedirect(route('register'));
@@ -329,31 +343,27 @@ class RegistrationTest extends TestCase
                 'email' => $email,
                 'password' => Hash::make('Str0ngPass!123'),
             ],
-            'register_otp_verified' => false,
+            'profile' => $this->stepOneProfile(),
             'otp' => $otp, // pass through so tests can read it
         ];
     }
 
     /**
-     * Step-2 payload that clears validation, so any failure downstream comes
-     * from the registration transaction itself.
+     * The profile half of the step-1 payload.
      */
-    private function profilePayload(string $otp): array
+    private function stepOneProfile(): array
     {
         return [
-            'otp' => $otp,
             'type' => 'OFW',
-            'first_name' => 'Juan',
-            'last_name' => 'Cruz',
-            'middle_name' => 'Santos',
+            'suffix' => '',
             'date_of_birth' => '1995-03-15',
             'sex' => 'Male',
             'contact_number' => '+639171234567',
             'address' => [
                 'region' => '0700000000',
+                'province' => 'Cebu',
                 'city_municipality' => 'Cebu City',
                 'barangay' => 'Lahug',
-                'province' => 'Cebu',
                 'street' => 'Test Street',
             ],
             'employment' => [
@@ -361,13 +371,12 @@ class RegistrationTest extends TestCase
                 'position' => 'Test Position',
                 'country' => 'Philippines',
                 'start_date' => '2010-04-01',
-                'is_present' => true,
                 'end_date' => null,
+                'is_present' => true,
                 'last_country' => 'Philippines',
                 'last_position' => 'Test Last Position',
                 'date_of_arrival' => '1995-05-01',
             ],
-            'avatar' => UploadedFile::fake()->image('avatar.jpg', 600, 600),
         ];
     }
 }
