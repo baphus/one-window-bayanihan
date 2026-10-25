@@ -45,6 +45,9 @@ class CleanupOrphanedFilesTest extends TestCase
 
     public function test_command_deletes_old_soft_deleted(): void
     {
+        // Deleted rows are only eligible once the full restore window has passed.
+        $retentionDays = (int) config('app.trash_retention_days', 90);
+
         CaseDocument::create([
             'id' => fake()->uuid(),
             'file_name' => 'old.pdf',
@@ -53,7 +56,7 @@ class CleanupOrphanedFilesTest extends TestCase
             'case_id' => $this->case->id,
             'user_id' => $this->user->id,
             'is_deleted' => true,
-            'deleted_at' => now()->subDays(2),
+            'deleted_at' => now()->subDays($retentionDays + 5),
         ]);
 
         $mock = $this->createMock(StorageService::class);
