@@ -308,12 +308,10 @@ signal that scheduled jobs are silently not running.
 
 | Need | Where |
 |---|---|
-| Maintenance mode | `/admin/maintenance` (toggle) |
-| Application logs | `/admin/logs`, `/admin/logs/download` |
-| Data export | `/admin/data-export` |
+| Maintenance mode | `/admin/system/maintenance` (toggle) |
 | System settings | `/admin/system-settings` |
 | Audit trail + export | `/audit-logs`, `/audit-logs/export` |
-| Mail delivery state | `/admin/email-logs` |
+| Mail delivery state | `email_logs` / `email_events` tables (the admin screen has been retired) |
 
 **For frequent shell-level work, add a dedicated admin service.** A second
 Lightsail container service (`nano`, ~$7/month) from the **same image**, with no

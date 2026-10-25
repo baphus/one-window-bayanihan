@@ -475,28 +475,20 @@ All prefixed with `/admin`, named with the `admin.` prefix, behind `role:ADMIN`.
 | POST | `/admin/system-settings` | `SystemSettingsController@update` | `admin.system-settings.update` |
 | POST | `/admin/system-settings/reindex-chatbot` | `SystemSettingsController@reindexChatbot` | `admin.system-settings.reindex-chatbot` |
 
-### Data Export
+### Data Export (retired)
 
-| Method | URI | Controller | Name |
-|--------|-----|-----------|------|
-| GET | `/admin/data-export` | `DataExportController@index` | `admin.data-export.index` |
-| GET | `/admin/data-export/export` | `DataExportController@export` | `admin.data-export.export` |
+The admin full-data-export page and its routes were removed. Per-entity exports remain under `/cases/export-excel`, `/clients/export-excel`, `/referrals/export-excel`, `/feedbacks/export-excel`, and the Reports module.
 
 ### System Administration
 
 | Method | URI | Controller | Name |
 |--------|-----|-----------|------|
-| GET | `/admin/system/logs` | `LogViewerController@index` | `admin.system.logs` |
-| GET | `/admin/system/logs/entries` | `LogViewerController@entries` | `admin.system.logs.entries` |
-| GET | `/admin/system/logs/download` | `LogViewerController@download` | `admin.system.logs.download` |
 | GET | `/admin/system/maintenance` | `MaintenanceController@index` | `admin.system.maintenance` |
 | POST | `/admin/system/maintenance/toggle` | `MaintenanceController@toggle` | `admin.system.maintenance.toggle` |
 | GET | `/admin/system/security` | `SecuritySettingsController@index` | `admin.system.security` |
 | POST | `/admin/system/security` | `SecuritySettingsController@update` | `admin.system.security.update` |
 | GET | `/admin/system/active-sessions` | `ActiveSessionsController@index` | `admin.system.active-sessions` |
 | POST | `/admin/system/active-sessions/{session}/terminate` | `ActiveSessionsController@terminate` | `admin.system.active-sessions.terminate` |
-| GET | `/admin/system/email-logs` | `EmailLogController@index` | `admin.system.email-logs.index` |
-| POST | `/admin/system/email-logs/{emailLog}/resend` | `EmailLogController@resend` | `admin.system.email-logs.resend` |
 
 ---
 
@@ -579,14 +571,14 @@ Rows re-tallied from the tables above on 2026-10-03 and cross-checked against
 | Survey responses dashboard | 2 |
 | Overdue referrals (outside `verified`) | 2 |
 | OFW portal | 7 |
-| Admin (agencies 5 + single-agency show, services 4, users 14, system-settings 3, case-categories 5, case-statuses 4, case-issues 5, data-export 2, system 11) | 54 |
-| **Total method rows (duplicates included)** | **238** |
-| **Unique application routes (excludes `/up`)** | **234** |
+| Admin (agencies 5 + single-agency show, services 4, users 14, system-settings 3, case-categories 5, case-statuses 4, case-issues 5, system 6) | 47 |
+| **Total method rows (duplicates included)** | **229** |
+| **Unique application routes (excludes `/up`)** | **225** |
 
-The `Rows` column sums to 238 — the 238 method rows this document catalogues —
+The `Rows` column sums to 229 — the 229 method rows this document catalogues —
 because `GET /survey/{token}`, `GET /survey-forms`, and `GET /surveys` are each
-listed in two sections. Deduplicated that is **235 unique method+URI pairs**:
-the **234 application routes** counted as the total above, plus `/up`, which is
+listed in two sections. Deduplicated that is **226 unique method+URI pairs**:
+the **225 application routes** counted as the total above, plus `/up`, which is
 a vendor/framework route. The other three vendor routes
 (`sanctum/csrf-cookie`, and `storage/{path}` GET and PUT) are not catalogued.
 

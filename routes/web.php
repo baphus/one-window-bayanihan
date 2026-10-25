@@ -4,9 +4,6 @@ use App\Http\Controllers\Admin\ActiveSessionsController;
 use App\Http\Controllers\Admin\AdminCaseCategoryController;
 use App\Http\Controllers\Admin\AdminCaseIssueController;
 use App\Http\Controllers\Admin\AdminCaseStatusController;
-use App\Http\Controllers\Admin\DataExportController;
-use App\Http\Controllers\Admin\EmailLogController;
-use App\Http\Controllers\Admin\LogViewerController;
 use App\Http\Controllers\Admin\MaintenanceController;
 use App\Http\Controllers\Admin\OverdueReferralController;
 use App\Http\Controllers\Admin\SecuritySettingsController;
@@ -302,14 +299,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('/case-issues/{caseIssue}', [AdminCaseIssueController::class, 'destroy'])->name('case-issues.destroy');
         Route::patch('/case-issues/{caseIssue}/reactivate', [AdminCaseIssueController::class, 'reactivate'])->name('case-issues.reactivate');
 
-        Route::get('/data-export', [DataExportController::class, 'index'])->name('data-export.index');
-        Route::get('/data-export/export', [DataExportController::class, 'export'])->name('data-export.export');
-
         Route::prefix('system')->name('system.')->group(function () {
-            Route::get('/logs', [LogViewerController::class, 'index'])->name('logs');
-            Route::get('/logs/entries', [LogViewerController::class, 'entries'])->name('logs.entries');
-            Route::get('/logs/download', [LogViewerController::class, 'download'])->name('logs.download');
-
             Route::get('/maintenance', [MaintenanceController::class, 'index'])->name('maintenance');
             Route::post('/maintenance/toggle', [MaintenanceController::class, 'toggle'])->name('maintenance.toggle');
 
@@ -318,10 +308,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
             Route::get('/active-sessions', [ActiveSessionsController::class, 'index'])->name('active-sessions');
             Route::post('/active-sessions/{session}/terminate', [ActiveSessionsController::class, 'terminate'])->name('active-sessions.terminate');
-
-            Route::get('/email-logs', [EmailLogController::class, 'index'])->name('email-logs.index');
-            Route::post('/email-logs/{emailLog}/resend', [EmailLogController::class, 'resend'])->name('email-logs.resend');
-
         });
     });
 });

@@ -52,7 +52,7 @@ Recommended file naming:
 
 Before publishing, confirm that the article:
 
-- Uses current route/page names such as \`/help\`, \`/help/search\`, \`/help/{slug}\`, Admin/User, Agency, Service, Security, ActiveSessions, CaseCategory, CaseIssue, CaseStatus, DataExport, Maintenance, EmailLogs, LogViewer, and OverdueReferrals.
+- Uses current route/page names such as \`/help\`, \`/help/search\`, \`/help/{slug}\`, Admin/User, Agency, Service, Security, ActiveSessions, CaseCategory, CaseIssue, CaseStatus, Maintenance, and OverdueReferrals.
 - Uses exact role names: CASE_MANAGER, AGENCY, ADMIN, OFW.
 - Uses exact case statuses: DRAFT, OPEN, CLOSED, ARCHIVED.
 - Uses exact referral statuses: PENDING, PROCESSING, FOR_COMPLIANCE, COMPLETED, REJECTED.

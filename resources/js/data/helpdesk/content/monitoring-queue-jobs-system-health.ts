@@ -6,7 +6,7 @@ Administrators use the maintenance and log pages to monitor background work and 
 
 ## Where to look
 
-The relevant admin pages live under the **System** menu: **Maintenance**, **Email Logs**, **Logs** (the log viewer), and **Active Sessions**, plus the **Overdue Referrals** page. The dashboard also shows operational summaries for cases, referrals, and workload. Deep-dives: *Maintenance mode, system logs, and data export*, *Email logs and resending failed emails*, and *System security: settings and active sessions*.
+The relevant admin pages live under the **System** menu: **Maintenance**, **Security**, and **Active Sessions**, plus the **Overdue Referrals** page. The dashboard also shows operational summaries for cases, referrals, and workload. Deep-dives: *Maintenance Mode* and *System security: settings and active sessions*.
 
 ![Admin dashboard](/assets/helpdesk/dashboard-admin.png)
 
@@ -27,7 +27,7 @@ A queue or background processing problem may appear as delayed emails, reports t
 
 1. Capture the time, user, and action attempted.
 2. Check whether the related case, referral, or export record exists.
-3. Review EmailLogs or LogViewer for matching errors.
+3. Review the audit log and the in-app notification record for matching activity around that time.
 4. Avoid repeatedly retrying actions that may create duplicate notifications.
 5. Escalate to technical support with the timestamp and affected record identifiers.
 

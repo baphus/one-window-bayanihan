@@ -58,7 +58,7 @@ never swallowed silently (`app.tsx:88-99`). Page resolution tries
   There are 100+ page modules covering Auth, Case, Referral, three role
   dashboards, Tracking, Survey (public form + agency builder + responses),
   OFW portal, Admin (users, agencies, services, case taxonomies, security,
-  email logs, data export, overdue referrals), Reports, Helpdesk, Profile,
+  overdue referrals), Reports, Helpdesk, Profile,
   Notifications, Clients, Stakeholders, and error pages (`Errors/NotFound`,
   `Errors/Forbidden`, `Errors/TooManyRequests`, `Errors/ServerError` — rendered
   by `bootstrap/app.php:103-188`).

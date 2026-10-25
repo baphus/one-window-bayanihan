@@ -80,16 +80,11 @@ export const navByRole = {
       { name: 'Services', href: '/admin/services', route: 'admin.services.index', icon: 'medical_services' },
       { name: 'Users', href: '/admin/users', route: 'admin.users.index', icon: 'manage_accounts' },
     ]},
-    { label: 'System Health', items: [
-      { name: 'System Logs', href: '/admin/system/logs', route: 'admin.system.logs', icon: 'list_alt' },
-      { name: 'Email Logs', href: '/admin/system/email-logs', route: 'admin.system.email-logs.index', icon: 'mail' },
-    ]},
     { label: 'Administration', items: [
       { name: 'Audit Logs', href: '/audit-logs', route: 'audit-logs.index', icon: 'history' },
       { name: 'Case Statuses', href: '/admin/case-statuses', route: 'admin.case-statuses.index', icon: 'label' },
       { name: 'Case Categories', href: '/admin/case-categories', route: 'admin.case-categories.index', icon: 'topic' },
       { name: 'Case Issues', href: '/admin/case-issues', route: 'admin.case-issues.index', icon: 'feedback' },
-      { name: 'Data Export', href: '/admin/data-export', route: 'admin.data-export.index', icon: 'file_download' },
       { name: 'Maintenance Mode', href: '/admin/system/maintenance', route: 'admin.system.maintenance', icon: 'construction' },
     ]},
     { label: 'Settings', items: [

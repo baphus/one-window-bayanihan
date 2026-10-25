@@ -57,7 +57,7 @@ Each person holds **exactly one** role. There are no combined roles, no sub-role
   - creates, invites, edits, deactivates, and reactivates staff accounts; verifies accounts; resets a person's two-step verification when they lose their device;
   - manages partner agencies, the shared list of services, and the reference lists (case categories, statuses, issues);
   - changes platform settings and refreshes the help content so updated articles appear in the chatbot;
-  - views system logs and the email delivery log, resends messages, switches maintenance mode, and adjusts security settings;
+  - switches maintenance mode and adjusts security settings;
   - views active sign-in sessions and ends any of them (except their own current one);
   - exports the activity history as a spreadsheet, and requests the full-system workbook;
   - views agency details (Case Managers may view these read-only as well).
