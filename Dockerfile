@@ -97,7 +97,13 @@ COPY --from=node-build /build/public/build public/build
 RUN composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist \
     && rm -rf /root/.composer/cache
 
-RUN composer audit --no-interaction 2>&1 | tee /tmp/composer-audit.log
+# Fail the build when the audit finds advisories. `composer audit | tee` on its
+# own reports tee's exit status, so the log would be written and the build would
+# keep going. bash's pipefail makes the pipeline take composer's status while
+# still leaving the full report in /tmp/composer-audit.log for reading. bash is
+# named explicitly because the image's default /bin/sh is dash, which has no
+# pipefail and would make this a syntax error.
+RUN bash -o pipefail -c 'composer audit --no-interaction 2>&1 | tee /tmp/composer-audit.log'
 
 RUN rm -rf /root/.composer
 
