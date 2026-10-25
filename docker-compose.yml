@@ -105,9 +105,12 @@ services:
       start_period: 30s
 
   # ── Queue Worker ──────────────────────────────────────────────────────────
+  # --timeout must exceed the longest per-job timeout (GenerateSystemReport:
+  # 300s) and stay below the connection's retry_after (360s) so a job is never
+  # re-delivered while it is still running.
   queue:
     <<: [*php-base, *php-hardened]
-    command: php artisan queue:listen --tries=3 --timeout=90
+    command: php artisan queue:listen --tries=3 --timeout=320
 
   # ── Scheduler ─────────────────────────────────────────────────────────────
   scheduler:

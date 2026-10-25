@@ -59,14 +59,17 @@ path, middleware name, and queue policy below was read from code on 2026-09-15:
 - **Queue topology: three policies, not one.** v2.1.0 §12 named only the local
   `queue:listen` command. Reality: local dev listens on
   `--queue=default,notifications --tries=1 --timeout=0` (`composer.json:61`);
-  the compose `queue` service listens with `--tries=3 --timeout=90`
-  (`docker-compose.yml:156`); the image's supervisord worker runs
+  the compose `queue` service listens with `--tries=3 --timeout=320`
+  (`docker-compose.yml:107`); the image's supervisord worker runs
   `queue:work --queue=default,notifications,heavy --sleep=3 --tries=3
-  --timeout=30 --max-jobs=500 --max-time=3600` (`docker/supervisord.conf:34`),
-  with `stopwaitsecs=35` so an in-flight job finishes before SIGKILL. The
-  scheduler runs `schedule:work` in the same image, gated by `RUN_SCHEDULER` /
-  `RUN_QUEUE_WORKER` guards (`docker/supervisord.conf:34,57`) so the web tier
-  can scale out with exactly one scheduler.
+  --timeout=320 --max-jobs=500 --max-time=3600` (`docker/supervisord.conf:34`),
+  with `stopwaitsecs=340` so an in-flight job finishes before SIGKILL. Both
+  worker timeouts sit above the longest per-job timeout
+  (`GenerateSystemReport::$timeout = 300`), which the previous 30 s / 90 s
+  values did not. The scheduler runs `schedule:work` in the same image, gated by
+  `RUN_SCHEDULER` / `RUN_QUEUE_WORKER` guards
+  (`docker/supervisord.conf:34,57`) so the web tier can scale out with exactly
+  one scheduler.
 - **Staging seed data.** `database/seeders/StagingSeeder.php` (with helpers under
   `database/seeders/Staging/`: `StagingDataFactory`, `TemporalEngine`,
   `VolumeModel`, `AuditChainWriter`) generates volume-realistic staging data with
@@ -222,8 +225,8 @@ search additionally uses Fuse.js (`package.json:43`).
 | Context | Command | Policy |
 |---------|---------|--------|
 | Local dev (`composer run dev`) | `queue:listen --queue=default,notifications --tries=1 --timeout=0` | fail fast, infinite job timeout (`composer.json:61`) |
-| Compose `queue` service | `queue:listen --tries=3 --timeout=90` | patient retries (`docker-compose.yml:156`) |
-| Image supervisord worker | `queue:work --queue=default,notifications,heavy --sleep=3 --tries=3 --timeout=30 --max-jobs=500 --max-time=3600` | bounded jobs; `stopwaitsecs=35` (`docker/supervisord.conf:33-45`) |
+| Compose `queue` service | `queue:listen --tries=3 --timeout=320` | patient retries (`docker-compose.yml:107`) |
+| Image supervisord worker | `queue:work --queue=default,notifications,heavy --sleep=3 --tries=3 --timeout=320 --max-jobs=500 --max-time=3600` | bounded jobs above the 300 s job budget; `stopwaitsecs=340` (`docker/supervisord.conf:33-45`) |
 | Image scheduler | `schedule:work` | exactly one instance cluster-wide; `RUN_SCHEDULER=false` on scaled web tier, single-instance scheduler service from the same image (`docker/supervisord.conf:47-57`) |
 
 Canonical broker is Redis; the `database` driver (`jobs`/`failed_jobs` tables)

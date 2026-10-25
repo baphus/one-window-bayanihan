@@ -12,7 +12,7 @@
 | D2 | Laravel unspecified | **Laravel ^13.7** (locked **13.24.0** in `composer.lock`) |
 | D3 | "Node 22" uniformly | **Node 24 in CI** (`ci.yml` `node-version: '24'`) vs **node:22-bookworm in `Dockerfile` stage 1**. Both build the same Vite output; CI is the newer toolchain |
 | D4 | PostgreSQL 17 uniformly | **Compose `db` is `postgres:15-alpine`**; **CI backend-tests use `postgres:17`**. Production target stays 17 per §1 C3 (15+ tolerated). Local Compose is intentionally older — do not treat it as the prod reference |
-| D5 | Queue `--queue=default,notifications` (dev) | Supervisord worker consumes **`--queue=default,notifications,heavy`** (`docker/supervisord.conf`); `composer run dev` listens on `default,notifications`. Compose `queue` service runs `queue:listen --tries=3 --timeout=90` |
+| D5 | Queue `--queue=default,notifications` (dev) | Supervisord worker consumes **`--queue=default,notifications,heavy`** (`docker/supervisord.conf`); `composer run dev` listens on `default,notifications`. Compose `queue` service runs `queue:listen --tries=3 --timeout=320` |
 | D6 | Migrations as "release step, not on boot" | **Migrations run inside the container entrypoint**: `RUN_MIGRATIONS=true` → `php artisan migrate --force --isolated --no-interaction`; fail-closed (non-zero exit, previous deployment keeps serving). See §6 |
 | D7 | Health gate on `/up` only | Gates are **`/up` (liveness) + `/api/readyz` (deep readiness, token-gated)**. See §6 |
 | D8 | Config defaults not stated | `config/queue.php` default `database`, `config/cache.php` default `database`, `config/session.php` default `database` — but **`.env.example` sets `QUEUE_CONNECTION=redis`, `CACHE_STORE=redis`, `SESSION_DRIVER=database`**; the **deploy payload forces all three to `database`** (deploy override). See §4 annex |
@@ -171,11 +171,11 @@ The deploy override is deliberate: the hosted container runs cache+queue on `dat
 
 ## 5. Container topology (verified)
 
-**Compose services (7):** `nginx` (`nginx:1.27-alpine`, `:80` → app, health-gated on app) · `app` (target `app`, `.env` with `DB_HOST=db`, `REDIS_HOST=redis`, health `curl -sf http://nginx/up`) · `queue` (`queue:listen --tries=3 --timeout=90`) · `scheduler` (`schedule:work`) · `migrate` (profile `migrate`, one-shot `migrate --force --no-interaction`) · `db` (`postgres:15-alpine`) · `redis` (`redis:7-alpine`, appendonly, 128 MB, allkeys-lru).
+**Compose services (7):** `nginx` (`nginx:1.27-alpine`, `:80` → app, health-gated on app) · `app` (target `app`, `.env` with `DB_HOST=db`, `REDIS_HOST=redis`, health `curl -sf http://nginx/up`) · `queue` (`queue:listen --tries=3 --timeout=320`) · `scheduler` (`schedule:work`) · `migrate` (profile `migrate`, one-shot `migrate --force --no-interaction`) · `db` (`postgres:15-alpine`) · `redis` (`redis:7-alpine`, appendonly, 128 MB, allkeys-lru).
 
 **Dockerfile:** stage 1 `node:22-bookworm`, `npm ci --ignore-scripts` + `npm run build` → `public/build/`; stage 2 `php:8.4-fpm` + nginx + supervisor, `phpredis 6.1.0`, GD configured `--with-freetype --with-jpeg`, extensions `pdo/pdo_pgsql/sockets/bcmath/gd/intl/opcache/pcntl/exif/mbstring/zip`. Healthcheck `curl -f http://127.0.0.1:8080/up`. `ENTRYPOINT docker-entrypoint.sh`, `CMD supervisord`.
 
-**Supervisord** (`docker/supervisord.conf`): `php-fpm`, `nginx`, `queue-worker` (`queue:work --queue=default,notifications,heavy --sleep=3 --tries=3 --timeout=30 --max-jobs=500 --max-time=3600`, `RUN_QUEUE_WORKER` guard, stopwait 35 s), `scheduler` (`schedule:work`, `RUN_SCHEDULER` guard — exactly one instance cluster-wide; scale-out recipe: web replicas `RUN_SCHEDULER=false` + one single-instance scheduler service).
+**Supervisord** (`docker/supervisord.conf`): `php-fpm`, `nginx`, `queue-worker` (`queue:work --queue=default,notifications,heavy --sleep=3 --tries=3 --timeout=320 --max-jobs=500 --max-time=3600`, `RUN_QUEUE_WORKER` guard, stopwait 340 s), `scheduler` (`schedule:work`, `RUN_SCHEDULER` guard — exactly one instance cluster-wide; scale-out recipe: web replicas `RUN_SCHEDULER=false` + one single-instance scheduler service).
 
 ## 6. Build pipeline and release sequence (reconciled)
 
