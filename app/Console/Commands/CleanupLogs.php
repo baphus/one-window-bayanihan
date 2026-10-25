@@ -19,10 +19,16 @@ class CleanupLogs extends Command
      * whole pass or raising a PHP warning. Skipped files are summarised in
      * the command's own output (respecting --quiet) so one operator-visible
      * line reports every problem file per run.
+     *
+     * The glob covers every laravel*.log name because the framework writes
+     * more than the daily shape: LOG_STACK=single and the test channel write
+     * a bare laravel.log, which the older laravel-*.log pattern never
+     * matched — so the single-file deployments this cleanup exists for kept
+     * growing forever.
      */
     public function handle(): int
     {
-        $logFiles = glob(storage_path('logs/laravel-*.log')) ?: [];
+        $logFiles = glob(storage_path('logs').DIRECTORY_SEPARATOR.'laravel*.log') ?: [];
         $cutoff = now()->subDays(7)->timestamp;
         $logDeleted = 0;
         $skipped = [];

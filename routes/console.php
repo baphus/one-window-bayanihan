@@ -56,6 +56,13 @@ Schedule::command('audit:verify')->weeklyOn(1, '04:00')->withoutOverlapping()
 Schedule::command('storage:cleanup-orphans')->daily()->withoutOverlapping()
     ->onFailure($reportFailure(['command' => 'storage:cleanup-orphans']));
 
+// Retention for operational rows: email logs (90-day default) and failed jobs
+// (one week of payload, long enough to inspect after a weekend incident).
+Schedule::command('emails:prune')->daily()->withoutOverlapping()
+    ->onFailure($reportFailure(['command' => 'emails:prune']));
+Schedule::command('queue:prune-failed --hours=168')->weekly()->withoutOverlapping()
+    ->onFailure($reportFailure(['command' => 'queue:prune-failed']));
+
 // Permanently delete soft-deleted cases older than the retention window.
 Schedule::command('cases:purge-trashed')->dailyAt('02:00')->withoutOverlapping()
     ->onFailure($reportFailure(['command' => 'cases:purge-trashed']));
