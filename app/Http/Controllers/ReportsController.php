@@ -26,6 +26,10 @@ class ReportsController extends Controller
     public function index(ReportsFilterRequest $request)
     {
         $user = $request->user();
+        if ($user->role === UserRole::AGENCY->value && ! $user->agcy_id) {
+            abort(403, 'Agency users must be linked to an agency to view reports.');
+        }
+
         $filters = $request->validated();
         $fromDate = $filters['from'] ?? null;
         $toDate = $filters['to'] ?? null;
@@ -123,6 +127,11 @@ class ReportsController extends Controller
 
     public function exportPdf(Request $request)
     {
+        $user = $request->user();
+        if ($user->role === UserRole::AGENCY->value && ! $user->agcy_id) {
+            abort(403, 'Agency users must be linked to an agency to export reports.');
+        }
+
         $criteria = $this->reportsExportService->extractCriteria($request);
         if ($criteria instanceof RedirectResponse) {
             return $criteria;
@@ -164,6 +173,11 @@ class ReportsController extends Controller
 
     public function exportExcel(Request $request)
     {
+        $user = $request->user();
+        if ($user->role === UserRole::AGENCY->value && ! $user->agcy_id) {
+            abort(403, 'Agency users must be linked to an agency to export reports.');
+        }
+
         $criteria = $this->reportsExportService->extractCriteria($request);
         if ($criteria instanceof RedirectResponse) {
             return $criteria;

@@ -106,6 +106,7 @@ class CaseReferralGuardTest extends TestCase
         $updated = $this->caseService->toggleCaseStatus($this->case->id, $this->user->id);
 
         $this->assertEquals('CLOSED', $updated->status);
+        $this->assertNotNull($updated->closed_at);
     }
 
     #[Test]
@@ -124,13 +125,14 @@ class CaseReferralGuardTest extends TestCase
     #[Test]
     public function toggle_case_status_reopens_closed_case_without_checking_referrals(): void
     {
-        $this->case->update(['status' => 'CLOSED']);
+        $this->case->update(['status' => 'CLOSED', 'closed_at' => now()->subDay()]);
         $this->createReferral('PENDING');
 
         // Re-opening a closed case should not check referrals
         $updated = $this->caseService->toggleCaseStatus($this->case->id, $this->user->id);
 
         $this->assertEquals('OPEN', $updated->status);
+        $this->assertNull($updated->closed_at);
     }
 
     #[Test]

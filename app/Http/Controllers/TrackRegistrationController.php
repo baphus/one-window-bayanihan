@@ -68,11 +68,11 @@ class TrackRegistrationController extends Controller
             ->first();
 
         if ($existingUser) {
-            Auth::login($existingUser);
+            $request->session()->flash('status', 'An account already exists for this email. Please log in.');
 
             return response()->json([
                 'success' => true,
-                'redirect' => route('ofw.dashboard'),
+                'redirect' => route('login'),
             ]);
         }
 

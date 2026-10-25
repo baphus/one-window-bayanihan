@@ -89,6 +89,22 @@ class AuditLog extends Model
         return $walk($value);
     }
 
+    /**
+     * Outside a caller transaction, the advisory lock taken in `creating` is
+     * released as soon as that single statement ends, leaving the predecessor
+     * read and the insert unprotected. Wrap the save in one transaction so
+     * they share it. When a caller already has a transaction open, use it
+     * instead of nesting another savepoint.
+     */
+    public function save(array $options = []): bool
+    {
+        if (DB::transactionLevel() > 0) {
+            return parent::save($options);
+        }
+
+        return DB::transaction(fn () => parent::save($options));
+    }
+
     protected static function boot(): void
     {
         parent::boot();

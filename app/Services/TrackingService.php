@@ -8,6 +8,7 @@ use App\Models\CaseFile;
 use App\Models\CaseNotification;
 use App\Models\Milestone;
 use App\Models\Referral;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 
@@ -85,10 +86,26 @@ class TrackingService
     {
         $binding = $request->session()->get(self::SESSION_KEY);
 
-        return is_array($binding)
-            && ($binding['tracker_number'] ?? null) === $trackerNumber
-            && is_string($binding['email'] ?? null)
-            && $binding['email'] !== '';
+        if (! is_array($binding)) {
+            return false;
+        }
+
+        if (($binding['tracker_number'] ?? null) !== $trackerNumber) {
+            return false;
+        }
+
+        if (! is_string($binding['email'] ?? null) || $binding['email'] === '') {
+            return false;
+        }
+
+        if (! isset($binding['verified_at']) || ! is_string($binding['verified_at'])) {
+            return false;
+        }
+
+        $verifiedAt = Carbon::parse($binding['verified_at']);
+        $expiry = $verifiedAt->addMinutes(30);
+
+        return now()->lt($expiry);
     }
 
     public function generateOtp(string $identifier, string $purpose = 'track', ?string $sessionId = null): string

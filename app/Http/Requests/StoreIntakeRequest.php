@@ -5,7 +5,6 @@ namespace App\Http\Requests;
 use App\Rules\VulnerabilityRule;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 class StoreIntakeRequest extends FormRequest
 {
@@ -24,19 +23,6 @@ class StoreIntakeRequest extends FormRequest
      */
     protected function prepareForValidation(): void
     {
-        // Convert empty strings to null for category fields so 'nullable' rules skip them
-        if ($this->has('category_id') && $this->category_id === '') {
-            $this->merge(['category_id' => null]);
-        }
-
-        if ($this->has('category_ids') && $this->input('category_ids') === '') {
-            $this->merge(['category_ids' => null]);
-        }
-
-        if ($this->has('case_issue_id') && $this->case_issue_id === '') {
-            $this->merge(['case_issue_id' => null]);
-        }
-
         // Normalize vulnerability fields — accept comma-separated multi-select, validate each segment
         foreach (['vulnerability_indicator'] as $field) {
             if ($this->has($field)) {
@@ -60,15 +46,14 @@ class StoreIntakeRequest extends FormRequest
             'vulnerability_indicator' => ['required', 'string', 'max:255', new VulnerabilityRule],
             'consent' => ['required', 'accepted'],
 
-            // Intake-specific: category and case_issue are NOT required here.
-            // They are prohibited for OFW self-intake (will be empty/null on create).
-            'category_id' => ['nullable', 'string', 'uuid', Rule::exists('case_categories', 'id')->where('is_active', true)],
-            'category_ids' => ['nullable', 'array', 'min:1'],
-            'category_ids.*' => ['bail', 'uuid', 'distinct', Rule::exists('case_categories', 'id')->where('is_active', true)],
-            'case_issue_id' => ['nullable', 'string', 'exists:case_issues,id'],
-
-            // Profile fields that are prefilled and NOT editable through intake.
-            // These are explicitly excluded; Inertia should not send them.
+            // Intake deliberately validates ONLY the fields an OFW may set.
+            // category_id / category_ids / case_issue_id are staff-review
+            // decisions made at approve time, so they are absent from this
+            // list: anything a caller sends is never validated into the
+            // payload and therefore cannot reach case creation.
+            //
+            // Profile fields that are prefilled are likewise excluded; the
+            // Inertia form must not send them.
         ];
     }
 

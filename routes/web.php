@@ -44,6 +44,7 @@ use App\Http\Controllers\TrackController;
 use App\Http\Controllers\TrackRegistrationController;
 use App\Models\Agency;
 use App\Services\StorageService;
+use App\Services\TrackingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
@@ -82,7 +83,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/referrals', [ReferralController::class, 'store'])->name('referrals.store');
     Route::get('/referrals/export-excel', [ReferralController::class, 'exportExcel'])->name('referrals.export-excel')->middleware('role:CASE_MANAGER,ADMIN,AGENCY');
     Route::get('/referrals/export-count', [ReferralController::class, 'exportCount'])->name('referrals.export-count')->middleware('role:CASE_MANAGER,ADMIN,AGENCY');
-    Route::get('/referrals/{referral}', [ReferralController::class, 'show'])->name('referrals.show');
+    Route::get('/referrals/{referral}', [ReferralController::class, 'show'])->name('referrals.show')->middleware('role:CASE_MANAGER,ADMIN,AGENCY');
     Route::patch('/referrals/{referral}/status', [ReferralController::class, 'updateStatus'])->name('referrals.update-status');
     Route::delete('/referrals/{referral}', [ReferralController::class, 'destroy'])->name('referrals.destroy')->middleware('role:CASE_MANAGER,ADMIN');
     Route::post('/referrals/{referral}/milestones', [ReferralController::class, 'addMilestone'])->name('referrals.milestones.store');
@@ -412,6 +413,12 @@ Route::post('/track/request/messages', [ReferralClientRequestController::class, 
 Route::post('/track/request/replacement', [ReferralClientRequestController::class, 'replacement'])
     ->name('track.request.replacement')
     ->middleware('throttle:track-request-replacement');
+
+Route::post('/track/logout', function (Request $request) {
+    $request->session()->forget(TrackingService::SESSION_KEY);
+
+    return redirect()->route('track.index');
+})->name('track.logout')->middleware('throttle:tracking');
 Route::get('/track/request/attachments/{attachment}/download', [ReferralClientRequestController::class, 'downloadAttachment'])
     ->name('track.request.attachments.download')
     ->middleware('throttle:tracking');

@@ -28,6 +28,7 @@ class ShowTest extends TestCase
             TrackingService::SESSION_KEY => [
                 'tracker_number' => $case->tracker_number,
                 'email' => $result['client']->email,
+                'verified_at' => now()->toISOString(),
             ],
         ])->get(route('track.show', [
             'tracker_number' => $case->tracker_number,

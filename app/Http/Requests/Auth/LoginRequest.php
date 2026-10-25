@@ -46,7 +46,15 @@ class LoginRequest extends FormRequest
         $this->ensureIsNotRateLimited();
 
         $user = User::where('email', $this->string('email')->toString())->first();
-        if (! $user || ! Hash::check($this->string('password')->toString(), $user->password)) {
+        $password = $this->string('password')->toString();
+
+        if (! $user) {
+            // Spend the same hashing work as a real password check so response
+            // time does not reveal whether the email exists.
+            Hash::make($password);
+        }
+
+        if (! $user || ! Hash::check($password, $user->password)) {
             RateLimiter::hit($this->throttleKey());
             event(new Failed('web', $user, $this->only('email')));
 
@@ -73,7 +81,7 @@ class LoginRequest extends FormRequest
             ]);
         }
 
-        if ($user->mfa_enabled_at !== null && $user->isInMfaEnforcedRole()) {
+        if ($user->mfa_enabled_at !== null) {
             return $user;
         }
 

@@ -707,7 +707,9 @@ class CaseService
     public function archiveCase(string $id, string $userId): CaseFile
     {
         return DB::transaction(function () use ($id) {
-            $case = CaseFile::findOrFail($id);
+            // Serialize the transition: a concurrent close/reopen must not slip
+            // between this read and the status write.
+            $case = CaseFile::lockForUpdate()->findOrFail($id);
 
             abort_unless($case->status === 'CLOSED', 422, 'Only closed cases can be archived.');
 
@@ -740,7 +742,7 @@ class CaseService
     public function unarchiveCase(string $id, string $userId): CaseFile
     {
         return DB::transaction(function () use ($id) {
-            $case = CaseFile::findOrFail($id);
+            $case = CaseFile::lockForUpdate()->findOrFail($id);
 
             abort_unless($case->status === 'ARCHIVED', 422, 'Only archived cases can be restored.');
 
@@ -795,7 +797,7 @@ class CaseService
     public function toggleCaseStatus(string $id, string $userId): CaseFile
     {
         $case = DB::transaction(function () use ($id, $userId) {
-            $case = CaseFile::findOrFail($id);
+            $case = CaseFile::lockForUpdate()->findOrFail($id);
             $old = $case->toArray();
 
             // The toggle only flips OPEN ↔ CLOSED. Drafts are published through
@@ -813,13 +815,13 @@ class CaseService
             }
 
             $oldStatus = $case->status;
-            $case->update([
-                'status' => $case->status === 'OPEN' ? 'CLOSED' : 'OPEN',
-            ]);
+            $reopening = $case->status === 'CLOSED';
 
-            if ($case->wasChanged('status') && $case->status === 'CLOSED') {
-                $case->update(['closed_at' => now()]);
-            }
+            $case->update([
+                'status' => $reopening ? 'OPEN' : 'CLOSED',
+                // Reopening clears the closure date; closing stamps it.
+                'closed_at' => $reopening ? null : now(),
+            ]);
 
             if ($case->status === 'CLOSED') {
                 $this->eventRecorder->caseClosed($case, $userId);

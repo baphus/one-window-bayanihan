@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Services\MfaService;
 use Illuminate\Cache\Repository;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Hashing\BcryptHasher;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use PragmaRX\Google2FA\Google2FA;
@@ -60,6 +61,30 @@ class AuthenticationTest extends TestCase
         $response->assertSessionHasErrors('email');
     }
 
+    public function test_unknown_email_still_performs_password_hashing(): void
+    {
+        $hasher = new class extends BcryptHasher
+        {
+            public int $makeCalls = 0;
+
+            public function make($value, array $options = []): string
+            {
+                $this->makeCalls++;
+
+                return parent::make($value, $options);
+            }
+        };
+        Hash::swap($hasher);
+
+        $this->post(route('login'), [
+            'email' => 'nonexistent@example.com',
+            'password' => 'P@ssw0rd!',
+        ]);
+
+        $this->assertSame(1, $hasher->makeCalls);
+        $this->assertGuest();
+    }
+
     public function test_user_cannot_login_with_inactive_account(): void
     {
         $user = User::factory()->create(['is_active' => false]);
@@ -100,22 +125,6 @@ class AuthenticationTest extends TestCase
         ]);
 
         $response->assertStatus(429);
-    }
-
-    public function test_non_enforced_role_mfa_user_logs_in_normally(): void
-    {
-        // OFW role is not in enrollment_enforced_roles, so MFA is not enforced at login
-        $user = User::factory()->create([
-            'role' => UserRole::OFW->value,
-            'mfa_secret' => 'JBSWY3DPEHPK3PXP',
-            'mfa_recovery_codes' => [hash_hmac('sha256', 'ABCD-EFGH-IJKL', config('app.key'))],
-            'mfa_enabled_at' => now(),
-        ]);
-
-        $response = $this->post(route('login'), ['email' => $user->email, 'password' => 'P@ssw0rd!']);
-
-        $this->assertAuthenticatedAs($user);
-        $this->assertArrayNotHasKey('mfa_pending', session()->all());
     }
 
     public function test_mfa_login_stays_guest_until_totp_and_rotates_sessions(): void
