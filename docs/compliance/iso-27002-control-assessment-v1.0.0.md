@@ -54,7 +54,7 @@
 |---|---|---|---|
 | 8.1 User endpoint devices | EER | — | Out of app scope. |
 | 8.2 Privileged access rights | Partial | Moderate | ADMIN + `ip.whitelist`; but XFF spoofable (TECH-005), MFA unenforced (TECH-003). |
-| 8.3 Information access restriction | Implemented | Moderate | Object-level authz (P-04), RLS design; app-layer primary (TECH-034). |
+| 8.3 Information access restriction | Implemented | Moderate | Object-level authz (P-04) is the enforced control; RLS is forced only on the 7 inbox/thread tables and is latent on core PII (app-layer primary — `docs/security/rls-posture-decision-v1.0.0.md`). |
 | 8.4 Access to source code | EER | — | GitHub repo permissions not verifiable here; `cookies.txt` committed (TECH-004). |
 | 8.5 Secure authentication | Implemented | Moderate | OTP + optional TOTP, session binding, throttling (P-06/P-07); gaps TECH-003/011/020/024 — resolved in Phase 1-2: MFA enforced, secrets encrypted, debug OTP restricted, enumeration fixed |
 | 8.6 Capacity management | Weak | Weak | Container resource limits; no capacity plan; targets unmeasured; HTTP timeouts implemented (Turnstile 5s, Cloudinary 30s; TECH-017) |
@@ -71,7 +71,7 @@
 | 8.17 Clock synchronization | Moderate | Moderate | UTC everywhere; no explicit NTP pinning. |
 | 8.18 Privileged utility programs | Partial | Moderate | Admin console gated; scheduled-task toggles present. |
 | 8.19 Software installation | Moderate | Moderate | `.npmrc ignore-scripts` (P-13); container images pinned. |
-| 8.20–8.22 Network security / services / segregation | Partial | Moderate | nginx rate limiting + headers; RLS segregation; but `trustProxies('*')` → CIDR-restricted (TECH-005 resolved) |
+| 8.20–8.22 Network security / services / segregation | Partial | Moderate | nginx rate limiting + headers; single-DB segregation (RLS forced on 7 tables, app-layer scoping elsewhere); `trustProxies('*')` → CIDR-restricted (TECH-005 resolved) |
 | 8.23 Web filtering | N/A | — | Not applicable to this workload. |
 | 8.24 Cryptography | Partial | Weak | TLS + encrypted sessions; **but** MFA secrets & PII plaintext at rest (TECH-011/014); no crypto/key-mgmt policy. |
 | 8.25 Secure development lifecycle | Partial | Moderate | Coding standards in `instructions.md`/`CLAUDE.md`; no formal SDLC policy; no PR gate (TECH-009). |

@@ -45,7 +45,7 @@ Evidence: `database/migrations/0001_01_01_000000_create_framework_tables.php:16`
 
 | Role | Scope | Enforcement |
 |---|---|---|
-| `ADMIN` (privileged) | Exclusive `/admin/*` and `/admin/system/*`; bypasses all Postgres RLS | `role:ADMIN` + `ip.whitelist` middleware (`routes/web.php:245`) |
+| `ADMIN` (privileged) | Exclusive `/admin/*` and `/admin/system/*`; passes every RLS policy (by policy, not by a DB bypass) | `role:ADMIN` + `ip.whitelist` middleware (`routes/web.php:245`) |
 | `CASE_MANAGER` | Owns cases, clients, documents, scoped audit logs | `role` middleware + in-controller ownership checks |
 | `AGENCY` | Scoped to referrals for their `agcy_id` | `role` middleware + `authorizeReferralAccess` |
 | `OFW` (end user) | Own portal `/my-cases/*` (own case milestones, notifications, profile) | `role:OFW` middleware (`routes/web.php:445-452`) |
@@ -129,7 +129,7 @@ Extensive OFW PII, regulated under RA 10173:
 
 **Admin boundary:** `/admin/*` requires `role:ADMIN` **+ `ip.whitelist`** (`routes/web.php:245`) — IP-restricted admin console. Note: the allowlist is config-gated and **disabled by default** (`config/auth.php` → `auth.ip_whitelist.enabled = env('AUTH_IP_WHITELIST_ENABLED', false)`).
 
-**Database trust boundary:** Postgres Row-Level Security on the PII tables — enabled on 11 core tables (`2026_06_01_000008`: cases, clients, client_addresses, client_employments, next_of_kin, referrals, milestones, referral_attachments, referral_comments, case_documents, case_notifications) and extended to the referral-client inbox/message tables (`2026_07_19_000004`, `2026_08_13_000002`, `2026_09_08_000001`); policies are admin-bypass / case-manager-owns / agency-scoped-by-referral, with later revisions for case-manager read access and hardened document/referral rules. Context is set per-request by `SetPostgresSession` (parameterized `set_config`, `app/Http/Middleware/SetPostgresSession.php:35-44`). **Requires a direct DB connection (not PgBouncer transaction mode)** — a pooling misconfiguration silently disables per-user isolation.
+**Database trust boundary:** Postgres Row-Level Security exists but is **only enforced on 7 tables**. `FORCE ROW LEVEL SECURITY` is set on the referral-client inbox/message tables (`agency_thread_reads`, `referral_messages`, `referral_client_requests`, `referral_client_request_items`, `referral_client_messages`, `referral_client_message_attachments`, `referral_client_access_links`), so the policies bind those tables for every role including the owner. The 11 core PII tables (`cases`, `clients`, `client_addresses`, `client_employments`, `next_of_kin`, `referrals`, `milestones`, `referral_attachments`, `referral_comments`, `case_documents`, `case_notifications`) have RLS *enabled* with admin-bypass / case-manager-owns / agency-scoped-by-referral policies, but **not forced**: the runtime connects as a role that owns these tables, so the policies are bypassed and PII isolation is application-level only (`role:` middleware + controller ownership checks + `agcy_id` query scoping). Context is set per-request by `SetPostgresSession` (parameterized `set_config`, `app/Http/Middleware/SetPostgresSession.php:35-44`); this is what makes the forced tables effective, and it also **requires a direct DB connection (not PgBouncer transaction mode)**. Decision record: `docs/security/rls-posture-decision-v1.0.0.md`.
 
 **Global middleware order:** `SetPostgresSession` → `LogContext` → `SecurityHeaders` → `StripRedirectResponseBody` (`bootstrap/app.php:44-47`); web group prepends `ContentSecurityPolicy` and appends `CheckUserActive`, `EnsureMfaSession`, `CheckMfaEnrolled`, `HandleInertiaRequests` (`bootstrap/app.php:63-72`).
 
@@ -144,11 +144,11 @@ Extensive OFW PII, regulated under RA 10173:
 
 ## 11. Critical business functions and single points of failure
 
-- **Critical functions:** case creation/referral routing, public OTP tracking, RLS-based data isolation, document storage.
+- **Critical functions:** case creation/referral routing, public OTP tracking, application-level data isolation (PII tables have RLS enabled but not forced — see §7), document storage.
 - **SPOF — object storage:** all case documents/attachments; no replication in config. Loss = loss of legal case evidence.
-- **SPOF — managed Postgres:** single managed DB; RLS depends on it and on non-PgBouncer-transaction-mode connections.
+- **SPOF — managed Postgres:** single managed DB; all application-level isolation and the forced-RLS tables depend on it and on non-PgBouncer-transaction-mode connections.
 - **Watch item — queue worker & scheduler in the single-container image:** `docker/supervisord.conf` now defines `queue-worker` and `scheduler` programs alongside php-fpm and nginx, gated by `RUN_QUEUE_WORKER`/`RUN_SCHEDULER` (default `true`). Whether the deployed service actually runs them (and with which flags) is outside the repository — confirm as external evidence. *(Medium confidence.)*
-- **RLS-migration soft-fail:** the enable-RLS migration is wrapped in try/catch and only warns on non-Postgres — a non-PG environment runs with no row-level isolation (TECH-034).
+- **RLS-migration soft-fail:** the historical enable-RLS migration is wrapped in try/catch and only warns on non-Postgres — a non-PG environment runs with no row-level isolation (TECH-034).
 - **Third-party dependencies:** the configured AI provider (degrades gracefully), Cloudinary, Pusher, mail provider.
 
 ## 12. Health-check endpoints
@@ -180,14 +180,15 @@ Extensive OFW PII, regulated under RA 10173:
       role:ADMIN+ip.whitelist  CASE_MANAGER      AGENCY          Notifications/
       /admin/* console         (owns data)   (agcy_id scope)      Mail (queue)
              |                   |                 |               + OFW (/my-cases)
-             +---------- Postgres (managed) w/ Row-Level Security --+
+             +---------- Postgres (managed) -----------------------------+
+                       RLS forced: 7 inbox/thread tables; not forced: core PII
                                  |                          |
                      Object storage (S3-compatible)    Cloudinary (avatars)
                      private case documents
 ```
 
-**Trust boundaries:** (1) Internet↔Nginx; (2) Nginx↔app (proxy trust — `TRUSTED_PROXIES` CIDR, `bootstrap/app.php:54-61`); (3) role/IP middleware at the app layer (admin IP allowlist config-gated, default off); (4) Postgres RLS at the data layer (defense-in-depth, PG-dependent); (5) app↔external processors (AI provider/Cloudinary/object storage — cross-border PII).
+**Trust boundaries:** (1) Internet↔Nginx; (2) Nginx↔app (proxy trust — `TRUSTED_PROXIES` CIDR, `bootstrap/app.php:54-61`); (3) role/IP middleware at the app layer (admin IP allowlist config-gated, default off); (4) role/IP middleware plus `agcy_id` scoping at the app layer is the **only** isolation for the core PII tables — Postgres RLS is forced only on the 7 inbox/thread tables, so it is a defence-in-depth layer for those alone (§7); (5) app↔external processors (AI provider/Cloudinary/object storage — cross-border PII).
 
 ---
 
-*Confidence: High for stack, routes, models, migrations, auth methods, integrations, and RLS design (directly observed). Medium for production cache/queue/session/worker topology (compose, Dockerfile, and `.env.example` disagree; the hosting provider's service configuration is outside the repository).*
+*Confidence: High for stack, routes, models, migrations, auth methods, integrations, and RLS design (directly observed — including the forced/not-forced split in §7). Medium for production cache/queue/session/worker topology (compose, Dockerfile, and `.env.example` disagree; the hosting provider's service configuration is outside the repository).*

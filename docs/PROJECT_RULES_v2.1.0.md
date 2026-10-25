@@ -180,7 +180,7 @@ PENDING → PROCESSING → FOR_COMPLIANCE → COMPLETED
 | CSP | Dynamic Content-Security-Policy with nonces |
 | MFA | Optional TOTP (can be policy-enforced) |
 | IP Whitelist | Admin routes restricted to configured IPs |
-| Session security | Database sessions, PostgreSQL RLS context |
+| Session security | Database sessions, PostgreSQL RLS context (context set per-request; enforced only on the 7 forced tables) |
 
 ---
 

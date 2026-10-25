@@ -158,8 +158,29 @@ Controller (thin) → Service (business logic) → Model (data access) → Postg
 Layer responsibilities are as documented in v2.1.0 §3
 (`app/Http/Controllers/` → `app/Http/Requests/` → `app/Services/` →
 `app/Models/` → `app/Observers/` → `app/Events/`+`app/Listeners/` → `app/DTOs/`).
-Row-level scoping is enforced at the database session layer via
-`SetPostgresSession` (`app.current_user_id`), as in v2.1.0 §4.
+Row-level **scoping** is enforced in the application layer — `role:` route
+middleware, controller ownership checks, and `agcy_id` query constraints.
+`SetPostgresSession` publishes `app.current_user_id` / `app.user_role` to the
+database session, but that only takes effect on the tables where RLS is
+*forced*; see "Database trust boundary" below.
+
+### Database trust boundary (RLS posture)
+
+**PostgreSQL RLS is forced on 7 tables and not forced on 11 others, and the
+runtime connects as a role that owns the latter, so RLS is not an enforced
+second layer for client, case, referral, or milestone data.** Isolation for
+that data is application-level only.
+
+| Posture | Tables |
+|---|---|
+| `ENABLE` + `FORCE ROW LEVEL SECURITY` (policies bind even the table owner) | `agency_thread_reads`, `referral_messages`, `referral_client_requests`, `referral_client_request_items`, `referral_client_messages`, `referral_client_message_attachments`, `referral_client_access_links` |
+| `ENABLE` + policies, **not forced** — owner bypasses them | `cases`, `clients`, `client_addresses`, `client_employments`, `next_of_kin`, `referrals`, `milestones`, `referral_attachments`, `referral_comments`, `case_documents`, `case_notifications` |
+
+The decision, its rationale, and the prerequisites for ever enforcing the
+second row are recorded in `docs/security/rls-posture-decision-v1.0.0.md`.
+Any change that reduces application-level scoping on the "not forced" tables is
+a live exposure, not a backstopped one.
+
 
 ### Data layer (new in 2.2.1)
 

@@ -192,7 +192,7 @@
 | NFR-SAFE-003 | Automated backup/recovery | Supabase auto-backups | Provider SLA | ✅ |
 | NFR-SAFE-004 | Monitor delayed/unresolved cases | OverdueReferralController + dashboard | Manual QA | ✅ |
 | NFR-SAFE-005 | Server-side input validation | Form Request classes | Test | ✅ |
-| NFR-SAFE-006 | Unauthorized access prevention | RBAC + middleware + RLS | Auth test | ✅ |
+| NFR-SAFE-006 | Unauthorized access prevention | RBAC + middleware (+ RLS on forced tables only) | Auth test | ✅ |
 | NFR-SAFE-007 | Transactional consistency | DB transactions + ACID compliance | Schema/design | ✅ |
 | NFR-SAFE-008 | Sensitive action logging | AuditLog on all critical actions | `AuditEventViewTest` | ✅ |
 
@@ -351,11 +351,11 @@
 
 | ID | Requirement | Implementation | Status |
 |---|---|---|---|
-| DB-008 | PostgreSQL RLS mandatory for agency-visible records | Available, not fully configured | 🟡 |
+| DB-008 | PostgreSQL RLS mandatory for agency-visible records | Policies exist on all agency-visible tables but are `FORCE`d only on the 7 forwarding-inbox / agency-thread tables; core PII isolation is application-level. Recorded decision + prerequisites: `docs/security/rls-posture-decision-v1.0.0.md` | 🟡 |
 | DB-009 | Agencies access only assigned records | Lane filter applied in service layer | ✅ |
 | DB-010 | Cross-agency visibility denied by default | Service-layer authorization gates | ✅ |
 | DB-011 | DMW retains broader visibility consistent with governance | DMW role bypasses lane filter | ✅ |
-| DB-012 | DB controls reinforce app-layer access | RLS policies pending full config | 🟡 |
+| DB-012 | DB controls reinforce app-layer access | Only on the forced tables (inbox/thread); not on `cases`/`clients`/`referrals`/`milestones` because the runtime is the table owner | 🟡 |
 
 ### 5.4 Sensitive Data Protection (§6.2.4)
 

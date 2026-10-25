@@ -49,7 +49,7 @@ Implemented · Partially implemented · Not implemented · Not applicable · **N
 | 7.5 | Documented information | **Partially (with defect)** | Rich `docs/` set exists (strength), **but** it contradicts the code and is stale (TECH-010, TECH-023) → fails 7.5.3 control of documented information. *Status 2026-10-03: still open — TECH-010 and TECH-023 are both PARTIAL, not resolved. Core claims (RBAC, RLS, headers, password reset, table inventory) are reconciled; residuals are five stale "2026-05-28" doc headers and `docs/TESTING_STRATEGY.md:6,15,32` still documenting a `playwright.config.ts` / `npm run test:e2e` harness that does not exist in the tree.* |
 
 ## Clause 8 — Operation
-| 8.1 | Operational planning & control | Partially | Strong technical operational controls (auth, RLS, uploads, rate limits) — see ISO 27002 assessment. Not tied to an ISMS operating procedure. |
+| 8.1 | Operational planning & control | Partially | Strong technical operational controls (auth, app-layer authorization, uploads, rate limits; RLS forced on 7 tables) — see ISO 27002 assessment. Not tied to an ISMS operating procedure. |
 | 8.2 | Risk assessment (operational) | Not implemented | No recurring operational risk assessment. |
 | 8.3 | Risk treatment (operational) | Partially | Many controls implemented ad hoc; no treatment plan traceability. |
 

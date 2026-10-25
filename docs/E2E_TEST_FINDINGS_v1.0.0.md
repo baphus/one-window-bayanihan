@@ -169,7 +169,7 @@ the remaining flows.
 | Case creation, 3-step wizard | PASS | `OWB-2026-00002` created with status OPEN; confirmation dialog required before commit |
 | Multi-service referral creation | PASS | `referrals` 0 → 1, DMW selected, 2 services attached |
 | Referral notification job | PASS | `jobs` returned to 0, `failed_jobs` stayed 0 — the queue path that was dead before the `HOME` fix |
-| Agency sees only its own referral | PASS | Agency user's list showed exactly 1 referral, its own agency's; RLS scoping holds |
+| Agency sees only its own referral | PASS | Agency user's list showed exactly 1 referral, its own agency's; application-level `agcy_id` scoping holds (RLS is not forced on `referrals` — see `docs/security/rls-posture-decision-v1.0.0.md`) |
 | Referral acceptance, with mandatory remark | PASS | `PENDING` → `PROCESSING`; a remark is enforced before confirmation |
 | Case timeline / `case_events` | PASS | 3 events recorded across open → refer → accept |
 | Audit chain across the whole sequence | PASS | `audit_logs` 0 → 32, no gaps |
