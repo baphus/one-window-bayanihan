@@ -57,14 +57,18 @@ class ReportsExportControlsTest extends TestCase
 
     private function criteriaFor(User $user, array $overrides = []): array
     {
+        // Window edges are Manila calendar days (see App\Support\ReportCalendar):
+        // at 20:00 UTC the Manila date is already tomorrow.
+        $today = now()->setTimezone('Asia/Manila')->toDateString();
+
         return array_merge([
             'user_id' => $user->id,
             'user_name' => $user->name,
             'role' => $user->role,
             'agency_id' => null,
             'user_agcy_id' => $user->agcy_id,
-            'from' => now()->subYear()->toDateString(),
-            'to' => now()->toDateString(),
+            'from' => now()->subYear()->setTimezone('Asia/Manila')->toDateString(),
+            'to' => $today,
             'dateScope' => 'case_created_at',
             'province' => null,
             'city' => null,
@@ -272,16 +276,17 @@ class ReportsExportControlsTest extends TestCase
     }
 
     #[Test]
-    public function the_whole_calendar_day_is_covered_late_in_the_utc_day(): void
+    public function the_whole_manila_calendar_day_is_covered_late_in_the_utc_day(): void
     {
+        // 20:00 UTC is already 04:00 the next day in Manila; a window ending on
+        // the Manila "today" must still include rows created in that instant.
         Carbon::setTestNow(Carbon::parse('2026-03-10 20:00:00', 'UTC'));
 
         $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $this->seedCases($admin, 3);
-        $criteria = $this->criteriaFor($admin);
 
         $preflight = $this->preflightFor($admin);
-        $this->assertSame(3, $preflight['cases'], 'Pre-flight must see rows created late in the UTC day');
+        $this->assertSame(3, $preflight['cases'], 'Pre-flight must see rows created just after Manila midnight');
         $this->assertSame(3, $preflight['referrals']);
 
         $payload = $this->payloadFor($admin);

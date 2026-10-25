@@ -7,6 +7,7 @@ use App\Models\CaseEvent;
 use App\Models\Referral;
 use App\Models\ReferralClientRequest;
 use App\Services\Reports\Concerns\ScopesReportQueries;
+use App\Support\ReportCalendar;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
@@ -17,15 +18,14 @@ class ReferralMetrics
 
     public function getReferralKpis(?string $userId = null, ?string $role = null, ?string $fromDate = null, ?string $toDate = null, string $dateScope = 'case_created_at', ?string $province = null, ?string $city = null, ?string $agencyId = null): array
     {
-        $from = Carbon::parse($fromDate ?: now()->subYear());
-        $to = Carbon::parse($toDate ?: now());
+        $from = Carbon::parse($fromDate ?: ReportCalendar::toLocalDate(now()->subYear()));
+        $to = Carbon::parse($toDate ?: ReportCalendar::toLocalDate(now()));
 
         $referrals = $this->referralQuery($userId, $role, $agencyId, $from->toDateString(), $to->toDateString(), $dateScope);
         $this->applyGeoFilter($referrals, $province, $city);
 
-        $cases = $this->caseQuery($userId, $role, $agencyId, $dateScope)
-            ->whereDate('cases.created_at', '>=', $from->toDateString())
-            ->whereDate('cases.created_at', '<=', $to->toDateString());
+        $cases = $this->caseQuery($userId, $role, $agencyId, $dateScope);
+        $this->applyLocalDateWindow($cases, 'cases.created_at', $from->toDateString(), $to->toDateString());
         $this->applyGeoFilter($cases, $province, $city, 'cases');
 
         $statusCounts = (clone $referrals)
@@ -102,14 +102,14 @@ class ReferralMetrics
 
     public function getReferralTrends(?string $userId = null, ?string $role = null, ?string $fromDate = null, ?string $toDate = null, string $dateScope = 'case_created_at', ?string $province = null, ?string $city = null, ?string $agencyId = null): array
     {
-        $from = $fromDate ?: now()->subYear()->toDateString();
-        $to = $toDate ?: now()->toDateString();
+        $from = $fromDate ?: ReportCalendar::toLocalDate(now()->subYear());
+        $to = $toDate ?: ReportCalendar::toLocalDate(now());
 
         $referrals = $this->referralQuery($userId, $role, $agencyId, $from, $to, $dateScope);
         $this->applyGeoFilter($referrals, $province, $city);
 
         $referrals = $referrals->select(
-            DB::raw("to_char(referrals.created_at, 'YYYY-MM') as month"),
+            DB::raw(ReportCalendar::localMonth('referrals.created_at').' as month'),
             DB::raw('count(*) as total')
         )
             ->groupBy('month')
@@ -320,12 +320,7 @@ class ReferralMetrics
     public function getAgencyWorkload(?string $fromDate = null, ?string $toDate = null, ?string $agencyId = null): array
     {
         $workload = Agency::withCount(['referrals' => function ($q) use ($fromDate, $toDate, $agencyId) {
-            if ($fromDate) {
-                $q->whereDate('created_at', '>=', $fromDate);
-            }
-            if ($toDate) {
-                $q->whereDate('created_at', '<=', $toDate);
-            }
+            $this->applyLocalDateWindow($q, 'referrals.created_at', $fromDate, $toDate);
             if ($agencyId) {
                 $q->where('agcy_id', $agencyId);
             }
