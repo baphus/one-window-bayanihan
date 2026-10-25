@@ -272,7 +272,7 @@ class CaseService
 
             $case->deletion_reason = $reason;
             $case->deleted_by = $userId;
-            $case->save();
+            $case->saveQuietly();
             // A rejected filing never publishes: drop its category assignments
             // so usage counts and filters don't carry a dead filing's tags.
             $case->categories()->detach();
@@ -706,7 +706,7 @@ class CaseService
 
     public function archiveCase(string $id, string $userId): CaseFile
     {
-        return DB::transaction(function () use ($id) {
+        return DB::transaction(function () use ($id, $userId) {
             // Serialize the transition: a concurrent close/reopen must not slip
             // between this read and the status write.
             $case = CaseFile::lockForUpdate()->findOrFail($id);
@@ -722,7 +722,16 @@ class CaseService
                 'status' => 'ARCHIVED',
             ]);
 
-            // Audit logging is handled by AuditObserver::updated() — no manual log needed.
+            AuditLog::create([
+                'action' => AuditAction::ARCHIVE->value,
+                'module' => AuditModule::CASE->value,
+                'entity_id' => $case->id,
+                'description' => 'Case '.$case->case_number.' archived',
+                'old_value' => ['status' => 'CLOSED'],
+                'new_value' => ['status' => 'ARCHIVED'],
+                'user_id' => $userId,
+                'timestamp' => now(),
+            ]);
 
             return $case->load([
                 'client.addresses',
@@ -741,7 +750,7 @@ class CaseService
 
     public function unarchiveCase(string $id, string $userId): CaseFile
     {
-        return DB::transaction(function () use ($id) {
+        return DB::transaction(function () use ($id, $userId) {
             $case = CaseFile::lockForUpdate()->findOrFail($id);
 
             abort_unless($case->status === 'ARCHIVED', 422, 'Only archived cases can be restored.');
@@ -756,7 +765,16 @@ class CaseService
                 'closed_at' => $case->closed_at ?? now(),
             ]);
 
-            // Audit logging is handled by AuditObserver::updated() — no manual log needed.
+            AuditLog::create([
+                'action' => AuditAction::UNARCHIVE->value,
+                'module' => AuditModule::CASE->value,
+                'entity_id' => $case->id,
+                'description' => 'Case '.$case->case_number.' unarchived',
+                'old_value' => ['status' => 'ARCHIVED'],
+                'new_value' => ['status' => 'CLOSED'],
+                'user_id' => $userId,
+                'timestamp' => now(),
+            ]);
 
             return $case->load([
                 'client.addresses',
@@ -1212,19 +1230,9 @@ class CaseService
                 abort(404, 'Case not found in trash.');
             }
 
-            // Ensure case returns to ARCHIVED, not some other status
+            // Ensure case returns to ARCHIVED, not some other status.
+            // save() fires AuditObserver::updated() which logs the status change.
             $case->update(['status' => 'ARCHIVED', 'deletion_reason' => null]);
-
-            AuditLog::create([
-                'action' => AuditAction::RESTORE->value,
-                'module' => AuditModule::CASE->value,
-                'entity_id' => $case->id,
-                'description' => "Case {$case->case_number} restored from trash",
-                'old_value' => ['is_deleted' => true],
-                'new_value' => ['is_deleted' => false, 'status' => 'ARCHIVED'],
-                'user_id' => $actor->id,
-                'timestamp' => now(),
-            ]);
 
             return $case->load([
                 'client.addresses',

@@ -471,12 +471,15 @@ class UserService
             $user->is_deleted = false;
             $user->deleted_at = null;
             $user->deleted_by = null;
-            $user->save();
+            $user->saveQuietly();
 
             AuditLog::create([
                 'action' => AuditAction::UPDATE->value,
                 'module' => AuditModule::USER->value,
                 'entity_id' => $user->id,
+                'description' => 'User '.$user->name.' reactivated',
+                'old_value' => ['is_active' => false, 'is_deleted' => true],
+                'new_value' => ['is_active' => true, 'is_deleted' => false],
                 'user_id' => $actorId ?? auth()->id(),
                 'timestamp' => now(),
             ]);

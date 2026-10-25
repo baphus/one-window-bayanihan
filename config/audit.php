@@ -15,6 +15,7 @@ use App\Models\Referral;
 use App\Models\ReferralAttachment;
 use App\Models\ReferralClientAccessLink;
 use App\Models\ReferralClientMessage;
+use App\Models\ReferralClientMessageAttachment;
 use App\Models\ReferralClientRequest;
 use App\Models\ReferralClientRequestItem;
 use App\Models\ReferralComment;
@@ -26,6 +27,7 @@ use App\Models\SurveyInvitation;
 use App\Models\SurveyQuestion;
 use App\Models\SurveyResponse;
 use App\Models\User;
+use App\Models\UserInvite;
 
 return [
 
@@ -102,6 +104,7 @@ return [
         ReferralClientRequest::class,
         ReferralClientRequestItem::class,
         ReferralClientMessage::class,
+        ReferralClientMessageAttachment::class,
         ReferralClientAccessLink::class,
         ReferralComment::class,
         ReferralServiceRequirement::class,
@@ -111,6 +114,7 @@ return [
         SurveyQuestion::class,
         SurveyInvitation::class,
         SurveyResponse::class,
+        UserInvite::class,
     ],
 
     /*

@@ -31,6 +31,7 @@ enum AuditModule: string
     case REFERRAL_CLIENT_REQUEST = 'referral_client_request';
     case REFERRAL_CLIENT_REQUEST_ITEM = 'referral_client_request_item';
     case REFERRAL_CLIENT_MESSAGE = 'referral_client_message';
+    case REFERRAL_CLIENT_MESSAGE_ATTACHMENT = 'referral_client_message_attachment';
     case REFERRAL_CLIENT_ACCESS_LINK = 'referral_client_access_link';
     case REFERRAL_COMMENT = 'referral_comment';
     case REFERRAL_SERVICE_REQUIREMENT = 'referral_service_requirement';
@@ -50,6 +51,7 @@ enum AuditModule: string
     case CASE_CATEGORY = 'case_category';
     case CASE_ISSUE = 'case_issue';
     case CASE_STATUS = 'case_status';
+    case USER_INVITE = 'user_invite';
     case HELPDESK_ARTICLE = 'helpdesk_article';
     case AUDIT = 'audit';
     case DATA_EXPORT = 'data_export';
@@ -147,6 +149,7 @@ enum AuditModule: string
             self::HELPDESK_ARTICLE => 'Helpdesk Article',
             self::MFA => 'MFA',
             self::AUTH => 'Authentication',
+            self::USER_INVITE => 'User Invite',
             default => ucwords(str_replace('_', ' ', $this->value)),
         };
     }
@@ -158,6 +161,7 @@ enum AuditModule: string
             self::AUTH, self::SECURITY, self::SESSION, self::MFA => AuditCategory::SECURITY,
             self::USER, self::AGENCY, self::SERVICE, self::SERVICE_REQUIREMENT,
             self::CASE_CATEGORY, self::CASE_ISSUE, self::CASE_STATUS,
+            self::USER_INVITE,
             self::HELPDESK_ARTICLE, self::AUDIT, self::DATA_EXPORT,
             self::EMAIL_LOG, self::SYSTEM_SETTING => AuditCategory::ADMIN,
             default => AuditCategory::DATA,

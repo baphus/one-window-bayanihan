@@ -88,12 +88,15 @@ class AdminCaseIssueController extends Controller
         $issue->is_active = true;
         $issue->is_deleted = false;
         $issue->deleted_at = null;
-        $issue->save();
+        $issue->saveQuietly();
 
         AuditLog::create([
             'action' => AuditAction::UPDATE->value,
             'module' => AuditModule::CASE_ISSUE->value,
             'entity_id' => $issue->id,
+            'description' => 'Case issue '.$issue->name.' reactivated',
+            'old_value' => ['is_active' => false, 'is_deleted' => true],
+            'new_value' => ['is_active' => true, 'is_deleted' => false],
             'user_id' => auth()->id(),
             'timestamp' => now(),
         ]);
