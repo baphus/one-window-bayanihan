@@ -28,6 +28,13 @@ class AuditChainAtomicityTest extends TestCase
 
     protected function tearDown(): void
     {
+        // This class runs outside the suite's wrapping transaction, so its audit
+        // rows are not rolled back. Clear them here as well as in setUp(): a row
+        // left behind is visible to every later test in the same process (it made
+        // AuditVocabularyTest count 13 rows for a 12-case enum).
+        AuditLog::truncate();
+        AuditChainCheckpoint::truncate();
+
         AuditLog::flushEventListeners();
         AuditLog::clearBootedModels();
 
