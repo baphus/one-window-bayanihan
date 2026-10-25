@@ -1,141 +1,249 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link } from '@inertiajs/react';
 import AgencyMapView from '@/Components/AgencyMapView';
+import { SectionCard } from '@/Components/Dashboard/primitives';
 
-function AgencyLogo({ agency }) {
-  const [hasError, setHasError] = useState(false);
+/**
+ * Stakeholder details — partner office record.
+ *
+ * Mirrors the case record detail page: a navy record header answers "who is
+ * this office and how is it performing", then one card per facet of the
+ * office. Referral performance sits in a sticky sidebar on wide screens.
+ */
 
-  if (hasError || !agency.logo_url) {
+function AgencyLogo({ agency, size = 'h-14 w-14' }) {
+    const [hasError, setHasError] = useState(false);
+
+    if (hasError || !agency.logo_url) {
+        return (
+            <div className={`${size} flex items-center justify-center bg-white text-base font-extrabold text-primary`}>
+                {agency.short?.charAt(0) ?? agency.name?.charAt(0)}
+            </div>
+        );
+    }
+
     return (
-      <div className="h-full w-full flex items-center justify-center bg-primary-fixed text-primary text-sm font-bold">
-        {agency.short?.charAt(0)}
-      </div>
+        <img
+            src={agency.logo_url}
+            alt={`${agency.short} logo`}
+            className={`${size} object-contain p-[2px]`}
+            referrerPolicy="no-referrer"
+            loading="lazy"
+            onError={() => setHasError(true)}
+        />
     );
-  }
-
-  return (
-    <img
-      src={agency.logo_url}
-      alt={`${agency.short} logo`}
-      className="h-full w-full object-contain p-[2px]"
-      referrerPolicy="no-referrer"
-      loading="lazy"
-      onError={() => setHasError(true)}
-    />
-  );
 }
 
-function InfoItem({ label, value }) {
+/** Stat row used by the sticky "Referral performance" sidebar card. */
+function StatRow({ label, value, tone = 'text-slate-900' }) {
     return (
-        <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
-            <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">{label}</p>
-            <p className="mt-1 text-[12px] font-semibold text-slate-700">{value}</p>
+        <div className="flex items-baseline justify-between gap-3">
+            <dt className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">{label}</dt>
+            <dd className={`text-xl font-black leading-none ${tone}`}>{value}</dd>
+        </div>
+    );
+}
+
+/** One covered service — name, description, lead time, and required documents. */
+function ServiceBlock({ service }) {
+    const requirements = service.requirements ?? [];
+
+    return (
+        <div className="rounded-md border border-slate-200 bg-slate-50/60 p-4">
+            <p className="text-[13px] font-bold text-slate-800">{service.name}</p>
+
+            {service.description && (
+                <p className="mt-1 text-[12px] leading-relaxed text-slate-600">{service.description}</p>
+            )}
+
+            {service.processing_days && (
+                <p className="mt-2 text-[11px] font-semibold text-primary">
+                    Processing time: {service.processing_days} day{service.processing_days > 1 ? 's' : ''}
+                </p>
+            )}
+
+            {requirements.length > 0 && (
+                <div className="mt-3 border-t border-slate-200 pt-2.5">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                        Required documents
+                    </p>
+                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                        {requirements.map((req) => (
+                            <span
+                                key={req.id}
+                                className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-medium text-primary"
+                            >
+                                {req.name}
+                            </span>
+                        ))}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
 
 export default function StakeholderShow({ stakeholder, stats }) {
-    const services = stakeholder.services || [];
+    const services = stakeholder.services ?? [];
+
+    const { total_referrals: total = 0, active_referrals: active = 0, completed_referrals: completed = 0 } = stats ?? {};
+
+    // Segments are drawn from the three counts we already have: completed,
+    // active, then whatever is left over (rejected / archived).
+    const segments = useMemo(() => {
+        if (total <= 0) return [];
+
+        const remaining = Math.max(total - active - completed, 0);
+
+        return [
+            { key: 'completed', count: completed, className: 'bg-emerald-300', label: 'completed' },
+            { key: 'active', count: active, className: 'bg-amber-300/60', label: 'active' },
+            { key: 'other', count: remaining, className: 'bg-white/30', label: 'closed without completion' },
+        ].filter((segment) => segment.count > 0);
+    }, [total, active, completed]);
+
+    const completionPercent = total > 0 ? Math.round((completed / total) * 100) : 0;
 
     return (
-        <AppLayout title={stakeholder.short}>
-            <Head title={stakeholder.short} />
+        <AppLayout title={stakeholder.short ?? stakeholder.name}>
+            <Head title={stakeholder.short ?? stakeholder.name} />
 
-            <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 mb-4">
-                <Link href={route('stakeholders.index')} className="hover:text-indigo-600 transition">Stakeholders</Link>
-                <span className="mx-2">&gt;</span>
-                <span>{stakeholder.short}</span>
-            </div>
+            {/* Back to Stakeholders */}
+            <Link
+                href={route('stakeholders.index')}
+                className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-slate-600 hover:text-slate-900"
+            >
+                <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+                Back to Stakeholders
+            </Link>
 
-            <div className="flex items-start justify-between gap-4 mb-6">
-                <h1 className="text-2xl font-bold text-slate-900">Stakeholder Details</h1>
-                <Link
-                    href={route('stakeholders.index')}
-                    className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-3 py-2 text-[11px] font-bold text-slate-700 hover:bg-slate-50"
-                >
-                    <span className="material-symbols-outlined text-[16px]">arrow_back</span>
-                    Back
-                </Link>
-            </div>
+            {/* Partner office record header */}
+            <header className="mt-4 rounded-lg bg-primary px-6 py-8 text-white shadow-2xl sm:px-8">
+                <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-primary-fixed-dim">Partner office</p>
 
-            <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
-                <main className="xl:col-span-7 space-y-6">
-                    <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-                        <div className="flex items-start gap-4">
-                            <div className="h-14 w-14 overflow-hidden rounded-full border border-slate-200 bg-white shrink-0">
-                                <AgencyLogo agency={stakeholder} />
-                            </div>
-                            <div>
-                                <p className="text-[16px] font-bold text-slate-800">{stakeholder.name}</p>
-                                <p className="text-[10px] font-extrabold uppercase tracking-[0.1em] text-slate-500">{stakeholder.short}</p>
-                            </div>
+                <div className="mt-3 flex items-start gap-4">
+                    <div className="h-14 w-14 shrink-0 overflow-hidden rounded-md bg-white">
+                        <AgencyLogo agency={stakeholder} />
+                    </div>
+                    <div className="min-w-0">
+                        <h1 className="font-headline text-2xl font-extrabold tracking-tight sm:text-3xl">
+                            {stakeholder.name ?? 'Partner office'}
+                        </h1>
+                        <p className="mt-1 text-sm text-primary-fixed/90">
+                            {stakeholder.short}
+                            {stakeholder.contact_info && <span className="text-primary-fixed/70"> · {stakeholder.contact_info}</span>}
+                        </p>
+                    </div>
+                </div>
+
+                <div className="mt-3 flex flex-wrap gap-2">
+                    <span className="border border-white/30 px-2 py-1 text-[11px] font-semibold">
+                        {services.length} {services.length === 1 ? 'service' : 'services'}
+                    </span>
+                    {!stakeholder.is_active && (
+                        <span className="border border-amber-300/60 px-2 py-1 text-[11px] font-semibold text-amber-200">
+                            Inactive
+                        </span>
+                    )}
+                </div>
+
+                {total > 0 && (
+                    <div className="mt-6">
+                        <div
+                            className="flex h-1.5 gap-1"
+                            role="img"
+                            aria-label={`${completionPercent}% of referrals completed`}
+                        >
+                            {segments.map((segment) => (
+                                <span
+                                    key={segment.key}
+                                    title={`${segment.count} ${segment.label}`}
+                                    style={{ flexGrow: segment.count }}
+                                    className={`rounded-sm ${segment.className}`}
+                                >
+                                    <span className="sr-only">{`${segment.count} ${segment.label}`}</span>
+                                </span>
+                            ))}
                         </div>
+                        <p className="mt-2 text-[11px] text-primary-fixed-dim/80">
+                            {completionPercent}% of referrals completed · {total} total
+                        </p>
+                    </div>
+                )}
+            </header>
 
-                        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <InfoItem label="Contact" value={stakeholder.contact_info || 'N/A'} />
-                            <InfoItem label="Number of Services" value={String(services.length)} />
-                            <InfoItem label="Total Referrals" value={String(stats.total_referrals)} />
-                            <InfoItem label="Active Referrals" value={String(stats.active_referrals)} />
-                            <InfoItem label="Completed Referrals" value={String(stats.completed_referrals)} />
-                        </div>
-                    </section>
+            {/* Two-column layout: main content + referral performance sidebar */}
+            <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_18rem]">
+                {/* Left column — main content */}
+                <div className="min-w-0">
+                    {stakeholder.description && (
+                        <SectionCard title="About">
+                            <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-800">
+                                {stakeholder.description}
+                            </p>
+                        </SectionCard>
+                    )}
 
-                    <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-                        <h3 className="text-[11px] font-extrabold uppercase tracking-[0.1em] text-slate-500 mb-3">Services ({services.length})</h3>
-                        {services.length ? (
-                            <div className="space-y-3">
+                    <section className={stakeholder.description ? 'mt-8' : ''}>
+                        <h2 className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
+                            <span className="h-2 w-2 rounded-full bg-primary"></span>
+                            Services covered
+                        </h2>
+
+                        {services.length > 0 ? (
+                            <div className="mt-3 space-y-3">
                                 {services.map((service) => (
-                                    <div key={service.id} className="rounded-md border border-slate-200 bg-slate-50 p-4">
-                                        <p className="text-[13px] font-bold text-slate-800">{service.name}</p>
-                                        {service.description && (
-                                            <p className="mt-1 text-[12px] leading-5 text-slate-600">{service.description}</p>
-                                        )}
-                                        {service.processing_days && (
-                                            <p className="mt-2 text-[11px] font-semibold text-indigo-600">
-                                                Processing Time: {service.processing_days} day{service.processing_days > 1 ? 's' : ''}
-                                            </p>
-                                        )}
-                                        {service.requirements?.length > 0 && (
-                                            <div className="mt-2">
-                                                <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Required Documents</p>
-                                                <ul className="mt-1 list-disc pl-5 text-[11px] leading-5 text-slate-600">
-                                                    {service.requirements.map((req) => (
-                                                        <li key={req.id}>{req.name}</li>
-                                                    ))}
-                                                </ul>
-                                            </div>
-                                        )}
-                                    </div>
+                                    <ServiceBlock key={service.id} service={service} />
                                 ))}
                             </div>
                         ) : (
-                            <div className="rounded-md border border-dashed border-slate-200 p-4 text-[12px] text-slate-500">
-                                No configured services for this stakeholder.
+                            <div className="mt-3 rounded-md border border-dashed border-slate-300 bg-slate-50/50 px-5 py-8 text-center">
+                                <span className="material-symbols-outlined text-3xl text-slate-300">inventory_2</span>
+                                <p className="mt-2 text-sm font-semibold text-slate-700">No services configured yet</p>
+                                <p className="mx-auto mt-1 max-w-xs text-[13px] text-slate-500">
+                                    This office has not published any services. Cases cannot be referred here until services are added.
+                                </p>
                             </div>
                         )}
                     </section>
-                </main>
+                </div>
 
-                <aside className="xl:col-span-5 space-y-6">
-                    <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-                        <h3 className="text-[11px] font-extrabold uppercase tracking-[0.1em] text-slate-500 mb-3">Google Maps Location</h3>
-                        <AgencyMapView
-                            mapLink={stakeholder.map_link}
-                            latitude={stakeholder.latitude}
-                            longitude={stakeholder.longitude}
-                            locationQuery={stakeholder.location_query}
-                            agencyName={stakeholder.name}
-                            embedHeight="420px"
-                        />
-                    </section>
-
-                    {stakeholder.description && (
-                        <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-                            <h3 className="text-[11px] font-extrabold uppercase tracking-[0.1em] text-slate-500 mb-3">About</h3>
-                            <p className="text-[12px] leading-6 text-slate-600">{stakeholder.description}</p>
+                {/* Right column — referral performance + location (sticky on desktop) */}
+                <aside className="lg:sticky lg:top-24 lg:self-start">
+                    <div className="space-y-6">
+                        <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
+                            <header className="rounded-t-xl border-b border-slate-100 bg-surface-container-low px-4 py-3">
+                                <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-primary">
+                                    Referral performance
+                                </h2>
+                                <p className="mt-0.5 text-[11px] text-slate-400">
+                                    {total} {total === 1 ? 'referral' : 'referrals'} received
+                                </p>
+                            </header>
+                            <dl className="space-y-3 px-4 py-4">
+                                <StatRow label="Total" value={total} />
+                                <StatRow label="Active" value={active} tone={active > 0 ? 'text-amber-600' : 'text-slate-300'} />
+                                <StatRow label="Completed" value={completed} tone={completed > 0 ? 'text-emerald-600' : 'text-slate-300'} />
+                            </dl>
                         </section>
-                    )}
+
+                        <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
+                            <header className="rounded-t-xl border-b border-slate-100 bg-surface-container-low px-4 py-3">
+                                <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-primary">Location</h2>
+                            </header>
+                            <div className="p-2">
+                                <AgencyMapView
+                                    mapLink={stakeholder.map_link}
+                                    latitude={stakeholder.latitude}
+                                    longitude={stakeholder.longitude}
+                                    locationQuery={stakeholder.location_query}
+                                    agencyName={stakeholder.name}
+                                    embedHeight="260px"
+                                />
+                            </div>
+                        </section>
+                    </div>
                 </aside>
             </div>
         </AppLayout>
