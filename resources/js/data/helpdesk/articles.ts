@@ -650,10 +650,10 @@ export const articles: HelpdeskArticle[] = [
 
   {
     id: "article-44",
-    title: "System Security: Settings and Active Sessions",
+    title: "System Security: Settings",
     slug: "system-security-settings-and-sessions",
     excerpt:
-      "Mandatory MFA and terminating active sessions.",
+      "Mandatory MFA and the admin actions that end a user's sessions.",
     content: systemSecuritySettingsAndSessions,
     categoryId: CATEGORY["system-config"],
     tagIds: [TAG["security"], TAG["audit"]],

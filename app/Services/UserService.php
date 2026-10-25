@@ -224,6 +224,28 @@ class UserService
             unset($data['email']);
             $user->update($data);
 
+            // A password-only edit writes nothing the audit observer keeps:
+            // User::$auditExclude drops `password` and `remember_token`, and
+            // the row carries no other dirty column. Left alone, an admin
+            // resetting a colleague's password — a full account takeover —
+            // would evict that colleague's live sessions with no attributable
+            // audit entry, which is exactly what the removed Active Sessions
+            // page used to leave behind. Log the credential change explicitly,
+            // the same way the email-change branch above does.
+            if ($passwordChanged) {
+                AuditLog::create([
+                    'action' => AuditAction::UPDATE->value,
+                    'module' => AuditModule::USER->value,
+                    'category' => AuditCategory::SECURITY,
+                    'entity_id' => $user->id,
+                    'old_value' => null,
+                    'new_value' => null,
+                    'description' => 'Password was reset by administrator',
+                    'user_id' => $actorId ?? auth()->id(),
+                    'timestamp' => now(),
+                ]);
+            }
+
             return $user;
         });
 

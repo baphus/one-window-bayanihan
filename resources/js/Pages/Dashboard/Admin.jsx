@@ -26,7 +26,6 @@ const ADMIN_TOOLS = [
     { label: 'Statuses', description: 'Case status taxonomy', href: '/admin/case-statuses', route: 'admin.case-statuses.index', icon: 'flag' },
     { label: 'Issues', description: 'Case issue taxonomy', href: '/admin/case-issues', route: 'admin.case-issues.index', icon: 'report_problem' },
     { label: 'System settings', description: 'Thresholds and chatbot index', href: '/admin/system-settings', route: 'admin.system-settings.index', icon: 'settings' },
-    { label: 'Active sessions', description: 'Signed-in users, terminate access', href: '/admin/system/active-sessions', route: 'admin.system.active-sessions', icon: 'devices' },
     { label: 'Security', description: 'Password and lockout policy', href: '/admin/system/security', route: 'admin.system.security', icon: 'shield' },
     { label: 'Maintenance', description: 'Maintenance mode control', href: '/admin/system/maintenance', route: 'admin.system.maintenance', icon: 'construction' },
     { label: 'Audit logs', description: 'Full unscoped change trail', href: '/audit-logs', route: 'audit-logs.index', icon: 'history' },
@@ -152,16 +151,9 @@ export default function AdminDashboard({ dashboard = {} }) {
                         )}
                         <p className="mt-3 text-xs text-slate-500">
                             {formatCount(stats.verifiedUsers)} of {formatCount(stats.totalUsers)} verified.
-                            {' '}MFA status and signed-in sessions live on the pages below.
+                            {' '}MFA status and the sign-in policy live on the pages below.
                         </p>
                         <div className="mt-3 flex flex-wrap gap-2">
-                            <Link
-                                href={safeRoute('admin.system.active-sessions', undefined, '/admin/system/active-sessions')}
-                                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-50"
-                            >
-                                <MaterialSymbol name="devices" className="text-[16px]" />
-                                Active sessions
-                            </Link>
                             <Link
                                 href={safeRoute('admin.system.security', undefined, '/admin/system/security')}
                                 className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-50"

@@ -55,7 +55,7 @@ Layer 6: Data Protection (PII encryption, audit logging, RLS — forced on 7 tab
 
 - **Driver:** Database (`sessions` table)
 - **Features:** IP address, user agent, last activity tracked per session
-- **Admin:** Active session viewer + ability to terminate sessions
+- **Admin:** No session viewer. Session eviction happens as a side effect of deactivation, password reset, MFA reset, and self-service password change.
 - **Timeout:** Configurable via `SESSION_LIFETIME` (default: 120 minutes)
 
 ### Password Security

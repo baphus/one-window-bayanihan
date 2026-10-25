@@ -89,7 +89,7 @@
 | S16 | Exports | Spreadsheets and PDFs of cases, clients, referrals, reports, activity |
 | S17 | Activity and audit trail | Tamper-evident history of who did what |
 | S18 | Administration | Agencies, accounts, reference lists, platform settings |
-| S19 | System operations | Log viewing, email delivery log, session ending, maintenance, security settings |
+| S19 | System operations | Log viewing, email delivery log, maintenance, security settings |
 | S20 | Help centre and chatbot | Help articles and a keyword-matched assistant |
 | S21 | Document storage and delivery | Safe storage of uploaded files and short-lived download links |
 | S22 | Contact form and outbound email | Public enquiries and reliable email delivery with status tracking |
@@ -224,9 +224,9 @@
 
 ### S19 — System operations
 - **Purpose.** Operator visibility and control.
-- **Inputs.** Requests to view logs and the email delivery log, resend a message, end an active session, toggle maintenance mode, and adjust security settings.
-- **Outputs.** Log viewing and download; resent emails; a terminated session; maintenance mode on or off.
-- **Business rules.** An administrator cannot end their own current session from this screen.
+- **Inputs.** Requests to view logs and the email delivery log, resend a message, toggle maintenance mode, and adjust security settings.
+- **Outputs.** Log viewing and download; resent emails; maintenance mode on or off.
+- **Business rules.** Ending a user's sessions is not a standalone screen: it happens as a side effect of deactivating the account or resetting its password or MFA.
 - **Availability.** Available.
 
 ### S20 — Help centre and chatbot
@@ -384,7 +384,7 @@ A written data-retention and disposal policy document has not been produced yet,
 | Activity history export | CSV with an explicit date range | Administrator | Available | — |
 | Full-system workbook | One workbook with all data | Administrator | Not available | File is prepared but never delivered to the administrator |
 | Administration: agencies, accounts, reference lists, settings | Maintain master data and platform settings | Administrator | Available | — |
-| System operations | Logs, email delivery log, end sessions, maintenance, security settings | Administrator | Available | Cannot end own current session |
+| System operations | Logs, email delivery log, maintenance, security settings | Administrator | Available | Session eviction via deactivation or credential reset |
 | Help centre | Searchable help articles | All roles (public too) | Available | — |
 | Chatbot | Answers by matching the help content | All roles (public too) | Partly available | Chat transcripts kept for supervisor review are not built |
 | Document storage | Safe upload, type validation, short-lived download links | Case Manager and Administrator (uploading); Agency staff (viewing and downloading files on their own referrals) | Partly available | Malware scanning depends on deployment settings — to be confirmed |

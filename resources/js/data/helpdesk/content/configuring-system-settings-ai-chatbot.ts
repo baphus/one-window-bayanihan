@@ -35,6 +35,6 @@ Practical guidance for administrators:
 
 ## Related security pages
 
-Mandatory MFA and session termination live on separate pages — see *System security: settings and active sessions*.
+Mandatory MFA lives on a separate page — see *System security: settings*.
 `;
 export default content;

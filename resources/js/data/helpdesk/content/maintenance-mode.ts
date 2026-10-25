@@ -20,7 +20,7 @@ The in-app log viewer and the admin data-export page have been retired. For day-
 
 - **Audit log** — the full change trail: who did what, when, from where. Use this for accountability questions and for reconstructing what a user was doing when they hit a problem.
 - **Generated documents** — queued report and per-module Excel exports land here; check the row's status when a download never arrives.
-- **Active sessions** — confirm whether the affected user is still signed in, and terminate a session if an account is suspected compromised.
+- **Users** — deactivate an account or reset its password/MFA if an account is suspected compromised; any of those evicts that user's live sessions.
 
 For day-to-day filtered exports, use the per-page **Export Excel** buttons on Cases, Referrals, and Clients.
 `;

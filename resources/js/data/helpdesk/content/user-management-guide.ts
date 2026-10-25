@@ -32,7 +32,7 @@ Email changes are deliberately high-friction and verified with a one-time code s
 
 ## Deactivating and deleting
 
-- Setting a user **inactive** (or deleting them) blocks sign-in immediately; active sessions can be evicted from **System → Active Sessions**.
+- Setting a user **inactive** (or deleting them) blocks sign-in immediately and evicts that user's existing sessions, including remembered devices.
 - The system refuses to delete the **last remaining admin** — there must always be at least one.
 - Deletions are soft: records are flagged, not erased, preserving the audit trail.
 

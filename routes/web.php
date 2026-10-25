@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Controllers\Admin\ActiveSessionsController;
 use App\Http\Controllers\Admin\AdminCaseCategoryController;
 use App\Http\Controllers\Admin\AdminCaseIssueController;
 use App\Http\Controllers\Admin\AdminCaseStatusController;
@@ -305,9 +304,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
             Route::get('/security', [SecuritySettingsController::class, 'index'])->name('security');
             Route::post('/security', [SecuritySettingsController::class, 'update'])->name('security.update');
-
-            Route::get('/active-sessions', [ActiveSessionsController::class, 'index'])->name('active-sessions');
-            Route::post('/active-sessions/{session}/terminate', [ActiveSessionsController::class, 'terminate'])->name('active-sessions.terminate');
         });
     });
 });
