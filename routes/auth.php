@@ -26,21 +26,25 @@ Route::middleware('guest')->group(function () {
     Route::get('staff/login', [AuthenticatedSessionController::class, 'createStaff'])
         ->name('staff.login');
 
-    // OFW self-registration (account-first, 2-step: credentials → profile)
+    // OFW self-registration (account-first, 2 steps: profile capture → review + email OTP)
     Route::get('register', [OfwRegistrationController::class, 'create'])
         ->name('register');
     Route::post('register', [OfwRegistrationController::class, 'store'])
         ->middleware(['turnstile', 'throttle:register'])
         ->name('register.store');
-    Route::get('register/profile', [OfwRegistrationController::class, 'showProfile'])
+
+    // Review step. `throttle:otp` sits on send-otp (issues codes) and on the
+    // store route (burns guesses against a live code), both keyed on the
+    // pending email so one filer cannot rotate the field for a fresh budget.
+    Route::get('register/review', [OfwRegistrationController::class, 'showReview'])
         ->middleware('pending.registration')
-        ->name('register.profile');
-    Route::post('register/profile/resend-otp', [OfwRegistrationController::class, 'resendOtp'])
+        ->name('register.review');
+    Route::post('register/review/send-otp', [OfwRegistrationController::class, 'sendOtp'])
         ->middleware(['pending.registration', 'throttle:otp'])
-        ->name('register.profile.resend-otp');
-    Route::post('register/profile', [OfwRegistrationController::class, 'storeProfile'])
+        ->name('register.review.send-otp');
+    Route::post('register/review', [OfwRegistrationController::class, 'storeReview'])
         ->middleware(['pending.registration', 'throttle:otp'])
-        ->name('register.profile.store');
+        ->name('register.review.store');
 
     // Named login.store, not login: two routes sharing the name breaks
     // `route:cache` with "Unable to prepare route [login] for serialization".
