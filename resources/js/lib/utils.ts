@@ -30,6 +30,22 @@ export function formatDisplayDate(iso: string): string {
     }).format(date);
 }
 
+/**
+ * Normalise a list page's category filter into a string id array.
+ *
+ * The server may echo back `category_ids` (array), a single `category_id`, or
+ * both (a legacy link that carried one id alongside a new selection), so the
+ * ids of both keys are merged and de-duplicated. Case, Client and Referral
+ * lists all build their export query and filter chips from this.
+ */
+export function getCategoryFilterIds(filters: Record<string, unknown> | null | undefined): string[] {
+    const raw = filters?.category_ids ?? filters?.category_id;
+    const ids = Array.isArray(raw) ? [...raw] : (raw ? [raw] : []);
+    const legacy = filters?.category_id;
+    if (legacy && !ids.includes(legacy)) ids.push(legacy);
+    return [...new Set(ids.filter((id) => id !== null && id !== undefined && id !== '').map(String))];
+}
+
 export function getCaseAgeInDays(timestamp: string): number {
     const parsed = new Date(timestamp);
     if (Number.isNaN(parsed.getTime())) return 0;

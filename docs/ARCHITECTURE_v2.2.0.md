@@ -59,14 +59,17 @@ path, middleware name, and queue policy below was read from code on 2026-09-15:
 - **Queue topology: three policies, not one.** v2.1.0 §12 named only the local
   `queue:listen` command. Reality: local dev listens on
   `--queue=default,notifications --tries=1 --timeout=0` (`composer.json:61`);
-  the compose `queue` service listens with `--tries=3 --timeout=90`
-  (`docker-compose.yml:156`); the image's supervisord worker runs
+  the compose `queue` service listens with `--tries=3 --timeout=320`
+  (`docker-compose.yml:107`); the image's supervisord worker runs
   `queue:work --queue=default,notifications,heavy --sleep=3 --tries=3
-  --timeout=30 --max-jobs=500 --max-time=3600` (`docker/supervisord.conf:34`),
-  with `stopwaitsecs=35` so an in-flight job finishes before SIGKILL. The
-  scheduler runs `schedule:work` in the same image, gated by `RUN_SCHEDULER` /
-  `RUN_QUEUE_WORKER` guards (`docker/supervisord.conf:34,57`) so the web tier
-  can scale out with exactly one scheduler.
+  --timeout=320 --max-jobs=500 --max-time=3600` (`docker/supervisord.conf:34`),
+  with `stopwaitsecs=340` so an in-flight job finishes before SIGKILL. Both
+  worker timeouts sit above the longest per-job timeout
+  (`GenerateSystemReport::$timeout = 300`), which the previous 30 s / 90 s
+  values did not. The scheduler runs `schedule:work` in the same image, gated by
+  `RUN_SCHEDULER` / `RUN_QUEUE_WORKER` guards
+  (`docker/supervisord.conf:34,57`) so the web tier can scale out with exactly
+  one scheduler.
 - **Staging seed data.** `database/seeders/StagingSeeder.php` (with helpers under
   `database/seeders/Staging/`: `StagingDataFactory`, `TemporalEngine`,
   `VolumeModel`, `AuditChainWriter`) generates volume-realistic staging data with
@@ -155,8 +158,29 @@ Controller (thin) → Service (business logic) → Model (data access) → Postg
 Layer responsibilities are as documented in v2.1.0 §3
 (`app/Http/Controllers/` → `app/Http/Requests/` → `app/Services/` →
 `app/Models/` → `app/Observers/` → `app/Events/`+`app/Listeners/` → `app/DTOs/`).
-Row-level scoping is enforced at the database session layer via
-`SetPostgresSession` (`app.current_user_id`), as in v2.1.0 §4.
+Row-level **scoping** is enforced in the application layer — `role:` route
+middleware, controller ownership checks, and `agcy_id` query constraints.
+`SetPostgresSession` publishes `app.current_user_id` / `app.user_role` to the
+database session, but that only takes effect on the tables where RLS is
+*forced*; see "Database trust boundary" below.
+
+### Database trust boundary (RLS posture)
+
+**PostgreSQL RLS is forced on 7 tables and not forced on 11 others, and the
+runtime connects as a role that owns the latter, so RLS is not an enforced
+second layer for client, case, referral, or milestone data.** Isolation for
+that data is application-level only.
+
+| Posture | Tables |
+|---|---|
+| `ENABLE` + `FORCE ROW LEVEL SECURITY` (policies bind even the table owner) | `agency_thread_reads`, `referral_messages`, `referral_client_requests`, `referral_client_request_items`, `referral_client_messages`, `referral_client_message_attachments`, `referral_client_access_links` |
+| `ENABLE` + policies, **not forced** — owner bypasses them | `cases`, `clients`, `client_addresses`, `client_employments`, `next_of_kin`, `referrals`, `milestones`, `referral_attachments`, `referral_comments`, `case_documents`, `case_notifications` |
+
+The decision, its rationale, and the prerequisites for ever enforcing the
+second row are recorded in `docs/security/rls-posture-decision-v1.0.0.md`.
+Any change that reduces application-level scoping on the "not forced" tables is
+a live exposure, not a backstopped one.
+
 
 ### Data layer (new in 2.2.1)
 
@@ -222,8 +246,8 @@ search additionally uses Fuse.js (`package.json:43`).
 | Context | Command | Policy |
 |---------|---------|--------|
 | Local dev (`composer run dev`) | `queue:listen --queue=default,notifications --tries=1 --timeout=0` | fail fast, infinite job timeout (`composer.json:61`) |
-| Compose `queue` service | `queue:listen --tries=3 --timeout=90` | patient retries (`docker-compose.yml:156`) |
-| Image supervisord worker | `queue:work --queue=default,notifications,heavy --sleep=3 --tries=3 --timeout=30 --max-jobs=500 --max-time=3600` | bounded jobs; `stopwaitsecs=35` (`docker/supervisord.conf:33-45`) |
+| Compose `queue` service | `queue:listen --tries=3 --timeout=320` | patient retries (`docker-compose.yml:107`) |
+| Image supervisord worker | `queue:work --queue=default,notifications,heavy --sleep=3 --tries=3 --timeout=320 --max-jobs=500 --max-time=3600` | bounded jobs above the 300 s job budget; `stopwaitsecs=340` (`docker/supervisord.conf:33-45`) |
 | Image scheduler | `schedule:work` | exactly one instance cluster-wide; `RUN_SCHEDULER=false` on scaled web tier, single-instance scheduler service from the same image (`docker/supervisord.conf:47-57`) |
 
 Canonical broker is Redis; the `database` driver (`jobs`/`failed_jobs` tables)

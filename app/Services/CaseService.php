@@ -707,7 +707,9 @@ class CaseService
     public function archiveCase(string $id, string $userId): CaseFile
     {
         return DB::transaction(function () use ($id) {
-            $case = CaseFile::findOrFail($id);
+            // Serialize the transition: a concurrent close/reopen must not slip
+            // between this read and the status write.
+            $case = CaseFile::lockForUpdate()->findOrFail($id);
 
             abort_unless($case->status === 'CLOSED', 422, 'Only closed cases can be archived.');
 
@@ -740,7 +742,7 @@ class CaseService
     public function unarchiveCase(string $id, string $userId): CaseFile
     {
         return DB::transaction(function () use ($id) {
-            $case = CaseFile::findOrFail($id);
+            $case = CaseFile::lockForUpdate()->findOrFail($id);
 
             abort_unless($case->status === 'ARCHIVED', 422, 'Only archived cases can be restored.');
 
@@ -795,7 +797,7 @@ class CaseService
     public function toggleCaseStatus(string $id, string $userId): CaseFile
     {
         $case = DB::transaction(function () use ($id, $userId) {
-            $case = CaseFile::findOrFail($id);
+            $case = CaseFile::lockForUpdate()->findOrFail($id);
             $old = $case->toArray();
 
             // The toggle only flips OPEN ↔ CLOSED. Drafts are published through
@@ -813,13 +815,13 @@ class CaseService
             }
 
             $oldStatus = $case->status;
-            $case->update([
-                'status' => $case->status === 'OPEN' ? 'CLOSED' : 'OPEN',
-            ]);
+            $reopening = $case->status === 'CLOSED';
 
-            if ($case->wasChanged('status') && $case->status === 'CLOSED') {
-                $case->update(['closed_at' => now()]);
-            }
+            $case->update([
+                'status' => $reopening ? 'OPEN' : 'CLOSED',
+                // Reopening clears the closure date; closing stamps it.
+                'closed_at' => $reopening ? null : now(),
+            ]);
 
             if ($case->status === 'CLOSED') {
                 $this->eventRecorder->caseClosed($case, $userId);
@@ -1295,6 +1297,16 @@ class CaseService
     private const FK_BLOCKING_SQLSTATES = ['23001', '23503'];
 
     /**
+     * Cases hydrated per pagination round in purgeTrashedCases().
+     *
+     * Each case forces its own potentially large delete cascade, so a round of
+     * 200 held that many cascade trees in one transaction batch. 50 keeps a
+     * round's lock footprint and memory small while still amortising the
+     * pagination query.
+     */
+    private const PURGE_CHUNK_SIZE = 50;
+
+    /**
      * Permanently delete soft-deleted cases older than the retention period.
      *
      * Called by the PurgeTrashedCases artisan command. Every case is purged in
@@ -1307,6 +1319,11 @@ class CaseService
      * Returns the number of cases actually purged. Skipped cases are written
      * to the application log and counted in the batch audit entry, so a run
      * that matched cases but purged none is still visible.
+     *
+     * The eligible set is walked with chunkById() rather than loaded in one
+     * collection: a first rollout or a long-misconfigured retention window can
+     * leave an unbounded backlog of trashed cases, and hydrating all of them at
+     * once is what turns a scheduled cleanup into an out-of-memory kill.
      *
      * A retention period below one day is rejected before anything is computed:
      * 0 or a negative value would flip the cutoff to "now" (or into the
@@ -1332,59 +1349,65 @@ class CaseService
 
         $cutoff = now()->subDays($retentionDays);
 
-        $cases = CaseFile::onlyTrashed()
-            ->where('deleted_at', '<', $cutoff)
-            ->get();
-
-        if ($cases->isEmpty()) {
-            return 0;
-        }
-
         $purgedCount = 0;
         $purgedFileCount = 0;
         $skippedCaseIds = [];
 
-        foreach ($cases as $case) {
-            // Read the paths before the transaction: once forceDelete() runs,
-            // CascadeSoftDeletes and the ON DELETE CASCADE constraints remove
-            // the rows that hold them. A purge that is later rolled back must
-            // not have already emptied the bucket.
-            $filePaths = $this->purgeableFilePaths($case);
+        // chunkById walks the eligible set in id order and re-runs the query for
+        // each page, so the purge never hydrates the whole eligible set at once
+        // (a first-rollout backlog or a long-forgotten retention setting can
+        // leave tens of thousands of trashed cases). forceDelete() removes the
+        // rows being paged, which is safe here because pagination keys off the
+        // last id seen rather than an offset.
+        CaseFile::onlyTrashed()
+            ->where('deleted_at', '<', $cutoff)
+            ->chunkById(self::PURGE_CHUNK_SIZE, function ($cases) use (&$purgedCount, &$purgedFileCount, &$skippedCaseIds, $retentionDays, $cutoff) {
+                foreach ($cases as $case) {
+                    // Read the paths before the transaction: once forceDelete() runs,
+                    // CascadeSoftDeletes and the ON DELETE CASCADE constraints remove
+                    // the rows that hold them. A purge that is later rolled back must
+                    // not have already emptied the bucket.
+                    $filePaths = $this->purgeableFilePaths($case);
 
-            try {
-                DB::transaction(function () use ($case) {
-                    // case_events has no soft-delete flag and its FK is RESTRICT, so it cannot go through
-                    // $cascadeSoftDeletes (CaseEvent is append-only; its deleting hook throws).
-                    // Limit: event rows go without per-row audit.
-                    DB::table('case_events')->where('case_id', $case->id)->delete();
+                    try {
+                        DB::transaction(function () use ($case) {
+                            // case_events has no soft-delete flag and its FK is RESTRICT, so it cannot go through
+                            // $cascadeSoftDeletes (CaseEvent is append-only; its deleting hook throws).
+                            // Limit: event rows go without per-row audit.
+                            DB::table('case_events')->where('case_id', $case->id)->delete();
 
-                    // CascadeSoftDeletes handles child force-deletes when forceDelete() is called.
-                    $case->forceDelete();
-                });
+                            // CascadeSoftDeletes handles child force-deletes when forceDelete() is called.
+                            $case->forceDelete();
+                        });
 
-                $purgedCount++;
+                        $purgedCount++;
 
-                // Outside the transaction on purpose: a storage failure here
-                // must not roll back a purge that has already committed, and
-                // must not abort the rest of the batch.
-                $purgedFileCount += $this->deletePurgedFiles($case, $filePaths);
-            } catch (QueryException $e) {
-                // Only a blocking foreign key is survivable; anything else is a
-                // real failure and must keep bubbling up.
-                if (! in_array($e->getCode(), self::FK_BLOCKING_SQLSTATES, true)) {
-                    throw $e;
+                        // Outside the transaction on purpose: a storage failure here
+                        // must not roll back a purge that has already committed, and
+                        // must not abort the rest of the batch.
+                        $purgedFileCount += $this->deletePurgedFiles($case, $filePaths);
+                    } catch (QueryException $e) {
+                        // Only a blocking foreign key is survivable; anything else is a
+                        // real failure and must keep bubbling up.
+                        if (! in_array($e->getCode(), self::FK_BLOCKING_SQLSTATES, true)) {
+                            throw $e;
+                        }
+
+                        $skippedCaseIds[] = $case->id;
+
+                        Log::warning('cases:purge-trashed — skipped case held by a RESTRICT foreign key.', [
+                            'case_id' => $case->id,
+                            'case_number' => $case->case_number,
+                            'retention_days' => $retentionDays,
+                            'cutoff' => $cutoff->toDateString(),
+                            'sqlstate' => $e->getCode(),
+                        ]);
+                    }
                 }
+            });
 
-                $skippedCaseIds[] = $case->id;
-
-                Log::warning('cases:purge-trashed — skipped case held by a RESTRICT foreign key.', [
-                    'case_id' => $case->id,
-                    'case_number' => $case->case_number,
-                    'retention_days' => $retentionDays,
-                    'cutoff' => $cutoff->toDateString(),
-                    'sqlstate' => $e->getCode(),
-                ]);
-            }
+        if ($purgedCount === 0 && $skippedCaseIds === []) {
+            return 0;
         }
 
         // Audit the purge batch, including what the run could not purge.

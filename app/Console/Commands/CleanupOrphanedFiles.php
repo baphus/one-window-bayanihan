@@ -62,14 +62,16 @@ class CleanupOrphanedFiles extends Command
 
     /**
      * Delete stored files for rows that are soft-deleted, in the trash longer
-     * than the grace period, and whose parent case can no longer be restored.
+     * than the restore window, and whose parent case can no longer be restored.
      *
      * Retention is keyed off the parent CASE, not the file's own row: a case
      * stays restorable for the whole cases:purge-trashed window, so a document
      * restored on day two used to come back pointing at a bucket key the sweep
      * had already emptied — the row looked fine and the download 404'd. The
      * cutoff is read from the same config key the purge reads, so there is one
-     * policy rather than two that can drift apart.
+     * policy rather than two that can drift apart. The row's own deleted_at must
+     * also be past that window: a document trashed yesterday is still restorable
+     * even though its case is live.
      *
      * Every delete is stamped with files_deleted_at so the next nightly run
      * skips it instead of retrying the same key forever.
@@ -87,7 +89,9 @@ class CleanupOrphanedFiles extends Command
 
         $retentionDays = (int) config('app.trash_retention_days', 90);
         $retentionCutoff = now()->subDays($retentionDays);
-        $graceCutoff = now()->subDay();
+        // A trashed document row stays restorable for the same window a trashed
+        // case does, so its object may only go once that window has passed.
+        $graceCutoff = $retentionCutoff;
 
         $count = 0;
 

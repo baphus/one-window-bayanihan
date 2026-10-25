@@ -85,6 +85,7 @@ class TrackController extends Controller
         $request->session()->put(TrackingService::SESSION_KEY, [
             'tracker_number' => $case->tracker_number,
             'email' => $email,
+            'verified_at' => now()->getTimestamp(),
         ]);
 
         return redirect()->route('track.show', ['tracker_number' => $case->tracker_number]);

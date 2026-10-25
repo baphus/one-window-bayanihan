@@ -7,6 +7,7 @@ use App\Enums\AuditModule;
 use App\Enums\UserRole;
 use App\Http\Requests\ReportsFilterRequest;
 use App\Models\AuditLog;
+use App\Models\User;
 use App\Services\Export\DataExportService;
 use App\Services\Reports\ReportsExportService;
 use App\Services\ReportsService;
@@ -26,6 +27,8 @@ class ReportsController extends Controller
     public function index(ReportsFilterRequest $request)
     {
         $user = $request->user();
+        $this->assertAgencyLinked($user, 'view reports');
+
         $filters = $request->validated();
         $fromDate = $filters['from'] ?? null;
         $toDate = $filters['to'] ?? null;
@@ -123,6 +126,8 @@ class ReportsController extends Controller
 
     public function exportPdf(Request $request)
     {
+        $this->assertAgencyLinked($request->user(), 'export reports');
+
         $criteria = $this->reportsExportService->extractCriteria($request);
         if ($criteria instanceof RedirectResponse) {
             return $criteria;
@@ -164,6 +169,8 @@ class ReportsController extends Controller
 
     public function exportExcel(Request $request)
     {
+        $this->assertAgencyLinked($request->user(), 'export reports');
+
         $criteria = $this->reportsExportService->extractCriteria($request);
         if ($criteria instanceof RedirectResponse) {
             return $criteria;
@@ -193,6 +200,21 @@ class ReportsController extends Controller
         );
 
         return $response;
+    }
+
+    /**
+     * Refuse the request when an agency user has no agency to scope to.
+     *
+     * An agency session with no `agcy_id` would fall through the scope match in
+     * index() to a null agency id, i.e. the unrestricted payload. Every report
+     * entry point must refuse it before any query runs, so the check lives here
+     * rather than being repeated per action.
+     */
+    private function assertAgencyLinked(?User $user, string $action): void
+    {
+        if ($user !== null && $user->role === UserRole::AGENCY->value && ! $user->agcy_id) {
+            abort(403, 'Agency users must be linked to an agency to '.$action.'.');
+        }
     }
 
     /**

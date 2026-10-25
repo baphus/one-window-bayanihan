@@ -21,6 +21,7 @@ use App\Services\TrackingService;
 use App\Support\CategoryFilter;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
@@ -182,10 +183,11 @@ class CaseController extends Controller
                 ->withErrors(['client' => 'No linked client found. Please complete your profile first.']);
         }
 
-        // Build case data: only summary, vulnerability, consent + user/client
-        // category_id, category_ids, case_issue_id are intentionally omitted
-        // so the case lands in PENDING_REVIEW without categories (sync only if non-empty later)
-        $caseData = array_merge($validated, [
+        // Build case data from the explicit allow-list only. StoreIntakeRequest
+        // already drops category_id / category_ids / case_issue_id, but repeat
+        // the allow-list here so a future rule change cannot silently widen the
+        // intake boundary (defence in depth).
+        $caseData = array_merge(Arr::only($validated, ['summary', 'vulnerability_indicator', 'consent']), [
             'user_id' => $user->id,
             'client_id' => $client->id,
         ]);

@@ -240,12 +240,7 @@ class ClientMetrics
                     ->whereNull('deleted_at');
             });
         }
-        if ($fromDate) {
-            $query->whereDate('cases.created_at', '>=', $fromDate);
-        }
-        if ($toDate) {
-            $query->whereDate('cases.created_at', '<=', $toDate);
-        }
+        $this->applyLocalDateWindow($query, 'cases.created_at', $fromDate, $toDate);
         if ($province) {
             $query->where('ca.province', $province);
         }
@@ -292,12 +287,7 @@ class ClientMetrics
                     ->whereNull('deleted_at');
             });
         }
-        if ($fromDate) {
-            $query->whereDate('cases.created_at', '>=', $fromDate);
-        }
-        if ($toDate) {
-            $query->whereDate('cases.created_at', '<=', $toDate);
-        }
+        $this->applyLocalDateWindow($query, 'cases.created_at', $fromDate, $toDate);
         if ($province) {
             $query->where('ca.province', $province);
         }

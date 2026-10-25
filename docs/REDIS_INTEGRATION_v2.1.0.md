@@ -10,7 +10,7 @@
 | # | v2.0.0 said | Verified reality (2026-09-15) |
 |---|---|---|
 | D1 | **Status: Planning**; "switch requires installing Redis, enabling extension" | **Status: Implemented.** Compose ships `redis:7-alpine` (appendonly, 128 MB, allkeys-lru); `.env.example` + Compose default to `CACHE_STORE=redis` / `QUEUE_CONNECTION=redis`; `phpredis 6.1.0` pinned in `Dockerfile`; CI asserts `redis` in `php -m` |
-| D2 | Queues: `default` (+ `queue:work redis --tries=3`) | Workers consume **`default,notifications,heavy`** in-supervisord (`queue:work --queue=default,notifications,heavy --sleep=3 --tries=3 --timeout=30 --max-jobs=500 --max-time=3600`); `composer run dev` listens on `default,notifications`; Compose `queue` service runs `queue:listen --tries=3 --timeout=90`. Deploy payload runs `database` queue (override — see Deployment Guide v3.1.0 Annex 4A) |
+| D2 | Queues: `default` (+ `queue:work redis --tries=3`) | Workers consume **`default,notifications,heavy`** in-supervisord (`queue:work --queue=default,notifications,heavy --sleep=3 --tries=3 --timeout=320 --max-jobs=500 --max-time=3600`); `composer run dev` listens on `default,notifications`; Compose `queue` service runs `queue:listen --tries=3 --timeout=320`. Deploy payload runs `database` queue (override — see Deployment Guide v3.1.0 Annex 4A) |
 | D3 | Step 1: WSL/Memurai/Docker-Desktop options; Step 2: PHP 8.3 DLL download walkthrough | **Replaced with the PHP 8.4 note below.** WSL distro steps, Memurai, and the PHP-8.3 DLL block are obsolete and removed |
 | D4 | Sessions "remain on database driver" as future work | Re-affirmed as the standing decision: `SESSION_DRIVER=database` (config default **and** `.env` canonical **and** deploy payload). Redis session guidance stays documented as an option, not the posture |
 
@@ -65,11 +65,11 @@ Then `php artisan config:clear && php artisan cache:clear && php artisan queue:r
 ### Run the worker
 
 ```bash
-php artisan queue:listen --tries=3 --timeout=90                                   # dev / Compose queue service
-php artisan queue:work --queue=default,notifications,heavy --sleep=3 --tries=3 --timeout=30 --max-jobs=500 --max-time=3600  # supervisord form
+php artisan queue:listen --tries=3 --timeout=320                                   # dev / Compose queue service
+php artisan queue:work --queue=default,notifications,heavy --sleep=3 --tries=3 --timeout=320 --max-jobs=500 --max-time=3600  # supervisord form
 ```
 
-`--timeout=30` must stay under the supervisor `stopwaitsecs=35` so in-flight jobs finish before SIGKILL. Prefer `queue:work` in production (no per-job framework reload); bound with `--max-jobs/--max-time` against leaks.
+The worker `--timeout` must exceed the longest per-job `$timeout` (`GenerateSystemReport` runs report/export generation with a 300 s budget) and must stay under the supervisor `stopwaitsecs=340` so in-flight jobs finish before SIGKILL. The connection's `retry_after` must in turn exceed the worker timeout — it defaults to 360 s (`config/queue.php`) — or the queue re-delivers a job the worker is still running. Prefer `queue:work` in production (no per-job framework reload); bound with `--max-jobs/--max-time` against leaks.
 
 ## 4. Carried forward from v2.0.0 (unchanged)
 

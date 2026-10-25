@@ -95,10 +95,15 @@ class TrackRegistrationTest extends TestCase
         ]);
 
         $response->assertOk();
-        $response->assertJson(['success' => true]);
+        $response->assertJson([
+            'success' => true,
+            'redirect' => route('login'),
+        ]);
 
         $this->assertEquals(1, User::where('email', $email)->count());
-        $this->assertAuthenticatedAs($existing);
+        $this->assertGuest();
+        $this->assertTrue(session()->has('status'), 'Flash status missing.');
+        $this->assertSame('An account already exists for this email. Please log in.', session('status'));
     }
 
     #[Test]

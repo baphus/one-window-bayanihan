@@ -6,6 +6,8 @@ use App\Enums\UserRole;
 use App\Models\CaseFile;
 use App\Models\ClientEmployment;
 use App\Models\Referral;
+use App\Support\ReportCalendar;
+use Illuminate\Support\Carbon;
 
 trait ScopesReportQueries
 {
@@ -83,20 +85,15 @@ trait ScopesReportQueries
             $query->whereIn('referrals.case_id', function ($q) use ($fromDate, $toDate) {
                 $q->select('cases.id')->from('cases')
                     ->whereNull('cases.deleted_at');
-                if ($fromDate) {
-                    $q->whereDate('cases.created_at', '>=', $fromDate);
-                }
-                if ($toDate) {
-                    $q->whereDate('cases.created_at', '<=', $toDate);
-                }
+                $this->applyLocalDateWindow($q, 'cases.created_at', $fromDate, $toDate);
             });
         } else {
-            if ($fromDate) {
-                $query->whereDate($dateScope === 'referral_created_at' ? 'referrals.created_at' : 'referrals.updated_at', '>=', $fromDate);
-            }
-            if ($toDate) {
-                $query->whereDate($dateScope === 'referral_created_at' ? 'referrals.created_at' : 'referrals.updated_at', '<=', $toDate);
-            }
+            $this->applyLocalDateWindow(
+                $query,
+                $dateScope === 'referral_created_at' ? 'referrals.created_at' : 'referrals.updated_at',
+                $fromDate,
+                $toDate,
+            );
         }
 
         return $query;
@@ -122,12 +119,7 @@ trait ScopesReportQueries
      */
     private function applyCaseWindow($query, ?string $fromDate, ?string $toDate, ?string $province, ?string $city): void
     {
-        if ($fromDate) {
-            $query->whereDate('cases.created_at', '>=', $fromDate);
-        }
-        if ($toDate) {
-            $query->whereDate('cases.created_at', '<=', $toDate);
-        }
+        $this->applyLocalDateWindow($query, 'cases.created_at', $fromDate, $toDate);
 
         if (! $province && ! $city) {
             return;
@@ -144,6 +136,30 @@ trait ScopesReportQueries
                 $q->where('client_addresses.city_municipality', $city);
             }
         });
+    }
+
+    /**
+     * Restrict a query to a range of operating-timezone calendar days.
+     *
+     * The window is expressed as bare UTC column comparisons, not as a
+     * timezone-shifted date expression on the column: wrapping the column in
+     * `AT TIME ZONE` forces a sequential scan and throws away the index the
+     * report panels depend on. Shifting the *bounds* instead selects the
+     * identical rows while staying an indexable range.
+     *
+     * Both ends are inclusive calendar days, so `to` is compared with `<` the
+     * start of the following day.
+     */
+    private function applyLocalDateWindow($query, string $column, ?string $fromDate, ?string $toDate): void
+    {
+        if ($fromDate) {
+            [$start] = ReportCalendar::localDayBounds(Carbon::parse($fromDate)->toDateString());
+            $query->where($column, '>=', $start);
+        }
+        if ($toDate) {
+            [, $end] = ReportCalendar::localDayBounds(Carbon::parse($toDate)->toDateString());
+            $query->where($column, '<', $end);
+        }
     }
 
     private function applyGeoFilter($query, ?string $province, ?string $city, string $baseTable = 'referrals'): void
@@ -194,11 +210,8 @@ trait ScopesReportQueries
                     ->whereNull('deleted_at');
             });
         }
-        if ($fromDate) {
-            $q->whereDate('cases.created_at', '>=', $fromDate);
-        }
-        if ($toDate) {
-            $q->whereDate('cases.created_at', '<=', $toDate);
+        if ($fromDate || $toDate) {
+            $this->applyLocalDateWindow($q, 'cases.created_at', $fromDate, $toDate);
         }
         if ($province || $city) {
             $q->join('client_addresses', 'client_addresses.client_id', '=', 'cases.client_id');

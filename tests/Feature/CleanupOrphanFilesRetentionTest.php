@@ -20,11 +20,11 @@ use Tests\TestCase;
 /**
  * Retention alignment for storage:cleanup-orphans.
  *
- * The sweep used to key its one-day grace off the file's own row, so a case
- * trashed yesterday and restored today came back with its documents intact as
- * rows and empty in the bucket. It must now key off the parent case instead,
- * and it must actually reach client-request message attachments — the files a
- * citizen uploads through a public tracking link.
+ * The sweep must key retention off the configured trash window, not a one-day
+ * grace: a case trashed yesterday and restored today came back with its
+ * documents intact as rows and empty in the bucket. It must also reach
+ * client-request message attachments — the files a citizen uploads through a
+ * public tracking link.
  */
 class CleanupOrphanFilesRetentionTest extends TestCase
 {
@@ -72,8 +72,8 @@ class CleanupOrphanFilesRetentionTest extends TestCase
 
         $document = $this->caseDocument($path);
 
-        // Trashing the case cascades onto the document; backdate both so the
-        // row clears the one-day grace while the case is still restorable.
+        // Trashing the case cascades onto the document; backdate both past the
+        // restore window's edge while the case is still restorable.
         $this->case->delete();
         $this->backdate($document, 'case_documents', days: 2);
         $this->backdate($this->case, 'cases', days: 2);
@@ -89,13 +89,16 @@ class CleanupOrphanFilesRetentionTest extends TestCase
         );
     }
 
-    public function test_document_whose_case_row_is_gone_is_deleted_after_the_grace(): void
+    public function test_document_whose_case_row_is_gone_is_deleted_after_the_restore_window(): void
     {
         $path = 'case-files/case-was-purged.pdf';
         Storage::disk('object-storage')->put($path, '%PDF-1.4');
 
         $document = $this->caseDocument($path);
-        $document->update(['is_deleted' => true, 'deleted_at' => now()->subDays(2)]);
+        $document->update([
+            'is_deleted' => true,
+            'deleted_at' => now()->subDays(self::RETENTION_DAYS + 5),
+        ]);
 
         $this->purgeCaseRow();
 
@@ -108,13 +111,31 @@ class CleanupOrphanFilesRetentionTest extends TestCase
         $this->assertNull($document->fresh()->files_deleted_at);
     }
 
+    public function test_young_trashed_document_on_a_live_case_keeps_its_file(): void
+    {
+        $path = 'case-files/young-trash.pdf';
+        Storage::disk('object-storage')->put($path, '%PDF-1.4');
+
+        // Still inside the restore window: the row can come back, so the bytes must stay.
+        $this->caseDocument($path)->update(['is_deleted' => true, 'deleted_at' => now()->subDays(2)]);
+
+        $this->artisan('storage:cleanup-orphans')
+            ->expectsOutputToContain('Cleaned up 0 orphaned files.')
+            ->assertSuccessful();
+
+        Storage::disk('object-storage')->assertExists($path);
+    }
+
     public function test_a_swept_row_is_not_swept_again_on_the_next_run(): void
     {
         $path = 'case-files/sweep-once.pdf';
         Storage::disk('object-storage')->put($path, '%PDF-1.4');
 
-        // A live case: the document's own trash is the only thing protecting it.
-        $this->caseDocument($path)->update(['is_deleted' => true, 'deleted_at' => now()->subDays(2)]);
+        // A live case: the document's own trash age is the only thing protecting it.
+        $this->caseDocument($path)->update([
+            'is_deleted' => true,
+            'deleted_at' => now()->subDays(self::RETENTION_DAYS + 5),
+        ]);
 
         $this->artisan('storage:cleanup-orphans')
             ->expectsOutputToContain('Cleaned up 1 orphaned files.')
@@ -154,7 +175,7 @@ class CleanupOrphanFilesRetentionTest extends TestCase
         $this->assertTrue($attachment->fresh()->trashed(), 'the referral cascade should reach the attachment row');
 
         // The case is long past its restore window, so the object is an orphan.
-        $this->backdate($attachment, 'referral_client_message_attachments', days: 2);
+        $this->backdate($attachment, 'referral_client_message_attachments', days: self::RETENTION_DAYS + 5);
         $this->backdate($this->case, 'cases', days: self::RETENTION_DAYS + 5);
 
         $this->artisan('storage:cleanup-orphans')->assertSuccessful();

@@ -18,28 +18,18 @@ vi.mock('@/Components/ui/KpiCard', () => ({
   default: ({ label, value }) => <article data-testid={`metric-${label}`}>{value}</article>,
 }));
 
+// Only the sections the reports page actually renders are mocked; the
+// component list here is kept in step with Reports/Index -> CasesTab /
+// ReferralsTab so a deleted section can never linger as a stale mock.
 vi.mock('@/Components/Reports/TopServiceRequestedCard', () => ({ default: () => null }));
-vi.mock('@/Components/Reports/OverviewBanner', () => ({ default: () => null }));
-vi.mock('@/Components/Reports/ClientSnapshotCard', () => ({ default: () => null }));
-vi.mock('@/Components/Reports/AgencyWorkloadChart', () => ({ default: () => null }));
-vi.mock('@/Components/Reports/AvgCompletionCard', () => ({ default: () => null }));
 vi.mock('@/Components/Reports/DateRangePicker', () => ({ default: () => null }));
-vi.mock('@/Components/Reports/DateScopeSelect', () => ({ default: () => null }));
 vi.mock('@/Components/Reports/AgencyFilter', () => ({ default: () => null }));
-vi.mock('@/Components/Reports/ReportTabBar', () => ({ default: () => null }));
 vi.mock('@/Components/Reports/ProvinceCityFilter', () => ({ default: () => null }));
 vi.mock('@/Components/Reports/ExportButtons', () => ({ default: () => null }));
 vi.mock('@/Components/Reports/TrendIndicator', () => ({ default: () => null }));
 vi.mock('@/Components/Reports/Sparkline', () => ({ default: () => null }));
-vi.mock('@/Pages/Reports/sections/AgencyScorecardSection', () => ({ default: () => null }));
-vi.mock('@/Pages/Reports/sections/StatusDistributionSection', () => ({ default: () => null }));
-vi.mock('@/Pages/Reports/sections/CycleTimeSection', () => ({ default: () => null }));
 vi.mock('@/Pages/Reports/sections/GeographicMapSection', () => ({ default: () => null }));
-vi.mock('@/Pages/Reports/sections/CategorySection', () => ({ default: () => null }));
-vi.mock('@/Pages/Reports/sections/EmploymentSection', () => ({ default: () => null }));
 vi.mock('@/Pages/Reports/sections/LazyTrendChart', () => ({ default: () => null }));
-vi.mock('@/Pages/Reports/sections/LazyChartArticle', () => ({ default: () => null }));
-vi.mock('@/Pages/Reports/sections/ReferralFunnelSection', () => ({ default: () => null }));
 vi.mock('@/Pages/Reports/sections/ReferralTrendsSection', () => ({ default: () => null }));
 
 import ReportsIndex from '../Index';

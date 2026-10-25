@@ -4,6 +4,7 @@ namespace App\Services\Reports;
 
 use App\Enums\UserRole;
 use App\Services\ReportsService;
+use App\Support\ReportCalendar;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -198,26 +199,27 @@ class ReportsExportService
     /**
      * Hydrate the serializable criteria array into working values.
      *
-     * The window bounds are deliberately built in the storage timezone, not in
-     * the operating timezone the dates are typed in. Every on-screen report
-     * query compares the stored timestamp against the calendar date directly
-     * (ReportsService::applyCaseWindow, ::referralQuery — all whereDate), so
-     * shifting the export's own bounds by the Manila offset gave one report two
-     * different windows: the summary sections covered the whole calendar day
-     * while the detail sheets, appendix, top-risk tables and pre-flight counts
-     * stopped at 15:59:59Z, silently dropping everything created in the last
-     * eight hours of the day. Same dates in, same rows out — the export's
-     * numbers have to reconcile against the screen.
+     * Bounds are built in the operating timezone (Asia/Manila) so a date typed
+     * on screen means the Manila calendar day it names — the same boundaries
+     * the on-screen report queries apply through
+     * ScopesReportQueries::applyLocalDateWindow() / ReportCalendar::localDate().
+     * Export and screen therefore select identical rows.
      *
-     * Bounds rather than whereDate so the comparison stays a range scan the
-     * created_at indexes can serve; endOfDay carries microseconds, so the
-     * upper bound is inclusive of the whole final second.
+     * Bounds rather than a bare date comparison so the query stays a range
+     * scan the created_at indexes can serve; endOfDay carries microseconds, so
+     * the upper bound is inclusive of the whole final second.
      */
     private function hydrate(array $criteria): array
     {
-        $storageTz = config('app.timezone', 'UTC');
-        $from = CarbonImmutable::createFromFormat('!Y-m-d', $criteria['from'], $storageTz);
-        $to = CarbonImmutable::createFromFormat('!Y-m-d', $criteria['to'], $storageTz);
+        // Window edges are Manila calendar days. The app stores UTC timestamps,
+        // so a date typed as 2026-01-01 must cover 2025-12-31 16:00Z through
+        // 2026-01-01 15:59:59Z — the same boundaries the on-screen queries now
+        // use via ReportCalendar::localDate(). Building them in the storage
+        // timezone instead silently dropped everything filed between Manila
+        // midnight and 08:00.
+        $tz = ReportCalendar::timezone();
+        $from = CarbonImmutable::createFromFormat('!Y-m-d', $criteria['from'], $tz);
+        $to = CarbonImmutable::createFromFormat('!Y-m-d', $criteria['to'], $tz);
 
         return [
             'user_id' => $criteria['user_id'],
@@ -227,8 +229,8 @@ class ReportsExportService
             'user_agcy_id' => $criteria['user_agcy_id'],
             'from' => $from,
             'to' => $to,
-            'windowStart' => $from->startOfDay(),
-            'windowEnd' => $to->endOfDay(),
+            'windowStart' => $from->startOfDay()->utc(),
+            'windowEnd' => $to->endOfDay()->utc(),
             'dateScope' => $criteria['dateScope'],
             'province' => $criteria['province'],
             'city' => $criteria['city'],
@@ -753,7 +755,7 @@ class ReportsExportService
     private function trendFromBase($base, string $column): array
     {
         $rows = (clone $base)
-            ->selectRaw("to_char($column, 'YYYY-MM') as label, count(*) as count")
+            ->selectRaw(ReportCalendar::localMonth($column).' as label, count(*) as count')
             ->groupBy('label')->orderBy('label')->get();
 
         return ['labels' => $rows->pluck('label')->all(), 'data' => $rows->pluck('count')->map(fn ($v) => (int) $v)->all()];

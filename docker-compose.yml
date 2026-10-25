@@ -105,9 +105,18 @@ services:
       start_period: 30s
 
   # ── Queue Worker ──────────────────────────────────────────────────────────
+  # Must listen to the same queue list as production (docker/supervisord.conf):
+  # the app routes mail notifications to `notifications` via viaQueues(), so a
+  # listener limited to `default` leaves every queued notification unprocessed
+  # locally — mail simply never arrives, with no error to notice. `heavy` is in
+  # the production list for the same reason: a queue worker that does not name a
+  # queue silently ignores everything sent to it.
+  # --timeout must exceed the longest per-job timeout (GenerateSystemReport:
+  # 300s) and stay below the connection's retry_after (360s) so a job is never
+  # re-delivered while it is still running.
   queue:
     <<: [*php-base, *php-hardened]
-    command: php artisan queue:listen --tries=3 --timeout=90
+    command: php artisan queue:listen --queue=default,notifications,heavy --tries=3 --timeout=320
 
   # ── Scheduler ─────────────────────────────────────────────────────────────
   scheduler:

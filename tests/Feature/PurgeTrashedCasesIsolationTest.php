@@ -170,6 +170,83 @@ class PurgeTrashedCasesIsolationTest extends TestCase
     }
 
     /**
+     * A backlog larger than one page must still purge completely, and each
+     * case must still go through its own transaction and force-delete cascade.
+     *
+     * Paging is by id, so this also guards the case where forceDelete() removes
+     * rows the paginator is walking: the count has to match the seeded backlog
+     * exactly, not stop at the first page.
+     */
+    public function test_a_backlog_larger_than_one_chunk_is_purged_completely(): void
+    {
+        $user = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $service = app(CaseService::class);
+
+        $this->actingAs($user);
+
+        // 205 cases: one full 200-row page plus a partial page.
+        $backlog = 205;
+
+        for ($i = 0; $i < $backlog; $i++) {
+            $case = CaseFile::factory()->create(['status' => 'ARCHIVED', 'user_id' => $user->id]);
+            CaseFile::withTrashed()->where('id', $case->id)->update(['deleted_at' => now()->subDays(100)]);
+        }
+
+        $this->assertSame($backlog, CaseFile::onlyTrashed()->count());
+
+        $this->assertSame($backlog, $service->purgeTrashedCases(90));
+
+        $this->assertSame(0, CaseFile::withTrashed()->count());
+
+        $audit = AuditLog::where('action', AuditAction::PURGE->value)->latest('id')->first();
+        $this->assertNotNull($audit);
+        $this->assertEquals($backlog, $audit->old_value['purged_count']);
+    }
+
+    /**
+     * The purge must not hydrate the eligible set in a single collection.
+     *
+     * A first rollout can leave an unbounded backlog, so the case query is
+     * expected to repeat once per page. Counting the pages is the observable
+     * difference between one `get()` and a chunked walk.
+     */
+    public function test_eligible_cases_are_hydrated_in_pages_not_one_collection(): void
+    {
+        $user = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $service = app(CaseService::class);
+
+        $this->actingAs($user);
+
+        for ($i = 0; $i < 205; $i++) {
+            $case = CaseFile::factory()->create(['status' => 'ARCHIVED', 'user_id' => $user->id]);
+            CaseFile::withTrashed()->where('id', $case->id)->update(['deleted_at' => now()->subDays(100)]);
+        }
+
+        $pages = 0;
+        DB::listen(function ($query) use (&$pages) {
+            // Page fetch from the trashed set: the first page pins the id
+            // column with an IS NOT NULL guard, later pages carry an id cursor.
+            if (! str_contains($query->sql, 'from "cases"')) {
+                return;
+            }
+
+            $firstPage = str_contains($query->sql, '"id" is not null')
+                && str_contains($query->sql, 'order by "id" asc');
+            $nextPage = str_contains($query->sql, '"id" >') && str_contains($query->sql, 'order by "id" asc');
+
+            if ($firstPage || $nextPage) {
+                $pages++;
+            }
+        });
+
+        $this->assertSame(205, $service->purgeTrashedCases(90));
+
+        // 205 cases at 200 per page: one full page, then a second page carrying
+        // an id cursor. A single get() would show up as exactly one page.
+        $this->assertGreaterThanOrEqual(2, $pages);
+    }
+
+    /**
      * Archive a case, soft-delete it through the service, and optionally push
      * its deleted_at past the retention cutoff.
      */

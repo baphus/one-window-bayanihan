@@ -16,6 +16,13 @@ class TrackingService
     public const SESSION_KEY = 'tracking.verified';
 
     /**
+     * How long a verified tracking session stays usable. The binding records a
+     * Unix timestamp in `verified_at` and is rejected past this age, so a phone
+     * left unattended on the public tracking page does not stay signed in.
+     */
+    private const BINDING_TTL_SECONDS = 30 * 60;
+
+    /**
      * Payload version for the cached agency-milestones payload. Bump whenever
      * a key is removed or reshaped so already-cached entries from a previous
      * release are orphaned instead of served. v2: dropped the internal
@@ -34,10 +41,12 @@ class TrackingService
 
     /**
      * Rows of case history loaded per public tracking render. A long-running
-     * case would otherwise grow without bound on the public endpoint.
+     * case would otherwise grow without bound on the public endpoint. The cap
+     * keeps the newest events; the builder re-sorts them oldest-first for
+     * display.
      *
-     * ponytail: fixed cap, newest-first, no "load more" — upgrade to real
-     * pagination when an OFW case actually needs to see older events.
+     * ponytail: fixed cap, no "load more" — upgrade to real pagination when
+     * an OFW case actually needs to see older events.
      */
     private const TIMELINE_EVENT_LIMIT = 200;
 
@@ -85,10 +94,26 @@ class TrackingService
     {
         $binding = $request->session()->get(self::SESSION_KEY);
 
-        return is_array($binding)
-            && ($binding['tracker_number'] ?? null) === $trackerNumber
-            && is_string($binding['email'] ?? null)
-            && $binding['email'] !== '';
+        if (! is_array($binding)) {
+            return false;
+        }
+
+        if (($binding['tracker_number'] ?? null) !== $trackerNumber) {
+            return false;
+        }
+
+        if (! is_string($binding['email'] ?? null) || $binding['email'] === '') {
+            return false;
+        }
+
+        // A numeric Unix timestamp, not a parsed date string: comparing an
+        // integer against time() removes any dependency on the timezone or
+        // format the value was serialised with.
+        if (! isset($binding['verified_at']) || ! is_int($binding['verified_at'])) {
+            return false;
+        }
+
+        return time() < $binding['verified_at'] + self::BINDING_TTL_SECONDS;
     }
 
     public function generateOtp(string $identifier, string $purpose = 'track', ?string $sessionId = null): string
@@ -159,11 +184,21 @@ class TrackingService
         // timeline and step machines need derives from this one query. Capped:
         // a case that stays open for two years must not build an unbounded
         // timeline on every refresh of the public, unauthenticated endpoint.
+        //
+        // The cap keeps the NEWEST events, so the inner query orders descending
+        // (that is the direction the limit must trim from) and the outer query
+        // restores the display order — ascending, oldest first — the timeline
+        // and step builder have always consumed.
         $events = CaseEvent::where('case_id', $case->id)
-            ->orderBy('occurred_at')
-            ->orderBy('sequence')
+            ->orderByDesc('occurred_at')
+            ->orderByDesc('sequence')
             ->limit(self::TIMELINE_EVENT_LIMIT)
-            ->get();
+            ->get()
+            ->sortBy([
+                ['occurred_at', 'asc'],
+                ['sequence', 'asc'],
+            ])
+            ->values();
 
         // Agency cards with dynamic step progress.
         // INVARIANT (applies to every client-facing payload in this service,

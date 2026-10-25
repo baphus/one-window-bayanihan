@@ -46,8 +46,6 @@ class ReportsAndClientContractTest extends TestCase
         foreach ([
             User::factory()->create(['role' => UserRole::CASE_MANAGER->value]),
             User::factory()->create(['role' => UserRole::ADMIN->value]),
-            // AGENCY without an agency takes the fail-closed empty payload arm.
-            User::factory()->create(['role' => UserRole::AGENCY->value]),
         ] as $user) {
             $page = $this->inertiaPage($user);
 

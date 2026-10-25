@@ -248,15 +248,14 @@ class ReportsAgencyScopingTest extends TestCase
     }
 
     #[Test]
-    public function public_reports_page_is_empty_for_an_agency_user_without_assignment(): void
+    public function reports_page_forbids_an_agency_user_without_assignment(): void
     {
         $agencyless = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => null]);
         $this->createClientWithCase($this->agencyAUser->id, $this->agencyAId);
 
+        // An agency account with no agency has no report scope to read, so the
+        // controller refuses the page outright rather than rendering zeros.
         $this->actingAs($agencyless)->get(route('reports.index'))
-            ->assertStatus(200)
-            ->assertInertia(fn ($page) => $page
-                ->where('kpis.totalReferrals', 0)
-                ->where('kpis.totalCases', 0));
+            ->assertForbidden();
     }
 }

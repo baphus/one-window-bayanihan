@@ -61,7 +61,7 @@ Sequencing principle: close the **Critical/High technical** items first (fast, h
 | D90-2 | BCP/DR plan with RPO/RTO + BIA; continuity test | 27001 5.29/5.30; 20000-1 8.7.2 | ISM/DevOps | L |
 | D90-3 | Capacity plan + load testing to validate 144-user & 99% targets | 27002 8.6; 20000-1 8.6.1 | DevOps | M |
 | D90-4 | Implement 6 documented critical-path E2E tests + expand component tests | TECH-036 | 27002 8.29; 9001 8.6 | Lead dev | M |
-| D90-5 | Parameterize RLS session vars; fail-closed on non-PG; verify pooling mode; complete RLS policy tests | TECH-026, TECH-034 | 27002 8.3/8.28 | Lead dev/DevOps | M |
+| D90-5 | Parameterize RLS session vars; verify pooling mode; complete RLS policy tests. **Posture decided 2026-10-25 (Option B): RLS forced only on the 7 inbox/thread tables, application-level scoping for core PII — documented in `docs/security/rls-posture-decision-v1.0.0.md`; enforcing RLS on core tables is a separate future ticket with the prerequisites listed there** | TECH-026, TECH-034, TECH-037 | 27002 8.3/8.28 | Lead dev/DevOps | M |
 | D90-6 | Notification ownership scope; upload-limit config alignment; strict_types adoption | TECH-025, TECH-029, TECH-033 | 27002 8.3/8.28 | Lead dev | S |
 | D90-7 | Access-review procedure + onboarding/offboarding; supplier evaluation records | 27002 5.18/5.11/5.19 | ISM/HR | M |
 

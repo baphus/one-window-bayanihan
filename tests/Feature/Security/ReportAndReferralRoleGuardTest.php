@@ -81,6 +81,30 @@ class ReportAndReferralRoleGuardTest extends TestCase
     }
 
     /**
+     * An agency session with no agency has no scope to apply. All three report
+     * entry points share one guard now, so this pins them to the same refusal
+     * rather than assuming each action remembered its own copy.
+     */
+    #[Test]
+    public function an_unlinked_agency_user_is_forbidden_from_every_report_entry_point(): void
+    {
+        $agencyUser = User::factory()->create([
+            'role' => UserRole::AGENCY->value,
+            'agcy_id' => null,
+        ]);
+
+        foreach (['reports.index', 'reports.export-pdf', 'reports.export-excel'] as $routeName) {
+            $response = $this->actingAs($agencyUser)->get(route($routeName));
+
+            $this->assertSame(
+                403,
+                $response->status(),
+                "Route [{$routeName}] must refuse an agency user with no agency."
+            );
+        }
+    }
+
+    /**
      * Pin the guard to the route definition itself: the role list has to be on
      * the route, not only on a controller check that a later refactor can drop.
      */

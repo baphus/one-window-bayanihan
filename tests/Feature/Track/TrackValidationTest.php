@@ -140,6 +140,7 @@ class TrackValidationTest extends TestCase
             TrackingService::SESSION_KEY => [
                 'tracker_number' => $case->tracker_number,
                 'email' => $email,
+                'verified_at' => now()->getTimestamp(),
             ],
         ])->get(route('track.show', ['tracker_number' => $case->tracker_number]));
 

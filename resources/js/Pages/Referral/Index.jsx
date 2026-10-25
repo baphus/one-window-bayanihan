@@ -5,12 +5,14 @@ import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import { RowContextMenu, RowContextMenuItem } from '@/Components/ui/RowContextMenu';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import { formatResolvedAddress } from '@/lib/addressResolver';
+import { getCategoryFilterIds } from '@/lib/utils';
 import { ArrowRightLeft, Clock, Loader, ClipboardCheck, CheckCircle2, XCircle } from 'lucide-react';
 import ExportDialog from '@/Components/ExportDialog';
 import ExportExcelButton from '@/Components/ExportExcelButton';
 import InputError from '@/Components/InputError';
 import usePersistedColumns from '@/Hooks/usePersistedColumns';
 import { usePersistedViewMode, usePersistedFilters } from '@/Hooks/usePersistedViewState';
+import useTableVisitLoading from '@/Hooks/useTableVisitLoading';
 
 const COLUMN_DEFS = [
     { key: 'case_number', label: 'Case #', default: true },
@@ -32,11 +34,6 @@ function formatClientName(client) {
 
 function formatAddress(address) {
     return formatResolvedAddress(address, null);
-}
-
-function getCategoryFilterIds(filters) {
-    const value = filters?.category_ids ?? filters?.category_id;
-    return (Array.isArray(value) ? value : (value ? [value] : [])).map(String);
 }
 
 const REJECTION_REASONS = [
@@ -73,7 +70,7 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
     const [decisionSubmitting, setDecisionSubmitting] = useState(false);
 
     const [exportDialogOpen, setExportDialogOpen] = useState(false);
-    const [tableLoading, setTableLoading] = useState(false);
+    const { isLoading: tableLoading, withLoading } = useTableVisitLoading();
 
     const handleExport = useCallback(() => {
         setExportDialogOpen(true);
@@ -125,28 +122,40 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
         return () => clearTimeout(searchTimeout.current);
     }, []);
 
-    useEffect(() => {
-        const onStart = () => setTableLoading(true);
-        const onFinish = () => setTableLoading(false);
-        const removeStart = router.on('start', onStart);
-        const removeFinish = router.on('finish', onFinish);
-        return () => {
-            if (typeof removeStart === 'function') removeStart();
-            if (typeof removeFinish === 'function') removeFinish();
-        };
-    }, []);
+    // Latest filter state for the debounced search. Server-driven filters only
+    // change when a response arrives, but a filter clicked while a search is
+    // still pending has not round-tripped yet, so params sent while a search
+    // timer is live are remembered and the timer merges into them. When no
+    // search is pending the props are authoritative and nothing needs tracking —
+    // tracking them unconditionally would let a mount-time filter restore
+    // shadow the props.
+    const filtersRef = useRef(filters);
+    filtersRef.current = filters;
+    const pendingParamsRef = useRef(null);
+
+    // Params of a navigation sent while a search timer is live. A filter clicked
+    // during the 400ms window issues its own request before the server has sent
+    // the new props back, so the timer cannot read them from `filters`. This must
+    // be captured by whoever issues the request while the timer is armed — the
+    // timer clears its own id before calling updateTable, so updateTable itself
+    // can no longer tell that a search is pending.
+    const trackPending = (clean) => {
+        if (searchTimeout.current) {
+            pendingParamsRef.current = clean;
+        }
+    };
 
     const updateTable = (params) => {
         const clean = Object.fromEntries(
             Object.entries(params).filter(([_, v]) => v !== null && v !== undefined && v !== '')
         );
-        router.get(route('referrals.index'), clean, {
+        trackPending(clean);
+        router.get(route('referrals.index'), clean, withLoading({
             preserveState: true,
             preserveScroll: true,
             replace: true,
             only: ['referrals', 'filters', 'stats', 'agencies', 'categories', 'caseIssues'],
-            showProgress: false,
-        });
+        }));
     };
 
     const restoreFilters = (saved) => {
@@ -159,14 +168,22 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
         setSearchValue(value);
         clearTimeout(searchTimeout.current);
         searchTimeout.current = setTimeout(() => {
-            updateTable({ ...filters, search: value || undefined, page: undefined });
+            const base = pendingParamsRef.current ?? filtersRef.current;
+            pendingParamsRef.current = null;
+            updateTable({ ...base, search: value || undefined, page: undefined });
+            // Cleared AFTER updateTable: updateTable -> trackPending must not
+            // record this very request as "pending". Anything issued later (a
+            // filter click while the response is in flight) wins on its own.
+            searchTimeout.current = null;
         }, 400);
     };
 
     const handleSearchClear = () => {
         setSearchValue('');
         clearTimeout(searchTimeout.current);
-        updateTable({ ...filters, search: undefined, page: undefined });
+        searchTimeout.current = null;
+        pendingParamsRef.current = null;
+        updateTable({ ...filtersRef.current, search: undefined, page: undefined });
     };
 
     const activeFilters = useMemo(() => {

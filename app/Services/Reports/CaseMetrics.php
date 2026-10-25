@@ -7,6 +7,7 @@ use App\Models\CaseEvent;
 use App\Models\CaseFile;
 use App\Models\Referral;
 use App\Services\Reports\Concerns\ScopesReportQueries;
+use App\Support\ReportCalendar;
 use Carbon\Carbon;
 use DateTimeInterface;
 use Illuminate\Support\Facades\DB;
@@ -18,12 +19,7 @@ class CaseMetrics
     public function getOverview(?string $fromDate = null, ?string $toDate = null, ?string $agencyId = null): array
     {
         $caseQuery = CaseFile::whereNotIn('status', ['DRAFT', 'ARCHIVED']);
-        if ($fromDate) {
-            $caseQuery->whereDate('created_at', '>=', $fromDate);
-        }
-        if ($toDate) {
-            $caseQuery->whereDate('created_at', '<=', $toDate);
-        }
+        $this->applyLocalDateWindow($caseQuery, 'cases.created_at', $fromDate, $toDate);
         if ($agencyId) {
             $caseQuery->whereIn('cases.id', function ($q) use ($agencyId) {
                 $q->select('case_id')->from('referrals')
@@ -39,12 +35,7 @@ class CaseMetrics
         $totalCases = $caseCounts->sum();
 
         $refQuery = Referral::query();
-        if ($fromDate) {
-            $refQuery->whereDate('created_at', '>=', $fromDate);
-        }
-        if ($toDate) {
-            $refQuery->whereDate('created_at', '<=', $toDate);
-        }
+        $this->applyLocalDateWindow($refQuery, 'referrals.created_at', $fromDate, $toDate);
         if ($agencyId) {
             $refQuery->where('agcy_id', $agencyId);
         }
@@ -67,7 +58,7 @@ class CaseMetrics
     public function getCaseTrends(int $months = 12, ?string $agencyId = null): array
     {
         $cases = CaseFile::select(
-            DB::raw("to_char(created_at, 'YYYY-MM') as month"),
+            DB::raw(ReportCalendar::localMonth('created_at').' as month'),
             DB::raw('count(*) as total')
         )
             ->whereNotIn('status', ['DRAFT', 'ARCHIVED'])
@@ -98,11 +89,11 @@ class CaseMetrics
 
         $result = $cases
             ->select(
-                DB::raw("to_char(cases.created_at, 'YYYY-MM') as month"),
+                DB::raw(ReportCalendar::localMonth('cases.created_at').' as month'),
                 DB::raw('count(*) as total')
             )
-            ->whereDate('cases.created_at', '>=', $this->windowBound($fromDate ?: now()->subMonths(12)))
-            ->whereDate('cases.created_at', '<=', $this->windowBound($toDate ?: now()))
+            ->whereRaw(ReportCalendar::localDate('cases.created_at').' >= ?', [$this->windowBound($fromDate ?: now()->subMonths(12))])
+            ->whereRaw(ReportCalendar::localDate('cases.created_at').' <= ?', [$this->windowBound($toDate ?: now())])
             ->groupBy('month')
             ->orderBy('month')
             ->get();
@@ -130,12 +121,12 @@ class CaseMetrics
         // month, so the series pairs with casesOverTime as filings vs closures.
         $result = $cases
             ->select(
-                DB::raw("to_char(COALESCE(cases.closed_at, cases.updated_at), 'YYYY-MM') as month"),
+                DB::raw(ReportCalendar::localMonth('COALESCE(cases.closed_at, cases.updated_at)').' as month'),
                 DB::raw('count(*) as total')
             )
             ->where('cases.status', 'CLOSED')
-            ->whereRaw('DATE(COALESCE(cases.closed_at, cases.updated_at)) >= ?', [$this->windowBound($fromDate ?: now()->subMonths(12))])
-            ->whereRaw('DATE(COALESCE(cases.closed_at, cases.updated_at)) <= ?', [$this->windowBound($toDate ?: now())])
+            ->whereRaw(ReportCalendar::localDate('COALESCE(cases.closed_at, cases.updated_at)').' >= ?', [$this->windowBound($fromDate ?: now()->subMonths(12))])
+            ->whereRaw(ReportCalendar::localDate('COALESCE(cases.closed_at, cases.updated_at)').' <= ?', [$this->windowBound($toDate ?: now())])
             ->groupBy('month')
             ->orderBy('month')
             ->get();
@@ -156,14 +147,13 @@ class CaseMetrics
     public function getReopenedStats(?string $userId = null, ?string $role = null, ?string $fromDate = null, ?string $toDate = null, string $dateScope = 'case_created_at', ?string $province = null, ?string $city = null, ?string $agencyId = null): array
     {
         $scoped = $this->eventScopedCases($userId, $role, $agencyId, $province, $city);
-        $from = $fromDate ?: now()->subYear()->toDateString();
-        $to = $toDate ?: now()->toDateString();
+        $from = ReportCalendar::toLocalDate($fromDate ?: now()->subYear());
+        $to = ReportCalendar::toLocalDate($toDate ?: now());
 
-        $reopenedCount = CaseEvent::where('type', CaseEvent::TYPE_CASE_REOPENED)
-            ->whereIn('case_id', (clone $scoped)->select('cases.id'))
-            ->whereDate('occurred_at', '>=', $from)
-            ->whereDate('occurred_at', '<=', $to)
-            ->count();
+        $reopened = CaseEvent::where('type', CaseEvent::TYPE_CASE_REOPENED)
+            ->whereIn('case_id', (clone $scoped)->select('cases.id'));
+        $this->applyLocalDateWindow($reopened, 'occurred_at', $from, $to);
+        $reopenedCount = $reopened->count();
 
         // Repeat-client rate is atemporal: clients with 2+ live cases over
         // all scoped clients. Deleted, draft, and archived cases never count.
@@ -185,13 +175,12 @@ class CaseMetrics
     public function getCaseEventActorDistribution(?string $userId = null, ?string $role = null, ?string $fromDate = null, ?string $toDate = null, string $dateScope = 'case_created_at', ?string $province = null, ?string $city = null, ?string $agencyId = null): array
     {
         $caseIds = (clone $this->eventScopedCases($userId, $role, $agencyId, $province, $city))->select('cases.id');
-        $from = $fromDate ?: now()->subYear()->toDateString();
-        $to = $toDate ?: now()->toDateString();
+        $from = ReportCalendar::toLocalDate($fromDate ?: now()->subYear());
+        $to = ReportCalendar::toLocalDate($toDate ?: now());
 
-        $actors = CaseEvent::whereIn('case_id', $caseIds)
-            ->whereDate('occurred_at', '>=', $from)
-            ->whereDate('occurred_at', '<=', $to)
-            ->select('actor_type', DB::raw('count(*) as total'))
+        $actors = CaseEvent::whereIn('case_id', $caseIds);
+        $this->applyLocalDateWindow($actors, 'occurred_at', $from, $to);
+        $actors = $actors->select('actor_type', DB::raw('count(*) as total'))
             ->groupBy('actor_type')
             ->pluck('total', 'actor_type');
 
@@ -277,12 +266,7 @@ class CaseMetrics
             ->groupBy('case_categories.name', 'case_categories.color')
             ->orderBy('case_categories.name');
 
-        if ($fromDate) {
-            $query->whereDate('cases.created_at', '>=', $fromDate);
-        }
-        if ($toDate) {
-            $query->whereDate('cases.created_at', '<=', $toDate);
-        }
+        $this->applyLocalDateWindow($query, 'cases.created_at', $fromDate, $toDate);
 
         $this->applyGeoFilter($query, $province, $city, 'cases');
 
@@ -316,12 +300,7 @@ class CaseMetrics
         ?string $agencyId = null,
     ): array {
         $query = $this->caseQuery($userId, $role, $agencyId, $dateScope);
-        if ($fromDate) {
-            $query->whereDate('cases.created_at', '>=', $fromDate);
-        }
-        if ($toDate) {
-            $query->whereDate('cases.created_at', '<=', $toDate);
-        }
+        $this->applyLocalDateWindow($query, 'cases.created_at', $fromDate, $toDate);
         $this->applyGeoFilter($query, $province, $city, 'cases');
 
         $issues = (clone $query)
@@ -437,7 +416,8 @@ class CaseMetrics
     }
 
     /**
-     * Normalize a reporting-window bound to a `Y-m-d` string.
+     * Normalize a reporting-window bound to a `Y-m-d` string in the operating
+     * timezone.
      *
      * Callers hand down `Y-m-d` date strings while the fallbacks inside these
      * methods are Carbon instances, and both were compared straight against a
@@ -447,12 +427,13 @@ class CaseMetrics
      * panel using `whereDate()` (see ScopesReportQueries::applyCaseWindow())
      * counted the same row, so two panels on the same page disagreed.
      *
-     * Resolving both edges to a calendar date makes the end bound inclusive of
-     * the whole day, which is the single convention the rest of the report
-     * already uses.
+     * A Carbon fallback such as `now()` is a UTC instant, so it is shifted to
+     * the operating timezone before its date is read: at 02:00 Manila the UTC
+     * date is still yesterday, and a range "through today" would otherwise
+     * stop a day early.
      */
     private function windowBound(DateTimeInterface|string $bound): string
     {
-        return Carbon::parse($bound)->toDateString();
+        return ReportCalendar::toLocalDate($bound);
     }
 }

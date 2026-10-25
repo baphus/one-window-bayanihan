@@ -4,12 +4,13 @@ import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import { FolderCheck, Users, ArrowRightLeft, TrendingUp, Clock } from 'lucide-react';
-import { formatDisplayDate, formatDisplayTime } from '@/lib/utils';
+import { formatDisplayDate, formatDisplayTime, getCategoryFilterIds } from '@/lib/utils';
 import { RowContextMenu, RowContextMenuItem } from '@/Components/ui/RowContextMenu';
 import ExportDialog from '@/Components/ExportDialog';
 import ExportExcelButton from '@/Components/ExportExcelButton';
 import usePersistedColumns from '@/Hooks/usePersistedColumns';
 import { usePersistedViewMode, usePersistedFilters } from '@/Hooks/usePersistedViewState';
+import useTableVisitLoading from '@/Hooks/useTableVisitLoading';
 import ConfirmDialog from '@/Components/ui/ConfirmDialog';
 
 const vulnStyles = {
@@ -76,11 +77,6 @@ function getCaseCategories(caseFile, availableCategories = []) {
   return (caseFile?.category_ids || []).map((id) => availableCategories.find((category) => String(category.id) === String(id))).filter(Boolean);
 }
 
-function getCategoryFilterIds(filters) {
-  const value = filters?.category_ids ?? filters?.category_id;
-  return (Array.isArray(value) ? value : (value ? [value] : [])).map(String);
-}
-
 const COLUMN_DEFS = [
   { key: 'case_number', label: 'Case Number', default: true },
   { key: 'tracker_number', label: 'Tracking ID', default: true },
@@ -115,7 +111,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
     COLUMN_DEFS.filter((c) => c.default).map((c) => c.key),
   );
 
-  const [tableLoading, setTableLoading] = useState(false);
+  const { isLoading: tableLoading, withLoading } = useTableVisitLoading();
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState(null);
   const [confirmArchiveId, setConfirmArchiveId] = useState(null);
@@ -190,17 +186,39 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [filterOpen]);
 
+  // Latest filter state for the debounced search. Server-driven filters only
+  // change when a response arrives, but a filter clicked while a search is still
+  // pending has not round-tripped yet, so params sent while a search timer is
+  // live are remembered and the timer merges into them. When no search is
+  // pending the props are authoritative and nothing needs tracking — tracking
+  // them unconditionally would let a mount-time filter restore shadow the props.
+  const filtersRef = useRef(filters);
+  filtersRef.current = filters;
+  const pendingParamsRef = useRef(null);
+
+  // Params of a navigation sent while a search timer is live. A filter clicked
+  // during the 400ms window issues its own request before the server has sent
+  // the new props back, so the timer cannot read them from `filters`. This must
+  // be captured by whoever issues the request while the timer is armed — the
+  // timer clears its own id before calling updateTable, so updateTable itself
+  // can no longer tell that a search is pending.
+  const trackPending = (clean) => {
+    if (searchTimeout.current) {
+      pendingParamsRef.current = clean;
+    }
+  };
+
   const updateTable = (params) => {
     const clean = Object.fromEntries(
       Object.entries(params).filter(([_, v]) => v !== null && v !== undefined && v !== '')
     );
-    router.get(route('cases.index'), clean, {
+    trackPending(clean);
+    router.get(route('cases.index'), clean, withLoading({
       preserveState: true,
       preserveScroll: true,
       replace: true,
       only: ['cases', 'filters', 'stats', 'users', 'agencies', 'categories', 'caseIssues'],
-      showProgress: false,
-    });
+    }));
   };
 
   const restoreFilters = (saved) => {
@@ -209,22 +227,17 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
   };
   usePersistedFilters('owb-filters_cases', filters, restoreFilters);
 
-  useEffect(() => {
-    const onStart = () => setTableLoading(true);
-    const onFinish = () => setTableLoading(false);
-    const removeStart = router.on('start', onStart);
-    const removeFinish = router.on('finish', onFinish);
-    return () => {
-      if (typeof removeStart === 'function') removeStart();
-      if (typeof removeFinish === 'function') removeFinish();
-    };
-  }, []);
-
   const handleSearchChange = (value) => {
     setSearchValue(value);
     clearTimeout(searchTimeout.current);
     searchTimeout.current = setTimeout(() => {
-      updateTable({ ...filters, search: value || undefined, page: undefined });
+      const base = pendingParamsRef.current ?? filtersRef.current;
+      pendingParamsRef.current = null;
+      updateTable({ ...base, search: value || undefined, page: undefined });
+      // Cleared AFTER updateTable: updateTable -> trackPending must not record
+      // this very request as "pending". Anything issued later (a filter click
+      // while the response is in flight) is authoritative on its own.
+      searchTimeout.current = null;
     }, 400);
   };
 

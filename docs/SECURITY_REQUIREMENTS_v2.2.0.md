@@ -20,7 +20,7 @@ Layer 2: Application Entry (CAPTCHA verification, rate limiting)
 Layer 3: Global Middleware (SecurityHeaders, CSP, LogContext)
 Layer 4: Authentication (password + TOTP MFA, session management)
 Layer 5: Authorization (CheckRole, lane isolation)
-Layer 6: Data Protection (PII encryption, audit logging, RLS)
+Layer 6: Data Protection (PII encryption, audit logging, RLS — forced on 7 tables, latent elsewhere)
 ```
 
 ## 1. Authentication
@@ -77,7 +77,12 @@ Layer 6: Data Protection (PII encryption, audit logging, RLS)
 - Application-level enforcement: agencies can only see their own referrals
 - `CaseController@show` checks if agency has active referral on the case
 - Query scopes filter data by `agcy_id` for agency users
-- PostgreSQL RLS as secondary defense layer
+- PostgreSQL RLS exists but is **not an enforced second layer for this data**: it is
+  `ENABLE`d on the core tables but not `FORCE`d, and the runtime connects as the
+  table owner, so the policies are bypassed. RLS *is* forced (and therefore
+  effective) on the 7 referral-inbox / agency-thread tables. Application-level
+  scoping is the only isolation for clients, cases, referrals, and milestones —
+  see `docs/security/rls-posture-decision-v1.0.0.md`.
 
 ## 3. Security Headers
 
@@ -158,9 +163,36 @@ authenticated user ID and falls back to IP for guests.
 
 ### PostgreSQL Row-Level Security (RLS)
 
-- Enabled on core tables via migrations
-- Session variable `app.current_user_id` set by `SetPostgresSession` middleware
-- RLS policies restrict row access at the database level (secondary to application logic)
+Policies are administered through the squashed schema (`database/schema/pgsql-schema.sql`).
+There are **two distinct postures** in the same database, and only one of them
+is enforcement.
+
+**Forced — 7 tables, effective defence-in-depth.** `FORCE ROW LEVEL SECURITY`
+applies the policies to every role, including the table owner, so the runtime
+cannot read rows its policy forbids:
+
+`agency_thread_reads`, `referral_messages`, `referral_client_requests`,
+`referral_client_request_items`, `referral_client_messages`,
+`referral_client_message_attachments`, `referral_client_access_links`
+
+**Enabled but not forced — 11 core PII tables, NOT an enforced layer.**
+`cases`, `clients`, `client_addresses`, `client_employments`, `next_of_kin`,
+`referrals`, `milestones`, `referral_attachments`, `referral_comments`,
+`case_documents`, `case_notifications` carry admin / case-manager / agency
+policies, but the runtime connects as the role that owns these tables and RLS is
+not forced on them, so **the policies never run**. Isolation for this data is the
+application layer only (route `role:` middleware, controller ownership checks,
+`agcy_id` scoping).
+
+- Session variables `app.current_user_id`, `app.user_role` (and
+  `app.client_link_id` for capability requests) are set per-request by
+  `SetPostgresSession` using parameterized `set_config`
+- Requires a direct connection — PgBouncer **transaction** mode would silently
+  break the session variables and therefore the forced tables
+- Decision, rationale, and the prerequisites for ever forcing the core tables:
+  `docs/security/rls-posture-decision-v1.0.0.md`
+- Pinned by `tests/Feature/Security/RlsPostureTest.php` — it fails if the schema
+  and the decision record disagree
 
 ## 6. File Upload Security
 
@@ -250,6 +282,7 @@ $middleware->trustProxies(
 
 | Version | Date | Change |
 |---|---|---|
+| 2.2.1 | 2026-10-25 | Corrected the RLS section to state the actual posture: `FORCE ROW LEVEL SECURITY` on 7 inbox/thread tables only, with the 11 core PII tables enabled-but-not-forced and therefore bypassed by the owning runtime role. Application-level scoping is recorded as the only isolation for client/case/referral/milestone data. Points at `docs/security/rls-posture-decision-v1.0.0.md`. |
 | 2.2.0 | 2026-09-16 | Rate-limit reconciliation against `AppServiceProvider.php` code truth: `login` 5→10/min, `tracking` 5→10/min, `totp-challenge` 5→3/min, `reports-view` 60→120/min; corrected keying throughout (per email / per pending-MFA-session / per user / per IP as coded); replaced the stale `/login/verify-otp` + `/login/resend-otp` auth rows with the routed reality (password login via `AuthenticatedSessionController`, TOTP/recovery challenge via `MfaChallengeController` — no `LoginOtpController`); documented all previously missing limiters (`intake-otp`, `intake-duplicate`, `intake-submit`, `track-request-message`, `track-request-replacement`, `track-request-exchange`, `contact-form`, `survey-view`, `survey-submit`, `readiness`, `resend-webhook`, `password-reset-request`, `invite-register`, `api-mutations`, and the three per-hour agency client-request limiters). No control was weakened or removed. |
 | 2.1.0 | 2026-07-27 | Restated infrastructure controls as platform requirements instead of one vendor's features: defence-in-depth Layer 1/2, storage section (S3-compatible, private, encrypted, separate audit disk), §9 HTTPS/trusted-proxy section (now includes `DB_SSLMODE=require` and Redis TLS), the DICT Cloud First implementation row (points to the supplier register for named providers), and the WAF gap row. No control was weakened or removed; vendor-specific assurances were replaced with the requirement the platform must satisfy. |
 | 2.0.0 | 2026-07-11 | Previous revision (`SECURITY_REQUIREMENTS.md`): vendor-named network and storage controls. |

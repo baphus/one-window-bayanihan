@@ -1,0 +1,107 @@
+<?php
+
+namespace Tests\Feature\TrackController;
+
+use App\Services\TrackingService;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Routing\Middleware\ThrottleRequests;
+use Tests\TestCase;
+
+class SessionExpiryTest extends TestCase
+{
+    use RefreshDatabase;
+
+    private string $trackerNumber = 'DMW-2026-000001';
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->withoutMiddleware(ThrottleRequests::class);
+    }
+
+    /**
+     * @param  array<string, mixed>  $binding
+     */
+    private function bindSession(array $binding = []): void
+    {
+        $this->withSession([
+            TrackingService::SESSION_KEY => array_merge([
+                'tracker_number' => $this->trackerNumber,
+                'email' => 'ofw@example.com',
+                'verified_at' => now()->getTimestamp(),
+            ], $binding),
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $binding
+     */
+    private function assertBindingValidity(bool $expected, array $binding): void
+    {
+        $session = $this->app['session']->driver();
+        $session->put(TrackingService::SESSION_KEY, array_merge([
+            'tracker_number' => $this->trackerNumber,
+            'email' => 'ofw@example.com',
+            'verified_at' => now()->getTimestamp(),
+        ], $binding));
+
+        $request = request();
+        $request->setLaravelSession($session);
+
+        $this->assertSame(
+            $expected,
+            app(TrackingService::class)->hasValidSessionBinding($request, $this->trackerNumber)
+        );
+    }
+
+    public function test_fresh_verified_binding_is_valid(): void
+    {
+        $this->assertBindingValidity(true, []);
+    }
+
+    public function test_binding_older_than_thirty_minutes_is_invalid(): void
+    {
+        $this->assertBindingValidity(false, ['verified_at' => now()->subMinutes(31)->getTimestamp()]);
+    }
+
+    public function test_binding_just_inside_the_window_is_still_valid(): void
+    {
+        $this->assertBindingValidity(true, ['verified_at' => now()->subMinutes(29)->getTimestamp()]);
+    }
+
+    public function test_binding_exactly_at_the_boundary_is_rejected(): void
+    {
+        // 30 minutes exactly is no longer "less than" the TTL.
+        $this->assertBindingValidity(false, ['verified_at' => now()->subMinutes(30)->getTimestamp()]);
+    }
+
+    public function test_binding_without_verified_at_is_invalid(): void
+    {
+        $this->assertBindingValidity(false, ['verified_at' => null]);
+    }
+
+    public function test_binding_with_a_non_integer_verified_at_is_invalid(): void
+    {
+        // Only the Unix-timestamp form is accepted; a legacy ISO string or any
+        // other scalar means the session cannot be trusted.
+        $this->assertBindingValidity(false, ['verified_at' => now()->toISOString()]);
+        $this->assertBindingValidity(false, ['verified_at' => (string) now()->getTimestamp()]);
+    }
+
+    public function test_expired_binding_cannot_view_tracking_page(): void
+    {
+        $this->bindSession(['verified_at' => now()->subMinutes(31)->getTimestamp()]);
+
+        $this->get(route('track.show', ['tracker_number' => $this->trackerNumber]))
+            ->assertSessionHasErrors('tracker_number');
+    }
+
+    public function test_logout_clears_tracking_session(): void
+    {
+        $this->bindSession();
+
+        $this->post(route('track.logout'))
+            ->assertRedirect(route('track.index'))
+            ->assertSessionMissing(TrackingService::SESSION_KEY);
+    }
+}
