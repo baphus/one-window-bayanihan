@@ -44,7 +44,9 @@ No staging environment, no staging caller, no reset workflow. Do not add one unt
 
 ### Image (`build-image.yml`, manual `workflow_dispatch`)
 
-Builds the deployable artefact separately from deploying it (schema must apply before the image that depends on it). The manual-only trigger is deliberate — an automatic build on every push charged storage per image (`build-image.yml:9-11`). OIDC → registry login → Buildx (`cache-from/to type=gha`, `provenance: false`, build-args `VITE_SENTRY_DSN_PUBLIC` / `VITE_SENTRY_RELEASE=<sha>` / `VITE_APP_ENV`) → `load: true` as `bayanihan:<sha>` → verifications against the exact artefact:
+Builds the deployable artefact separately from deploying it (schema must apply before the image that depends on it). The manual-only trigger is deliberate — an automatic build on every push charged storage per image (`build-image.yml:9-11`). OIDC → registry login → Buildx (`cache-from/to type=gha`, `provenance: false`, build-args `VITE_SENTRY_DSN_PUBLIC` / `VITE_SENTRY_RELEASE=<sha>` / `VITE_APP_ENV`) → `load: true` as `bayanihan:<sha>` → verifications against the exact artefact.
+
+`VITE_APP_ENV` is a **dispatch input** (`vite_app_env`, choice of `staging`/`production`, default `staging`), not something derived from the ref. It only feeds the frontend Sentry `environment`, and the old `tag → production` inference meant every manual build from a branch shipped a staging bundle regardless of intent — a production release could not be built without cutting a tag. A bare `docker build` uses the Dockerfile default, which is also `staging`. The verifications:
 
 1. PHP extensions present: `pdo_pgsql pdo_sqlite redis bcmath gd intl pcntl exif zip`
 2. GD FreeType + JPEG (`imagettftext`/`imagettfbbox` exist, `gd_info` flags) — guards the `/reports/export-pdf` 500 class

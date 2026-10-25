@@ -10,6 +10,20 @@ on:
   # build and push to ECR, which added storage cost per image. Build on purpose,
   # not on every merge.
   workflow_dispatch:
+    inputs:
+      # The frontend environment baked into the bundle. It used to be derived
+      # from the ref (tag → production, anything else → staging), which meant a
+      # manual build defaulted to staging no matter what was being released and
+      # only a bumped tag could produce a production bundle. The choice is now
+      # stated at dispatch time; it defaults to the non-production value so the
+      # safe option is the one you get without thinking.
+      vite_app_env:
+        description: Frontend environment baked into the bundle (Sentry environment)
+        type: choice
+        options:
+          - staging
+          - production
+        default: staging
 
 permissions:
   contents: read
@@ -70,7 +84,7 @@ jobs:
           build-args: |
             VITE_SENTRY_DSN_PUBLIC=${{ vars.VITE_SENTRY_DSN_PUBLIC }}
             VITE_SENTRY_RELEASE=${{ github.sha }}
-            VITE_APP_ENV=${{ github.ref_type == 'tag' && 'production' || 'staging' }}
+            VITE_APP_ENV=${{ inputs.vite_app_env }}
 
       # --entrypoint is required on every inspection step below. The image
       # entrypoint runs config:cache and exits non-zero when it fails, which is

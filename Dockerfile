@@ -14,7 +14,11 @@ RUN npm ci --ignore-scripts --no-audit --no-fund
 COPY . .
 ARG VITE_SENTRY_DSN_PUBLIC=""
 ARG VITE_SENTRY_RELEASE=""
-ARG VITE_APP_ENV="production"
+# Matches the dispatch default in .github/workflows/build-image.yml: an image
+# built without stating its environment is a staging bundle, never a bundle
+# that silently labels production errors as production. Pass the build-arg to
+# build a production bundle.
+ARG VITE_APP_ENV="staging"
 ENV VITE_APP_NAME="One Window Bayanihan"
 ENV VITE_SENTRY_DSN_PUBLIC=$VITE_SENTRY_DSN_PUBLIC
 ENV VITE_SENTRY_RELEASE=$VITE_SENTRY_RELEASE
