@@ -36,8 +36,8 @@ path, middleware name, and queue policy below was read from code on 2026-09-15:
 
 - **PHP floor raised to 8.4.1.** `composer.json:9` requires `php: >=8.4.1 <9.0`
   (v2.1.0 §2 said `PHP ^8.3`). Framework is `laravel/framework: ^13.7`
-  (`composer.json:16`). The container builds on `php:8.4-fpm`
-  (`Dockerfile:28`) with pinned `phpredis 6.1.0` (`Dockerfile:41`).
+  (`composer.json:16`). The container builds on `php:8.4.27-fpm`
+  (`Dockerfile:50-51`, pinned via `ARG PHP_VERSION`) with pinned `phpredis 6.1.0` (`Dockerfile:41`).
 - **Auth flow corrected.** v2.1.0 §5 described an email-OTP login via
   `LoginOtpController` — that controller does not exist. Login is password-based
   (`AuthenticatedSessionController`, `routes/auth.php:21-29`, bot-protection +
@@ -146,7 +146,7 @@ PostgreSQL (15-alpine local, newer managed server in CI/production)
 | Images | Image CDN SDK | `3.1.3` | optional; falls back to object storage |
 | URL generation | Ziggy | `^2.0` | `composer.json:26` |
 | Client data fetching | TanStack Query | `^5.101.0` | `package.json:38` |
-| Image runtime | OCI image `node:22-bookworm` build → `php:8.4-fpm` runtime | phpredis `6.1.0` pinned | `Dockerfile:5,28,41` |
+| Image runtime | OCI image `node:22-bookworm` build → `php:8.4.27-fpm` runtime | phpredis `6.1.0` pinned; PHP patch pinned + CI security floor | `Dockerfile:32,50-51,57` |
 | CI | PHP `8.4`, Node `24`, database service container | — | `.github/workflows/ci.yml:38,45` |
 
 ## 3. Architecture Pattern (carried forward — unchanged)

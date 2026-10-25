@@ -92,6 +92,38 @@ jobs:
       # traffic) — but it means a bare `docker run <image> <cmd>` cannot work
       # without a full production environment. Bypass the entrypoint to inspect
       # the image rather than weakening the entrypoint to suit CI.
+
+      # The base image pin in the Dockerfile is the control; this is the
+      # verification that the control is still doing something. A pin that
+      # nobody bumps is exactly as dangerous as no pin, just quieter — the image
+      # would sit on a known-vulnerable PHP with a build that looks reproducible.
+      # Fail at build time instead of discovering it during the next CVE's
+      # exposure assessment.
+      #
+      # 8.4.27 is the FLOOR, not the target: it is the release that fixed
+      # CVE-2026-109618 / CVE-2026-109619 (PHP2Shell). Raise the floor when a
+      # later security release ships, and bump the Dockerfile ARG with it.
+      #
+      # -e passes the floor into the container: getenv() only sees variables
+      # exported to that process, not the runner's environment.
+      - name: Verify PHP patch level meets the security floor
+        env:
+          PHP_MIN_VERSION: 8.4.27
+        run: |
+          ACTUAL=$(docker run --rm --entrypoint php bayanihan:${{ github.sha }} -r 'echo PHP_VERSION;')
+          echo "image PHP: $ACTUAL (floor: $PHP_MIN_VERSION)"
+          # version_compare runs inside the image so the comparison uses the
+          # same PHP being asserted, rather than a shell re-implementation of
+          # semver.
+          docker run --rm -e PHP_MIN_VERSION="$PHP_MIN_VERSION" \
+            --entrypoint php bayanihan:${{ github.sha }} \
+            -r 'exit(version_compare(PHP_VERSION, getenv("PHP_MIN_VERSION"), ">=") ? 0 : 1);' \
+            || {
+              echo "::error::image PHP $ACTUAL is below the security floor $PHP_MIN_VERSION — see Dockerfile ARG PHP_VERSION"
+              exit 1
+            }
+          echo "PHP patch level OK: $ACTUAL"
+
       - name: Verify PHP extensions required by features
         run: |
           docker run --rm --entrypoint php bayanihan:${{ github.sha }} -m > /tmp/mods.txt

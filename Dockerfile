@@ -29,7 +29,26 @@ RUN npm run build
 # Stage 2: PHP runtime — Nginx + PHP-FPM (single container for PaaS)
 # Runs Laravel application behind Nginx reverse proxy
 # ============================================================================
-FROM php:8.4-fpm AS app
+# The PHP base image is PINNED to a patch release, for the same reason phpredis
+# is pinned below: a floating tag makes the build unreproducible and hands
+# control of what ships to whenever the upstream tag happens to move.
+#
+# This is not theoretical. The image floated on `php:8.4-fpm` and therefore on
+# every patch of that branch, so CVE-2026-109618 / CVE-2026-109619 ("PHP2Shell",
+# unauthenticated RCE and remote memory disclosure via use-after-free in the
+# request lifecycle, CVSS v4.0 9.2) made every image built before 2026-10-21
+# vulnerable at an unspecified patch level. Fixed in 8.4.27. The pin makes the
+# running patch level a stated fact in the repo instead of a property of the
+# registry, and `build-image.yml` asserts a floor so a pin that goes stale fails
+# the pipeline rather than shipping.
+#
+# ARG must be declared BEFORE FROM to be usable in it. It is out of scope for
+# the rest of the stage, so re-declare it after FROM if a later RUN or LABEL
+# needs the value.
+#
+# Bump this in the same commit that records the new CVE in the compliance docs.
+ARG PHP_VERSION=8.4.27
+FROM php:${PHP_VERSION}-fpm AS app
 
 LABEL org.opencontainers.image.source="https://github.com/dmw-region7/one-window-bayanihan"
 LABEL org.opencontainers.image.description="One Window Bayanihan - DMW Region VII Case Management"
