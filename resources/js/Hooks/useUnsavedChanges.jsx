@@ -15,11 +15,18 @@ export default function useUnsavedChanges(dirty, { onDiscard, onSaveDraft } = {}
   useEffect(() => {
     const handler = (event) => {
       const visit = event.detail.visit;
-      if (!visit || visit.method !== 'get') return;
-      if (bypassRef.current) {
-        bypassRef.current = false;
-        return;
-      }
+      if (!visit) return;
+
+      // Consume the bypass BEFORE the method check. A non-GET visit also fires
+      // this event, so returning first for non-GET would leave the flag armed
+      // and spend it on the next unrelated GET — navigating a dirty form away
+      // with no warning. The flag is one-shot for whichever visit comes next.
+      const bypassed = bypassRef.current;
+      bypassRef.current = false;
+      if (bypassed) return;
+
+      if (visit.method !== 'get') return;
+
       if (dirtyRef.current) {
         event.preventDefault();
         pendingVisitRef.current = visit;
@@ -38,7 +45,11 @@ export default function useUnsavedChanges(dirty, { onDiscard, onSaveDraft } = {}
   useEffect(() => {
     if (!dirty) return;
     const handler = (e) => {
-      // Skip when a form submission or SPA visit is already in progress
+      // A bypass in flight means a submission/visit is already leaving, so the
+      // browser prompt would be noise. Note this READS the flag without
+      // consuming it: `beforeunload` can fire more than once for one unload, and
+      // consuming it here would re-arm the prompt mid-teardown. The SPA
+      // navigation handler above owns consuming the flag.
       if (bypassRef.current) return;
       e.preventDefault();
       e.returnValue = '';
