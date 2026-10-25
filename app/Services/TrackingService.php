@@ -35,10 +35,12 @@ class TrackingService
 
     /**
      * Rows of case history loaded per public tracking render. A long-running
-     * case would otherwise grow without bound on the public endpoint.
+     * case would otherwise grow without bound on the public endpoint. The cap
+     * keeps the newest events; the builder re-sorts them oldest-first for
+     * display.
      *
-     * ponytail: fixed cap, newest-first, no "load more" — upgrade to real
-     * pagination when an OFW case actually needs to see older events.
+     * ponytail: fixed cap, no "load more" — upgrade to real pagination when
+     * an OFW case actually needs to see older events.
      */
     private const TIMELINE_EVENT_LIMIT = 200;
 
@@ -176,11 +178,21 @@ class TrackingService
         // timeline and step machines need derives from this one query. Capped:
         // a case that stays open for two years must not build an unbounded
         // timeline on every refresh of the public, unauthenticated endpoint.
+        //
+        // The cap keeps the NEWEST events, so the inner query orders descending
+        // (that is the direction the limit must trim from) and the outer query
+        // restores the display order — ascending, oldest first — the timeline
+        // and step builder have always consumed.
         $events = CaseEvent::where('case_id', $case->id)
-            ->orderBy('occurred_at')
-            ->orderBy('sequence')
+            ->orderByDesc('occurred_at')
+            ->orderByDesc('sequence')
             ->limit(self::TIMELINE_EVENT_LIMIT)
-            ->get();
+            ->get()
+            ->sortBy([
+                ['occurred_at', 'asc'],
+                ['sequence', 'asc'],
+            ])
+            ->values();
 
         // Agency cards with dynamic step progress.
         // INVARIANT (applies to every client-facing payload in this service,
