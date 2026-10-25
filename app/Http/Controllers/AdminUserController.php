@@ -9,6 +9,7 @@ use App\Http\Requests\InviteAdminUserRequest;
 use App\Http\Requests\StoreAdminUserRequest;
 use App\Http\Requests\UpdateAdminUserRequest;
 use App\Models\Agency;
+use App\Models\Client;
 use App\Models\User;
 use App\Models\UserInvite;
 use App\Services\OtpService;
@@ -36,9 +37,14 @@ class AdminUserController extends Controller
 
     public function index(Request $request)
     {
-        $filters = $request->only(['search', 'role', 'status', 'agcy_id', 'show_deleted']);
+        $filters = $request->only(['search', 'role', 'status', 'agcy_id', 'show_deleted', 'client_type']);
 
-        $query = User::with('agency');
+        // The Citizen role is shared by OFW and Next-of-Kin registrants
+        // (OfwRegistrationController writes role=OFW for both and puts the
+        // answer on clients.type), so the Citizens list needs the client to
+        // render which of the two an account actually is, plus the OFW an NOK
+        // account is filing for.
+        $query = User::with(['agency', 'client.ofwClient']);
 
         // By default exclude soft-deleted users unless show_deleted filter is active.
         // Deactivation is a real soft delete (UserService::deactivate), so the
@@ -62,9 +68,14 @@ class AdminUserController extends Controller
 
         if ($role = $request->role) {
             $query->where('role', $role);
-        } else {
-            // Exclude OFW accounts from the default staff user list
-            $query->where('role', '!=', UserRole::OFW->value);
+        }
+
+        // Citizen sub-filter: clients.type is what separates an OFW from an
+        // NOK, since both hold users.role = OFW.
+        if ($clientType = $request->client_type) {
+            if (in_array($clientType, [Client::TYPE_OFW, Client::TYPE_NEXT_OF_KIN], true)) {
+                $query->whereHas('client', fn ($q) => $q->where('type', $clientType));
+            }
         }
 
         if ($request->has('status')) {
@@ -102,13 +113,29 @@ class AdminUserController extends Controller
             'filters' => $filters,
             'pendingInvites' => $pendingInvites,
             'agencies' => $agencies,
-            'stats' => CacheHelper::safeRemember('admin:user_stats', 120, fn () => [
-                'total' => User::count(),
-                'active' => User::where('is_active', true)->count(),
-                'case_managers' => User::where('role', UserRole::CASE_MANAGER->value)->count(),
-                'agency_focals' => User::where('role', UserRole::AGENCY->value)->count(),
-                'admins' => User::where('role', UserRole::ADMIN->value)->count(),
-            ]),
+            'stats' => CacheHelper::safeRemember('admin:user_stats', 120, function () {
+                // One grouped read, because the two citizen counts are the same
+                // query with a different clients.type predicate.
+                $citizens = User::query()
+                    ->where('role', UserRole::OFW->value)
+                    ->join('clients', 'clients.id', '=', 'users.client_id')
+                    ->selectRaw('clients.type as client_type, COUNT(*) as aggregate')
+                    ->groupBy('clients.type')
+                    ->pluck('aggregate', 'client_type');
+
+                return [
+                    'total' => User::count(),
+                    'active' => User::where('is_active', true)->count(),
+                    'case_managers' => User::where('role', UserRole::CASE_MANAGER->value)->count(),
+                    'agency_focals' => User::where('role', UserRole::AGENCY->value)->count(),
+                    'admins' => User::where('role', UserRole::ADMIN->value)->count(),
+                    // Citizens split by the record type they registered under.
+                    // A citizen account with no linked client row counts in
+                    // neither tile rather than inflating one of them.
+                    'citizen_ofw' => (int) ($citizens[Client::TYPE_OFW] ?? 0),
+                    'citizen_nok' => (int) ($citizens[Client::TYPE_NEXT_OF_KIN] ?? 0),
+                ];
+            }),
         ]);
     }
 
@@ -116,7 +143,9 @@ class AdminUserController extends Controller
     {
         // withTrashed(): the users list can surface deactivated accounts (see
         // index's show_deleted view), and their detail page has to open.
-        $user = User::with('agency')->withTrashed()->findOrFail($id);
+        // client.ofwClient is what renders the Linked Client card for citizen
+        // accounts (role OFW covers both OFWs and next of kin).
+        $user = User::with(['agency', 'client.ofwClient'])->withTrashed()->findOrFail($id);
 
         return Inertia::render('Admin/User/Show', ['user' => $user]);
     }
