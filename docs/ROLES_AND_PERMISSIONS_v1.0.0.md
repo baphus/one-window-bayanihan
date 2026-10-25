@@ -67,7 +67,7 @@ are to `routes/web.php`.
 | 212-220 | survey form builder | `AGENCY` only | `survey.forms.*` CRUD + activate |
 | 223-226 | survey responses | `CASE_MANAGER,ADMIN,AGENCY` | `survey.responses.index/show` |
 | 229-232 | agency detail | `ADMIN,CASE_MANAGER` | read-only for non-admin |
-| 245-315 | `admin` prefix | `ADMIN` | agencies, services, users (+ invites, email-change OTP, MFA reset), system settings (+ chatbot reindex), case taxonomies, data export, `system.*` (logs, maintenance, security, active sessions, email logs) |
+| 245-315 | `admin` prefix | `ADMIN` | agencies, services, users (+ invites, email-change OTP, MFA reset), system settings (+ chatbot reindex), case taxonomies, data export, `system.*` (logs, maintenance, security, email logs) |
 | 318-321 | overdue referrals | `ADMIN,CASE_MANAGER,AGENCY` (`auth` only, no `verified`) | index + send-reminders |
 | 432-438 | session API (`/api/*` in web.php) | `auth` + `verified` + `throttle:api-global` | client search / email-check / show for the case form |
 | 445-453 | `my-cases` portal (`ofw.*`) | `OFW` only | dashboard, notifications (+ mark-read), agency milestones, profile edit/update, case show — 7 routes, the OFW's entire surface |

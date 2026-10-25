@@ -58,7 +58,7 @@ Each person holds **exactly one** role. There are no combined roles, no sub-role
   - manages partner agencies, the shared list of services, and the reference lists (case categories, statuses, issues);
   - changes platform settings and refreshes the help content so updated articles appear in the chatbot;
   - switches maintenance mode and adjusts security settings;
-  - views active sign-in sessions and ends any of them (except their own current one);
+  - signs a person out everywhere by deactivating their account or resetting its password or two-step verification;
   - exports the activity history as a spreadsheet, and requests the full-system workbook;
   - views agency details (Case Managers may view these read-only as well).
 - **Administrator is not above the rules:** they must still sign in with two-step verification, cannot switch off their own two-step verification in the live system, cannot delete their own account, and cannot remove the last remaining administrator.
@@ -108,7 +108,7 @@ Each person holds **exactly one** role. There are no combined roles, no sub-role
 | Accept a staff invitation and activate an account | The invited person, then the Administrator |
 | Deactivate, reactivate, or verify an account | Administrator |
 | Reset someone's two-step verification | Administrator |
-| End another person's active session | Administrator |
+| Sign another person out everywhere | Administrator, by deactivating the account or resetting its password or two-step verification |
 | Send a satisfaction survey | Automatically, when a referral completes (switchable in settings) |
 
 **Lock rule.** Once a referral is completed or rejected, or a case is closed or archived, nobody can send the citizen new document requests or edits for that record.
@@ -147,7 +147,7 @@ If someone tries to open a record that is not theirs, the system refuses and sho
 - maintain partner agencies (including reactivating a retired one), the shared service list, and all reference lists;
 - change platform settings and refresh the help content used by the chatbot;
 - view and download logs, review and resend outbound email, switch maintenance mode, adjust security settings;
-- view active sessions and end any session other than their own current one;
+- sign a person out everywhere by deactivating their account or resetting its password or two-step verification;
 - export the activity history as a spreadsheet (with an explicit date range) and view the complete history;
 - request the full-system workbook (delivery gap noted in §11);
 - do everything a Case Manager can do with cases, referrals, clients, and reports.
@@ -156,7 +156,7 @@ If someone tries to open a record that is not theirs, the system refuses and sho
 - create a citizen account (citizens self-register);
 - delete their own account, or delete the last remaining administrator;
 - switch off their own two-step verification in the live system, or sign in without the second step;
-- end their own current session from the session screen;
+- deactivate or reset the credentials of their own account from the Users screen;
 - edit or delete entries in the activity history (it is append-only for everyone).
 
 ## 10. Permission matrix
@@ -212,7 +212,7 @@ Reading: **Can do** / **Cannot do** / **Sometimes (with note)** / **Not relevant
 | Manage reference lists (categories, statuses, issues) | Sometimes — may add a new issue type while working a case | Cannot do | Can do | Not relevant |
 | Change platform settings | Cannot do | Cannot do | Can do | Not relevant |
 | View logs, email delivery log, security settings, maintenance | Cannot do | Cannot do | Can do | Not relevant |
-| View active sessions and end them | Cannot do | Cannot do | Can do | Not relevant |
+| Sign another person out everywhere | Cannot do | Cannot do | Can do | Not relevant |
 | Request the full-system workbook | Not relevant | Not relevant | To be confirmed — file is prepared but never delivered | Not relevant |
 | Use the help centre and chatbot | Can do | Can do | Can do | Can do |
 | Submit an intake or follow a case in the portal (account and sign-in required) | Not relevant — public pages, not part of their job | Not relevant | Not relevant | Can do |
@@ -245,7 +245,7 @@ These are open items, not settled rules. None of them names a screen location or
 | Two-step verification loss | The person's authenticator setup can be reset by an administrator; backup codes are the self-service fallback |
 | Password change | Forces a fresh sign-in, including the two-step step |
 | Failed attempts | Sign-ins, password resets, verification codes, and public-form submissions are temporarily blocked after too many tries |
-| Administrator oversight | The administrator can see who is signed in and end any session except their own current one |
+| Administrator oversight | The administrator can sign a person out everywhere by deactivating the account or resetting its password or two-step verification; there is no separate list of who is currently signed in |
 | Page authenticity | The system checks that submissions come from its own pages before accepting them |
 | Personal data exposure | Someone who opens a record that is not theirs is shown an access-denied message, not the data |
 | Citizen privacy | Citizens only ever see their own case: every lookup in their portal is limited to their own record |

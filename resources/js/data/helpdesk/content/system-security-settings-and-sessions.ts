@@ -1,6 +1,6 @@
-const content = `# System Security: Settings and Active Sessions
+const content = `# System Security: Settings
 
-Administrators control platform-wide security posture from **System → Security** and **System → Active Sessions**.
+Administrators control platform-wide security posture from **System → Security**.
 
 ![Security settings](/assets/helpdesk/security-settings.png)
 
@@ -17,17 +17,20 @@ Sign-in is password plus optional authenticator — there is no login email-OTP.
 
 Select save to apply; you'll see **"Security settings updated."**
 
-## Active sessions
+## Ending a user's sessions
 
-**System → Active Sessions** lists currently signed-in sessions. Use **Terminate** to force a session out — for example a device someone lost, or an account you've just deactivated.
+There is no standalone session viewer. To sign a user out everywhere, use one of the credential-changing actions, each of which evicts every existing login and remembered device for that account:
 
-- You cannot terminate your **own current** session (the page will tell you so).
-- Terminating a session forces that browser to sign in again; combined with a password reset it fully evicts a compromised credential.
+- **Deactivating** the account from **Admin → Users**.
+- **Resetting the account's password** from **Admin → Users** (requires re-entering your own password).
+- **Resetting the user's MFA** from **Admin → Users**.
+
+A user can also end their own other sessions by changing their password from their profile.
 
 ## Recommended review cadence
 
 1. Review the security settings whenever office policy changes (e.g., a DPTM or ISO audit finding).
-2. Check active sessions when off-boarding staff and after any suspected credential leak.
-3. Pair with the **audit log** (see *Understanding and using the audit log*) to investigate what a session actually did.
+2. Deactivate accounts and reset credentials promptly when off-boarding staff and after any suspected credential leak.
+3. Pair with the **audit log** (see *Understanding and using the audit log*) to investigate what an account actually did.
 `;
 export default content;

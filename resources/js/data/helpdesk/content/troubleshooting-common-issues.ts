@@ -7,7 +7,7 @@ Use this guide before escalating a support issue. Capture the user, time, page, 
 - Confirm the user is using the correct account.
 - Check whether the role is correct: CASE_MANAGER, AGENCY, ADMIN, or OFW (OFW users work under /my-cases, not the staff console).
 - For admin-only pages, confirm the user is an administrator and any required security restrictions are satisfied.
-- If a session issue is suspected, administrators can review ActiveSessions.
+- If a session issue is suspected, administrators can reset the account's password or MFA from Admin → Users, which signs the user out everywhere.
 - For MFA trouble, remember sign-in uses TOTP codes from an authenticator app; recovery codes are the fallback when the device is unavailable.
 
 ## Cannot find a case

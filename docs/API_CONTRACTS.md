@@ -487,8 +487,6 @@ The admin full-data-export page and its routes were removed. Per-entity exports 
 | POST | `/admin/system/maintenance/toggle` | `MaintenanceController@toggle` | `admin.system.maintenance.toggle` |
 | GET | `/admin/system/security` | `SecuritySettingsController@index` | `admin.system.security` |
 | POST | `/admin/system/security` | `SecuritySettingsController@update` | `admin.system.security.update` |
-| GET | `/admin/system/active-sessions` | `ActiveSessionsController@index` | `admin.system.active-sessions` |
-| POST | `/admin/system/active-sessions/{session}/terminate` | `ActiveSessionsController@terminate` | `admin.system.active-sessions.terminate` |
 
 ---
 

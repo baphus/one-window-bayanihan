@@ -211,8 +211,7 @@
 |  | 3. View / download application logs |  |  |  | ✓ |  |
 |  | 4. View / toggle maintenance mode |  |  |  | ✓ |  |
 |  | 5. View / update security settings |  |  |  | ✓ |  |
-|  | 6. View active sessions / terminate session |  |  |  | ✓ |  |
-|  | 7. View email delivery logs / resend eligible email |  |  |  | ✓ |  |
+|  | 6. View email delivery logs / resend eligible email |  |  |  | ✓ |  |
 | **No. of Points** | | | | | | |
 | [Programmer] | **Administrative Data Export** | | | | | |
 |  | 1. View data export options |  |  |  | ✓ |  |

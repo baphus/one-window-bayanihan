@@ -90,7 +90,6 @@ export const navByRole = {
     { label: 'Settings', items: [
       { name: 'System Settings', href: '/admin/system-settings', route: 'admin.system-settings.index', icon: 'settings' },
       { name: 'Security & Auth', href: '/admin/system/security', route: 'admin.system.security', icon: 'security' },
-      { name: 'Active Sessions', href: '/admin/system/active-sessions', route: 'admin.system.active-sessions', icon: 'phonelink' },
     ]},
     { label: 'Resources', items: [
       { name: 'Help Center', href: '/help', route: 'helpdesk.index', icon: 'help', external: true },

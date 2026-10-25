@@ -4,7 +4,7 @@ const content = `# Glossary of Terms
 
 ## Roles
 
-**ADMIN** — System administrator role. Admin users manage users, agencies, services, security, active sessions, case categories, case issues, case statuses, maintenance, and overdue referrals.
+**ADMIN** — System administrator role. Admin users manage users, agencies, services, security, case categories, case issues, case statuses, maintenance, and overdue referrals.
 
 **CASE_MANAGER** — DMW user role responsible for creating and managing cases, referrals, notes, documents, and case follow-up.
 

@@ -6,7 +6,7 @@ Administrators use the maintenance and log pages to monitor background work and 
 
 ## Where to look
 
-The relevant admin pages live under the **System** menu: **Maintenance**, **Security**, and **Active Sessions**, plus the **Overdue Referrals** page. The dashboard also shows operational summaries for cases, referrals, and workload. Deep-dives: *Maintenance Mode* and *System security: settings and active sessions*.
+The relevant admin pages live under the **System** menu: **Maintenance** and **Security**, plus the **Overdue Referrals** page. The dashboard also shows operational summaries for cases, referrals, and workload. Deep-dives: *Maintenance Mode* and *System security: settings*.
 
 ![Admin dashboard](/assets/helpdesk/dashboard-admin.png)
 
@@ -17,7 +17,7 @@ The relevant admin pages live under the **System** menu: **Maintenance**, **Secu
 - Review **Email Logs** if users report missing messages (failed emails can be re-queued from there).
 - Review **System → Logs** for repeated application errors.
 - Check **Overdue Referrals** for referrals that require follow-up.
-- Review **Active Sessions** when investigating account access concerns.
+- Review the account's activity in the **audit log** when investigating account access concerns.
 
 ## Queue and job symptoms
 

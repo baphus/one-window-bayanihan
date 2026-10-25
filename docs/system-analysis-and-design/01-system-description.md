@@ -152,7 +152,7 @@ No credentials, keys, or secrets are described in this document; all are configu
 
 - The full journey works end to end: intake → draft → publish → referral → the agency picks its service → client compliance → completion → survey → closure → archive → removal, each step with audit records and notifications.
 - Security is hardened in depth: multi-factor sign-in with attempt limits, private expiring links instead of public file addresses, protections against guessing and abuse on every public form.
-- Operations tooling exists: system readiness check, log viewing, maintenance mode, active-session management, audit integrity verification, orphan cleanup, and retention removals.
+- Operations tooling exists: system readiness check, log viewing, maintenance mode, audit integrity verification, orphan cleanup, and retention removals.
 
 **Gaps in evidence, not necessarily in the product** — **To be confirmed:** live deployment state, independent penetration-test results, load-test results, and accessibility conformance results.
 
