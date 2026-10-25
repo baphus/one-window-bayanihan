@@ -21,6 +21,17 @@ class Client extends Model
      */
     public const RELATED_AUDIT_LOG_LIMIT = 50;
 
+    /**
+     * The two registration types. A user's `role` is OFW for both — the answer
+     * given at registration lands here, on `clients.type` (see
+     * OfwRegistrationController::storeProfile()).
+     */
+    public const TYPE_OFW = 'OFW';
+
+    public const TYPE_NEXT_OF_KIN = 'NEXT_OF_KIN';
+
+    public const TYPES = [self::TYPE_OFW, self::TYPE_NEXT_OF_KIN];
+
     public static array $auditExclude = [
         'id', 'created_at', 'updated_at', 'deleted_at', 'deleted_by',
         'email', 'contact_number', 'date_of_birth', 'sex',
