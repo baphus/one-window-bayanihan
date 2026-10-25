@@ -98,7 +98,14 @@ class ReferralMessageService
         return $this->pairUnreadCount($referral, $actor);
     }
 
-    /** Batch unread counts for many referral cards (avoids N+1). */
+    /**
+     * Batch unread counts for many referral cards without per-referral work.
+     *
+     * A card's tally is the number of unread messages in its (case, viewer agency
+     * <-> card agency) conversation. One message pass and one read-marker lookup
+     * serve every card, so the query count does not grow with the number of
+     * cards. Messages sent by the viewer's own agency are never unread.
+     */
     public function unreadCountsByReferral(array $referralIds, User $actor): array
     {
         $referralIds = array_values(array_unique($referralIds));
@@ -116,92 +123,92 @@ class ReferralMessageService
             return $unread;
         }
 
-        // Read markers per (case, peer agency) for this user.
-        $caseIds = $cards->pluck('case_id')->unique();
-        $peerIds = $cards->pluck('agcy_id')->unique();
-
-        $markers = [];
-        $markerRows = DB::table('agency_thread_reads')
-            ->where('user_id', $actor->id)
-            ->whereIn('case_id', $caseIds)
-            ->whereIn('peer_agency_id', $peerIds)
-            ->get(['case_id', 'peer_agency_id', 'last_read_at']);
-
-        foreach ($markerRows as $row) {
-            $markers[$row->case_id.':'.$row->peer_agency_id] = Carbon::parse($row->last_read_at);
-        }
-
-        // All referrals on the involved cases — including anchors on the page's own
-        // referral that are not part of the related-card list — so pair messages can
-        // be counted wherever they were anchored.
-        $caseReferrals = Referral::query()
-            ->whereIn('case_id', $caseIds)
-            ->get(['id', 'case_id', 'agcy_id'])
-            ->keyBy('id');
-
-        $pair = [$actor->agcy_id];
-
-        $messages = ReferralMessage::query()
-            ->where('is_deleted', false)
-            ->whereIn('referral_id', $caseReferrals->keys())
-            ->with('sender')
-            ->get(['referral_id', 'sender_user_id', 'created_at']);
-
-        $byReferral = $messages->groupBy('referral_id');
+        $counts = $this->pairUnreadCounts(
+            $cards->pluck('case_id')->unique()->values()->all(),
+            (string) $actor->agcy_id,
+            (string) $actor->id,
+        );
 
         foreach ($cards as $card) {
-            $pair[1] = $card->agcy_id;
-
-            // Messages anchored on the card itself...
-            foreach ($byReferral->get($card->id, collect()) as $message) {
-                $this->accumulateUnread($unread, $card, $message, $pair, $markers, $caseReferrals);
-            }
-
-            // ...and messages anchored on the actor's own referrals (e.g. the page
-            // itself): both anchors hold the same pair conversation.
-            foreach ($caseReferrals->where('agcy_id', $actor->agcy_id) as $actorReferral) {
-                foreach ($byReferral->get($actorReferral->id, collect()) as $message) {
-                    $this->accumulateUnread($unread, $card, $message, $pair, $markers, $caseReferrals);
-                }
-            }
+            $unread[$card->id] = $counts[$card->case_id.':'.$card->agcy_id] ?? 0;
         }
 
         return $unread;
     }
 
-    /** Bump the card's unread tally when the message belongs to the card's pair. */
-    private function accumulateUnread(
-        array &$unread,
-        Referral $card,
-        ReferralMessage $message,
-        array $pair,
-        array $markers,
-        $caseReferrals,
-    ): void {
-        $anchor = $caseReferrals->get($message->referral_id);
-
-        // The message must be anchored on one of the pair's referrals and sent by
-        // one of the pair's agencies.
-        if ($anchor === null
-            || ! in_array($anchor->agcy_id, $pair, true)
-            || ! in_array($message->sender?->agcy_id, $pair, true)) {
-            return;
+    /**
+     * Count unread peer messages for every (case, peer agency) pair on the cases.
+     *
+     * Rows are keyed "{case_id}:{peer_agency_id}". Every pair that appears in a
+     * message on those cases is returned, so a missing key means zero.
+     *
+     * The viewer agency's conversation with a peer is anchored on either side:
+     * messages may hang off the peer's referrals or off the viewer's own. Both
+     * anchors belong to the same thread, so both are counted. Messages written by
+     * the viewer's own agency are never unread to that viewer.
+     *
+     * @param  array<int, string>  $caseIds
+     * @return array<string, int>
+     */
+    public function pairUnreadCounts(array $caseIds, string $viewerAgencyId, string $viewerUserId): array
+    {
+        if ($caseIds === []) {
+            return [];
         }
 
-        // A message sent by the viewer's own agency is never unread for that
-        // viewer. This must not depend on the read marker, which only the
-        // sending user holds — otherwise an own-agency message written by a
-        // colleague would be mis-flagged as unread for everyone else at the
-        // same agency.
-        if ($message->sender?->agcy_id === $pair[0]) {
-            return;
+        // One pass over every message anchored on the involved cases.
+        $rows = DB::table('referral_messages as m')
+            ->join('referrals as anchor', 'anchor.id', '=', 'm.referral_id')
+            ->join('users as sender', 'sender.id', '=', 'm.sender_user_id')
+            ->where('m.is_deleted', false)
+            ->whereIn('anchor.case_id', $caseIds)
+            ->whereNotNull('sender.agcy_id')
+            ->selectRaw('anchor.case_id as case_id')
+            ->selectRaw('anchor.agcy_id as anchor_agency_id')
+            ->selectRaw('sender.agcy_id as sender_agency_id')
+            ->selectRaw('m.created_at as created_at')
+            ->get();
+
+        // One lookup of the viewer's read markers for those cases.
+        $markers = DB::table('agency_thread_reads')
+            ->where('user_id', $viewerUserId)
+            ->whereIn('case_id', $caseIds)
+            ->get(['case_id', 'peer_agency_id', 'last_read_at'])
+            ->mapWithKeys(fn ($row) => [
+                $row->case_id.':'.$row->peer_agency_id => Carbon::parse($row->last_read_at),
+            ]);
+
+        $counts = [];
+
+        foreach ($rows as $row) {
+            $senderAgency = (string) $row->sender_agency_id;
+
+            // Own-agency messages are never unread for this viewer. This must not
+            // depend on a read marker: markers are per user, so a colleague's
+            // message would otherwise badge for everyone else at the agency.
+            if ($senderAgency === $viewerAgencyId) {
+                continue;
+            }
+
+            $anchorAgency = (string) $row->anchor_agency_id;
+
+            // Only anchors on the viewer's agency or on the sender's agency belong
+            // to this pair; anything else is a different conversation.
+            if ($anchorAgency !== $viewerAgencyId && $anchorAgency !== $senderAgency) {
+                continue;
+            }
+
+            $key = $row->case_id.':'.$senderAgency;
+            $counts[$key] ??= 0;
+
+            $marker = $markers->get($key);
+
+            if ($marker === null || Carbon::parse($row->created_at)->gt($marker)) {
+                $counts[$key]++;
+            }
         }
 
-        $marker = $markers[$card->case_id.':'.$card->agcy_id] ?? null;
-
-        if ($marker === null || $message->created_at->gt($marker)) {
-            $unread[$card->id]++;
-        }
+        return $counts;
     }
 
     private function pairQuery(Referral $referral, User $actor)
