@@ -4,12 +4,13 @@ import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import { RowContextMenu, RowContextMenuItem } from '@/Components/ui/RowContextMenu';
 import StatusBadge from '@/Components/ui/StatusBadge';
-import { formatDisplayDate, formatDisplayTime } from '@/lib/utils';
+import { formatDisplayDate, formatDisplayTime, getCategoryFilterIds } from '@/lib/utils';
 import { Users, UserCheck, Shield, ArrowRightLeft } from 'lucide-react';
 import ExportDialog from '@/Components/ExportDialog';
 import ExportExcelButton from '@/Components/ExportExcelButton';
 import usePersistedColumns from '@/Hooks/usePersistedColumns';
 import { usePersistedViewMode, usePersistedFilters } from '@/Hooks/usePersistedViewState';
+import useTableVisitLoading from '@/Hooks/useTableVisitLoading';
 
 const vulnStyles = {
   'PWD': 'bg-purple-100 text-purple-800',
@@ -66,14 +67,6 @@ function fullName(row) {
   return [row.first_name, row.middle_name, row.last_name, row.suffix].filter(Boolean).join(' ');
 }
 
-function categoryIdsFromFilters(filters) {
-  const ids = Array.isArray(filters?.category_ids)
-    ? [...filters.category_ids]
-    : (filters?.category_ids ? [filters.category_ids] : []);
-  if (filters?.category_id) ids.push(filters.category_id);
-  return [...new Set(ids.filter(Boolean).map(String))];
-}
-
 const COLUMN_DEFS = [
   { key: 'name', label: 'Name', default: true },
   { key: 'age', label: 'Age', default: true },
@@ -114,7 +107,7 @@ export default function ClientIndex({ clients, filters: rawFilters, stats, users
     COLUMN_DEFS.filter((c) => c.default).map((c) => c.key),
   );
 
-  const [tableLoading, setTableLoading] = useState(false);
+  const { isLoading: tableLoading, withLoading } = useTableVisitLoading();
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState(null);
 
@@ -131,7 +124,7 @@ export default function ClientIndex({ clients, filters: rawFilters, stats, users
     if (filters.client_type) params.set('client_type', filters.client_type);
     if (filters.vulnerability_indicator) params.set('vulnerability_indicator', filters.vulnerability_indicator);
     if (filters.case_status) params.set('case_status', filters.case_status);
-    categoryIdsFromFilters(filters).forEach((id) => params.append('category_ids[]', id));
+    getCategoryFilterIds(filters).forEach((id) => params.append('category_ids[]', id));
     if (filters.case_issue_id) params.set('case_issue_id', filters.case_issue_id);
     if (filters.agcy_id) params.set('agcy_id', filters.agcy_id);
     if (dateFrom) params.set('date_from', dateFrom);
@@ -158,7 +151,7 @@ export default function ClientIndex({ clients, filters: rawFilters, stats, users
     if (filters?.sex) chips.push({ label: 'Sex', value: filters.sex });
     if (filters?.case_status) chips.push({ label: 'Case Status', value: filters.case_status });
     if (filters?.vulnerability_indicator) chips.push({ label: 'Vulnerability', value: filters.vulnerability_indicator });
-    const categoryIds = categoryIdsFromFilters(filters);
+    const categoryIds = getCategoryFilterIds(filters);
     if (categoryIds.length) chips.push({ label: 'Category', value: `${categoryIds.length} selected` });
     if (filters?.case_issue_id) chips.push({ label: 'Issue', value: filters.case_issue_id });
     if (filters?.agcy_id) chips.push({ label: 'Referred To', value: filters.agcy_id });
@@ -185,17 +178,29 @@ export default function ClientIndex({ clients, filters: rawFilters, stats, users
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [filterOpen]);
 
+  // Latest filter state for the debounced search. Server-driven filters only
+  // change when a response arrives, but a filter clicked while a search is still
+  // pending has not round-tripped yet, so params sent while a search timer is
+  // live are remembered and the timer merges into them. When no search is
+  // pending the props are authoritative and nothing needs tracking — tracking
+  // them unconditionally would let a mount-time filter restore shadow the props.
+  const filtersRef = useRef(filters);
+  filtersRef.current = filters;
+  const pendingParamsRef = useRef(null);
+
   const updateTable = (params) => {
     const clean = Object.fromEntries(
       Object.entries(params).filter(([_, v]) => v !== null && v !== undefined && v !== '')
     );
-    router.get(route('clients.index'), clean, {
+    if (searchTimeout.current) {
+      pendingParamsRef.current = clean;
+    }
+    router.get(route('clients.index'), clean, withLoading({
       preserveState: true,
       preserveScroll: true,
       replace: true,
       only: ['clients', 'filters', 'stats', 'users', 'agencies', 'categories', 'caseIssues'],
-      showProgress: false,
-    });
+    }));
   };
 
   const restoreFilters = (saved) => {
@@ -204,29 +209,23 @@ export default function ClientIndex({ clients, filters: rawFilters, stats, users
   };
   usePersistedFilters('owb-filters_clients', filters, restoreFilters);
 
-  useEffect(() => {
-    const onStart = () => setTableLoading(true);
-    const onFinish = () => setTableLoading(false);
-    const removeStart = router.on('start', onStart);
-    const removeFinish = router.on('finish', onFinish);
-    return () => {
-      if (typeof removeStart === 'function') removeStart();
-      if (typeof removeFinish === 'function') removeFinish();
-    };
-  }, []);
-
   const handleSearchChange = (value) => {
     setSearchValue(value);
     clearTimeout(searchTimeout.current);
     searchTimeout.current = setTimeout(() => {
-      updateTable({ ...filters, search: value || undefined, page: undefined });
+      const base = pendingParamsRef.current ?? filtersRef.current;
+      pendingParamsRef.current = null;
+      searchTimeout.current = null;
+      updateTable({ ...base, search: value || undefined, page: undefined });
     }, 400);
   };
 
   const handleSearchClear = () => {
     setSearchValue('');
     clearTimeout(searchTimeout.current);
-    updateTable({ ...filters, search: undefined, page: undefined });
+    searchTimeout.current = null;
+    pendingParamsRef.current = null;
+    updateTable({ ...filtersRef.current, search: undefined, page: undefined });
   };
 
   const activeFilters = useMemo(() => {
@@ -235,7 +234,7 @@ export default function ClientIndex({ clients, filters: rawFilters, stats, users
     if (filters?.sex) chips.push({ key: 'sex', label: 'Sex', value: filters.sex });
     if (filters?.case_status) chips.push({ key: 'case_status', label: 'Case Status', value: filters.case_status });
     if (filters?.vulnerability_indicator) chips.push({ key: 'vulnerability_indicator', label: 'Vulnerability', value: filters.vulnerability_indicator });
-    const categoryIds = categoryIdsFromFilters(filters);
+    const categoryIds = getCategoryFilterIds(filters);
     if (categoryIds.length) {
       const names = categoryIds.map((id) => categories?.find((c) => String(c.id) === id)?.name || id);
       chips.push({ key: 'category_ids', label: 'Category', value: names.join(', ') });
@@ -688,7 +687,7 @@ export default function ClientIndex({ clients, filters: rawFilters, stats, users
         <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Category</label>
         <select
           multiple
-          value={categoryIdsFromFilters(filters)}
+          value={getCategoryFilterIds(filters)}
           onChange={(e) => {
             const values = Array.from(e.target.selectedOptions, (option) => option.value);
             updateTable({ ...filters, category_ids: values.length ? values : undefined, category_id: undefined, page: undefined });
