@@ -40,10 +40,10 @@ class OtpMail extends Mailable implements ShouldQueue
     }
 
     /**
-     * The log mailer writes the whole rendered MIME body to the app log,
-     * which the admin LogViewer serves. Substitute a masked code so OTP
-     * digits never reach log files; real transports (smtp, resend) and the
-     * array mailer used in tests still receive the live code.
+     * The log mailer writes the whole rendered MIME body to the app log.
+     * Substitute a masked code so OTP digits never reach log files; real
+     * transports (smtp, resend) and the array mailer used in tests still
+     * receive the live code.
      */
     public function buildViewData(): array
     {

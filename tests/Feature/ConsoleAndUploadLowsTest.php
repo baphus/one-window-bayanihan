@@ -2,9 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Enums\UserRole;
 use App\Models\AuditLog;
-use App\Models\User;
 use App\Services\CloudinaryAvatarService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -12,7 +10,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\Test;
-use Symfony\Component\HttpFoundation\StreamedResponse;
 use Tests\TestCase;
 
 /**
@@ -20,7 +17,6 @@ use Tests\TestCase;
  *  - CleanupLogs must survive filesystem failures per file instead of aborting.
  *  - RepairAuditChain's chunked streaming must still repair seeded broken chains.
  *  - CloudinaryAvatarService must reject extension/MIME-spoofed non-image content.
- *  - LogViewer download must stream the same filtered/redacted lines.
  */
 class ConsoleAndUploadLowsTest extends TestCase
 {
@@ -28,8 +24,8 @@ class ConsoleAndUploadLowsTest extends TestCase
 
     /**
      * Isolate storage/logs so the log-source globs see only this test's
-     * fixtures (same convention as LogViewerTest). Single laravel.log is also
-     * cleared so the fallback source cannot bleed rows into the download test.
+     * fixtures. Single laravel.log is also cleared so the fallback source
+     * cannot bleed rows into later tests.
      */
     private function clearTestLogFiles(): void
     {
@@ -163,44 +159,6 @@ class ConsoleAndUploadLowsTest extends TestCase
         }
 
         $this->assertNull($rejection, 'A real image whose content matches the allowlist must pass validation.');
-    }
-
-    #[Test]
-    public function log_download_streams_filtered_redacted_content(): void
-    {
-        $this->clearTestLogFiles();
-
-        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
-
-        $path = storage_path('logs/laravel-2026-06-01.log');
-        File::ensureDirectoryExists(dirname($path));
-        File::put($path, implode("\n", [
-            '[2026-06-01 10:00:00] local.ERROR: email jane@example.com from 192.168.1.10',
-            '[2026-06-01 10:00:01] local.INFO: plain info line',
-            '',
-        ]));
-
-        $response = $this->actingAs($admin)
-            ->get('/admin/system/logs/download?level=error&search=email');
-
-        $response->assertOk();
-        $this->assertInstanceOf(StreamedResponse::class, $response->baseResponse);
-        // Symfony's prepare() appends the default charset to text/* responses;
-        // the previous in-memory implementation delivered the same value.
-        $response->assertHeader('Content-Type', 'text/plain; charset=utf-8');
-        // Symfony builds the disposition itself (Response::makeDisposition), and
-        // for a plain ASCII filename it does not quote the value.
-        $response->assertHeader('Content-Disposition', 'attachment; filename=system-logs-'.date('Y-m-d').'.txt');
-
-        // Streaming output must match the in-memory path's formatting: same
-        // entry-level/level filter, same [ts] env.level: message layout, and
-        // the same email/IP redaction.
-        // StreamedResponse::getContent() returns false in Symfony 8; the
-        // streamed body must be captured through TestResponse's own helper.
-        $this->assertSame(
-            "[2026-06-01 10:00:00] local.error: email ***@***.*** from ***.***.***.***\n",
-            $response->streamedContent()
-        );
     }
 
     /**

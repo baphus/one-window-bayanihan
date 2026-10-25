@@ -44,8 +44,7 @@ import usingTheStakeholderDirectory from "./content/using-the-stakeholder-direct
 import creatingAReferralChoosingAgencyAndService from "./content/creating-a-referral-choosing-agency-and-service";
 import referralDocumentsAndComplianceUploads from "./content/referral-documents-and-compliance-uploads";
 import systemSecuritySettingsAndSessions from "./content/system-security-settings-and-sessions";
-import emailLogsAndResendingFailedEmails from "./content/email-logs-and-resending-failed-emails";
-import maintenanceModeSystemLogsAndDataExport from "./content/maintenance-mode-system-logs-and-data-export";
+import maintenanceMode from "./content/maintenance-mode";
 
 // ---------------------------------------------------------------------------
 // Category slug → ID mapping (from categories.ts)
@@ -662,24 +661,12 @@ export const articles: HelpdeskArticle[] = [
     publishedAt: "2026-07-11T00:00:00.000Z",
   },
   {
-    id: "article-45",
-    title: "Email Logs and Resending Failed Emails",
-    slug: "email-logs-and-resending-failed-emails",
-    excerpt:
-      "Diagnosing 'I never got the email': reading the email log, resending failed deliveries, and a troubleshooting checklist.",
-    content: emailLogsAndResendingFailedEmails,
-    categoryId: CATEGORY["system-config"],
-    tagIds: [TAG["troubleshooting"], TAG["notifications"]],
-    featured: false,
-    publishedAt: "2026-07-11T00:00:00.000Z",
-  },
-  {
     id: "article-46",
-    title: "Maintenance Mode, System Logs, and Data Export",
-    slug: "maintenance-mode-system-logs-and-data-export",
+    title: "Maintenance Mode",
+    slug: "maintenance-mode",
     excerpt:
-      "Planned downtime with a bypass secret, filtering and downloading system logs, and the full multi-sheet Excel export.",
-    content: maintenanceModeSystemLogsAndDataExport,
+      "Planned downtime with a bypass secret, and where to look in the app when something breaks.",
+    content: maintenanceMode,
     categoryId: CATEGORY["system-config"],
     tagIds: [TAG["troubleshooting"], TAG["audit"], TAG["privacy"]],
     featured: false,

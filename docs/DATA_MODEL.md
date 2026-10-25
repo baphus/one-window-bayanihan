@@ -830,7 +830,7 @@ Async export/report job records (case PDFs, system reports, CSV exports, admin f
 | `id` | uuid | PK | |
 | `user_id` | uuid | FK → users.id `CASCADE` | Requester |
 | `case_id` | uuid | FK → cases.id `nullOnDelete`, nullable | |
-| `type` | string | NOT NULL | `case_report_pdf` / `system_report_pdf` / `cases_export` / `clients_export` / `referrals_export` / `reports_export` / `admin_full_export` |
+| `type` | string | NOT NULL | `case_report_pdf` / `system_report_pdf` / `cases_export` / `clients_export` / `referrals_export` / `reports_export` |
 | `filename` | string | NOT NULL | |
 | `path` | string | nullable | S3-compatible object storage path, null while pending |
 | `file_size` | bigint | nullable | Bytes |

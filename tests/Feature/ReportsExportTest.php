@@ -198,35 +198,4 @@ class ReportsExportTest extends TestCase
             $this->assertStringContainsString('Canada', $otherJson, $method);
         }
     }
-
-    #[Test]
-    public function admin_full_data_export_includes_a_decrypted_client_employments_workbook(): void
-    {
-        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
-        $client = Client::factory()->create();
-        ClientEmployment::create([
-            'client_id' => $client->id,
-            'country' => 'Canada',
-            'position' => 'Welder',
-            'last_country' => 'Canada',
-            'last_position' => 'Welder',
-        ]);
-
-        // Verify the export endpoint queues the workbook job
-        $response = $this->actingAs($admin)->get(route('admin.data-export.export'));
-        $response->assertRedirect();
-        $response->assertSessionHas('info');
-
-        // Verify employment data via the queries layer directly
-        $queries = new DataExportQueries;
-        // Set RLS session vars so admin sees all rows
-        DB::statement('SELECT set_config(?, ?, ?)', ['app.current_user_id', $admin->id, false]);
-        DB::statement('SELECT set_config(?, ?, ?)', ['app.user_role', UserRole::ADMIN->value, false]);
-        $employments = $queries->getClientEmployments($admin);
-        $json = json_encode($employments->toArray());
-
-        $this->assertStringContainsString('Welder', $json);
-        $this->assertStringContainsString('Canada', $json);
-        $this->assertStringNotContainsString('eyJ', $json);
-    }
 }

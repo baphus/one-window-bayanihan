@@ -149,13 +149,6 @@ class PurgeOrphanFileHandlingTest extends TestCase
         $this->get($url)->assertForbidden();
     }
 
-    public function test_the_export_trigger_is_admin_only(): void
-    {
-        $this->actingAs(User::factory()->create(['role' => UserRole::CASE_MANAGER->value]));
-
-        $this->get(route('admin.data-export.export'))->assertForbidden();
-    }
-
     /**
      * A trashed case past the retention cutoff holding one object on each of the
      * three chains the purge has to empty.

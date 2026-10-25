@@ -4,7 +4,7 @@ const content = `# Glossary of Terms
 
 ## Roles
 
-**ADMIN** — System administrator role. Admin users manage users, agencies, services, security, active sessions, case categories, case issues, case statuses, data exports, maintenance, email logs, log viewing, and overdue referrals.
+**ADMIN** — System administrator role. Admin users manage users, agencies, services, security, active sessions, case categories, case issues, case statuses, maintenance, and overdue referrals.
 
 **CASE_MANAGER** — DMW user role responsible for creating and managing cases, referrals, notes, documents, and case follow-up.
 
@@ -58,7 +58,7 @@ const content = `# Glossary of Terms
 
 **Case Status** — Admin-managed status reference. System statuses cannot be deleted.
 
-**Data Export** — Admin function for generating or reviewing exports.
+**Export Excel** — Per-page export button on Cases, Referrals, and Clients that downloads the current filtered view as a spreadsheet.
 
 **Audit Log** — Record of significant system actions, filterable by action, module, user, date range, search, and page size. Entries are chained with SHA-256 hashes (each row stores the previous row's digest) so tampering can be detected.
 

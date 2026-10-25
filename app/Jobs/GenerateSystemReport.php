@@ -3,9 +3,6 @@
 namespace App\Jobs;
 
 use App\Models\GeneratedDocument;
-use App\Models\User;
-use App\Services\Export\DataExportQueries;
-use App\Services\Export\DataExportService;
 use App\Services\Reports\ReportsExportService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Bus\Queueable;
@@ -44,9 +41,9 @@ class GenerateSystemReport implements ShouldBeUnique, ShouldQueue
 
     /**
      * @param  string  $documentId  UUID of the pre-created GeneratedDocument record.
-     * @param  string  $type  'system_report_pdf' | 'admin_full_export'
+     * @param  string  $type  'system_report_pdf'
      * @param  array  $criteria  Serializable criteria from ReportsExportService::extractCriteria()
-     *                           (used for PDF and reports-excel types only).
+     *                           (used for the PDF type only).
      */
     public function __construct(
         private readonly string $documentId,
@@ -54,11 +51,8 @@ class GenerateSystemReport implements ShouldBeUnique, ShouldQueue
         private readonly array $criteria = [],
     ) {}
 
-    public function handle(
-        ReportsExportService $reportsExportService,
-        DataExportService $dataExportService,
-        DataExportQueries $queries,
-    ): void {
+    public function handle(ReportsExportService $reportsExportService): void
+    {
         $document = GeneratedDocument::find($this->documentId);
 
         if (! $document) {
@@ -72,7 +66,6 @@ class GenerateSystemReport implements ShouldBeUnique, ShouldQueue
 
             match ($this->type) {
                 'system_report_pdf' => $this->generatePdf($reportsExportService, $tempPath),
-                'admin_full_export' => $this->generateAdminExport($dataExportService, $queries, $tempPath),
                 default => throw new \InvalidArgumentException("Unknown report type: {$this->type}"),
             };
 
@@ -109,15 +102,5 @@ class GenerateSystemReport implements ShouldBeUnique, ShouldQueue
         $payload = $service->buildPdfPayloadFromCriteria($this->criteria);
         $pdf = Pdf::loadView('pdf.report', $payload);
         $pdf->save($tempPath);
-    }
-
-    private function generateAdminExport(DataExportService $dataExportService, DataExportQueries $queries, string $tempPath): void
-    {
-        // Rebuild the user from criteria so queries are scoped correctly.
-        $user = User::findOrFail($this->criteria['user_id']);
-
-        $sheets = $queries->fullExportSheets($user);
-
-        $dataExportService->generateMultiSheetToFile($sheets, $tempPath);
     }
 }

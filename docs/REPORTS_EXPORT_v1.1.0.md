@@ -73,7 +73,6 @@ Deliberately **not** done: raising `memory_limit`/`max_execution_time` at runtim
 ## 5. Related Export Surfaces (Not These Routes)
 
 - `GET /cases/export-excel`, `/clients/export-excel`, `/referrals/export-excel`, `/feedbacks/export-excel`, and their `export-count` companions share `DataExportService` (conditional-formatting banding, sampled column widths, streamed download). Column-width/style changes there affect all of them.
-- `GET /admin/data-export/export` (`DataExportController`) is the admin dataset export — separate route, separate audit.
 - `GET /audit-logs/export` (`AuditLogController@export`) is admin-only (controller-enforced), capped at `AUDIT_EXPORT_MAX_ROWS` (**100,000**) with strict date validation and formula-injection neutralization.
 - `/api/readyz` includes an `image_rendering` check, and the image build asserts GD/FreeType capability plus a real chart render — the regression net for the original PDF outage class. After deploy, confirm `image_rendering: ok` and run one real PDF export.
 

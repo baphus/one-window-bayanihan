@@ -46,7 +46,7 @@ If an Excel export or report does not appear correct, confirm the filters, date 
 
 ## Email or notification issue
 
-Administrators should review EmailLogs and LogViewer for errors around the time the user expected the message. Confirm the record action was saved before assuming a notification problem. This covers tracking OTPs, intake confirmations, and survey invitations alike.
+Administrators should review the audit log and the recipient's in-app notifications around the time the message was expected. Confirm the record action was saved before assuming a notification problem. This covers tracking OTPs, intake confirmations, and survey invitations alike.
 
 ## When to escalate
 

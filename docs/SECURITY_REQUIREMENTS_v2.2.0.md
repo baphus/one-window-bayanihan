@@ -232,7 +232,7 @@ See [AUDIT_STRATEGY_v2.2.0.md](AUDIT_STRATEGY_v2.2.0.md) for full audit design.
 
 - Correlation ID added to all log entries (`LogContext` middleware)
 - Structured JSON logging in production
-- `LogViewerController` for admin log inspection
+- Log files are operator/infra-side only; the in-app log viewer has been retired
 
 ## 9. Infrastructure Security
 

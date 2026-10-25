@@ -28,19 +28,8 @@ const ADMIN_TOOLS = [
     { label: 'System settings', description: 'Thresholds and chatbot index', href: '/admin/system-settings', route: 'admin.system-settings.index', icon: 'settings' },
     { label: 'Active sessions', description: 'Signed-in users, terminate access', href: '/admin/system/active-sessions', route: 'admin.system.active-sessions', icon: 'devices' },
     { label: 'Security', description: 'Password and lockout policy', href: '/admin/system/security', route: 'admin.system.security', icon: 'shield' },
-    { label: 'System logs', description: 'Application and error logs', href: '/admin/system/logs', route: 'admin.system.logs', icon: 'terminal' },
     { label: 'Maintenance', description: 'Maintenance mode control', href: '/admin/system/maintenance', route: 'admin.system.maintenance', icon: 'construction' },
-    { label: 'Email logs', description: 'Deliverability and resend', href: '/admin/system/email-logs', route: 'admin.system.email-logs.index', icon: 'mail' },
-    { label: 'Data export', description: 'Export system data', href: '/admin/data-export', route: 'admin.data-export.index', icon: 'download' },
     { label: 'Audit logs', description: 'Full unscoped change trail', href: '/audit-logs', route: 'audit-logs.index', icon: 'history' },
-];
-
-const PLATFORM_HEALTH_LINKS = [
-    { label: 'System logs', description: 'Check for errors before they spread.', href: '/admin/system/logs', route: 'admin.system.logs', icon: 'terminal' },
-    { label: 'Email logs', description: 'Deliverability, failures, and resend.', href: '/admin/system/email-logs', route: 'admin.system.email-logs.index', icon: 'mail' },
-    { label: 'Maintenance mode', description: 'Take the system offline for work.', href: '/admin/system/maintenance', route: 'admin.system.maintenance', icon: 'construction' },
-    { label: 'Data export', description: 'Pull records for reporting.', href: '/admin/data-export', route: 'admin.data-export.index', icon: 'download' },
-    { label: 'System settings', description: 'Overdue threshold and chatbot index.', href: '/admin/system-settings', route: 'admin.system-settings.index', icon: 'settings' },
 ];
 
 const MODULE_GROUPS = {
@@ -269,28 +258,6 @@ export default function AdminDashboard({ dashboard = {} }) {
                 </div>
 
                 <aside className="space-y-6 xl:col-span-4">
-                    {/* ── Platform health ── */}
-                    <SectionCard title="Platform health" dataTour="dashboard-platform-health" bodyClassName="p-3">
-                        <div className="grid gap-1">
-                            {PLATFORM_HEALTH_LINKS.map((item) => (
-                                <Link
-                                    key={item.route ?? item.href}
-                                    href={item.route ? safeRoute(item.route, undefined, item.href) : item.href}
-                                    className="flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                                >
-                                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                                        <MaterialSymbol name={item.icon} className="text-[18px]" />
-                                    </span>
-                                    <span className="min-w-0 flex-1">
-                                        <span className="block text-sm font-bold text-slate-900">{item.label}</span>
-                                        <span className="block truncate text-xs text-slate-500">{item.description}</span>
-                                    </span>
-                                    <MaterialSymbol name="chevron_right" className="text-[16px] text-slate-300" />
-                                </Link>
-                            ))}
-                        </div>
-                    </SectionCard>
-
                     {/* ── Admin tools ── */}
                     <SectionCard title="Admin tools" dataTour="dashboard-admin-tools" bodyClassName="p-3">
                         <div className="grid gap-1">
