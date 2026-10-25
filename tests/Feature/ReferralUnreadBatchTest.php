@@ -263,6 +263,60 @@ class ReferralUnreadBatchTest extends TestCase
         $this->assertSame(0, $byId[$f['referralX']->id]->unread_count);
     }
 
+    /**
+     * The batch tally and the single-thread tally must be the same number for
+     * the same card, because they are the same conversation.
+     *
+     * They used to key the read marker differently — the batch counter on the
+     * message SENDER's agency, the single counter on the CARD's agency. That
+     * only agreed while a peer could not own the card being counted. This test
+     * pins the two to each other over a case where both sides of the thread
+     * carry messages.
+     */
+    #[Test]
+    public function batch_and_single_thread_counters_agree(): void
+    {
+        $f = $this->fixtures();
+
+        $readAt = now();
+
+        // Y writes on the viewer's own referral: before and after the marker.
+        $beforeMarker = ReferralMessage::create([
+            'referral_id' => $f['referralX']->id,
+            'sender_user_id' => $f['peerY']->id,
+            'body' => 'Y before the marker.',
+        ]);
+        $beforeMarker->forceFill(['created_at' => $readAt->copy()->subMinutes(5)])->saveQuietly();
+
+        $afterMarker = ReferralMessage::create([
+            'referral_id' => $f['referralX']->id,
+            'sender_user_id' => $f['peerY']->id,
+            'body' => 'Y after the marker.',
+        ]);
+        $afterMarker->forceFill(['created_at' => $readAt->copy()->addMinutes(5)])->saveQuietly();
+
+        // And the viewer replies on Y's card, so the thread has traffic on the
+        // anchor whose agency is not the sender.
+        $viewerReply = ReferralMessage::create([
+            'referral_id' => $f['referralY']->id,
+            'sender_user_id' => $f['viewer']->id,
+            'body' => 'Our reply.',
+        ]);
+        $viewerReply->forceFill(['created_at' => $readAt->copy()->addMinutes(7)])->saveQuietly();
+
+        $this->marker($f['case']->id, $f['viewer']->id, $f['referralY']->agcy_id, $readAt);
+
+        $service = app(ReferralMessageService::class);
+        $batch = $service->unreadCountsByReferral([$f['referralY']->id], $f['viewer']);
+
+        $this->assertSame(
+            $service->getUnreadCount($f['referralY'], $f['viewer']),
+            $batch[$f['referralY']->id],
+            'The batch counter and the single-thread counter must agree for the same card',
+        );
+        $this->assertSame(1, $batch[$f['referralY']->id]);
+    }
+
     #[Test]
     public function query_count_does_not_scale_with_the_number_of_cards(): void
     {

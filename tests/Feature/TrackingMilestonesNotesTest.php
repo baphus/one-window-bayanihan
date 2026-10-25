@@ -112,7 +112,7 @@ class TrackingMilestonesNotesTest extends TestCase
             TrackingService::SESSION_KEY => [
                 'tracker_number' => $case->tracker_number,
                 'email' => $client->email,
-                'verified_at' => now()->toISOString(),
+                'verified_at' => now()->getTimestamp(),
             ],
         ]);
     }

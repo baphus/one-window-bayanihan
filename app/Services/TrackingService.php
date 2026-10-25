@@ -8,13 +8,19 @@ use App\Models\CaseFile;
 use App\Models\CaseNotification;
 use App\Models\Milestone;
 use App\Models\Referral;
-use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 
 class TrackingService
 {
     public const SESSION_KEY = 'tracking.verified';
+
+    /**
+     * How long a verified tracking session stays usable. The binding records a
+     * Unix timestamp in `verified_at` and is rejected past this age, so a phone
+     * left unattended on the public tracking page does not stay signed in.
+     */
+    private const BINDING_TTL_SECONDS = 30 * 60;
 
     /**
      * Payload version for the cached agency-milestones payload. Bump whenever
@@ -100,14 +106,14 @@ class TrackingService
             return false;
         }
 
-        if (! isset($binding['verified_at']) || ! is_string($binding['verified_at'])) {
+        // A numeric Unix timestamp, not a parsed date string: comparing an
+        // integer against time() removes any dependency on the timezone or
+        // format the value was serialised with.
+        if (! isset($binding['verified_at']) || ! is_int($binding['verified_at'])) {
             return false;
         }
 
-        $verifiedAt = Carbon::parse($binding['verified_at']);
-        $expiry = $verifiedAt->addMinutes(30);
-
-        return now()->lt($expiry);
+        return time() < $binding['verified_at'] + self::BINDING_TTL_SECONDS;
     }
 
     public function generateOtp(string $identifier, string $purpose = 'track', ?string $sessionId = null): string

@@ -139,20 +139,26 @@ trait ScopesReportQueries
     }
 
     /**
-     * Restrict a query to a calendar-day window in the operating timezone.
+     * Restrict a query to a range of operating-timezone calendar days.
      *
-     * Timestamps are stored in UTC, so `whereDate()` reads the UTC date and
-     * puts a 03:00 Manila record in the previous day. Comparing the
-     * Manila-local date expression instead keeps every panel and the export on
-     * the same calendar the user typed the dates in (see App\Support\ReportCalendar).
+     * The window is expressed as bare UTC column comparisons, not as a
+     * timezone-shifted date expression on the column: wrapping the column in
+     * `AT TIME ZONE` forces a sequential scan and throws away the index the
+     * report panels depend on. Shifting the *bounds* instead selects the
+     * identical rows while staying an indexable range.
+     *
+     * Both ends are inclusive calendar days, so `to` is compared with `<` the
+     * start of the following day.
      */
     private function applyLocalDateWindow($query, string $column, ?string $fromDate, ?string $toDate): void
     {
         if ($fromDate) {
-            $query->whereRaw(ReportCalendar::localDate($column).' >= ?', [Carbon::parse($fromDate)->toDateString()]);
+            [$start] = ReportCalendar::localDayBounds(Carbon::parse($fromDate)->toDateString());
+            $query->where($column, '>=', $start);
         }
         if ($toDate) {
-            $query->whereRaw(ReportCalendar::localDate($column).' <= ?', [Carbon::parse($toDate)->toDateString()]);
+            [, $end] = ReportCalendar::localDayBounds(Carbon::parse($toDate)->toDateString());
+            $query->where($column, '<', $end);
         }
     }
 

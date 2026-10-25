@@ -155,4 +155,49 @@ describe('Case Index search debounce', () => {
     expect(searchCall).toBeDefined();
     expect(searchCall[1]).toMatchObject({ search: 'santos', status: 'CLOSED' });
   });
+
+  // The pending-params capture is only meaningful if the search timer has NOT
+  // already disarmed itself when the filter click records its params. When the
+  // timer nulls its own id before calling updateTable, the click that lands
+  // afterwards records nothing and the filter is silently dropped.
+  it('keeps a filter clicked after an earlier search has already fired', async () => {
+    renderIndex();
+
+    // First search fires and completes its own navigation.
+    fireEvent.change(screen.getByPlaceholderText(/Search by tracking ID/), { target: { value: 'maria' } });
+    await act(async () => { vi.advanceTimersByTime(400); });
+    expect(routerGet.mock.calls.some((call) => call[1]?.search === 'maria')).toBe(true);
+
+    routerGet.mockClear();
+
+    // Now type again, and click a filter inside the pending window.
+    fireEvent.change(screen.getByPlaceholderText(/Search by tracking ID/), { target: { value: 'santos' } });
+    fireEvent.click(screen.getByRole('button', { name: /^Open$/ }));
+    await act(async () => { vi.advanceTimersByTime(400); });
+
+    const searchCall = routerGet.mock.calls.find((call) => call[1]?.search === 'santos');
+    expect(searchCall).toBeDefined();
+    expect(searchCall[1]).toMatchObject({ search: 'santos', status: 'OPEN' });
+  });
+
+  // The filter click issues its OWN request before the search timer fires. The
+  // timer must then reuse that request's params, not the props it rendered
+  // with — otherwise a filter whose value only exists in the click is dropped
+  // from the search navigation.
+  it('reuses the params of a filter request issued during the debounce window', async () => {
+    // The props say CLOSED, but the user clicks Open during the debounce window.
+    renderIndex({ filters: { status: 'CLOSED' } });
+
+    fireEvent.change(screen.getByPlaceholderText(/Search by tracking ID/), { target: { value: 'reyes' } });
+    fireEvent.click(screen.getByRole('button', { name: /^Open$/ }));
+
+    const filterCall = routerGet.mock.calls.find((call) => call[1]?.status === 'OPEN');
+    expect(filterCall).toBeDefined();
+
+    await act(async () => { vi.advanceTimersByTime(400); });
+
+    const searchCall = routerGet.mock.calls.find((call) => call[1]?.search === 'reyes');
+    expect(searchCall).toBeDefined();
+    expect(searchCall[1]).toMatchObject({ search: 'reyes', status: 'OPEN' });
+  });
 });

@@ -22,7 +22,7 @@ class MilestonesTest extends TestCase
             TrackingService::SESSION_KEY => [
                 'tracker_number' => $case->tracker_number,
                 'email' => $result['client']->email,
-                'verified_at' => now()->toISOString(),
+                'verified_at' => now()->getTimestamp(),
             ],
         ])->get(route('track.milestones', [
             'tracker_number' => $case->tracker_number,
@@ -54,7 +54,7 @@ class MilestonesTest extends TestCase
             TrackingService::SESSION_KEY => [
                 'tracker_number' => $caseA->tracker_number,
                 'email' => $resultA['client']->email,
-                'verified_at' => now()->toISOString(),
+                'verified_at' => now()->getTimestamp(),
             ],
         ])->get(route('track.milestones', [
             'tracker_number' => $caseA->tracker_number,

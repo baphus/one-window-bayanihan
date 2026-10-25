@@ -196,13 +196,23 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
   filtersRef.current = filters;
   const pendingParamsRef = useRef(null);
 
+  // Params of a navigation sent while a search timer is live. A filter clicked
+  // during the 400ms window issues its own request before the server has sent
+  // the new props back, so the timer cannot read them from `filters`. This must
+  // be captured by whoever issues the request while the timer is armed — the
+  // timer clears its own id before calling updateTable, so updateTable itself
+  // can no longer tell that a search is pending.
+  const trackPending = (clean) => {
+    if (searchTimeout.current) {
+      pendingParamsRef.current = clean;
+    }
+  };
+
   const updateTable = (params) => {
     const clean = Object.fromEntries(
       Object.entries(params).filter(([_, v]) => v !== null && v !== undefined && v !== '')
     );
-    if (searchTimeout.current) {
-      pendingParamsRef.current = clean;
-    }
+    trackPending(clean);
     router.get(route('cases.index'), clean, withLoading({
       preserveState: true,
       preserveScroll: true,
@@ -223,8 +233,11 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
     searchTimeout.current = setTimeout(() => {
       const base = pendingParamsRef.current ?? filtersRef.current;
       pendingParamsRef.current = null;
-      searchTimeout.current = null;
       updateTable({ ...base, search: value || undefined, page: undefined });
+      // Cleared AFTER updateTable: updateTable -> trackPending must not record
+      // this very request as "pending". Anything issued later (a filter click
+      // while the response is in flight) is authoritative on its own.
+      searchTimeout.current = null;
     }, 400);
   };
 

@@ -28,7 +28,7 @@ class SessionExpiryTest extends TestCase
             TrackingService::SESSION_KEY => array_merge([
                 'tracker_number' => $this->trackerNumber,
                 'email' => 'ofw@example.com',
-                'verified_at' => now()->toISOString(),
+                'verified_at' => now()->getTimestamp(),
             ], $binding),
         ]);
     }
@@ -42,7 +42,7 @@ class SessionExpiryTest extends TestCase
         $session->put(TrackingService::SESSION_KEY, array_merge([
             'tracker_number' => $this->trackerNumber,
             'email' => 'ofw@example.com',
-            'verified_at' => now()->toISOString(),
+            'verified_at' => now()->getTimestamp(),
         ], $binding));
 
         $request = request();
@@ -61,7 +61,18 @@ class SessionExpiryTest extends TestCase
 
     public function test_binding_older_than_thirty_minutes_is_invalid(): void
     {
-        $this->assertBindingValidity(false, ['verified_at' => now()->subMinutes(31)->toISOString()]);
+        $this->assertBindingValidity(false, ['verified_at' => now()->subMinutes(31)->getTimestamp()]);
+    }
+
+    public function test_binding_just_inside_the_window_is_still_valid(): void
+    {
+        $this->assertBindingValidity(true, ['verified_at' => now()->subMinutes(29)->getTimestamp()]);
+    }
+
+    public function test_binding_exactly_at_the_boundary_is_rejected(): void
+    {
+        // 30 minutes exactly is no longer "less than" the TTL.
+        $this->assertBindingValidity(false, ['verified_at' => now()->subMinutes(30)->getTimestamp()]);
     }
 
     public function test_binding_without_verified_at_is_invalid(): void
@@ -69,9 +80,17 @@ class SessionExpiryTest extends TestCase
         $this->assertBindingValidity(false, ['verified_at' => null]);
     }
 
+    public function test_binding_with_a_non_integer_verified_at_is_invalid(): void
+    {
+        // Only the Unix-timestamp form is accepted; a legacy ISO string or any
+        // other scalar means the session cannot be trusted.
+        $this->assertBindingValidity(false, ['verified_at' => now()->toISOString()]);
+        $this->assertBindingValidity(false, ['verified_at' => (string) now()->getTimestamp()]);
+    }
+
     public function test_expired_binding_cannot_view_tracking_page(): void
     {
-        $this->bindSession(['verified_at' => now()->subMinutes(31)->toISOString()]);
+        $this->bindSession(['verified_at' => now()->subMinutes(31)->getTimestamp()]);
 
         $this->get(route('track.show', ['tracker_number' => $this->trackerNumber]))
             ->assertSessionHasErrors('tracker_number');

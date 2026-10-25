@@ -67,8 +67,8 @@ class ManilaReportWindowsTest extends TestCase
 
     public function test_late_manila_evening_record_stays_in_its_own_day(): void
     {
-        // 2026-01-01 23:30 Manila == 2026-01-01 15:30 UTC — guards against an
-        // off-by-a-day shift in the other direction.
+        // 2026-01-01 23:30 Manila == 2026-01-01 15:30 UTC, which guards against
+        // an off-by-a-day shift in the other direction.
         $this->createCaseAt('2026-01-01 15:30:00');
 
         $trend = app(CaseMetrics::class)->getCasesOverTime(fromDate: '2026-01-01', toDate: '2026-01-01');
@@ -100,5 +100,39 @@ class ManilaReportWindowsTest extends TestCase
 
         $this->assertSame(['2026-01'], $trend['labels']);
         $this->assertSame([1], $trend['datasets'][0]['data']);
+    }
+
+    /**
+     * The window must stay a plain range on the timestamp column.
+     *
+     * Wrapping the column in `AT TIME ZONE` (the previous shape) makes the
+     * predicate non-sargable: PostgreSQL cannot use the index and scans the
+     * whole table on the hottest report path. Shifting the bounds instead
+     * selects the same rows with an indexable range.
+     */
+    public function test_the_day_window_compares_the_bare_column_so_the_index_is_usable(): void
+    {
+        $metrics = app(CaseMetrics::class);
+        $method = new \ReflectionMethod($metrics, 'applyLocalDateWindow');
+
+        $query = CaseFile::query();
+        $method->invoke($metrics, $query, 'cases.created_at', '2026-01-01', '2026-01-31');
+
+        $sql = $query->toSql();
+        $bindings = $query->getBindings();
+
+        $this->assertStringContainsString('"cases"."created_at" >=', $sql);
+        $this->assertStringContainsString('"cases"."created_at" <', $sql);
+        $this->assertStringNotContainsStringIgnoringCase('at time zone', $sql);
+
+        // The bounds are the Manila day edges, so the range still selects
+        // exactly the calendar days the user typed.
+        $this->assertSame('2025-12-31 16:00:00', $this->asUtcString($bindings[0]));
+        $this->assertSame('2026-01-31 16:00:00', $this->asUtcString($bindings[1]));
+    }
+
+    private function asUtcString(mixed $value): string
+    {
+        return Carbon::parse($value)->utc()->format('Y-m-d H:i:s');
     }
 }

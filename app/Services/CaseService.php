@@ -1304,8 +1304,13 @@ class CaseService
 
     /**
      * Cases hydrated per pagination round in purgeTrashedCases().
+     *
+     * Each case forces its own potentially large delete cascade, so a round of
+     * 200 held that many cascade trees in one transaction batch. 50 keeps a
+     * round's lock footprint and memory small while still amortising the
+     * pagination query.
      */
-    private const PURGE_CHUNK_SIZE = 200;
+    private const PURGE_CHUNK_SIZE = 50;
 
     /**
      * Permanently delete soft-deleted cases older than the retention period.

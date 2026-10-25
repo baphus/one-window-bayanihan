@@ -125,6 +125,7 @@ class ReferralMessageService
 
         $counts = $this->pairUnreadCounts(
             $cards->pluck('case_id')->unique()->values()->all(),
+            $cards->pluck('agcy_id')->unique()->values()->all(),
             (string) $actor->agcy_id,
             (string) $actor->id,
         );
@@ -139,19 +140,32 @@ class ReferralMessageService
     /**
      * Count unread peer messages for every (case, peer agency) pair on the cases.
      *
-     * Rows are keyed "{case_id}:{peer_agency_id}". Every pair that appears in a
-     * message on those cases is returned, so a missing key means zero.
+     * Rows are keyed "{case_id}:{peer_agency_id}", where the peer agency is the
+     * agency on the card the count will badge — the same key
+     * pairUnreadCount() and upsertReadMarker() use for `agency_thread_reads`.
+     * Keying on the sender's agency would only agree while the peer is the
+     * sender, i.e. while canAccessThread() keeps a user out of their own
+     * agency's cards; this way both counters agree by construction.
      *
      * The viewer agency's conversation with a peer is anchored on either side:
      * messages may hang off the peer's referrals or off the viewer's own. Both
-     * anchors belong to the same thread, so both are counted. Messages written by
-     * the viewer's own agency are never unread to that viewer.
+     * anchors belong to the same thread, so both are counted under the peer's
+     * key. Messages written by the viewer's own agency are never unread to that
+     * viewer.
+     *
+     * `$peerAgencyIds` restricts the output to the cards being counted; the
+     * single-thread counters count whole conversations.
      *
      * @param  array<int, string>  $caseIds
+     * @param  array<int, string>  $peerAgencyIds  Agencies the caller is counting for (empty = every pair).
      * @return array<string, int>
      */
-    public function pairUnreadCounts(array $caseIds, string $viewerAgencyId, string $viewerUserId): array
-    {
+    public function pairUnreadCounts(
+        array $caseIds,
+        array $peerAgencyIds,
+        string $viewerAgencyId,
+        string $viewerUserId,
+    ): array {
         if ($caseIds === []) {
             return [];
         }
@@ -198,7 +212,21 @@ class ReferralMessageService
                 continue;
             }
 
-            $key = $row->case_id.':'.$senderAgency;
+            // The peer is whoever is not the viewer, and it is the card agency a
+            // marker is written for (see upsertReadMarker()). Using the anchor
+            // rather than the sender keeps messages on both sides of the thread
+            // under one key when the peer replies from their own referral.
+            $peerAgency = $anchorAgency === $viewerAgencyId ? $senderAgency : $anchorAgency;
+
+            if ($peerAgency === $viewerAgencyId) {
+                continue;
+            }
+
+            if ($peerAgencyIds !== [] && ! in_array($peerAgency, $peerAgencyIds, true)) {
+                continue;
+            }
+
+            $key = $row->case_id.':'.$peerAgency;
             $counts[$key] ??= 0;
 
             $marker = $markers->get($key);
@@ -230,7 +258,13 @@ class ReferralMessageService
             ->where('peer_agency_id', $referral->agcy_id)
             ->value('last_read_at');
 
-        $query = $this->pairQuery($referral, $actor);
+        // Own-agency messages are never unread, for the same reason the batch
+        // counter skips them: the marker is per user, so a colleague's message
+        // would otherwise badge for every other user at the agency. Without this
+        // the single-thread badge and the card badge disagreed on a thread the
+        // viewer had replied to.
+        $query = $this->pairQuery($referral, $actor)
+            ->whereHas('sender', fn ($q) => $q->where('agcy_id', '!=', $actor->agcy_id));
 
         if ($marker !== null) {
             $query->where('created_at', '>', Carbon::parse($marker));
