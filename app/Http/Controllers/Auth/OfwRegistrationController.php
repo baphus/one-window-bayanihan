@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password;
 use Inertia\Inertia;
@@ -29,14 +30,38 @@ class OfwRegistrationController extends Controller
         private readonly NotificationService $notificationService,
     ) {}
 
-    public function create()
+    /**
+     * Step 1. Prefills from `pending_registration` so "Back to edit" from the
+     * review step is lossless. The password hash is never sent to the client —
+     * an existing hash means the user must re-enter the password to submit.
+     */
+    public function create(Request $request)
     {
-        return Inertia::render('Auth/Register');
+        $pending = $request->session()->get('pending_registration');
+        $credentials = is_array($pending) ? ($pending['credentials'] ?? []) : [];
+        $profile = is_array($pending) ? ($pending['profile'] ?? []) : [];
+
+        return Inertia::render('Auth/Register', [
+            'initial' => [
+                'credentials' => [
+                    'first_name' => $credentials['first_name'] ?? '',
+                    'middle_name' => $credentials['middle_name'] ?? '',
+                    'last_name' => $credentials['last_name'] ?? '',
+                    'email' => $credentials['email'] ?? '',
+                    'has_password' => ! empty($credentials['password']),
+                ],
+                'profile' => $profile,
+            ],
+        ]);
     }
 
     /**
-     * Step 1: credentials only. No User row yet — validated credentials plus
-     * an OTP challenge live in the session until the profile step completes.
+     * Step 1: credentials *and* the whole profile. Nothing is written to the
+     * database and no code is sent — both live in the session until the review
+     * step verifies the email (see storeReview()).
+     *
+     * `unique:users,email` is deliberately absent: a duplicate is re-checked at
+     * review time so the user isn't bounced off a long form at the last second.
      */
     public function store(Request $request)
     {
@@ -44,51 +69,96 @@ class OfwRegistrationController extends Controller
             'first_name' => 'required|string|max:255',
             'middle_name' => 'nullable|string|max:255',
             'last_name' => 'required|string|max:255',
-            'email' => 'required|string|lowercase|email|max:255|unique:users,email',
+            'email' => 'required|string|lowercase|email|max:255',
             'password' => ['required', 'confirmed', Password::min(8)->mixedCase()->numbers()],
-        ]);
-
-        $email = strtolower(trim($validated['email']));
-
-        // OTP sends are the abuse vector here (Phase 2 routes stay untouched);
-        // reuse the named otp limiter inline instead of adding route middleware.
-        $otpKey = $this->otpThrottleKey($request, $email);
-        if (RateLimiter::tooManyAttempts($otpKey, 5)) {
-            return back()->withErrors(['email' => 'Too many attempts. Try again in a few minutes.']);
-        }
-        RateLimiter::hit($otpKey, 300);
-
-        $this->otpService->generate($email, 'register');
+        ] + $this->profileRules($request->input('date_of_birth')));
 
         $request->session()->put('pending_registration', [
             'credentials' => [
                 'first_name' => $validated['first_name'],
                 'middle_name' => $validated['middle_name'] ?? null,
                 'last_name' => $validated['last_name'],
-                'email' => $email,
+                'email' => strtolower(trim($validated['email'])),
                 'password' => Hash::make($validated['password']),
             ],
-            'register_otp_verified' => false,
+            'profile' => [
+                'type' => $validated['type'],
+                'suffix' => $validated['suffix'] ?? null,
+                'date_of_birth' => $validated['date_of_birth'],
+                'sex' => $validated['sex'] ?? null,
+                'contact_number' => $validated['contact_number'] ?? null,
+                'address' => $validated['address'],
+                'employment' => $validated['employment'],
+            ],
         ]);
         $request->session()->regenerate();
 
-        return redirect()->route('register.profile');
+        return redirect()->route('register.review');
     }
 
-    public function showProfile(Request $request)
+    /**
+     * Profile rules shared by step 1 (capture) and the review step (re-check
+     * against the session copy). The date of birth is passed in rather than
+     * read from the request because the review submission may only carry the
+     * code — the DOB it must be checked against lives in the session.
+     *
+     * @return array<string, mixed>
+     */
+    protected function profileRules(?string $dateOfBirth): array
     {
-        $credentials = $request->session()->get('pending_registration.credentials', []);
+        $dob = $dateOfBirth ?: '1900-01-01';
 
-        return Inertia::render('Auth/RegisterProfile', [
+        return [
+            'type' => 'required|string|in:OFW,NEXT_OF_KIN',
+            'suffix' => 'nullable|string|max:50',
+            'date_of_birth' => ['required', 'date', 'before_or_equal:'.now()->subYears(15)->toDateString(), 'after_or_equal:'.now()->subYears(100)->toDateString()],
+            'sex' => 'nullable|string|max:50',
+            'contact_number' => 'nullable|string|max:50',
+            'address' => ['required', 'array'],
+            'address.region' => ['required', 'string', new ServedRegion],
+            'address.province' => ['nullable', 'string', 'max:255'],
+            'address.city_municipality' => ['required', 'string', 'max:255'],
+            'address.barangay' => ['required', 'string', 'max:255'],
+            'address.street' => ['nullable', 'string'],
+            'employment' => ['required', 'array'],
+            'employment.employer_name' => ['required', 'string', 'max:255'],
+            'employment.position' => ['nullable', 'string', 'max:255'],
+            'employment.country' => ['nullable', 'string', 'max:255'],
+            'employment.start_date' => ['required', 'date', 'after_or_equal:'.$dob, 'before_or_equal:today', new EmploymentStartAtWorkingAge($dateOfBirth)],
+            'employment.end_date' => ['required_unless:employment.is_present,true', 'nullable', 'date', 'after_or_equal:employment.start_date', 'before_or_equal:today'],
+            'employment.is_present' => ['nullable', 'boolean'],
+            'employment.last_country' => ['required', 'string', 'max:255'],
+            'employment.last_position' => ['required', 'string', 'max:255'],
+            'employment.date_of_arrival' => ['required', 'date', 'after_or_equal:'.$dob],
+        ];
+    }
+
+    /**
+     * Step 2. Renders the read-only summary of everything captured in step 1
+     * plus the "Send Verification Code" control.
+     */
+    public function showReview(Request $request)
+    {
+        $pending = $request->session()->get('pending_registration');
+        $credentials = is_array($pending) ? ($pending['credentials'] ?? []) : [];
+        $profile = is_array($pending) ? ($pending['profile'] ?? []) : [];
+
+        return Inertia::render('Auth/RegisterReview', [
             'pendingName' => [
                 'first_name' => $credentials['first_name'] ?? '',
                 'middle_name' => $credentials['middle_name'] ?? '',
                 'last_name' => $credentials['last_name'] ?? '',
             ],
+            'pending' => $profile,
         ]);
     }
 
-    public function resendOtp(Request $request)
+    /**
+     * Issues the verification code from the review step. The named `otp`
+     * limiter is applied by the route; the inline check below additionally
+     * caps *sends* per address so the endpoint cannot be used as a mail cannon.
+     */
+    public function sendOtp(Request $request)
     {
         $pending = $request->session()->get('pending_registration');
 
@@ -105,7 +175,7 @@ class OfwRegistrationController extends Controller
 
         $this->otpService->generate($email, 'register');
 
-        return back()->with('success', 'A new verification code has been sent.');
+        return back()->with('success', 'A verification code has been sent to '.$email.'.');
     }
 
     /**
@@ -119,7 +189,7 @@ class OfwRegistrationController extends Controller
      * below re-arms it, which keeps the single-use guarantee for anything
      * that actually committed.
      */
-    public function storeProfile(Request $request)
+    public function storeReview(Request $request)
     {
         $pending = $request->session()->get('pending_registration');
 
@@ -127,37 +197,26 @@ class OfwRegistrationController extends Controller
             return redirect()->route('register');
         }
 
-        $validated = $request->validate([
-            'otp' => 'required|string|size:6',
-            'type' => 'required|string|in:OFW,NEXT_OF_KIN',
-            'suffix' => 'nullable|string|max:50',
-            'date_of_birth' => ['required', 'date', 'before_or_equal:'.now()->subYears(15)->toDateString(), 'after_or_equal:'.now()->subYears(100)->toDateString()],
-            'sex' => 'nullable|string|max:50',
-            'contact_number' => 'nullable|string|max:50',
-            'address' => ['required', 'array'],
-            'address.region' => ['required', 'string', new ServedRegion],
-            'address.province' => ['nullable', 'string', 'max:255'],
-            'address.city_municipality' => ['required', 'string', 'max:255'],
-            'address.barangay' => ['required', 'string', 'max:255'],
-            'address.street' => ['nullable', 'string'],
-            'employment' => ['required', 'array'],
-            'employment.employer_name' => ['required', 'string', 'max:255'],
-            'employment.position' => ['nullable', 'string', 'max:255'],
-            'employment.country' => ['nullable', 'string', 'max:255'],
-            'employment.start_date' => ['required', 'date', 'after_or_equal:client.date_of_birth', 'before_or_equal:today', new EmploymentStartAtWorkingAge($request->input('date_of_birth'))],
-            'employment.end_date' => ['required_unless:employment.is_present,true', 'nullable', 'date', 'after_or_equal:employment.start_date', 'before_or_equal:today'],
-            'employment.is_present' => ['nullable', 'boolean'],
-            'employment.last_country' => ['required', 'string', 'max:255'],
-            'employment.last_position' => ['required', 'string', 'max:255'],
-            'employment.date_of_arrival' => ['required', 'date', 'after_or_equal:client.date_of_birth'],
-        ]);
+        $credentials = $pending['credentials'];
+        $email = $credentials['email'];
 
-        $email = $pending['credentials']['email'];
-        $firstName = $pending['credentials']['first_name'];
-        $middleName = $pending['credentials']['middle_name'] ?? null;
-        $lastName = $pending['credentials']['last_name'];
+        $otpValidated = $request->validate(['otp' => 'required|string|size:6']);
 
-        if (! $this->otpService->verify($email, 'register', $validated['otp'])) {
+        // Re-check the session copy rather than the request: the only input a
+        // review submission may carry is the code.
+        $profile = is_array($pending['profile'] ?? null) ? $pending['profile'] : [];
+
+        $validated = Validator::make(
+            [...$profile, 'email' => $email],
+            $this->profileRules($profile['date_of_birth'] ?? null)
+                + ['email' => 'required|email|unique:users,email']
+        )->validate();
+
+        $firstName = $credentials['first_name'];
+        $middleName = $credentials['middle_name'] ?? null;
+        $lastName = $credentials['last_name'];
+
+        if (! $this->otpService->verify($email, 'register', $otpValidated['otp'])) {
             return back()->withErrors(['otp' => 'Invalid or expired code.']);
         }
 
@@ -198,7 +257,7 @@ class OfwRegistrationController extends Controller
                 return $user;
             });
         } catch (Throwable $e) {
-            $this->rearmRegisterOtp($email, $validated['otp']);
+            $this->rearmRegisterOtp($email, $otpValidated['otp']);
 
             report($e);
 
@@ -245,7 +304,7 @@ class OfwRegistrationController extends Controller
     /**
      * Cache keys for the registration OTP, mirroring OtpService's
      * `otp:{purpose}:{identifier}` and `otp:attempts:{purpose}:{identifier}`
-     * shape for the session-less code issued by store().
+     * shape for the session-less code issued by sendOtp().
      *
      * @return array{code: string, attempts: string}
      */
