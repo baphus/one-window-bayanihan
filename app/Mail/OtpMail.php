@@ -24,6 +24,7 @@ class OtpMail extends Mailable implements ShouldQueue
             'login' => 'Your Login Verification Code',
             'track' => 'Your Case Tracking Verification Code',
             'email_change' => 'Your Email Change Verification Code',
+            'register' => 'Verify your One Window Bayanihan email',
             default => 'Your Verification Code',
         };
 

@@ -92,19 +92,20 @@ class OtpThrottleIdentityTest extends TestCase
 
     /**
      * The guest half of the limiter must keep keying on the pending registration
-     * email, so a filer still gets five code attempts per address.
+     * email, so a filer still gets five code sends per address. send-otp is the
+     * endpoint that issues codes, so it carries the `throttle:otp` middleware.
      */
     #[Test]
-    public function it_rate_limits_registration_otp_attempts_per_pending_email(): void
+    public function it_rate_limits_registration_otp_requests_per_pending_email(): void
     {
         for ($i = 0; $i < 5; $i++) {
             $this->postAsPendingFiler('filer@example.test')
-                ->post(route('register.profile.store'), [])
+                ->post(route('register.review.send-otp'), [])
                 ->assertStatus(302);
         }
 
         $this->postAsPendingFiler('filer@example.test')
-            ->post(route('register.profile.store'), [])
+            ->post(route('register.review.send-otp'), [])
             ->assertStatus(429);
     }
 
@@ -117,12 +118,12 @@ class OtpThrottleIdentityTest extends TestCase
     {
         for ($i = 0; $i < 5; $i++) {
             $this->postAsPendingFiler('filer@example.test')
-                ->post(route('register.profile.store'), [])
+                ->post(route('register.review.send-otp'), [])
                 ->assertStatus(302);
         }
 
         $this->postAsPendingFiler('other-filer@example.test')
-            ->post(route('register.profile.store'), [])
+            ->post(route('register.review.send-otp'), [])
             ->assertStatus(302);
     }
 
@@ -137,7 +138,7 @@ class OtpThrottleIdentityTest extends TestCase
         $user = User::factory()->create(['password' => Hash::make('password')]);
 
         $this->postAsPendingFiler($user->email)
-            ->post(route('register.profile.store'), [])
+            ->post(route('register.review.send-otp'), [])
             ->assertStatus(302);
 
         $this->actingAs($user)

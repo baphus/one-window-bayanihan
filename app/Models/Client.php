@@ -24,7 +24,7 @@ class Client extends Model
     /**
      * The two registration types. A user's `role` is OFW for both — the answer
      * given at registration lands here, on `clients.type` (see
-     * OfwRegistrationController::storeProfile()).
+     * OfwRegistrationController::storeReview()).
      */
     public const TYPE_OFW = 'OFW';
 

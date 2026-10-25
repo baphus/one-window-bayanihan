@@ -2,29 +2,193 @@ import { useState, useMemo } from 'react';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import AppFooter from '@/Components/landing/AppFooter';
 import AppHeader from '@/Components/landing/AppHeader';
+import AddressDropdowns from '@/Components/AddressDropdowns';
+import CountrySelect from '@/Components/CountrySelect';
 import PasswordInput from '@/Components/PasswordInput';
+import SearchableSelect from '@/Components/SearchableSelect';
 import TurnstileWidget from '@/Components/TurnstileWidget';
+import { DEFAULT_OCCUPATIONS } from '@/data/defaultOccupations';
+import { getProvincesByRegion } from '@/data/philippine-addresses';
 import { makeRegisterSchema } from '@/Schemas/authSchemas';
 import useClientValidation from '@/Hooks/useClientValidation';
 import { getTurnstileError } from '@/lib/turnstile';
 
-export default function Register() {
+const ROLE_CARDS = [
+    {
+        value: 'OFW',
+        icon: 'flight',
+        title: 'I am an OFW',
+        description: 'File and track your own case request.',
+    },
+    {
+        value: 'NEXT_OF_KIN',
+        icon: 'family_restroom',
+        title: 'Filing for a family member',
+        description: 'You are filing on behalf of an OFW.',
+    },
+];
+
+// Same 15–100 bounds as Case/Create.jsx and the backend date_of_birth rule.
+const DOB_BOUNDS = (() => {
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+
+    return {
+        min: `${now.getFullYear() - 100}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`,
+        max: `${now.getFullYear() - 15}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`,
+    };
+})();
+
+const TODAY = (() => {
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+})();
+
+const WORKING_AGE_FLOOR_YEARS = 15;
+const SUFFIX_OPTIONS = ['', 'Jr', 'Sr', 'II', 'III', 'IV', 'V'];
+
+function employmentStartFloor(dob) {
+    if (!dob) return '';
+    const [y, m, d] = dob.split('-').map(Number);
+    if (!y || !m || !d) return '';
+    const floor = new Date(y + WORKING_AGE_FLOOR_YEARS, m - 1, d);
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${floor.getFullYear()}-${pad(floor.getMonth() + 1)}-${pad(floor.getDate())}`;
+}
+
+function regionRequiresProvince(regionCode) {
+    if (!regionCode) return false;
+    return getProvincesByRegion(regionCode).length > 0;
+}
+
+function FieldError({ message }) {
+    if (!message) return null;
+    return <p className="mt-1 text-xs text-red-600">{message}</p>;
+}
+
+export default function Register({ initial = {} }) {
     const { passwordRules, turnstile } = usePage().props;
     const [turnstileToken, setTurnstileToken] = useState('');
     const [turnstileStatus, setTurnstileStatus] = useState('idle');
 
+    const prefill = initial.profile ?? {};
+    const creds = initial.credentials ?? {};
+    // A stored password hash is never sent to the client, so a returning user
+    // re-enters the password; everything else survives "Back to edit".
+    const mustResetPassword = Boolean(creds.has_password);
+
     const { data, setData, post, processing, errors, reset, setError, clearErrors } = useForm({
-        first_name: '',
-        middle_name: '',
-        last_name: '',
-        email: '',
+        first_name: creds.first_name ?? '',
+        middle_name: creds.middle_name ?? '',
+        last_name: creds.last_name ?? '',
+        email: creds.email ?? '',
         password: '',
         password_confirmation: '',
         cf_turnstile_response: '',
+        type: prefill.type ?? 'OFW',
+        suffix: prefill.suffix ?? '',
+        date_of_birth: prefill.date_of_birth ?? '',
+        sex: prefill.sex ?? '',
+        contact_number: prefill.contact_number ?? '',
+        address: {
+            region: prefill.address?.region ?? '',
+            province: prefill.address?.province ?? '',
+            city_municipality: prefill.address?.city_municipality ?? '',
+            barangay: prefill.address?.barangay ?? '',
+            street: prefill.address?.street ?? '',
+        },
+        employment: {
+            employer_name: prefill.employment?.employer_name ?? '',
+            position: prefill.employment?.position ?? '',
+            country: prefill.employment?.country ?? '',
+            start_date: prefill.employment?.start_date ?? '',
+            end_date: prefill.employment?.end_date ?? '',
+            is_present: prefill.employment?.is_present ?? false,
+            last_country: prefill.employment?.last_country ?? '',
+            last_position: prefill.employment?.last_position ?? '',
+            date_of_arrival: prefill.employment?.date_of_arrival ?? '',
+        },
     });
 
     const schema = useMemo(() => makeRegisterSchema(passwordRules), [passwordRules]);
     const { validate } = useClientValidation(schema, data, setError);
+
+    // Occupation dropdown options — same curated DMW/PSA-based OFW list as
+    // Case/Create.jsx (DEFAULT_OCCUPATIONS), shaped for SearchableSelect.
+    const mergedOccupationOptions = useMemo(() => {
+        const labels = [...DEFAULT_OCCUPATIONS]
+            .map((p) => String(p).trim())
+            .filter(Boolean);
+        const unique = [...new Set(labels)].sort((a, b) => a.localeCompare(b));
+        return unique.map((p) => ({ value: p, label: p }));
+    }, []);
+
+    const inputClass =
+        'w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none rounded-md';
+
+    // AddressDropdowns emits both batch objects ({ region, ... }) and
+    // (field, value) pairs — handle both into data.address (Case/Create.jsx pattern).
+    function handleAddressChange(field, value) {
+        if (typeof field === 'object') {
+            setData('address', { ...data.address, ...field });
+        } else {
+            setData('address', { ...data.address, [field]: value });
+            if (errors[`address.${field}`]) {
+                setError(`address.${field}`, '');
+            }
+        }
+    }
+
+    function handleEmploymentChange(field, value) {
+        setData('employment', { ...data.employment, [field]: value });
+        if (errors[`employment.${field}`]) {
+            setError(`employment.${field}`, '');
+        }
+    }
+
+    // Lightweight gate for the Continue button (no error writes) —
+    // Case/Create.jsx canProceed pattern, collapsed across every section.
+    function allFieldsComplete() {
+        return (
+            data.type.length > 0
+            && data.date_of_birth.length > 0
+            && data.date_of_birth <= DOB_BOUNDS.max
+            && data.date_of_birth >= DOB_BOUNDS.min
+            && data.sex.length > 0
+            && data.contact_number.trim().length > 0
+            && data.address.region.length > 0
+            && (!regionRequiresProvince(data.address.region) || data.address.province.length > 0)
+            && data.address.city_municipality.length > 0
+            && data.address.barangay.length > 0
+            && data.employment.employer_name.trim().length > 0
+            && data.employment.start_date.length > 0
+            && (data.employment.is_present || data.employment.end_date.length > 0)
+            && data.employment.last_country.length > 0
+            && data.employment.last_position.trim().length > 0
+            && data.employment.date_of_arrival.length > 0
+        );
+    }
+
+    function getMissingFields() {
+        const missing = [];
+        if (!data.date_of_birth) missing.push('Date of Birth');
+        if (!data.sex) missing.push('Sex');
+        if (!data.contact_number.trim()) missing.push('Contact Number');
+        if (!data.address.region) missing.push('Region');
+        if (regionRequiresProvince(data.address.region) && !data.address.province) missing.push('Province');
+        if (!data.address.city_municipality) missing.push('City/Municipality');
+        if (!data.address.barangay) missing.push('Barangay');
+        if (!data.employment.employer_name.trim()) missing.push('Employer Name');
+        if (!data.employment.start_date) missing.push('Start Date');
+        if (!data.employment.is_present && !data.employment.end_date) missing.push('End Date');
+        if (!data.employment.last_country) missing.push('Last Country');
+        if (!data.employment.last_position.trim()) missing.push('Last Occupation');
+        if (!data.employment.date_of_arrival) missing.push('Arrival Date');
+        return missing;
+    }
+
+    const missingFields = getMissingFields();
 
     const submit = (e) => {
         e.preventDefault();
@@ -32,7 +196,7 @@ export default function Register() {
         if (!validate()) return;
 
         setData('cf_turnstile_response', turnstileToken);
-        post(route('register'), {
+        post(route('register.store'), {
             onFinish: () => { reset('password', 'password_confirmation'); },
         });
     };
@@ -78,8 +242,9 @@ export default function Register() {
                         </div>
                     </div>
 
-                    {/* Right: Form — min-h mirrors profile Step 1 content height (851px) so both steps match */}
-                    <div className="lg:w-[40%] flex items-center justify-center p-10 lg:p-14 lg:min-h-[max(851px,calc(100dvh-72px))] bg-surface">
+                    {/* Right: Form — the whole profile is captured here, so the
+                        column needs room for roughly three screens of fields. */}
+                    <div className="lg:w-[40%] flex items-center justify-center p-10 lg:p-14 lg:min-h-[max(1200px,calc(100dvh-72px))] bg-surface">
                         <div className="w-full max-w-md">
                             <div className="mb-8">
                                 <span className="material-symbols-outlined mb-4 block text-primary text-[32px]">
@@ -91,11 +256,100 @@ export default function Register() {
                                 </h2>
 
                                 <p className="mt-2 text-sm text-slate-500">
-                                    Step 1 of 2 — set up your login.
+                                    Step 1 of 2 — tell us about you. You'll verify your email on the next screen.
                                 </p>
                             </div>
 
                             <form onSubmit={submit} className="space-y-5">
+                                {/* Who is this account for */}
+                                <div>
+                                    <span className="mb-2 block text-xs font-bold uppercase tracking-widest text-on-surface-variant">
+                                        Who is this account for?
+                                    </span>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        {ROLE_CARDS.map((role) => {
+                                            const selected = data.type === role.value;
+                                            return (
+                                                <button
+                                                    key={role.value}
+                                                    type="button"
+                                                    onClick={() => setData('type', role.value)}
+                                                    aria-pressed={selected}
+                                                    className={`rounded-md border p-4 text-left transition-all ${
+                                                        selected
+                                                            ? 'border-primary bg-primary-fixed/40 ring-1 ring-primary'
+                                                            : 'border-outline-variant bg-surface-container hover:border-primary/50'
+                                                    }`}
+                                                >
+                                                    <span className={`material-symbols-outlined block text-[24px] ${selected ? 'text-primary' : 'text-slate-400'}`}>
+                                                        {role.icon}
+                                                    </span>
+                                                    <span className="mt-2 block text-sm font-bold text-slate-900">
+                                                        {role.title}
+                                                    </span>
+                                                    <span className="mt-0.5 block text-xs text-slate-500">
+                                                        {role.description}
+                                                    </span>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                    <FieldError message={errors.type} />
+                                </div>
+
+                                {/* Suffix */}
+                                <div>
+                                    <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-on-surface-variant">
+                                        Suffix
+                                    </label>
+                                    <select
+                                        value={data.suffix}
+                                        onChange={(e) => setData('suffix', e.target.value)}
+                                        className={inputClass}
+                                    >
+                                        <option value="">None</option>
+                                        {SUFFIX_OPTIONS.filter(Boolean).map((suffix) => (
+                                            <option key={suffix} value={suffix}>{suffix}</option>
+                                        ))}
+                                    </select>
+                                    <FieldError message={errors.suffix} />
+                                </div>
+
+                                {/* Birth + sex */}
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-on-surface-variant">
+                                            Date of Birth
+                                        </label>
+                                        <input
+                                            type="date"
+                                            value={data.date_of_birth}
+                                            onChange={(e) => setData('date_of_birth', e.target.value)}
+                                            min={DOB_BOUNDS.min}
+                                            max={DOB_BOUNDS.max}
+                                            className={inputClass}
+                                            required
+                                        />
+                                        <FieldError message={errors.date_of_birth} />
+                                    </div>
+                                    <div>
+                                        <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-on-surface-variant">
+                                            Sex
+                                        </label>
+                                        <select
+                                            value={data.sex}
+                                            onChange={(e) => setData('sex', e.target.value)}
+                                            className={inputClass}
+                                            required
+                                        >
+                                            <option value="">Select…</option>
+                                            <option value="Male">Male</option>
+                                            <option value="Female">Female</option>
+                                        </select>
+                                        <FieldError message={errors.sex} />
+                                    </div>
+                                </div>
+
                                 {/* Name */}
                                 <div className="grid grid-cols-2 gap-3">
                                     <div>
@@ -106,7 +360,7 @@ export default function Register() {
                                             type="text"
                                             value={data.first_name}
                                             onChange={(e) => setData('first_name', e.target.value)}
-                                            className="w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none rounded-md"
+                                            className={inputClass}
                                             autoComplete="given-name"
                                             autoFocus
                                             required
@@ -124,7 +378,7 @@ export default function Register() {
                                             type="text"
                                             value={data.last_name}
                                             onChange={(e) => setData('last_name', e.target.value)}
-                                            className="w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none rounded-md"
+                                            className={inputClass}
                                             autoComplete="family-name"
                                             required
                                             maxLength={255}
@@ -141,7 +395,7 @@ export default function Register() {
                                             type="text"
                                             value={data.middle_name}
                                             onChange={(e) => setData('middle_name', e.target.value)}
-                                            className="w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none rounded-md"
+                                            className={inputClass}
                                             autoComplete="additional-name"
                                             maxLength={255}
                                         />
@@ -172,6 +426,11 @@ export default function Register() {
                                     {errors.email && (
                                         <p className="mt-1 text-xs text-red-600">{errors.email}</p>
                                     )}
+                                    {mustResetPassword && (
+                                        <p className="mt-1 text-xs text-amber-600">
+                                            Re-enter your password to continue.
+                                        </p>
+                                    )}
                                 </div>
 
                                 {/* Password */}
@@ -197,6 +456,167 @@ export default function Register() {
                                     autoComplete="new-password"
                                 />
 
+                                {/* Contact */}
+                                <div>
+                                    <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-on-surface-variant">
+                                        Contact Number
+                                    </label>
+                                    <input
+                                        type="tel"
+                                        value={data.contact_number}
+                                        onChange={(e) => setData('contact_number', e.target.value)}
+                                        placeholder="09xx xxx xxxx"
+                                        className={inputClass}
+                                        required
+                                        autoComplete="tel"
+                                        maxLength={50}
+                                    />
+                                    <FieldError message={errors.contact_number} />
+                                </div>
+
+                                {/* Address */}
+                                <AddressDropdowns
+                                    values={data.address}
+                                    onChange={handleAddressChange}
+                                    errors={{
+                                        region: errors['address.region'],
+                                        province: errors['address.province'],
+                                        city_municipality: errors['address.city_municipality'],
+                                        barangay: errors['address.barangay'],
+                                    }}
+                                />
+
+                                {/* Employment */}
+                                <div className="space-y-4">
+                                    <h4 className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-700">
+                                        Employment
+                                    </h4>
+
+                                    <div>
+                                        <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-on-surface-variant">
+                                            Employer Name <span className="text-red-500">*</span>
+                                        </label>
+                                        <input
+                                            value={data.employment.employer_name}
+                                            onChange={(e) => handleEmploymentChange('employer_name', e.target.value)}
+                                            className={inputClass}
+                                            maxLength={255}
+                                            required
+                                        />
+                                        <FieldError message={errors['employment.employer_name']} />
+                                    </div>
+
+                                    <div>
+                                        <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-on-surface-variant">
+                                            Current Position / Job Title
+                                        </label>
+                                        <input
+                                            value={data.employment.position}
+                                            onChange={(e) => handleEmploymentChange('position', e.target.value)}
+                                            className={inputClass}
+                                            maxLength={255}
+                                        />
+                                        <FieldError message={errors['employment.position']} />
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-on-surface-variant">
+                                                Start Date
+                                            </label>
+                                            <input
+                                                type="date"
+                                                value={data.employment.start_date}
+                                                onChange={(e) => handleEmploymentChange('start_date', e.target.value)}
+                                                min={employmentStartFloor(data.date_of_birth) || undefined}
+                                                max={TODAY}
+                                                className={inputClass}
+                                                required
+                                            />
+                                            <FieldError message={errors['employment.start_date']} />
+                                        </div>
+                                        <div>
+                                            <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-on-surface-variant">
+                                                End Date
+                                            </label>
+                                            {data.employment.is_present ? (
+                                                <div className="w-full border border-outline-variant bg-surface-container/60 px-4 py-3 text-sm rounded-md text-slate-600">
+                                                    Present
+                                                </div>
+                                            ) : (
+                                                <input
+                                                    type="date"
+                                                    value={data.employment.end_date}
+                                                    onChange={(e) => handleEmploymentChange('end_date', e.target.value)}
+                                                    min={data.employment.start_date || undefined}
+                                                    max={TODAY}
+                                                    className={inputClass}
+                                                />
+                                            )}
+                                            <FieldError message={errors['employment.end_date']} />
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-on-surface-variant">
+                                            Is Currently Employed
+                                        </label>
+                                        <input
+                                            type="checkbox"
+                                            checked={data.employment.is_present}
+                                            onChange={(e) => {
+                                                const checked = e.target.checked;
+                                                setData('employment', {
+                                                    ...data.employment,
+                                                    is_present: checked,
+                                                    end_date: checked ? '' : data.employment.end_date,
+                                                });
+                                            }}
+                                            className="w-4 h-4 rounded border-primary focus:ring-primary" />
+                                        <span className="ml-2 text-sm text-slate-700">Present</span>
+                                    </div>
+
+                                    <div>
+                                        <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-on-surface-variant">
+                                            Last Country of Employment
+                                        </label>
+                                        <CountrySelect
+                                            value={data.employment.last_country}
+                                            onChange={(v) => handleEmploymentChange('last_country', v)}
+                                            placeholder="Select country..."
+                                        />
+                                        <FieldError message={errors['employment.last_country']} />
+                                    </div>
+
+                                    <div>
+                                        <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-on-surface-variant">
+                                            Last Occupation
+                                        </label>
+                                        <SearchableSelect
+                                            value={data.employment.last_position}
+                                            onChange={(v) => handleEmploymentChange('last_position', v)}
+                                            options={mergedOccupationOptions}
+                                            placeholder="Select or type occupation..."
+                                            allowCustom
+                                        />
+                                        <FieldError message={errors['employment.last_position']} />
+                                    </div>
+
+                                    <div>
+                                        <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-on-surface-variant">
+                                            Arrival Date in Philippines
+                                        </label>
+                                        <input
+                                            type="date"
+                                            value={data.employment.date_of_arrival}
+                                            onChange={(e) => handleEmploymentChange('date_of_arrival', e.target.value)}
+                                            className={inputClass}
+                                            required
+                                        />
+                                        <FieldError message={errors['employment.date_of_arrival']} />
+                                    </div>
+                                </div>
+
                                 {turnstile?.enabled && (
                                     <div className="text-center">
                                         <TurnstileWidget
@@ -215,12 +635,18 @@ export default function Register() {
                                     </div>
                                 )}
 
+                                {!allFieldsComplete() && missingFields.length > 0 && (
+                                    <p className="text-[11px] text-amber-600 leading-tight">
+                                        Complete: {missingFields.join(', ')}
+                                    </p>
+                                )}
+
                                 <button
                                     type="submit"
-                                    disabled={processing || (turnstile?.enabled && !turnstileToken)}
+                                    disabled={processing || !allFieldsComplete() || (turnstile?.enabled && !turnstileToken)}
                                     className="w-full bg-primary text-on-primary px-8 py-4 text-sm font-bold shadow-xl hover:brightness-110 active:scale-95 transition-all disabled:opacity-60 rounded-md"
                                 >
-                                    {processing ? 'Creating Account...' : 'Create Account'}
+                                    {processing ? 'Saving...' : 'Continue to Review'}
                                 </button>
 
                                 <div className="text-center">
