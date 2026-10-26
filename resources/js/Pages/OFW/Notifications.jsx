@@ -79,7 +79,6 @@ export default function Notifications({ notifications }) {
             </Link>
 
             <PageHeader
-                eyebrow="My cases"
                 title="Notifications"
                 subtitle="Updates about your cases"
             />

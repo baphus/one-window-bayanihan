@@ -61,6 +61,7 @@ class OfwProfileTest extends TestCase
         $this->assertEquals('Maria', $response->json('props.client.first_name'));
         $this->assertEquals('Cebu City', $response->json('props.client.address.city_municipality'));
         $this->assertEquals('ACME Ltd', $response->json('props.client.employment.employer_name'));
+        $this->assertEquals('Saudi Arabia', $response->json('props.client.employment.country'));
         $this->assertEquals($nok->id, $response->json('props.client.next_of_kin.0.id'));
     }
 
@@ -128,8 +129,16 @@ class OfwProfileTest extends TestCase
 
         $employment = ClientEmployment::where('client_id', $client->id)->first();
         $this->assertEquals('ACME Ltd', $employment->employer_name);
+        $this->assertEquals('Saudi Arabia', $employment->country);
         $this->assertEquals('2024-01-01', $employment->start_date->toDateString());
         $this->assertEquals('2025-02-01', $employment->date_of_arrival->toDateString());
+
+        // The saved country must come back on the edit page, not just in the DB.
+        $response = $this->actingAs($user)
+            ->withHeader('X-Inertia', 'true')
+            ->get('/my-cases/profile');
+
+        $this->assertEquals('Saudi Arabia', $response->json('props.client.employment.country'));
     }
 
     #[Test]

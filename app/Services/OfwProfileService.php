@@ -133,7 +133,7 @@ class OfwProfileService
 
         $fields = ['region', 'province', 'city_municipality', 'barangay', 'street'];
 
-        $row = $client->addresses()->orderBy('created_at')->first();
+        $row = $client->addresses()->orderBy('created_at')->orderBy('id')->first();
 
         if (! $row) {
             if ($this->isEmptyFields($address, $fields)) {
@@ -165,7 +165,7 @@ class OfwProfileService
     {
         $fields = ['employer_name', 'position', 'country', 'start_date', 'end_date', 'last_country', 'last_position', 'date_of_arrival', 'is_present'];
 
-        $row = $client->employments()->orderBy('created_at')->first();
+        $row = $client->employments()->orderBy('created_at')->orderBy('id')->first();
 
         if (! $row) {
             if ($this->isEmptyFields($employment, $fields)) {

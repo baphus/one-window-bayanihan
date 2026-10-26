@@ -253,7 +253,7 @@ export default function OverdueReferralsIndex({ stats = {}, referrals, userRole 
         return (
           <div className="flex items-center gap-1.5">
             <Link
-              href={route('referrals.show', row.id)}
+              href={route('referrals.show', { referral: row.id, from: 'overdue' })}
               className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-900 text-white hover:bg-blue-800 text-[11px] font-bold rounded-md transition-colors whitespace-nowrap"
             >
               View Details

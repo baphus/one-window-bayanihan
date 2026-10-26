@@ -134,8 +134,8 @@ class OfwProfileController extends Controller
             return null;
         }
 
-        $address = $client->addresses()->orderBy('created_at')->first();
-        $employment = $client->employments()->orderBy('created_at')->first();
+        $address = $client->addresses()->orderBy('created_at')->orderBy('id')->first();
+        $employment = $client->employments()->orderBy('created_at')->orderBy('id')->first();
         $nextOfKin = $client->nextOfKin()
             ->orderBy('sort_order')
             ->orderBy('created_at')
@@ -183,6 +183,7 @@ class OfwProfileController extends Controller
                 'last_country' => $employment->last_country,
                 'last_position' => $employment->last_position,
                 'date_of_arrival' => $employment->date_of_arrival?->toDateString(),
+                'is_present' => (bool) $employment->is_present,
             ] : null,
             'next_of_kin' => $nextOfKin,
         ];

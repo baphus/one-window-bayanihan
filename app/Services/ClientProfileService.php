@@ -77,7 +77,9 @@ class ClientProfileService
             'date_of_arrival' => $employmentData['date_of_arrival'] ?? null,
         ];
 
-        $employment = $client->employments()->first();
+        // Deterministic pick: same-transaction inserts share created_at, so the
+        // id tiebreak keeps registration and /my-cases/profile on the same row.
+        $employment = $client->employments()->orderBy('created_at')->orderBy('id')->first();
 
         if ($employment) {
             $employment->update($empData);
