@@ -34,23 +34,25 @@ export default function Dashboard({ cases, caseStats }) {
 
     return (
         <OfwLayout title="My Cases">
-            <PageHeader
-                eyebrow="Case Dashboard"
-                title={`Welcome back, ${auth?.user?.name}`}
-                subtitle="Here's where your requests stand today."
-            >
-                <div className="flex items-center gap-2">
-                    <OfwNotificationBell />
-                    <QuickActions
-                        actions={[
-                            { href: route('ofw.profile.edit'), label: 'View Profile', icon: 'person' },
-                            ...(caseList.length > 0
-                                ? [{ href: fileCaseHref, label: 'File a New Case', icon: 'add', primary: true }]
-                                : []),
-                        ]}
-                    />
-                </div>
-            </PageHeader>
+            <div className="pt-3">
+                <PageHeader
+                    eyebrow="Case Dashboard"
+                    title={`Welcome back, ${auth?.user?.name}`}
+                    subtitle="Here's where your requests stand today."
+                >
+                    <div className="flex items-center gap-2">
+                        <OfwNotificationBell />
+                        <QuickActions
+                            actions={[
+                                { href: route('ofw.profile.edit'), label: 'View Profile', icon: 'person' },
+                                ...(caseList.length > 0
+                                    ? [{ href: fileCaseHref, label: 'File a New Case', icon: 'add', primary: true }]
+                                    : []),
+                            ]}
+                        />
+                    </div>
+                </PageHeader>
+            </div>
 
             {/* Overview stat cards */}
             <StatRow

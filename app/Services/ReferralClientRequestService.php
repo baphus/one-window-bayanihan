@@ -88,13 +88,24 @@ class ReferralClientRequestService
         $this->assertClientFacingWriteAllowed($request->referral);
         $this->assertBody($body);
 
-        $message = DB::transaction(fn () => ReferralClientMessage::create([
-            'request_id' => $request->id,
-            'body' => $body,
-            'sender_kind' => ReferralClientMessage::SENDER_AGENCY_USER,
-            'user_id' => $actor->id,
-            'kind' => ReferralClientMessage::KIND_MESSAGE,
-        ]));
+        $message = DB::transaction(function () use ($request, $actor, $body) {
+            $message = ReferralClientMessage::create([
+                'request_id' => $request->id,
+                'body' => $body,
+                'sender_kind' => ReferralClientMessage::SENDER_AGENCY_USER,
+                'user_id' => $actor->id,
+                'kind' => ReferralClientMessage::KIND_MESSAGE,
+            ]);
+
+            $this->recordRequestUpdate(
+                $request->referral,
+                'Reply: '.$request->title,
+                'The agency replied to this request.',
+                $actor->id,
+            );
+
+            return $message;
+        });
 
         $this->invalidateTrackingCaches($request->referral);
 
@@ -161,6 +172,15 @@ class ReferralClientRequestService
             }
 
             $lockedRequest->update(['status' => ReferralClientRequest::STATUS_CLIENT_RESPONDED]);
+
+            // milestones.user_id is NOT NULL; anonymous tracking clients have no
+            // user row, so record the request creator as the owning account.
+            $this->recordRequestUpdate(
+                $referral,
+                'Client reply: '.$lockedRequest->title,
+                'The client replied to this request.',
+                $lockedRequest->creator_user_id,
+            );
 
             return [$message, $referral];
         });
@@ -294,6 +314,19 @@ class ReferralClientRequestService
                     ->update(['revoked_at' => now(), 'revoked_by' => $actor->id]);
             }
 
+            [$verb, $description] = match ($status) {
+                ReferralClientRequest::STATUS_COMPLETED => ['Completed', 'The agency marked this request as completed.'],
+                ReferralClientRequest::STATUS_CANCELLED => ['Cancelled', 'The agency cancelled this request.'],
+                default => ['Reopened', 'The agency reopened this request.'],
+            };
+
+            $this->recordRequestUpdate(
+                $referral,
+                $verb.': '.$lockedRequest->title,
+                $description,
+                $actor->id,
+            );
+
             return $lockedRequest;
         });
 
@@ -372,6 +405,24 @@ class ReferralClientRequestService
     private function requestTypes(): array
     {
         return [ReferralClientRequest::TYPE_DOCUMENT_REQUEST, ReferralClientRequest::TYPE_QUESTION, ReferralClientRequest::TYPE_INFORMATION_UPDATE];
+    }
+
+    /**
+     * Mirror a reply or status change into the referral milestone feed so the
+     * client-facing milestone pages see it, not just the request's creation.
+     * client_request_id stays null: ReferralClientRequest::milestone() is a
+     * hasOne link to the creation row.
+     */
+    private function recordRequestUpdate(Referral $referral, string $title, string $description, ?string $userId = null): void
+    {
+        $milestone = Milestone::create([
+            'title' => $title,
+            'description' => $description,
+            'refr_id' => $referral->id,
+            'user_id' => $userId,
+        ]);
+
+        $this->eventRecorder->milestoneAdded($referral, $milestone, $userId);
     }
 
     private function loadRequest(ReferralClientRequest $request): ReferralClientRequest

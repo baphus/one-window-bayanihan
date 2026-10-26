@@ -47,8 +47,8 @@ export function PageHeader({ eyebrow, title, subtitle, children }) {
     return (
         <header data-tour="dashboard-header" className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div className="min-w-0">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{eyebrow}</p>
-                <h1 className="mt-1 font-headline text-2xl font-extrabold tracking-tight text-slate-900">{title}</h1>
+                {eyebrow ? <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{eyebrow}</p> : null}
+                <h1 className={`font-headline text-2xl font-extrabold tracking-tight text-slate-900 ${eyebrow ? 'mt-1' : ''}`}>{title}</h1>
                 {subtitle ? <p className="mt-1 text-sm text-slate-500">{subtitle}</p> : null}
             </div>
             {children ? <div className="shrink-0">{children}</div> : null}

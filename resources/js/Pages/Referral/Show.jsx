@@ -680,7 +680,9 @@ const REJECTION_REASONS = [
 ];
 
 export default function ReferralShow({ referral, serviceRequirements = [], overdueDays = 7, timeline = [], clientRequestHistory = [], clientRequestPermissions = {}, relatedReferrals = [] }) {
-    const { auth, roles, errors } = usePage().props;
+    const page = usePage();
+    const { auth, roles, errors } = page.props;
+    const fromOverdue = new URLSearchParams((page.url ?? '').split('?')[1] ?? '').get('from') === 'overdue';
     const isAgency = auth.user.role === roles.AGENCY;
     const isCaseManager = auth.user.role === roles.CASE_MANAGER;
     const isAdmin = auth.user.role === roles.ADMIN;
@@ -917,9 +919,9 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
             <Head title="Referral Details" />
 
             <div className="mb-5">
-                <Link href={route('referrals.index')} className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-slate-500 transition hover:text-blue-900">
+                <Link href={fromOverdue ? route('overdue-referrals.index') : route('referrals.index')} className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-slate-500 transition hover:text-blue-900">
                     <span className="material-symbols-outlined text-[16px]">arrow_back</span>
-                    Back to Referrals
+                    {fromOverdue ? 'Back to Overdue Referrals' : 'Back to Referrals'}
                 </Link>
             </div>
 

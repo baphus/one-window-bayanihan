@@ -524,7 +524,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
                   </button>
                   <button type="button" onClick={() => setConfirmToggleStatus(true)} disabled={caseFile.status === 'OPEN' && hasActiveReferrals} className="inline-flex min-h-[34px] items-center gap-1.5 rounded-md bg-slate-100 px-3.5 text-[12px] font-bold text-slate-500 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:hover:bg-slate-100">
                     <span className="material-symbols-outlined text-[15px]">lock</span>
-                    Close Case
+                    {caseFile.status === 'OPEN' ? 'Close Case' : 'Reopen Case'}
                   </button>
                 </>
               )}

@@ -92,7 +92,7 @@
                 <div class="hl-label">Referrals</div>
             </td>
             <td>
-                <div class="hl-value">{{ $case->created_at ? \Carbon\Carbon::parse($case->created_at)->diffInDays(now()) : '—' }}d</div>
+                <div class="hl-value">{{ $case->created_at ? (int) \Carbon\Carbon::parse($case->created_at)->diffInDays(now()) : '—' }}d</div>
                 <div class="hl-label">Case Age</div>
             </td>
         </tr>

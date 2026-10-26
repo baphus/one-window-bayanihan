@@ -470,11 +470,11 @@ class CaseController extends Controller
             'milestones' => $eventsQuery->limit($eventsLimit)->get(),
             'eventsTruncated' => $eventsTotal > $eventsLimit,
             'eventsTotal' => $eventsTotal,
-            'exportedAt' => now()->format('M d, Y h:i A'),
+            'exportedAt' => now(config('app.operating_timezone', 'Asia/Manila'))->format('M d, Y h:i A'),
         ];
 
         $pdf = Pdf::loadView('pdf.case-report', $data);
-        $filename = 'case-report-'.$case->case_number.'-'.now()->format('Ymd-His').'.pdf';
+        $filename = 'case-report-'.$case->case_number.'-'.now(config('app.operating_timezone', 'Asia/Manila'))->format('Ymd-His').'.pdf';
 
         return response()->streamDownload(function () use ($pdf) {
             echo $pdf->output();

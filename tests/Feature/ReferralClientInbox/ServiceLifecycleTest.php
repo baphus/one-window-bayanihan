@@ -57,6 +57,25 @@ class ServiceLifecycleTest extends ReferralClientInboxTestCase
         $this->assertSame(ReferralClientRequest::STATUS_CANCELLED, $cancelled->status);
     }
 
+    public function test_replies_and_status_changes_are_mirrored_to_the_milestone_feed(): void
+    {
+        $context = $this->context();
+        $service = app(ReferralClientRequestService::class);
+        $title = $context['clientRequest']->title;
+
+        $service->sendAgencyMessage($context['clientRequest'], $context['agencyUser'], 'Please send page 2.');
+        $service->complete($context['clientRequest'], $context['agencyUser']);
+
+        $milestoneTitles = $context['referral']->milestones()->pluck('title')->all();
+
+        $this->assertContains('Reply: '.$title, $milestoneTitles);
+        $this->assertContains('Completed: '.$title, $milestoneTitles);
+        $this->assertSame(
+            2,
+            $context['case']->caseEvents()->where('type', 'milestone_added')->count(),
+        );
+    }
+
     public function test_terminal_referral_or_case_blocks_client_facing_writes(): void
     {
         $context = $this->context();
