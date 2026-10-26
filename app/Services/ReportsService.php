@@ -11,6 +11,7 @@ use App\Services\Reports\Concerns\ScopesReportQueries;
 use App\Services\Reports\ReferralMetrics;
 use App\Services\Reports\ReportLookups;
 use App\Services\Reports\ReportsCache;
+use App\Support\ReportCalendar;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Support\Facades\Cache;
 
@@ -97,8 +98,8 @@ class ReportsService
         ?string $city = null,
         ?string $agencyId = null,
     ): array {
-        $from = $fromDate ?: now()->subYear()->toDateString();
-        $to = $toDate ?: now()->toDateString();
+        $from = $fromDate ?: ReportCalendar::toLocalDate(now()->subYear());
+        $to = $toDate ?: ReportCalendar::toLocalDate(now());
 
         return [
             'kpis' => $this->referrals->getReferralKpis($userId, UserRole::CASE_MANAGER->value, $from, $to, $dateScope, $province, $city, $agencyId),
@@ -138,8 +139,8 @@ class ReportsService
         ?string $city = null,
         ?string $agencyId = null,
     ): array {
-        $from = $fromDate ?: now()->subYear()->toDateString();
-        $to = $toDate ?: now()->toDateString();
+        $from = $fromDate ?: ReportCalendar::toLocalDate(now()->subYear());
+        $to = $toDate ?: ReportCalendar::toLocalDate(now());
 
         return [
             'kpis' => $this->referrals->getReferralKpis(null, UserRole::AGENCY->value, $from, $to, $dateScope, $province, $city, $agencyId),
@@ -164,8 +165,8 @@ class ReportsService
 
     private function getAdminPayload(?string $fromDate, ?string $toDate, string $dateScope = 'case_created_at', ?string $province = null, ?string $city = null, ?string $agencyId = null): array
     {
-        $from = $fromDate ?: now()->subYear()->toDateString();
-        $to = $toDate ?: now()->toDateString();
+        $from = $fromDate ?: ReportCalendar::toLocalDate(now()->subYear());
+        $to = $toDate ?: ReportCalendar::toLocalDate(now());
 
         return [
             'kpis' => $this->referrals->getReferralKpis(null, null, $from, $to, $dateScope, $province, $city, $agencyId),
