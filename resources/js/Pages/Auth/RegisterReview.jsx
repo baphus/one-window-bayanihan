@@ -77,39 +77,14 @@ export default function RegisterReview({ pendingName = {}, pending = {} }) {
     }
 
     return (
-        <div className="min-h-dvh bg-gradient-to-br from-primary via-primary/95 to-primary-container/30 font-body text-on-surface">
+        <div className="min-h-dvh bg-surface font-body text-on-surface">
             <Head title="Review your details" />
 
             <AppHeader minimal />
 
             <main className="min-h-dvh pt-[72px] flex flex-col">
-                <div className="flex-1 flex flex-col lg:flex-row">
-                    <div className="lg:w-[60%] relative min-h-[320px] lg:min-h-full lg:sticky lg:top-[72px] flex flex-col justify-center text-white overflow-hidden bg-[#01010d]">
-                        <div className="absolute inset-0 z-0">
-                            <img src="/images/auth/login-bg.jpg" alt="" className="h-full w-full object-cover" />
-                            <div className="absolute inset-0 bg-primary/85 mix-blend-multiply" />
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-primary/40 to-transparent" />
-                        </div>
-
-                        <div className="relative z-10 p-10 lg:p-14">
-                            <div className="mb-8">
-                                <img src="/logo.png" alt="One Window Bayanihan Logo" className="h-14 w-14 object-contain" />
-                            </div>
-                            <h1 className="mb-2 font-serif text-3xl lg:text-4xl font-bold leading-tight tracking-tight">
-                                One Window Bayanihan
-                            </h1>
-                            <p className="mb-6 font-serif text-xl lg:text-2xl uppercase tracking-widest text-white/70">
-                                Assistance Program
-                            </p>
-                            <div className="h-1 w-16 bg-secondary-container mb-8" />
-                            <p className="max-w-xs text-base text-white/80 leading-relaxed font-medium">
-                                Connecting government agencies for seamless migrant worker assistance across Region VII.
-                            </p>
-                        </div>
-                    </div>
-
-                    <div className="lg:w-[40%] flex items-center justify-center p-10 lg:p-14 lg:min-h-[calc(100dvh-72px)] bg-surface">
-                        <div className="w-full max-w-md">
+                    <div className="flex-1 flex items-center justify-center px-4 py-12 font-body text-on-surface">
+                        <div className="w-full max-w-2xl">
                             <div className="mb-6">
                                 <span className="material-symbols-outlined mb-4 block text-primary text-[32px]">
                                     fact_check
@@ -206,8 +181,7 @@ export default function RegisterReview({ pendingName = {}, pending = {} }) {
                             </div>
                         </div>
                     </div>
-                </div>
-            </main>
+                </main>
 
             <AppFooter />
         </div>
