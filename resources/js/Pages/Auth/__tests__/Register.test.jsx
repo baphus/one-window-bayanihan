@@ -1,7 +1,10 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
+import axios from 'axios';
 
 const postMock = vi.fn();
+
+vi.mock('axios', () => ({ default: { get: vi.fn(), isCancel: () => false } }));
 
 vi.mock('@inertiajs/react', async () => {
     const { useState } = await import('react');
@@ -56,7 +59,10 @@ import Register from '../Register';
 describe('Register', () => {
     beforeEach(() => {
         postMock.mockClear();
-        global.route = (name) => `/${name}`;
+        axios.get.mockReset();
+        // Fresh emails resolve as free; individual tests override for taken emails.
+        axios.get.mockResolvedValue({ data: { taken: false } }); // eslint-disable-line no-undef
+        global.route = (name, params) => `/${name}${params ? `?email=${params.email}` : ''}`;
     });
 
     it('renders the account step first, without the branding panel', () => {
@@ -97,5 +103,25 @@ describe('Register', () => {
 
         fireEvent.click(screen.getByRole('button', { name: 'Back' }));
         expect(screen.getByText('Step 1 of 4')).toBeInTheDocument();
+    });
+
+    it('blocks Continue while the entered email is already registered', async () => {
+        axios.get
+            .mockResolvedValueOnce({ data: { taken: true } })
+            .mockResolvedValueOnce({ data: { taken: false } });
+
+        const { container } = render(<Register />);
+        fireEvent.change(screen.getByTestId('pw-Password'), { target: { value: 'Str0ng!Passphrase' } });
+        fireEvent.change(screen.getByTestId('pw-Confirm Password'), { target: { value: 'Str0ng!Passphrase' } });
+        fireEvent.change(container.querySelector('input[type="email"]'), { target: { value: 'taken@example.com' } });
+
+        // With everything else filled, the taken email is what keeps Continue locked.
+        await waitFor(() => expect(screen.getByText(/already registered/i)).toBeInTheDocument());
+        expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled();
+
+        // Entering a free email unlocks the step again.
+        fireEvent.change(container.querySelector('input[type="email"]'), { target: { value: 'free@example.com' } });
+        await waitFor(() => expect(screen.getByRole('button', { name: 'Continue' })).not.toBeDisabled());
+        expect(screen.queryByText(/already registered/i)).not.toBeInTheDocument();
     });
 });

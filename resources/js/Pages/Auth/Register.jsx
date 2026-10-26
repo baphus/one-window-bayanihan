@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import axios from 'axios';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import AppFooter from '@/Components/landing/AppFooter';
 import AppHeader from '@/Components/landing/AppHeader';
@@ -95,6 +96,8 @@ export default function Register({ initial = {} }) {
     const [turnstileToken, setTurnstileToken] = useState('');
     const [turnstileStatus, setTurnstileStatus] = useState('idle');
     const [currentStep, setCurrentStep] = useState(1);
+    // Live duplicate-email probe: 'unknown' | 'checking' | 'taken' | 'available'.
+    const [emailStatus, setEmailStatus] = useState('unknown');
 
     const prefill = initial.profile ?? {};
     const creds = initial.credentials ?? {};
@@ -137,6 +140,36 @@ export default function Register({ initial = {} }) {
 
     const schema = useMemo(() => makeRegisterSchema(passwordRules), [passwordRules]);
     const { validate } = useClientValidation(schema, data, setError);
+
+    // Debounced duplicate-email check against the public
+    // api.register.email-availability endpoint (same withTrashed semantics the
+    // OTP review step uses at final save). 'taken' blocks step 1; a failed
+    // check fails open — the server still re-checks at the review step.
+    useEffect(() => {
+        const email = data.email.trim();
+        // Anything below plain-email shape is left to the schema's field errors.
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            setEmailStatus('unknown');
+            return undefined;
+        }
+
+        const controller = new AbortController();
+        const timer = setTimeout(() => {
+            setEmailStatus('checking');
+            axios
+                .get(route('api.register.email-availability'), { params: { email }, signal: controller.signal })
+                .then((response) => setEmailStatus(response.data?.taken ? 'taken' : 'available'))
+                .catch((error) => {
+                    if (axios.isCancel?.(error)) return;
+                    setEmailStatus('unknown');
+                });
+        }, 500);
+
+        return () => {
+            clearTimeout(timer);
+            controller.abort();
+        };
+    }, [data.email]);
 
     // Occupation dropdown options — same curated DMW/PSA-based OFW list as
     // Case/Create.jsx (DEFAULT_OCCUPATIONS), shaped for SearchableSelect.
@@ -181,6 +214,8 @@ export default function Register({ initial = {} }) {
                 return (
                     data.type.length > 0
                     && data.email.trim().length > 0
+                    // A registered address cannot proceed past the account step.
+                    && emailStatus !== 'taken'
                     && data.password.length > 0
                     && data.password_confirmation.length > 0
                 );
@@ -381,6 +416,15 @@ export default function Register({ initial = {} }) {
                                         </div>
                                         {errors.email && (
                                             <p className="mt-1 text-xs text-red-600">{errors.email}</p>
+                                        )}
+                                        {!errors.email && emailStatus === 'checking' && (
+                                            <p className="mt-1 text-xs text-slate-500">Checking email availability…</p>
+                                        )}
+                                        {emailStatus === 'taken' && (
+                                            <p id="email-taken-message" className="mt-1 text-xs text-red-600">
+                                                This email address is already registered. Please use another email
+                                                or sign in instead.
+                                            </p>
                                         )}
                                         {mustResetPassword && (
                                             <p className="mt-1 text-xs text-amber-600">

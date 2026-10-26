@@ -169,6 +169,18 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(10)->by($request->input('email') ?: $request->ip());
         });
 
+        // Live duplicate-email probe on the register page (fires while the user
+        // types). Keyed on the queried address per IP so one typer cannot drain
+        // the office's budget, plus a per-IP cap to blunt enumeration scans.
+        RateLimiter::for('email-availability', function (Request $request) {
+            $email = strtolower(trim((string) $request->query('email')));
+
+            return [
+                Limit::perMinute(10)->by(($email ?: 'anonymous').'|'.$request->ip()),
+                Limit::perMinute(30)->by($request->ip()),
+            ];
+        });
+
         // Keyed on the identity that owns the code, not on the pending-registration
         // email alone: profile.email-change.send-otp / verify-otp reach this same
         // limiter while authenticated, so a session-only key left every one of

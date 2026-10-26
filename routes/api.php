@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\CspViolationController;
+use App\Http\Controllers\Api\EmailAvailabilityController;
 use App\Http\Controllers\Api\ReadinessController;
 use App\Http\Controllers\Api\ResendWebhookController;
 use Illuminate\Support\Facades\Route;
@@ -24,3 +25,9 @@ Route::post('/csp/report', [CspViolationController::class, 'report'])
 Route::post('/webhooks/resend', ResendWebhookController::class)
     ->middleware('throttle:resend-webhook')
     ->name('webhooks.resend');
+
+// Public duplicate-email probe for the register page's live "email taken"
+// check. Same soft-delete semantics as the review-time duplicate re-check.
+Route::get('/register/email-availability', EmailAvailabilityController::class)
+    ->middleware('throttle:email-availability')
+    ->name('api.register.email-availability');
