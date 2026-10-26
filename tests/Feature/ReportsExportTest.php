@@ -13,6 +13,7 @@ use App\Models\User;
 use App\Services\Export\DataExportQueries;
 use App\Services\Reports\ReportsExportService;
 use App\Services\ReportsService;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -70,6 +71,11 @@ class ReportsExportTest extends TestCase
     #[Test]
     public function export_kpis_match_the_on_screen_report_and_case_manager_sees_all(): void
     {
+        // Pin the run inside 16:00Z–24:00Z, where a UTC-default "to" date
+        // disagrees with the report's Manila calendar day — the window that
+        // first exposed this in CI.
+        $this->travelTo(CarbonImmutable::parse('2026-10-26 17:00:00', 'UTC'));
+
         $this->makeCaseWithReferral($this->manager);
         $this->makeCaseWithReferral($this->manager);
         $this->makeCaseWithReferral($this->otherManager);
@@ -80,7 +86,7 @@ class ReportsExportTest extends TestCase
         // Export figures are the exact same computed dataset as the screen.
         $this->assertSame($report['kpis']['totalReferrals'], $payload['kpis']['totalReferrals']);
         $this->assertSame($report['kpis']['totalCases'], $payload['kpis']['totalCases']);
-        // Only this manager's two referrals — not the other manager's.
+        // Case managers see all — including the other manager's referral.
         $this->assertSame(3, $payload['kpis']['totalReferrals']);
     }
 
