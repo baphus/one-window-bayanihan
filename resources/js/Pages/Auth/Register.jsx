@@ -240,10 +240,13 @@ export default function Register({ initial = {} }) {
                 return (
                     data.employment.employer_name.trim().length > 0
                     && data.employment.start_date.length > 0
-                    && (data.employment.is_present || data.employment.end_date.length > 0)
+                    // Ordering mirrors profileRules() so bad dates can't pass the gate.
+                    && data.employment.start_date >= employmentStartFloor(data.date_of_birth)
+                    && (data.employment.is_present || (data.employment.end_date.length > 0 && data.employment.end_date >= data.employment.start_date))
                     && data.employment.last_country.length > 0
                     && data.employment.last_position.trim().length > 0
                     && data.employment.date_of_arrival.length > 0
+                    && data.employment.date_of_arrival >= data.date_of_birth
                 );
             default:
                 return false;
@@ -275,6 +278,15 @@ export default function Register({ initial = {} }) {
             if (!data.employment.employer_name.trim()) missing.push('Employer Name');
             if (!data.employment.start_date) missing.push('Start Date');
             if (!data.employment.is_present && !data.employment.end_date) missing.push('End Date');
+            if (data.employment.start_date && data.employment.start_date < employmentStartFloor(data.date_of_birth)) {
+                missing.push('Start Date (must be at least 15 years after your Date of Birth)');
+            }
+            if (!data.employment.is_present && data.employment.end_date && data.employment.end_date < data.employment.start_date) {
+                missing.push('End Date (must be on or after Start Date)');
+            }
+            if (data.employment.date_of_arrival && data.employment.date_of_arrival < data.date_of_birth) {
+                missing.push('Arrival Date (must be on or after your Date of Birth)');
+            }
             if (!data.employment.last_country) missing.push('Last Country');
             if (!data.employment.last_position.trim()) missing.push('Last Occupation');
             if (!data.employment.date_of_arrival) missing.push('Arrival Date');
@@ -721,6 +733,7 @@ export default function Register({ initial = {} }) {
                                             type="date"
                                             value={data.employment.date_of_arrival}
                                             onChange={(e) => handleEmploymentChange('date_of_arrival', e.target.value)}
+                                            min={data.date_of_birth || undefined}
                                             className={inputClass}
                                             required
                                         />
