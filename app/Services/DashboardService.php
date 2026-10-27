@@ -10,6 +10,8 @@ use App\Models\CaseFile;
 use App\Models\User;
 use App\Services\Dashboard\Concerns\FormatsDashboardRows;
 use App\Services\Dashboard\DashboardQueries;
+use App\Support\ReportCalendar;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
 class DashboardService
@@ -237,6 +239,126 @@ class DashboardService
             'casesOverTime' => $casesOverTime,
             'referralTrends' => $referralTrends,
         ];
+    }
+
+    /**
+     * The case manager overview, scoped to a reporting period.
+     *
+     * Four headline numbers plus a day-bucketed case-volume series. Everything
+     * here is period-relative: "Awaiting Agency Response", "Cases needing
+     * action" and "Cases closed this period" all describe the window, which is
+     * why they cannot come from the lifetime counters in getCaseManagerData().
+     *
+     * Buckets are days rather than months because the windows are 7/30/90 days
+     * — a monthly bucket would collapse the whole chart into one or two points.
+     *
+     * @param  int  $days  Window length: 7, 30 or 90.
+     * @return array{
+     *     period: array{days: int, label: string, from: string, to: string},
+     *     kpis: array{active: int, awaiting_agency: int, needs_action: int, closed: int},
+     *     volume: array{labels: list<string>, received: list<int>, closed: list<int>}
+     * }
+     */
+    public function getCaseManagerPeriodData(int $days = 30): array
+    {
+        // Only the three offered windows are meaningful; anything else falls
+        // back to the 30-day default so a hand-edited query string cannot ask
+        // for an unbounded scan.
+        $days = in_array($days, [7, 30, 90], true) ? $days : 30;
+
+        $to = CarbonImmutable::now(ReportCalendar::timezone())->startOfDay();
+        $from = $to->subDays($days - 1);
+        $fromDate = $from->toDateString();
+        $toDate = $to->toDateString();
+
+        return CacheHelper::safeRemember("dashboard:cm_period:{$days}", 60, function () use ($days, $from, $to, $fromDate, $toDate) {
+            [$startBound] = ReportCalendar::localDayBounds($fromDate);
+            [, $endBound] = ReportCalendar::localDayBounds($toDate);
+
+            // Headline numbers. One pass each, scoped to the window.
+            $counts = DB::selectOne('
+                SELECT
+                    COUNT(*) FILTER (WHERE status = ?) AS active,
+                    COUNT(*) FILTER (WHERE status = ? AND COALESCE(closed_at, updated_at) >= ? AND COALESCE(closed_at, updated_at) < ?) AS closed
+                FROM cases
+                WHERE is_deleted = false AND status <> ?
+            ', [
+                'OPEN',
+                'CLOSED', $startBound, $endBound,
+                'ARCHIVED',
+            ]);
+
+            // A referral awaiting a reply from a partner office: still open at
+            // the agency's end (PENDING or PROCESSING) during the window.
+            $awaitingAgency = (int) DB::selectOne('
+                SELECT COUNT(*) AS total
+                FROM referrals
+                WHERE is_deleted = false
+                  AND status IN (?, ?)
+                  AND created_at >= ? AND created_at < ?
+            ', ['PENDING', 'PROCESSING', $startBound, $endBound])->total;
+
+            // Cases needing action: a partner office has asked the citizen for
+            // something (FOR_COMPLIANCE) or the referral was rejected and needs
+            // re-routing.
+            $needsAction = (int) DB::selectOne('
+                SELECT COUNT(*) AS total
+                FROM referrals
+                WHERE is_deleted = false
+                  AND status IN (?, ?)
+                  AND created_at >= ? AND created_at < ?
+            ', ['FOR_COMPLIANCE', 'REJECTED', $startBound, $endBound])->total;
+
+            // Volume series: filings vs closures, one bucket per day.
+            $received = DB::table('cases')
+                ->selectRaw(ReportCalendar::localDay('created_at').' AS bucket, COUNT(*) AS total')
+                ->where('is_deleted', false)
+                ->whereNotIn('status', ['DRAFT', 'ARCHIVED'])
+                ->where('created_at', '>=', $startBound)
+                ->where('created_at', '<', $endBound)
+                ->groupByRaw(ReportCalendar::localDay('created_at'))
+                ->pluck('total', 'bucket');
+
+            $closed = DB::table('cases')
+                ->selectRaw(ReportCalendar::localDay('COALESCE(closed_at, updated_at)').' AS bucket, COUNT(*) AS total')
+                ->where('is_deleted', false)
+                ->where('status', 'CLOSED')
+                ->whereRaw('COALESCE(closed_at, updated_at) >= ?', [$startBound])
+                ->whereRaw('COALESCE(closed_at, updated_at) < ?', [$endBound])
+                ->groupByRaw(ReportCalendar::localDay('COALESCE(closed_at, updated_at)'))
+                ->pluck('total', 'bucket');
+
+            // Fill every day in the window so the line has no gaps.
+            $labels = [];
+            $receivedSeries = [];
+            $closedSeries = [];
+            for ($day = $from; $day->lessThanOrEqualTo($to); $day = $day->addDay()) {
+                $key = $day->toDateString();
+                $labels[] = $key;
+                $receivedSeries[] = (int) ($received[$key] ?? 0);
+                $closedSeries[] = (int) ($closed[$key] ?? 0);
+            }
+
+            return [
+                'period' => [
+                    'days' => $days,
+                    'label' => "Last {$days} days",
+                    'from' => $fromDate,
+                    'to' => $toDate,
+                ],
+                'kpis' => [
+                    'active' => (int) ($counts->active ?? 0),
+                    'awaiting_agency' => $awaitingAgency,
+                    'needs_action' => $needsAction,
+                    'closed' => (int) ($counts->closed ?? 0),
+                ],
+                'volume' => [
+                    'labels' => $labels,
+                    'received' => $receivedSeries,
+                    'closed' => $closedSeries,
+                ],
+            ];
+        });
     }
 
     public function getAgencyData(?User $user = null): array

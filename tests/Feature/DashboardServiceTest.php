@@ -275,6 +275,56 @@ class DashboardServiceTest extends TestCase
         $this->assertArrayHasKey('operationalQueues', $second);
     }
 
+    #[Test]
+    public function case_manager_period_data_returns_four_kpis_and_a_zero_filled_daily_series(): void
+    {
+        Cache::flush();
+
+        $payload = app(DashboardService::class)->getCaseManagerPeriodData(30);
+
+        $this->assertSame(30, $payload['period']['days']);
+        $this->assertSame('Last 30 days', $payload['period']['label']);
+
+        foreach (['active', 'awaiting_agency', 'needs_action', 'closed'] as $key) {
+            $this->assertArrayHasKey($key, $payload['kpis']);
+        }
+
+        // One bucket per day across the whole window, with no gaps: a chart
+        // that skipped empty days would draw a misleading line.
+        $this->assertCount(30, $payload['volume']['labels']);
+        $this->assertCount(30, $payload['volume']['received']);
+        $this->assertCount(30, $payload['volume']['closed']);
+    }
+
+    #[Test]
+    public function case_manager_period_data_only_accepts_the_offered_windows(): void
+    {
+        Cache::flush();
+
+        // An unrecognised window falls back to the 30-day default rather than
+        // running an unbounded scan.
+        $payload = app(DashboardService::class)->getCaseManagerPeriodData(365);
+
+        $this->assertSame(30, $payload['period']['days']);
+        $this->assertCount(30, $payload['volume']['labels']);
+    }
+
+    #[Test]
+    public function case_manager_period_data_counts_a_filing_in_the_received_series(): void
+    {
+        Cache::flush();
+
+        $this->createCaseForClient([
+            'status' => 'OPEN',
+            'created_at' => now()->subDay(),
+        ]);
+
+        $payload = app(DashboardService::class)->getCaseManagerPeriodData(30);
+
+        $this->assertGreaterThanOrEqual(1, array_sum($payload['volume']['received']));
+        $this->assertGreaterThanOrEqual(1, $payload['kpis']['active']);
+    }
+
     private function createCaseForClient(array $attributes = []): CaseFile
     {
         $client = Client::factory()->create();
