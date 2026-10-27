@@ -235,7 +235,7 @@ class OfwRegistrationController extends Controller
         }
 
         try {
-            $user = DB::transaction(function () use ($pending, $validated, $email, $firstName, $middleName, $lastName) {
+            $user = DB::transaction(function () use ($pending, $validated, $email, $firstName, $middleName, $lastName, $avatarFile) {
                 $user = User::create([
                     'name' => Str::limit(implode(' ', array_filter([$firstName, $middleName, $lastName])), 255, ''),
                     'email' => $email,
