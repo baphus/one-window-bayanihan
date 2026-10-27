@@ -23,6 +23,7 @@ Documentation is platform-neutral: describe infrastructure by technology and cap
 | `npm run typecheck` | `tsc --noEmit` type check |
 | `npm run addresses:sync` | Sync Philippine PSGC address data |
 | `php artisan chatbot:index` | Pre-warm chatbot helpdesk corpus cache |
+| `php artisan chatbot:verify-provider` | Verify the chatbot API key and model are actually callable (safe for boot) |
 | `docker compose up -d` | Full local stack (nginx + app + queue + scheduler + Postgres + Redis) |
 | `docker compose --profile migrate run migrate` | Run migrations against local Docker DB |
 
