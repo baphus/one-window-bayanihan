@@ -96,7 +96,7 @@ class DashboardContractTest extends TestCase
 
         $data = app(DashboardService::class)->getCaseManagerData($manager);
 
-        $this->assertSame(1, $data['myDraftCount']);
+        $this->assertArrayNotHasKey('myDraftCount', $data);
         $this->assertSame(1, $data['pendingReviewCount']);
         $this->assertContains($pendingReview->id, array_column($data['intakeReview'], 'id'));
         $this->assertSame(0, $data['pendingReviewCount'] - count($data['intakeReview']));

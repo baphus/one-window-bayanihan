@@ -341,15 +341,15 @@ class ReportsMetricsTest extends TestCase
     }
 
     #[Test]
-    public function case_status_distribution_includes_draft_slice(): void
+    public function case_status_distribution_includes_archived_slice(): void
     {
         CaseFile::factory()->create(['user_id' => $this->managerA->id, 'status' => 'OPEN']);
         CaseFile::factory()->closed()->create(['user_id' => $this->managerA->id]);
-        CaseFile::factory()->draft()->create(['user_id' => $this->managerA->id]);
+        CaseFile::factory()->create(['user_id' => $this->managerA->id, 'status' => 'ARCHIVED']);
 
         $distribution = $this->service->getCaseStatusDistribution($this->managerA->id, UserRole::CASE_MANAGER->value);
 
-        $this->assertSame(['OPEN', 'CLOSED', 'DRAFT'], $distribution['labels']);
+        $this->assertSame(['OPEN', 'CLOSED', 'ARCHIVED'], $distribution['labels']);
         $this->assertSame([1, 1, 1], array_map('intval', $distribution['data']));
     }
 

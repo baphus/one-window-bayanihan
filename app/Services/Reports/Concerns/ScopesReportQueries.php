@@ -53,7 +53,7 @@ trait ScopesReportQueries
 
     private function caseQuery(?string $userId = null, ?string $role = null, ?string $agencyId = null, string $dateScope = 'case_created_at')
     {
-        $query = CaseFile::whereNotIn('cases.status', ['ARCHIVED']);
+        $query = CaseFile::whereNotIn('cases.status', ['DRAFT', 'ARCHIVED']);
         if (! $this->hasRequiredRoleScope($userId, $role, $agencyId)) {
             return $query->whereRaw('1 = 0');
         }
@@ -200,7 +200,7 @@ trait ScopesReportQueries
     private function filteredClientIds(?string $userId, ?string $role, ?string $fromDate, ?string $toDate, ?string $province, ?string $city, ?string $agencyId = null)
     {
         $q = CaseFile::query()
-            ->whereNotIn('cases.status', ['ARCHIVED'])
+            ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
             ->whereNull('cases.deleted_at');
 
         if ($agencyId) {
@@ -272,7 +272,7 @@ trait ScopesReportQueries
                 $q->select('client_id')->from('cases')
                     ->where('is_deleted', false)
                     ->whereNull('deleted_at')
-                    ->whereNotIn('status', ['ARCHIVED']);
+                    ->whereNotIn('status', ['DRAFT', 'ARCHIVED']);
 
                 if ($agencyId) {
                     $q->whereIn('cases.id', function ($q2) use ($agencyId) {

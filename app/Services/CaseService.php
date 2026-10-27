@@ -1038,13 +1038,13 @@ class CaseService
             $counts = (clone $caseQuery)
                 ->leftJoin('clients as stat_clients', 'stat_clients.id', '=', 'cases.client_id')
                 ->selectRaw("
-                    COUNT(*) FILTER (WHERE cases.status NOT IN ('ARCHIVED','PENDING_REVIEW')) AS active,
+                    COUNT(*) FILTER (WHERE cases.status NOT IN ('DRAFT','ARCHIVED','PENDING_REVIEW')) AS active,
                     COUNT(*) FILTER (WHERE cases.status = 'OPEN') AS open,
                     COUNT(*) FILTER (WHERE cases.status = 'CLOSED') AS closed,
                     COUNT(*) FILTER (WHERE cases.status = 'ARCHIVED') AS archived,
                     COUNT(*) FILTER (WHERE cases.status = 'PENDING_REVIEW') AS pending_review,
-                    COUNT(*) FILTER (WHERE cases.status NOT IN ('ARCHIVED','PENDING_REVIEW') AND stat_clients.type = 'OFW') AS ofw_cases,
-                    COUNT(*) FILTER (WHERE cases.status NOT IN ('ARCHIVED','PENDING_REVIEW') AND stat_clients.type = 'NEXT_OF_KIN') AS nok_cases
+                    COUNT(*) FILTER (WHERE cases.status NOT IN ('DRAFT','ARCHIVED','PENDING_REVIEW') AND stat_clients.type = 'OFW') AS ofw_cases,
+                    COUNT(*) FILTER (WHERE cases.status NOT IN ('DRAFT','ARCHIVED','PENDING_REVIEW') AND stat_clients.type = 'NEXT_OF_KIN') AS nok_cases
                 ")->first();
 
             // Total referrals — ADMIN and CASE_MANAGER see all; AGENCY sees own only
@@ -1058,7 +1058,7 @@ class CaseService
             $categoryBreakdown = (clone $caseQuery)
                 ->join('case_category', 'cases.id', '=', 'case_category.case_id')
                 ->join('case_categories as pivot_categories', 'case_category.case_category_id', '=', 'pivot_categories.id')
-                ->whereNotIn('cases.status', ['ARCHIVED'])
+                ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
                 ->where('cases.is_deleted', false)
                 ->select('pivot_categories.id', 'pivot_categories.name', 'pivot_categories.color', DB::raw('COUNT(DISTINCT cases.id) as count'))
                 ->groupBy('pivot_categories.id', 'pivot_categories.name', 'pivot_categories.color')

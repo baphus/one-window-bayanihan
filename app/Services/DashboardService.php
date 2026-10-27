@@ -150,7 +150,7 @@ class DashboardService
                 ->join('case_categories', 'case_categories.id', '=', 'assignments.case_category_id')
                 ->select('case_categories.name', 'case_categories.color', DB::raw('count(DISTINCT cases.id) as count'))
                 ->where('cases.is_deleted', false)
-                ->whereNotIn('cases.status', ['ARCHIVED'])
+                ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
                 ->groupBy('case_categories.name', 'case_categories.color')
                 ->orderByDesc('count')
                 ->get()
@@ -560,7 +560,7 @@ class DashboardService
         });
 
         $recentCases = CaseFile::with(['client', 'user', 'category'])
-            ->whereNotIn('status', ['ARCHIVED'])
+            ->whereNotIn('status', ['DRAFT', 'ARCHIVED'])
             ->where('is_deleted', false)
             ->orderBy('updated_at', 'desc')
             ->take(6)
@@ -659,7 +659,7 @@ class DashboardService
                 ->join('case_categories', 'case_categories.id', '=', 'assignments.case_category_id')
                 ->select('case_categories.name', 'case_categories.color', DB::raw('count(DISTINCT cases.id) as count'))
                 ->where('cases.is_deleted', false)
-                ->whereNotIn('cases.status', ['ARCHIVED'])
+                ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
                 ->groupBy('case_categories.name', 'case_categories.color')
                 ->orderByDesc('count')
                 ->get()

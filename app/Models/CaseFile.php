@@ -79,10 +79,14 @@ class CaseFile extends Model
      * Cases a client may access through self-service surfaces (public tracking
      * and the OFW portal). Anything not a personnel draft is visible —
      * PENDING_REVIEW included so filers can follow their submission.
+     *
+     * DRAFT is kept in this exclusion even though no code path writes it any
+     * more: it is a defence-in-depth boundary, so a stray DRAFT row (restored
+     * backup, manual DB edit, future feature) can never reach a client surface.
      */
     public function scopeClientVisible(Builder $query): Builder
     {
-        return $query;
+        return $query->where('cases.status', '!=', 'DRAFT');
     }
 
     /**
@@ -96,10 +100,14 @@ class CaseFile extends Model
 
     /**
      * Cases that count toward directory tiles (excludes drafts + archived).
+     *
+     * DRAFT is kept as a defence-in-depth exclusion for the same reason as
+     * clientVisible(): no path writes it, but a stray row must never inflate a
+     * directory tile.
      */
     public function scopeWithVisibleStatus(Builder $query): Builder
     {
-        return $query->whereNotIn('cases.status', ['ARCHIVED']);
+        return $query->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED']);
     }
 
     /**
