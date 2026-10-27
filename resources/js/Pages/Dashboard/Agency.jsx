@@ -131,7 +131,12 @@ const TOOLTIP = {
     boxHeight: 8,
 };
 
-function ChartCard({ title, description, legend, children, height = 'h-64' }) {
+/**
+ * Chart section that matches the case manager dashboard's volume chart:
+ * a <section> with a font-headline title row, not the SectionCard
+ * micro-eyebrow, so the two dashboards read at the same density.
+ */
+function ChartSection({ title, description, legend, children, height = 'h-64' }) {
     return (
         <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
             <header className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
@@ -378,7 +383,7 @@ export default function AgencyDashboard({ dashboard = {} }) {
 
             {/* Chart 1 — received vs resolved */}
             <div className="mt-6">
-                <ChartCard
+                <ChartSection
                     title="Referrals received vs resolved"
                     description="Referrals arriving at your agency against those your agency finished."
                     legend={
@@ -409,12 +414,12 @@ export default function AgencyDashboard({ dashboard = {} }) {
                     ) : (
                         <EmptyChart />
                     )}
-                </ChartCard>
+                </ChartSection>
             </div>
 
             {/* Charts 2 + 3 */}
             <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
-                <ChartCard title="Referrals by status" description="Where your current workload sits.">
+                <ChartSection title="Referrals by status" description="Where your current workload sits.">
                     {statusChart.slices.length === 0 ? (
                         <EmptyChart />
                     ) : (
@@ -453,9 +458,9 @@ export default function AgencyDashboard({ dashboard = {} }) {
                             </ul>
                         </div>
                     )}
-                </ChartCard>
+                </ChartSection>
 
-                <ChartCard title="Referrals by assistance type" description="The case categories your agency handles most.">
+                <ChartSection title="Referrals by assistance type" description="The case categories your agency handles most.">
                     {categoryChart.labels.length === 0 ? (
                         <EmptyChart />
                     ) : (
@@ -483,7 +488,7 @@ export default function AgencyDashboard({ dashboard = {} }) {
                             }}
                         />
                     )}
-                </ChartCard>
+                </ChartSection>
             </div>
 
             {/* Work queues */}
