@@ -97,7 +97,7 @@ class DashboardContractTest extends TestCase
 
         $data = app(DashboardService::class)->getCaseManagerData($manager);
 
-        $this->assertSame(1, $data['myDraftCount']);
+        $this->assertArrayNotHasKey('myDraftCount', $data);
         $this->assertSame(1, $data['pendingReviewCount']);
         $this->assertContains($pendingReview->id, array_column($data['intakeReview'], 'id'));
         $this->assertSame(0, $data['pendingReviewCount'] - count($data['intakeReview']));
@@ -167,7 +167,9 @@ class DashboardContractTest extends TestCase
         $this->assertSame(10, $data['totalCases']);
         $this->assertSame(7, $data['openCases']);
         $this->assertSame(1, $data['closedCases']);
-        $this->assertSame(0, $data['myDraftCount']);
+        // Drafts are no longer a case lifecycle state: nothing can write
+        // status='DRAFT', so the payload must not carry a draft counter.
+        $this->assertArrayNotHasKey('myDraftCount', $data);
 
         // Intake review list present, correctly filtered, capped.
         $this->assertArrayHasKey('intakeReview', $data);

@@ -5,10 +5,12 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\UserInvite;
+use App\Services\CloudinaryAvatarService;
 use App\Services\OnboardingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rules\Password;
 use Inertia\Inertia;
 
@@ -51,9 +53,16 @@ class RegisterViaInviteController extends Controller
             'position' => 'nullable|string|max:255',
             'department' => 'nullable|string|max:255',
             'contact_number' => 'nullable|string|max:20',
+            'profile_picture' => ['nullable', 'image', 'mimes:jpeg,png,webp', 'max:2048', 'dimensions:min_width=32,min_height=32'],
+        ], [
+            'profile_picture.mimes' => 'Profile picture must be a JPEG, PNG, or WebP file.',
+            'profile_picture.max' => 'Profile picture must not exceed 2MB.',
+            'profile_picture.dimensions' => 'Profile picture must be at least 32x32 pixels.',
         ]);
 
-        DB::transaction(function () use ($token, $validated): void {
+        $avatarFile = $request->file('profile_picture');
+
+        DB::transaction(function () use ($token, $validated, $avatarFile): void {
             // Re-read under a row lock. Between the check above and this
             // transaction the invite may have been consumed by a duplicate
             // POST or cancelled by an administrator; creating the account and
@@ -79,6 +88,25 @@ class RegisterViaInviteController extends Controller
 
             // Set email_verified_at outside mass-assignment since it's not fillable
             $user->email_verified_at = now();
+
+            // Optional profile photo. Best-effort: a Cloudinary outage must not
+            // prevent registration — the user adds a photo later on their
+            // profile page. public_id is derived from the user id so a later
+            // replacement overwrites the same asset instead of orphaning it.
+            if ($avatarFile) {
+                try {
+                    $user->avatar_url = app(CloudinaryAvatarService::class)->uploadImage(
+                        $avatarFile,
+                        'avatars',
+                        'user-'.$user->id,
+                    );
+                } catch (\Throwable $e) {
+                    Log::warning('Avatar upload failed during invite registration; continuing without a photo.', [
+                        'user_id' => $user->id,
+                    ]);
+                }
+            }
+
             $user->save();
 
             // Consume the invite

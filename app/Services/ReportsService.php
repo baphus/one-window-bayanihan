@@ -220,7 +220,7 @@ class ReportsService
                 'avgReferralCompletion' => 0,
                 'cycleTimeDistribution' => ['labels' => [], 'data' => [], 'colors' => []],
                 'agencyScorecard' => [], 'categoryDistribution' => [],
-                'caseStatusDistribution' => ['labels' => ['OPEN', 'CLOSED', 'DRAFT'], 'data' => [0, 0, 0], 'colors' => []],
+                'caseStatusDistribution' => ['labels' => ['OPEN', 'CLOSED', 'ARCHIVED'], 'data' => [0, 0, 0], 'colors' => []],
                 'genderDistribution' => ['labels' => ['Male', 'Female', 'Unknown'], 'data' => [0, 0, 0], 'colors' => []],
                 'ageGroupDistribution' => ['labels' => ['0-17', '18-25', '26-40', '41-60', '60+'], 'data' => [0, 0, 0, 0, 0], 'colors' => []],
                 'clientTypeDistribution' => ['labels' => [], 'data' => [], 'colors' => []],

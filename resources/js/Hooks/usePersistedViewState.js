@@ -5,9 +5,14 @@ import useLocalStorage, { readStoredValue, writeStoredValue } from './useLocalSt
 /**
  * Persist a page's list/grid view mode to localStorage so the user's chosen
  * layout survives navigation. Mirrors the conventions of usePersistedColumns.
+ *
+ * @param {string} storageKey — full localStorage key (callers own prefixing)
+ * @param {'list'|'grid'} [defaultValue] — layout used when nothing is stored
+ *   yet. Defaults to 'list'; pass 'grid' for pages that open in card view.
+ * @returns {['list'|'grid', Function]} — same API as useState
  */
-export function usePersistedViewMode(storageKey) {
-  return useLocalStorage(storageKey, 'list');
+export function usePersistedViewMode(storageKey, defaultValue = 'list') {
+  return useLocalStorage(storageKey, defaultValue);
 }
 
 /**

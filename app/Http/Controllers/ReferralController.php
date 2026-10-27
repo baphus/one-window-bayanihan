@@ -21,6 +21,7 @@ use App\Services\ReferenceDataService;
 use App\Services\ReferralService;
 use App\Services\StorageService;
 use App\Support\CategoryFilter;
+use App\Support\MultiSelectFilter;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -44,20 +45,35 @@ class ReferralController extends Controller
         ]);
         $categoryFilters = CategoryFilter::fromRequest($request)->toArray();
 
+        // Status, agency and issue are multi-select in the filter panel; the
+        // legacy scalar form is accepted so existing links keep working.
+        $statuses = MultiSelectFilter::ids($request->input('status'));
+        $agencyIds = MultiSelectFilter::ids($request->input('agcy_id'));
+        $issueIds = MultiSelectFilter::ids($request->input('case_issue_id'));
+
+        $listFilters = [
+            'status' => $statuses === [] ? null : $statuses,
+            'agcy_id' => $agencyIds === [] ? null : $agencyIds,
+            'case_issue_id' => $issueIds === [] ? null : $issueIds,
+        ];
+
         $referrals = $this->referralService->getReferrals(
-            array_merge($request->only($filterKeys), $categoryFilters, $queryOptions),
+            array_merge($request->only($filterKeys), $categoryFilters, $queryOptions, $listFilters),
             $user->agcy_id,
             $user->role,
             $user->id,
         );
 
+        $filters = array_merge($request->only($filterKeys), $categoryFilters, $queryOptions, $listFilters);
+
         return Inertia::render('Referral/Index', [
             'referrals' => $referrals,
-            'filters' => (object) array_merge($request->only($filterKeys), $categoryFilters, $queryOptions),
+            'filters' => (object) array_filter($filters, fn ($v) => $v !== null),
             'stats' => $this->referralService->getReferralStats($user->agcy_id, $user->role, $user->id),
             'agencies' => $this->referenceData->getAgenciesDropdown(),
             'categories' => $this->referenceData->getActiveCategories(),
             'caseIssues' => $this->referenceData->getActiveIssues(),
+            'statuses' => $this->referenceData->getReferralStatusOptions(),
         ]);
     }
 

@@ -111,6 +111,7 @@ class CacheInvalidationObserver
 
     private function invalidateCaseStatus(): void
     {
+        ReferenceDataService::invalidateCaseStatuses();
         ReportsService::invalidateAll();
     }
 
@@ -124,6 +125,7 @@ class CacheInvalidationObserver
     private function invalidateCase(?CaseFile $case = null): void
     {
         ReferralService::invalidateReferralStats();
+        ReferenceDataService::invalidateClientOptions();
         Cache::forget('stats:cases');
         Cache::forget('intake_queue:count');
         Cache::forget('dashboard:cm_counts');

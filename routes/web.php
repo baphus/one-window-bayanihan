@@ -63,6 +63,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
+    // Profile picture. A dedicated endpoint so the avatar does not have to ride
+    // along on the whole-record PATCH above, which requires name + email.
+    Route::post('/profile/avatar', [ProfileController::class, 'storeAvatar'])->name('profile.avatar.store');
+    Route::delete('/profile/avatar', [ProfileController::class, 'destroyAvatar'])->name('profile.avatar.destroy');
+
     Route::get('/profile/mfa/status', [MfaController::class, 'status'])->name('profile.mfa.status');
     Route::post('/profile/mfa/generate', [MfaController::class, 'generateSecret'])->name('profile.mfa.generate');
     Route::post('/profile/mfa/verify', [MfaController::class, 'verifyAndEnable'])->name('profile.mfa.verify');
@@ -465,6 +470,8 @@ Route::middleware(['auth', 'role:OFW'])->prefix('my-cases')->name('ofw.')->group
     Route::get('/{case}/agencies/{referral}/milestones', [OfwDashboardController::class, 'agencyMilestones'])->name('case.milestones');
     Route::get('/profile', [OfwProfileController::class, 'edit'])->name('profile.edit');
     Route::put('/profile', [OfwProfileController::class, 'update'])->name('profile.update');
+    Route::post('/profile/avatar', [OfwProfileController::class, 'storeAvatar'])->name('profile.avatar.store');
+    Route::delete('/profile/avatar', [OfwProfileController::class, 'destroyAvatar'])->name('profile.avatar.destroy');
     Route::get('/{id}', [OfwDashboardController::class, 'show'])->name('case.show');
 });
 

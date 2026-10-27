@@ -149,15 +149,32 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
   }
 
   function handleDocumentUpload(file) {
-    if (!file) return;
+    if (!file || uploadingDoc) return;
     setUploadingDoc(true);
+
+    // Multipart body via the Inertia FormData protocol. A bare `{ file }`
+    // object has no `forceFormData` flag, so failures arrive as a silent 422
+    // (and a 302 redirect on success replays as GET against a JSON endpoint).
+    const formData = new FormData();
+    formData.append('file', file);
+
     router.post(
       route('cases.documents.store', caseFile.id),
-      { file },
+      formData,
       {
         preserveScroll: true,
-        onSuccess: () => setUploadingDoc(false),
-        onError: () => setUploadingDoc(false),
+        forceFormData: true,
+        onSuccess: () => {
+          router.reload({ only: ['case'] });
+          toast.success('Document uploaded successfully.');
+        },
+        onError: (errors) => {
+          const message = errors?.file
+            || Object.values(errors || {})[0]
+            || 'Could not upload the document. Please try again.';
+          toast.error(message);
+        },
+        onFinish: () => setUploadingDoc(false),
       },
     );
   }

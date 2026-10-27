@@ -32,6 +32,11 @@ class MigrationConventionTest extends TestCase
         // squashed (allowlisted) 2026_06_01_000001 file. Deploys run migrate
         // only, never db:seed, so reference rows must ship in a migration.
         '2026_10_15_000001_seed_canonical_case_statuses.php',
+        // Adds the two case-type statuses the query layer already used but the
+        // squashed canonical set omitted: ARCHIVED and PENDING_REVIEW. Same
+        // reason as above — deploys run migrate only, never db:seed, so the
+        // cases-page filter list would otherwise miss them in production.
+        '2026_10_22_000001_seed_case_statuses_for_case_type.php',
     ];
 
     /**

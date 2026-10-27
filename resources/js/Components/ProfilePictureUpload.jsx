@@ -19,7 +19,10 @@ export default function ProfilePictureUpload({
     currentUrl,
     name,
     size = 'lg',
-    clientId,
+    uploadRoute,
+    destroyRoute,
+    fieldName = 'profile_picture',
+    fallbackClassName,
 }) {
     const toast = useToast();
     const [preview, setPreview] = useState(null);
@@ -66,17 +69,17 @@ export default function ProfilePictureUpload({
     }
 
     function handleSave() {
-        if (!selectedFile || !clientId) return;
+        if (!selectedFile || !uploadRoute) return;
 
         setUploading(true);
         setError(null);
 
         const formData = new FormData();
-        formData.append('profile_picture', selectedFile);
+        formData.append(fieldName, selectedFile);
 
-        router.post(route('clients.avatar.store', { client: clientId }), formData, {
+        router.post(uploadRoute, formData, {
             preserveScroll: true,
-            headers: { 'Content-Type': 'multipart/form-data' },
+            forceFormData: true,
             onSuccess: () => {
                 toast.success('Profile picture updated successfully.');
             },
@@ -84,7 +87,7 @@ export default function ProfilePictureUpload({
                 setUploading(false);
             },
             onError: (errors) => {
-                const message = errors.profile_picture || 'Failed to upload profile picture.';
+                const message = errors[fieldName] || errors.profile_picture || 'Failed to upload profile picture.';
                 setError(message);
                 setUploading(false);
             },
@@ -101,7 +104,7 @@ export default function ProfilePictureUpload({
     }
 
     function handleRemove() {
-        if (!clientId) return;
+        if (!destroyRoute) return;
         setShowRemoveConfirm(true);
     }
 
@@ -110,13 +113,13 @@ export default function ProfilePictureUpload({
         setUploading(true);
         setError(null);
 
-        router.delete(route('clients.avatar.destroy', { client: clientId }), {
+        router.delete(destroyRoute, {
             preserveScroll: true,
             onFinish: () => {
                 setUploading(false);
             },
             onError: (errors) => {
-                const message = errors.avatar || 'Failed to remove profile picture.';
+                const message = errors.avatar || errors.profile_picture || 'Failed to remove profile picture.';
                 setError(message);
                 setUploading(false);
             },
@@ -149,7 +152,7 @@ export default function ProfilePictureUpload({
                             onError={() => setImgError(true)}
                         />
                     ) : (
-                        <div className="relative h-full w-full flex items-center justify-center">
+                        <div className={`relative h-full w-full flex items-center justify-center ${fallbackClassName ?? 'bg-indigo-100'}`}>
                             {/* Person icon as subtle background */}
                             <svg
                                 xmlns="http://www.w3.org/2000/svg"
@@ -160,7 +163,7 @@ export default function ProfilePictureUpload({
                                 <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
                             </svg>
                             {/* Initials on top */}
-                            <span className="relative font-semibold text-indigo-700 select-none z-10">
+                            <span className={`relative font-semibold select-none z-10 ${fallbackClassName ? 'text-white' : 'text-indigo-700'}`}>
                                 {getInitial(name)}
                             </span>
                         </div>

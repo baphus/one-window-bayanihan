@@ -30,7 +30,7 @@ ChartJS.register(ArcElement, Filler, Legend, LineElement, PointElement, Tooltip)
 
 const OVERDUE_DAYS = 5;
 
-const CASE_STATUSES = ['DRAFT', 'OPEN', 'CLOSED'];
+const CASE_STATUSES = ['OPEN', 'CLOSED', 'ARCHIVED'];
 const REFERRAL_STATUSES = ['PENDING', 'PROCESSING', 'FOR_COMPLIANCE', 'COMPLETED', 'REJECTED'];
 
 function pick(...values) {
@@ -143,7 +143,6 @@ function getStatusCounts(dashboard) {
 
     return {
         caseCounts: {
-            DRAFT: dashboard?.myDraftCount ?? 0,
             OPEN: dashboard?.openCases ?? 0,
             CLOSED: dashboard?.closedCases ?? 0,
         },

@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { Head, Link, useForm, usePage } from '@inertiajs/react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import AppFooter from '@/Components/landing/AppFooter';
 import AppHeader from '@/Components/landing/AppHeader';
+import AvatarPicker from '@/Components/AvatarPicker';
 
 export default function RegisterViaInvite({ invite }) {
-    const { data, setData, post, processing, errors } = useForm({
+    const { data, setData, processing, errors } = useForm({
         name: '',
         password: '',
         password_confirmation: '',
@@ -14,11 +15,31 @@ export default function RegisterViaInvite({ invite }) {
     });
 
     const [showPassword, setShowPassword] = useState(false);
+    const [avatarFile, setAvatarFile] = useState(null);
+    const [submitting, setSubmitting] = useState(false);
     const roles = usePage().props.roles ?? {};
+
+    const busy = processing || submitting;
 
     const submit = (e) => {
         e.preventDefault();
-        post(route('register-via-invite.store', invite.token));
+
+        const formData = new FormData();
+        formData.append('name', data.name);
+        formData.append('password', data.password);
+        formData.append('password_confirmation', data.password_confirmation);
+        formData.append('position', data.position ?? '');
+        formData.append('department', data.department ?? '');
+        formData.append('contact_number', data.contact_number ?? '');
+        if (avatarFile) {
+            formData.append('profile_picture', avatarFile);
+        }
+
+        setSubmitting(true);
+        router.post(route('register-via-invite.store', invite.token), formData, {
+            forceFormData: true,
+            onFinish: () => setSubmitting(false),
+        });
     };
 
     // Password strength calculation
@@ -180,6 +201,13 @@ export default function RegisterViaInvite({ invite }) {
                                     <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant mb-4">Optional Profile Details</p>
 
                                     <div className="space-y-4">
+                                        <AvatarPicker
+                                            file={avatarFile}
+                                            onFileChange={setAvatarFile}
+                                            name={data.name}
+                                            error={errors.profile_picture}
+                                            disabled={busy}
+                                        />
                                         <div>
                                             <label className="mb-1 block text-xs font-bold text-on-surface-variant">Position</label>
                                             <input type="text" value={data.position} onChange={(e) => setData('position', e.target.value)}
@@ -198,9 +226,9 @@ export default function RegisterViaInvite({ invite }) {
                                     </div>
                                 </div>
 
-                                <button type="submit" disabled={processing}
+                                <button type="submit" disabled={busy}
                                     className="w-full bg-primary text-on-primary px-8 py-4 text-sm font-bold shadow-xl hover:brightness-110 active:scale-95 transition-all disabled:opacity-60 rounded-md">
-                                    {processing ? 'Creating Account...' : 'Complete Registration'}
+                                    {busy ? 'Creating Account...' : 'Complete Registration'}
                                 </button>
                             </form>
 

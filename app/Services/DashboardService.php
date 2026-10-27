@@ -29,7 +29,7 @@ class DashboardService
         [$caseCounts, $refCounts] = CacheHelper::safeRemember($countsKey, 60, function () {
             $caseCounts = DB::selectOne("
                 SELECT
-                    COUNT(*) FILTER (WHERE status != 'DRAFT') AS total,
+                    COUNT(*) FILTER (WHERE status != 'ARCHIVED') AS total,
                     COUNT(*) FILTER (WHERE status = 'OPEN') AS open,
                     COUNT(*) FILTER (WHERE status = 'CLOSED') AS closed
                 FROM cases WHERE is_deleted = false
@@ -209,18 +209,10 @@ class DashboardService
                 ->count();
         });
 
-        $myDraftCount = CacheHelper::safeRemember('dashboard:cm_my_draft_count:'.($user?->id ?? 'guest'), 60, function () use ($user) {
-            return (int) CaseFile::where('status', 'DRAFT')
-                ->where('user_id', $user?->id)
-                ->where('is_deleted', false)
-                ->count();
-        });
-
         return [
             'totalCases' => $totalCases,
             'openCases' => $openCases,
             'closedCases' => $closedCases,
-            'myDraftCount' => $myDraftCount,
             'pendingReferrals' => $pendingReferrals,
             'processingReferrals' => $processingReferrals,
             'completedReferrals' => $completedReferrals,
@@ -390,7 +382,7 @@ class DashboardService
         [$caseCounts, $refCounts] = CacheHelper::safeRemember($countsKey, 60, function () use ($dashboardWindow) {
             $caseCounts = DB::selectOne("
                 SELECT
-                    COUNT(*) FILTER (WHERE status != 'DRAFT') AS total,
+                    COUNT(*) FILTER (WHERE status != 'ARCHIVED') AS total,
                     COUNT(*) FILTER (WHERE status = 'OPEN') AS open,
                     COUNT(*) FILTER (WHERE status = 'CLOSED') AS closed
                 FROM cases WHERE is_deleted = false

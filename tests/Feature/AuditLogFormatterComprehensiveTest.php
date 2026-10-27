@@ -423,7 +423,7 @@ class AuditLogFormatterComprehensiveTest extends TestCase
                 [
                     'messageContains' => 'published',
                     'changesCheck' => [
-                        ['field' => 'status', 'old' => 'Draft', 'new' => 'Open'],
+                        ['field' => 'status', 'old' => 'DRAFT', 'new' => 'Open'],
                     ],
                     'hasChanges' => true,
                     'module' => 'Case',
@@ -566,7 +566,6 @@ class AuditLogFormatterComprehensiveTest extends TestCase
             // Statuses
             'status OPEN' => ['case_files', 'status', 'OPEN', 'Open'],
             'status CLOSED' => ['case_files', 'status', 'CLOSED', 'Closed'],
-            'status DRAFT' => ['case_files', 'status', 'DRAFT', 'Draft'],
             'status ARCHIVED' => ['case_files', 'status', 'ARCHIVED', 'Archived'],
             'status PENDING' => ['case_files', 'status', 'PENDING', 'Pending'],
             'status PROCESSING' => ['case_files', 'status', 'PROCESSING', 'Processing'],

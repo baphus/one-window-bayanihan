@@ -37,7 +37,10 @@ class ReferralReceivingAgencyListTest extends TestCase
         $filtered->assertOk();
         $this->assertSame(1, $filtered->json('props.referrals.current_page'));
         $this->assertSame(16, $filtered->json('props.referrals.total'));
-        $this->assertSame('REJECTED', $filtered->json('props.filters.status'));
+        // The legacy scalar `?status=REJECTED` still filters, but the echoed
+        // `filters` prop is normalised to the multi-select shape the checkbox
+        // filter panel binds to, so a link and a checkbox land on one contract.
+        $this->assertSame(['REJECTED'], $filtered->json('props.filters.status'));
     }
 
     public function test_receiving_agency_list_isolated_from_other_agencies(): void

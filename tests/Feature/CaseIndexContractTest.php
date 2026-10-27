@@ -114,8 +114,8 @@ class CaseIndexContractTest extends TestCase
             ->get(route('cases.index', ['client_type' => 'OFW', 'status' => 'OPEN']))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
-                ->where('filters.client_type', 'OFW')
-                ->where('filters.status', 'OPEN')
+                ->where('filters.client_type', ['OFW'])
+                ->where('filters.status', ['OPEN'])
             );
     }
 

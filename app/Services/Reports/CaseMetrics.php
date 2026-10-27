@@ -214,7 +214,7 @@ class CaseMetrics
         ?string $city = null,
     ): array {
         $query = CaseFile::select('status', DB::raw('count(*) as total'))
-            ->whereIn('status', ['OPEN', 'CLOSED', 'DRAFT']);
+            ->whereIn('status', ['OPEN', 'CLOSED', 'ARCHIVED']);
 
         if ($agencyId) {
             $query->whereIn('cases.id', function ($q) use ($agencyId) {
@@ -229,7 +229,7 @@ class CaseMetrics
         $results = $query->groupBy('status')
             ->pluck('total', 'status');
 
-        $allStatuses = ['OPEN', 'CLOSED', 'DRAFT'];
+        $allStatuses = ['OPEN', 'CLOSED', 'ARCHIVED'];
         $colors = ['#1e3a8a', '#10b981', '#f59e0b'];
 
         return [

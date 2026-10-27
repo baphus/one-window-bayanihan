@@ -3,7 +3,10 @@
 namespace Tests\Feature\Auth;
 
 use App\Models\User;
+use App\Services\CloudinaryAvatarService;
+use App\Services\OtpService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Tests\TestCase;
 
 class RegistrationTest extends TestCase
@@ -27,6 +30,83 @@ class RegistrationTest extends TestCase
 
         // Step 1 does not create a user row yet — the review step does.
         $this->assertDatabaseMissing('users', ['email' => 'test@example.com']);
+    }
+
+    public function test_review_step_creates_the_account_with_an_optional_profile_picture(): void
+    {
+        $this->post('/register', $this->payload());
+
+        $code = app(OtpService::class)->generate('test@example.com', 'register');
+
+        $response = $this->post('/register/review', [
+            'otp' => $code,
+            'profile_picture' => UploadedFile::fake()->image('me.jpg', 160, 160),
+        ]);
+
+        $response->assertRedirect(route('ofw.intake'));
+
+        $user = User::where('email', 'test@example.com')->firstOrFail();
+        $this->assertNotNull($user->getRawOriginal('avatar_url'), 'The optional profile picture must be stored.');
+        $this->assertStringContainsString('res.cloudinary.com', (string) $user->getRawOriginal('avatar_url'));
+    }
+
+    public function test_review_step_creates_the_account_without_a_profile_picture(): void
+    {
+        $this->post('/register', $this->payload());
+
+        $code = app(OtpService::class)->generate('test@example.com', 'register');
+
+        $response = $this->post('/register/review', ['otp' => $code]);
+
+        $response->assertRedirect(route('ofw.intake'));
+
+        $user = User::where('email', 'test@example.com')->firstOrFail();
+        $this->assertNull($user->getRawOriginal('avatar_url'), 'The photo is optional; the account is still created.');
+    }
+
+    public function test_review_step_rejects_a_non_image_profile_picture(): void
+    {
+        $this->post('/register', $this->payload());
+
+        $code = app(OtpService::class)->generate('test@example.com', 'register');
+
+        $response = $this->post('/register/review', [
+            'otp' => $code,
+            'profile_picture' => UploadedFile::fake()->createWithContent('fake.jpg', 'not an image'),
+        ]);
+
+        $response->assertSessionHasErrors('profile_picture');
+        $this->assertDatabaseMissing('users', ['email' => 'test@example.com']);
+    }
+
+    public function test_review_step_registers_even_when_cloudinary_is_unavailable(): void
+    {
+        $this->app->bind(CloudinaryAvatarService::class, fn () => new class extends CloudinaryAvatarService
+        {
+            public function __construct() {}
+
+            public function uploadImage(UploadedFile $file, string $folder, string $publicId): string
+            {
+                throw new \RuntimeException('The image could not be uploaded. Please try again later.');
+            }
+
+            public function deleteByUrl(?string $url): void {}
+        });
+
+        $this->post('/register', $this->payload());
+
+        $code = app(OtpService::class)->generate('test@example.com', 'register');
+
+        $response = $this->post('/register/review', [
+            'otp' => $code,
+            'profile_picture' => UploadedFile::fake()->image('me.jpg', 160, 160),
+        ]);
+
+        // A Cloudinary outage must not abort registration.
+        $response->assertRedirect(route('ofw.intake'));
+
+        $user = User::where('email', 'test@example.com')->firstOrFail();
+        $this->assertNull($user->getRawOriginal('avatar_url'), 'The account is created without a photo.');
     }
 
     /**

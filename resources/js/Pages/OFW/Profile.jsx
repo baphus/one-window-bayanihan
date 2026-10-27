@@ -13,6 +13,7 @@ import AddressDropdowns from '@/Components/AddressDropdowns';
 import { DEFAULT_OCCUPATIONS } from '@/data/defaultOccupations';
 import { resolveAddressToCodes } from '@/data/philippine-addresses';
 import { SectionCard, MaterialSymbol } from '@/Components/Dashboard/primitives';
+import ProfilePictureUpload from '@/Components/ProfilePictureUpload';
 import { useToast } from '@/Hooks/useToast';
 
 const MAX = 'Must be 255 characters or fewer.';
@@ -424,22 +425,13 @@ export default function Profile({ user, client }) {
                 <div className="relative px-5 pb-5 sm:px-8">
                     <div className="flex flex-col items-center sm:flex-row sm:items-end sm:gap-5">
                         <div className="-mt-14 shrink-0 sm:-mt-16">
-                            {client?.avatar_url ? (
-                                <img
-                                    src={client.avatar_url}
-                                    alt=""
-                                    className="h-28 w-28 rounded-full border-4 border-white object-cover shadow-md sm:h-36 sm:w-36"
-                                    onError={(e) => {
-                                        e.currentTarget.style.display = 'none';
-                                        e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                                    }}
-                                />
-                            ) : null}
-                            <span
-                                className={`avatar-fallback ${client?.avatar_url ? 'hidden' : ''} flex h-28 w-28 items-center justify-center rounded-full border-4 border-white ${getAvatarColor(fullName)} font-headline text-3xl font-bold text-white shadow-md sm:h-36 sm:w-36 sm:text-4xl`}
-                            >
-                                {initials}
-                            </span>
+                            <ProfilePictureUpload
+                                currentUrl={user.avatar_url ?? client?.avatar_url ?? null}
+                                name={fullName}
+                                uploadRoute={route('ofw.profile.avatar.store')}
+                                destroyRoute={route('ofw.profile.avatar.destroy')}
+                                fallbackClassName={getAvatarColor(fullName)}
+                            />
                         </div>
 
                         <div className="mt-3 min-w-0 flex-1 text-center sm:mt-0 sm:pb-2 sm:text-left">

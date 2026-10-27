@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\AvatarUploadRequest;
 use App\Http\Requests\ProfileUpdateRequest;
 use App\Services\CloudinaryAvatarService;
 use App\Services\OnboardingService;
@@ -67,6 +68,8 @@ class ProfileController extends Controller
 
         $user->fill($request->validated());
 
+        // Legacy path: the staff profile page now posts to storeAvatar(), but
+        // the `avatar` field stays accepted here for backward compatibility.
         if ($request->hasFile('avatar')) {
             $file = $request->file('avatar');
             try {
@@ -91,6 +94,64 @@ class ProfileController extends Controller
         app(OnboardingService::class)->isProfileIncomplete($user);
 
         return Redirect::route('profile.edit');
+    }
+
+    /**
+     * Upload or replace the authenticated user's profile picture.
+     *
+     * Delete-before-upload is deliberate (same ordering as
+     * ClientController::storeAvatar): a failed upload leaves the user with no
+     * photo rather than a broken image. The public_id is derived from the user
+     * id so a replacement overwrites the same Cloudinary asset.
+     */
+    public function storeAvatar(AvatarUploadRequest $request): RedirectResponse
+    {
+        $user = $request->user();
+        $file = $request->uploadedAvatar();
+
+        if (! $file) {
+            return Redirect::route('profile.edit')->withErrors(['profile_picture' => 'Please choose a photo to upload.']);
+        }
+
+        try {
+            app(CloudinaryAvatarService::class)->deleteByUrl($user->getRawOriginal('avatar_url'));
+            $user->avatar_url = app(CloudinaryAvatarService::class)->uploadImage(
+                $file,
+                'avatars',
+                'user-'.$user->id,
+            );
+        } catch (\RuntimeException $e) {
+            return Redirect::route('profile.edit')->withErrors(['profile_picture' => $e->getMessage()]);
+        } catch (\Throwable $e) {
+            return Redirect::route('profile.edit')->withErrors([
+                'profile_picture' => 'The image could not be uploaded. Please try again later.',
+            ]);
+        }
+
+        $user->save();
+
+        return Redirect::route('profile.edit')->with('success', 'Profile picture updated successfully.');
+    }
+
+    /**
+     * Remove the authenticated user's profile picture.
+     */
+    public function destroyAvatar(Request $request): RedirectResponse
+    {
+        $user = $request->user();
+
+        try {
+            app(CloudinaryAvatarService::class)->deleteByUrl($user->getRawOriginal('avatar_url'));
+        } catch (\Throwable $e) {
+            // deleteByUrl() is already best-effort; this covers anything that
+            // escapes it so a removal request never 500s.
+            report($e);
+        }
+
+        $user->avatar_url = null;
+        $user->save();
+
+        return Redirect::route('profile.edit')->with('success', 'Profile picture removed.');
     }
 
     /**
