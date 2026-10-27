@@ -12,6 +12,15 @@ import AddressDropdowns from '@/Components/AddressDropdowns';
 import { DEFAULT_OCCUPATIONS } from '@/data/defaultOccupations';
 import { resolveAddressToCodes, addressCodesToNames } from '@/data/philippine-addresses';
 import ProfilePictureUpload from '@/Components/ProfilePictureUpload';
+import {
+    ProfileCard,
+    ProfileField,
+    ProfileSaveBar,
+    ProfileSection,
+    ProfileStaticField,
+    ProfileTextInput,
+    PROFILE_INPUT_CLASS,
+} from '@/Components/ui/ProfileCard';
 import { useToast } from '@/Hooks/useToast';
 import safeRoute from '@/utils/safeRoute';
 
@@ -59,69 +68,15 @@ function formatSex(value) {
     return value.charAt(0) + value.slice(1).toLowerCase();
 }
 
-/* ---------- Compact section building blocks ---------- */
-
-/** A titled section inside the single profile card. */
-function Section({ title, description, action, children }) {
-    return (
-        <section className="border-b border-slate-100 px-5 py-5 last:border-b-0 sm:px-6">
-            <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
-                <div>
-                    <h2 className="font-headline text-[15px] font-extrabold tracking-tight text-slate-900">
-                        {title}
-                    </h2>
-                    {description ? <p className="mt-0.5 text-[12px] text-slate-500">{description}</p> : null}
-                </div>
-                {action ?? null}
-            </div>
-            {children}
-        </section>
-    );
-}
-
-function Field({ label, htmlFor, error, hint, children }) {
-    return (
-        <div>
-            <label htmlFor={htmlFor} className="block text-[11px] font-bold uppercase tracking-[0.08em] text-slate-600">
-                {label}
-            </label>
-            {children}
-            {hint && !error ? <p className="mt-1 text-[11px] text-slate-400">{hint}</p> : null}
-            {error ? <p className="mt-1 text-[12px] font-medium text-rose-600">{error}</p> : null}
-        </div>
-    );
-}
-
-const INPUT_CLASS =
-    'mt-1.5 block h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-[13px] text-slate-900 transition-colors placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500';
-
-function TextInput({ id, label, value, onChange, error, hint, type = 'text', placeholder, maxLength, autoComplete, disabled }) {
-    return (
-        <Field label={label} htmlFor={id} error={error} hint={hint}>
-            <input
-                id={id}
-                type={type}
-                value={value ?? ''}
-                onChange={(e) => onChange(e.target.value)}
-                placeholder={placeholder}
-                maxLength={maxLength}
-                autoComplete={autoComplete}
-                disabled={disabled}
-                className={INPUT_CLASS}
-            />
-        </Field>
-    );
-}
-
-/** A read-only labelled value, used for staff-owned details. */
-function StaticField({ label, value }) {
-    return (
-        <div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-slate-600">{label}</p>
-            <p className="mt-1.5 truncate text-[13px] text-slate-700">{value || '—'}</p>
-        </div>
-    );
-}
+/* ---------- Section building blocks ----------
+ * The chrome (card, section heading, field label, input, save bar) lives in
+ * Components/ui/ProfileCard so the citizen profile and the staff profile stay
+ * visually identical. Aliased to the local names this page already uses.
+ */
+const Field = ProfileField;
+const StaticField = ProfileStaticField;
+const INPUT_CLASS = PROFILE_INPUT_CLASS;
+const TextInput = ProfileTextInput;
 
 /** "Use my home address" toggle for a next-of-kin contact. */
 function SameAddressToggle({ checked, onChange, disabled }) {
@@ -429,9 +384,9 @@ export default function Profile({ user, client }) {
             ) : null}
 
             <form onSubmit={handleSave} className="mt-5">
-                <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                <ProfileCard>
                     {/* ---------- Account ---------- */}
-                    <Section
+                    <ProfileSection
                         title="Account"
                         description="Your photo and verified identity. Name, date of birth and email are managed by DMW."
                     >
@@ -468,10 +423,10 @@ export default function Profile({ user, client }) {
                             <StaticField label="Suffix" value={client?.suffix} />
                             <StaticField label="Assigned office" value="DMW Region VII" />
                         </div>
-                    </Section>
+                    </ProfileSection>
 
                     {/* ---------- Contact ---------- */}
-                    <Section title="Contact" description="Your mobile number. Changes are recorded and sent to your case manager.">
+                    <ProfileSection title="Contact" description="Your mobile number. Changes are recorded and sent to your case manager.">
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <TextInput
                                 id="contact_number"
@@ -527,19 +482,19 @@ export default function Profile({ user, client }) {
                                 </select>
                             </Field>
                         </div>
-                    </Section>
+                    </ProfileSection>
 
                     {/* ---------- Home address ---------- */}
-                    <Section title="Home address" description="Where we can reach you while abroad or at home.">
+                    <ProfileSection title="Home address" description="Where we can reach you while abroad or at home.">
                         <AddressDropdowns
                             values={form.data.address}
                             onChange={setAddress}
                             errors={form.errors}
                         />
-                    </Section>
+                    </ProfileSection>
 
                     {/* ---------- Employment ---------- */}
-                    <Section title="Employment" description="Your current or most recent employment details.">
+                    <ProfileSection title="Employment" description="Your current or most recent employment details.">
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                             <TextInput
                                 id="emp_employer"
@@ -631,10 +586,10 @@ export default function Profile({ user, client }) {
                                 />
                             </Field>
                         </div>
-                    </Section>
+                    </ProfileSection>
 
                     {/* ---------- Family & friends ---------- */}
-                    <Section
+                    <ProfileSection
                         title="Family & friends"
                         description="Optional — add people we may contact on your behalf."
                         action={
@@ -733,10 +688,10 @@ export default function Profile({ user, client }) {
                                 })}
                             </div>
                         )}
-                    </Section>
+                    </ProfileSection>
 
                     {/* ---------- Password ---------- */}
-                    <Section
+                    <ProfileSection
                         title="Password"
                         description="Leave the new password fields blank to keep your current password."
                     >
@@ -769,35 +724,15 @@ export default function Profile({ user, client }) {
                                 autoComplete="new-password"
                             />
                         </div>
-                    </Section>
+                    </ProfileSection>
 
                     {/* ---------- The single Save / Discard bar ---------- */}
-                    <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-50 px-5 py-3 sm:px-6">
-                        <p className="text-[12px] text-slate-500">
-                            {isDirty ? 'You have unsaved changes.' : 'All changes are saved.'}
-                        </p>
-                        <div className="flex items-center gap-2">
-                            <button
-                                type="button"
-                                onClick={handleDiscard}
-                                disabled={!isDirty || form.processing}
-                                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-[13px] font-bold text-slate-700 transition-colors hover:border-slate-300 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                                Discard changes
-                            </button>
-                            <button
-                                type="submit"
-                                disabled={!isDirty || form.processing}
-                                className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-5 py-2.5 text-[13px] font-bold text-white shadow-sm transition-colors hover:bg-primary-container disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                                {form.processing && (
-                                    <span className="material-symbols-outlined animate-spin text-[17px]" aria-hidden="true">progress_activity</span>
-                                )}
-                                {form.processing ? 'Saving…' : 'Save changes'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                    <ProfileSaveBar
+                        dirty={isDirty}
+                        processing={form.processing}
+                        onDiscard={handleDiscard}
+                    />
+                </ProfileCard>
             </form>
 
             <p className="mt-5 flex items-center gap-1.5 text-[11px] text-slate-400">
