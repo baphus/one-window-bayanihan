@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\AuditModule;
 use App\Enums\UserRole;
 use App\Http\Requests\StoreReferralClientMessageRequest;
 use App\Http\Requests\StoreReferralClientRequest;
@@ -13,6 +14,7 @@ use App\Models\ReferralClientMessageAttachment;
 use App\Models\ReferralClientRequest;
 use App\Models\User;
 use App\Notifications\ReferralClientRequestActivity;
+use App\Services\AuditLogger;
 use App\Services\ReferralClientAccessService;
 use App\Services\ReferralClientRequestService;
 use App\Services\StorageService;
@@ -125,7 +127,7 @@ class ReferralClientRequestController extends Controller
     public function reissue(Request $request, ReferralClientRequest $clientRequest): RedirectResponse
     {
         $this->requestService->assertCanManage($clientRequest, $request->user());
-        $delivery = $this->issueForClient($clientRequest, $request->user());
+        $delivery = $this->issueForClient($clientRequest, $request->user(), true);
 
         return redirect()->back()->with('client_access_delivery', $delivery);
     }
@@ -284,6 +286,12 @@ class ReferralClientRequestController extends Controller
             abort(404, 'File not found or unavailable.');
         }
 
+        AuditLogger::download()
+            ->by($request->user())
+            ->module(AuditModule::REFERRAL_CLIENT_REQUEST)
+            ->context(null, ['file_name' => $attachment->file_name])
+            ->write();
+
         return redirect()->away($url);
     }
 
@@ -321,7 +329,7 @@ class ReferralClientRequestController extends Controller
         );
     }
 
-    private function issueForClient(ReferralClientRequest $clientRequest, User $issuer): array
+    private function issueForClient(ReferralClientRequest $clientRequest, User $issuer, bool $isReissue = false): array
     {
         $clientRequest->loadMissing('referral.agency', 'referral.caseFile.client');
         $client = $clientRequest->referral?->caseFile?->client;
@@ -335,7 +343,7 @@ class ReferralClientRequestController extends Controller
         $issued = $this->accessService->issue($clientRequest, $issuer, [
             'name' => trim(($client->first_name ?? '').' '.($client->last_name ?? '')),
             'email' => $email,
-        ]);
+        ], $isReissue);
         $magicLink = route('track.request.index').'#token='.rawurlencode($issued['raw_token']);
         Mail::to($email)->queue(new ClientRequestMail($clientRequest, $issued['raw_token'], $magicLink));
         $this->recordDelivery($clientRequest, $email, 'queued');

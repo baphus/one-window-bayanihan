@@ -5,8 +5,8 @@ namespace App\Http\Controllers\Admin;
 use App\Enums\AuditAction;
 use App\Enums\AuditModule;
 use App\Http\Controllers\Controller;
-use App\Models\AuditLog;
 use App\Models\CaseIssue;
+use App\Services\AuditLogger;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -90,16 +90,12 @@ class AdminCaseIssueController extends Controller
         $issue->deleted_at = null;
         $issue->saveQuietly();
 
-        AuditLog::create([
-            'action' => AuditAction::UPDATE->value,
-            'module' => AuditModule::CASE_ISSUE->value,
-            'entity_id' => $issue->id,
-            'description' => 'Case issue '.$issue->name.' reactivated',
-            'old_value' => ['is_active' => false, 'is_deleted' => true],
-            'new_value' => ['is_active' => true, 'is_deleted' => false],
-            'user_id' => auth()->id(),
-            'timestamp' => now(),
-        ]);
+        AuditLogger::log(AuditAction::REACTIVATE)
+            ->byId(auth()->id())
+            ->forEntity($issue, $issue->name)
+            ->module(AuditModule::CASE_ISSUE)
+            ->context(['is_active' => false, 'is_deleted' => true], ['is_active' => true, 'is_deleted' => false])
+            ->write();
 
         return redirect()->route('admin.case-issues.index')
             ->with('success', 'Issue reactivated successfully.');

@@ -84,7 +84,7 @@ class CaseReviewTest extends TestCase
         ]);
         $this->assertDatabaseHas('audit_logs', [
             'entity_id' => $case->id,
-            'action' => 'PUBLISH',
+            'action' => 'APPROVE',
             'module' => 'case',
         ]);
     }

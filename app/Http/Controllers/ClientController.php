@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\AuditModule;
 use App\Helpers\CacheHelper;
 use App\Http\Controllers\Concerns\ResolvesPerPage;
 use App\Http\Requests\ProfilePictureRequest;
@@ -9,6 +10,7 @@ use App\Models\AuditLog;
 use App\Models\Client;
 use App\Models\User;
 use App\Services\AuditLogFormatter;
+use App\Services\AuditLogger;
 use App\Services\CaseService;
 use App\Services\CloudinaryAvatarService;
 use App\Services\Export\DataExportQueries;
@@ -477,6 +479,12 @@ class ClientController extends Controller
         });
 
         $filename = 'clients-export-'.now()->format('Ymd-His').'.xlsx';
+
+        AuditLogger::export()
+            ->by($request->user())
+            ->module(AuditModule::DATA_EXPORT)
+            ->context(null, ['format' => 'excel', 'scope' => 'clients'])
+            ->write();
 
         return $exportService->generateSingleSheet(
             'Clients',

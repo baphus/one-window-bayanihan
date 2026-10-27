@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\AuditModule;
 use App\Models\ReferralClientAccessLink;
 use App\Models\ReferralClientRequest;
 use App\Models\User;
@@ -28,8 +29,9 @@ class ReferralClientAccessService
         ReferralClientRequest $request,
         User $issuer,
         ?array $recipientSnapshot = null,
+        bool $isReissue = false,
     ): array {
-        return DB::transaction(function () use ($request, $issuer, $recipientSnapshot): array {
+        return DB::transaction(function () use ($request, $issuer, $recipientSnapshot, $isReissue): array {
             $request = ReferralClientRequest::query()->lockForUpdate()->findOrFail($request->id);
             $this->assertIssuable($request);
 
@@ -54,6 +56,19 @@ class ReferralClientAccessService
                 'recipient_snapshot' => $recipientSnapshot,
             ]);
 
+            // Purposeful audit entry for the link lifecycle. The raw token is
+            // never part of the payload — only the referral it unlocks.
+            $referral = $request->referral;
+            $referral?->loadMissing('agency');
+
+            $audit = $isReissue ? AuditLogger::reissueLink() : AuditLogger::issueLink();
+
+            $audit->by($issuer)
+                ->forEntity($referral, $referral?->agency?->name)
+                ->module(AuditModule::REFERRAL_CLIENT_ACCESS_LINK)
+                ->context(null, ['expires_at' => $expiresAt->toIso8601String()])
+                ->write();
+
             $this->invalidateTrackingCaches($request);
 
             return [
@@ -70,7 +85,7 @@ class ReferralClientAccessService
         User $issuer,
         ?array $recipientSnapshot = null,
     ): array {
-        return $this->issue($request, $issuer, $recipientSnapshot);
+        return $this->issue($request, $issuer, $recipientSnapshot, true);
     }
 
     /**

@@ -2,9 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\AuditModule;
+use App\Services\AuditLogger;
 use App\Services\MfaPendingState;
 use App\Services\MfaService;
-use App\Services\SecurityAuditLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -91,7 +92,11 @@ class MfaController extends Controller
         $pendingState->clear($request);
         $pendingState->markAuthenticated($request, $user);
 
-        SecurityAuditLogger::log('mfa', sprintf('%s enabled two-factor authentication', $user->name));
+        AuditLogger::enableMfa()
+            ->by($user)
+            ->forEntity($user, $user->name)
+            ->module(AuditModule::MFA)
+            ->write();
 
         return response()->json([
             'message' => 'Two-factor authentication has been enabled.',
@@ -128,7 +133,11 @@ class MfaController extends Controller
         $user->mfa_enabled_at = null;
         $user->save();
 
-        SecurityAuditLogger::log('mfa', sprintf('%s disabled two-factor authentication', $user->name));
+        AuditLogger::disableMfa()
+            ->by($user)
+            ->forEntity($user, $user->name)
+            ->module(AuditModule::MFA)
+            ->write();
 
         return response()->json([
             'message' => 'Two-factor authentication has been disabled.',
@@ -152,7 +161,11 @@ class MfaController extends Controller
         $user->mfa_recovery_codes = $mfaService->hashRecoveryCodes($codes);
         $user->save();
 
-        SecurityAuditLogger::log('mfa', sprintf('%s regenerated MFA recovery codes', $user->name));
+        AuditLogger::regenerateRecoveryCodes()
+            ->by($user)
+            ->forEntity($user, $user->name)
+            ->module(AuditModule::MFA)
+            ->write();
 
         return response()->json([
             'recovery_codes' => $codes,

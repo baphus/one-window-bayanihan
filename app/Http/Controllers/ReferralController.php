@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\AuditModule;
 use App\Enums\UserRole;
 use App\Exceptions\SafeException;
 use App\Http\Requests\StoreMilestoneRequest;
@@ -14,6 +15,7 @@ use App\Models\Referral;
 use App\Models\ReferralAttachment;
 use App\Models\ReferralComment;
 use App\Models\SystemSetting;
+use App\Services\AuditLogger;
 use App\Services\Export\DataExportQueries;
 use App\Services\Export\DataExportService;
 use App\Services\OnboardingService;
@@ -434,6 +436,12 @@ class ReferralController extends Controller
             abort(404, 'File not found or unavailable.');
         }
 
+        AuditLogger::download()
+            ->by($request->user())
+            ->forEntity($attachment, $attachment->file_name)
+            ->module(AuditModule::REFERRAL_ATTACHMENT)
+            ->write();
+
         return redirect()->away($url);
     }
 
@@ -462,6 +470,13 @@ class ReferralController extends Controller
         try {
             $this->referralService->addService($referral, $validated['service_id'], $request->user()->id);
 
+            AuditLogger::assignService()
+                ->by($request->user())
+                ->forEntity($referral, $referral->agency?->name)
+                ->module(AuditModule::REFERRAL)
+                ->context(null, ['service_id' => $validated['service_id']])
+                ->write();
+
             return redirect()->back()->with('success', 'Service added to referral.');
         } catch (\InvalidArgumentException $e) {
             return redirect()->back()->with('error', $e->getMessage());
@@ -479,6 +494,13 @@ class ReferralController extends Controller
 
         try {
             $this->referralService->removeService($referral, $serviceId);
+
+            AuditLogger::unassignService()
+                ->by($request->user())
+                ->forEntity($referral, $referral->agency?->name)
+                ->module(AuditModule::REFERRAL)
+                ->context(['service_id' => $serviceId], null)
+                ->write();
 
             return redirect()->back()->with('success', 'Service removed from referral.');
         } catch (\InvalidArgumentException $e) {
@@ -588,6 +610,12 @@ class ReferralController extends Controller
         });
 
         $filename = 'referrals-export-'.now()->format('Ymd-His').'.xlsx';
+
+        AuditLogger::export()
+            ->by($request->user())
+            ->module(AuditModule::DATA_EXPORT)
+            ->context(null, ['format' => 'excel', 'scope' => 'referrals'])
+            ->write();
 
         return $exportService->generateSingleSheet(
             'Referrals',

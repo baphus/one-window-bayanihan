@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\AuditModule;
 use App\Enums\UserRole;
 use App\Models\Milestone;
 use App\Models\Referral;
@@ -72,6 +73,13 @@ class ReferralClientRequestService
             ]);
 
             $this->eventRecorder->milestoneAdded($referral, $milestone, $actor->id);
+
+            AuditLogger::issueClientRequest()
+                ->by($actor)
+                ->forEntity($referral, $referral->agency?->name)
+                ->module(AuditModule::REFERRAL_CLIENT_REQUEST)
+                ->context(null, ['type' => $type, 'title' => $data['title']])
+                ->write();
 
             return $request;
         });
@@ -173,6 +181,23 @@ class ReferralClientRequestService
 
             $lockedRequest->update(['status' => ReferralClientRequest::STATUS_CLIENT_RESPONDED]);
 
+            // Anonymous actor: the holder of the client access link.
+            AuditLogger::replyClientRequest()
+                ->byId(null)
+                ->forEntity($referral, $referral->agency?->name)
+                ->module(AuditModule::REFERRAL_CLIENT_REQUEST)
+                ->context(null, ['attachment_count' => count($files)])
+                ->write();
+
+            if ($files !== []) {
+                AuditLogger::uploadReplyDoc()
+                    ->byId(null)
+                    ->forEntity($referral, $referral->agency?->name)
+                    ->module(AuditModule::REFERRAL_CLIENT_REQUEST)
+                    ->context(null, ['count' => count($files)])
+                    ->write();
+            }
+
             // milestones.user_id is NOT NULL; anonymous tracking clients have no
             // user row, so record the request creator as the owning account.
             $this->recordRequestUpdate(
@@ -245,6 +270,12 @@ class ReferralClientRequestService
             $this->assertCanRevoke($referral, $actor);
             if ($lockedLink->revoked_at === null) {
                 $lockedLink->update(['revoked_at' => now(), 'revoked_by' => $actor->id]);
+
+                AuditLogger::revokeLink()
+                    ->by($actor)
+                    ->forEntity($referral, $referral->agency?->name)
+                    ->module(AuditModule::REFERRAL_CLIENT_ACCESS_LINK)
+                    ->write();
             }
 
             return $referral;
@@ -289,6 +320,8 @@ class ReferralClientRequestService
                 $this->assertOpen($lockedRequest);
             }
 
+            $oldStatus = $lockedRequest->status;
+
             $lockedRequest->update(['status' => $status]);
             if ($reopen) {
                 // A legacy/current link must never become usable merely because the request reopened.
@@ -319,6 +352,21 @@ class ReferralClientRequestService
                 ReferralClientRequest::STATUS_CANCELLED => ['Cancelled', 'The agency cancelled this request.'],
                 default => ['Reopened', 'The agency reopened this request.'],
             };
+
+            // Purposeful audit entry for the lifecycle transition (the
+            // observer only records a generic UPDATE on the request row).
+            $audit = match (true) {
+                $reopen => AuditLogger::reopenClientRequest(),
+                $status === ReferralClientRequest::STATUS_COMPLETED => AuditLogger::resolveClientRequest(),
+                $status === ReferralClientRequest::STATUS_CANCELLED => AuditLogger::cancelClientRequest(),
+                default => AuditLogger::reopenClientRequest(),
+            };
+
+            $audit->by($actor)
+                ->forEntity($referral, $referral->agency?->name)
+                ->module(AuditModule::REFERRAL_CLIENT_REQUEST)
+                ->context(['status' => $oldStatus], ['status' => $status])
+                ->write();
 
             $this->recordRequestUpdate(
                 $referral,

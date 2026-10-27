@@ -5,8 +5,8 @@ namespace App\Http\Controllers\Admin;
 use App\Enums\AuditAction;
 use App\Enums\AuditModule;
 use App\Http\Controllers\Controller;
-use App\Models\AuditLog;
 use App\Models\CaseCategory;
+use App\Services\AuditLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -117,16 +117,12 @@ class AdminCaseCategoryController extends Controller
         $category->deleted_at = null;
         $category->saveQuietly();
 
-        AuditLog::create([
-            'action' => AuditAction::UPDATE->value,
-            'module' => AuditModule::CASE_CATEGORY->value,
-            'entity_id' => $category->id,
-            'description' => 'Case category '.$category->name.' reactivated',
-            'old_value' => ['is_active' => false, 'is_deleted' => true],
-            'new_value' => ['is_active' => true, 'is_deleted' => false],
-            'user_id' => auth()->id(),
-            'timestamp' => now(),
-        ]);
+        AuditLogger::log(AuditAction::REACTIVATE)
+            ->byId(auth()->id())
+            ->forEntity($category, $category->name)
+            ->module(AuditModule::CASE_CATEGORY)
+            ->context(['is_active' => false, 'is_deleted' => true], ['is_active' => true, 'is_deleted' => false])
+            ->write();
 
         return redirect()->route('admin.case-categories.index')
             ->with('success', 'Category reactivated successfully.');

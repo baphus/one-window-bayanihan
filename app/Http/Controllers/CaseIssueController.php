@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\AuditModule;
 use App\Enums\UserRole;
 use App\Models\CaseIssue;
+use App\Services\AuditLogger;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -27,7 +29,7 @@ class CaseIssueController extends Controller
             // case_issues unique key is the final tiebreaker for an in-flight
             // duplicate insert. A lost race surfaces as the same
             // validation-error UX the rule would have produced, not a 500.
-            return DB::transaction(function () use ($validated) {
+            return DB::transaction(function () use ($validated, $user) {
                 if (CaseIssue::where('name', $validated['name'])->lockForUpdate()->exists()) {
                     throw ValidationException::withMessages([
                         'name' => ['The name has already been taken.'],
@@ -39,6 +41,12 @@ class CaseIssueController extends Controller
                     'sort_order' => (CaseIssue::max('sort_order') ?? 0) + 1,
                     'is_active' => true,
                 ]);
+
+                AuditLogger::createCaseIssue()
+                    ->by($user)
+                    ->forEntity($issue, $issue->name)
+                    ->module(AuditModule::CASE_ISSUE)
+                    ->write();
 
                 return response()->json([
                     'id' => $issue->id,

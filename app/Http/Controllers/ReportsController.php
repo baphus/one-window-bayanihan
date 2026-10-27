@@ -2,12 +2,11 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\AuditAction;
 use App\Enums\AuditModule;
 use App\Enums\UserRole;
 use App\Http\Requests\ReportsFilterRequest;
-use App\Models\AuditLog;
 use App\Models\User;
+use App\Services\AuditLogger;
 use App\Services\Export\DataExportService;
 use App\Services\Reports\ReportsExportService;
 use App\Services\ReportsService;
@@ -281,19 +280,19 @@ class ReportsController extends Controller
     {
         $user = $request->user();
 
-        AuditLog::create([
-            'action' => AuditAction::EXPORT->value,
-            'module' => AuditModule::DATA_EXPORT->value,
-            'entity_id' => $user?->id,
-            'description' => sprintf(
+        AuditLogger::export()
+            ->by($user)
+            ->forEntity($user ?? null, $user?->name)
+            ->module(AuditModule::DATA_EXPORT)
+            ->description(sprintf(
                 '%s %s a reports %s export (%s to %s)',
                 $user?->name ?? 'Unknown user',
                 strtolower($outcome),
                 strtoupper($format),
                 $criteria['from'],
                 $criteria['to'],
-            ),
-            'new_value' => [
+            ))
+            ->context(null, [
                 'outcome' => $outcome,
                 'format' => $format,
                 'role' => $criteria['role'],
@@ -305,12 +304,8 @@ class ReportsController extends Controller
                     'city' => $criteria['city'] ?? 'All',
                     'agency_id' => $criteria['agency_id'] ?? 'All',
                 ],
-            ] + $context,
-            'user_id' => $user?->id,
-            'timestamp' => now(),
-            'ip_address' => $request->ip(),
-            'user_agent' => $request->userAgent(),
-            'request_id' => $this->correlationId($request),
-        ]);
+            ] + $context)
+            ->requestContext($request->ip(), $request->userAgent(), $this->correlationId($request))
+            ->write();
     }
 }

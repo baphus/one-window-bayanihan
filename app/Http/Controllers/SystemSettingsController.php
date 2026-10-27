@@ -3,8 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Enums\AuditAction;
+use App\Enums\AuditModule;
 use App\Models\SystemSetting;
-use App\Services\SecurityAuditLogger;
+use App\Services\AuditLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
@@ -34,12 +35,11 @@ class SystemSettingsController extends Controller
         if ($request->filled('referral_overdue_days')) {
             SystemSetting::setValue('referral_overdue_days', (int) $validated['referral_overdue_days']);
 
-            SecurityAuditLogger::log(
-                'system_setting',
-                'System setting updated: referral_overdue_days = '.(int) $validated['referral_overdue_days'],
-                null,
-                AuditAction::UPDATE->value,
-            );
+            AuditLogger::log(AuditAction::UPDATE)
+                ->byId(auth()->id())
+                ->module(AuditModule::SYSTEM_SETTING)
+                ->context(null, ['setting' => 'referral_overdue_days', 'value' => (int) $validated['referral_overdue_days']])
+                ->write();
         }
 
         return back()->with('success', 'Settings updated successfully.');
@@ -65,12 +65,11 @@ class SystemSettingsController extends Controller
 
             SystemSetting::setValue('chatbot_last_reindexed_at', now()->toIso8601String());
 
-            SecurityAuditLogger::log(
-                'system_setting',
-                'Chatbot helpdesk content cache refreshed (reindexed)',
-                null,
-                AuditAction::UPDATE->value,
-            );
+            AuditLogger::log(AuditAction::UPDATE)
+                ->byId(auth()->id())
+                ->module(AuditModule::SYSTEM_SETTING)
+                ->description('Chatbot helpdesk content cache refreshed (reindexed)')
+                ->write();
 
             return response()->json([
                 'success' => true,

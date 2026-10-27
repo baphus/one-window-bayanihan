@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Enums\AuditModule;
 use App\Http\Controllers\Controller;
+use App\Services\AuditLogger;
 use Illuminate\Auth\SessionGuard;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -52,6 +54,12 @@ class PasswordController extends Controller
         /** @var SessionGuard $webGuard */
         $webGuard = Auth::guard('web');
         $webGuard->logoutOtherDevices($validated['password']);
+
+        AuditLogger::changePassword()
+            ->by($user)
+            ->forEntity($user, $user->name)
+            ->module(AuditModule::AUTH)
+            ->write();
 
         return back();
     }

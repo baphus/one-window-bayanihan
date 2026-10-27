@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Enums\AuditModule;
 use App\Http\Controllers\Controller;
+use App\Services\AuditLogger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Password;
@@ -36,6 +38,12 @@ class PasswordResetLinkController extends Controller
         Password::sendResetLink(
             $request->only('email')
         );
+
+        AuditLogger::requestPasswordReset()
+            ->byId(null)
+            ->module(AuditModule::AUTH)
+            ->context(null, ['email' => $request->input('email')])
+            ->write();
 
         return back()->with('status', __(Password::RESET_LINK_SENT));
     }

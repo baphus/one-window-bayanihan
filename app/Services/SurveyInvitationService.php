@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\AuditModule;
 use App\Models\Referral;
 use App\Models\SurveyForm;
 use App\Models\SurveyInvitation;
@@ -132,6 +133,16 @@ class SurveyInvitationService
             }
 
             $invitation->update(['submitted_at' => now()]);
+
+            // Purposeful verb for the public survey flow. Logged here rather
+            // than in the controller so it shares this transaction: a rolled
+            // back submission leaves no audit entry claiming it was submitted.
+            // byId(null): the respondent is an anonymous link holder.
+            AuditLogger::submitSurvey()
+                ->byId(null)
+                ->module(AuditModule::SURVEY_RESPONSE)
+                ->context(null, ['invitation_id' => $invitation->id])
+                ->write();
         });
     }
 

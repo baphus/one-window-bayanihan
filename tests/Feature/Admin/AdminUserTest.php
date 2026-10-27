@@ -360,7 +360,7 @@ class AdminUserTest extends TestCase
         $this->assertNotNull($target->fresh()->email_verified_at);
 
         $this->assertDatabaseHas('audit_logs', [
-            'action' => 'UPDATE',
+            'action' => 'ADMIN_CHANGE_EMAIL',
             'module' => 'user',
             'entity_id' => $target->id,
             'user_id' => $this->admin->id,
@@ -521,7 +521,7 @@ class AdminUserTest extends TestCase
         $this->assertFalse((bool) $fresh->is_deleted);
 
         $this->assertDatabaseHas('audit_logs', [
-            'action' => 'UPDATE',
+            'action' => 'REACTIVATE',
             'module' => 'user',
             'entity_id' => $target->id,
             'user_id' => $this->admin->id,
