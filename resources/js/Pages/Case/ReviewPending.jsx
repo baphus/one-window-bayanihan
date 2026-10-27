@@ -1,6 +1,6 @@
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { PageHeader, SectionCard, MaterialSymbol } from '@/Components/Dashboard/primitives';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import ConfirmDialog from '@/Components/ui/ConfirmDialog';
@@ -38,6 +38,10 @@ function ReviewDetail({ caseFile, categories, caseIssues, onClose }) {
   const needsClassification = !caseHasCategories(caseFile);
   const [categoryIds, setCategoryIds] = useState([]);
   const [caseIssueId, setCaseIssueId] = useState('');
+  const [localIssues, setLocalIssues] = useState(caseIssues);
+  const [showAddIssue, setShowAddIssue] = useState(false);
+  const [newIssueName, setNewIssueName] = useState('');
+  const [addingIssue, setAddingIssue] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const [rejectOpen, setRejectOpen] = useState(false);
   const [docFile, setDocFile] = useState(null);
@@ -47,6 +51,29 @@ function ReviewDetail({ caseFile, categories, caseIssues, onClose }) {
 
   const client = caseFile.client || {};
   const vuln = caseFile.vulnerability_indicator || 'None';
+
+  // Keep the dropdown in step with server props without discarding issues
+  // added inline during this review.
+  useEffect(() => { setLocalIssues(caseIssues); }, [caseIssues]);
+
+  async function handleQuickAddIssue() {
+    const name = newIssueName.trim();
+    if (!name || addingIssue) return;
+    setAddingIssue(true);
+    try {
+      const res = await window.axios.post(route('case-issues.quick'), { name });
+      const newIssue = res.data;
+      setLocalIssues((prev) => [...prev, newIssue]);
+      setCaseIssueId(newIssue.id);
+      setNewIssueName('');
+      setShowAddIssue(false);
+      setFormError('');
+    } catch (err) {
+      setFormError(err.response?.data?.errors?.name?.[0] || 'Failed to add issue.');
+    } finally {
+      setAddingIssue(false);
+    }
+  }
 
   function toggleCategory(id) {
     const sid = String(id);
@@ -175,17 +202,61 @@ function ReviewDetail({ caseFile, categories, caseIssues, onClose }) {
               </div>
               <div className="mt-3">
                 <label htmlFor="review-case-issue" className="mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-slate-600">Issue / concern *</label>
-                <select
-                  id="review-case-issue"
-                  value={caseIssueId}
-                  onChange={(e) => { setCaseIssueId(e.target.value); setFormError(''); }}
-                  className="h-10 w-full rounded-md border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
-                >
-                  <option value="">Select an issue…</option>
-                  {caseIssues.map((issue) => (
-                    <option key={issue.id} value={issue.id}>{issue.name}</option>
-                  ))}
-                </select>
+                <div className="flex gap-2">
+                  <select
+                    id="review-case-issue"
+                    value={caseIssueId}
+                    onChange={(e) => { setCaseIssueId(e.target.value); setFormError(''); }}
+                    className="h-10 min-w-0 flex-1 rounded-md border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
+                  >
+                    <option value="">Select an issue…</option>
+                    {localIssues.map((issue) => (
+                      <option key={issue.id} value={issue.id}>{issue.name}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => { setNewIssueName(''); setFormError(''); setShowAddIssue(!showAddIssue); }}
+                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-dashed border-blue-900/50 text-blue-900 transition-colors hover:bg-blue-50"
+                    title="Add new issue"
+                    aria-label="Add new issue"
+                    aria-expanded={showAddIssue}
+                  >
+                    <span className="material-symbols-outlined text-[20px]">add</span>
+                  </button>
+                </div>
+                {showAddIssue && (
+                  <div className="mt-2 rounded-md border border-slate-300 bg-slate-50 p-3">
+                    <label htmlFor="review-new-issue" className="mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-slate-600">New issue name</label>
+                    <input
+                      id="review-new-issue"
+                      type="text"
+                      value={newIssueName}
+                      onChange={(e) => setNewIssueName(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleQuickAddIssue(); } }}
+                      placeholder="Enter new issue name..."
+                      className="h-10 w-full rounded-md border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
+                      autoFocus
+                    />
+                    <div className="mt-2 flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleQuickAddIssue}
+                        disabled={addingIssue || !newIssueName.trim()}
+                        className="inline-flex items-center gap-1.5 rounded-md bg-blue-900 px-3 py-1.5 text-[12px] font-bold text-white transition-colors hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {addingIssue ? 'Adding…' : 'Add'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setShowAddIssue(false); setNewIssueName(''); }}
+                        className="text-[12px] font-medium text-slate-500 hover:text-slate-700"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           ) : (
