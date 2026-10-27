@@ -4,6 +4,8 @@ Laravel 13 + Inertia/React 18 case-management system for DMW Region VII. Postgre
 
 Documentation is platform-neutral: describe infrastructure by technology and capability, not by hosting or managed-service vendor. See `docs/DEPLOYMENT_GUIDE_v3.1.0.md` §1 (what a target must provide) and §12 (the only places a provider may be named).
 
+**Known stale file**: `.cursorrules` is outdated — it references PHP 8.3 (should be 8.4), `CACHE_STORE=database` (project uses Redis 7), and "Do NOT modify Laravel Breeze auth scaffolding" (project uses custom auth, not Breeze). Prefer this file over `.cursorrules`.
+
 ## Commands
 
 | Command | Use |
@@ -18,7 +20,9 @@ Documentation is platform-neutral: describe infrastructure by technology and cap
 | `npm run build` | Production Vite build |
 | `npm test` | Vitest watch mode |
 | `npm run test:run` | Vitest one-shot |
+| `npm run typecheck` | `tsc --noEmit` type check |
 | `npm run addresses:sync` | Sync Philippine PSGC address data |
+| `php artisan chatbot:index` | Pre-warm chatbot helpdesk corpus cache |
 | `docker compose up -d` | Full local stack (nginx + app + queue + scheduler + Postgres + Redis) |
 | `docker compose --profile migrate run migrate` | Run migrations against local Docker DB |
 
@@ -26,10 +30,12 @@ Documentation is platform-neutral: describe infrastructure by technology and cap
 
 - SPA entry is `resources/js/app.tsx`; Inertia resolves pages from `resources/js/Pages/**/*.{jsx,tsx}`.
 - Vite input is `resources/js/app.tsx`; alias `@/` points to `resources/js` in `vite.config.js`, `vitest.config.ts`, and `tsconfig.json`.
-- Auth routes live in `routes/auth.php`; login is email + password via `AuthenticatedSessionController` (`routes/auth.php:21-29`), followed by TOTP MFA via `MfaChallengeController` (`routes/auth.php:31-37`), not default Breeze login flow. OTP is used only for email-change verification, public case intake, and citizen tracking-number verification — not for login.
+- Auth routes live in `routes/auth.php`; login is email + password via `AuthenticatedSessionController` (`routes/auth.php:21-29`), followed by TOTP MFA via `MfaChallengeController` (`routes/auth.php:31-37`), not default Breeze login flow. OTP is used only for email-change verification, public case intake, and citizen tracking-number verification — not for login. In production (`APP_ENV=production`), MFA is enforced for ALL staff roles regardless of config flags; MFA cannot be disabled in production (returns 403).
 - Authenticated app routes live in `routes/web.php`. Some session-authenticated `api/*` endpoints are defined there, so do not assume every API-looking route is in `routes/api.php`.
 - Public API routes in `routes/api.php` are PSGC address lookup, CSP report, `/api/readyz` (`routes/api.php:13`), and `/api/webhooks/resend` (`routes/api.php:37`) endpoints, throttled and unauthenticated.
-- Middleware, aliases, routing, and exception rendering (custom 404/403/500 Inertia pages) are configured in `bootstrap/app.php`, not `app/Http/Kernel.php`.
+- Middleware, aliases, routing, and exception rendering (custom 404/403/500 Inertia pages) are configured in `bootstrap/app.php`, not `app/Http/Kernel.php`. Middleware aliases: `role` → `CheckRole`, `turnstile` → `VerifyTurnstile`, `mfa.pending` → `EnsureMfaChallenge`, `pending.registration` → `EnsurePendingRegistration`.
+- `/up` is a shallow health check (no database touch) used by the deploy pipeline. `/api/readyz` is a deep readiness probe — checks database, scheduler heartbeat, queue backlog, failed job count, requires a monitoring token. Deliberately distinct to prevent restart loops during transient DB issues.
+- Scheduled commands in `routes/console.php`: scheduler heartbeat (every minute, feeds readiness probe), `logs:cleanup` (daily), `audit:archive` (monthly), `audit:prune --force` (monthly), `audit:verify` (weekly), `storage:cleanup-orphans` (daily), `emails:prune` (daily), `queue:prune-failed --hours=168` (weekly), `cases:purge-trashed` (daily). All with `withoutOverlapping()` and Sentry failure reporting.
 
 ## CI/CD pipelines (`.github/workflows/`)
 
@@ -46,22 +52,33 @@ Documentation is platform-neutral: describe infrastructure by technology and cap
 
 ## Backend conventions
 
-- Keep controllers thin: Controller → Service (`app/Services/*`) → Model. Put validation in `app/Http/Requests/*`.
+- Keep controllers thin: Controller → Service (`app/Services/*`) → Model. Put validation in `app/Http/Requests/*`. 60 controller files delegate to 84 service files.
 - Models use UUID primary keys via `App\Models\Concerns\UsesUuid` (37 of 40 models; `AgencyThreadRead`, `Notification`, and `SystemSetting` do not); route model binding expects string UUIDs.
-- Soft-deletion semantics are layered on top of Laravel's `SoftDeletes`: `app/Models/Concerns/SoftDeleteFlag.php:9` does `use SoftDeletes;`, adding a custom `is_deleted` boolean and `deleted_by` via a `deleting` hook (`:18-27`) and clearing them on `restoring` (`:31-34`); `deleted_at` comes from `SoftDeletes` itself.
-- Audit logging belongs in the service layer with `AuditLog::log(...)`; models may define `$auditExclude` and `getAuditModuleName()`.
-- RBAC uses `users.role` through `role` middleware (`CASE_MANAGER`, `AGENCY`, `ADMIN`, `OFW`; counted in `routes/web.php` as `role:CASE_MANAGER` ×8, `role:ADMIN` ×3, `role:AGENCY` ×2, `role:OFW` ×1). The column is a plain `string(50)` (`0001_01_01_000000_create_framework_tables.php:16`), not an enum — `app/Enums/` holds only `AuditAction` and `AuditModule`. The `role` alias resolves to `app/Http/Middleware/CheckRole.php` (`bootstrap/app.php:74`), which does `in_array($request->user()->role, $roles)` (`:13`).
+- Soft-deletion semantics are layered on top of Laravel's `SoftDeletes`: `app/Models/Concerns/SoftDeleteFlag.php:9` does `use SoftDeletes;`, adding a custom `is_deleted` boolean and `deleted_by` via a single-write `runSoftDelete()` override and clearing them on restore; `deleted_at` comes from `SoftDeletes` itself.
+- `CascadeSoftDeletes` trait cascades soft-delete/restore to child relationships via `$cascadeSoftDeletes` property. Uses a 2-second tolerance window to distinguish cascade-deleted children from independently-deleted ones; handles force-delete cascades.
+- Audit logging belongs in the service layer with `AuditLog::log(...)`; models may define `$auditExclude` and `getAuditModuleName()`. The `AuditObserver` is auto-registered from `config/audit.php`'s `observed_models` list (28 models). `AuditModelCoverageTest` asserts every listed model emits audit rows. Sensitive-value redaction via keys + patterns in `config/audit.php`. Audit lifecycle: monthly archive → prune (refuses rows not covered by a finalized bundle) → weekly chain verification.
+- `CacheInvalidationObserver` watches 10 models and invalidates cached reference data. `HandleInertiaRequests` provides cache invalidation helpers.
+- RBAC uses `users.role` through `role` middleware (`CASE_MANAGER`, `AGENCY`, `ADMIN`, `OFW`; counted in `routes/web.php` as `role:CASE_MANAGER` ×8, `role:ADMIN` ×3, `role:AGENCY` ×2, `role:OFW` ×1). The column is a plain `string(50)` (`0001_01_01_000000_create_framework_tables.php:16`), not an enum — `app/Enums/` holds `AuditAction`, `AuditModule`, and `UserRole` (provides `values()`, `staffValues()` returning all non-OFW roles, `isStaff()`, `label()`). The `role` alias resolves to `app/Http/Middleware/CheckRole.php` (`bootstrap/app.php:74`), which does `in_array($request->user()->role, $roles)` (`:13`).
 - Global/web middleware includes PostgreSQL session context, log context, security headers, CSP, active-user/MFA checks, and Inertia shared props.
+- `AppServiceProvider` defines 28+ named rate limiters (each named, not inline, to avoid shared throttle budgets). Email-accepting routes use dual-keyed limiting (email|IP).
+- Sentry integration: both frontend (`@sentry/react`, `resources/js/sentry.ts`) and backend (`sentry/sentry-laravel`, `config/sentry.php`). `SentryBeforeSend::scrub` callable (non-closure, because closures break `config:cache`) scrubs sensitive data. `send_default_pii=false`.
 - AI chatbot uses in-memory weighted token match over the cached parsed helpdesk corpus (no vector DB, no SQLite FTS5 — retired); pre-warm via `php artisan chatbot:index`.
+- Malware scanning via `MalwareScannerInterface` — bound to `ClamAvScanner` or `NullScanner` (fail-open with logged warning) in `AppServiceProvider`.
+- Custom config files in `config/`: `ai-chatbot.php` (provider, model, assistant name "Bayani"), `audit.php` (retention_days=365, 28 observed models, redaction policy), `mfa.php` (pending_ttl=300s, max_attempts=5, replay_ttl=120s, production enforcement), `monitoring.php` (readiness_token, thresholds: queue_backlog=100, failed_jobs=25, scheduler_stale_seconds=300), `reports.php` (export_row_cap=6000, pdf_preflight_max_rows=30000), `file-uploads.php` (max_size=20480 KB), `addresses.php` (Region VII + NIR only), `turnstile.php`, `csp.php`.
 
 ## Frontend conventions
 
 - Components are default exports in PascalCase `.jsx` files unless an existing `.tsx` file already owns the area.
 - Use Inertia `useForm()` for mutations, `Link`/`router` for navigation, and Ziggy `route()` for URLs.
-- Tailwind utilities only; design tokens are in `tailwind.config.js`. Material Symbols are the primary icon style.
-- The app is wrapped in `ErrorBoundary`, TanStack `QueryClientProvider` (5 minute stale time, 30 min gcTime, 1 retry, no refetch on focus), `ToastProvider`, and `OnboardingProvider`.
+- Tailwind utilities only; design tokens are in `tailwind.config.js`. Material Symbols + lucide-react for icons.
+- The app is wrapped in `ErrorBoundary`, `OnboardingProvider`, `ToastProvider`, and Inertia App (no TanStack Query — uses Inertia props + local React state). Entry: `resources/js/app.tsx`.
+- Layouts (4): `AppLayout` (authenticated), `GuestLayout` (unauthenticated), `HelpdeskLayout` (knowledge base), `OfwLayout` (OFW portal).
+- Zod schemas (4 files): `adminSchemas.js`, `authSchemas.js`, `profileSchemas.js`, `referralSchema.js` — client-side validation.
+- Hooks (13 files): `useUnsavedChanges`, `useToast`, `useLocalStorage`, `useLazyProp`, `useReportFilters`, etc.
 - Flash messages from backend redirects auto-toast through shared `props.flash`; do not add `seenRef`/dedupe state that suppresses normal navigation flash.
 - Form pages should use `useUnsavedChanges(dirty)` plus `UnsavedChangesModal`. Inertia `router.on('before')` receives a `CustomEvent`; read `event.detail.visit`.
+- Inertia shared props (from `HandleInertiaRequests`): `request_id`, `auth.user`, `roles`, `notifications.unread_count` (cached 60s), `intake_queue_count` (cached 120s), `onboarding`, `profile_incomplete`, `flash`, `chatbot`, `turnstile`, `addresses.served_regions`, `passwordRules`. Lazy-evaluated via closures.
+- Vite has a custom pre-resolve `util`/`node:util` stub (`resources/js/vendor-stubs/util-stub.js`) for Rolldown/Vite 8 builds; do not remove it as "unused". A `dev-tunnel-headers` plugin sets `Access-Control-Allow-Private-Network`.
 
 ## Tests and environment gotchas
 
@@ -72,6 +89,8 @@ Documentation is platform-neutral: describe infrastructure by technology and cap
 - `composer run dev` intentionally omits `php artisan pail` because `pcntl` is unavailable on Windows.
 - Vite has a custom pre-resolve `util`/`node:util` stub (`resources/js/vendor-stubs/util-stub.js`) for Rolldown/Vite 8 builds; do not remove it as "unused".
 - `.env.example` is generic, but local deployments commonly use database-backed cache, queue, and sessions; verify the active `.env` before changing async/cache behavior.
+- Vitest tests live alongside components in `__tests__/` directories. Test setup in `resources/js/test-setup.ts`.
+- Factory structure: 12 model factories. Seeders include `StagingSeeder` (58 KB deterministic 6-month demo dataset) and `TestingSeeder` (45 KB). `ProductionSeeder` is separate from `DatabaseSeeder`.
 
 ## Docs worth checking
 
@@ -85,6 +104,7 @@ Documentation is platform-neutral: describe infrastructure by technology and cap
 - `docs/CI_CD_GUIDE_v2.1.0.md` for CI stages and the deploy-trigger contract.
 - Superseded unversioned copies of the docs above are kept as history; always read the highest version.
 - Prefer executable config and current `docs/` files.
+- `docs/README.md` (v2.4.0) — comprehensive index of all docs with status (CURRENT/SUPERSEDED/HISTORICAL-ARCHIVE).
 
 ## Agent skills
 
