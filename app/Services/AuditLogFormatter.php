@@ -116,7 +116,7 @@ class AuditLogFormatter
             'REVOKE_SESSIONS' => $this->formatPurposefulSimple($userName, $log, 'revoked MFA-enrolled sessions'),
             // Case Manager
             'APPROVE' => $this->formatCaseDecision($userName, $log, 'approved'),
-            'REJECT' => $this->formatCaseDecision($userName, $log, 'rejected'),
+            'REJECT' => $this->formatReject($userName, $log),
             'SEND' => $this->formatSend($userName, $log),
             'CLOSE' => $this->formatCaseDecision($userName, $log, 'closed'),
             'CREATE_CASE_ISSUE' => $this->formatCreateCaseIssue($userName, $log),
@@ -282,11 +282,35 @@ class AuditLogFormatter
         $new = $this->resolveSalientDetail($log, ['new_email']) ?? ($log->new_value['email'] ?? null);
         $verb = $admin ? 'changed the email of' : 'changed their email';
 
-        if ($old !== null && $new !== null) {
-            return "{$actor} {$verb} from {$old} to {$new}";
+        if ($admin) {
+            $target = $this->resolvePurposefulEntity($log);
+            $base = $target !== null
+                ? "{$actor} {$verb} {$target}"
+                : "{$actor} {$verb} a user";
+        } else {
+            $base = "{$actor} {$verb}";
         }
 
-        return "{$actor} {$verb}";
+        if ($old !== null && $new !== null) {
+            return "{$base} from {$old} to {$new}";
+        }
+
+        return $base;
+    }
+
+    /**
+     * Reject dispatches by module: case rejections surface the deletion
+     * reason; referral rejections surface the rejection reason.
+     */
+    private function formatReject(string $userName, AuditLog $log): string
+    {
+        $moduleRaw = strtolower((string) $log->module);
+
+        if (in_array($moduleRaw, ['referral', 'referrals'], true)) {
+            return $this->formatReferralDecision($userName, $log, 'rejected');
+        }
+
+        return $this->formatCaseDecision($userName, $log, 'rejected');
     }
 
     /**

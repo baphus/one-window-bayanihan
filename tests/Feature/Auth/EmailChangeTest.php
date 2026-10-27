@@ -117,7 +117,7 @@ class EmailChangeTest extends TestCase
         $this->assertEquals('new@example.com', $this->user->email);
 
         $audit = AuditLog::where('module', 'user')
-            ->where('action', 'UPDATE')
+            ->where('action', 'CHANGE_EMAIL')
             ->where('entity_id', $this->user->id)
             ->first();
 
