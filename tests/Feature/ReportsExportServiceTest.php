@@ -6,9 +6,14 @@ use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\CaseCategory;
 use App\Models\CaseFile;
+use App\Models\Client;
+use App\Models\ClientAddress;
+use App\Models\ClientEmployment;
 use App\Models\Referral;
 use App\Models\User;
+use App\Services\Export\DataExportQueries;
 use App\Services\Reports\ReportsExportService;
+use App\Services\ReportsService;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\RedirectResponse;
@@ -24,11 +29,20 @@ class ReportsExportServiceTest extends TestCase
 
     private ReportsExportService $service;
 
+    private User $manager;
+
+    private User $otherManager;
+
+    private Agency $agency;
+
     protected function setUp(): void
     {
         parent::setUp();
 
         $this->service = app(ReportsExportService::class);
+        $this->manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $this->otherManager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $this->agency = Agency::factory()->create();
     }
 
     #[Test]
@@ -291,6 +305,148 @@ class ReportsExportServiceTest extends TestCase
         $this->assertSame([], $payload['metadata']['cap_warnings']);
     }
 
+    // ──────────────────────────────────────────────
+    // Screen/PDF parity, province filter and the
+    // DataExportQueries workbook path
+    // ──────────────────────────────────────────────
+
+    #[Test]
+    public function export_kpis_match_the_on_screen_report_and_case_manager_sees_all(): void
+    {
+        // Pin the run inside 16:00Z–24:00Z, where a UTC-default "to" date
+        // disagrees with the report's Manila calendar day — the window that
+        // first exposed this in CI.
+        $this->travelTo(CarbonImmutable::parse('2026-10-26 17:00:00', 'UTC'));
+
+        $this->makeCaseWithReferral($this->manager);
+        $this->makeCaseWithReferral($this->manager);
+        $this->makeCaseWithReferral($this->otherManager);
+
+        $report = app(ReportsService::class)->getAll(userId: $this->manager->id, role: UserRole::CASE_MANAGER->value);
+        $payload = $this->payloadFor($this->manager);
+
+        // Export figures are the exact same computed dataset as the screen.
+        $this->assertSame($report['kpis']['totalReferrals'], $payload['kpis']['totalReferrals']);
+        $this->assertSame($report['kpis']['totalCases'], $payload['kpis']['totalCases']);
+        // Case managers see all — including the other manager's referral.
+        $this->assertSame(3, $payload['kpis']['totalReferrals']);
+    }
+
+    #[Test]
+    public function export_honors_the_province_filter(): void
+    {
+        $this->makeCaseWithReferral($this->manager, 'Cebu');
+        $this->makeCaseWithReferral($this->manager, 'Bohol');
+
+        $unfiltered = $this->payloadFor($this->manager);
+        $filtered = $this->payloadFor($this->manager, ['province' => 'Cebu']);
+
+        $this->assertSame(2, $unfiltered['kpis']['totalCases']);
+        $this->assertSame(1, $filtered['kpis']['totalCases']);
+    }
+
+    #[Test]
+    public function export_metadata_records_the_full_filter_set(): void
+    {
+        $this->makeCaseWithReferral($this->manager, 'Cebu');
+
+        $payload = $this->payloadFor($this->manager, ['province' => 'Cebu', 'date_scope' => 'referral_created_at']);
+        $filters = $payload['metadata']['filters'];
+
+        $this->assertSame('Cebu', $filters['province']);
+        $this->assertSame('referral_created_at', $filters['date_scope']);
+        $this->assertArrayHasKey('from', $filters);
+        $this->assertArrayHasKey('to', $filters);
+    }
+
+    #[Test]
+    public function pdf_export_endpoint_returns_a_download(): void
+    {
+        $this->makeCaseWithReferral($this->manager);
+
+        $response = $this->actingAs($this->manager)->get(route('reports.export-pdf'));
+
+        $response->assertOk();
+        $response->assertHeader('Content-Type', 'application/pdf');
+        $response->assertHeader('Content-Disposition');
+    }
+
+    #[Test]
+    public function public_report_pdf_and_xlsx_endpoints_include_all_data_for_case_managers(): void
+    {
+        $other = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $mine = $this->makeCaseWithReferral($this->manager);
+        $theirs = $this->makeCaseWithReferral($other);
+
+        // Test via the service layer directly since endpoints are now async
+        $service = app(ReportsExportService::class);
+
+        $mineRequest = Request::create('/reports/export-excel', 'GET');
+        $mineRequest->setUserResolver(fn () => $this->manager);
+        $mineCriteria = $service->extractCriteria($mineRequest);
+        $mineSheets = $service->buildExcelSheetsFromCriteria($mineCriteria);
+
+        $otherRequest = Request::create('/reports/export-excel', 'GET');
+        $otherRequest->setUserResolver(fn () => $other);
+        $otherCriteria = $service->extractCriteria($otherRequest);
+        $otherSheets = $service->buildExcelSheetsFromCriteria($otherCriteria);
+
+        // Both case managers see all data (unscoped)
+        $mineRefSheet = collect($mineSheets)->firstWhere('title', 'Referral Details');
+        $otherRefSheet = collect($otherSheets)->firstWhere('title', 'Referral Details');
+
+        $mineJson = json_encode($mineRefSheet['rows']->toArray());
+        $otherJson = json_encode($otherRefSheet['rows']->toArray());
+
+        $this->assertStringContainsString($mine->case_number, $mineJson);
+        $this->assertStringContainsString($theirs->case_number, $mineJson);
+        $this->assertStringContainsString($theirs->case_number, $otherJson);
+        $this->assertStringContainsString($mine->case_number, $otherJson);
+    }
+
+    #[Test]
+    public function all_client_case_and_referral_workbooks_have_decrypted_employment_fields_and_unscoped_case_manager(): void
+    {
+        $other = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $owned = $this->makeCaseWithReferral($this->manager);
+        $otherCase = $this->makeCaseWithReferral($other);
+
+        foreach ([[$owned, 'Canada', 'Welder'], [$otherCase, 'Japan', 'Engineer']] as [$case, $country, $position]) {
+            ClientEmployment::create([
+                'client_id' => $case->client_id,
+                'country' => $country,
+                'position' => $position,
+                'last_country' => $country,
+                'last_position' => $position,
+            ]);
+        }
+
+        // Test via service layer directly since endpoints are now async
+        $queries = new DataExportQueries;
+
+        foreach (['getCasesExport', 'getClientsExport', 'getReferralsExport'] as $method) {
+            // Set RLS context for $this->manager
+            DB::statement('SELECT set_config(?, ?, ?)', ['app.current_user_id', $this->manager->id, false]);
+            DB::statement('SELECT set_config(?, ?, ?)', ['app.user_role', UserRole::CASE_MANAGER->value, false]);
+            $ownedData = $queries->$method($this->manager, []);
+
+            // Set RLS context for $other
+            DB::statement('SELECT set_config(?, ?, ?)', ['app.current_user_id', $other->id, false]);
+            DB::statement('SELECT set_config(?, ?, ?)', ['app.user_role', UserRole::CASE_MANAGER->value, false]);
+            $otherData = $queries->$method($other, []);
+
+            $ownedJson = json_encode($ownedData->toArray());
+            $otherJson = json_encode($otherData->toArray());
+
+            $this->assertStringContainsString('Canada', $ownedJson, $method);
+            $this->assertStringContainsString('Welder', $ownedJson, $method);
+            $this->assertStringContainsString('Japan', $ownedJson, $method);
+            $this->assertStringContainsString('Japan', $otherJson, $method);
+            $this->assertStringContainsString('Engineer', $otherJson, $method);
+            $this->assertStringContainsString('Canada', $otherJson, $method);
+        }
+    }
+
     private function requestFor(User $user, array $query = []): Request
     {
         $query += ['from' => '2026-01-01', 'to' => '2026-12-31'];
@@ -299,6 +455,35 @@ class ReportsExportServiceTest extends TestCase
         $request->setUserResolver(fn () => $user);
 
         return $request;
+    }
+
+    private function payloadFor(User $user, array $query = []): array
+    {
+        $request = Request::create('/reports/export-pdf', 'GET', $query);
+        $request->setUserResolver(fn () => $user);
+
+        return app(ReportsExportService::class)->buildPdfPayload($request);
+    }
+
+    private function makeCaseWithReferral(User $manager, ?string $province = null): CaseFile
+    {
+        // publishedOnly requires user_id; clients created without linked accounts
+        // are excluded from exports intentionally (same rule as ClientController).
+        $clientUser = User::factory()->create();
+        $client = Client::factory()->create(['user_id' => $clientUser->id]);
+        if ($province) {
+            ClientAddress::create([
+                'client_id' => $client->id,
+                'region' => 'Region VII',
+                'province' => $province,
+                'city_municipality' => 'Cebu City',
+                'barangay' => 'Lahug',
+            ]);
+        }
+        $case = CaseFile::factory()->create(['user_id' => $manager->id, 'status' => 'OPEN', 'client_id' => $client->id]);
+        Referral::factory()->pending()->create(['case_id' => $case->id, 'agcy_id' => $this->agency->id]);
+
+        return $case;
     }
 
     private function seedAgencies(): array

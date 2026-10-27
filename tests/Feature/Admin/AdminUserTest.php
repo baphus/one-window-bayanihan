@@ -3,11 +3,16 @@
 namespace Tests\Feature\Admin;
 
 use App\Enums\UserRole;
+use App\Http\Middleware\CheckMfaEnrolled;
+use App\Http\Middleware\CheckUserActive;
 use App\Mail\EmailChangedNotification;
 use App\Mail\UserInviteMail;
+use App\Models\Agency;
+use App\Models\Client;
 use App\Models\User;
 use App\Models\UserInvite;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
@@ -73,6 +78,164 @@ class AdminUserTest extends TestCase
             ]);
 
         $response->assertForbidden();
+    }
+
+    // ── Direct creation with agency assignment ──────────────────────────────
+
+    public function test_admin_can_create_user_directly(): void
+    {
+        $agency = Agency::factory()->create();
+
+        $payload = [
+            'name' => 'Jane Direct',
+            'email' => 'jane.direct@example.com',
+            'password' => 'Str0ng!Pass',
+            'role' => UserRole::CASE_MANAGER->value,
+            'agcy_id' => $agency->id,
+        ];
+
+        $response = $this->actingAs($this->admin)
+            ->post(route('admin.users.store'), $payload);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success', 'User created successfully.');
+
+        $this->assertDatabaseHas('users', [
+            'name' => 'Jane Direct',
+            'email' => 'jane.direct@example.com',
+            'role' => UserRole::CASE_MANAGER->value,
+            'agcy_id' => $agency->id,
+            'is_active' => true,
+        ]);
+
+        $user = User::where('email', 'jane.direct@example.com')->first();
+        $this->assertNotNull($user);
+        $this->assertNotNull($user->email_verified_at, 'email_verified_at should be set');
+        $this->assertTrue(Hash::check('Str0ng!Pass', $user->password));
+    }
+
+    public function test_direct_create_rejects_duplicate_email(): void
+    {
+        $agency = Agency::factory()->create();
+        User::factory()->create(['email' => 'taken@example.com']);
+
+        $response = $this->actingAs($this->admin)
+            ->post(route('admin.users.store'), [
+                'name' => 'Dupe User',
+                'email' => 'taken@example.com',
+                'password' => 'Str0ng!Pass',
+                'role' => UserRole::CASE_MANAGER->value,
+                'agcy_id' => $agency->id,
+            ]);
+
+        $response->assertSessionHasErrors(['email']);
+    }
+
+    public function test_direct_create_rejects_invalid_role(): void
+    {
+        $agency = Agency::factory()->create();
+
+        $response = $this->actingAs($this->admin)
+            ->post(route('admin.users.store'), [
+                'name' => 'Bad Role',
+                'email' => 'badrole@example.com',
+                'password' => 'Str0ng!Pass',
+                'role' => UserRole::OFW->value,
+                'agcy_id' => $agency->id,
+            ]);
+
+        $response->assertSessionHasErrors(['role']);
+    }
+
+    public function test_direct_create_rejects_weak_password(): void
+    {
+        $agency = Agency::factory()->create();
+        $this->actingAs($this->admin);
+
+        // Too short
+        $response = $this->post(route('admin.users.store'), [
+            'name' => 'Weak Pass',
+            'email' => 'weak1@example.com',
+            'password' => 'Sh0rt!',
+            'role' => UserRole::CASE_MANAGER->value,
+            'agcy_id' => $agency->id,
+        ]);
+        $response->assertSessionHasErrors(['password']);
+
+        // No uppercase
+        $response = $this->post(route('admin.users.store'), [
+            'name' => 'Weak Pass 2',
+            'email' => 'weak2@example.com',
+            'password' => 'lowercase1!',
+            'role' => UserRole::CASE_MANAGER->value,
+            'agcy_id' => $agency->id,
+        ]);
+        $response->assertSessionHasErrors(['password']);
+
+        // No numbers
+        $response = $this->post(route('admin.users.store'), [
+            'name' => 'Weak Pass 3',
+            'email' => 'weak3@example.com',
+            'password' => 'NoNumbers!',
+            'role' => UserRole::CASE_MANAGER->value,
+            'agcy_id' => $agency->id,
+        ]);
+        $response->assertSessionHasErrors(['password']);
+
+        // No symbols
+        $response = $this->post(route('admin.users.store'), [
+            'name' => 'Weak Pass 4',
+            'email' => 'weak4@example.com',
+            'password' => 'NoSymbols1',
+            'role' => UserRole::CASE_MANAGER->value,
+            'agcy_id' => $agency->id,
+        ]);
+        $response->assertSessionHasErrors(['password']);
+    }
+
+    public function test_non_admin_cannot_create_user(): void
+    {
+        $agency = Agency::factory()->create();
+        $caseManager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $agencyUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id]);
+
+        $payload = [
+            'name' => 'Should Not Create',
+            'email' => 'shouldnot@example.com',
+            'password' => 'Str0ng!Pass',
+            'role' => UserRole::CASE_MANAGER->value,
+            'agcy_id' => $agency->id,
+        ];
+
+        $response = $this->actingAs($caseManager)
+            ->post(route('admin.users.store'), $payload);
+        $response->assertForbidden();
+
+        $response = $this->actingAs($agencyUser)
+            ->post(route('admin.users.store'), $payload);
+        $response->assertForbidden();
+    }
+
+    public function test_created_user_can_login_immediately(): void
+    {
+        $agency = Agency::factory()->create();
+        $password = 'Str0ng!Pass';
+
+        $response = $this->actingAs($this->admin)
+            ->post(route('admin.users.store'), [
+                'name' => 'Login Ready',
+                'email' => 'login.ready@example.com',
+                'password' => $password,
+                'role' => UserRole::CASE_MANAGER->value,
+                'agcy_id' => $agency->id,
+            ]);
+
+        $response->assertRedirect();
+
+        $this->assertTrue(
+            Auth::attempt(['email' => 'login.ready@example.com', 'password' => $password]),
+            'Created user must be able to authenticate immediately'
+        );
     }
 
     public function test_admin_can_invite_user_and_mail_is_queued(): void
@@ -252,6 +415,92 @@ class AdminUserTest extends TestCase
 
         $response->assertSessionHas('error');
         $this->assertDatabaseHas('users', ['id' => $this->admin->id]);
+    }
+
+    public function test_admin_cannot_delete_nonexistent_user(): void
+    {
+        $fakeId = '00000000-0000-0000-0000-000000000000';
+
+        $response = $this->actingAs($this->admin)->delete(route('admin.users.destroy', $fakeId));
+
+        $response->assertNotFound();
+    }
+
+    // ── Citizen listing and client-type filter ──────────────────────────────
+
+    /**
+     * Citizen accounts (users.role = OFW) used to be filtered out of the list
+     * entirely. Both OFWs and next of kin register with that same role — the
+     * answer lands on clients.type — so the list must show both and let the
+     * admin narrow by client type.
+     */
+    public function test_index_lists_citizen_accounts_by_default(): void
+    {
+        $ofw = $this->createCitizen('OFW', 'Oscar Worker');
+        $nok = $this->createCitizen('NEXT_OF_KIN', 'Nora Kin');
+
+        $response = $this->actingAs($this->admin)->get(route('admin.users.index'));
+
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->component('Admin/User/Index')
+            ->where('stats.citizen_ofw', 1)
+            ->where('stats.citizen_nok', 1)
+            ->has('users.data', 3) // the two citizens plus the admin
+        );
+
+        $ids = collect($response->viewData('page')['props']['users']['data'])->pluck('id');
+        $this->assertTrue($ids->contains($ofw->id));
+        $this->assertTrue($ids->contains($nok->id));
+    }
+
+    public function test_client_type_filter_separates_ofw_from_next_of_kin(): void
+    {
+        $ofw = $this->createCitizen('OFW', 'Oscar Worker');
+        $nok = $this->createCitizen('NEXT_OF_KIN', 'Nora Kin');
+
+        $response = $this->actingAs($this->admin)
+            ->get(route('admin.users.index', ['client_type' => 'NEXT_OF_KIN']));
+
+        $response->assertOk();
+
+        $ids = collect($response->viewData('page')['props']['users']['data'])->pluck('id');
+        $this->assertTrue($ids->contains($nok->id));
+        $this->assertFalse($ids->contains($ofw->id));
+    }
+
+    public function test_unlinked_citizen_counts_in_neither_stat_tile(): void
+    {
+        // A citizen account with no client row (should not normally happen)
+        // must not pad either tile.
+        User::factory()->create(['role' => UserRole::OFW->value, 'client_id' => null]);
+
+        $response = $this->actingAs($this->admin)->get(route('admin.users.index'));
+
+        $response->assertInertia(fn ($page) => $page
+            ->where('stats.citizen_ofw', 0)
+            ->where('stats.citizen_nok', 0)
+        );
+    }
+
+    private function createCitizen(string $clientType, string $name): User
+    {
+        $user = User::factory()->create([
+            'name' => $name,
+            'role' => UserRole::OFW->value,
+        ]);
+
+        $client = Client::factory()->create([
+            'type' => $clientType,
+            'user_id' => $user->id,
+            'first_name' => $name,
+            'last_name' => 'Test',
+        ]);
+
+        $user->client_id = $client->id;
+        $user->save();
+
+        return $user;
     }
 
     public function test_admin_can_reactivate_user_and_audit_is_logged(): void
@@ -495,5 +744,111 @@ class AdminUserTest extends TestCase
 
         $this->assertDatabaseMissing('user_invites', ['email' => 'active-colleague@example.com']);
         Mail::assertNotQueued(UserInviteMail::class);
+    }
+
+    // ── Invite route shape and password complexity ──────────────────────────
+
+    public function test_getting_invite_as_a_user_route_is_not_a_valid_user_lookup(): void
+    {
+        $this->withoutMiddleware([CheckUserActive::class, CheckMfaEnrolled::class])
+            ->actingAs($this->admin)
+            ->get('/admin/users/invite')
+            ->assertNotFound();
+    }
+
+    public function test_admin_invite_requires_valid_email(): void
+    {
+        $response = $this->actingAs($this->admin)->post('/admin/users/invite', [
+            'email' => 'not-an-email',
+            'role' => UserRole::CASE_MANAGER->value,
+        ]);
+
+        $response->assertSessionHasErrors('email');
+    }
+
+    public function test_admin_invite_requires_role(): void
+    {
+        $response = $this->actingAs($this->admin)->post('/admin/users/invite', [
+            'email' => 'test@example.com',
+        ]);
+
+        $response->assertSessionHasErrors('role');
+    }
+
+    public function test_invite_registration_rejects_weak_password(): void
+    {
+        $rawToken = Str::random(64);
+        UserInvite::create([
+            'email' => 'register@example.com',
+            'role' => UserRole::CASE_MANAGER->value,
+            'token_hash' => hash('sha256', $rawToken),
+            'expires_at' => now()->addDays(7),
+            'created_by' => User::factory()->create(['role' => UserRole::ADMIN->value])->id,
+        ]);
+
+        $response = $this->post("/invite/{$rawToken}", [
+            'name' => 'Test User',
+            'password' => 'weak',
+            'password_confirmation' => 'weak',
+        ]);
+
+        $response->assertSessionHasErrors('password');
+    }
+
+    public function test_invite_registration_accepts_strong_password(): void
+    {
+        $rawToken = Str::random(64);
+        UserInvite::create([
+            'email' => 'register2@example.com',
+            'role' => UserRole::CASE_MANAGER->value,
+            'token_hash' => hash('sha256', $rawToken),
+            'expires_at' => now()->addDays(7),
+            'created_by' => User::factory()->create(['role' => UserRole::ADMIN->value])->id,
+        ]);
+
+        $response = $this->post("/invite/{$rawToken}", [
+            'name' => 'Test User',
+            'password' => 'P@ssw0rd!',
+            'password_confirmation' => 'P@ssw0rd!',
+        ]);
+
+        $response->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('users', [
+            'email' => 'register2@example.com',
+        ]);
+    }
+
+    public function test_invite_registration_rejects_password_without_symbol(): void
+    {
+        $rawToken = Str::random(64);
+        UserInvite::create([
+            'email' => 'register3@example.com',
+            'role' => UserRole::CASE_MANAGER->value,
+            'token_hash' => hash('sha256', $rawToken),
+            'expires_at' => now()->addDays(7),
+            'created_by' => User::factory()->create(['role' => UserRole::ADMIN->value])->id,
+        ]);
+
+        $response = $this->post("/invite/{$rawToken}", [
+            'name' => 'Test User',
+            'password' => 'Password1',
+            'password_confirmation' => 'Password1',
+        ]);
+
+        $response->assertSessionHasErrors('password');
+    }
+
+    public function test_admin_update_rejects_weak_password(): void
+    {
+        $targetUser = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+
+        $response = $this->actingAs($this->admin)->patch("/admin/users/{$targetUser->id}", [
+            'name' => $targetUser->name,
+            'email' => $targetUser->email,
+            'role' => UserRole::CASE_MANAGER->value,
+            'password' => 'weak',
+        ]);
+
+        $response->assertSessionHasErrors('password');
     }
 }

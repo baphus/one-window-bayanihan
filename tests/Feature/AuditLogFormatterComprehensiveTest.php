@@ -1261,4 +1261,50 @@ class AuditLogFormatterComprehensiveTest extends TestCase
         $this->assertArrayHasKey('new', $change);
         $this->assertSame('Closed', $change['new']);
     }
+
+    // ========================================================================
+    //  TEST SUITE 12: Login timezone rendering
+    //  (ported from the deleted AuditLogFormatterTest — the only tests
+    //   covering per-user timezone rendering and the Asia/Manila fallback)
+    // ========================================================================
+
+    #[DataProvider('loginTimezoneProvider')]
+    public function test_it_formats_login_timezone(Carbon $timestamp, string $timezone, string $expected): void
+    {
+        $log = new AuditLog([
+            'action' => 'LOGIN',
+            'timestamp' => $timestamp,
+        ]);
+
+        $log->setRelation('user', new User(['name' => 'Test User', 'timezone' => $timezone]));
+
+        $result = $this->formatter->format($log);
+
+        $this->assertStringContainsString($expected, $result);
+    }
+
+    public function test_it_falls_back_to_asia_manila_timezone(): void
+    {
+        $log = new AuditLog([
+            'action' => 'LOGIN',
+            'timestamp' => '2026-06-02 12:29:00',
+        ]);
+
+        $formatter = new AuditLogFormatter;
+        $result = $formatter->format($log);
+
+        $this->assertStringContainsString('signed in on', $result);
+        $this->assertStringContainsString('at', $result);
+    }
+
+    public static function loginTimezoneProvider(): array
+    {
+        return [
+            'UTC to Asia/Manila' => [
+                Carbon::parse('2026-06-02 00:29:00', 'UTC'),
+                'Asia/Manila',
+                'signed in on June 2, 2026 at 8:29 AM',
+            ],
+        ];
+    }
 }

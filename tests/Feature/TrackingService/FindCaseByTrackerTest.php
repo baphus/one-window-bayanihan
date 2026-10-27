@@ -19,7 +19,7 @@ class FindCaseByTrackerTest extends TestCase
 
     /**
      * Eager-load all relationships that findCaseByTracker() returns.
-     * Matches the pattern from TrackingServiceTest.
+     * Matches the loadRelations() helper used across this directory.
      */
     private function loadRelations(CaseFile $case): CaseFile
     {
