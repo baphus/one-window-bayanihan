@@ -15,7 +15,8 @@ import {
 } from 'chart.js';
 import GettingStartedChecklist from '@/Components/GettingStartedChecklist';
 import StatusBadge from '@/Components/ui/StatusBadge';
-import { ActivityFeed, DashboardTable, EmptyState, QuickActions, SectionCard, ViewAllLink, formatCount, safeArray } from '@/Components/Dashboard/primitives';
+import { ActivityFeed, EmptyState, QuickActions, SectionCard, ViewAllLink, formatCount, safeArray } from '@/Components/Dashboard/primitives';
+import { DashboardRow, DashboardRowList, RowAgeFlag } from '@/Components/Dashboard/DashboardRow';
 import { humanizeStatus } from '@/lib/statusLabels';
 import safeRoute from '@/utils/safeRoute';
 
@@ -67,22 +68,6 @@ function toAgeDays(value, fallback = 0) {
     if (value === undefined || value === null) return fallback;
     const parsed = Number(value);
     return Number.isFinite(parsed) && parsed >= 0 ? Math.floor(parsed) : fallback;
-}
-
-function AgeFlag({ days }) {
-    const parsed = toAgeDays(days, 0);
-    const overdue = parsed >= OVERDUE_DAYS;
-    return (
-        <span
-            className={
-                overdue
-                    ? 'inline-flex items-center rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-black text-white'
-                    : 'text-[10px] font-bold uppercase tracking-widest text-slate-400'
-            }
-        >
-            {parsed}d
-        </span>
-    );
 }
 
 /* ---------- KPI ---------- */
@@ -173,48 +158,36 @@ function EmptyChart() {
 /* ---------- Referral table ---------- */
 
 function ReferralQueue({ title, description, referrals, emptyMessage, href, dataTour }) {
-    const columns = [
-        { key: 'tracking', label: 'Tracking ID' },
-        { key: 'category', label: 'Category' },
-        { key: 'referred', label: 'Referred' },
-        { key: 'status', label: 'Status' },
-        { key: 'age', label: 'Age', className: 'text-right', cellClassName: 'text-right' },
-        { key: 'action', label: '', className: 'text-right', cellClassName: 'text-right' },
-    ];
-
-    const rows = referrals.map((item) => {
-        const referralHref = item.href ?? safeRoute('referrals.show', item.id, `/referrals/${item.id}`);
-        const referred = item.referred_at
-            ? new Date(item.referred_at).toLocaleDateString('en-PH', { day: '2-digit', month: 'short', year: 'numeric' })
-            : '—';
-
-        return {
-            key: item.id,
-            tracking: (
-                <Link href={referralHref} className="font-bold text-primary hover:text-primary-container">
-                    {item.tracking_number ?? item.case_number}
-                </Link>
-            ),
-            category: <span className="block max-w-[12rem] truncate">{item.service ?? '—'}</span>,
-            referred,
-            status: <StatusBadge status={item.status} label={humanizeStatus(item.status)} />,
-            age: <AgeFlag days={item.age_days} />,
-            action: (
-                <Link href={referralHref} className="font-bold text-primary hover:text-primary-container">
-                    Open Case
-                </Link>
-            ),
-        };
-    });
+    const referralsList = safeArray(referrals);
 
     return (
         <SectionCard title={title} dataTour={dataTour} action={<ViewAllLink href={href} />} bodyClassName="">
             {description ? <p className="px-5 pt-3 text-[12px] text-slate-500">{description}</p> : null}
-            <DashboardTable
-                columns={columns}
-                rows={rows}
-                empty={<EmptyState message={emptyMessage} href={safeRoute('referrals.index', undefined, '/referrals')} actionLabel="Open referrals" />}
-            />
+            <DashboardRowList empty={<EmptyState message={emptyMessage} href={safeRoute('referrals.index', undefined, '/referrals')} actionLabel="Open referrals" />}>
+                {referralsList.map((item) => {
+                    const referralHref = item.href ?? safeRoute('referrals.show', item.id, `/referrals/${item.id}`);
+                    const trackingId = item.tracking_number ?? item.case_number;
+                    const referred = item.referred_at
+                        ? new Date(item.referred_at).toLocaleDateString('en-PH', { day: '2-digit', month: 'short', year: 'numeric' })
+                        : '';
+
+                    return (
+                        <DashboardRow
+                            key={item.id}
+                            href={referralHref}
+                            pill={trackingId}
+                            title={item.service ?? '—'}
+                            note={`Referred${referred ? ` ${referred}` : ''}`}
+                            right={
+                                <>
+                                    <StatusBadge status={item.status} label={humanizeStatus(item.status)} />
+                                    <RowAgeFlag days={item.age_days} overdueDays={OVERDUE_DAYS} />
+                                </>
+                            }
+                        />
+                    );
+                })}
+            </DashboardRowList>
         </SectionCard>
     );
 }

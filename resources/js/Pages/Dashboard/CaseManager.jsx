@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, usePage } from '@inertiajs/react';
+import { usePage } from '@inertiajs/react';
 import { Line } from 'react-chartjs-2';
 import { CategoryScale, Chart as ChartJS, Filler, Legend, LinearScale, LineElement, PointElement, Tooltip } from 'chart.js';
 import GettingStartedChecklist from '@/Components/GettingStartedChecklist';
 import StatusBadge from '@/Components/ui/StatusBadge';
-import { ActivityFeed, DashboardTable, EmptyState, QuickActions, SectionCard, ViewAllLink, formatCount, safeArray } from '@/Components/Dashboard/primitives';
+import { ActivityFeed, EmptyState, QuickActions, SectionCard, ViewAllLink, formatCount, safeArray } from '@/Components/Dashboard/primitives';
+import { DashboardRow, DashboardRowList, RowAgeFlag } from '@/Components/Dashboard/DashboardRow';
 import { formatDisplayDate, getCaseAgeInDays } from '@/lib/utils';
 import { humanizeStatus } from '@/lib/statusLabels';
 import safeRoute from '@/utils/safeRoute';
@@ -189,31 +190,26 @@ function buildNeedsYou(dashboard) {
 
 function NeedsYouBlock({ dashboard }) {
     const rows = useMemo(() => buildNeedsYou(dashboard), [dashboard]);
-    const columns = [
-        { key: 'trackingId', label: 'Tracking ID' },
-        { key: 'client', label: 'Client' },
-        { key: 'detail', label: 'Detail' },
-        { key: 'status', label: 'Status' },
-        { key: 'age', label: 'Age', className: 'text-right', cellClassName: 'text-right' },
-        { key: 'action', label: '', className: 'text-right', cellClassName: 'text-right' },
-    ];
-    const tableRows = rows.map((row) => ({
-        key: row.key,
-        trackingId: <Link href={row.href} className="font-bold text-primary hover:text-primary-container">{row.trackingId}</Link>,
-        client: <span className="font-semibold text-slate-900">{row.title}</span>,
-        detail: row.note,
-        status: <StatusBadge status={row.status} label={humanizeStatus(row.status)} />,
-        age: <AgeFlag days={row.age} />,
-        action: <Link href={row.href} className="font-bold text-primary hover:text-primary-container">Open</Link>,
-    }));
 
     return (
         <SectionCard title="Needs You" dataTour="dashboard-needs-you" bodyClassName="">
-            <DashboardTable
-                columns={columns}
-                rows={tableRows}
-                empty={<EmptyState message="Nothing needs attention." href={safeRoute('overdue-referrals.index', undefined, '/overdue-referrals')} actionLabel="Check overdue" />}
-            />
+            <DashboardRowList empty={<EmptyState message="Nothing needs attention." href={safeRoute('overdue-referrals.index', undefined, '/overdue-referrals')} actionLabel="Check overdue" />}>
+                {rows.map((row) => (
+                    <DashboardRow
+                        key={row.key}
+                        href={row.href}
+                        pill={row.trackingId}
+                        title={row.title}
+                        note={row.note}
+                        right={
+                            <>
+                                <StatusBadge status={row.status} label={humanizeStatus(row.status)} />
+                                <RowAgeFlag days={row.age} overdueDays={OVERDUE_DAYS} />
+                            </>
+                        }
+                    />
+                ))}
+            </DashboardRowList>
         </SectionCard>
     );
 }
@@ -231,26 +227,6 @@ function PendingReviews({ dashboard }) {
     );
     const count = dashboard?.pendingReviewCount ?? items.length;
     const listHref = safeRoute('cases.review-pending', undefined, '/cases/review-pending');
-    const columns = [
-        { key: 'trackingId', label: 'Tracking ID' },
-        { key: 'client', label: 'Client' },
-        { key: 'filed', label: 'Filed' },
-        { key: 'status', label: 'Status' },
-        { key: 'action', label: '', className: 'text-right', cellClassName: 'text-right' },
-    ];
-    const rows = items.map((item) => {
-        const filed = createdAtOf(item);
-        const href = item.href && typeof item.href === 'string' && item.href.length > 0 ? item.href : listHref;
-
-        return {
-            key: item.id,
-            trackingId: <Link href={href} className="font-bold text-primary hover:text-primary-container">{pick(item.trackerNumber, item.tracker_number, item.caseNo, item.case_number, '—')}</Link>,
-            client: <span className="font-semibold text-slate-900">{pick(item.clientName, item.client_name, 'Unnamed client')}</span>,
-            filed: filed ? formatDisplayDate(String(filed)) : '—',
-            status: <StatusBadge status={pick(item.status, 'PENDING_REVIEW')} label={humanizeStatus(pick(item.status, 'PENDING_REVIEW'))} />,
-            action: <Link href={href} className="font-bold text-primary hover:text-primary-container">Review</Link>,
-        };
-    });
 
     return (
         <SectionCard
@@ -259,7 +235,26 @@ function PendingReviews({ dashboard }) {
             action={<ViewAllLink href={listHref}>View all</ViewAllLink>}
             bodyClassName=""
         >
-            <DashboardTable columns={columns} rows={rows} empty={<EmptyState message="No filings waiting for review." />} />
+            <DashboardRowList empty={<EmptyState message="No filings waiting for review." />}>
+                {items.map((item) => {
+                    const filed = createdAtOf(item);
+                    const href = item.href && typeof item.href === 'string' && item.href.length > 0 ? item.href : listHref;
+                    const trackingId = pick(item.trackerNumber, item.tracker_number, item.caseNo, item.case_number, '—');
+                    const clientName = pick(item.clientName, item.client_name, 'Unnamed client');
+                    const filedLabel = filed ? formatDisplayDate(String(filed)) : '';
+
+                    return (
+                        <DashboardRow
+                            key={item.id}
+                            href={href}
+                            pill={trackingId}
+                            title={clientName}
+                            note={`Request for Assistance${filedLabel ? ` · filed ${filedLabel}` : ''}`}
+                            right={<StatusBadge status={pick(item.status, 'PENDING_REVIEW')} label={humanizeStatus(pick(item.status, 'PENDING_REVIEW'))} />}
+                        />
+                    );
+                })}
+            </DashboardRowList>
         </SectionCard>
     );
 }

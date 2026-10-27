@@ -15,7 +15,6 @@ import {
 } from 'chart.js';
 import GettingStartedChecklist from '@/Components/GettingStartedChecklist';
 import {
-    DashboardTable,
     EmptyState,
     FilterChip,
     MaterialSymbol,
@@ -25,6 +24,7 @@ import {
     formatCount,
     safeArray,
 } from '@/Components/Dashboard/primitives';
+import { DashboardRow, DashboardRowList } from '@/Components/Dashboard/DashboardRow';
 import { formatDisplayDateTime } from '@/lib/utils';
 import safeRoute from '@/utils/safeRoute';
 
@@ -465,24 +465,26 @@ export default function AdminDashboard({ dashboard = {} }) {
                                 />
                             ))}
                         </div>
-                        <DashboardTable
-                            columns={[
-                                { key: 'time', label: 'Time' },
-                                { key: 'module', label: 'Module' },
-                                { key: 'activity', label: 'Activity' },
-                            ]}
-                            rows={filteredLogs.map((log) => ({
-                                key: log.id,
-                                time: <span className="text-[12px] text-slate-500">{log.time}</span>,
-                                module: categorizeModule(log.module),
-                                activity: (
-                                    <span className="block max-w-xl truncate font-semibold text-slate-900" title={log.desc || log.title}>
-                                        {log.title}
-                                    </span>
-                                ),
-                            }))}
-                            empty={<EmptyState message="No matching activity." />}
-                        />
+                        <DashboardRowList empty={<EmptyState message="No matching activity." />}>
+                            {filteredLogs.map((log) => {
+                                const isSecurity = categorizeModule(log.module) === 'Users';
+                                const pillTone = isSecurity
+                                    ? 'bg-rose-50 text-rose-700'
+                                    : 'bg-primary/10 text-primary';
+
+                                return (
+                                    <DashboardRow
+                                        key={log.id}
+                                        href={safeRoute('audit-logs.index', undefined, '/audit-logs')}
+                                        pill={log.actionType ?? log.action ?? 'EVENT'}
+                                        pillTone={pillTone}
+                                        title={log.title}
+                                        note={`${categorizeModule(log.module)}${log.actor ? ` · ${log.actor}` : ''}`}
+                                        right={<span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{log.time}</span>}
+                                    />
+                                );
+                            })}
+                        </DashboardRowList>
                     </SectionCard>
                 </div>
 
