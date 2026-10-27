@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\AvatarUploadRequest;
+use App\Services\CloudinaryAvatarService;
 use App\Services\OfwProfileService;
 use App\Services\ReferenceDataService;
 use Illuminate\Auth\SessionGuard;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -34,10 +37,68 @@ class OfwProfileController extends Controller
         $user = request()->user();
 
         return Inertia::render('OFW/Profile', [
-            'user' => $user->only(['id', 'name', 'email', 'contact_number']),
+            'user' => $user->only(['id', 'name', 'email', 'contact_number', 'avatar_url']),
             'client' => $this->clientPayload($user),
             'occupationOptions' => $this->referenceData->getOccupationOptions(),
         ]);
+    }
+
+    /**
+     * Upload or replace the OFW's own profile picture.
+     *
+     * Delete-before-upload keeps a failed upload from leaving a broken image.
+     * The public_id is derived from the user id so a replacement overwrites the
+     * same Cloudinary asset rather than orphaning the previous one.
+     */
+    public function storeAvatar(AvatarUploadRequest $request): RedirectResponse
+    {
+        $user = $request->user();
+        $file = $request->uploadedAvatar();
+
+        if (! $file) {
+            return redirect()->route('ofw.profile.edit')
+                ->withErrors(['profile_picture' => 'Please choose a photo to upload.']);
+        }
+
+        try {
+            app(CloudinaryAvatarService::class)->deleteByUrl($user->getRawOriginal('avatar_url'));
+            $user->avatar_url = app(CloudinaryAvatarService::class)->uploadImage(
+                $file,
+                'avatars',
+                'user-'.$user->id,
+            );
+        } catch (\RuntimeException $e) {
+            return redirect()->route('ofw.profile.edit')->withErrors(['profile_picture' => $e->getMessage()]);
+        } catch (\Throwable $e) {
+            return redirect()->route('ofw.profile.edit')->withErrors([
+                'profile_picture' => 'The image could not be uploaded. Please try again later.',
+            ]);
+        }
+
+        $user->save();
+
+        return redirect()->route('ofw.profile.edit')->with('success', 'Profile picture updated successfully.');
+    }
+
+    /**
+     * Remove the OFW's own profile picture.
+     */
+    public function destroyAvatar(Request $request): RedirectResponse
+    {
+        $user = $request->user();
+
+        try {
+            app(CloudinaryAvatarService::class)->deleteByUrl($user->getRawOriginal('avatar_url'));
+        } catch (\Throwable $e) {
+            // deleteByUrl() is already best-effort; this covers anything that
+            // escapes it so a removal request never 500s.
+            report($e);
+        }
+
+        $user->avatar_url = null;
+        $user->save();
+
+        return redirect()->route('ofw.profile.edit')->with('success', 'Profile picture removed.');
     }
 
     /**
@@ -166,7 +227,7 @@ class OfwProfileController extends Controller
             'date_of_birth' => $client->date_of_birth?->toDateString(),
             'email' => $client->email,
             'contact_number' => $client->contact_number,
-            'avatar_url' => $client->avatar_url,
+            'avatar_url' => $user->avatar_url ?? $client->avatar_url,
             'address' => $address ? [
                 'region' => $address->region,
                 'province' => $address->province,

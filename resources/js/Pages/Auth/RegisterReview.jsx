@@ -1,7 +1,8 @@
-import { Head, Link, useForm, usePage } from '@inertiajs/react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 import AppFooter from '@/Components/landing/AppFooter';
 import AppHeader from '@/Components/landing/AppHeader';
+import AvatarPicker from '@/Components/AvatarPicker';
 import { useToast } from '@/Hooks/useToast';
 import { formatResolvedAddress } from '@/lib/addressResolver';
 
@@ -37,9 +38,12 @@ export default function RegisterReview({ pendingName = {}, pending = {} }) {
     const toast = useToast();
     const [codeSent, setCodeSent] = useState(false);
 
-    const { data, setData, post, processing, errors } = useForm({ otp: '' });
+    const { data, setData, errors } = useForm({ otp: '' });
     const sendForm = useForm({});
     const sending = sendForm.processing;
+
+    const [avatarFile, setAvatarFile] = useState(null);
+    const [submitting, setSubmitting] = useState(false);
 
     const address = pending.address ?? {};
     const employment = pending.employment ?? {};
@@ -64,10 +68,22 @@ export default function RegisterReview({ pendingName = {}, pending = {} }) {
 
     function submit(e) {
         e.preventDefault();
-        post(route('register.review.store'), {
+
+        const formData = new FormData();
+        formData.append('otp', data.otp);
+        if (avatarFile) {
+            formData.append('profile_picture', avatarFile);
+        }
+
+        setSubmitting(true);
+        router.post(route('register.review.store'), formData, {
+            forceFormData: true,
+            onFinish: () => setSubmitting(false),
             onError: (errs) => {
                 if (errs.otp) {
                     toast.error(Array.isArray(errs.otp) ? errs.otp[0] : errs.otp);
+                } else if (errs.profile_picture) {
+                    toast.error(Array.isArray(errs.profile_picture) ? errs.profile_picture[0] : errs.profile_picture);
                 } else {
                     const first = Object.values(errs)[0];
                     toast.error((Array.isArray(first) ? first[0] : first) || 'Could not finish registration.');
@@ -164,12 +180,22 @@ export default function RegisterReview({ pendingName = {}, pending = {} }) {
                                         </button>
                                     </div>
 
+                                    <div className="border-t border-outline-variant pt-4">
+                                        <AvatarPicker
+                                            file={avatarFile}
+                                            onFileChange={setAvatarFile}
+                                            name={fullName}
+                                            error={errors.profile_picture}
+                                            disabled={submitting}
+                                        />
+                                    </div>
+
                                     <button
                                         type="submit"
-                                        disabled={processing || !/^\d{6}$/.test(data.otp)}
+                                        disabled={submitting || !/^\d{6}$/.test(data.otp)}
                                         className="w-full rounded-md bg-primary px-8 py-4 text-sm font-bold text-white shadow-xl transition-all hover:brightness-110 active:scale-95 disabled:opacity-60"
                                     >
-                                        {processing ? 'Finishing…' : 'Verify & Finish'}
+                                        {submitting ? 'Finishing…' : 'Verify & Finish'}
                                     </button>
                                 </form>
                             )}

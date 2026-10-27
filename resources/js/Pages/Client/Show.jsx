@@ -271,7 +271,13 @@ export default function ClientShow({ client, cases: casesProp, auditLogs }) {
                                         opacity-0 targets only its preview sub-block so crop/save/remove flow stays visible */}
                                     <div className="relative inline-block">
                                         <div className="[&>div:first-child]:opacity-0 [&_button]:cursor-pointer">
-                                            <ProfilePictureUpload currentUrl={client.avatar_url} name={fullName} clientId={client.id} size="sm" />
+                                            <ProfilePictureUpload
+                                                currentUrl={client.avatar_url}
+                                                name={fullName}
+                                                size="sm"
+                                                uploadRoute={route('clients.avatar.store', { client: client.id })}
+                                                destroyRoute={route('clients.avatar.destroy', { client: client.id })}
+                                            />
                                         </div>
                                         <span
                                             aria-hidden="true"
