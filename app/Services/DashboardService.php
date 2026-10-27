@@ -361,6 +361,147 @@ class DashboardService
         });
     }
 
+    /**
+     * The agency focal overview, scoped to a period and to one agency.
+     *
+     * Everything here is filtered by the logged-in user's agcy_id — a focal
+     * person sees their own agency's referrals, never the whole system. That
+     * is the difference from the case manager view, which spans all agencies.
+     *
+     * "Assigned" counts referrals that reached this agency; "resolved" counts
+     * the ones the agency completed. Resolving a referral closes the agency's
+     * part, not the whole case, so the two are deliberately separate.
+     *
+     * @param  int  $days  Window length: 7, 30 or 90.
+     */
+    public function getAgencyPeriodData(?string $agencyId, int $days = 30): array
+    {
+        $days = in_array($days, [7, 30, 90], true) ? $days : 30;
+
+        $to = CarbonImmutable::now(ReportCalendar::timezone())->startOfDay();
+        $from = $to->subDays($days - 1);
+        $fromDate = $from->toDateString();
+        $toDate = $to->toDateString();
+
+        // No agency on the account means nothing to scope to — return an empty
+        // shape rather than every agency's rows.
+        if (! $agencyId) {
+            return [
+                'period' => ['days' => $days, 'label' => "Last {$days} days", 'from' => $fromDate, 'to' => $toDate],
+                'kpis' => ['assigned' => 0, 'awaiting' => 0, 'action' => 0, 'resolved' => 0],
+                'volume' => ['labels' => [], 'received' => [], 'resolved' => []],
+                'status_mix' => [],
+                'category_mix' => [],
+            ];
+        }
+
+        return CacheHelper::safeRemember("dashboard:agency_period:{$agencyId}:{$days}", 60, function () use ($agencyId, $days, $from, $to, $fromDate, $toDate) {
+            [$startBound] = ReportCalendar::localDayBounds($fromDate);
+            [, $endBound] = ReportCalendar::localDayBounds($toDate);
+
+            // Headline numbers for this agency in the window.
+            $counts = DB::selectOne('
+                SELECT
+                    COUNT(*) AS assigned,
+                    COUNT(*) FILTER (WHERE status IN (?, ?)) AS awaiting,
+                    COUNT(*) FILTER (WHERE status IN (?, ?)) AS action,
+                    COUNT(*) FILTER (WHERE status = ?) AS resolved
+                FROM referrals
+                WHERE is_deleted = false
+                  AND agcy_id = ?
+                  AND created_at >= ? AND created_at < ?
+            ', [
+                'PENDING', 'PROCESSING',
+                'FOR_COMPLIANCE', 'REJECTED',
+                'COMPLETED',
+                $agencyId, $startBound, $endBound,
+            ]);
+
+            // Received vs resolved per day, so the line chart can show whether
+            // the agency is keeping up. Resolved is bucketed on the last write
+            // because referrals carry no dedicated completed_at.
+            $received = DB::table('referrals')
+                ->selectRaw(ReportCalendar::localDay('created_at').' AS bucket, COUNT(*) AS total')
+                ->where('is_deleted', false)
+                ->where('agcy_id', $agencyId)
+                ->where('created_at', '>=', $startBound)
+                ->where('created_at', '<', $endBound)
+                ->groupByRaw(ReportCalendar::localDay('created_at'))
+                ->pluck('total', 'bucket');
+
+            $resolved = DB::table('referrals')
+                ->selectRaw(ReportCalendar::localDay('updated_at').' AS bucket, COUNT(*) AS total')
+                ->where('is_deleted', false)
+                ->where('agcy_id', $agencyId)
+                ->where('status', 'COMPLETED')
+                ->where('updated_at', '>=', $startBound)
+                ->where('updated_at', '<', $endBound)
+                ->groupByRaw(ReportCalendar::localDay('updated_at'))
+                ->pluck('total', 'bucket');
+
+            $labels = [];
+            $receivedSeries = [];
+            $resolvedSeries = [];
+            for ($day = $from; $day->lessThanOrEqualTo($to); $day = $day->addDay()) {
+                $key = $day->toDateString();
+                $labels[] = $key;
+                $receivedSeries[] = (int) ($received[$key] ?? 0);
+                $resolvedSeries[] = (int) ($resolved[$key] ?? 0);
+            }
+
+            // Status mix across all of this agency's referrals (not just the
+            // window) — it answers "where is our workload concentrated now".
+            $statusMix = DB::select('
+                SELECT status, COUNT(*) AS total
+                FROM referrals
+                WHERE is_deleted = false AND agcy_id = ?
+                GROUP BY status
+                ORDER BY total DESC
+            ', [$agencyId]);
+
+            // Category mix: the case category is the only reliable taxonomy on
+            // the referral row (referral_services is sparsely populated).
+            $categoryMix = DB::select('
+                SELECT COALESCE(cc.name, ?) AS label, COUNT(*) AS total
+                FROM referrals r
+                JOIN cases c ON c.id = r.case_id AND c.is_deleted = false
+                LEFT JOIN case_categories cc ON cc.id = c.category_id
+                WHERE r.is_deleted = false AND r.agcy_id = ?
+                GROUP BY cc.name
+                ORDER BY total DESC
+                LIMIT 8
+            ', ['Uncategorised', $agencyId]);
+
+            return [
+                'period' => [
+                    'days' => $days,
+                    'label' => "Last {$days} days",
+                    'from' => $fromDate,
+                    'to' => $toDate,
+                ],
+                'kpis' => [
+                    'assigned' => (int) ($counts->assigned ?? 0),
+                    'awaiting' => (int) ($counts->awaiting ?? 0),
+                    'action' => (int) ($counts->action ?? 0),
+                    'resolved' => (int) ($counts->resolved ?? 0),
+                ],
+                'volume' => [
+                    'labels' => $labels,
+                    'received' => $receivedSeries,
+                    'resolved' => $resolvedSeries,
+                ],
+                'status_mix' => array_map(fn ($row) => [
+                    'status' => $row->status,
+                    'total' => (int) $row->total,
+                ], $statusMix),
+                'category_mix' => array_map(fn ($row) => [
+                    'label' => $row->label,
+                    'total' => (int) $row->total,
+                ], $categoryMix),
+            ];
+        });
+    }
+
     public function getAgencyData(?User $user = null): array
     {
         $formatter = app(AuditLogFormatter::class);

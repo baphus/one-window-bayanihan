@@ -325,6 +325,52 @@ class DashboardServiceTest extends TestCase
         $this->assertGreaterThanOrEqual(1, $payload['kpis']['active']);
     }
 
+    #[Test]
+    public function agency_period_data_is_scoped_to_the_agencys_own_referrals(): void
+    {
+        Cache::flush();
+
+        $agency = Agency::factory()->create();
+        $otherAgency = Agency::factory()->create();
+
+        $this->createReferralForAgency($agency, ['status' => 'PENDING', 'created_at' => now()->subDays(2)]);
+        $this->createReferralForAgency($agency, ['status' => 'COMPLETED', 'created_at' => now()->subDays(3)]);
+        // Another agency's referral must never be counted.
+        $this->createReferralForAgency($otherAgency, ['status' => 'PENDING', 'created_at' => now()->subDays(2)]);
+
+        $payload = app(DashboardService::class)->getAgencyPeriodData($agency->id, 30);
+
+        $this->assertSame(2, $payload['kpis']['assigned']);
+        $this->assertSame(1, $payload['kpis']['awaiting']);
+        $this->assertSame(1, $payload['kpis']['resolved']);
+        $this->assertCount(30, $payload['volume']['labels']);
+        $this->assertSame(2, array_sum($payload['volume']['received']));
+    }
+
+    #[Test]
+    public function agency_period_data_returns_an_empty_shape_without_an_agency(): void
+    {
+        Cache::flush();
+
+        // An account with no agency must not fall back to every agency's rows.
+        $payload = app(DashboardService::class)->getAgencyPeriodData(null, 30);
+
+        $this->assertSame(0, $payload['kpis']['assigned']);
+        $this->assertSame([], $payload['volume']['labels']);
+        $this->assertSame([], $payload['status_mix']);
+        $this->assertSame([], $payload['category_mix']);
+    }
+
+    private function createReferralForAgency(Agency $agency, array $attributes = []): Referral
+    {
+        $case = $this->createCaseForClient();
+
+        return Referral::factory()->create(array_merge([
+            'case_id' => $case->id,
+            'agcy_id' => $agency->id,
+        ], $attributes));
+    }
+
     private function createCaseForClient(array $attributes = []): CaseFile
     {
         $client = Client::factory()->create();

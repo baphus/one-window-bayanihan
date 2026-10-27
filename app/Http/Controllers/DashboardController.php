@@ -53,6 +53,29 @@ class DashboardController extends Controller
     }
 
     /**
+     * Period-scoped numbers for the agency focal overview.
+     *
+     * Scoped to the signed-in user's own agency, so a focal person only ever
+     * sees their agency's referrals.
+     */
+    public function agencyPeriod(): JsonResponse
+    {
+        $user = request()->user();
+
+        abort_unless(
+            $user?->role === UserRole::AGENCY->value,
+            403,
+            'This summary is only available to agency focal persons.',
+        );
+
+        $days = (int) request()->integer('days', 30);
+
+        return response()->json(
+            app(DashboardService::class)->getAgencyPeriodData($user->agcy_id, $days),
+        );
+    }
+
+    /**
      * Load all dashboard data (executed in a separate deferred request).
      */
     private function loadDashboardData(User $user): array
