@@ -45,7 +45,7 @@ describe('AddressDropdowns region scope', () => {
     it('only lists the served regions in the region dropdown', () => {
         renderDropdowns();
 
-        const regionInput = screen.getByPlaceholderText('Select region...');
+        const regionInput = screen.getByPlaceholderText('Select region');
         fireEvent.focus(regionInput);
 
         expect(screen.getByText('Negros Island Region')).toBeInTheDocument();
@@ -55,7 +55,7 @@ describe('AddressDropdowns region scope', () => {
     it('never offers regions outside the served scope', () => {
         renderDropdowns();
 
-        fireEvent.focus(screen.getByPlaceholderText('Select region...'));
+        fireEvent.focus(screen.getByPlaceholderText('Select region'));
 
         // Spot-check regions that must remain unavailable.
         expect(screen.queryByText('National Capital Region (NCR)')).not.toBeInTheDocument();
@@ -68,7 +68,7 @@ describe('AddressDropdowns region scope', () => {
 
         try {
             renderDropdowns();
-            fireEvent.focus(screen.getByPlaceholderText('Select region...'));
+            fireEvent.focus(screen.getByPlaceholderText('Select region'));
 
             expect(screen.getByText('Negros Island Region')).toBeInTheDocument();
             expect(screen.getByText('Region VII (Central Visayas)')).toBeInTheDocument();
@@ -82,7 +82,7 @@ describe('AddressDropdowns region scope', () => {
     it('still cascades provinces for a served region', () => {
         renderDropdowns({ values: { region: '0700000000' } });
 
-        const provinceInput = screen.getByPlaceholderText('Select province...');
+        const provinceInput = screen.getByPlaceholderText('Select province');
         expect(provinceInput).toBeEnabled();
         fireEvent.focus(provinceInput);
 

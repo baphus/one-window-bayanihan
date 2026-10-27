@@ -10,7 +10,7 @@ vi.mock('@inertiajs/react', () => ({
     router: { post: vi.fn(), reload: vi.fn(), visit: vi.fn() },
 }));
 
-vi.mock('@/Layouts/OfwLayout', () => ({
+vi.mock('@/Layouts/OfwPortalLayout', () => ({
     default: ({ children }) => <div>{children}</div>,
 }));
 
@@ -61,40 +61,40 @@ beforeEach(() => {
 });
 
 describe('OFW/Dashboard case view mode', () => {
-    it('defaults to the grid view when nothing is stored', () => {
+    it('defaults to the list view when nothing is stored', () => {
         renderDashboard();
+
+        // The reference presents the case list as a table by default.
+        expect(screen.getByRole('columnheader', { name: 'Case / Category' })).toBeInTheDocument();
+        expect(within(layoutGroup()).getByRole('button', { name: 'List view' })).toHaveAttribute('aria-pressed', 'true');
+    });
+
+    it('switches to the grid view when the grid toggle is clicked', () => {
+        renderDashboard();
+
+        fireEvent.click(within(layoutGroup()).getByRole('button', { name: 'Grid view' }));
 
         // Grid cards show the summary as card text; the table header does not exist.
         expect(screen.getByText('Unpaid wages claim against employer')).toBeInTheDocument();
-        expect(screen.queryByRole('columnheader', { name: 'Tracking ID' })).not.toBeInTheDocument();
+        expect(screen.queryByRole('columnheader', { name: 'Case / Category' })).not.toBeInTheDocument();
         expect(within(layoutGroup()).getByRole('button', { name: 'Grid view' })).toHaveAttribute('aria-pressed', 'true');
-    });
-
-    it('switches to the list view when the list toggle is clicked', () => {
-        renderDashboard();
-
-        fireEvent.click(within(layoutGroup()).getByRole('button', { name: 'List view' }));
-
-        expect(screen.getByRole('columnheader', { name: 'Tracking ID' })).toBeInTheDocument();
-        expect(screen.getByRole('columnheader', { name: 'Submitted' })).toBeInTheDocument();
-        expect(within(layoutGroup()).getByRole('button', { name: 'List view' })).toHaveAttribute('aria-pressed', 'true');
     });
 
     it('persists the chosen view mode so it survives navigation', () => {
         renderDashboard();
 
-        fireEvent.click(within(layoutGroup()).getByRole('button', { name: 'List view' }));
+        fireEvent.click(within(layoutGroup()).getByRole('button', { name: 'Grid view' }));
 
-        expect(JSON.parse(window.localStorage.getItem(STORAGE_KEY))).toBe('list');
+        expect(JSON.parse(window.localStorage.getItem(STORAGE_KEY))).toBe('grid');
     });
 
     it('restores a stored list preference on first render', () => {
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify('list'));
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify('grid'));
 
         renderDashboard();
 
-        expect(screen.getByRole('columnheader', { name: 'Tracking ID' })).toBeInTheDocument();
-        expect(within(layoutGroup()).getByRole('button', { name: 'List view' })).toHaveAttribute('aria-pressed', 'true');
+        expect(screen.queryByRole('columnheader', { name: 'Case / Category' })).not.toBeInTheDocument();
+        expect(within(layoutGroup()).getByRole('button', { name: 'Grid view' })).toHaveAttribute('aria-pressed', 'true');
     });
 
     it('renders the empty state without a layout toggle when the OFW has no cases', () => {

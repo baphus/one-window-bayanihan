@@ -1,25 +1,47 @@
 import { useMemo, useState } from 'react';
 import { Link } from '@inertiajs/react';
-import OfwLayout from '@/Layouts/OfwLayout';
-import UnifiedTimeline from '@/Components/Timeline';
-import { SectionCard } from '@/Components/Dashboard/primitives';
+import { CheckCircle2, Copy } from 'lucide-react';
+import OfwPortalLayout from '@/Layouts/OfwPortalLayout';
+import CitizenTimeline from '@/Components/CitizenTimeline';
+import { AgencyCard, DocumentRow, StatusBar } from '@/Components/CitizenStatus';
 import { buildCaseStatusLine } from '@/lib/caseStatusLine';
+import safeRoute from '@/utils/safeRoute';
 
 /**
  * My Cases — case record detail.
  *
- * Reads like the public tracking portal's official case logbook: a navy record
- * header answers "where is my case right now", then one chapter per partner
- * office shows what that office has done, in ledger form. The complete
- * chronological record sits in a sticky sidebar on wide screens.
+ * Reads like a case logbook: a record header answers "where is my case right
+ * now", the timeline shows what was recorded and by whom, each partner office
+ * has its own card with a referral status, and the requests and documents
+ * the citizen can see sit at the bottom.
  */
 
-const REFERRAL_STAMP = {
-    PENDING: { label: 'Awaiting receipt', border: 'border-slate-300', text: 'text-slate-500' },
-    PROCESSING: { label: 'In process', border: 'border-primary', text: 'text-primary' },
-    FOR_COMPLIANCE: { label: 'Needs documents', border: 'border-amber-500', text: 'text-amber-600' },
-    COMPLETED: { label: 'Completed', border: 'border-emerald-500', text: 'text-emerald-600' },
-    REJECTED: { label: 'Unable to assist', border: 'border-red-400', text: 'text-red-500' },
+const REFERRAL_STATUS = {
+    PENDING: {
+        label: 'Pending',
+        badge: 'border-slate-200 bg-slate-100 text-slate-600',
+        note: 'Your referral has been sent and is awaiting agency action.',
+    },
+    PROCESSING: {
+        label: 'Processing',
+        badge: 'border-primary/25 bg-primary/10 text-primary',
+        note: 'Your referral is being reviewed.',
+    },
+    FOR_COMPLIANCE: {
+        label: 'Action Required',
+        badge: 'border-amber-200 bg-amber-50 text-amber-700',
+        note: 'This office has requested a supporting document from you.',
+    },
+    COMPLETED: {
+        label: 'Completed',
+        badge: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+        note: 'This office recorded that assistance for its referral was completed.',
+    },
+    REJECTED: {
+        label: 'Unable to assist',
+        badge: 'border-rose-200 bg-rose-50 text-rose-700',
+        note: 'This office was unable to process the referral. Your case manager will advise you on the next steps.',
+    },
 };
 
 function formatLongDate(dateStr) {
@@ -31,213 +53,166 @@ function formatLongDate(dateStr) {
     });
 }
 
-function StepBar({ steps }) {
-    const activeIndex = steps.findIndex((s) => s.state === 'active');
-    const activeLabel = steps[activeIndex]?.label
-        ?? (steps.length && steps.every((s) => s.state === 'complete') ? steps[steps.length - 1].label : null);
-    const completedCount = steps.filter((s) => s.state === 'complete').length;
-    const progressPercent = steps.length <= 1
-        ? 0
-        : activeIndex !== -1
-            ? (activeIndex / (steps.length - 1)) * 100
-            : (completedCount / steps.length) * 100;
+function formatShortDate(dateStr) {
+    if (!dateStr) return '—';
+    return new Date(dateStr).toLocaleDateString('en-PH', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+    });
+}
+
+/** Lightweight toast for the copy-tracking-number affordance. */
+function useCopyToast() {
+    const [toast, setToast] = useState('');
+    function copy(text, label) {
+        if (!text) return;
+        try {
+            navigator.clipboard?.writeText(text);
+        } catch {
+            // Clipboard may be unavailable (permissions, non-secure context);
+            // the toast still confirms intent so the affordance reads as working.
+        }
+        setToast(label ?? 'Tracking number copied');
+        setTimeout(() => setToast(''), 1800);
+    }
+    return { toast, copy };
+}
+
+/**
+ * Derive the case's presentation state from the real record.
+ *
+ * `action`   — a partner office asked for a document (FOR_COMPLIANCE referral)
+ * `closed`   — the case is finished (CLOSED / ARCHIVED)
+ * `progress` — everything else
+ */
+function useCaseState(trackedCase, trackingAgencies) {
+    return useMemo(() => {
+        const actionAgencies = trackingAgencies.filter((a) => a.status === 'FOR_COMPLIANCE');
+        const normalized = String(trackedCase?.status ?? '').toUpperCase();
+        const isClosed = normalized === 'CLOSED' || normalized === 'ARCHIVED' || normalized === 'RESOLVED';
+
+        if (actionAgencies.length > 0) return { kind: 'action', actionAgencies, isClosed };
+        if (isClosed) return { kind: 'closed', actionAgencies, isClosed };
+        return { kind: 'progress', actionAgencies, isClosed };
+    }, [trackedCase, trackingAgencies]);
+}
+
+/** The four-column meta strip under the record header. */
+function CaseMetaGrid({ trackedCase, caseOverview }) {
+    const categories = trackedCase?.categories ?? [];
+    const categoryLabel = categories.length > 0
+        ? categories.map((c) => c?.name ?? c).join(', ')
+        : caseOverview?.category ?? '—';
+
+    const cells = [
+        { label: 'Submitted', value: formatShortDate(trackedCase?.createdAt) },
+        { label: 'Category', value: categoryLabel },
+        { label: 'Assigned Office', value: caseOverview?.assignedOffice ?? 'DMW Region VII' },
+        { label: 'Case Team', value: caseOverview?.caseTeam ?? 'DMW Case Management Team' },
+    ];
 
     return (
-        <div className="relative px-1">
-            <div className="absolute left-0 right-0 top-[9px] h-px bg-slate-200" />
-            <div
-                className="absolute left-0 top-[9px] h-px bg-primary transition-all duration-500 ease-out"
-                style={{ width: `${progressPercent}%` }}
-            />
-            <ol
-                className="relative z-10 grid"
-                style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))` }}
-            >
-                {steps.map((step) => {
-                    const isComplete = step.state === 'complete';
-                    const isActive = step.state === 'active';
-
-                    return (
-                        <li key={step.label} className="flex flex-col items-center">
-                            <span
-                                className={`flex h-[18px] w-[18px] items-center justify-center rounded-full ring-4 ring-white ${
-                                    isComplete ? 'bg-primary text-white' :
-                                    isActive ? 'border-2 border-primary bg-white' :
-                                    'bg-slate-200'
-                                }`}
-                            >
-                                {isComplete && <span aria-hidden="true" className="material-symbols-outlined text-[11px] font-bold">check</span>}
-                                {isActive && <span className="h-1.5 w-1.5 rounded-full bg-primary motion-safe:animate-pulse" />}
-                            </span>
-                            <span
-                                className={`mt-1.5 hidden max-w-[90px] px-1 text-center text-[10px] font-semibold leading-tight tracking-tight sm:line-clamp-2 ${
-                                    isActive ? 'text-primary' : isComplete ? 'text-slate-800' : 'text-slate-400'
-                                }`}
-                                title={step.label}
-                            >
-                                {step.label}
-                            </span>
-                        </li>
-                    );
-                })}
-            </ol>
-            {activeLabel && (
-                <p className="mt-2 text-center text-[11px] font-semibold text-primary sm:hidden">
-                    Current step: {activeLabel}
-                </p>
-            )}
-        </div>
+        <dl className="grid grid-cols-2 gap-x-6 gap-y-4 border-t border-slate-200 px-5 py-4 sm:grid-cols-4">
+            {cells.map((cell) => (
+                <div key={cell.label}>
+                    <dt className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">{cell.label}</dt>
+                    <dd className="mt-1 text-[13px] font-medium text-slate-700">{cell.value}</dd>
+                </div>
+            ))}
+        </dl>
     );
 }
 
-/** One chapter per partner office — accordion: header always visible, body collapsible. */
-function AgencyChapter({ agency, events, defaultOpen = false }) {
-    const [open, setOpen] = useState(defaultOpen);
-    const stamp = REFERRAL_STAMP[agency.status] ?? REFERRAL_STAMP.PENDING;
-    const isRejected = agency.status === 'REJECTED';
-    const services = agency.services ?? [];
+/** Recent updates aside: the latest recorded update per office. */
+function RecentUpdates({ trackingAgencies, milestoneTimeline }) {
+    const recent = useMemo(() => {
+        const byAgency = new Map();
+        for (const item of milestoneTimeline) {
+            if (!item.agency) continue;
+            if (!byAgency.has(item.agency)) byAgency.set(item.agency, item);
+        }
+
+        if (byAgency.size > 0) {
+            return Array.from(byAgency.entries())
+                .slice(0, 4)
+                .map(([agency, item]) => ({ agency, item }));
+        }
+
+        return trackingAgencies.slice(0, 4).map((agency) => ({
+            agency: agency.name,
+            item: { title: agency.latestMilestoneLabel ?? 'Referral sent', date: null },
+        }));
+    }, [trackingAgencies, milestoneTimeline]);
+
+    if (recent.length === 0) return null;
 
     return (
         <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
-            <button
-                type="button"
-                onClick={() => setOpen((v) => !v)}
-                className="flex w-full items-center justify-between gap-3 bg-slate-50 px-5 py-3.5 text-left transition-colors hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                aria-expanded={open}
-            >
-                <div className="flex min-w-0 items-center gap-3">
-                    <span
-                        aria-hidden="true"
-                        className={`material-symbols-outlined text-[18px] transition-transform duration-200 ${open ? 'rotate-90' : ''} text-slate-400`}
-                    >
-                        chevron_right
-                    </span>
-                    <h3 className="truncate font-headline text-sm font-extrabold tracking-tight text-slate-800">{agency.name}</h3>
-                </div>
-                <span className={`shrink-0 border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] ${stamp.border} ${stamp.text}`}>
-                    {stamp.label}
-                </span>
-            </button>
-
-            <div className={`grid transition-[grid-template-rows] duration-200 ease-out ${open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
-                <div className="overflow-hidden">
-                    <div className="border-t border-slate-200 px-5 py-5">
-                        <StepBar steps={agency.steps ?? []} />
-                        {isRejected && (
-                            <p className="mt-4 text-[13px] leading-relaxed text-slate-600">
-                                This office was unable to process the referral. Your case manager will advise you on the next steps.
-                            </p>
-                        )}
-
-                        {(services.length > 0 || agency.latestMilestoneLabel) && (
-                            <div className="mt-4 space-y-2">
-                                {agency.latestMilestoneLabel && (
-                                    <p className="text-[13px] text-slate-600">
-                                        <span className="font-semibold text-slate-800">Latest:</span> {agency.latestMilestoneLabel}
-                                    </p>
-                                )}
-                                {services.length > 0 && (
-                                    <div className="flex flex-wrap gap-1.5">
-                                        {services.map((svc) => (
-                                            <span
-                                                key={svc}
-                                                className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-medium text-primary"
-                                            >
-                                                {svc}
-                                            </span>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        {events.length > 0 && (
-                            <div className="mt-5">
-                                <UnifiedTimeline variant="ledger" items={events} />
-                            </div>
-                        )}
-
-                        {agency.status === 'PENDING' && (
-                            <p className="mt-5 border-t border-slate-300 pt-3 text-[13px] text-slate-500">
-                                Waiting for {agency.name} to receive your referral. Updates will appear here.
-                            </p>
-                        )}
-
-                        {agency.milestonesUrl && (
-                            <div className="mt-4 flex justify-end border-t border-slate-300 pt-3">
-                                <Link
-                                    href={agency.milestonesUrl}
-                                    className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline"
-                                >
-                                    View all updates from {agency.name}
-                                    <span aria-hidden="true" className="material-symbols-outlined text-[14px]">arrow_right_alt</span>
-                                </Link>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            </div>
+            <header className="border-b border-slate-100 px-5 py-3.5">
+                <h2 className="font-headline text-[15px] font-extrabold tracking-tight text-slate-900">
+                    Recent Updates
+                </h2>
+            </header>
+            <ul className="divide-y divide-slate-100">
+                {recent.map(({ agency, item }, index) => (
+                    <li key={index} className="px-5 py-3.5">
+                        <p className="text-[11px] font-medium text-slate-400">
+                            {item.date ? formatShortDate(item.date) : 'Recorded update'}
+                        </p>
+                        <p className="mt-0.5 text-[13px] font-bold text-primary">{agency}</p>
+                        <p className="mt-0.5 text-[13px] text-slate-600">{item.title ?? ''}</p>
+                    </li>
+                ))}
+            </ul>
         </section>
     );
 }
 
-/** Compact OFW profile summary drawn from the case overview payload. */
-function OfwProfile({ ofw, workHistory, nextOfKin }) {
-    const hasAny = ofw || workHistory || nextOfKin;
+/** "Need help?" aside card. */
+function HelpCard() {
+    return (
+        <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div className="px-5 py-5">
+                <span
+                    aria-hidden="true"
+                    className="material-symbols-outlined text-[20px] leading-none text-slate-400"
+                >
+                    help
+                </span>
+                <h2 className="mt-3 font-headline text-[17px] font-extrabold tracking-tight text-slate-900">
+                    Need help with your case?
+                </h2>
+                <p className="mt-2 text-[13px] leading-relaxed text-slate-600">
+                    Contact DMW for assistance understanding your case status or responding to a request.
+                </p>
 
-    return hasAny ? (
-        <SectionCard title="Case overview" className="mt-4" bodyClassName="px-5 py-4">
-            <dl className="grid grid-cols-1 gap-3 text-[13px] sm:grid-cols-2">
-                {ofw?.fullName && (
-                    <div>
-                        <dt className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">OFW</dt>
-                        <dd className="mt-0.5 font-medium text-slate-800">{ofw.fullName}</dd>
-                    </div>
-                )}
-                {ofw?.gender && (
-                    <div>
-                        <dt className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">Sex</dt>
-                        <dd className="mt-0.5 font-medium text-slate-800">
-                            {ofw.gender.charAt(0).toUpperCase() + ofw.gender.slice(1).toLowerCase()}
-                        </dd>
-                    </div>
-                )}
-                {ofw?.dateOfBirth && (
-                    <div>
-                        <dt className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">Date of birth</dt>
-                        <dd className="mt-0.5 font-medium text-slate-800">{formatLongDate(ofw.dateOfBirth)}</dd>
-                    </div>
-                )}
-                {ofw?.homeAddress && (
-                    <div>
-                        <dt className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">Home address</dt>
-                        <dd className="mt-0.5 font-medium text-slate-800">{ofw.homeAddress}</dd>
-                    </div>
-                )}
-                {workHistory?.lastCountry && (
-                    <div>
-                        <dt className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">Country of deployment</dt>
-                        <dd className="mt-0.5 font-medium text-slate-800">{workHistory.lastCountry}</dd>
-                    </div>
-                )}
-                {workHistory?.lastPosition && (
-                    <div>
-                        <dt className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">Position</dt>
-                        <dd className="mt-0.5 font-medium text-slate-800">{workHistory.lastPosition}</dd>
-                    </div>
-                )}
-                {nextOfKin?.fullName && (
-                    <div>
-                        <dt className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">Emergency contact</dt>
-                        <dd className="mt-0.5 font-medium text-slate-800">
-                            {nextOfKin.fullName}
-                            {nextOfKin.relationship && <span className="text-slate-500"> · {nextOfKin.relationship}</span>}
-                        </dd>
-                    </div>
-                )}
-            </dl>
-        </SectionCard>
-    ) : null;
+                <Link
+                    href={safeRoute('home', undefined, '/')}
+                    className="mt-4 flex w-full items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-[13px] font-bold text-primary transition-colors hover:border-slate-300 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                >
+                    Help Center
+                </Link>
+
+                <Link
+                    href={safeRoute('contact', undefined, '/contact')}
+                    className="mt-3 block text-center text-[13px] font-bold text-primary transition-colors hover:text-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                >
+                    Contact DMW
+                </Link>
+
+                <p className="mt-4 flex items-start gap-2 border-t border-slate-100 pt-4 text-[12px] leading-relaxed text-slate-500">
+                    <span
+                        aria-hidden="true"
+                        className="material-symbols-outlined mt-px shrink-0 text-[16px] leading-none text-slate-400"
+                    >
+                        shield
+                    </span>
+                    <span>Keep your tracking number private. Share it only through official DMW channels.</span>
+                </p>
+            </div>
+        </section>
+    );
 }
 
 export default function CaseDetail({
@@ -248,9 +223,14 @@ export default function CaseDetail({
     completionPercentage = 0,
     trackingAgencies = [],
     rejectedCount = 0,
+    documents = [],
 }) {
     const totalAgencies = trackingAgencies.length;
     const completedAgencies = trackingAgencies.filter((a) => a.status === 'COMPLETED').length;
+
+    const { toast, copy } = useCopyToast();
+    const { kind, actionAgencies, isClosed } = useCaseState(trackedCase, trackingAgencies);
+    const [documentsTab, setDocumentsTab] = useState('requests');
 
     const statusLine = useMemo(
         () => buildCaseStatusLine({
@@ -262,138 +242,427 @@ export default function CaseDetail({
         [trackedCase, totalAgencies, completedAgencies, rejectedCount],
     );
 
-    const eventsByReferral = useMemo(() => {
-        const map = {};
-        for (const item of milestoneTimeline) {
-            if (!item.referralId) continue;
-            (map[item.referralId] ??= []).push(item);
-        }
-        return map;
+    /**
+     * The recorded events, oldest first — the timeline reads forward.
+     * The newest event is the current one; anything after it is pending.
+     */
+    const timelineEvents = useMemo(() => {
+        const sorted = [...milestoneTimeline].sort((a, b) => {
+            const at = new Date(a.date ?? a.timestamp ?? a.created_at ?? a.createdAt ?? 0).getTime();
+            const bt = new Date(b.date ?? b.timestamp ?? b.created_at ?? b.createdAt ?? 0).getTime();
+            if (Number.isNaN(at) || Number.isNaN(bt)) return 0;
+            return at - bt;
+        });
+
+        return sorted.map((item, index) => ({
+            ...item,
+            state: index === sorted.length - 1 ? 'current' : 'complete',
+        }));
     }, [milestoneTimeline]);
 
-    const { ofw, workHistory, nextOfKin } = caseOverview ?? {};
+    const statusBar = useMemo(() => {
+        if (kind === 'action') {
+            return (
+                <StatusBar
+                    tone="action"
+                    title="A response is needed for the agency request."
+                    detail="Open the request above to provide the supporting document the agency asked for."
+                />
+            );
+        }
+
+        if (kind === 'closed') {
+            return (
+                <StatusBar
+                    tone="positive"
+                    title="No outstanding requests."
+                    detail="Only authorized DMW staff can reopen a case."
+                />
+            );
+        }
+
+        return (
+            <StatusBar
+                tone="positive"
+                title="No action is needed from you right now."
+                detail="We will let you know here when a partner office needs something from you."
+            />
+        );
+    }, [kind]);
+
+    const recordBadge = kind === 'closed'
+        ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+        : 'border-primary/25 bg-primary/10 text-primary';
+
+    const recordBadgeLabel = kind === 'closed' ? 'Case Closed' : 'Open — In Progress';
 
     return (
-        <OfwLayout title={trackingId ? `Case — ${trackingId}` : 'Case Details'}>
-            {/* Back to My Cases */}
-            <Link
-                href={route('ofw.dashboard')}
-                className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-slate-600 hover:text-slate-900"
-            >
-                <span className="material-symbols-outlined text-[18px]">arrow_back</span>
-                Back to My Cases
-            </Link>
+        <OfwPortalLayout title={trackingId ? `Case — ${trackingId}` : 'Case Details'}>
+            <p className="text-[12px] text-slate-500">Home / My Cases / Case Details</p>
 
-            {/* Case record header */}
-            <header className="mt-4 rounded-lg bg-primary px-6 py-8 text-white shadow-2xl sm:px-8">
-                <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-primary-fixed-dim">Case record</p>
-                <h1 className="mt-2 font-headline font-mono text-2xl font-extrabold tracking-tight sm:text-3xl">
-                    {trackingId ?? 'Case details'}
-                </h1>
-                <p className="mt-1.5 text-sm text-primary-fixed/90">
-                    {trackedCase?.clientName ?? 'Unknown'} · Case opened {formatLongDate(trackedCase?.createdAt)}
-                </p>
-                {trackedCase?.categories?.length > 0 && (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                        {trackedCase.categories.map((category) => (
-                            <span key={category.name} className="border border-white/30 px-2 py-1 text-[11px] font-semibold">
-                                {category.name}
-                            </span>
-                        ))}
+            <h1 className="mt-2 font-headline text-[28px] font-extrabold tracking-tight text-slate-900 sm:text-[32px]">
+                My Case Tracking
+            </h1>
+            <p className="mt-1.5 text-[14px] text-slate-600">
+                Track your case, follow agency updates, and see if any action is needed from you.
+            </p>
+
+            {/* Case selector */}
+            {trackingId ? (
+                <div className="mt-5">
+                    <label htmlFor="case-selector" className="sr-only">Select a case</label>
+                    <select
+                        id="case-selector"
+                        value={trackingId}
+                        onChange={() => {}}
+                        className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white py-2 pl-3 pr-8 text-[13px] font-semibold text-primary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                    >
+                        <option value={trackingId}>{trackingId}</option>
+                    </select>
+                </div>
+            ) : null}
+
+            {/* Status banner */}
+            {kind === 'action' ? (
+                <div className="mt-5 rounded-lg border border-amber-200 bg-amber-50 px-5 py-4">
+                    <div className="flex items-start gap-3">
+                        <span
+                            aria-hidden="true"
+                            className="material-symbols-outlined mt-px shrink-0 text-[18px] leading-none text-amber-600"
+                        >
+                            error
+                        </span>
+                        <div className="min-w-0 flex-1">
+                            <p className="text-[13px] font-bold text-amber-800">
+                                Action Required: Submit a Supporting Document
+                            </p>
+                            <p className="mt-0.5 text-[12px] text-amber-700">
+                                {actionAgencies[0]?.name ?? 'A partner office'} requested a supporting
+                                document. No deadline is recorded.
+                            </p>
+                            <div className="mt-3 flex flex-wrap gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setDocumentsTab('requests')}
+                                    className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3.5 py-2 text-[12px] font-bold text-white transition-colors hover:bg-primary-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                                >
+                                    View Request and Respond
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setDocumentsTab('documents')}
+                                    className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3.5 py-2 text-[12px] font-bold text-primary transition-colors hover:border-slate-300 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                                >
+                                    View All Requests
+                                </button>
+                            </div>
+                        </div>
                     </div>
-                )}
+                </div>
+            ) : null}
 
-                <p className="mt-6 max-w-2xl font-headline text-lg font-bold leading-snug sm:text-xl">
-                    {statusLine}
-                </p>
+            {kind === 'closed' ? (
+                <div className="mt-5 flex items-start gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-5 py-4">
+                    <span
+                        aria-hidden="true"
+                        className="material-symbols-outlined mt-px shrink-0 text-[18px] leading-none text-emerald-600"
+                    >
+                        check_circle
+                    </span>
+                    <div>
+                        <p className="text-[13px] font-bold text-emerald-800">Case Closed</p>
+                        <p className="mt-0.5 text-[12px] text-emerald-700">
+                            There are no outstanding requests. You can still view your documents and full case history.
+                        </p>
+                    </div>
+                </div>
+            ) : null}
 
-                {totalAgencies > 0 && (
-                    <div className="mt-5">
+            {/* Record header */}
+            <section className="mt-5 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                <div className="px-5 py-5">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">
+                            Request for Assistance
+                        </p>
+                        <span className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-[11px] font-semibold ${recordBadge}`}>
+                            <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                            {recordBadgeLabel}
+                        </span>
+                    </div>
+
+                    <div className="mt-2 flex flex-wrap items-center gap-3">
+                        <h2 className="font-headline font-mono text-[26px] font-extrabold tracking-tight text-slate-900">
+                            {trackingId ?? 'Case details'}
+                        </h2>
+                        {trackingId ? (
+                            <button
+                                type="button"
+                                onClick={() => copy(trackingId, 'Tracking number copied')}
+                                aria-label="Copy tracking number"
+                                title="Copy tracking number"
+                                className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 bg-white text-primary transition-colors hover:border-slate-300 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                            >
+                                <Copy className="h-4 w-4" aria-hidden="true" />
+                            </button>
+                        ) : null}
+                    </div>
+
+                    <p className="mt-2 text-[13px] leading-relaxed text-slate-600">{statusLine}</p>
+                </div>
+
+                <CaseMetaGrid trackedCase={trackedCase} caseOverview={caseOverview} />
+
+                {totalAgencies > 0 ? (
+                    <div className="border-t border-slate-100 px-5 py-4">
                         <div className="flex h-1.5 gap-1" role="img" aria-label={`${completionPercentage}% of processing complete`}>
                             {trackingAgencies.map((a) => (
                                 <span
                                     key={a.referralId ?? a.name}
-                                    title={`${a.name} — ${(REFERRAL_STAMP[a.status] ?? REFERRAL_STAMP.PENDING).label}`}
+                                    title={`${a.name} — ${(REFERRAL_STATUS[a.status] ?? REFERRAL_STATUS.PENDING).label}`}
                                     className={`flex-1 rounded-sm ${
                                         a.status === 'COMPLETED' ? 'bg-emerald-300' :
-                                        a.status === 'REJECTED' ? 'bg-white/20' :
-                                        a.status === 'FOR_COMPLIANCE' ? 'bg-amber-300/60' :
-                                        a.status === 'PROCESSING' ? 'bg-blue-300/70' :
-                                        'bg-white/30'
+                                        a.status === 'REJECTED' ? 'bg-rose-300/60' :
+                                        a.status === 'FOR_COMPLIANCE' ? 'bg-amber-300/70' :
+                                        a.status === 'PROCESSING' ? 'bg-blue-300/80' :
+                                        'bg-slate-200'
                                     }`}
                                 >
-                                    <span className="sr-only">{`${a.name} — ${(REFERRAL_STAMP[a.status] ?? REFERRAL_STAMP.PENDING).label}`}</span>
+                                    <span className="sr-only">{`${a.name} — ${(REFERRAL_STATUS[a.status] ?? REFERRAL_STATUS.PENDING).label}`}</span>
                                 </span>
                             ))}
                         </div>
-                        <p className="mt-2 text-[11px] text-primary-fixed-dim/80">
+                        <p className="mt-2 text-[11px] text-slate-400">
                             Last updated {formatLongDate(trackedCase?.updatedAt)} · {completionPercentage}% of processing complete
                         </p>
                     </div>
-                )}
-            </header>
+                ) : null}
+            </section>
 
-            {/* Two-column layout: main content + complete case history sidebar */}
-            <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_18rem]">
-                {/* Left column — main content */}
-                <div className="min-w-0">
-                    {caseOverview?.narrative && (
-                        <SectionCard title="Case summary">
-                            <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-800">{caseOverview.narrative}</p>
-                        </SectionCard>
-                    )}
+            {/* Timeline + aside */}
+            <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
+                <div className="min-w-0 space-y-6">
+                    {/* Case timeline */}
+                    <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                        <header className="border-b border-slate-100 px-5 py-4">
+                            <h2 className="font-headline text-[15px] font-extrabold tracking-tight text-slate-900">
+                                Case Timeline
+                            </h2>
+                            <p className="mt-0.5 text-[12px] text-slate-500">
+                                {kind === 'closed'
+                                    ? 'Complete recorded history · Read only'
+                                    : 'Follow the recorded milestones for your case.'}
+                            </p>
+                        </header>
+                        <CitizenTimeline
+                            events={timelineEvents}
+                            statusBar={statusBar}
+                            emptyMessage="No milestones are recorded for this case yet."
+                        />
+                    </section>
 
-                    <OfwProfile ofw={ofw} workHistory={workHistory} nextOfKin={nextOfKin} />
-
-                    <section className="mt-8">
-                        <h2 className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
-                            <span className="h-2 w-2 rounded-full bg-primary"></span>
-                            What each office has done
-                        </h2>
+                    {/* Agencies */}
+                    <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                        <header className="border-b border-slate-100 px-5 py-4">
+                            <h2 className="font-headline text-[15px] font-extrabold tracking-tight text-slate-900">
+                                Agencies Handling Your Case
+                            </h2>
+                            <p className="mt-0.5 text-[12px] text-slate-500">
+                                Each agency has a separate referral status.
+                            </p>
+                        </header>
                         {totalAgencies > 0 ? (
-                            <div className="mt-3 space-y-2">
-                                {trackingAgencies.map((agency, index) => (
-                                    <AgencyChapter
-                                        key={agency.referralId ?? agency.name}
-                                        agency={agency}
-                                        events={eventsByReferral[agency.referralId] ?? []}
-                                        defaultOpen={index === 0 || agency.status === 'PROCESSING' || agency.status === 'FOR_COMPLIANCE'}
-                                    />
-                                ))}
+                            <div className="grid grid-cols-1 gap-4 p-5 sm:grid-cols-2">
+                                {trackingAgencies.map((agency) => {
+                                    const status = REFERRAL_STATUS[agency.status] ?? REFERRAL_STATUS.PENDING;
+
+                                    return (
+                                        <AgencyCard
+                                            key={agency.referralId ?? agency.name}
+                                            name={agency.name}
+                                            description={agency.agencyDescription ?? agency.description}
+                                            initials={(agency.name ?? '').slice(0, 4)}
+                                            statusLabel={status.label}
+                                            statusClass={status.badge}
+                                            note={agency.status === 'REJECTED' ? status.note : (agency.latestMilestoneLabel ?? status.note)}
+                                            updatedAt={agency.updatedAt ? formatShortDate(agency.updatedAt) : null}
+                                            href={agency.milestonesUrl}
+                                        />
+                                    );
+                                })}
                             </div>
                         ) : (
-                            <div className="mt-3 rounded-md border border-dashed border-slate-300 bg-slate-50/50 px-5 py-8 text-center">
-                                <span className="material-symbols-outlined text-3xl text-slate-300">hourglass_empty</span>
-                                <p className="mt-2 text-sm font-semibold text-slate-700">No partner offices assigned yet</p>
-                                <p className="mx-auto mt-1 max-w-xs text-[13px] text-slate-500">
+                            <div className="px-5 py-8 text-center">
+                                <span className="material-symbols-outlined text-3xl text-slate-300" aria-hidden="true">
+                                    hourglass_empty
+                                </span>
+                                <p className="mt-2 text-[13px] font-semibold text-slate-700">
+                                    No partner offices assigned yet
+                                </p>
+                                <p className="mx-auto mt-1 max-w-xs text-[12px] text-slate-500">
                                     Your case manager is reviewing the case. Referrals will appear here once they are sent.
                                 </p>
                             </div>
                         )}
                     </section>
+
+                    {/* Documents and requests */}
+                    <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                        <header className="border-b border-slate-100 px-5 py-4">
+                            <h2 className="font-headline text-[15px] font-extrabold tracking-tight text-slate-900">
+                                Documents and Requests
+                            </h2>
+                        </header>
+
+                        <div role="tablist" aria-label="Documents" className="grid grid-cols-2 border-b border-slate-100">
+                            <button
+                                type="button"
+                                role="tab"
+                                aria-selected={documentsTab === 'requests'}
+                                onClick={() => setDocumentsTab('requests')}
+                                className={`px-4 py-3 text-center text-[12px] font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary ${
+                                    documentsTab === 'requests'
+                                        ? 'border-b-2 border-primary text-primary'
+                                        : 'text-slate-500 hover:text-slate-700'
+                                }`}
+                            >
+                                Requests from Agencies
+                            </button>
+                            <button
+                                type="button"
+                                role="tab"
+                                aria-selected={documentsTab === 'documents'}
+                                onClick={() => setDocumentsTab('documents')}
+                                className={`px-4 py-3 text-center text-[12px] font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary ${
+                                    documentsTab === 'documents'
+                                        ? 'border-b-2 border-primary text-primary'
+                                        : 'text-slate-500 hover:text-slate-700'
+                                }`}
+                            >
+                                My Submitted Documents
+                            </button>
+                        </div>
+
+                        {documentsTab === 'requests' ? (
+                            actionAgencies.length > 0 ? (
+                                <div className="space-y-3 p-5">
+                                    {actionAgencies.map((agency) => (
+                                        <div
+                                            key={agency.referralId ?? agency.name}
+                                            className="rounded-lg border border-amber-200 bg-amber-50 p-4"
+                                        >
+                                            <div className="flex flex-wrap items-start justify-between gap-2">
+                                                <p className="text-[12px] font-bold text-amber-800">
+                                                    {agency.name}
+                                                    {agency.requestedAt ? ` · ${formatShortDate(agency.requestedAt)}` : ''}
+                                                </p>
+                                                <span className="inline-flex items-center gap-1.5 rounded-md border border-amber-300 bg-amber-100 px-2 py-1 text-[11px] font-semibold text-amber-800">
+                                                    <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                                                    Action Required
+                                                </span>
+                                            </div>
+                                            <p className="mt-2 font-headline text-[14px] font-extrabold tracking-tight text-slate-900">
+                                                {agency.requestTitle ?? 'Supporting employment document'}
+                                            </p>
+                                            <p className="mt-1 text-[13px] leading-relaxed text-slate-600">
+                                                Please provide the supporting document requested by the agency.
+                                            </p>
+                                            <p className="mt-1 text-[12px] text-slate-500">No deadline recorded.</p>
+                                            <button
+                                                type="button"
+                                                className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-primary px-3.5 py-2 text-[12px] font-bold text-white transition-colors hover:bg-primary-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                                            >
+                                                Respond to Request
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : kind === 'closed' ? (
+                                <div className="px-5 py-8 text-center">
+                                    <span className="material-symbols-outlined text-3xl text-slate-300" aria-hidden="true">
+                                        drafts
+                                    </span>
+                                    <p className="mt-2 text-[13px] font-semibold text-slate-700">No outstanding requests</p>
+                                    <p className="mt-1 text-[12px] text-slate-500">
+                                        This case is closed. Your documents and history remain available.
+                                    </p>
+                                </div>
+                            ) : (
+                                <div className="px-5 py-8 text-center">
+                                    <span className="material-symbols-outlined text-3xl text-slate-300" aria-hidden="true">
+                                        drafts
+                                    </span>
+                                    <p className="mt-2 text-[13px] font-semibold text-slate-700">No requests from agencies</p>
+                                    <p className="mt-1 text-[12px] text-slate-500">
+                                        If an agency needs information, its request will appear here.
+                                    </p>
+                                </div>
+                            )
+                        ) : (
+                            <div className="px-5 py-5">
+                                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                                    My submitted documents
+                                    {documents.length > 0 ? ` · ${documents.length}` : ''}
+                                </p>
+                                {documents.length > 0 ? (
+                                    <div className="mt-2 divide-y divide-slate-100">
+                                        {documents.map((doc) => (
+                                            <DocumentRow
+                                                key={doc.id ?? doc.name}
+                                                name={doc.name ?? doc.original_name}
+                                                meta={doc.meta}
+                                                statusLabel={doc.statusLabel ?? 'Received'}
+                                            />
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="mt-3 flex items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3.5">
+                                        <span
+                                            aria-hidden="true"
+                                            className="material-symbols-outlined mt-px shrink-0 text-[18px] leading-none text-slate-400"
+                                        >
+                                            description
+                                        </span>
+                                        <p className="text-[12px] leading-relaxed text-slate-500">
+                                            Only you and authorized staff can access these files.
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </section>
                 </div>
 
-                {/* Right column — complete case history (sticky on desktop) */}
-                {milestoneTimeline.length > 0 && (
-                    <aside className="lg:sticky lg:top-24 lg:self-start">
-                        <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
-                            <header className="rounded-t-xl border-b border-slate-100 bg-surface-container-low px-4 py-3">
-                                <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-primary">
-                                    Complete case history
-                                </h2>
-                                <p className="mt-0.5 text-[11px] text-slate-400">
-                                    {milestoneTimeline.length} {milestoneTimeline.length === 1 ? 'entry' : 'entries'}
-                                </p>
-                            </header>
-                            <UnifiedTimeline
-                                variant="ledger"
-                                items={milestoneTimeline}
-                                listClassName="max-h-[calc(100vh-12rem)] overflow-y-auto px-4 pb-4 pt-2 owb-scroll-wide rounded-b-md"
-                            />
-                        </section>
-                    </aside>
-                )}
+                {/* Aside */}
+                <aside className="space-y-6 lg:sticky lg:top-24 lg:self-start">
+                    <RecentUpdates trackingAgencies={trackingAgencies} milestoneTimeline={milestoneTimeline} />
+                    <HelpCard />
+                </aside>
             </div>
-        </OfwLayout>
+
+            <p className="mt-6 flex items-center gap-1.5 text-[11px] text-slate-400">
+                <span
+                    aria-hidden="true"
+                    className="material-symbols-outlined text-[14px] leading-none"
+                >
+                    info
+                </span>
+                All case information on this page comes from your own records.
+            </p>
+
+            {/* Copy-to-clipboard toast */}
+            {toast ? (
+                <div
+                    role="status"
+                    aria-live="polite"
+                    className="fixed bottom-5 left-1/2 z-[80] -translate-x-1/2 rounded-lg bg-slate-900 px-4 py-2.5 text-[13px] font-medium text-white shadow-lg motion-safe:animate-pop-in"
+                >
+                    <span className="flex items-center gap-2">
+                        <CheckCircle2 className="h-4 w-4 text-emerald-400" aria-hidden="true" />
+                        {toast}
+                    </span>
+                </div>
+            ) : null}
+        </OfwPortalLayout>
     );
 }

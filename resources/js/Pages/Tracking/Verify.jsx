@@ -114,26 +114,50 @@ export default function TrackingVerify({ tracker_number, email, hint }) {
 
       <main className="flex flex-1 items-center justify-center px-4 pb-16 pt-36">
         <div className="w-full max-w-md mx-auto">
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-8 text-center">
-            <div className="mb-8 flex flex-col items-center gap-4">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-info-container border border-info text-primary shadow-sm">
-                <span className="material-symbols-outlined text-[36px]" style={{ fontVariationSettings: "'FILL' 1, 'wght' 400" }}>verified_user</span>
-              </div>
-              <div>
-                <h2 className="font-headline text-xl font-extrabold text-slate-900">
-                  Verify Your Identity
-                </h2>
-                <p className="text-sm text-slate-500 mt-1.5 leading-relaxed max-w-xs mx-auto">
-                  For security, enter the 6-digit verification code sent to <span className="font-bold text-slate-900">{hint}</span>
-                </p>
-              </div>
+          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+            {/* Program identity */}
+            <div className="flex items-center gap-2.5">
+              <img src="/logo.png" alt="One Window Bayanihan logo" className="h-9 w-9 shrink-0 object-contain" />
+              <span className="min-w-0 leading-tight">
+                <span className="block font-headline text-[13px] font-extrabold tracking-tight text-blue-950">
+                  One Window Bayanihan
+                </span>
+                <span className="block text-[8px] font-bold uppercase tracking-[0.14em] text-slate-500">
+                  Assistance Program
+                </span>
+              </span>
             </div>
 
-            <form onSubmit={handleVerify}>
-              <div className="mb-8 flex justify-center gap-2.5" onPaste={handlePaste}>
+            <p className="mt-5 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
+              DMW Region VII · Secure case access
+            </p>
+            <span className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-primary/25 bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary">
+              <span className="h-1.5 w-1.5 rounded-full bg-current" />
+              Step 2 of 2
+            </span>
+
+            <h2 className="mt-4 font-headline text-[26px] font-extrabold tracking-tight text-slate-900">
+              Check your registered email
+            </h2>
+            <p className="mt-2 text-[14px] leading-relaxed text-slate-600">
+              Enter the one-time code sent to the email registered for the tracking number you provided
+              {hint ? <> (<span className="font-semibold text-slate-800">{hint}</span>)</> : null}.
+            </p>
+
+            <form onSubmit={handleVerify} className="mt-6">
+              <label htmlFor="otp-0" className="block text-[13px] font-bold text-slate-700">
+                Verification code
+              </label>
+              <div
+                id="otp-group"
+                aria-label="Verification code"
+                className="mt-2 flex justify-start gap-2"
+                onPaste={handlePaste}
+              >
                 {otp.map((digit, index) => (
                   <input
                     key={`otp-${index}`}
+                    id={`otp-${index}`}
                     ref={(el) => { otpRefs.current[index] = el; }}
                     type="text"
                     inputMode="numeric"
@@ -142,55 +166,61 @@ export default function TrackingVerify({ tracker_number, email, hint }) {
                     value={digit}
                     onChange={(e) => handleOtpChange(index, e.target.value)}
                     onKeyDown={(e) => handleOtpKeyDown(index, e)}
-                    className="h-14 w-11 border-2 border-slate-200 bg-white text-center text-xl font-bold text-slate-900 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary rounded-md transition-colors"
+                    aria-invalid={Boolean(error)}
+                    className={`h-14 w-full min-w-0 rounded-lg border bg-white text-center text-[20px] font-bold text-slate-900 transition-colors focus:outline-none focus:ring-1 ${
+                      error
+                        ? 'border-red-400 text-red-700 focus:border-red-500 focus:ring-red-400'
+                        : 'border-slate-200 focus:border-primary focus:ring-primary'
+                    }`}
                   />
                 ))}
               </div>
 
-              {error && (
-                <div className="mb-4 flex items-center justify-center gap-2 text-xs font-bold text-red-700 bg-red-50 border border-red-200 rounded-lg px-4 py-2.5">
-                  <span className="material-symbols-outlined text-[14px]">error</span>
+              {error ? (
+                <p className="mt-2 flex items-center gap-1.5 text-[12px] font-medium text-red-600">
+                  <span className="material-symbols-outlined text-[14px]" aria-hidden="true">error</span>
                   {error}
-                </div>
-              )}
+                </p>
+              ) : null}
 
               <button
                 type="submit"
                 disabled={processing}
-                className="w-full bg-primary text-white rounded-md px-8 py-4 text-sm font-bold shadow-md hover:bg-primary-container active:scale-[0.98] transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+                className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3.5 text-[14px] font-bold text-white shadow-md transition-all hover:bg-primary-container active:scale-[0.99] disabled:opacity-60"
               >
                 {processing ? (
                   <>
-                    <span className="material-symbols-outlined text-[18px] animate-spin">sync</span>
+                    <span className="material-symbols-outlined animate-spin text-[18px]" aria-hidden="true">sync</span>
                     Verifying...
                   </>
                 ) : (
-                  <>
-                    <span className="material-symbols-outlined text-[18px]">lock_open</span>
-                    Verify &amp; Continue
-                  </>
+                  'Verify and View Case'
                 )}
               </button>
-            </form>
 
-            <div className="mt-6 text-center">
-              <button
-                type="button"
-                onClick={handleResendOtp}
-                disabled={resendCooldown > 0 || processing}
-                className="text-sm font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {resendCooldown > 0 ? (
-                  <span className="text-slate-400">
-                    Resend code in <span className="text-primary">{resendCooldown}s</span>
-                  </span>
-                ) : (
-                  <span className="text-primary hover:text-primary-container underline underline-offset-2">
-                    Resend code
-                  </span>
-                )}
-              </button>
-            </div>
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={handleResendOtp}
+                  disabled={resendCooldown > 0 || processing}
+                  className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-[13px] font-bold text-primary transition-colors hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend Code'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => router.get(route('track.index'))}
+                  className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-[13px] font-bold text-primary transition-colors hover:border-slate-300 hover:bg-slate-50"
+                >
+                  Change Tracking Number
+                </button>
+              </div>
+
+              <p className="mt-4 flex items-start gap-2 text-[12px] leading-relaxed text-slate-500">
+                <span className="material-symbols-outlined mt-px shrink-0 text-[16px] leading-none text-slate-400" aria-hidden="true">shield</span>
+                Never share your one-time code. Your case information remains hidden until verification succeeds.
+              </p>
+            </form>
           </div>
 
           <button

@@ -18,6 +18,11 @@ import {
  * regions by `npm run addresses:sync`; widen the config list, keep the sync
  * script's SERVED_REGIONS constant in step with it, and re-run the sync
  * (`-- --all` for every region) so the wider list actually resolves.
+ *
+ * `values` may hold either option codes (the default, used by forms that send
+ * codes to the API) or the display names (`emitNames`, used where the stored
+ * record keeps names — e.g. a next-of-kin address). Both shapes are normalized
+ * once at the top so the dropdown chains resolve identically either way.
  */
 function Field({ label, required, children, className }) {
     return (
@@ -37,100 +42,128 @@ function Input({ value, onChange, placeholder }) {
             value={value}
             onChange={(e) => onChange(e.target.value)}
             placeholder={placeholder}
-            className="h-10 w-full rounded-[3px] border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+            className="h-10 w-full rounded-lg border border-slate-200 px-3 text-[13px] text-slate-700 outline-none transition-colors placeholder:text-slate-400 focus:border-primary focus:ring-1 focus:ring-primary"
         />
     );
 }
 
-export default function AddressDropdowns({ values, onChange, errors }) {
+/**
+ * Resolve a stored value (code or name) to the dataset option.
+ */
+function toOption(options, value) {
+    if (!value) return undefined;
+    return options.find(
+        (o) => o.code === value || o.name.toLowerCase() === String(value).toLowerCase(),
+    );
+}
+
+export default function AddressDropdowns({ values, onChange, errors, emitNames = false }) {
     const servedRegions = usePage().props?.addresses?.served_regions ?? [];
     const regions = getRegions().filter(
         (o) => servedRegions.length === 0 || servedRegions.includes(o.code),
     );
-    const provinces = getProvincesByRegion(values.region);
+
+    // Normalize whatever shape `values` arrived in to option codes, so a record
+    // that stores names still pre-selects the right dropdowns.
+    const regionOption = toOption(regions, values.region);
+    const provinces = regionOption ? getProvincesByRegion(regionOption.code) : [];
+    const provinceOption = toOption(provinces, values.province);
     const regionHasProvinces = provinces.length > 0;
-    const cities = values.province
-        ? getCitiesByProvince(values.province)
-        : regionHasProvinces
-            ? []
-            : getCitiesByRegion(values.region);
-    const barangays = getBarangaysByCity(values.city_municipality);
+    const cities = regionOption
+        ? provinceOption
+            ? getCitiesByProvince(provinceOption.code)
+            : regionHasProvinces
+                ? []
+                : getCitiesByRegion(regionOption.code)
+        : [];
+    const cityOption = toOption(cities, values.city_municipality);
+    const barangays = cityOption ? getBarangaysByCity(cityOption.code) : [];
+    const barangayOption = toOption(barangays, values.barangay);
+
+    /** Codes or names, depending on how the caller stores this address. */
+    const output = (option) => (emitNames ? (option?.name ?? '') : (option?.code ?? ''));
 
     const handleRegionChange = useCallback((value) => {
         // Single atomic update — React 18 batches separate setData calls, causing
         // each to read stale closure state and the last call to wipe out region.
+        const option = toOption(regions, value);
         onChange({
-            region: value,
+            region: output(option),
             province: '',
             city_municipality: '',
             barangay: '',
         });
-    }, [onChange]);
+    }, [onChange, regions, emitNames]);
 
     const handleProvinceChange = useCallback((value) => {
         onChange({
-            province: value,
+            province: output(toOption(provinces, value)),
             city_municipality: '',
             barangay: '',
         });
-    }, [onChange]);
+    }, [onChange, provinces, emitNames]);
 
     const handleCityChange = useCallback((value) => {
         onChange({
-            city_municipality: value,
+            city_municipality: output(toOption(cities, value)),
             barangay: '',
         });
-    }, [onChange]);
+    }, [onChange, cities, emitNames]);
 
     const handleBarangayChange = useCallback((value) => {
-        onChange('barangay', value);
-    }, [onChange]);
+        onChange('barangay', output(toOption(barangays, value)));
+    }, [onChange, barangays, emitNames]);
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Region">
                 <SearchableSelect
-                    value={values.region}
+                    value={regionOption?.code ?? ''}
                     onChange={handleRegionChange}
                     options={regions.map((o) => ({ value: o.code, label: o.name }))}
-                    placeholder="Select region..."
+                    placeholder="Select region"
                 />
                 <InputError message={errors?.region} className="mt-1" />
             </Field>
             <Field label="Province">
                 <SearchableSelect
-                    value={values.province}
+                    value={provinceOption?.code ?? ''}
                     onChange={handleProvinceChange}
                     options={provinces.map((o) => ({ value: o.code, label: o.name }))}
-                    placeholder={!values.region ? 'Select region first' : regionHasProvinces ? 'Select province...' : 'No province needed'}
-                    disabled={!values.region || !regionHasProvinces}
+                    placeholder={!regionOption ? 'Select region first' : regionHasProvinces ? 'Select province' : 'No province needed'}
+                    disabled={!regionOption || !regionHasProvinces}
                 />
                 <InputError message={errors?.province} className="mt-1" />
             </Field>
             <Field label="City/Municipality">
                 <SearchableSelect
-                    value={values.city_municipality}
+                    value={cityOption?.code ?? ''}
                     onChange={handleCityChange}
                     options={cities.map((o) => ({ value: o.code, label: o.name }))}
-                    placeholder={!values.region ? 'Select region first' : regionHasProvinces && !values.province ? 'Select province first' : 'Select city/municipality...'}
-                    disabled={!values.region || (regionHasProvinces && !values.province)}
+                    placeholder={!regionOption ? 'Select region first' : regionHasProvinces && !provinceOption ? 'Select province first' : 'Select city/municipality'}
+                    disabled={!regionOption || (regionHasProvinces && !provinceOption)}
                 />
                 <InputError message={errors?.city_municipality} className="mt-1" />
             </Field>
             <Field label="Barangay">
                 <SearchableSelect
-                    value={values.barangay}
+                    value={barangayOption?.code ?? ''}
                     onChange={handleBarangayChange}
                     options={barangays.map((o) => ({ value: o.code, label: o.name }))}
-                    placeholder={!values.city_municipality ? 'Select city first' : 'Select barangay...'}
-                    disabled={!values.city_municipality}
+                    placeholder={!cityOption ? 'Select city first' : 'Select barangay'}
+                    disabled={!cityOption}
                 />
                 <InputError message={errors?.barangay} className="mt-1" />
             </Field>
-            <div className="md:col-span-2">
+            <div className="sm:col-span-2">
                 <Field label="Street">
-                    <Input value={values.street} onChange={(v) => onChange('street', v)} placeholder="House/Block/Lot No., Street Name" />
+                    <Input
+                        value={values.street ?? ''}
+                        onChange={(v) => onChange('street', v)}
+                        placeholder="House / block / lot no., street name"
+                    />
                 </Field>
+                <InputError message={errors?.street} className="mt-1" />
             </div>
         </div>
     );
