@@ -22,7 +22,9 @@ The project uses a soft-delete flag pattern (\`is_deleted\`, \`deleted_at\`, \`d
 
 ## Status reference
 
-The core case statuses are DRAFT, OPEN, CLOSED, and ARCHIVED. Do not rename these casually; changing labels can confuse users and reports. Referral statuses (PENDING, PROCESSING, FOR_COMPLIANCE, COMPLETED, REJECTED) are a separate workflow — see *Referral status reference*.
+The core case statuses are **DRAFT**, **PENDING_REVIEW**, **OPEN**, **CLOSED**, and **ARCHIVED**. Do not rename these casually; changing labels can confuse users and reports. **PENDING_REVIEW** is the one that feeds the **Pending Reviews** queue, and it is the only route by which a case becomes **OPEN** — approving a request assigns ownership at the same time.
+
+Referral statuses (PENDING, PROCESSING, FOR_COMPLIANCE, COMPLETED, REJECTED) are a separate workflow — see *Referral status reference*. Every referral starts as PENDING; the receiving agency chooses the service and then accepts or rejects it.
 
 ## Maintenance tips
 

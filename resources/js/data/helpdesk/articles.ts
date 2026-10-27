@@ -104,7 +104,7 @@ export const articles: HelpdeskArticle[] = [
     title: "Getting Started for Case Managers",
     slug: "getting-started-case-managers",
     excerpt:
-      "A comprehensive onboarding guide for Case Managers covering login, dashboard navigation, case creation, referral management, and daily workflow routines.",
+      "A comprehensive onboarding guide for Case Managers covering login, dashboard navigation, the Pending Reviews queue, case creation, referral management, and daily workflow routines.",
     content: gettingStartedCaseManagers,
     categoryId: CATEGORY["cm-workflow"],
     tagIds: [TAG["onboarding"], TAG["training"], TAG["cases"]],
@@ -143,7 +143,7 @@ export const articles: HelpdeskArticle[] = [
     title: "Using the Public Tracking Portal",
     slug: "using-public-tracking-portal",
     excerpt:
-      "Guide for OFWs on how to access the public tracking portal to monitor case status using a tracker number and OTP verification, including color-coded status indicators and what to do if you lost or forgot your tracker number.",
+      "Guide for OFWs on how to access the public tracking portal to monitor case status using a tracker number and an emailed one-time code, including the Being Reviewed state and what to do if you lost or forgot your tracker number.",
     content: usingPublicTrackingPortal,
     categoryId: CATEGORY["case-submission"],
     tagIds: [TAG["tracking"], TAG["cases"]],
@@ -167,7 +167,7 @@ export const articles: HelpdeskArticle[] = [
     title: "Understanding Case Statuses and Tracker Numbers",
     slug: "understanding-case-statuses-tracker-numbers",
     excerpt:
-      "Learn the difference between internal case numbers and public tracker numbers, and understand what each case and referral status means.",
+      "Learn the difference between internal case numbers and public tracker numbers, and understand what each case and referral status means, including PENDING_REVIEW and FOR_COMPLIANCE (waiting on client).",
     content: understandingCaseStatusesTrackerNumbers,
     categoryId: CATEGORY["case-submission"],
     tagIds: [TAG["tracking"], TAG["cases"]],
@@ -386,7 +386,7 @@ export const articles: HelpdeskArticle[] = [
     title: "Creating and Publishing Cases: Complete Walkthrough",
     slug: "creating-publishing-cases",
     excerpt:
-      "A field-by-field walkthrough for creating a draft case, completing intake details, publishing it to OPEN, and confirming the public tracker number.",
+      "A field-by-field walkthrough for creating a draft case, completing case details, publishing it to OPEN, and confirming the public tracker number.",
     content: creatingPublishingCases,
     categoryId: CATEGORY["cm-workflow"],
     tagIds: [TAG["cases"], TAG["training"], TAG["documents"]],
@@ -398,7 +398,7 @@ export const articles: HelpdeskArticle[] = [
     title: "Managing Draft Cases: Save, Edit, Publish, Delete",
     slug: "managing-draft-cases",
     excerpt:
-      "How Case Managers use the DRAFT workflow safely, including owner-only access, draft updates, publishing, and deleting unfinished drafts.",
+      "How Case Managers use the DRAFT workflow safely, including owner-only access, draft updates, publishing through the review queue, and deleting unfinished drafts.",
     content: managingDraftCases,
     categoryId: CATEGORY["cm-workflow"],
     tagIds: [TAG["cases"], TAG["documents"], TAG["onboarding"]],
@@ -410,7 +410,7 @@ export const articles: HelpdeskArticle[] = [
     title: "Managing Compliance Requirements on Referrals",
     slug: "managing-compliance-requirements",
     excerpt:
-      "Guide to referral compliance requirements, FOR_COMPLIANCE status, uploading fulfillment documents, and returning work to processing.",
+      "Guide to referral compliance requirements, the FOR_COMPLIANCE (waiting on client) status, uploading fulfillment documents, and returning work to processing.",
     content: managingComplianceRequirements,
     categoryId: CATEGORY["referral-processing"],
     tagIds: [TAG["referrals"], TAG["documents"], TAG["compliance"]],
@@ -494,7 +494,7 @@ export const articles: HelpdeskArticle[] = [
     title: "Referral Status Reference",
     slug: "referral-status-reference",
     excerpt:
-      "Reference for PENDING, PROCESSING, FOR_COMPLIANCE, COMPLETED, and REJECTED referral states and the user actions behind each status.",
+      "Reference for PENDING, PROCESSING, FOR_COMPLIANCE (waiting on client), COMPLETED, and REJECTED referral states, where every referral starts, and how the receiving agency accepts or rejects.",
     content: referralStatusReference,
     categoryId: CATEGORY["referrals-escalations"],
     tagIds: [TAG["referrals"], TAG["tracking"], TAG["compliance"]],
@@ -548,7 +548,7 @@ export const articles: HelpdeskArticle[] = [
     title: "Securing Your Account: Password and MFA",
     slug: "securing-your-account-password-and-mfa",
     excerpt:
-      "Signing in with email OTP, changing your password or email, and enabling two-factor authentication with an authenticator app and recovery codes.",
+      "Signing in with email and password plus authenticator MFA, changing your password or email, and where one-time email codes are actually used.",
     content: securingYourAccountPasswordAndMfa,
     categoryId: CATEGORY["account-security"],
     tagIds: [TAG["security"], TAG["onboarding"], TAG["troubleshooting"]],
@@ -575,7 +575,7 @@ export const articles: HelpdeskArticle[] = [
     title: "Your Case Journey: From Intake to Resolution",
     slug: "your-case-journey-from-intake-to-resolution",
     excerpt:
-      "What happens after you ask DMW for help: intake, your tracker number, referrals to partner agencies, milestones, closure, and feedback.",
+      "What happens after you ask DMW for help: filing from your own account, the review queue, your tracker number, referrals to partner agencies, milestones, closure, and feedback.",
     content: yourCaseJourneyFromIntakeToResolution,
     categoryId: CATEGORY["ofw-assistance"],
     tagIds: [TAG["tracking"], TAG["cases"], TAG["onboarding"]],
@@ -635,10 +635,10 @@ export const articles: HelpdeskArticle[] = [
   },
   {
     id: "article-43",
-    title: "Creating a Referral: Choosing Agency and Service",
+    title: "Creating a Referral: Choosing the Agency",
     slug: "creating-a-referral-choosing-agency-and-service",
     excerpt:
-      "The three-step referral wizard: selecting an OPEN case, avoiding duplicate agency referrals, and attaching or deferring required documents.",
+      "The three-step referral wizard: selecting an OPEN case, choosing the receiving agency while avoiding duplicates, and adding remarks and supporting documents. The agency assigns the service.",
     content: creatingAReferralChoosingAgencyAndService,
     categoryId: CATEGORY["referrals-escalations"],
     tagIds: [TAG["referrals"], TAG["documents"], TAG["compliance"]],
@@ -680,7 +680,7 @@ export const articles: HelpdeskArticle[] = [
     title: "Referral Documents and Compliance Uploads",
     slug: "referral-documents-and-compliance-uploads",
     excerpt:
-      "The two ways documents reach a referral: attaching files in the creation wizard, and fulfilling deferred compliance requirements later.",
+      "The two ways documents reach a referral: attaching files in the creation wizard, and fulfilling compliance requirements the receiving agency raises later.",
     content: referralDocumentsAndComplianceUploads,
     categoryId: CATEGORY["referrals-escalations"],
     tagIds: [TAG["referrals"], TAG["documents"], TAG["compliance"]],

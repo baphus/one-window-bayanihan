@@ -44,7 +44,7 @@ The supported application roles are:
 | **CASE_MANAGER** | DMW staff who create cases, manage drafts, publish cases, create referrals, monitor dashboards, and view reports. |
 | **AGENCY** | Partner agency focal persons who work only on referrals scoped to their agency. |
 | **ADMIN** | System administrators who maintain users, agencies, services, settings, audit logs, and maintenance/security pages. |
-| **OFW** | OFWs and authorized contacts who file requests through public intake and follow their own cases in the OFW portal. |
+| **OFW** | OFWs and authorized contacts who register an account, file requests from the OFW portal, and follow their own cases there. |
 
 When creating or editing a user:
 
@@ -94,13 +94,14 @@ Current case statuses in the application are:
 | Internal status | Public tracking status |
 |---|---|
 | **DRAFT** | **BEING_PREPARED** |
+| **PENDING_REVIEW** | **BEING_REVIEWED** |
 | **OPEN** | **IN_PROGRESS** |
 | **CLOSED** | **RESOLVED** |
 | **ARCHIVED** | **ARCHIVED** |
 
-Cases are draft-first: when a Case Manager saves a new case, the case is created as **DRAFT**. Publishing changes it to **OPEN**. Keep this workflow in mind when reviewing reports or assisting users who cannot find a case in an active workload list.
+Cases are draft-first: when a Case Manager saves a new case, the case is created as **DRAFT**. Requests filed by OFWs from their own accounts are created as **PENDING_REVIEW** and surface in the **Pending Reviews** queue. Either way, only an approval moves a case to **OPEN** — and that approval also assigns ownership. Keep this workflow in mind when reviewing reports or assisting users who cannot find a case in an active workload list.
 
-Referral statuses are **PENDING**, **PROCESSING**, **FOR_COMPLIANCE**, **COMPLETED**, and **REJECTED**. Do not rename these meanings in help text, training material, or reference configuration without confirming code support.
+Referral statuses are **PENDING**, **PROCESSING**, **FOR_COMPLIANCE** *(waiting on client)*, **COMPLETED**, and **REJECTED**. Every referral starts as PENDING; the receiving agency assigns the service and then accepts or rejects it. Do not rename these meanings in help text, training material, or reference configuration without confirming code support.
 
 When changing settings:
 

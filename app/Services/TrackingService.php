@@ -302,14 +302,7 @@ class TrackingService
                 'categories' => $this->categoryPresentation($case),
                 'service' => $referrals->first()?->services->pluck('name')->implode(', ') ?? '',
                 'milestone' => '',
-                'status' => match ($case->status) {
-                    'OPEN' => 'IN_PROGRESS',
-                    'PENDING_REVIEW' => 'BEING_REVIEWED',
-                    'CLOSED' => 'RESOLVED',
-                    'ARCHIVED' => 'ARCHIVED',
-                    'DRAFT' => 'BEING_PREPARED',
-                    default => 'UNKNOWN',
-                },
+                'status' => $this->caseStatusKey($case->status),
                 'createdAt' => $case->created_at->toISOString(),
                 'updatedAt' => $case->updated_at->toISOString(),
             ],
@@ -377,6 +370,33 @@ class TrackingService
     }
 
     /**
+     * Translate a stored case status into the client-facing status vocabulary.
+     *
+     * This is the wire contract consumed by `resources/js/lib/caseStatusLine.js`.
+     * It lives in one place because both client payloads (the public tracking
+     * page and the authenticated OFW portal) must report the same status for
+     * the same case — duplicated copies had already drifted once, showing a
+     * submitted case as "status unavailable" on one page and "being reviewed"
+     * on the other.
+     *
+     * `UNKNOWN` is the deliberate fallback for a status this map does not
+     * recognize (for example one added to the database later). Clients render
+     * a neutral "will update as your case progresses" sentence for it rather
+     * than implying the system is broken.
+     */
+    private function caseStatusKey(string $status): string
+    {
+        return match ($status) {
+            'OPEN' => 'IN_PROGRESS',
+            'PENDING_REVIEW' => 'BEING_REVIEWED',
+            'CLOSED' => 'RESOLVED',
+            'ARCHIVED' => 'ARCHIVED',
+            'DRAFT' => 'BEING_PREPARED',
+            default => 'UNKNOWN',
+        };
+    }
+
+    /**
      * Client-facing payload for a single referral's milestone page.
      *
      * Served by the public `track.milestones` route (anonymous, gated only by
@@ -438,14 +458,7 @@ class TrackingService
                     'caseNo' => $case->case_number,
                     'clientName' => $case->client ? trim("{$case->client->first_name} {$case->client->last_name}") : 'Unknown',
                     'clientType' => ($case->client?->type ?? 'OFW') === 'OFW' ? 'Overseas Filipino Worker' : 'Next of Kin',
-                    'status' => match ($case->status) {
-                        'OPEN' => 'IN_PROGRESS',
-                        'PENDING_REVIEW' => 'BEING_REVIEWED',
-                        'CLOSED' => 'RESOLVED',
-                        'ARCHIVED' => 'ARCHIVED',
-                        'DRAFT' => 'BEING_PREPARED',
-                        default => 'UNKNOWN',
-                    },
+                    'status' => $this->caseStatusKey($case->status),
                 ],
                 'agencyMilestones' => [
                     'referralId' => $referral->id,

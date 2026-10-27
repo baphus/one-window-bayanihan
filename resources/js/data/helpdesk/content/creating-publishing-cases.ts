@@ -1,6 +1,6 @@
 const content = `# Creating and Publishing Cases
 
-Case creation captures the official intake record for an OFW or family assistance concern. A published case receives **OWB-YYYYMM-NNNNN** and public tracker **OWBAP-XXXXXXXXXX**. Drafts remain owner-only until published.
+Case creation captures the official record for an OFW or family assistance concern. A published case receives **OWB-YYYYMM-NNNNN** and public tracker **OWBAP-XXXXXXXXXX**. Drafts remain owner-only until published.
 
 ![Case create top](/assets/helpdesk/cases-create-top.png)
 
@@ -8,7 +8,7 @@ Case creation captures the official intake record for an OFW or family assistanc
 
 ### Client information
 
-Record client type, name, contact details, and vulnerability indicator when relevant. Contact details matter because public tracking uses OTP delivery.
+Record client type, name, contact details, and vulnerability indicator when relevant. Contact details matter because the filing confirmation and tracking code go to the registered email address.
 
 ![Client information](/assets/helpdesk/cases-create-client.png)
 
@@ -30,15 +30,24 @@ Capture consent before processing. Select the best categories (**category_ids** 
 
 ## Save draft or publish
 
-Use **DRAFT** when information is incomplete. Drafts can be edited, deleted, or published later. Publish when ready for official handling; the case becomes **OPEN**.
+Use **DRAFT** when information is incomplete. Drafts can be edited, deleted, or published later by their owner.
+
+Publishing requires at least one active category — **Approve case** in the review queue will otherwise prompt *"Pick at least one category before approving."* and, if the case has no issue recorded, *"Pick an issue or concern before approving."* Once published the case becomes **OPEN** and ownership is assigned.
 
 ![Draft cases](/assets/helpdesk/cases-drafts.png)
 ![Cases index](/assets/helpdesk/cases-index.png)
 
 ## After publishing
 
-Open the case details page, confirm the case number and tracker number, review the summary, create referrals if needed, and explain OTP-based tracking to the client. Cases filed by clients themselves first land in the intake queue, where a Case Manager accepts or rejects them — accepted cases become **OPEN**, rejected ones are sent back with a reason.
+Open the case details page, confirm the case number and tracker number, review the summary, and create referrals if needed. Explain to the client that progress is visible at **/track** using their tracker number plus a one-time code emailed to them, or at **/my-cases** if they have an OFW account.
+
+Cases filed by clients themselves do not arrive as an ordinary draft awaiting publication. An OFW files from their own account, and the case lands in the **Pending Reviews** queue as **PENDING_REVIEW**, unassigned. A Case Manager then either:
+
+- **Approves** it — choosing at least one category (and an issue if none exists) — which moves it to **OPEN** and assigns ownership, or
+- **Rejects** it with a mandatory reason, which removes the draft and emails the filer an explanation.
 
 ![Case details](/assets/helpdesk/cases-show.png)
+
+<!-- TODO: capture screenshot of the Pending Reviews queue and the Approve case / Reject case modal -->
 `;
 export default content;

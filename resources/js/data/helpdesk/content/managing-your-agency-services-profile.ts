@@ -25,7 +25,7 @@ Check the profile monthly, update it after program changes, and watch for repeat
 
 ## Status impact
 
-If a referral has no compliance requirements, it is created as **PENDING**. If compliance requirements are included, it starts as **FOR_COMPLIANCE**. Accurate service instructions help Case Managers choose the right starting point. See *Referral status reference* for the full transition matrix.
+Every referral is created as **PENDING**, regardless of its requirements. Accurate service listings matter because the receiving agency picks the service from its own list once the referral arrives, and the service's document requirements are what the agency then raises during the compliance loop. See *Referral status reference* for the full transition matrix.
 
 ## Checklist before changes
 

@@ -10,7 +10,7 @@ const content = `# Glossary of Terms
 
 **AGENCY** — Partner agency focal role. Agency users process referrals assigned to their agency and add updates or milestones as allowed.
 
-**OFW** — Client account role. OFW users file requests through intake, track cases, and manage their own cases, notifications, and profile under /my-cases.
+**OFW** — Client account role. OFW users register an account, file requests from the portal, track cases, and manage their own cases, notifications, and profile under /my-cases.
 
 ## Case terms
 
@@ -20,33 +20,41 @@ const content = `# Glossary of Terms
 
 **Tracker Number** — Public tracking identifier in the format OWBAP-XXXXXXXXXX, used by clients to check progress without logging in.
 
-**Intake** — The self-filing flow at /intake: email verification (verify-email), duplicate check (check-duplicate), submission (submit), with an optional account step (/intake/register). Filing is blocked when the email already has an active case.
+**Intake** — The self-filing flow. An OFW creates and confirms an account, signs in, and files from the portal at /my-cases/intake. The system checks for duplicate active cases before and after submission, captures consent, and returns a filed case in PENDING_REVIEW. There is no anonymous public form; the retired /intake route no longer exists.
 
-**Tracking OTP** — The one-time code emailed to the registered address during tracking. The portal flow is tracker number + email → send-otp → verify-otp → track.show; delivery is email-only.
+**Tracking OTP** — The one-time code emailed to the registered address during tracking. The portal flow is tracker number + email → send-otp → verify-otp → track.show; delivery is email-only. This is one of several places email one-time codes are used — see **One-Time Code (OTP)**.
 
-**DRAFT** — Case status for a case being prepared and not yet fully opened. Lifecycle: DRAFT → Published → OPEN → CLOSED → Archived.
+**One-Time Code (OTP)** — A short numeric code emailed as a second factor. Used for: the OFW registration review step (/register/review), the public tracking portal, secure document-request links, and email-address changes. Not used for sign-in — staff and OFW sign-in use a password plus an authenticator MFA code.
 
-**OPEN** — Case status for active work.
+**DRAFT** — Case status for a case being prepared and not yet submitted. Lifecycle: DRAFT → PENDING_REVIEW → OPEN → CLOSED → ARCHIVED.
 
-**CLOSED** — Case status for completed case handling.
+**PENDING_REVIEW** — Case status for a case that has been filed and is waiting in the **Pending Reviews** queue for a Case Manager to add a category and approve or reject it. Shown to clients as **Being Reviewed**. A case can only reach OPEN by being approved from this queue.
 
-**ARCHIVED** — Case status for retained historical records.
+**Pending Reviews** — The case manager queue (/cases/review-pending) holding every filed request awaiting a decision. Staff approve a case (which moves it to OPEN and assigns ownership) or reject it with a mandatory reason, which removes the draft and emails the filer.
+
+**OPEN** — Case status for active work. Required before any referral can be created.
+
+**CLOSED** — Case status for completed case handling. Closing is blocked while any referral is still PENDING, PROCESSING, or FOR_COMPLIANCE.
+
+**ARCHIVED** — Case status for retained historical records. Only CLOSED cases can be archived; an archived case can be unarchived to its previous state, and is deleted to the trash with a mandatory reason before eventual permanent removal.
 
 **my-cases** — The authenticated OFW portal (/my-cases) for viewing one's cases, notifications, agency milestones, and profile.
 
 ## Referral terms
 
-**Referral** — A request sent from a case to another agency or service provider for action.
+**Referral** — A request sent from a case to another agency or service provider for action. The sending Case Manager chooses the case and the agency; the **receiving agency** chooses the service.
 
-**PENDING** — Referral has been sent and is waiting for agency action.
+**PENDING** — Referral has been sent and is waiting for agency action. Every new referral starts here, with no exceptions.
 
 **PROCESSING** — Agency has started working on the referral.
 
-**FOR_COMPLIANCE** — Additional requirement, document, or action is needed before the referral can proceed.
+**FOR_COMPLIANCE** — Waiting on client. Additional requirement, document, or action is needed from the client before the referral can proceed.
 
 **COMPLETED** — Agency action has been completed. Completion triggers a survey invitation for client feedback.
 
-**REJECTED** — Referral was not accepted or cannot be processed as sent.
+**REJECTED** — Referral was not accepted or cannot be processed as sent. A reason is mandatory.
+
+**Add Service** — The control on a referral page that lets the receiving agency attach the service the referral applies for, chosen from its own list of available services. Senders do not select services.
 
 **ReferralClientRequest** — A secure client-request channel on the tracking side (/track/request) where clients and agencies exchange messages, replacements, and attachments through expiring access links.
 

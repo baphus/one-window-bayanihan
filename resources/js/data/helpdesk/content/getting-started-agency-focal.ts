@@ -59,13 +59,18 @@ When changing status, add a clear note. A useful note explains what changed, who
 
 ## 5. Start work on a referral
 
-For a new referral:
+For a new **PENDING** referral, two things must happen before any work is recorded — and **your agency does both**, not the Case Manager:
 
 1. Open the referral from the **Referrals** list.
 2. Review the referral notes and attachments.
 3. Confirm that the request belongs to your agency and service area.
-4. If your agency can act on it, update the status to **PROCESSING** using the available status action.
-5. Add a comment or milestone summarizing the first action taken.
+4. **Assign the service.** The *Required Services* section starts empty with the prompt *"No services assigned yet — add the services this referral will apply for."* Use the **Add Service** dropdown to pick the service from your agency's own list. The Case Manager does not choose a service when sending the referral.
+5. **Decide: accept or reject.** For a **PENDING** referral you see two buttons:
+   - **Accept** — opens the *Accept Referral* modal. Choose **PROCESSING** or **FOR_COMPLIANCE** *(waiting on client)* and add a required remark explaining the decision.
+   - **Reject** — opens the *Reject Referral* modal. A reason and remark are both required.
+6. If you accepted, add a comment or milestone summarizing the first action taken.
+
+After acceptance, use **Update Status** on the referral page to move between **PROCESSING**, **FOR_COMPLIANCE**, **COMPLETED** and **REJECTED** as work progresses.
 
 Examples of useful first updates:
 
@@ -76,7 +81,7 @@ Examples of useful first updates:
 
 ## 6. Request compliance requirements
 
-Use **FOR_COMPLIANCE** when work cannot continue without missing information, documents, or client participation.
+Use **FOR_COMPLIANCE** *(waiting on client)* when work cannot continue without missing information, documents, or client participation. You can use it as your first disposition when accepting a referral, or at any later point via **Update Status** — it is never set at referral creation.
 
 Your compliance note should include:
 
@@ -111,7 +116,7 @@ Use **REJECTED** only when your agency cannot process the referral. Give a reaso
 
 ## 9. Agency services and profile information
 
-Some agency users may have screens for agency services or profile details. If available in your navigation, keep them accurate so Case Managers choose the correct service when creating referrals.
+Some agency users may have screens for agency services or profile details. If available in your navigation, keep them accurate — this list is what your focal persons pick from when **assigning services to a referral**.
 
 Review these items periodically:
 
@@ -125,7 +130,7 @@ If you cannot edit a needed agency setting, coordinate with a System Administrat
 ## 10. Daily routine checklist
 
 1. Check the **Dashboard** for new and overdue referrals.
-2. Open **PENDING** referrals and move valid work to **PROCESSING**.
+2. Open **PENDING** referrals, assign the service, then **Accept** (PROCESSING or FOR_COMPLIANCE) or **Reject** with a reason.
 3. Add milestones after meaningful actions.
 4. Use **FOR_COMPLIANCE** with exact requirements when blocked.
 5. Upload official outputs before marking work **COMPLETED**.

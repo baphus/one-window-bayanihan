@@ -33,6 +33,6 @@ A queue or background processing problem may appear as delayed emails, reports t
 
 ## Overdue referrals
 
-Overdue referral monitoring helps administrators and case managers identify agency responses that need follow-up. Use it with the referral status reference: PENDING and PROCESSING usually require active monitoring; FOR_COMPLIANCE may require information from the case manager or client; COMPLETED and REJECTED should be reviewed for closure or next action.
+Overdue referral monitoring helps administrators and case managers identify agency responses that need follow-up. Use it with the referral status reference: PENDING and PROCESSING usually require active monitoring; FOR_COMPLIANCE *(waiting on client)* may require information from the case manager or client; COMPLETED and REJECTED should be reviewed for closure or next action.
 `;
 export default content;

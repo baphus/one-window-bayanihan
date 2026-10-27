@@ -1,6 +1,8 @@
-const content = `# Creating a Referral: Choosing Agency and Service
+const content = `# Creating a Referral: Choosing the Agency
 
-A referral formally asks a partner agency to deliver a service for one of your cases. The referral wizard walks you through three steps — **Select Case**, **Select Agency**, **Select Service** — and won't let you continue until each step is complete.
+A referral formally asks a partner agency to take on work for one of your cases. The referral wizard has three steps — **Select Case**, **Select Agency**, **Details** — and won't let you continue until each step is complete.
+
+You choose the **agency**, not the service. The receiving agency decides which of its own services the referral applies for, and then accepts or rejects the referral.
 
 ![Referral creation wizard](/assets/helpdesk/referrals-create.png)
 
@@ -10,29 +12,40 @@ Only **OPEN** cases can be referred. Search by tracker number, case number, or t
 
 ## Step 2 — Select Agency
 
-Choose the receiving agency. If the case **already has an active referral to that agency** (any referral still **PENDING**, **PROCESSING**, or **FOR_COMPLIANCE**), the wizard flags it and blocks the duplicate — coordinate on the existing referral instead of creating a second one. To compare agencies before choosing, see *Using the stakeholder directory*.
+Choose the receiving agency. Each agency card shows how many services it currently offers, so you can compare before picking — see *Using the stakeholder directory* for help choosing.
 
-## Step 3 — Select Service and attach requirements
+The wizard blocks a duplicate: if the case **already has an active referral to that agency** (any referral still **PENDING**, **PROCESSING**, or **FOR_COMPLIANCE**), it flags this and stops you. Coordinate on the existing referral instead of creating a second one.
 
-1. Choose one or more of the agency's services ("Choose services and attach requirements").
-2. Each selected service lists its **document requirements**. For every requirement, either:
-   - **Upload the document** now, or
-   - **Mark it for compliance** — the referral is sent without it, and the item becomes a compliance requirement the agency will formally request.
-3. The wizard warns *"Upload all required documents before submitting"* if a requirement is neither uploaded nor marked for compliance.
-4. Submit. You'll land on the new referral page with **"Referral created successfully."**
+## Step 3 — Details
+
+1. Optionally add **remarks** — context that helps the agency understand the request.
+2. Optionally attach **supporting documents**. Accepted formats are PDF, DOC, DOCX, JPG, JPEG and PNG, up to 10 MB per file.
+3. Submit. You'll land on the new referral page with **"Referral created successfully."**
+
+The referral is created with status **PENDING** and is sent to the agency you chose.
+
+## What the agency does next
+
+1. The agency reviews the referral and **adds the service** it will apply for, from its own list of available services. Until it does, the *Required Services* section shows *"No services assigned yet."*
+2. The agency makes its first disposition from the referral page:
+   - **Accept** — choosing **PROCESSING** or **FOR_COMPLIANCE** *(waiting on client)* and adding a required remark, or
+   - **Reject** — with a required reason and remark.
+3. Only after that does the referral move out of **PENDING**.
+
+![Referral detail page](/assets/helpdesk/referrals-show.png)
 
 ## What happens to the uploaded documents
 
-Documents attached in the wizard become the referral's attachments, labeled per requirement, and are visible to the receiving agency. Items you marked for compliance appear on the referral as open compliance requirements — they are fulfilled later with the **Upload to Fulfill** action on the referral page (those uploads are visible only to the referred agency). See *Managing compliance requirements*.
+Documents attached in the wizard become the referral's attachments and are visible to the receiving agency. Anything the agency still needs is raised afterwards as a compliance requirement, which the agency fulfils with the **Upload to Fulfill** action on the referral page — those uploads are visible only to the referred agency. See *Managing compliance requirements*.
 
 ## After sending
 
-- Track the referral's status (**PENDING → PROCESSING → … → COMPLETED**, with **FOR_COMPLIANCE** and **REJECTED** as branches) and milestones on the referral page — see *Referral status reference*. There is no direct **PENDING → COMPLETED** jump, and repeating the current status is a harmless no-op.
-- Services can still be adjusted afterwards: add a service or remove one from the referral page, and manage each service's document requirements (add, update, or delete) as needs change.
-- For document handoffs that need the client directly, agencies can open a client-request thread (secure token link plus the track-request exchange) instead of routing everything through comments.
+- Track the referral's status and milestones on the referral page — see *Referral status reference*. Repeating the current status is a harmless no-op that sends no notification.
+- Services can still be adjusted afterwards: the receiving agency can add or remove services on the referral page and manage each service's document requirements as needs change.
+- For document handoffs that need the client directly, the agency can open a client request with a secure, time-limited private link instead of routing everything through comments.
 - Use referral **comments** to coordinate with the agency, choosing the right visibility for each note — see *Using referral comments*.
-- Watch aging referrals on the **Overdue referrals** page and your notifications feed. When the referral is finally marked **COMPLETED**, the client automatically receives a survey invitation.
+- Watch aging referrals on the **Overdue referrals** page and your notifications feed. A referral is considered overdue once there has been no activity for more than the configured number of days (7 by default). When the referral is finally marked **COMPLETED**, the client automatically receives a survey invitation.
 
-> A well-targeted referral — right service, complete documents — is the single biggest factor in fast processing. Referrals with missing documents typically bounce back as *For Compliance*, adding days of back-and-forth.
+> A well-targeted referral — the right agency, clear remarks, complete documents — is the single biggest factor in fast processing. Referrals that leave the agency guessing typically bounce back as *For Compliance*, adding days of back-and-forth.
 `;
 export default content;

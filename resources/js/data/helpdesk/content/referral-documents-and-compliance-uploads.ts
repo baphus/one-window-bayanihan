@@ -1,6 +1,6 @@
 const content = `# Referral Documents and Compliance Uploads
 
-Documents reach a referral in two ways: they are **attached while creating the referral**, or they are **uploaded later to fulfill a compliance requirement** that was deferred at creation. This article walks both flows and the rules that apply to every file.
+Documents reach a referral in two ways: they are **attached while creating the referral**, or they are **uploaded later to fulfill a compliance requirement** raised by the receiving agency. This article walks both flows and the rules that apply to every file.
 
 Note the split: **case documents** (the case-level file store) and **referral attachments** (files tied to one referral) are separate stores with separate permissions. Case documents can be read by Case Managers, Agency Focal Persons, and Admins, but only Case Managers and Admins can upload or delete them.
 
@@ -16,25 +16,30 @@ A referral (and its documents) is visible to:
 
 > Everything uploaded to a referral's compliance section is viewable by the referred agency — the page reminds you: *"Everything uploaded here will only be viewable by the referred agency."*
 
-## Flow 1 — Attaching documents when creating the referral
+## Flow 1 — Attaching documents while creating the referral
 
-In the referral wizard's **Select Service** step, each selected service lists its required documents under **Service Requirements**. For every requirement you choose one of two modes:
+The referral wizard has three steps — **Select Case**, **Select Agency**, **Details** — and it never asks you to choose a service.
 
-1. **Upload File** — click **Choose file** and attach the document now. A green *Attached: filename* confirms the upload; a red *"Upload is required for this document"* means the requirement is still empty.
-2. **For Compliance** — defer the document. The requirement is tagged **FOR COMPLIANCE** and becomes a pending item on the referral after submission.
+In the **Details** step you can optionally attach supporting documents:
 
-You cannot submit while a requirement in **Upload File** mode has no file — the wizard warns *"Upload all required documents before submitting."*
+1. Add any **remarks** that help the receiving agency understand the request.
+2. Attach files with the document control. Accepted types are PDF, DOC, DOCX, JPG, JPEG and PNG, up to 10 MB per file.
+3. Submit.
 
-Files attached here are stored against the referral and named after their service and requirement (for example, *Legal Counseling / Affidavit — affidavit.pdf*), so the agency can tell which requirement each file satisfies.
+Files attached here are stored against the referral and are visible to the receiving agency as referral attachments. Because the agency assigns the service *after* receiving the referral, these attachments are not tied to a particular service requirement — they are simply the evidence you already have.
 
 ## Flow 2 — Fulfilling a compliance requirement later
 
-Requirements deferred at creation appear in the **For Compliance** section of the referral page, each showing its service, requirement name, and a status badge:
+Compliance requirements are created by the **receiving agency** after it has accepted the referral, not by the sender at creation.
 
-- **PENDING** (orange) — the document is still owed. A **Upload to Fulfill** control sits under the requirement.
+Requirements appear in the **For Compliance** section of the referral page, each showing its service, requirement name, and a status badge:
+
+- **PENDING** (orange) — the document is still owed. An **Upload to Fulfill** control sits under the requirement.
 - **COMPLIED** (green) — the document has been submitted; the card shows *Fulfilled <date> by <name>*.
 
 To fulfill a pending requirement, use **Upload to Fulfill** and pick the file. The requirement flips to **COMPLIED** immediately and records who fulfilled it and when. Only pending requirements accept an upload — a complied requirement cannot be fulfilled twice.
+
+While a referral is in **FOR_COMPLIANCE** it is *waiting on client*: the referral does not progress until the outstanding items arrive. If the client needs a secure way to send files, the agency can issue a private document-request link with a time-limited, session-bound exchange instead.
 
 ## File rules
 
@@ -51,7 +56,7 @@ Uploads that fail these checks are rejected with an error before anything is sav
 
 ## Related articles
 
-- *Creating a Referral: Choosing Agency and Service* — the full three-step wizard, including duplicate-referral warnings.
+- *Creating a Referral: Choosing the Agency* — the full three-step wizard, including duplicate-referral warnings.
 - *Managing Compliance Requirements* — how agencies and case managers track outstanding requirements across referrals.
 `;
 export default content;

@@ -31,7 +31,7 @@ Opening a client shows:
 ## Good practice
 
 1. **Search before creating.** When opening a new case, check whether the client already exists to avoid duplicate records.
-2. **Keep contact details current.** OTP-based tracking and feedback invitations go to the client's registered mobile number and email — a stale contact means the client loses access to their own updates.
+2. **Keep contact details current.** Tracking codes and feedback invitations go to the client's registered email address — a stale contact means the client loses access to their own updates. (Tracking codes are delivered by email only; there is no SMS delivery.)
 3. **Use the filters for caseload reviews.** For example, *Case Status = OPEN* + *Vulnerability* filters give you the at-risk clients needing attention.
 4. Personal data on this page is covered by the privacy policy — see *Privacy and Data Protection in OWB* before exporting or sharing.
 `;

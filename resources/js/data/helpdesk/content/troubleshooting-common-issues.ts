@@ -23,10 +23,18 @@ Search by case number (**OWB-YYYYMM-NNNNN**), tracker number (**OWBAP-XXXXXXXXXX
 - A generic "unable to process" error is intentional so tracker numbers cannot be enumerated — re-check both fields for typos before retrying.
 - If the registered email changed, update it on the case record first; otherwise the code keeps going to the old address.
 
-## Intake submission blocked
+## Client cannot file a request
 
-- "You already have an active case" means the email has an OPEN or DRAFT case — direct the client to the tracking portal instead of filing again.
-- Email verification must complete before submission; signed-in OFW users skip that step automatically.
+- OFWs file from their own account at **/my-cases/intake**, so they must first register at **/register**, confirm their email, and sign in. There is no anonymous public intake form any more.
+- "No linked client found. Please complete your profile first." means the OFW account is not yet linked to a client record — fix the profile link, not the form.
+- "You already have an active case" means a case for this person is already filed or in progress. There is a limit of one active case per person, checked at three points in the filing flow — direct the client to the tracking portal or their dashboard instead of filing again.
+- A filed request is not active immediately: it waits in **Pending Reviews** as **PENDING_REVIEW** until a case manager approves it.
+
+## Case stuck awaiting review
+
+- A request in **PENDING_REVIEW** only moves when someone acts on it in **Pending Reviews**. Nothing expires or auto-approves.
+- **Approve case** needs at least one category, and an issue or concern if the case has none — the modal will not submit otherwise.
+- **Reject case** needs a reason; the filer is emailed that reason and the draft is removed.
 
 ## Survey link problems
 
@@ -38,7 +46,9 @@ Search by case number (**OWB-YYYYMM-NNNNN**), tracker number (**OWBAP-XXXXXXXXXX
 
 ![Referrals index](/assets/helpdesk/referrals-index.png)
 
-Check the referral status first. PENDING means it is waiting for agency action; PROCESSING means work has started; FOR_COMPLIANCE means more information or action is required; COMPLETED and REJECTED require review for case next steps.
+Check the referral status first. **PENDING** means it is still waiting for the receiving agency to accept or reject it — the agency may also need to assign its service first. **PROCESSING** means work has started. **FOR_COMPLIANCE** *(waiting on client)* means something is owed by the client before work can continue. **COMPLETED** and **REJECTED** are final and require review for case next steps.
+
+If a case manager says the agency "never picked up" a referral, confirm the agency has assigned a service — the *Required Services* section stays empty until it does.
 
 ## Export or report issue
 
@@ -46,7 +56,7 @@ If an Excel export or report does not appear correct, confirm the filters, date 
 
 ## Email or notification issue
 
-Administrators should review the audit log and the recipient's in-app notifications around the time the message was expected. Confirm the record action was saved before assuming a notification problem. This covers tracking OTPs, intake confirmations, and survey invitations alike.
+Administrators should review the audit log and the recipient's in-app notifications around the time the message was expected. Confirm the record action was saved before assuming a notification problem. This covers tracking OTPs, filing confirmations, case review decisions, and survey invitations alike.
 
 ## When to escalate
 
