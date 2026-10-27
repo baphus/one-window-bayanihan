@@ -84,7 +84,7 @@ class ChatbotSuggestionService
     {
         return [
             'How to create a case' => [
-                'reply' => "To create a new case:\n\n1. Go to **Cases → Create** from the sidebar.\n2. Select the **client** (or create a new one).\n3. Choose the **category** and **issue type**.\n4. Fill in the **case summary** and supporting details.\n5. Click **Save** to create a draft, or **Submit** to publish it immediately.\n\nDrafts can be edited and reviewed before publishing.",
+                'reply' => "To create a new case:\n\n1. Go to **Cases → Create** from the sidebar.\n2. Select the **client** (or create a new one).\n3. Choose the **category** and **issue type**.\n4. Fill in the **case summary** and supporting details.\n5. Click **Submit**. The case is created as **Pending Review** and appears in the review queue.\n\nOnce a supervisor approves it, the case becomes **Open** and goes live.",
                 'actions' => [['label' => 'Create Case', 'url' => '/cases/create', 'icon' => 'add_circle']],
             ],
             'Adding milestones' => [
@@ -94,10 +94,10 @@ class ChatbotSuggestionService
                 'reply' => "To create a referral to a partner agency:\n\n1. Open the case.\n2. Click **Create Referral** in the case actions.\n3. Select the **partner agency** — the system shows which agencies handle which services.\n4. Choose the **service** and add a message explaining what you need.\n5. Submit — the agency focal will be notified.\n\nYou can track the referral status and add comments from the case view.",
             ],
             'Case statuses explained' => [
-                'reply' => "Here are the case statuses and what they mean:\n\n- **Draft** — case is being prepared, not yet published.\n- **Published** — case is active and visible to assigned agencies.\n- **Under Review** — agency is reviewing the case.\n- **In Progress** — active work on the case.\n- **Resolved** — case has been addressed.\n- **Closed** — case is finalized and archived.\n\nYou can update the status from the case detail page.",
+                'reply' => "Here are the case statuses and what they mean:\n\n- **Pending Review** — newly submitted, waiting for approval.\n- **Open** — approved and active; referrals can be made.\n- **Closed** — the case has been resolved and finalized.\n- **Archived** — a closed case moved out of the active list.\n\nYou can update the status from the case detail page.",
             ],
-            'Managing drafts' => [
-                'reply' => "Draft cases are saved but not yet published to agencies. You can:\n\n- **Edit** — update any field before publishing.\n- **Review** — check all details are complete and accurate.\n- **Submit** — publish the case, making it visible to the relevant agency.\n- **Delete** — remove the draft if it's no longer needed.\n\nDrafts are only visible to you and other case managers.",
+            'Moving a case through review' => [
+                'reply' => "Every new case starts as **Pending Review**.\n\n- A supervisor opens **Cases → Review Pending** to see the queue.\n- **Approve** moves the case to **Open** and makes it a live case of record.\n- **Reject** removes it from the queue.\n\nOnce a case is **Open**, close it from the case detail page. Closing it is what allows it to be archived later.",
             ],
         ];
     }

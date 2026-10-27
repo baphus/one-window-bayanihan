@@ -57,7 +57,6 @@ vi.mock('@/Components/ui/StatusBadge', () => ({
 }));
 
 const dashboard = {
-    myDraftCount: 2,
     openCases: 5,
     closedCases: 3,
     pendingReferrals: 4,
@@ -116,10 +115,8 @@ describe('CaseManager Numbers block', () => {
         const numbers = renderNumbers();
 
         // Case counts with humanized badges.
-        expect(numbers.getByText('2')).toBeInTheDocument();
         expect(numbers.getByText('5')).toBeInTheDocument();
         expect(numbers.getByText('3')).toBeInTheDocument();
-        expect(numbers.getByText('Draft')).toBeInTheDocument();
         expect(numbers.getByText('Open')).toBeInTheDocument();
         expect(numbers.getByText('Closed')).toBeInTheDocument();
 
@@ -192,7 +189,7 @@ describe('CaseManager Numbers block', () => {
         expect(numbers.getByText('The trend appears as case activity accumulates.')).toBeInTheDocument();
 
         // Counts and badges still render — only the chart is empty.
-        expect(numbers.getByText('Draft')).toBeInTheDocument();
+        expect(numbers.getByText('Open')).toBeInTheDocument();
         expect(numbers.getByText('For Compliance')).toBeInTheDocument();
     });
 });
@@ -220,8 +217,8 @@ describe('CaseManager status pies', () => {
         renderNumbers(dashboardWithAgencies);
 
         const cases = pieSlices('dashboard-pie-cases');
-        expect(cases.labels).toEqual(['Draft', 'Open', 'Closed']);
-        expect(cases.values).toEqual([2, 5, 3]);
+        expect(cases.labels).toEqual(['Open', 'Closed']);
+        expect(cases.values).toEqual([5, 3]);
 
         const agencies = pieSlices('dashboard-pie-agencies');
         expect(agencies.labels).toEqual(['OWWA', 'DSWD']);
@@ -232,7 +229,7 @@ describe('CaseManager status pies', () => {
         expect(status.values).toEqual([4, 7, 6, 8, 1]);
 
         // Legends carry the humanized status text with counts.
-        expect(cases.card.getByText('Draft')).toBeInTheDocument();
+        expect(cases.card.getByText('Open')).toBeInTheDocument();
         expect(status.card.getByText('For Compliance')).toBeInTheDocument();
         expect(agencies.card.getByText('OWWA')).toBeInTheDocument();
     });
@@ -240,7 +237,6 @@ describe('CaseManager status pies', () => {
     it('shows a one-line empty state per pie when there is no data', () => {
         renderNumbers({
             ...dashboard,
-            myDraftCount: 0,
             openCases: 0,
             closedCases: 0,
             pendingReferrals: 0,

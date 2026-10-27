@@ -6,6 +6,7 @@ import StatusBadge from '@/Components/ui/StatusBadge';
 import ConfirmDialog from '@/Components/ui/ConfirmDialog';
 import { formatDisplayDate, formatDisplayTime } from '@/lib/utils';
 import safeRoute from '@/utils/safeRoute';
+import { useToast } from '@/Hooks/useToast';
 
 const vulnStyles = {
   PWD: 'bg-purple-100 text-purple-800',
@@ -46,8 +47,10 @@ function ReviewDetail({ caseFile, categories, caseIssues, onClose }) {
   const [rejectOpen, setRejectOpen] = useState(false);
   const [docFile, setDocFile] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
   const [formError, setFormError] = useState('');
   const [processing, setProcessing] = useState(false);
+  const toast = useToast();
 
   const client = caseFile.client || {};
   const vuln = caseFile.vulnerability_indicator || 'None';
@@ -123,15 +126,36 @@ function ReviewDetail({ caseFile, categories, caseIssues, onClose }) {
     );
   }
 
+  // Files must go out as multipart via the Inertia FormData protocol
+  // (`forceFormData: true`). Passing a bare `{ file }` object leaves the
+  // request without a proper multipart body on some browsers, and any failure
+  // surfaces only as a silent 422. Mirrors Referral/Show.jsx.
   function handleDocUpload() {
-    if (!docFile) return;
+    if (!docFile || uploading) return;
     setUploading(true);
+    setUploadError('');
+
+    const formData = new FormData();
+    formData.append('file', docFile);
+
     router.post(
       safeRoute('cases.documents.store', caseFile.id, `/cases/${caseFile.id}/documents`),
-      { file: docFile },
+      formData,
       {
         preserveScroll: true,
-        onSuccess: () => setDocFile(null),
+        forceFormData: true,
+        onSuccess: () => {
+          setDocFile(null);
+          setUploadError('');
+          toast.success('Document uploaded successfully.');
+        },
+        onError: (errors) => {
+          const message = errors?.file
+            || Object.values(errors || {})[0]
+            || 'Could not upload the document. Please try again.';
+          setUploadError(message);
+          toast.error(message);
+        },
         onFinish: () => setUploading(false),
       },
     );
@@ -274,7 +298,11 @@ function ReviewDetail({ caseFile, categories, caseIssues, onClose }) {
               <input
                 type="file"
                 accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                onChange={(e) => setDocFile(e.target.files?.[0] || null)}
+                onChange={(e) => {
+                  setDocFile(e.target.files?.[0] || null);
+                  setUploadError('');
+                }}
+                disabled={uploading}
                 className="max-w-full text-[12px] text-slate-600"
               />
               <button
@@ -287,6 +315,9 @@ function ReviewDetail({ caseFile, categories, caseIssues, onClose }) {
                 {uploading ? 'Uploading…' : 'Attach file'}
               </button>
             </div>
+            {uploadError && (
+              <p className="mt-2 text-[11px] font-semibold text-red-600" role="alert">{uploadError}</p>
+            )}
           </div>
         </div>
 

@@ -14,7 +14,6 @@ const CASE_STATUS_LABELS = {
     FOR_REFERRAL: 'For referral',
     CLOSED: 'Closed',
     ARCHIVED: 'Archived',
-    DRAFT: 'Draft',
 };
 
 const REFERRAL_STATUS_LABELS = {

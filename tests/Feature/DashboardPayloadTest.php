@@ -72,7 +72,9 @@ class DashboardPayloadTest extends TestCase
         $this->assertSame(10, $data['totalCases']);
         $this->assertSame(7, $data['openCases']);
         $this->assertSame(1, $data['closedCases']);
-        $this->assertSame(0, $data['myDraftCount']);
+        // Drafts are no longer a case lifecycle state: nothing can write
+        // status='DRAFT', so the payload must not carry a draft counter.
+        $this->assertArrayNotHasKey('myDraftCount', $data);
 
         // Intake review list present, correctly filtered, capped.
         $this->assertArrayHasKey('intakeReview', $data);

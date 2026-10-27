@@ -13,6 +13,9 @@ vi.mock('@inertiajs/react', () => ({
 vi.mock('@/Layouts/AppLayout', () => ({ default: ({ children }) => <div>{children}</div> }));
 vi.mock('@/Components/ui/StatusBadge', () => ({ default: ({ status }) => <span>{status}</span> }));
 vi.mock('@/Components/ui/ConfirmDialog', () => ({ default: () => null }));
+vi.mock('@/Hooks/useToast', () => ({
+  useToast: () => ({ success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() }),
+}));
 vi.mock('@/lib/utils', () => ({
   formatDisplayDate: (d) => d,
   formatDisplayTime: (d) => d,

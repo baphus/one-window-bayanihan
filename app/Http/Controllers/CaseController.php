@@ -19,6 +19,7 @@ use App\Services\OnboardingService;
 use App\Services\ReferenceDataService;
 use App\Services\TrackingService;
 use App\Support\CategoryFilter;
+use App\Support\MultiSelectFilter;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -41,18 +42,28 @@ class CaseController extends Controller
     {
         $categoryFilters = CategoryFilter::fromRequest($request)->toArray();
 
+        // Filter options come from the reference tables, so a value the page
+        // offers is always a value the database actually holds.
+        $caseStatusOptions = array_column($this->referenceData->getCaseStatusOptions(), 'value');
+        $clientTypeOptions = array_column($this->referenceData->getClientTypeOptions(), 'value');
+        $vulnerabilityOptions = array_column($this->referenceData->getVulnerabilityOptions(), 'value');
+
         // agcy_id is the agencies FK column name (also on users/referrals),
         // not a typo for agency_id — keep the query param name in sync.
         // The sort rule is generated from CaseService::SORT_KEYS so an accepted
         // sort key can never drift from one getCases() can actually order by.
+        //
+        // List filters accept both `?status=OPEN` and `?status[]=OPEN&status[]=CLOSED`;
+        // MultiSelectFilter::rule validates whichever form arrives while keeping
+        // the error key as the plain attribute name.
         $listing = $request->validate([
-            'status' => ['nullable', 'string', 'in:OPEN,CLOSED,ARCHIVED'],
-            'client_type' => ['nullable', 'string', 'in:'.implode(',', CaseService::CLIENT_TYPE_FILTERS)],
+            'status' => MultiSelectFilter::rule($caseStatusOptions),
+            'client_type' => MultiSelectFilter::rule($clientTypeOptions),
             'search' => ['nullable', 'string', 'max:255'],
-            'vulnerability_indicator' => ['nullable', 'string', 'max:255'],
-            'user_id' => ['nullable', 'string', 'uuid'],
-            'agcy_id' => ['nullable', 'string', 'uuid'],
-            'case_issue_id' => ['nullable', 'string', 'uuid'],
+            'vulnerability_indicator' => MultiSelectFilter::rule($vulnerabilityOptions),
+            'user_id' => ['nullable'],
+            'agcy_id' => ['nullable'],
+            'case_issue_id' => ['nullable'],
             'age_min_days' => ['nullable', 'integer', 'min:0', 'max:3650'],
             'referral_state' => ['nullable', 'string', 'in:none'],
             'date_from' => ['nullable', 'string', 'date_format:Y-m-d'],
@@ -64,6 +75,13 @@ class CaseController extends Controller
 
         $filters = array_merge($listing, $categoryFilters);
 
+        // Normalise the list filters to arrays so the query layer and the echoed
+        // `filters` prop always agree on one shape.
+        foreach (['status', 'client_type', 'vulnerability_indicator', 'user_id', 'agcy_id', 'case_issue_id'] as $key) {
+            $values = MultiSelectFilter::ids($filters[$key] ?? null);
+            $filters[$key] = $values === [] ? null : $values;
+        }
+
         $cases = $this->caseService->getCases(
             $filters,
             $listing['sort'] ?? 'created_at',
@@ -73,12 +91,15 @@ class CaseController extends Controller
 
         return Inertia::render('Case/Index', [
             'cases' => $cases,
-            'filters' => (object) $filters,
+            'filters' => (object) array_filter($filters, fn ($value) => $value !== null),
             'stats' => $this->caseService->getCaseStats($request->user()),
             'users' => $this->referenceData->getCaseManagerUsers(),
             'agencies' => $this->referenceData->getAgenciesDropdown(),
             'categories' => $this->referenceData->getActiveCategories(),
             'caseIssues' => $this->referenceData->getActiveIssues(),
+            'statuses' => $this->referenceData->getCaseStatusOptions(),
+            'clientTypes' => $this->referenceData->getClientTypeOptions(),
+            'vulnerabilities' => $this->referenceData->getVulnerabilityOptions(),
         ]);
     }
 
@@ -392,15 +413,38 @@ class CaseController extends Controller
             ->with('success', 'Case restored from archive successfully.');
     }
 
+    /**
+     * Filter keys the case export honours. Shared by the download and the live
+     * count so the two can never drift apart.
+     */
+    private const CASE_EXPORT_FILTER_KEYS = [
+        'status', 'search', 'client_type', 'vulnerability_indicator',
+        'user_id', 'agcy_id', 'case_issue_id',
+        'age_min_days', 'referral_state', 'date_from', 'date_to',
+    ];
+
+    /**
+     * Build the export filter array from the request.
+     *
+     * List filters arrive as arrays from the filter panel (or as the legacy
+     * scalar form), so they are normalised here before reaching the query
+     * layer — which reads them through MultiSelectFilter.
+     */
+    private function caseExportFilters(Request $request): array
+    {
+        $filters = array_merge(
+            $request->only(self::CASE_EXPORT_FILTER_KEYS),
+            CategoryFilter::fromRequest($request)->toArray()
+        );
+
+        return array_filter($filters, fn ($value) => $value !== null && $value !== '' && $value !== []);
+    }
+
     public function exportExcel(Request $request)
     {
         $user = $request->user();
 
-        $filters = array_filter(array_merge($request->only([
-            'status', 'search', 'client_type', 'vulnerability_indicator',
-            'user_id', 'agcy_id', 'category_id', 'category_ids', 'case_issue_id',
-            'age_min_days', 'referral_state', 'date_from', 'date_to',
-        ]), CategoryFilter::fromRequest($request)->toArray()));
+        $filters = $this->caseExportFilters($request);
 
         $queries = $this->exportQueries;
         $exportService = $this->exportService;
@@ -433,11 +477,7 @@ class CaseController extends Controller
     {
         $user = $request->user();
 
-        $filters = array_filter(array_merge($request->only([
-            'status', 'search', 'client_type', 'vulnerability_indicator',
-            'user_id', 'agcy_id', 'category_id', 'category_ids', 'case_issue_id',
-            'age_min_days', 'referral_state', 'date_from', 'date_to',
-        ]), CategoryFilter::fromRequest($request)->toArray()));
+        $filters = $this->caseExportFilters($request);
 
         $count = $this->exportQueries->countCasesExport($user, $filters);
 
