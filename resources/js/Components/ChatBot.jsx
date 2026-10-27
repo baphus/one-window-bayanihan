@@ -9,9 +9,27 @@ import TurnstileWidget from '@/Components/TurnstileWidget';
 import { getTurnstileError } from '@/lib/turnstile';
 import ChatbotSources from '@/Components/ChatbotSources';
 
-const CHAT_HISTORY_KEY = 'owb_chat_history';
-const CHAT_CONTEXT_KEY = 'owb_chat_context';
-const CHAT_OWNER_KEY = 'owb_chat_owner';
+// Turnstile verification is anti-abuse state, not conversation state, so it
+// outlives a reload for the browser tab. The transcript deliberately does not:
+// conversation context is ephemeral and reset on every page load.
+const TURNSTILE_SESSION_KEY = 'owb_chat_turnstile_verified';
+
+function loadTurnstileVerified() {
+    try {
+        return sessionStorage.getItem(TURNSTILE_SESSION_KEY) === '1';
+    } catch {
+        /* sessionStorage unavailable */
+    }
+    return false;
+}
+
+function saveTurnstileVerified() {
+    try {
+        sessionStorage.setItem(TURNSTILE_SESSION_KEY, '1');
+    } catch {
+        /* sessionStorage unavailable */
+    }
+}
 
 function createWelcomeMessage(name) {
     return {
@@ -33,39 +51,6 @@ function getProviderLabel(provider) {
         deepseek: 'DeepSeek',
     };
     return labels[provider] || provider || 'AI';
-}
-
-function loadChatContext() {
-    try {
-        const saved = localStorage.getItem(CHAT_CONTEXT_KEY);
-        if (saved) {
-            const parsed = JSON.parse(saved);
-            if (parsed && typeof parsed === 'object' && parsed.source_label) {
-                return parsed;
-            }
-        }
-    } catch {
-        /* localStorage unavailable */
-    }
-    return null;
-}
-
-function loadChatHistory() {
-    try {
-        const saved = localStorage.getItem(CHAT_HISTORY_KEY);
-        if (saved) {
-            const parsed = JSON.parse(saved);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-                return parsed.map((m) => ({
-                    ...m,
-                    time: m.time ? new Date(m.time) : new Date(),
-                }));
-            }
-        }
-    } catch {
-        /* localStorage unavailable */
-    }
-    return null;
 }
 
 function AssistantAvatar({ size = 32 }) {
@@ -204,30 +189,20 @@ function WelcomeCard({ suggestions, onSuggestionClick, onClose }) {
 }
 
 export default function ChatBot() {
-    const { chatbot, auth } = usePage().props;
+    const { chatbot } = usePage().props;
     if (!chatbot?.enabled) return null;
-    const owner = `${auth?.user?.id || 'public'}:${auth?.user?.role || 'public'}`;
-    return <ChatBotSession key={owner} owner={owner} />;
+    return <ChatBotSession />;
 }
 
-function ChatBotSession({ owner }) {
+function ChatBotSession() {
     const { chatbot, turnstile } = usePage().props;
     const assistantName = chatbot?.assistant_name || 'Bayani';
 
     const [open, setOpen] = useState(false);
-    const [messages, setMessages] = useState(() => {
-        try {
-            const savedOwner = localStorage.getItem(CHAT_OWNER_KEY);
-            if (savedOwner !== owner) {
-                localStorage.removeItem(CHAT_HISTORY_KEY);
-                localStorage.removeItem(CHAT_CONTEXT_KEY);
-            }
-            localStorage.setItem(CHAT_OWNER_KEY, owner);
-        } catch { /* localStorage unavailable */ }
-        const saved = loadChatHistory();
-        if (saved) return saved;
-        return [];
-    });
+    // Conversation context is intentionally ephemeral: it is never persisted, so
+    // every page load starts with a clean transcript. Follow-ups still resolve
+    // within a visit because the send payload carries the in-memory history.
+    const [messages, setMessages] = useState([]);
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
     const listRef = useRef(null);
@@ -238,18 +213,11 @@ function ChatBotSession({ owner }) {
     const [quickHelpVisible, setQuickHelpVisible] = useState(true);
     const [turnstileToken, setTurnstileToken] = useState('');
     const [turnstileStatus, setTurnstileStatus] = useState('idle');
-    const [turnstileVerified, setTurnstileVerified] = useState(false);
+    const [turnstileVerified, setTurnstileVerified] = useState(loadTurnstileVerified);
     const [showTurnstile, setShowTurnstile] = useState(false);
-    const [lastContext, setLastContext] = useState(() => loadChatContext());
+    const [lastContext, setLastContext] = useState(null);
 
     useEffect(() => () => abortRef.current?.abort(), []);
-
-    useEffect(() => {
-        try {
-            if (lastContext) localStorage.setItem(CHAT_CONTEXT_KEY, JSON.stringify(lastContext));
-            else localStorage.removeItem(CHAT_CONTEXT_KEY);
-        } catch { /* localStorage unavailable */ }
-    }, [lastContext]);
 
     const scrollToBottom = useCallback((smooth = true) => {
         if (listRef.current) {
@@ -275,19 +243,6 @@ function ChatBotSession({ owner }) {
         }
     }, [open]);
 
-    useEffect(() => {
-        try {
-            if (messages.length === 0) {
-                localStorage.removeItem(CHAT_HISTORY_KEY);
-            } else {
-                const last20 = messages.slice(-20);
-                localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(last20));
-            }
-        } catch {
-            /* localStorage unavailable */
-        }
-    }, [messages]);
-
     const handleScroll = useCallback(() => {
         if (!listRef.current) return;
         const { scrollTop, scrollHeight, clientHeight } = listRef.current;
@@ -303,10 +258,6 @@ function ChatBotSession({ owner }) {
         setMessages([createWelcomeMessage(assistantName)]);
         setLastContext(null);
         setShowClearConfirm(false);
-        try {
-            localStorage.removeItem(CHAT_HISTORY_KEY);
-            localStorage.removeItem(CHAT_CONTEXT_KEY);
-        } catch { /* localStorage unavailable — history simply won't persist */ }
         if (inputRef.current) inputRef.current.focus();
     }
 
@@ -380,6 +331,7 @@ function ChatBotSession({ owner }) {
             if (needsTurnstile) {
                 setTurnstileVerified(true);
                 setShowTurnstile(false);
+                saveTurnstileVerified();
             }
             setMessages((prev) => [
                 ...prev,
@@ -392,6 +344,10 @@ function ChatBotSession({ owner }) {
             setLastContext(null);
             // Handle turnstile_required error from backend
             if (err.response?.status === 422 && err.response?.data?.error === 'turnstile_required') {
+                // The reused verification is not accepted server-side (expired
+                // reuse window or a fresh-token-per-request setup). Drop the
+                // client flag so the challenge is shown again.
+                setTurnstileVerified(false);
                 setShowTurnstile(true);
                 setMessages((prev) => [
                     ...prev,
