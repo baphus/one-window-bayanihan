@@ -105,7 +105,7 @@ class ReportLookups
                                 ->where('agcy_id', $agencyId)
                                 ->whereNull('deleted_at');
                         })
-                        ->whereNotIn('c.status', ['DRAFT', 'ARCHIVED']);
+                        ->whereNotIn('c.status', ['ARCHIVED']);
                 });
             }
 
@@ -147,7 +147,7 @@ class ReportLookups
                                 ->where('agcy_id', $agencyId)
                                 ->whereNull('deleted_at');
                         })
-                        ->whereNotIn('c.status', ['DRAFT', 'ARCHIVED']);
+                        ->whereNotIn('c.status', ['ARCHIVED']);
                 });
             }
 

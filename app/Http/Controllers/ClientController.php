@@ -15,6 +15,7 @@ use App\Services\Export\DataExportQueries;
 use App\Services\Export\DataExportService;
 use App\Services\ReferenceDataService;
 use App\Support\CategoryFilter;
+use App\Support\MultiSelectFilter;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -58,6 +59,15 @@ class ClientController extends Controller
     {
         $user = $request->user();
         $filterKeys = ['search', 'account_status', 'client_type', 'sex', 'vulnerability_indicator', 'case_status', 'category_id', 'category_ids', 'case_issue_id', 'agcy_id', 'date_from', 'date_to', 'sort', 'direction', 'per_page'];
+
+        // Multi-select list filters. Values go through MultiSelectFilter so the
+        // legacy scalar form (?sex=MALE) and the panel's array form behave alike.
+        $sexes = MultiSelectFilter::ids($request->input('sex'));
+        $clientTypes = MultiSelectFilter::ids($request->input('client_type'));
+        $caseStatuses = MultiSelectFilter::ids($request->input('case_status'));
+        $vulnerabilities = MultiSelectFilter::ids($request->input('vulnerability_indicator'));
+        $issueIds = MultiSelectFilter::ids($request->input('case_issue_id'));
+        $agencyIds = MultiSelectFilter::ids($request->input('agcy_id'));
 
         $categoryFilter = CategoryFilter::fromRequest($request);
         $categoryIds = $categoryFilter->ids();
@@ -127,26 +137,30 @@ class ClientController extends Controller
             $clients->whereNull('clients.user_id');
         }
 
-        if (! empty($request->sex)) {
-            $clients->where('sex', $request->sex);
+        if ($sexes !== []) {
+            $clients->whereIn('sex', $sexes);
         }
 
-        if (! empty($request->client_type)) {
-            $clients->where('type', $request->client_type);
+        if ($clientTypes !== []) {
+            $clients->whereIn('type', $clientTypes);
         }
 
-        if (! empty($request->vulnerability_indicator)) {
-            $clients->whereHas('caseFile', function ($q) use ($request) {
-                $q->where(function ($q2) use ($request) {
-                    $q2->where('vulnerability_indicator', 'LIKE', "%{$request->vulnerability_indicator}%")
-                        ->orWhere('nok_vulnerability_indicator', 'LIKE', "%{$request->vulnerability_indicator}%");
+        if ($vulnerabilities !== []) {
+            $clients->whereHas('caseFile', function ($q) use ($vulnerabilities) {
+                $q->where(function ($outer) use ($vulnerabilities) {
+                    foreach ($vulnerabilities as $indicator) {
+                        $outer->orWhere(function ($q2) use ($indicator) {
+                            $q2->where('vulnerability_indicator', 'LIKE', "%{$indicator}%")
+                                ->orWhere('nok_vulnerability_indicator', 'LIKE', "%{$indicator}%");
+                        });
+                    }
                 });
             });
         }
 
-        if (! empty($request->case_status)) {
-            $clients->whereHas('caseFile', function ($q) use ($request) {
-                $q->where('status', $request->case_status);
+        if ($caseStatuses !== []) {
+            $clients->whereHas('caseFile', function ($q) use ($caseStatuses) {
+                $q->whereIn('status', $caseStatuses);
             });
         }
 
@@ -161,15 +175,15 @@ class ClientController extends Controller
             });
         }
 
-        if (! empty($request->case_issue_id)) {
-            $clients->whereHas('caseFile', function ($q) use ($request) {
-                $q->where('case_issue_id', $request->case_issue_id);
+        if ($issueIds !== []) {
+            $clients->whereHas('caseFile', function ($q) use ($issueIds) {
+                $q->whereIn('case_issue_id', $issueIds);
             });
         }
 
-        if (! empty($request->agcy_id)) {
-            $clients->whereHas('caseFile.referrals', function ($q) use ($request) {
-                $q->where('agcy_id', $request->agcy_id);
+        if ($agencyIds !== []) {
+            $clients->whereHas('caseFile.referrals', function ($q) use ($agencyIds) {
+                $q->whereIn('agcy_id', $agencyIds);
             });
         }
 
@@ -214,13 +228,28 @@ class ClientController extends Controller
             $clients = $clients->paginate($perPage);
         }
 
+        $referenceData = app(ReferenceDataService::class);
+
+        // Echo list filters as arrays so every consumer reads one shape no
+        // matter which URL form the request used. Scalar keys pass through.
+        $filters = $request->only($filterKeys);
+        foreach (['client_type', 'sex', 'vulnerability_indicator', 'case_status', 'case_issue_id', 'agcy_id'] as $key) {
+            if (! empty($filters[$key])) {
+                $filters[$key] = MultiSelectFilter::ids($filters[$key]);
+            }
+        }
+
         return Inertia::render('Client/Index', [
             'clients' => $clients,
-            'filters' => (object) $request->only($filterKeys),
+            'filters' => (object) $filters,
             'stats' => $this->getClientStats($user),
-            'agencies' => app(ReferenceDataService::class)->getAgenciesDropdown(),
-            'categories' => app(ReferenceDataService::class)->getActiveCategories(),
-            'caseIssues' => app(ReferenceDataService::class)->getActiveIssues(),
+            'agencies' => $referenceData->getAgenciesDropdown(),
+            'categories' => $referenceData->getActiveCategories(),
+            'caseIssues' => $referenceData->getActiveIssues(),
+            'statuses' => $referenceData->getCaseStatusOptions(),
+            'clientTypes' => $referenceData->getClientTypeOptions(),
+            'vulnerabilities' => $referenceData->getVulnerabilityOptions(),
+            'sexes' => $referenceData->getSexOptions(),
         ]);
     }
 

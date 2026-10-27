@@ -13,6 +13,9 @@ import InputError from '@/Components/InputError';
 import usePersistedColumns from '@/Hooks/usePersistedColumns';
 import { usePersistedViewMode, usePersistedFilters } from '@/Hooks/usePersistedViewState';
 import useTableVisitLoading from '@/Hooks/useTableVisitLoading';
+import FilterPanel from '@/Components/ui/FilterPanel';
+import { toFilterList, toggleFilterValue, useArrayFilters } from '@/Hooks/useArrayFilters';
+import { humanizeStatus } from '@/lib/statusLabels';
 
 const COLUMN_DEFS = [
     { key: 'case_number', label: 'Case #', default: true },
@@ -45,7 +48,7 @@ const REJECTION_REASONS = [
     { value: 'OTHER', label: 'Other' },
 ];
 
-export default function ReferralIndex({ referrals, filters: rawFilters, stats, agencies = [], categories = [], caseIssues = [] }) {
+export default function ReferralIndex({ referrals, filters: rawFilters, stats, agencies = [], categories = [], caseIssues = [], statuses = [] }) {
     const { auth, roles, errors } = usePage().props;
     const isAgency = auth.user.role === roles.AGENCY;
     const canCreate = auth.user.role === roles.CASE_MANAGER || auth.user.role === roles.ADMIN;
@@ -186,28 +189,45 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
         updateTable({ ...filtersRef.current, search: undefined, page: undefined });
     };
 
+    const agencyLabel = useCallback((id) => agencies.find((a) => a.id === id)?.name ?? id, [agencies]);
+    const categoryLabel = useCallback(
+        (id) => categories?.find((c) => String(c.id) === String(id))?.name ?? id,
+        [categories],
+    );
+    const issueLabel = useCallback((id) => caseIssues?.find((c) => c.id === id)?.name ?? id, [caseIssues]);
+
+    // One chip per selected value, matching the multi-select checkbox panel.
     const activeFilters = useMemo(() => {
         const chips = [];
-        if (filters?.status) chips.push({ key: 'status', label: 'Status', value: filters.status });
-        if (filters?.agcy_id) {
-            const agency = agencies.find(a => a.id === filters.agcy_id);
-            chips.push({ key: 'agcy_id', label: 'Agency', value: agency?.name || filters.agcy_id });
-        }
-        if (getCategoryFilterIds(filters).length) {
-            const names = getCategoryFilterIds(filters).map((id) => categories.find(c => String(c.id) === id)?.name || id);
-            chips.push({ key: 'category_ids', label: 'Category', value: names.join(', ') });
-        }
-        if (filters?.case_issue_id) {
-            const issue = caseIssues.find(c => c.id === filters.case_issue_id);
-            chips.push({ key: 'case_issue_id', label: 'Issue/Concern', value: issue?.name || filters.case_issue_id });
-        }
-        if (filters?.age_min_days) chips.push({ key: 'age_min_days', label: 'Age', value: `${filters.age_min_days}+ days` });
-        if (filters?.age_max_days) chips.push({ key: 'age_max_days', label: 'Received', value: `within ${filters.age_max_days} days` });
+        const push = (key, label, value, display) => chips.push({ key, label, value: display ?? value });
+
+        toFilterList(filters?.status).forEach((value) => push('status', 'Status', value, humanizeStatus(value)));
+        toFilterList(filters?.agcy_id).forEach((value) => push('agcy_id', 'Agency', value, agencyLabel(value)));
+        getCategoryFilterIds(filters).forEach((value) => push('category_ids', 'Category', value, categoryLabel(value)));
+        toFilterList(filters?.case_issue_id).forEach((value) => push('case_issue_id', 'Issue/Concern', value, issueLabel(value)));
+        if (filters?.age_min_days) push('age_min_days', 'Age', filters.age_min_days, `${filters.age_min_days}+ days`);
+        if (filters?.age_max_days) push('age_max_days', 'Received', filters.age_max_days, `within ${filters.age_max_days} days`);
+
         return chips;
-    }, [filters, agencies, categories, caseIssues]);
+    }, [filters, agencyLabel, categoryLabel, issueLabel]);
 
     const handleRemoveFilter = (filter) => {
-        updateTable({ ...filters, [filter.key]: undefined, ...(filter.key === 'category_ids' ? { category_id: undefined } : {}), page: undefined });
+        if (filter.key === 'category_ids') {
+            const remaining = getCategoryFilterIds(filters).filter((id) => id !== filter.value);
+            updateTable({ ...filters, category_ids: remaining.length ? remaining : undefined, category_id: undefined, page: undefined });
+            return;
+        }
+
+        // The day-window filters are single-valued selects.
+        if (filter.key === 'age_min_days' || filter.key === 'age_max_days') {
+            updateTable({ ...filters, [filter.key]: undefined, page: undefined });
+            return;
+        }
+
+        const remaining = toFilterList(filters?.[filter.key]).filter((value) => value !== filter.value);
+        const encoded = remaining.length === 0 ? undefined : remaining.length === 1 ? remaining[0] : remaining;
+
+        updateTable({ ...filters, [filter.key]: encoded, page: undefined });
     };
 
     const handleClearFilters = () => {
@@ -243,6 +263,9 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
                     return (
                         <button
                             key={s.label}
+                            type="button"
+                            aria-label={s.label}
+                            aria-pressed={isActive}
                             onClick={() => handleStatusQuickFilter(s.value || undefined)}
                             className={`px-3 py-1.5 text-[12px] font-bold rounded-md transition-colors border ${
                                 isActive
@@ -251,7 +274,7 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
                             }`}
                         >
                             {s.label}
-                            {s.count > 0 && ` (${s.count})`}
+                            {s.count > 0 && <span aria-hidden="true" className="ml-1 font-medium opacity-70">{`(${s.count})`}</span>}
                         </button>
                     );
                 })}
@@ -389,75 +412,64 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
             }),
         [visibleColumns]);
 
+    // Every list filter is a checkbox group; the day-window selects and the date
+    // range stay as plain controls. Group definitions are data so the panel can
+    // apply its own in-panel search across all of them.
+    const filterGroups = useMemo(
+        () => [
+            { key: 'status', label: 'Status', options: statuses },
+            {
+                key: 'agcy_id',
+                label: 'Agency',
+                options: (agencies ?? []).map((agency) => ({ value: agency.id, label: agency.name })),
+            },
+            {
+                key: 'category_ids',
+                label: 'Category',
+                options: (categories ?? []).map((category) => ({ value: String(category.id), label: category.name })),
+            },
+            {
+                key: 'case_issue_id',
+                label: 'Issue / Concern',
+                options: (caseIssues ?? []).map((issue) => ({ value: issue.id, label: issue.name })),
+            },
+        ],
+        [statuses, agencies, categories, caseIssues],
+    );
+
+    const { toggleFilter } = useArrayFilters();
+
+    const selectedFilters = useMemo(
+        () => ({
+            status: toFilterList(filters?.status),
+            agcy_id: toFilterList(filters?.agcy_id),
+            category_ids: getCategoryFilterIds(filters),
+            case_issue_id: toFilterList(filters?.case_issue_id),
+        }),
+        [filters],
+    );
+
+    const handleFilterToggle = (key, value) => {
+        if (key === 'category_ids') {
+            const next = toggleFilterValue(getCategoryFilterIds(filters), value);
+            updateTable({ ...filters, category_ids: next.length ? next : undefined, category_id: undefined, page: undefined });
+            return;
+        }
+
+        updateTable(toggleFilter(filters, key, value));
+    };
+
     const advancedFilterContent = useMemo(() => (
         <div className="space-y-4">
-            <div>
-                <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Status</label>
-                <select
-                    value={filters?.status ?? ''}
-                    onChange={(e) => {
-                        const val = e.target.value;
-                        updateTable({ ...filters, status: val || undefined, page: undefined });
-                    }}
-                    className="w-full border border-slate-300 rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
-                >
-                    <option value="">All Statuses</option>
-                    <option value="PENDING">Pending</option>
-                    <option value="PROCESSING">Processing</option>
-                    <option value="FOR_COMPLIANCE">For Compliance</option>
-                    <option value="COMPLETED">Completed</option>
-                    <option value="REJECTED">Rejected</option>
-                </select>
-            </div>
-            <div>
-                <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Agency</label>
-                <select
-                    value={filters?.agcy_id ?? ''}
-                    onChange={(e) => {
-                        const val = e.target.value;
-                        updateTable({ ...filters, agcy_id: val || undefined, page: undefined });
-                    }}
-                    className="w-full border border-slate-300 rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
-                >
-                    <option value="">All Agencies</option>
-                    {agencies.map((a) => (
-                        <option key={a.id} value={a.id}>{a.name}</option>
-                    ))}
-                </select>
-            </div>
-            <div>
-                <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Category</label>
-                <select
-                    multiple
-                    value={getCategoryFilterIds(filters)}
-                    onChange={(e) => {
-                        const values = Array.from(e.target.selectedOptions, (option) => option.value);
-                        updateTable({ ...filters, category_ids: values.length ? values : undefined, category_id: undefined, page: undefined });
-                    }}
-                    className="min-h-24 w-full border border-slate-300 rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
-                >
-                    {categories.map((cat) => (
-                        <option key={cat.id} value={cat.id}>{cat.name}</option>
-                    ))}
-                </select>
-            </div>
-            <div>
-                <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Issue / Concern</label>
-                <select
-                    value={filters?.case_issue_id ?? ''}
-                    onChange={(e) => {
-                        const val = e.target.value;
-                        updateTable({ ...filters, case_issue_id: val || undefined, page: undefined });
-                    }}
-                    className="w-full border border-slate-300 rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
-                >
-                    <option value="">All Issues</option>
-                    {caseIssues.map((issue) => (
-                        <option key={issue.id} value={issue.id}>{issue.name}</option>
-                    ))}
-                </select>
-            </div>
-            <div>
+            <FilterPanel
+                searchable
+                groups={filterGroups}
+                selected={selectedFilters}
+                onToggle={handleFilterToggle}
+                onClearAll={handleClearFilters}
+                activeCount={activeFilters.length}
+            />
+            <div className="border-t border-slate-200 pt-3">
                 <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Received Within</label>
                 <select
                     value={filters?.age_max_days ?? ''}
@@ -533,8 +545,7 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
                 </button>
             </div>
         </div>
-    ), [filters, agencies, categories, caseIssues, updateTable]);
-
+    ), [filterGroups, selectedFilters, activeFilters.length, filters, handleClearFilters, handleFilterToggle, updateTable]);
     const columnControlContent = useMemo(() => (
         <div className="space-y-2">
             {COLUMN_DEFS.map((col) => (

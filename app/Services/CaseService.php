@@ -19,6 +19,7 @@ use App\Models\ReferralClientRequest;
 use App\Models\User;
 use App\Notifications\CaseStatusUpdated;
 use App\Notifications\CaseUpdated;
+use App\Support\MultiSelectFilter;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\QueryException;
@@ -325,7 +326,7 @@ class CaseService
     {
         $changes = $case->categories()->sync($categoryIds);
 
-        if ($case->status !== 'DRAFT' && array_filter($changes, fn ($items) => ! empty($items))) {
+        if (array_filter($changes, fn ($items) => ! empty($items))) {
             $this->invalidateCategoryCaches($case);
         }
     }
@@ -453,16 +454,20 @@ class CaseService
         // clients/users joins that table in, and several of these names
         // (status, user_id, created_at, case_number) exist on more than one
         // side of such a join.
-        $query->where('cases.status', '!=', 'DRAFT');
+        $query->whereNotIn('cases.status', [CaseFile::STATUS_PENDING_REVIEW]);
 
-        if (! empty($filters['status'])) {
-            $query->where('cases.status', $filters['status']);
+        // Status and client type accept either the legacy scalar form or the
+        // filter panel's array form.
+        $statuses = MultiSelectFilter::ids($filters['status'] ?? null);
+        if ($statuses !== []) {
+            $query->whereIn('cases.status', $statuses);
         } else {
             $query->whereNotIn('cases.status', ['ARCHIVED']);
         }
 
-        if (! empty($filters['client_type'])) {
-            $query->ofClientType($filters['client_type']);
+        $clientTypes = MultiSelectFilter::ids($filters['client_type'] ?? null);
+        if ($clientTypes !== []) {
+            $query->ofClientType($clientTypes);
         }
 
         // Role-based scoping — restrict which cases the current user can see
@@ -480,15 +485,23 @@ class CaseService
                     }
                 }
             });
-        } elseif ($user && in_array($user->role, [UserRole::ADMIN->value, UserRole::CASE_MANAGER->value]) && ! empty($filters['user_id'])) {
-            // ADMIN and CASE_MANAGER can filter by user_id
-            $query->where('cases.user_id', $filters['user_id']);
+        } elseif ($user && in_array($user->role, [UserRole::ADMIN->value, UserRole::CASE_MANAGER->value])) {
+            // ADMIN and CASE_MANAGER can filter by author
+            $userIds = MultiSelectFilter::ids($filters['user_id'] ?? null);
+            if ($userIds !== []) {
+                $query->whereIn('cases.user_id', $userIds);
+            }
         }
 
-        if (! empty($filters['vulnerability_indicator'])) {
-            $query->where(function ($q) use ($filters) {
-                $q->where('cases.vulnerability_indicator', 'LIKE', "%{$filters['vulnerability_indicator']}%")
-                    ->orWhere('cases.nok_vulnerability_indicator', 'LIKE', "%{$filters['vulnerability_indicator']}%");
+        $vulnerabilities = MultiSelectFilter::ids($filters['vulnerability_indicator'] ?? null);
+        if ($vulnerabilities !== []) {
+            $query->where(function ($outer) use ($vulnerabilities) {
+                foreach ($vulnerabilities as $indicator) {
+                    $outer->orWhere(function ($q) use ($indicator) {
+                        $q->where('cases.vulnerability_indicator', 'LIKE', "%{$indicator}%")
+                            ->orWhere('cases.nok_vulnerability_indicator', 'LIKE', "%{$indicator}%");
+                    });
+                }
             });
         }
 
@@ -508,13 +521,15 @@ class CaseService
             });
         }
 
-        if (! empty($filters['case_issue_id'])) {
-            $query->where('cases.case_issue_id', $filters['case_issue_id']);
+        $issueIds = MultiSelectFilter::ids($filters['case_issue_id'] ?? null);
+        if ($issueIds !== []) {
+            $query->whereIn('cases.case_issue_id', $issueIds);
         }
 
-        if (! empty($filters['agcy_id'])) {
-            $query->whereHas('referrals', function ($q) use ($filters) {
-                $q->where('agcy_id', $filters['agcy_id']);
+        $agencyIds = MultiSelectFilter::ids($filters['agcy_id'] ?? null);
+        if ($agencyIds !== []) {
+            $query->whereHas('referrals', function ($q) use ($agencyIds) {
+                $q->whereIn('agcy_id', $agencyIds);
             });
         }
 
@@ -586,7 +601,7 @@ class CaseService
             $categoryIds = $categoryMutation['ids'] ?? [];
             $oldCategoryIds = $case->categories()->pluck('case_categories.id')->all();
             $newStatus = $data['status'] ?? $case->status;
-            if ($categoryMutation !== null && empty($categoryIds) && $newStatus !== 'DRAFT') {
+            if ($categoryMutation !== null && empty($categoryIds)) {
                 throw ValidationException::withMessages(['category_ids' => 'At least one category is required.']);
             }
             if ($categoryMutation !== null) {
@@ -1023,13 +1038,13 @@ class CaseService
             $counts = (clone $caseQuery)
                 ->leftJoin('clients as stat_clients', 'stat_clients.id', '=', 'cases.client_id')
                 ->selectRaw("
-                    COUNT(*) FILTER (WHERE cases.status NOT IN ('DRAFT','ARCHIVED')) AS active,
+                    COUNT(*) FILTER (WHERE cases.status NOT IN ('ARCHIVED','PENDING_REVIEW')) AS active,
                     COUNT(*) FILTER (WHERE cases.status = 'OPEN') AS open,
                     COUNT(*) FILTER (WHERE cases.status = 'CLOSED') AS closed,
                     COUNT(*) FILTER (WHERE cases.status = 'ARCHIVED') AS archived,
                     COUNT(*) FILTER (WHERE cases.status = 'PENDING_REVIEW') AS pending_review,
-                    COUNT(*) FILTER (WHERE cases.status NOT IN ('DRAFT','ARCHIVED') AND stat_clients.type = 'OFW') AS ofw_cases,
-                    COUNT(*) FILTER (WHERE cases.status NOT IN ('DRAFT','ARCHIVED') AND stat_clients.type = 'NEXT_OF_KIN') AS nok_cases
+                    COUNT(*) FILTER (WHERE cases.status NOT IN ('ARCHIVED','PENDING_REVIEW') AND stat_clients.type = 'OFW') AS ofw_cases,
+                    COUNT(*) FILTER (WHERE cases.status NOT IN ('ARCHIVED','PENDING_REVIEW') AND stat_clients.type = 'NEXT_OF_KIN') AS nok_cases
                 ")->first();
 
             // Total referrals — ADMIN and CASE_MANAGER see all; AGENCY sees own only
@@ -1043,7 +1058,7 @@ class CaseService
             $categoryBreakdown = (clone $caseQuery)
                 ->join('case_category', 'cases.id', '=', 'case_category.case_id')
                 ->join('case_categories as pivot_categories', 'case_category.case_category_id', '=', 'pivot_categories.id')
-                ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
+                ->whereNotIn('cases.status', ['ARCHIVED'])
                 ->where('cases.is_deleted', false)
                 ->select('pivot_categories.id', 'pivot_categories.name', 'pivot_categories.color', DB::raw('COUNT(DISTINCT cases.id) as count'))
                 ->groupBy('pivot_categories.id', 'pivot_categories.name', 'pivot_categories.color')

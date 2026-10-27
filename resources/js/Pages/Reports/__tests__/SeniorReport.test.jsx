@@ -73,7 +73,6 @@ describe('humanizeStatus', () => {
     ['FOR_REFERRAL', 'For referral'],
     ['CLOSED', 'Closed'],
     ['ARCHIVED', 'Archived'],
-    ['DRAFT', 'Draft'],
     ['INCOMPLETE_REQUIREMENTS', 'Incomplete requirements'],
     ['OUTSIDE_MANDATE', 'Outside mandate'],
     ['DUPLICATE_REFERRAL', 'Duplicate referral'],

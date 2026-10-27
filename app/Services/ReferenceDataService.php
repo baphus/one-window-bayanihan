@@ -6,7 +6,10 @@ use App\Enums\UserRole;
 use App\Helpers\CacheHelper;
 use App\Models\Agency;
 use App\Models\CaseCategory;
+use App\Models\CaseFile;
 use App\Models\CaseIssue;
+use App\Models\CaseStatus;
+use App\Models\Client;
 use App\Models\ClientEmployment;
 use App\Models\User;
 use Illuminate\Support\Collection;
@@ -37,6 +40,16 @@ class ReferenceDataService
     public const KEY_CATEGORIES_ACTIVE = 'ref:categories:active';
 
     public const KEY_ISSUES_ACTIVE = 'ref:issues:active';
+
+    public const KEY_CASE_STATUSES = 'ref:case_statuses:case';
+
+    public const KEY_REFERRAL_STATUSES = 'ref:case_statuses:referral';
+
+    public const KEY_CLIENT_TYPES = 'ref:client_types';
+
+    public const KEY_VULNERABILITY_INDICATORS = 'ref:vulnerability_indicators';
+
+    public const KEY_SEXES = 'ref:sexes';
 
     public const KEY_USERS_CASE_MANAGERS = 'ref:users:case_managers';
 
@@ -185,8 +198,164 @@ class ReferenceDataService
         return array_values(array_map(fn (string $o) => ['value' => $o, 'label' => $o], $occupations));
     }
 
-    // ── Invalidation ─────────────────────────────────────────────────────
+    // ── Filter option lists ──────────────────────────────────────────────
+    //
+    // These drive the index pages' filter panels, so an option can never list a
+    // value the database does not hold.
 
+    /**
+     * Case statuses available to the case filter panel.
+     * Sourced from case_statuses (type=case), so ARCHIVED and PENDING_REVIEW
+     * appear exactly when the reference table carries them.
+     */
+    public function getCaseStatusOptions(): array
+    {
+        return $this->statusOptions(self::KEY_CASE_STATUSES, 'case');
+    }
+
+    /**
+     * Referral statuses available to the referral filter panel.
+     */
+    public function getReferralStatusOptions(): array
+    {
+        return $this->statusOptions(self::KEY_REFERRAL_STATUSES, 'referral');
+    }
+
+    /**
+     * @return array<int, array{value: string, label: string, color: ?string}>
+     */
+    private function statusOptions(string $cacheKey, string $type): array
+    {
+        return CacheHelper::safeRemember($cacheKey, self::TTL_REFERENCE, function () use ($type) {
+            return CaseStatus::query()
+                ->where('type', $type)
+                ->where('is_active', true)
+                ->where('is_deleted', false)
+                ->orderBy('sort_order')
+                ->orderBy('name')
+                ->get(['slug', 'name', 'color'])
+                ->map(fn (CaseStatus $status) => [
+                    'value' => $status->slug,
+                    'label' => $status->name,
+                    'color' => $status->color,
+                ])
+                ->values()
+                ->toArray();
+        });
+    }
+
+    /**
+     * Client types actually present in the directory.
+     *
+     * @return array<int, array{value: string, label: string}>
+     */
+    public function getClientTypeOptions(): array
+    {
+        return CacheHelper::safeRemember(self::KEY_CLIENT_TYPES, self::TTL_REFERENCE, function () {
+            return Client::query()
+                ->where('is_deleted', false)
+                ->whereNotNull('type')
+                ->where('type', '!=', '')
+                ->distinct()
+                ->orderBy('type')
+                ->pluck('type')
+                ->map(fn (string $type) => ['value' => $type, 'label' => self::clientTypeLabel($type)])
+                ->values()
+                ->toArray();
+        });
+    }
+
+    /**
+     * Vulnerability markers present on case records.
+     *
+     * Both indicator columns hold a free-text comma-separated list, so the
+     * options are derived from the data itself rather than a lookup table that
+     * would drift from it.
+     *
+     * @return array<int, array{value: string, label: string}>
+     */
+    public function getVulnerabilityOptions(): array
+    {
+        return CacheHelper::safeRemember(self::KEY_VULNERABILITY_INDICATORS, self::TTL_USERS, function () {
+            $raw = CaseFile::query()
+                ->where('is_deleted', false)
+                ->whereNotNull('vulnerability_indicator')
+                ->where('vulnerability_indicator', '!=', '')
+                ->pluck('vulnerability_indicator')
+                ->merge(
+                    CaseFile::query()
+                        ->where('is_deleted', false)
+                        ->whereNotNull('nok_vulnerability_indicator')
+                        ->where('nok_vulnerability_indicator', '!=', '')
+                        ->pluck('nok_vulnerability_indicator')
+                );
+
+            return $raw
+                ->flatMap(fn (string $value) => explode(',', $value))
+                ->map(fn (string $value) => trim($value))
+                ->filter(fn (string $value) => $value !== '')
+                ->unique()
+                ->sort()
+                ->values()
+                ->map(fn (string $value) => ['value' => $value, 'label' => $value])
+                ->toArray();
+        });
+    }
+
+    /**
+     * Sex values actually present in the directory.
+     *
+     * @return array<int, array{value: string, label: string}>
+     */
+    public function getSexOptions(): array
+    {
+        return CacheHelper::safeRemember(self::KEY_SEXES, self::TTL_REFERENCE, function () {
+            return Client::query()
+                ->where('is_deleted', false)
+                ->whereNotNull('sex')
+                ->where('sex', '!=', '')
+                ->distinct()
+                ->orderBy('sex')
+                ->pluck('sex')
+                ->map(fn (string $sex) => ['value' => $sex, 'label' => ucfirst(strtolower($sex))])
+                ->values()
+                ->toArray();
+        });
+    }
+
+    /**
+     * Screen label for a stored client type. Explicit so "NEXT_OF_KIN" never
+     * renders as "Next Of Kin".
+     */
+    private static function clientTypeLabel(string $type): string
+    {
+        return match (strtoupper($type)) {
+            'OFW' => 'OFW',
+            'NEXT_OF_KIN' => 'Next of Kin',
+            default => ucwords(strtolower(str_replace('_', ' ', $type))),
+        };
+    }
+
+    /**
+     * Flush the case/referral status option caches.
+     */
+    public static function invalidateCaseStatuses(): void
+    {
+        cache()->forget(self::KEY_CASE_STATUSES);
+        cache()->forget(self::KEY_REFERRAL_STATUSES);
+    }
+
+    /**
+     * Flush the option caches derived from client/case records.
+     */
+    public static function invalidateClientOptions(): void
+    {
+        cache()->forget(self::KEY_CLIENT_TYPES);
+        cache()->forget(self::KEY_SEXES);
+        cache()->forget(self::KEY_VULNERABILITY_INDICATORS);
+    }
+
+    // ── Invalidation ─────────────────────────────────────────────────────
     /**
      * Flush all agency-related caches.
      */
@@ -237,5 +406,7 @@ class ReferenceDataService
         self::invalidateCategories();
         self::invalidateIssues();
         self::invalidateUsers();
+        self::invalidateCaseStatuses();
+        self::invalidateClientOptions();
     }
 }

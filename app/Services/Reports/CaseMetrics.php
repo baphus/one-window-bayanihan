@@ -18,7 +18,7 @@ class CaseMetrics
 
     public function getOverview(?string $fromDate = null, ?string $toDate = null, ?string $agencyId = null): array
     {
-        $caseQuery = CaseFile::whereNotIn('status', ['DRAFT', 'ARCHIVED']);
+        $caseQuery = CaseFile::whereNotIn('status', ['ARCHIVED']);
         $this->applyLocalDateWindow($caseQuery, 'cases.created_at', $fromDate, $toDate);
         if ($agencyId) {
             $caseQuery->whereIn('cases.id', function ($q) use ($agencyId) {
@@ -61,7 +61,7 @@ class CaseMetrics
             DB::raw(ReportCalendar::localMonth('created_at').' as month'),
             DB::raw('count(*) as total')
         )
-            ->whereNotIn('status', ['DRAFT', 'ARCHIVED'])
+            ->whereNotIn('status', ['ARCHIVED'])
             ->where('created_at', '>=', now()->subMonths($months));
 
         if ($agencyId) {
@@ -214,7 +214,7 @@ class CaseMetrics
         ?string $city = null,
     ): array {
         $query = CaseFile::select('status', DB::raw('count(*) as total'))
-            ->whereIn('status', ['OPEN', 'CLOSED', 'DRAFT']);
+            ->whereIn('status', ['OPEN', 'CLOSED', 'ARCHIVED']);
 
         if ($agencyId) {
             $query->whereIn('cases.id', function ($q) use ($agencyId) {
@@ -229,7 +229,7 @@ class CaseMetrics
         $results = $query->groupBy('status')
             ->pluck('total', 'status');
 
-        $allStatuses = ['OPEN', 'CLOSED', 'DRAFT'];
+        $allStatuses = ['OPEN', 'CLOSED', 'ARCHIVED'];
         $colors = ['#1e3a8a', '#10b981', '#f59e0b'];
 
         return [
@@ -261,7 +261,7 @@ class CaseMetrics
             ->join('cases', 'cases.id', '=', 'assignments.case_id')
             ->join('case_categories', 'case_categories.id', '=', 'assignments.case_category_id')
             ->where('cases.is_deleted', false)
-            ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
+            ->whereNotIn('cases.status', ['ARCHIVED'])
             ->select('case_categories.name', 'case_categories.color', DB::raw('count(DISTINCT cases.id) as total'))
             ->groupBy('case_categories.name', 'case_categories.color')
             ->orderBy('case_categories.name');
@@ -330,7 +330,7 @@ class CaseMetrics
         ?string $province = null,
         ?string $city = null,
     ): array {
-        $query = CaseFile::whereNotIn('cases.status', ['DRAFT', 'ARCHIVED']);
+        $query = CaseFile::whereNotIn('cases.status', ['ARCHIVED']);
         if ($agencyId) {
             $query->whereIn('cases.id', function ($q) use ($agencyId) {
                 $q->select('case_id')->from('referrals')

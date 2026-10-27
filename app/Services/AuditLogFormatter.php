@@ -244,7 +244,6 @@ class AuditLogFormatter
         $statusMap = [
             'OPEN' => 'Open',
             'CLOSED' => 'Closed',
-            'DRAFT' => 'Draft',
             'ARCHIVED' => 'Archived',
             'PENDING' => 'Pending',
             'PROCESSING' => 'Processing',

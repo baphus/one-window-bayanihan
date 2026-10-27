@@ -82,7 +82,7 @@ class CaseFile extends Model
      */
     public function scopeClientVisible(Builder $query): Builder
     {
-        return $query->where('status', '!=', 'DRAFT');
+        return $query;
     }
 
     /**
@@ -99,7 +99,7 @@ class CaseFile extends Model
      */
     public function scopeWithVisibleStatus(Builder $query): Builder
     {
-        return $query->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED']);
+        return $query->whereNotIn('cases.status', ['ARCHIVED']);
     }
 
     /**
@@ -129,9 +129,15 @@ class CaseFile extends Model
      * Filter by client type (OFW / NEXT_OF_KIN tiles). Type lives on
      * clients.type — cases no longer carry client_type.
      */
-    public function scopeOfClientType(Builder $query, string $clientType): Builder
+    public function scopeOfClientType(Builder $query, string|array $clientType): Builder
     {
-        return $query->whereHas('client', fn (Builder $c) => $c->where('type', $clientType));
+        $types = array_values(array_filter((array) $clientType, fn ($type) => is_string($type) && $type !== ''));
+
+        if ($types === []) {
+            return $query;
+        }
+
+        return $query->whereHas('client', fn (Builder $c) => $c->whereIn('type', $types));
     }
 
     /**

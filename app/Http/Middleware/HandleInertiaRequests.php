@@ -7,8 +7,10 @@ use App\Helpers\CacheHelper;
 use App\Services\CaseService;
 use App\Services\Chatbot\ChatbotSuggestionService;
 use App\Services\OnboardingService;
+use Closure;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
+use Symfony\Component\HttpFoundation\Response;
 
 class HandleInertiaRequests extends Middleware
 {
@@ -21,6 +23,33 @@ class HandleInertiaRequests extends Middleware
         }
 
         return parent::version($request) ?? '';
+    }
+
+    /**
+     * Handle the incoming request.
+     *
+     * Overrides the base middleware so POST redirects are also upgraded from
+     * 302 to 303. A 302 on a POST makes the browser replay the request as a
+     * GET; when the Referer points at a JSON endpoint (e.g. a document upload
+     * fired from a modal sitting over a listing page) the user is dumped onto
+     * raw JSON instead of the page. 303 See Other tells the browser to follow
+     * with GET, which is the correct semantic here.
+     *
+     * The base middleware only does this for PUT/PATCH/DELETE.
+     */
+    public function handle(Request $request, Closure $next): Response
+    {
+        $response = parent::handle($request, $next);
+
+        if (
+            $request->header('X-Inertia')
+            && $response->getStatusCode() === 302
+            && in_array($request->method(), ['POST', 'PUT', 'PATCH', 'DELETE'], true)
+        ) {
+            $response->setStatusCode(303);
+        }
+
+        return $response;
     }
 
     private function getProfileIncomplete(Request $request): bool

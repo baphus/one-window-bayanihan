@@ -19,14 +19,6 @@ class StoreCaseRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        if ($this->boolean('is_draft')) {
-            $this->merge(['is_draft' => true]);
-
-            // Inertia sends JSON — ConvertEmptyStringsToNull doesn't apply.
-            // For drafts, convert all empty strings to null so 'nullable' rules skip them.
-            $this->merge($this->convertEmptyStringsToNull($this->all()));
-        }
-
         if ($this->has('category_id') && $this->category_id === '') {
             $this->merge(['category_id' => null]);
         }
@@ -82,33 +74,27 @@ class StoreCaseRequest extends FormRequest
 
     public function rules(): array
     {
-        // Drafts require nothing — just save whatever progress exists
-        $r = $this->boolean('is_draft') ? 'nullable' : 'required';
-
         // Clients must be 15–100 years old.
         $dobMax = now()->subYears(15)->toDateString();
         $dobMin = now()->subYears(100)->toDateString();
 
         return [
-            'is_draft' => ['nullable', 'boolean'],
-            'vulnerability_indicator' => [$r, 'string', 'max:255', new VulnerabilityRule],
+            'vulnerability_indicator' => ['required', 'string', 'max:255', new VulnerabilityRule],
             'nok_vulnerability_indicator' => ['nullable', 'string', 'max:255', new VulnerabilityRule],
             'summary' => ['nullable', 'string', 'max:5000'],
-            // Drafts may be saved before categories are selected. Published case
-            // creation must contain at least one category in either format.
-            'category_id' => ['bail', $this->boolean('is_draft') ? 'nullable' : 'required_without:category_ids', 'nullable', 'string', 'uuid', Rule::exists('case_categories', 'id')->where('is_active', true)],
-            'category_ids' => [$this->boolean('is_draft') ? 'nullable' : 'required_without:category_id', 'nullable', 'array', $this->boolean('is_draft') ? 'nullable' : 'min:1'],
+            'category_id' => ['bail', 'required_without:category_ids', 'nullable', 'string', 'uuid', Rule::exists('case_categories', 'id')->where('is_active', true)],
+            'category_ids' => ['required_without:category_id', 'nullable', 'array', 'min:1'],
             'category_ids.*' => ['bail', 'uuid', 'distinct', Rule::exists('case_categories', 'id')->where('is_active', true)],
-            'case_issue_id' => [$r, 'string', 'exists:case_issues,id'],
+            'case_issue_id' => ['required', 'string', 'exists:case_issues,id'],
 
-            'client.first_name' => [$r, 'string', 'max:255'],
-            'client.last_name' => [$r, 'string', 'max:255'],
+            'client.first_name' => ['required', 'string', 'max:255'],
+            'client.last_name' => ['required', 'string', 'max:255'],
             'client.middle_name' => ['nullable', 'string', 'max:255'],
             'client.suffix' => ['nullable', 'string', 'max:50'],
-            'client.date_of_birth' => [$r, 'date', 'before_or_equal:'.$dobMax, 'after_or_equal:'.$dobMin],
-            'client.sex' => [$r, 'string', 'max:50'],
-            'client.email' => [$r, 'email', 'max:255'],
-            'client.contact_number' => [$r, 'string', 'max:50'],
+            'client.date_of_birth' => ['required', 'date', 'before_or_equal:'.$dobMax, 'after_or_equal:'.$dobMin],
+            'client.sex' => ['required', 'string', 'max:50'],
+            'client.email' => ['required', 'email', 'max:255'],
+            'client.contact_number' => ['required', 'string', 'max:50'],
 
             'next_of_kin' => ['nullable', 'array'],
             'next_of_kin.*.first_name' => ['required_with:next_of_kin', 'string', 'max:255'],
@@ -142,21 +128,21 @@ class StoreCaseRequest extends FormRequest
 
             'consent' => ['nullable', 'boolean'],
 
-            'address.region' => [$r, 'string', 'max:255', new ServedRegion],
+            'address.region' => ['required', 'string', 'max:255', new ServedRegion],
             'address.province' => ['nullable', 'string', 'max:255'],
-            'address.city_municipality' => [$r, 'string', 'max:255'],
-            'address.barangay' => [$r, 'string', 'max:255'],
+            'address.city_municipality' => ['required', 'string', 'max:255'],
+            'address.barangay' => ['required', 'string', 'max:255'],
             'address.street' => ['nullable', 'string'],
 
-            'employment.employer_name' => [$r, 'string', 'max:255'],
+            'employment.employer_name' => ['required', 'string', 'max:255'],
             'employment.position' => ['nullable', 'string', 'max:255'],
             'employment.country' => ['nullable', 'string', 'max:255'],
-            'employment.start_date' => [$r, 'date', 'after_or_equal:client.date_of_birth', 'before_or_equal:today', new EmploymentStartAtWorkingAge($this->input('client.date_of_birth'))],
-            'employment.end_date' => [$r === 'required' ? 'required_unless:employment.is_present,true' : 'nullable', 'nullable', 'date', 'after_or_equal:employment.start_date', 'before_or_equal:today'],
+            'employment.start_date' => ['required', 'date', 'after_or_equal:client.date_of_birth', 'before_or_equal:today', new EmploymentStartAtWorkingAge($this->input('client.date_of_birth'))],
+            'employment.end_date' => ['required_unless:employment.is_present,true', 'nullable', 'date', 'after_or_equal:employment.start_date', 'before_or_equal:today'],
             'employment.is_present' => ['nullable', 'boolean'],
-            'employment.last_country' => [$r, 'string', 'max:255'],
-            'employment.last_position' => [$r, 'string', 'max:255'],
-            'employment.date_of_arrival' => [$r, 'date', 'after_or_equal:client.date_of_birth'],
+            'employment.last_country' => ['required', 'string', 'max:255'],
+            'employment.last_position' => ['required', 'string', 'max:255'],
+            'employment.date_of_arrival' => ['required', 'date', 'after_or_equal:client.date_of_birth'],
         ];
     }
 
@@ -167,7 +153,7 @@ class StoreCaseRequest extends FormRequest
                 $validator->errors()->add('category_ids', 'Use either category_id or category_ids, not both.');
             }
 
-            if (! $this->boolean('is_draft') && (! $this->filled('category_id') && empty($this->input('category_ids')))) {
+            if (! $this->filled('category_id') && empty($this->input('category_ids'))) {
                 $validator->errors()->add('category_ids', 'At least one category is required.');
             }
         });

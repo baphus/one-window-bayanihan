@@ -339,7 +339,7 @@ class ReportsExportService
     {
         $q = DB::table('cases')
             ->whereNull('cases.deleted_at')
-            ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
+            ->whereNotIn('cases.status', ['ARCHIVED'])
             ->whereBetween('cases.created_at', [$c['windowStart'], $c['windowEnd']]);
 
         if ($c['agency_id']) {

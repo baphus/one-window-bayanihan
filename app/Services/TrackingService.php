@@ -391,7 +391,6 @@ class TrackingService
             'PENDING_REVIEW' => 'BEING_REVIEWED',
             'CLOSED' => 'RESOLVED',
             'ARCHIVED' => 'ARCHIVED',
-            'DRAFT' => 'BEING_PREPARED',
             default => 'UNKNOWN',
         };
     }

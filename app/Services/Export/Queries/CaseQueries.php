@@ -4,10 +4,12 @@ namespace App\Services\Export\Queries;
 
 use App\Casts\EncryptedString;
 use App\Enums\UserRole;
+use App\Models\CaseFile;
 use App\Models\User;
 use App\Services\Export\Queries\Concerns\FiltersCaseCategories;
 use App\Services\Export\Queries\Concerns\ScopesForExportUser;
 use App\Services\PhilippineAddressService;
+use App\Support\MultiSelectFilter;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -108,8 +110,7 @@ class CaseQueries
             })
             ->leftJoin('case_issues AS ci', 'c.case_issue_id', '=', 'ci.id')
             ->where('c.is_deleted', false)
-            ->where('c.status', '!=', 'DRAFT')
-            ->where('c.status', '!=', 'ARCHIVED')
+            ->whereNotIn('c.status', [CaseFile::STATUS_PENDING_REVIEW])
             ->orderBy('c.created_at', 'desc');
 
         // ADMIN/CASE_MANAGER: all. AGENCY: own referral cases only.
@@ -127,26 +128,46 @@ class CaseQueries
         }
 
         // --- Apply optional filters ---
-        if (! empty($filters['status'])) {
-            $query->where('c.status', $filters['status']);
+        //
+        // These mirror CaseService::getCases exactly: list filters accept the
+        // panel's array form (and the legacy scalar form), and ARCHIVED is only
+        // excluded when no status filter was chosen so an archived export
+        // returns the archived rows the page is showing.
+        $statuses = MultiSelectFilter::ids($filters['status'] ?? null);
+        if ($statuses !== []) {
+            $query->whereIn('c.status', $statuses);
+        } else {
+            $query->where('c.status', '!=', 'ARCHIVED');
         }
-        if (! empty($filters['client_type'])) {
-            $query->where('cl.type', $filters['client_type']);
+
+        $clientTypes = MultiSelectFilter::ids($filters['client_type'] ?? null);
+        if ($clientTypes !== []) {
+            $query->whereIn('cl.type', $clientTypes);
         }
-        if (! empty($filters['vulnerability_indicator'])) {
-            $query->where(function ($q) use ($filters) {
-                $q->where('c.vulnerability_indicator', 'LIKE', "%{$filters['vulnerability_indicator']}%")
-                    ->orWhere('c.nok_vulnerability_indicator', 'LIKE', "%{$filters['vulnerability_indicator']}%");
+
+        $vulnerabilities = MultiSelectFilter::ids($filters['vulnerability_indicator'] ?? null);
+        if ($vulnerabilities !== []) {
+            $query->where(function ($outer) use ($vulnerabilities) {
+                foreach ($vulnerabilities as $indicator) {
+                    $outer->orWhere(function ($q) use ($indicator) {
+                        $q->where('c.vulnerability_indicator', 'LIKE', "%{$indicator}%")
+                            ->orWhere('c.nok_vulnerability_indicator', 'LIKE', "%{$indicator}%");
+                    });
+                }
             });
         }
-        if (! empty($filters['user_id'])) {
-            $query->where('c.user_id', $filters['user_id']);
+
+        $userIds = MultiSelectFilter::ids($filters['user_id'] ?? null);
+        if ($userIds !== []) {
+            $query->whereIn('c.user_id', $userIds);
         }
-        if (! empty($filters['agcy_id'])) {
-            $query->whereIn('c.id', function ($q) use ($filters) {
+
+        $agencyIds = MultiSelectFilter::ids($filters['agcy_id'] ?? null);
+        if ($agencyIds !== []) {
+            $query->whereIn('c.id', function ($q) use ($agencyIds) {
                 $q->select('case_id')
                     ->from('referrals')
-                    ->where('agcy_id', $filters['agcy_id'])
+                    ->whereIn('agcy_id', $agencyIds)
                     ->where('is_deleted', false);
             });
         }
@@ -161,8 +182,10 @@ class CaseQueries
             });
         }
         $this->applyCategoryFilter($query, 'c', $filters);
-        if (! empty($filters['case_issue_id'])) {
-            $query->where('c.case_issue_id', $filters['case_issue_id']);
+
+        $issueIds = MultiSelectFilter::ids($filters['case_issue_id'] ?? null);
+        if ($issueIds !== []) {
+            $query->whereIn('c.case_issue_id', $issueIds);
         }
         if (! empty($filters['date_from'])) {
             $query->whereDate('c.created_at', '>=', $filters['date_from']);

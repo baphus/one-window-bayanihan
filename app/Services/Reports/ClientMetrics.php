@@ -227,7 +227,7 @@ class ClientMetrics
         ?string $agencyId = null,
     ): array {
         $query = CaseFile::select('ca.province', DB::raw('count(*) as total'))
-            ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
+            ->whereNotIn('cases.status', ['ARCHIVED'])
             ->leftJoin('clients as c', 'c.id', '=', 'cases.client_id')
             ->leftJoin('client_addresses as ca', 'ca.client_id', '=', 'c.id')
             ->whereNotNull('ca.province')
@@ -274,7 +274,7 @@ class ClientMetrics
     public function getCityDistribution(?string $userId = null, ?string $role = null, ?string $fromDate = null, ?string $toDate = null, string $dateScope = 'case_created_at', ?string $province = null, ?string $city = null, ?string $agencyId = null): array
     {
         $query = CaseFile::select('ca.city_municipality', DB::raw('count(*) as total'))
-            ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
+            ->whereNotIn('cases.status', ['ARCHIVED'])
             ->leftJoin('clients as c', 'c.id', '=', 'cases.client_id')
             ->leftJoin('client_addresses as ca', 'ca.client_id', '=', 'c.id')
             ->whereNotNull('ca.city_municipality')

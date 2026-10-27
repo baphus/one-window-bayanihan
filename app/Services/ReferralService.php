@@ -24,6 +24,7 @@ use App\Models\User;
 use App\Services\Referral\ReferralNotifier;
 use App\Services\Referral\ReferralStatsCache;
 use App\Services\Referral\ReferralStatusMachine;
+use App\Support\MultiSelectFilter;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
@@ -220,16 +221,18 @@ class ReferralService
         }
         // ADMIN and CASE_MANAGER: no scoping — see all referrals.
 
-        if (! empty($filters['status'])) {
-            $query->where('status', $filters['status']);
+        $statuses = MultiSelectFilter::ids($filters['status'] ?? null);
+        if ($statuses !== []) {
+            $query->whereIn('status', $statuses);
         }
 
         if (! empty($filters['case_id'])) {
             $query->where('case_id', $filters['case_id']);
         }
 
-        if (! empty($filters['agcy_id'])) {
-            $query->where('agcy_id', $filters['agcy_id']);
+        $agencyIds = MultiSelectFilter::ids($filters['agcy_id'] ?? null);
+        if ($agencyIds !== []) {
+            $query->whereIn('agcy_id', $agencyIds);
         }
 
         $categoryIds = $filters['category_ids'] ?? [];
@@ -247,8 +250,9 @@ class ReferralService
             });
         }
 
-        if (! empty($filters['case_issue_id'])) {
-            $query->whereHas('caseFile', fn ($q) => $q->where('case_issue_id', $filters['case_issue_id']));
+        $issueIds = MultiSelectFilter::ids($filters['case_issue_id'] ?? null);
+        if ($issueIds !== []) {
+            $query->whereHas('caseFile', fn ($q) => $q->whereIn('case_issue_id', $issueIds));
         }
 
         if (! empty($filters['age_min_days']) && is_numeric($filters['age_min_days'])) {
