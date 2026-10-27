@@ -7,7 +7,9 @@ use App\Mail\UserInviteMail;
 use App\Models\Agency;
 use App\Models\User;
 use App\Models\UserInvite;
+use App\Services\CloudinaryAvatarService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 
@@ -256,6 +258,123 @@ class UserInviteTest extends TestCase
         // Assert invite was consumed
         $invite->refresh();
         $this->assertNotNull($invite->consumed_at);
+    }
+
+    public function test_user_registers_via_invite_with_an_optional_profile_picture(): void
+    {
+        $rawToken = 'avatar-token-123';
+        UserInvite::create([
+            'email' => 'avatar-register@example.com',
+            'role' => UserRole::CASE_MANAGER->value,
+            'agcy_id' => $this->agency->id,
+            'token_hash' => hash('sha256', $rawToken),
+            'expires_at' => now()->addDays(7),
+            'created_by' => $this->admin->id,
+        ]);
+
+        $response = $this->post(route('register-via-invite.store', $rawToken), [
+            'name' => 'Avatar User',
+            'password' => 'SecureP@ss1',
+            'password_confirmation' => 'SecureP@ss1',
+            'profile_picture' => UploadedFile::fake()->image('me.jpg', 160, 160),
+        ]);
+
+        $response->assertRedirect(route('login'));
+
+        $user = User::where('email', 'avatar-register@example.com')->firstOrFail();
+        $this->assertNotNull($user->getRawOriginal('avatar_url'), 'The optional profile picture must be stored.');
+        $this->assertStringContainsString('res.cloudinary.com', (string) $user->getRawOriginal('avatar_url'));
+    }
+
+    public function test_user_registers_via_invite_without_a_profile_picture(): void
+    {
+        $rawToken = 'no-avatar-token';
+        $invite = UserInvite::create([
+            'email' => 'no-avatar@example.com',
+            'role' => UserRole::CASE_MANAGER->value,
+            'agcy_id' => $this->agency->id,
+            'token_hash' => hash('sha256', $rawToken),
+            'expires_at' => now()->addDays(7),
+            'created_by' => $this->admin->id,
+        ]);
+
+        // The photo is optional: omitting it must not block registration.
+        $response = $this->post(route('register-via-invite.store', $rawToken), [
+            'name' => 'No Avatar User',
+            'password' => 'SecureP@ss1',
+            'password_confirmation' => 'SecureP@ss1',
+        ]);
+
+        $response->assertRedirect(route('login'));
+        $response->assertSessionHas('success');
+
+        $user = User::where('email', 'no-avatar@example.com')->firstOrFail();
+        $this->assertNull($user->getRawOriginal('avatar_url'));
+
+        $invite->refresh();
+        $this->assertNotNull($invite->consumed_at, 'The invite must still be consumed.');
+    }
+
+    public function test_invite_registration_rejects_a_non_image_profile_picture_without_creating_the_user(): void
+    {
+        $rawToken = 'bad-avatar-token';
+        UserInvite::create([
+            'email' => 'bad-avatar@example.com',
+            'role' => UserRole::CASE_MANAGER->value,
+            'agcy_id' => $this->agency->id,
+            'token_hash' => hash('sha256', $rawToken),
+            'expires_at' => now()->addDays(7),
+            'created_by' => $this->admin->id,
+        ]);
+
+        $response = $this->post(route('register-via-invite.store', $rawToken), [
+            'name' => 'Bad Avatar User',
+            'password' => 'SecureP@ss1',
+            'password_confirmation' => 'SecureP@ss1',
+            'profile_picture' => UploadedFile::fake()->createWithContent('fake.jpg', 'not an image'),
+        ]);
+
+        $response->assertSessionHasErrors('profile_picture');
+        $this->assertDatabaseMissing('users', ['email' => 'bad-avatar@example.com']);
+    }
+
+    public function test_invite_registration_still_succeeds_when_cloudinary_upload_fails(): void
+    {
+        $this->app->bind(CloudinaryAvatarService::class, fn () => new class extends CloudinaryAvatarService
+        {
+            public function __construct() {}
+
+            public function uploadImage(UploadedFile $file, string $folder, string $publicId): string
+            {
+                throw new \RuntimeException('The image could not be uploaded. Please try again later.');
+            }
+
+            public function deleteByUrl(?string $url): void {}
+        });
+
+        $rawToken = 'cloudinary-down-token';
+        UserInvite::create([
+            'email' => 'cloudinary-down@example.com',
+            'role' => UserRole::CASE_MANAGER->value,
+            'agcy_id' => $this->agency->id,
+            'token_hash' => hash('sha256', $rawToken),
+            'expires_at' => now()->addDays(7),
+            'created_by' => $this->admin->id,
+        ]);
+
+        $response = $this->post(route('register-via-invite.store', $rawToken), [
+            'name' => 'Resilient User',
+            'password' => 'SecureP@ss1',
+            'password_confirmation' => 'SecureP@ss1',
+            'profile_picture' => UploadedFile::fake()->image('me.jpg', 160, 160),
+        ]);
+
+        // A Cloudinary outage must never block account creation.
+        $response->assertRedirect(route('login'));
+        $response->assertSessionHas('success');
+
+        $user = User::where('email', 'cloudinary-down@example.com')->firstOrFail();
+        $this->assertNull($user->getRawOriginal('avatar_url'), 'The account is created without a photo.');
     }
 
     public function test_expired_invite_shows_error(): void

@@ -77,19 +77,9 @@ export default function Edit({ mustVerifyEmail, status, mfaEnabled, defaultAgenc
         setError('avatar', null);
 
         const formData = new FormData();
-        formData.append('_method', 'patch');
-        formData.append('avatar', pendingAvatarFile);
-        // Include current form values so the backend validation passes
-        formData.append('name', data.name);
-        formData.append('email', data.email);
-        formData.append('position', data.position ?? '');
-        formData.append('department', data.department ?? '');
-        formData.append('office_location', data.office_location ?? '');
-        formData.append('bio', data.bio ?? '');
-        formData.append('timezone', data.timezone ?? '');
-        formData.append('contact_number', data.contact_number ?? '');
+        formData.append('profile_picture', pendingAvatarFile);
 
-        router.post(route('profile.update'), formData, {
+        router.post(route('profile.avatar.store'), formData, {
             preserveScroll: true,
             forceFormData: true,
             onSuccess: () => {
@@ -100,11 +90,22 @@ export default function Edit({ mustVerifyEmail, status, mfaEnabled, defaultAgenc
             },
             onFinish: () => setAvatarUploading(false),
             onError: (errors) => {
-                if (errors.avatar) {
-                    setError('avatar', errors.avatar);
+                if (errors.profile_picture || errors.avatar) {
+                    setError('avatar', errors.profile_picture || errors.avatar);
                 }
                 setAvatarUploading(false);
             },
+        });
+    }
+
+    function handleRemoveAvatar() {
+        setAvatarUploading(true);
+        setError('avatar', null);
+
+        router.delete(route('profile.avatar.destroy'), {
+            preserveScroll: true,
+            onSuccess: () => toast.success('Profile picture removed.'),
+            onFinish: () => setAvatarUploading(false),
         });
     }
 
@@ -190,6 +191,19 @@ export default function Edit({ mustVerifyEmail, status, mfaEnabled, defaultAgenc
                                 className="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 transition-colors"
                             >
                                 Cancel
+                            </button>
+                        </div>
+                    )}
+                    {!pendingAvatarFile && user.avatar_url && (
+                        <div className="mt-4">
+                            <button
+                                type="button"
+                                onClick={handleRemoveAvatar}
+                                disabled={avatarUploading}
+                                className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-red-600 shadow-sm hover:bg-red-50 hover:border-red-300 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:opacity-50 transition-colors"
+                            >
+                                <span className="material-symbols-outlined text-[18px] leading-none">delete</span>
+                                Remove photo
                             </button>
                         </div>
                     )}

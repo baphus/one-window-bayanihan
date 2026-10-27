@@ -8,6 +8,7 @@ use App\Models\Client;
 use App\Models\User;
 use App\Rules\EmploymentStartAtWorkingAge;
 use App\Rules\ServedRegion;
+use App\Services\CloudinaryAvatarService;
 use App\Services\NotificationService;
 use App\Services\OfwProfileService;
 use App\Services\OtpService;
@@ -16,6 +17,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
@@ -202,6 +204,18 @@ class OfwRegistrationController extends Controller
 
         $otpValidated = $request->validate(['otp' => 'required|string|size:6']);
 
+        // Optional profile photo, validated up-front so a bad file never opens
+        // the account-creating transaction.
+        $request->validate([
+            'profile_picture' => ['nullable', 'image', 'mimes:jpeg,png,webp', 'max:2048', 'dimensions:min_width=32,min_height=32'],
+        ], [
+            'profile_picture.mimes' => 'Profile picture must be a JPEG, PNG, or WebP file.',
+            'profile_picture.max' => 'Profile picture must not exceed 2MB.',
+            'profile_picture.dimensions' => 'Profile picture must be at least 32x32 pixels.',
+        ]);
+
+        $avatarFile = $request->file('profile_picture');
+
         // Re-check the session copy rather than the request: the only input a
         // review submission may carry is the code.
         $profile = is_array($pending['profile'] ?? null) ? $pending['profile'] : [];
@@ -221,7 +235,7 @@ class OfwRegistrationController extends Controller
         }
 
         try {
-            $user = DB::transaction(function () use ($pending, $validated, $email, $firstName, $middleName, $lastName) {
+            $user = DB::transaction(function () use ($pending, $validated, $email, $firstName, $middleName, $lastName, $avatarFile) {
                 $user = User::create([
                     'name' => Str::limit(implode(' ', array_filter([$firstName, $middleName, $lastName])), 255, ''),
                     'email' => $email,
@@ -246,6 +260,25 @@ class OfwRegistrationController extends Controller
                 ]);
 
                 $user->client_id = $client->id;
+
+                // Optional profile photo. Best-effort: a Cloudinary outage must
+                // not abort registration — the OFW adds a photo later on their
+                // profile page. public_id is derived from the user id so a later
+                // replacement overwrites the same asset instead of orphaning it.
+                if ($avatarFile) {
+                    try {
+                        $user->avatar_url = app(CloudinaryAvatarService::class)->uploadImage(
+                            $avatarFile,
+                            'avatars',
+                            'user-'.$user->id,
+                        );
+                    } catch (Throwable $e) {
+                        Log::warning('Avatar upload failed during OFW registration; continuing without a photo.', [
+                            'user_id' => $user->id,
+                        ]);
+                    }
+                }
+
                 $user->save();
 
                 // Persist address to ClientAddress
