@@ -6,8 +6,10 @@ use App\Ai\Agents\HelpdeskAgent;
 use App\Ai\Tools\GetAgencyServices;
 use App\Ai\Tools\ReadHelpdeskArticle;
 use App\Ai\Tools\SearchHelpdesk;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Laravel\Ai\Messages\AssistantMessage;
 use Laravel\Ai\Messages\Message;
@@ -66,11 +68,33 @@ class ChatbotConversationService
             if ($e instanceof ValidationException) {
                 $invalidFields = array_keys($e->errors());
             }
+            $this->logFailure($e, $failure);
 
             return $this->responses->plain("Sorry, I'm having trouble answering right now. Please try again or browse the Helpdesk.");
         } finally {
             Http::swap($http);
             Log::info('Chatbot turn finished', [...$turn->metrics(), 'failure_category' => $failure, 'invalid_fields' => $invalidFields]);
         }
+    }
+
+    /**
+     * Surface provider failures (bad key, unknown model, rate limits) that would
+     * otherwise collapse into the same generic "trouble answering" message.
+     */
+    private function logFailure(Throwable $e, string $failure): void
+    {
+        $context = ['failure_category' => $failure, 'provider' => config('ai-chatbot.provider'), 'model' => config('ai-chatbot.model')];
+
+        if ($e instanceof RequestException && $e->response !== null) {
+            Log::warning('Chatbot provider request failed', [
+                ...$context,
+                'status' => $e->response->status(),
+                'provider_error' => Str::limit((string) $e->response->json('error.message', ''), 500),
+            ]);
+
+            return;
+        }
+
+        Log::warning('Chatbot turn failed', [...$context, 'message' => Str::limit($e->getMessage(), 500)]);
     }
 }
