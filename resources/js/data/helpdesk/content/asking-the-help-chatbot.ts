@@ -27,13 +27,13 @@ The chatbot is a public endpoint (**POST /chatbot/message**) answered by the Hel
 
 ## What it's good at
 
-- Explaining how things work: tracking, feedback, requirements, which agency handles what.
+- Explaining how things work: filing a case, tracking, the review queue, feedback, requirements, and which agency handles what.
 - Pointing you to the right help article or page.
 - Quick reference details like agency contact information.
 
 ## What it can't do
 
-- **It cannot see your case.** For your actual status, use the [tracking portal](/track) with your tracker number and the OTP emailed to your registered address — the chatbot will point you there.
+- **It cannot see your case.** For your actual status, sign in at **/my-cases**, or use the [tracking portal](/track) with your tracker number and the code emailed to your registered address — the chatbot will point you there.
 - It can't change anything on your behalf or contact an agency for you.
 - Like any AI assistant it can occasionally be imprecise — for decisions that matter, confirm against the linked help article or ask staff via the [contact page](/contact).
 

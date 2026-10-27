@@ -6,7 +6,7 @@ Timely referral processing depends on correct routing, clear instructions, quick
 
 ## Starting status
 
-When a Case Manager creates a referral, the starting status depends on compliance requirements. Without compliance requirements, the referral is **PENDING**. With compliance requirements, it starts as **FOR_COMPLIANCE**.
+Every referral is created as **PENDING**. It stays PENDING until the receiving agency assigns the service it will apply for and then accepts (choosing **PROCESSING** or **FOR_COMPLIANCE** *(waiting on client)*) or rejects it. No referral starts in any other status.
 
 ![Create referral form](/assets/helpdesk/referrals-create.png)
 
@@ -14,7 +14,7 @@ Status moves are constrained by a transition matrix (see *Referral status refere
 
 ## Daily routine
 
-Start by reviewing new **PENDING** referrals, **FOR_COMPLIANCE** referrals, overdue active referrals, and comments needing replies. Midday, update statuses, add milestones, and ask clear questions. End the day by confirming completed work is not still pending.
+Start by reviewing new **PENDING** referrals, **FOR_COMPLIANCE** *(waiting on client)* referrals, overdue active referrals, and comments needing replies. Midday, update statuses, add milestones, and ask clear questions. End the day by confirming completed work is not still pending.
 
 ## Use the right tool
 

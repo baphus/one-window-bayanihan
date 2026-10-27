@@ -4,6 +4,7 @@ import AppHeader from '@/Components/landing/AppHeader';
 import AppFooter from '@/Components/landing/AppFooter';
 import ChatBot from '@/Components/ChatBot';
 import UnifiedTimeline from '@/Components/Timeline';
+import { buildCaseStatusLine } from '@/lib/caseStatusLine';
 
 /**
  * Track Your Case — results page.
@@ -645,29 +646,15 @@ export default function TrackingShow({
   const totalAgencies = trackingAgencies.length;
   const completedAgencies = trackingAgencies.filter((a) => a.status === 'COMPLETED').length;
 
-  const statusLine = useMemo(() => {
-    const rejectedNote = rejectedCount > 0
-      ? ` ${rejectedCount} ${rejectedCount === 1 ? 'office was' : 'offices were'} unable to assist.`
-      : '';
-
-    switch (trackedCase?.status) {
-      case 'RESOLVED':
-        return `This case has been resolved.${rejectedNote}`;
-      case 'BEING_PREPARED':
-        return 'This case is still being prepared by the One Window Bayanihan team.';
-      case 'BEING_REVIEWED':
-        return 'Being reviewed by a case manager.';
-      case 'ARCHIVED':
-        return 'This case has been archived.';
-      case 'IN_PROGRESS':
-        if (totalAgencies === 0) {
-          return 'Your case is being reviewed. Referrals to partner offices will appear here.';
-        }
-        return `In progress — ${completedAgencies} of ${totalAgencies} partner ${totalAgencies === 1 ? 'office has' : 'offices have'} completed their part.${rejectedNote}`;
-      default:
-        return 'Case status is currently unavailable.';
-    }
-  }, [trackedCase, totalAgencies, completedAgencies, rejectedCount]);
+  const statusLine = useMemo(
+    () => buildCaseStatusLine({
+      status: trackedCase?.status,
+      totalAgencies,
+      completedAgencies,
+      rejectedCount,
+    }),
+    [trackedCase, totalAgencies, completedAgencies, rejectedCount],
+  );
 
   const eventsByReferral = useMemo(() => {
     const map = {};

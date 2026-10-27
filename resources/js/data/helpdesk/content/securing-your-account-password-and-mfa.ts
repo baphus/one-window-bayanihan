@@ -10,7 +10,7 @@ Every account (Case Manager, Agency Focal Person, Administrator, OFW) signs in w
 2. If MFA is enabled on your account, you are taken to the MFA challenge screen. Enter the **6-digit code from your authenticator app** — or a **recovery code** if you don't have your device.
 3. Accounts without MFA complete sign-in with the password alone. OFW users land in the OFW portal; staff land on their role dashboard.
 
-There is no email one-time code at sign-in. Email OTP codes are used only in three other places: public intake email verification, the public tracking portal, and profile email change.
+There is no email one-time code at sign-in. Email OTP codes are used only in these places: the **OFW registration review step**, the **public tracking portal**, **secure document-request links**, and **profile email change**.
 
 Staff accounts are invite-only: an administrator sends an invitation and you complete registration through the invite link. There is no open self-registration for staff roles.
 
@@ -44,6 +44,6 @@ You can **Regenerate** recovery codes at any time — regenerating replaces the 
 - Lost authenticator device: sign in with a recovery code, then disable and re-enable MFA with your new device.
 - No recovery codes: contact your administrator, who can reset MFA through User Management.
 - Forgotten password: use the **Forgot password** link on the login page to reset it by email.
-- Email OTP not arriving (intake, tracking, or email change): check spam, then use the resend option; persistent failures can be checked by an administrator in the email logs.
+- Email OTP not arriving (registration review, tracking, document requests, or email change): check spam, then use the resend option; persistent failures can be checked by an administrator in the email logs.
 `;
 export default content;

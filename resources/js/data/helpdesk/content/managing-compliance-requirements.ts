@@ -1,12 +1,14 @@
 const content = `# Managing Compliance Requirements
 
-Compliance requirements track documents or proof needed before a referral can proceed. They are managed per referral service and use statuses such as **PENDING** and **COMPLIED**, fulfilled through attachments (stored in S3-compatible object storage).
+Compliance requirements track documents or proof needed before a referral can proceed. They are managed per referral service and use requirement statuses **PENDING** and **COMPLIED**, fulfilled through attachments (stored in S3-compatible object storage). Do not confuse the requirement's PENDING/COMPLIED badge with the *referral* status **PENDING** — the referral's own status while waiting on these items is **FOR_COMPLIANCE** *(waiting on client)*.
 
 ![Referral compliance requirements](/assets/helpdesk/referrals-compliance.png)
 
 ## When to create requirements
 
-Add requirements when the agency cannot process the referral without specific documents or evidence. If requirements are present at referral creation, the referral starts as **FOR_COMPLIANCE** instead of **PENDING**.
+Add requirements when the agency cannot process the referral without specific documents or evidence. Requirements are added by the **receiving agency**, per referral service, once the referral has been accepted.
+
+A referral always starts as **PENDING**. It only reaches **FOR_COMPLIANCE** *(waiting on client)* when the agency chooses that as its first disposition in the *Accept Referral* modal, or moves the referral there later with **Update Status**. Nothing attachable at creation can make a referral start in FOR_COMPLIANCE.
 
 Examples include clear passport copies, employment contract pages, proof of repatriation, authorization documents, or agency-specific forms.
 

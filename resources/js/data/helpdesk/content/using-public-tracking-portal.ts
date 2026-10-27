@@ -40,12 +40,13 @@ The portal shows public status labels mapped from the system values:
 
 | Public label | System value | Meaning |
 | --- | --- | --- |
-| **BEING_PREPARED** | DRAFT | Owner-only staff draft; not normally public. |
+| **BEING_PREPARED** | DRAFT | A case that has been started but not yet submitted — visible only to the owner. |
+| **BEING_REVIEWED** | PENDING_REVIEW | The request was received and is waiting for a Case Manager to approve or reject it. |
 | **IN_PROGRESS** | OPEN | The case has been submitted and is active. |
 | **RESOLVED** | CLOSED | The case has been completed or resolved. |
 | **ARCHIVED** | ARCHIVED | The case is retained as an inactive record. |
 
-Referral progress may mention **PENDING**, **PROCESSING**, **FOR_COMPLIANCE**, **COMPLETED**, or **REJECTED** when relevant. If requirements are requested, the client should follow the Case Manager or agency instructions.
+Unsubmitted drafts are never exposed on the public portal: a case only becomes visible once it has been filed. Referral progress may mention **PENDING**, **PROCESSING**, **FOR_COMPLIANCE** *(waiting on client)*, **COMPLETED**, or **REJECTED** when relevant. If requirements are requested, the client should follow the Case Manager or agency instructions.
 
 ## Staff checklist
 

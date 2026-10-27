@@ -15,12 +15,12 @@ Each active agency appears with its services and referral activity. Opening an a
 
 1. **Match the service, not just the agency.** An agency may offer several services; pick the one whose requirements fit the documents your client actually has.
 2. **Check the workload signal.** A large number of active referrals can mean longer waits; discuss urgency with the agency's focal person if your case can't wait.
-3. **Prepare documents first.** The requirements shown here are what you'll be asked to attach in the referral wizard — collecting them beforehand avoids sending referrals that come back *For Compliance*.
+3. **Prepare documents first.** Collecting the documents shown here in advance avoids referrals that come back *For Compliance* *(waiting on client)*. You choose the agency; the agency chooses the service.
 
 ## Related pages
 
 - The public **[Partner Agencies directory](/partners)** shows similar information to clients — use it when advising a client what to bring.
-- *Creating a referral: choosing agency and service* walks through the referral wizard itself.
+- *Creating a referral: choosing the agency* walks through the referral wizard itself.
 - Agency contact and coordination guidance is in *Communication guidelines for inter-agency work*.
 `;
 export default content;

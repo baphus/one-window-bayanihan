@@ -54,9 +54,11 @@ Before publishing, confirm that the article:
 
 - Uses current route/page names such as \`/help\`, \`/help/search\`, \`/help/{slug}\`, Admin/User, Agency, Service, Security, CaseCategory, CaseIssue, CaseStatus, Maintenance, and OverdueReferrals.
 - Uses exact role names: CASE_MANAGER, AGENCY, ADMIN, OFW.
-- Uses exact case statuses: DRAFT, OPEN, CLOSED, ARCHIVED.
-- Uses exact referral statuses: PENDING, PROCESSING, FOR_COMPLIANCE, COMPLETED, REJECTED.
-- Describes sign-in as password plus optional authenticator-app MFA challenge (never an email OTP at login), and email OTP only for intake verification, tracking, and email change.
+- Uses exact case statuses: DRAFT, PENDING_REVIEW, OPEN, CLOSED, ARCHIVED.
+- Uses exact referral statuses: PENDING, PROCESSING, FOR_COMPLIANCE, COMPLETED, REJECTED, and glosses FOR_COMPLIANCE as "waiting on client".
+- States that every referral starts as PENDING and that the **receiving agency** — not the sending case manager — assigns the service.
+- Describes sign-in as password plus optional authenticator-app MFA challenge (never an email OTP at login), and email OTP only for registration review, tracking, document-request links, and email change.
+- Describes client filing as account-first from **/my-cases/intake**; the retired **/intake** public form must not be referenced.
 - Does not describe features that are not present in the application.
 - Does not expose secrets, credentials, private URLs, or personal data in examples.
 

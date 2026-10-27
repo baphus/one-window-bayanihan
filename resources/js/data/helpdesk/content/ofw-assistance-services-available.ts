@@ -16,8 +16,9 @@ The full list of agencies, their services, requirements, and processing times is
 
 Clients do not need staff help for every step. Four roles use the system — CASE_MANAGER, AGENCY, ADMIN, and OFW — and OFW users get their own portal:
 
-- File a request yourself through the **[intake form](/intake)** using email verification.
-- Check progress any time in the **[public tracking portal](/track)** with your tracker number (**OWBAP-XXXXXXXXXX**) and an email OTP.
+- **Create an account** at **/register**, confirm your email address, then sign in.
+- **File a request yourself** from your dashboard at **My Cases → File a new case** (**/my-cases/intake**). You must be signed in — there is no anonymous public form. Your request goes to a DMW case manager for review before it becomes active.
+- Check progress any time in the **[public tracking portal](/track)** with your tracker number (**OWBAP-XXXXXXXXXX**) and a one-time code emailed to you.
 - Signed-in OFW users can review their cases, notifications, and profile under **/my-cases**.
 - Browse what help exists in the **[Partner Agencies directory](/partners)** before or after filing.
 
@@ -31,12 +32,12 @@ Clients do not need staff help for every step. Four roles use the system — CAS
 - Receiving parties and next-of-kin details when relevant.
 - Documents or evidence needed by the receiving agency.
 
-## Choosing the right referral
+## Choosing the right agency
 
-Select the agency and service that best match the issue. If unsure, review agency service profiles or consult the designated focal person before sending. A well-targeted referral reduces delays and avoids unnecessary rejection or FOR_COMPLIANCE returns.
+The case manager chooses the **agency**; the receiving agency then selects the service that best matches the issue from its own list. If unsure which agency fits, review agency service profiles or consult the designated focal person before sending. A well-targeted referral reduces delays and avoids unnecessary rejection or FOR_COMPLIANCE *(waiting on client)* returns.
 
 ## Agency responsibility
 
-Agency users update referral progress using the exact statuses — PENDING, PROCESSING, FOR_COMPLIANCE, COMPLETED, REJECTED — plus milestone notes. Case managers should monitor referrals until the case can be closed or a next action is identified.
+A new referral arrives as **PENDING**. Agency users assign the service, then accept it — choosing **PROCESSING** or **FOR_COMPLIANCE** and adding a remark — or reject it with a reason. After that they update progress through the remaining statuses — PROCESSING, FOR_COMPLIANCE, COMPLETED, REJECTED — plus milestone notes. Case managers should monitor referrals until the case can be closed or a next action is identified.
 `;
 export default content;

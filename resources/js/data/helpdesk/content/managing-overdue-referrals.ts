@@ -6,14 +6,14 @@ Overdue referrals are active referrals older than the configured cutoff. The cut
 
 ## What to review
 
-Active referrals include work that is not finished, such as **PENDING** and **FOR_COMPLIANCE**. Open the oldest or highest-risk referral first, then check details, milestones, comments, and compliance requirements.
+Active referrals include work that is not finished, such as **PENDING**, **PROCESSING**, and **FOR_COMPLIANCE** *(waiting on client)*. Open the oldest or highest-risk referral first, then check details, milestones, comments, and compliance requirements.
 
 ![Referral details](/assets/helpdesk/referrals-show.png)
 
 ## Common causes
 
 - The agency has not acted on a **PENDING** referral.
-- The referral is **FOR_COMPLIANCE** and requirements are missing.
+- The referral is **FOR_COMPLIANCE** *(waiting on client)* and requirements are missing.
 - Work was completed but status was not updated.
 - A question was left in comments without a clear owner.
 - The referral was sent to the wrong agency service.
