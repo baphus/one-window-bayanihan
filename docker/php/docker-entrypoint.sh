@@ -117,6 +117,17 @@ fi
 if [ "${AI_CHATBOT_ENABLED}" = "true" ]; then
     echo "[ENTRYPOINT] Refreshing chatbot helpdesk content..."
     php artisan chatbot:index --no-interaction || echo "[ENTRYPOINT] WARNING: chatbot:index failed — the bot will load helpdesk content on demand" >&2
+
+    # Report a broken provider setup at boot instead of letting every visitor hit
+    # the generic "trouble answering" message with no trace of the cause.
+    #
+    # Deliberately NON-FATAL and configuration-only (--no-live): a provider outage
+    # or a rate limit must never take down a container that serves far more than
+    # the chatbot. This surfaces the problem in the container log, where
+    # `aws lightsail get-container-log` can reach it.
+    echo "[ENTRYPOINT] Verifying chatbot provider configuration..."
+    php artisan chatbot:verify-provider --no-live --no-interaction \
+        || echo "[ENTRYPOINT] WARNING: chatbot provider verification failed — check GEMINI_API_KEY / AI_CHATBOT_MODEL" >&2
 fi
 
 # ── Execute the main command (supervisord, queue:listen, schedule:work, etc.) ──
