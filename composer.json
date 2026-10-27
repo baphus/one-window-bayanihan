@@ -14,7 +14,7 @@
         "laravel/ai": "^0.10",
         "laravel/framework": "^13.7",
         "league/flysystem-aws-s3-v3": "3.34.0",
-        "phpoffice/phpspreadsheet": "5.9.0",
+        "phpoffice/phpspreadsheet": "^5.10.0",
         "pragmarx/google2fa-laravel": "3.0.1",
         "resend/resend-php": "^1.6",
         "sentry/sentry-laravel": "^4.8",

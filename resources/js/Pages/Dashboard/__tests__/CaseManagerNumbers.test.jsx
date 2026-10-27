@@ -1,19 +1,15 @@
 import '@testing-library/jest-dom/vitest';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { render, screen, waitFor } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import CaseManagerDashboard from '../CaseManager';
 
-const { pageProps, chartSpy, routerSpy } = vi.hoisted(() => ({
+const { pageProps, chartSpy } = vi.hoisted(() => ({
     pageProps: {},
     chartSpy: {},
-    routerSpy: { visit: vi.fn() },
 }));
 
 vi.mock('@inertiajs/react', () => ({
-    Head: ({ title }) => <title>{title}</title>,
-    Deferred: ({ children }) => children,
     Link: ({ href, children, ...props }) => <a href={href} {...props}>{children}</a>,
-    router: routerSpy,
     usePage: () => ({ props: pageProps }),
 }));
 
@@ -21,8 +17,6 @@ vi.mock('chart.js', () => ({
     Chart: { register: vi.fn() },
     CategoryScale: {},
     LinearScale: {},
-    BarElement: {},
-    ArcElement: {},
     LineElement: {},
     PointElement: {},
     Filler: {},
@@ -31,324 +25,72 @@ vi.mock('chart.js', () => ({
 }));
 
 vi.mock('react-chartjs-2', () => ({
-    Bar: (props) => {
-        chartSpy.bar = props;
-        return <div data-testid="bar-chart" />;
-    },
     Line: (props) => {
         chartSpy.line = props;
         return <div data-testid="line-chart" />;
     },
-    Pie: (props) => (
-        <div
-            data-testid="pie-chart"
-            data-labels={JSON.stringify(props.data.labels)}
-            data-values={JSON.stringify(props.data.datasets[0].data)}
-        />
-    ),
 }));
 
 vi.mock('@/Components/GettingStartedChecklist', () => ({
     default: () => <div data-testid="getting-started-checklist" />,
 }));
 
-vi.mock('@/Components/ui/StatusBadge', () => ({
-    default: ({ status, label }) => <span>{label ?? status}</span>,
-}));
-
 const dashboard = {
-    openCases: 5,
-    closedCases: 3,
-    pendingReferrals: 4,
-    processingReferrals: 7,
-    // The CM payload no longer carries a top-level forComplianceReferrals
-    // count — For Compliance only arrives via referralStatusDistribution.
-    referralStatusDistribution: [{ status: 'FOR_COMPLIANCE', count: 6 }],
-    completedReferrals: 8,
-    rejectedReferrals: 1,
-    totalCases: 10,
-    totalReferrals: 26,
-    casesOverTime: { labels: ['2026-01', '2026-02'], data: [3, 9] },
-    priorityReferrals: [],
+    intakeReview: [],
     priorityCases: [],
-    agencyBreakdown: [],
+    priorityReferrals: [],
     recentActivity: [],
 };
 
-const originalFetch = globalThis.fetch;
-
 beforeEach(() => {
-    routerSpy.visit.mockClear();
-    vi.stubGlobal('fetch', vi.fn((url) => {
-        if (String(url).includes('unread-count')) {
-            return Promise.resolve({ ok: true, json: () => Promise.resolve({ count: 0 }) });
-        }
-        return Promise.resolve({ ok: true, json: () => Promise.resolve({ data: [] }) });
-    }));
+    pageProps.auth = { user: { name: 'Maria Santos' } };
+    chartSpy.line = undefined;
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({
+            kpis: { active: 5, awaiting_agency: 4, needs_action: 2, closed: 3 },
+            volume: { labels: ['2026-01-01', '2026-01-02'], received: [3, 9], closed: [1, 4] },
+            period: { label: 'Last 30 days' },
+        }),
+    })));
 });
 
-afterEach(() => {
-    globalThis.fetch = originalFetch;
-});
+describe('CaseManager dashboard', () => {
+    it('renders period KPIs and case volume chart', async () => {
+        render(<CaseManagerDashboard dashboard={dashboard} />);
 
-function renderNumbers(customDashboard = dashboard) {
-    Object.assign(pageProps, {
-        auth: { user: { name: 'Maria Santos', role: 'CASE_MANAGER' } },
-        dashboard: customDashboard,
+        expect(screen.getByText('Total active cases')).toBeInTheDocument();
+        expect(screen.getByText('Good day, Maria')).toBeInTheDocument();
+        expect(screen.getByText('Case volume over time')).toBeInTheDocument();
+        expect(await screen.findByTestId('line-chart')).toBeInTheDocument();
+        expect(chartSpy.line.data.datasets[0].data).toEqual([3, 9]);
+        expect(chartSpy.line.data.datasets[1].data).toEqual([1, 4]);
     });
 
-    render(
-        <CaseManagerDashboard dashboard={customDashboard} />,
-    );
+    it('shows empty volume state when period has no labels', async () => {
+        vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({
+                kpis: { active: 0, awaiting_agency: 0, needs_action: 0, closed: 0 },
+                volume: { labels: [], received: [], closed: [] },
+            }),
+        })));
 
-    return within(document.querySelector('[data-tour="dashboard-stats"]'));
-}
+        render(<CaseManagerDashboard dashboard={dashboard} />);
 
-function renderIntake(customDashboard = dashboard) {
-    renderNumbers(customDashboard);
-
-    return within(document.querySelector('[data-tour="dashboard-pending-reviews"]'));
-}
-
-describe('CaseManager Numbers block', () => {
-    it('shows exact case and referral counts with matching status badges', () => {
-        const numbers = renderNumbers();
-
-        // Case counts with humanized badges.
-        expect(numbers.getByText('5')).toBeInTheDocument();
-        expect(numbers.getByText('3')).toBeInTheDocument();
-        expect(numbers.getByText('Open')).toBeInTheDocument();
-        expect(numbers.getByText('Closed')).toBeInTheDocument();
-
-        // Referral counts with humanized badges.
-        expect(numbers.getByText('4')).toBeInTheDocument();
-        expect(numbers.getByText('7')).toBeInTheDocument();
-        expect(numbers.getByText('6')).toBeInTheDocument();
-        expect(numbers.getByText('8')).toBeInTheDocument();
-        expect(numbers.getByText('Pending')).toBeInTheDocument();
-        expect(numbers.getByText('Processing')).toBeInTheDocument();
-        expect(numbers.getByText('For Compliance')).toBeInTheDocument();
-        expect(numbers.getByText('Completed')).toBeInTheDocument();
-        expect(numbers.getByText('Rejected')).toBeInTheDocument();
+        await waitFor(() => expect(screen.getByText('No case activity in this period')).toBeInTheDocument());
+        expect(screen.queryByTestId('line-chart')).not.toBeInTheDocument();
     });
 
-    it('toggles Line and Bar views while keeping the same dataset', () => {
-        const numbers = renderNumbers();
-
-        // Line is the default view.
-        expect(numbers.getByTestId('line-chart')).toBeInTheDocument();
-        expect(numbers.queryByTestId('bar-chart')).not.toBeInTheDocument();
-        expect(screen.getByRole('button', { name: /Line/ })).toHaveAttribute('aria-pressed', 'true');
-
-        fireEvent.click(screen.getByRole('button', { name: /Bar/ }));
-
-        expect(numbers.getByTestId('bar-chart')).toBeInTheDocument();
-        expect(numbers.queryByTestId('line-chart')).not.toBeInTheDocument();
-        expect(screen.getByRole('button', { name: /Bar/ })).toHaveAttribute('aria-pressed', 'true');
-
-        // Same weekly dataset in both views — labels and values unchanged.
-        expect(chartSpy.bar.data.labels).toEqual(chartSpy.line.data.labels);
-        expect(chartSpy.bar.data.datasets[0].data).toEqual(chartSpy.line.data.datasets[0].data);
-        expect(chartSpy.bar.data.labels).toEqual(['2026-01', '2026-02']);
-        expect(chartSpy.bar.data.datasets[0].data).toEqual([3, 9]);
-
-        fireEvent.click(screen.getByRole('button', { name: /Line/ }));
-
-        expect(numbers.getByTestId('line-chart')).toBeInTheDocument();
-        expect(numbers.queryByTestId('bar-chart')).not.toBeInTheDocument();
-    });
-
-    it('falls back to referral trends when cases-over-time has no labels', () => {
-        const numbers = renderNumbers({
+    it('renders pending reviews and empty work queues', () => {
+        render(<CaseManagerDashboard dashboard={{
             ...dashboard,
-            casesOverTime: { labels: [], datasets: [{ data: [] }] },
-            referralTrends: {
-                labels: ['2026-08', '2026-09'],
-                datasets: [{ label: 'Referrals Created', data: [12, 18] }],
-            },
-        });
+            pendingReviewCount: 1,
+            intakeReview: [{ id: 'case-1', clientName: 'Juan Dela Cruz', caseNo: 'CASE-001', status: 'PENDING_REVIEW', createdAt: '2026-09-10T00:00:00Z', href: '/cases/case-1' }],
+        }} />);
 
-        expect(numbers.getByTestId('line-chart')).toBeInTheDocument();
-
-        fireEvent.click(screen.getByRole('button', { name: /Bar/ }));
-
-        expect(numbers.getByTestId('bar-chart')).toBeInTheDocument();
-        expect(chartSpy.bar.data.labels).toEqual(['2026-08', '2026-09']);
-        expect(chartSpy.bar.data.datasets[0].data).toEqual([12, 18]);
-    });
-
-    it('shows a plain empty state with no chart when every trend source is empty', () => {
-        const numbers = renderNumbers({
-            ...dashboard,
-            casesOverTime: { labels: [], datasets: [{ data: [] }] },
-            referralTrends: { labels: [], datasets: [{ data: [] }] },
-        });
-
-        expect(numbers.queryByTestId('line-chart')).not.toBeInTheDocument();
-        expect(numbers.queryByTestId('bar-chart')).not.toBeInTheDocument();
-        expect(numbers.getByText('The trend appears as case activity accumulates.')).toBeInTheDocument();
-
-        // Counts and badges still render — only the chart is empty.
-        expect(numbers.getByText('Open')).toBeInTheDocument();
-        expect(numbers.getByText('For Compliance')).toBeInTheDocument();
-    });
-});
-
-describe('CaseManager status pies', () => {
-    const dashboardWithAgencies = {
-        ...dashboard,
-        agencyBreakdown: [
-            { agencyId: 'agency-1', agencyName: 'OWWA', count: 4, activeCount: 4, overdueCount: 1 },
-            { agencyId: 'agency-2', agencyName: 'DSWD', count: 2, activeCount: 2, overdueCount: 0 },
-        ],
-    };
-
-    function pieSlices(dataTour) {
-        const card = within(document.querySelector(`[data-tour="${dataTour}"]`));
-        const pie = card.getByTestId('pie-chart');
-        return {
-            card,
-            labels: JSON.parse(pie.getAttribute('data-labels')),
-            values: JSON.parse(pie.getAttribute('data-values')),
-        };
-    }
-
-    it('renders three pies with slices matching the on-screen counts', () => {
-        renderNumbers(dashboardWithAgencies);
-
-        const cases = pieSlices('dashboard-pie-cases');
-        expect(cases.labels).toEqual(['Open', 'Closed']);
-        expect(cases.values).toEqual([5, 3]);
-
-        const agencies = pieSlices('dashboard-pie-agencies');
-        expect(agencies.labels).toEqual(['OWWA', 'DSWD']);
-        expect(agencies.values).toEqual([4, 2]);
-
-        const status = pieSlices('dashboard-pie-status');
-        expect(status.labels).toEqual(['Pending', 'Processing', 'For Compliance', 'Completed', 'Rejected']);
-        expect(status.values).toEqual([4, 7, 6, 8, 1]);
-
-        // Legends carry the humanized status text with counts.
-        expect(cases.card.getByText('Open')).toBeInTheDocument();
-        expect(status.card.getByText('For Compliance')).toBeInTheDocument();
-        expect(agencies.card.getByText('OWWA')).toBeInTheDocument();
-    });
-
-    it('shows a one-line empty state per pie when there is no data', () => {
-        renderNumbers({
-            ...dashboard,
-            openCases: 0,
-            closedCases: 0,
-            pendingReferrals: 0,
-            processingReferrals: 0,
-            forComplianceReferrals: 0,
-            completedReferrals: 0,
-            rejectedReferrals: 0,
-            referralStatusDistribution: [],
-            agencyBreakdown: [],
-            agencyResponseScorecard: [],
-        });
-
-        expect(screen.queryAllByTestId('pie-chart')).toHaveLength(0);
-        expect(screen.getByText('No case data to show.')).toBeInTheDocument();
-        expect(screen.getByText('No agency data to show.')).toBeInTheDocument();
-        expect(screen.getByText('No referral data to show.')).toBeInTheDocument();
-    });
-});
-
-describe('CaseManager Pending Reviews block', () => {
-    const dashboardWithIntakes = {
-        ...dashboard,
-        pendingReviewCount: 2,
-        intakeReview: [
-            { id: 'case-2', caseNo: 'CASE-002', trackerNumber: 'TRK-002', clientName: 'Maria Santos', status: 'PENDING_REVIEW', createdAt: '2026-09-20T00:00:00Z', href: '/cases/case-2' },
-            { id: 'case-1', caseNo: 'CASE-001', clientName: 'Juan Dela Cruz', status: 'PENDING_REVIEW', createdAt: '2026-09-10T00:00:00Z', href: '/cases/case-1' },
-        ],
-    };
-
-    it('renders pending filings oldest-first with Review routing', () => {
-        const intake = renderIntake(dashboardWithIntakes);
-
-        // Payload arrives newest-first; the queue shows oldest first.
-        const names = intake.getAllByText(/Juan Dela Cruz|Maria Santos/).map((node) => node.textContent);
-        expect(names).toEqual(['Juan Dela Cruz', 'Maria Santos']);
-
-        const reviews = intake.getAllByRole('link', { name: 'Review' }).map((node) => node.getAttribute('href'));
-        expect(reviews).toEqual(['/cases/case-1', '/cases/case-2']);
-
-        expect(intake.getByRole('link', { name: /View all/ })).toHaveAttribute('href', '/cases/review-pending');
-    });
-
-    it('shows a plain one-line empty state with no pending reviews', () => {
-        const intake = renderIntake();
-
-        expect(intake.getByText('No filings waiting for review.')).toBeInTheDocument();
-        expect(intake.queryByRole('link', { name: 'Review' })).not.toBeInTheDocument();
-    });
-});
-
-describe('CaseManager Notifications block', () => {
-    const notificationList = [
-        { id: 'notif-1', type: 'App\\Notifications\\ReferralCompletedNotification', data: { title: 'Referral completed', url: '/referrals/ref-1' }, read_at: null, created_at: new Date(Date.now() - 5 * 60000).toISOString() },
-        { id: 'notif-2', type: 'App\\Notifications\\CaseCreatedNotification', data: { title: 'Case opened', url: '/cases/case-9' }, read_at: '2026-09-26T10:00:00Z', created_at: '2026-09-26T10:00:00Z' },
-    ];
-
-    function stubNotifications({ items = notificationList, count = 1 } = {}) {
-        const calls = [];
-        vi.stubGlobal('fetch', vi.fn((url, options = {}) => {
-            calls.push([url, options]);
-            if (String(url).endsWith('/read')) {
-                return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
-            }
-            if (String(url).includes('unread-count')) {
-                return Promise.resolve({ ok: true, json: () => Promise.resolve({ count }) });
-            }
-            return Promise.resolve({ ok: true, json: () => Promise.resolve({ data: items }) });
-        }));
-        return calls;
-    }
-
-    function renderNotifications(customDashboard = dashboard) {
-        renderNumbers(customDashboard);
-
-        return within(document.querySelector('[data-tour="dashboard-work-queue"]'));
-    }
-
-    it('renders normalized rows with unread highlight, count, and View-all', async () => {
-        stubNotifications();
-        const card = renderNotifications();
-
-        expect(await card.findByText('Referral completed')).toBeInTheDocument();
-        expect(card.getByText('Success')).toBeInTheDocument();
-        expect(card.getByText('Case opened')).toBeInTheDocument();
-
-        expect(card.getByText('Referral completed').closest('div[class*="bg-blue-50"]')).not.toBeNull();
-        expect(card.getByText('Case opened').closest('div[class*="bg-blue-50"]')).toBeNull();
-
-        expect(card.getByText('1 unread')).toBeInTheDocument();
-        expect(card.getByRole('link', { name: /View all/ })).toHaveAttribute('href', '/notifications/page');
-    });
-
-    it('routes row clicks through action_url and marks rows read', async () => {
-        const calls = stubNotifications();
-        const card = renderNotifications();
-
-        fireEvent.click(await card.findByText('Referral completed'));
-        expect(routerSpy.visit).toHaveBeenCalledWith('/referrals/ref-1');
-
-        fireEvent.click(card.getByRole('button', { name: 'Read' }));
-        await waitFor(() => {
-            const patchCall = calls.find(([url]) => String(url).endsWith('/read'));
-            expect(patchCall).toBeDefined();
-            expect(patchCall[0]).toBe('/notifications/notif-1/read');
-            expect(patchCall[1].method).toBe('PATCH');
-        });
-    });
-
-    it('shows a plain one-line empty state when there are none', async () => {
-        const card = renderNotifications();
-
-        expect(await card.findByText('No notifications.')).toBeInTheDocument();
-        expect(card.queryByRole('button', { name: 'Read' })).not.toBeInTheDocument();
+        expect(screen.getByText('Juan Dela Cruz')).toBeInTheDocument();
+        expect(screen.queryByText('No filings waiting for review.')).not.toBeInTheDocument();
+        expect(screen.getByText('Nothing needs attention.')).toBeInTheDocument();
     });
 });
