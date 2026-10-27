@@ -144,6 +144,38 @@ jobs:
           echo "snapshot requested: $SNAP"
           echo "Pre-deploy snapshot: \`$SNAP\`" >> "$GITHUB_STEP_SUMMARY"
 
+      # Catch a half-configured chatbot BEFORE it reaches users.
+      #
+      # Chatbot settings arrive as GitHub Environment variables (merged wholesale
+      # into the container env via toJSON(vars)), so a missing key or a typo'd
+      # provider produces no build error — the container starts happily and every
+      # visitor gets "the assistant is currently unavailable". Observed live: the
+      # bot shipped enabled with no API key at all.
+      #
+      # Only enforced when the bot is switched on. A deliberately disabled bot is
+      # a valid state and must not fail the pipeline.
+      - name: Assert chatbot configuration is complete
+        env:
+          AI_CHATBOT_ENABLED: ${{ vars.AI_CHATBOT_ENABLED || 'false' }}
+          AI_CHATBOT_PROVIDER: ${{ vars.AI_CHATBOT_PROVIDER || 'gemini' }}
+          AI_CHATBOT_MODEL: ${{ vars.AI_CHATBOT_MODEL || '' }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          set -euo pipefail
+          if [ "$AI_CHATBOT_ENABLED" != "true" ]; then
+            echo "chatbot disabled; skipping provider assertions"
+            exit 0
+          fi
+          if [ "$AI_CHATBOT_PROVIDER" = "gemini" ] && [ -z "${GEMINI_API_KEY:-}" ]; then
+            echo "::error::AI_CHATBOT_ENABLED=true with provider gemini but GEMINI_API_KEY is empty. Add the GEMINI_API_KEY repository/environment secret, or set AI_CHATBOT_ENABLED=false."
+            exit 1
+          fi
+          if [ -z "$AI_CHATBOT_MODEL" ]; then
+            echo "::error::AI_CHATBOT_ENABLED=true but AI_CHATBOT_MODEL is unset. Set it to a model the provider still serves (for example gemini-3.5-flash-lite)."
+            exit 1
+          fi
+          echo "chatbot assertions passed: provider=$AI_CHATBOT_PROVIDER model=$AI_CHATBOT_MODEL"
+
       - name: Render deployment payload
         env:
           REGISTRY: ${{ vars.AWS_ACCOUNT_ID }}.dkr.ecr.ap-southeast-1.amazonaws.com
