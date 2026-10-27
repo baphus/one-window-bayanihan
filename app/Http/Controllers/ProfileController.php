@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\AuditModule;
 use App\Http\Requests\AvatarUploadRequest;
 use App\Http\Requests\ProfileUpdateRequest;
+use App\Services\AuditLogger;
 use App\Services\CloudinaryAvatarService;
 use App\Services\OnboardingService;
 use App\Services\ReferenceDataService;
@@ -164,10 +166,17 @@ class ProfileController extends Controller
         ]);
 
         $user = $request->user();
+        $userId = $user->id;
 
         Auth::logout();
 
         $user->delete();
+
+        AuditLogger::deleteAccount()
+            ->byId($userId)
+            ->forEntity($user, $user->name)
+            ->module(AuditModule::USER)
+            ->write();
 
         $request->session()->invalidate();
         $request->session()->regenerateToken();

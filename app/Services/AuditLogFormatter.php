@@ -86,6 +86,11 @@ class AuditLogFormatter
         $module = $this->formatModule((string) $log->module);
         $action = strtoupper((string) $log->action);
 
+        // Purposeful verbs render as the target sentence:
+        //   {Actor name} ({Role label}) {verb past-tense} {Entity identifier} {— salient detail}
+        // The role label is resolved from the causer's stored role; the
+        // entity identifier and salient detail come from entity_label +
+        // old_value/new_value.
         return match ($action) {
             'LOGIN' => $this->formatLogin($userName, $log),
             'LOGOUT' => $this->formatLogout($userName),
@@ -93,8 +98,462 @@ class AuditLogFormatter
             'UPDATE' => $this->formatUpdate($log, $module),
             'DELETE' => $this->formatDelete($userName, $log, $module),
             'PUBLISH' => $this->formatPublish($userName, $log, $module),
+            // Auth & security
+            'ACCEPT_INVITE' => $this->formatPurposefulSimple($userName, $log, 'accepted a staff invitation'),
+            'REQUEST_PASSWORD_RESET' => $this->formatPurposefulSimple($userName, $log, 'requested a password reset link'),
+            'RESET_PASSWORD' => $this->formatPurposefulSimple($userName, $log, 'reset their password'),
+            'CHANGE_PASSWORD' => $this->formatPurposefulSimple($userName, $log, 'changed their password'),
+            'VERIFY_EMAIL' => $this->formatPurposefulSimple($userName, $log, 'verified their email address'),
+            'CHANGE_EMAIL' => $this->formatEmailChange($userName, $log, false),
+            'ENABLE_MFA' => $this->formatPurposefulSimple($userName, $log, 'enabled two-factor authentication'),
+            'DISABLE_MFA' => $this->formatPurposefulSimple($userName, $log, 'disabled two-factor authentication'),
+            'REGENERATE_RECOVERY_CODES' => $this->formatPurposefulSimple($userName, $log, 'regenerated MFA recovery codes'),
+            'ADMIN_RESET_PASSWORD' => $this->formatAdminAction($userName, $log, 'reset the password of'),
+            'ADMIN_CHANGE_EMAIL' => $this->formatEmailChange($userName, $log, true),
+            'ADMIN_VERIFY_EMAIL' => $this->formatAdminAction($userName, $log, 'verified the email of'),
+            'DELETE_ACCOUNT' => $this->formatPurposefulSimple($userName, $log, 'deleted their own account'),
+            'PURGE_USER' => $this->formatAdminAction($userName, $log, 'permanently deleted'),
+            'REVOKE_SESSIONS' => $this->formatPurposefulSimple($userName, $log, 'revoked MFA-enrolled sessions'),
+            // Case Manager
+            'APPROVE' => $this->formatCaseDecision($userName, $log, 'approved'),
+            'REJECT' => $this->formatCaseDecision($userName, $log, 'rejected'),
+            'SEND' => $this->formatSend($userName, $log),
+            'CLOSE' => $this->formatCaseDecision($userName, $log, 'closed'),
+            'CREATE_CASE_ISSUE' => $this->formatCreateCaseIssue($userName, $log),
+            'DOWNLOAD' => $this->formatDownload($userName, $log),
+            'EXPORT' => $this->formatExport($userName, $log),
+            // Agency Focal referral lifecycle
+            'ACCEPT' => $this->formatReferralDecision($userName, $log, 'accepted'),
+            'REQUEST_COMPLIANCE' => $this->formatReferralDecision($userName, $log, 'requested compliance for'),
+            'RESUME' => $this->formatReferralDecision($userName, $log, 'resumed'),
+            'COMPLETE' => $this->formatReferralDecision($userName, $log, 'completed'),
+            'ASSIGN_SERVICE' => $this->formatServiceAction($userName, $log, 'assigned a service to'),
+            'UNASSIGN_SERVICE' => $this->formatServiceAction($userName, $log, 'removed a service from'),
+            'ADD_REQUIREMENT' => $this->formatRequirementAction($userName, $log, 'added a requirement to'),
+            'UPDATE_REQUIREMENT' => $this->formatRequirementAction($userName, $log, 'updated a requirement on'),
+            'REMOVE_REQUIREMENT' => $this->formatRequirementAction($userName, $log, 'removed a requirement from'),
+            'ISSUE_CLIENT_REQUEST' => $this->formatClientRequestAction($userName, $log, 'issued a client request on'),
+            'ISSUE_LINK' => $this->formatLinkAction($userName, $log, 'issued an access link for'),
+            'REISSUE_LINK' => $this->formatLinkAction($userName, $log, 'reissued an access link for'),
+            'REVOKE_LINK' => $this->formatLinkAction($userName, $log, 'revoked an access link for'),
+            'RESOLVE_CLIENT_REQUEST' => $this->formatClientRequestAction($userName, $log, 'resolved a client request on'),
+            'CANCEL_CLIENT_REQUEST' => $this->formatClientRequestAction($userName, $log, 'cancelled a client request on'),
+            'REOPEN_CLIENT_REQUEST' => $this->formatClientRequestAction($userName, $log, 'reopened a client request on'),
+            // System Admin
+            'INVITE' => $this->formatInviteAction($userName, $log, 'sent an invitation to'),
+            'RESEND_INVITE' => $this->formatInviteAction($userName, $log, 'resent an invitation to'),
+            'CANCEL_INVITE' => $this->formatInviteAction($userName, $log, 'cancelled an invitation to'),
+            'DEACTIVATE' => $this->formatAdminAction($userName, $log, 'deactivated'),
+            'REACTIVATE' => $this->formatAdminAction($userName, $log, 'reactivated'),
+            'RESET_MFA' => $this->formatAdminAction($userName, $log, 'reset MFA for'),
+            'TOGGLE_MAINTENANCE' => $this->formatToggleMaintenance($userName, $log),
+            'UPDATE_SECURITY' => $this->formatPurposefulSimple($userName, $log, 'updated security settings'),
+            'SEND_REMINDER' => $this->formatSendReminder($userName, $log),
+            // OFW / public
+            'REGISTER' => $this->formatRegister($userName, $log),
+            'FILE_INTAKE' => $this->formatFileIntake($userName, $log),
+            'REPLY_CLIENT_REQUEST' => $this->formatPurposefulSimple($userName, $log, 'replied to a client request'),
+            'UPLOAD_REPLY_DOC' => $this->formatPurposefulSimple($userName, $log, 'uploaded a reply document'),
+            'TRACK_CASE' => $this->formatTrackCase($userName, $log),
+            'SUBMIT_SURVEY' => $this->formatPurposefulSimple($userName, $log, 'submitted a satisfaction survey'),
+            'SUBMIT_CONTACT' => $this->formatPurposefulSimple($userName, $log, 'submitted a contact request'),
             default => sprintf('%s %s %s', $userName, $this->formatAction($action), $module),
         };
+    }
+
+    /**
+     * Resolve the actor's role label for the target sentence format.
+     * Agency Focal entries include the agency name: `(Agency Focal, OWWA)`.
+     * Anonymous (public-link) actors resolve to `Anonymous (link holder)`.
+     */
+    private function resolveRoleLabel(AuditLog $log): ?string
+    {
+        $user = $log->relationLoaded('user') ? $log->getRelation('user') : null;
+
+        if ($user === null && $log->user_id !== null) {
+            $user = cache()->remember(
+                "audit_actor:{$log->user_id}",
+                now()->addMinutes(10),
+                fn () => User::find($log->user_id),
+            );
+        }
+
+        if ($user === null) {
+            // Unattributed entry from a public link flow.
+            return $log->user_id === null ? 'link holder' : null;
+        }
+
+        return match ($user->role) {
+            UserRole::CASE_MANAGER->value => 'Case Manager',
+            UserRole::AGENCY->value => $user->agency?->name !== null
+                ? "Agency Focal, {$user->agency->name}"
+                : 'Agency Focal',
+            UserRole::ADMIN->value => 'System Admin',
+            default => null,
+        };
+    }
+
+    /**
+     * Build the actor + role suffix: `Juan dela Cruz (Case Manager)`.
+     * Anonymous actors (null user_id on a public-link action) resolve to
+     * `Anonymous (link holder)`.
+     */
+    private function resolveActorWithRole(AuditLog $log): string
+    {
+        if ($log->user_id === null) {
+            return 'Anonymous (link holder)';
+        }
+
+        $name = $this->resolveUserName($log);
+        $role = $this->resolveRoleLabel($log);
+
+        return $role !== null ? "{$name} ({$role})" : $name;
+    }
+
+    /**
+     * Resolve the entity identifier for the target sentence from the
+     * entity_label snapshot, falling back to new_value/old_value fields.
+     */
+    private function resolvePurposefulEntity(AuditLog $log): ?string
+    {
+        if (is_string($log->entity_label) && $log->entity_label !== '') {
+            return $log->entity_label;
+        }
+
+        $new = is_array($log->new_value) ? $log->new_value : [];
+        $old = is_array($log->old_value) ? $log->old_value : [];
+        $all = array_merge($old, $new);
+
+        return $this->extractEntityDetail($all, (string) $log->module) ?: null;
+    }
+
+    /**
+     * Render a salient detail suffix from new_value/old_value keys that carry
+     * the "why" of a business decision (reason, service, email, count, etc.).
+     */
+    private function resolveSalientDetail(AuditLog $log, array $keys): ?string
+    {
+        $new = is_array($log->new_value) ? $log->new_value : [];
+        $old = is_array($log->old_value) ? $log->old_value : [];
+
+        foreach ($keys as $key) {
+            if (array_key_exists($key, $new) && is_scalar($new[$key]) && (string) $new[$key] !== '') {
+                return (string) $new[$key];
+            }
+            if (array_key_exists($key, $old) && is_scalar($old[$key]) && (string) $old[$key] !== '') {
+                return (string) $old[$key];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Simple purposeful verb: `{Actor} ({Role}) {verb phrase}`.
+     * Used when the entity is the actor themselves (password, MFA, account).
+     */
+    private function formatPurposefulSimple(string $userName, AuditLog $log, string $verbPhrase): string
+    {
+        $actor = $this->resolveActorWithRole($log);
+
+        return "{$actor} {$verbPhrase}";
+    }
+
+    /**
+     * Admin acting on another user: `{Actor} ({Role}) {verb} {Target name}`.
+     */
+    private function formatAdminAction(string $userName, AuditLog $log, string $verb): string
+    {
+        $actor = $this->resolveActorWithRole($log);
+        $target = $this->resolvePurposefulEntity($log) ?? $this->resolveSalientDetail($log, ['name', 'email']);
+
+        return $target !== null
+            ? "{$actor} {$verb} {$target}"
+            : "{$actor} {$verb} a user";
+    }
+
+    /**
+     * Email change (self or admin-driven): includes old → new addresses.
+     */
+    private function formatEmailChange(string $userName, AuditLog $log, bool $admin): string
+    {
+        $actor = $this->resolveActorWithRole($log);
+        $old = $this->resolveSalientDetail($log, ['old_email']) ?? ($log->old_value['email'] ?? null);
+        $new = $this->resolveSalientDetail($log, ['new_email']) ?? ($log->new_value['email'] ?? null);
+        $verb = $admin ? 'changed the email of' : 'changed their email';
+
+        if ($old !== null && $new !== null) {
+            return "{$actor} {$verb} from {$old} to {$new}";
+        }
+
+        return "{$actor} {$verb}";
+    }
+
+    /**
+     * Case Manager decision on a case: `{Actor} ({Role}) {verb} Case {number} {— detail}`.
+     */
+    private function formatCaseDecision(string $userName, AuditLog $log, string $verb): string
+    {
+        $actor = $this->resolveActorWithRole($log);
+        $caseNumber = $this->resolvePurposefulEntity($log)
+            ?? $this->resolveSalientDetail($log, ['case_number']);
+
+        $base = $caseNumber !== null
+            ? "{$actor} {$verb} Case {$caseNumber}"
+            : "{$actor} {$verb} a case";
+
+        $detail = $this->resolveSalientDetail($log, ['reason', 'deletion_reason', 'summary']);
+
+        return $detail !== null ? "{$base} — {$detail}" : $base;
+    }
+
+    /**
+     * Sending a referral to an agency: includes agency name + attachment count.
+     */
+    private function formatSend(string $userName, AuditLog $log): string
+    {
+        $actor = $this->resolveActorWithRole($log);
+        $entity = $this->resolvePurposefulEntity($log);
+        $agency = $this->resolveSalientDetail($log, ['agency_name']);
+        $attachmentCount = $log->new_value['attachment_count'] ?? null;
+
+        $base = $entity !== null
+            ? "{$actor} sent {$entity}"
+            : "{$actor} sent a referral";
+
+        if ($agency !== null) {
+            $base .= " to {$agency}";
+        }
+
+        if ($attachmentCount !== null) {
+            $base .= " — {$attachmentCount} attachment(s)";
+        }
+
+        // Re-refer context
+        $previousId = $log->new_value['previous_referral_id'] ?? null;
+        $rejectionReason = $log->new_value['rejection_reason'] ?? null;
+
+        if ($previousId !== null) {
+            $base .= ' (re-referral)';
+        }
+
+        if ($rejectionReason !== null) {
+            $base .= " — previous rejection: {$rejectionReason}";
+        }
+
+        return $base;
+    }
+
+    /**
+     * Quick-add case issue during casework.
+     */
+    private function formatCreateCaseIssue(string $userName, AuditLog $log): string
+    {
+        $actor = $this->resolveActorWithRole($log);
+        $issueName = $this->resolvePurposefulEntity($log)
+            ?? $this->resolveSalientDetail($log, ['case_issue', 'name']);
+
+        return $issueName !== null
+            ? "{$actor} added case issue {$issueName}"
+            : "{$actor} added a case issue";
+    }
+
+    /**
+     * Download of a document or attachment.
+     */
+    private function formatDownload(string $userName, AuditLog $log): string
+    {
+        $actor = $this->resolveActorWithRole($log);
+        $fileName = $this->resolvePurposefulEntity($log)
+            ?? $this->resolveSalientDetail($log, ['file_name']);
+
+        return $fileName !== null
+            ? "{$actor} downloaded {$fileName}"
+            : "{$actor} downloaded a document";
+    }
+
+    /**
+     * Export of cases/clients/referrals/audit/reports.
+     */
+    private function formatExport(string $userName, AuditLog $log): string
+    {
+        $actor = $this->resolveActorWithRole($log);
+        $format = $this->resolveSalientDetail($log, ['format']);
+        $scope = $this->resolveSalientDetail($log, ['scope', 'type']);
+
+        $base = "{$actor} exported";
+
+        if ($scope !== null) {
+            $base .= " {$scope}";
+        }
+
+        if ($format !== null) {
+            $base .= " ({$format})";
+        }
+
+        return $base;
+    }
+
+    /**
+     * Agency Focal referral decision: includes service + agency in entity label.
+     */
+    private function formatReferralDecision(string $userName, AuditLog $log, string $verb): string
+    {
+        $actor = $this->resolveActorWithRole($log);
+        $entity = $this->resolvePurposefulEntity($log);
+
+        $base = $entity !== null
+            ? "{$actor} {$verb} {$entity}"
+            : "{$actor} {$verb} a referral";
+
+        $reason = $this->resolveSalientDetail($log, ['rejection_reason', 'decision_comment']);
+
+        return $reason !== null ? "{$base} — {$reason}" : $base;
+    }
+
+    /**
+     * Service assignment/unassignment on a referral.
+     */
+    private function formatServiceAction(string $userName, AuditLog $log, string $verb): string
+    {
+        $actor = $this->resolveActorWithRole($log);
+        $entity = $this->resolvePurposefulEntity($log);
+        $serviceName = $this->resolveSalientDetail($log, ['service_name']);
+
+        $base = $entity !== null
+            ? "{$actor} {$verb} {$entity}"
+            : "{$actor} {$verb} a referral";
+
+        if ($serviceName !== null) {
+            $base .= " — {$serviceName}";
+        }
+
+        return $base;
+    }
+
+    /**
+     * Requirement management on a referral service.
+     */
+    private function formatRequirementAction(string $userName, AuditLog $log, string $verb): string
+    {
+        $actor = $this->resolveActorWithRole($log);
+        $entity = $this->resolvePurposefulEntity($log);
+        $requirement = $this->resolveSalientDetail($log, ['requirement_name', 'title']);
+
+        $base = $entity !== null
+            ? "{$actor} {$verb} {$entity}"
+            : "{$actor} {$verb} a referral";
+
+        if ($requirement !== null) {
+            $base .= " — {$requirement}";
+        }
+
+        return $base;
+    }
+
+    /**
+     * Client request lifecycle action on a referral.
+     */
+    private function formatClientRequestAction(string $userName, AuditLog $log, string $verb): string
+    {
+        $actor = $this->resolveActorWithRole($log);
+        $entity = $this->resolvePurposefulEntity($log);
+
+        return $entity !== null
+            ? "{$actor} {$verb} {$entity}"
+            : "{$actor} {$verb} a referral";
+    }
+
+    /**
+     * Access link lifecycle.
+     */
+    private function formatLinkAction(string $userName, AuditLog $log, string $verb): string
+    {
+        $actor = $this->resolveActorWithRole($log);
+        $entity = $this->resolvePurposefulEntity($log);
+
+        return $entity !== null
+            ? "{$actor} {$verb} {$entity}"
+            : "{$actor} {$verb} a referral";
+    }
+
+    /**
+     * Invitation lifecycle: target email is the salient detail.
+     */
+    private function formatInviteAction(string $userName, AuditLog $log, string $verb): string
+    {
+        $actor = $this->resolveActorWithRole($log);
+        $email = $this->resolveSalientDetail($log, ['email']);
+
+        return $email !== null
+            ? "{$actor} {$verb} {$email}"
+            : "{$actor} {$verb} a user";
+    }
+
+    /**
+     * Maintenance mode toggle: enabled/disabled from new_value.
+     */
+    private function formatToggleMaintenance(string $userName, AuditLog $log): string
+    {
+        $actor = $this->resolveActorWithRole($log);
+        $enabled = $log->new_value['enabled'] ?? null;
+        $verb = $enabled ? 'enabled maintenance mode' : 'disabled maintenance mode';
+
+        return "{$actor} {$verb}";
+    }
+
+    /**
+     * Overdue reminder batch.
+     */
+    private function formatSendReminder(string $userName, AuditLog $log): string
+    {
+        $actor = $this->resolveActorWithRole($log);
+        $count = $log->new_value['reminder_count'] ?? $log->new_value['count'] ?? null;
+
+        return $count !== null
+            ? "{$actor} sent overdue reminders to {$count} referral(s)"
+            : "{$actor} sent overdue referral reminders";
+    }
+
+    /**
+     * OFW self-registration.
+     */
+    private function formatRegister(string $userName, AuditLog $log): string
+    {
+        $actor = $this->resolveActorWithRole($log);
+        $email = $this->resolveSalientDetail($log, ['email']);
+
+        return $email !== null
+            ? "{$actor} registered an account ({$email})"
+            : "{$actor} registered an account";
+    }
+
+    /**
+     * OFW self-filed intake.
+     */
+    private function formatFileIntake(string $userName, AuditLog $log): string
+    {
+        $actor = $this->resolveActorWithRole($log);
+        $tracker = $this->resolvePurposefulEntity($log)
+            ?? $this->resolveSalientDetail($log, ['tracker_number', 'case_number']);
+
+        return $tracker !== null
+            ? "{$actor} filed an intake ({$tracker})"
+            : "{$actor} filed an intake";
+    }
+
+    /**
+     * Case tracking via OTP.
+     */
+    private function formatTrackCase(string $userName, AuditLog $log): string
+    {
+        $actor = $this->resolveActorWithRole($log);
+        $tracker = $this->resolvePurposefulEntity($log)
+            ?? $this->resolveSalientDetail($log, ['tracker_number', 'case_number']);
+
+        return $tracker !== null
+            ? "{$actor} tracked Case {$tracker}"
+            : "{$actor} tracked a case";
     }
 
     public function formatAction(string $action): string

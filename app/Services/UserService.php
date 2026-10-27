@@ -51,15 +51,12 @@ class UserService
                 'is_active' => true,
             ]);
 
-            AuditLog::create([
-                'action' => AuditAction::CREATE->value,
-                'module' => AuditModule::USER->value,
-                'entity_id' => $user->id,
-                'new_value' => ['name' => $user->name, 'email' => $user->email, 'role' => $user->role],
-                'description' => 'User created directly by administrator',
-                'user_id' => $actorId ?? auth()->id(),
-                'timestamp' => now(),
-            ]);
+            AuditLogger::log(AuditAction::CREATE)
+                ->byId($actorId ?? auth()->id())
+                ->forEntity($user, $user->name)
+                ->module(AuditModule::USER)
+                ->context(null, ['name' => $user->name, 'email' => $user->email, 'role' => $user->role])
+                ->write();
 
             return $user;
         });
@@ -97,6 +94,12 @@ class UserService
 
         Mail::to($data['email'])->queue(new UserInviteMail($result['invite'], $result['token']));
 
+        AuditLogger::invite()
+            ->byId($actorId)
+            ->module(AuditModule::USER_INVITE)
+            ->context(null, ['email' => $data['email'], 'role' => $data['role']])
+            ->write();
+
         return $result;
     }
 
@@ -124,6 +127,12 @@ class UserService
 
         Mail::to($fresh->email)->queue(new UserInviteMail($fresh->refresh(), $token));
 
+        AuditLogger::resendInvite()
+            ->byId(auth()->id())
+            ->module(AuditModule::USER_INVITE)
+            ->context(null, ['email' => $fresh->email])
+            ->write();
+
         return $fresh;
     }
 
@@ -137,6 +146,12 @@ class UserService
             }
 
             $locked->update(['cancelled_at' => now()]);
+
+            AuditLogger::cancelInvite()
+                ->byId(auth()->id())
+                ->module(AuditModule::USER_INVITE)
+                ->context(null, ['email' => $invite->email])
+                ->write();
 
             return $locked;
         });
@@ -200,19 +215,13 @@ class UserService
                 $user->email = $data['email'];
                 $user->save();
 
-                AuditLog::create([
-                    'action' => AuditAction::UPDATE->value,
-                    'module' => AuditModule::USER->value,
-                    // Account-credential change: must appear in the Security view
-                    // (matches EmailChangeController).
-                    'category' => AuditCategory::SECURITY,
-                    'entity_id' => $user->id,
-                    'old_value' => ['email' => $oldEmail],
-                    'new_value' => ['email' => $data['email']],
-                    'description' => 'Email changed from '.$oldEmail.' to '.$data['email'].' by administrator',
-                    'user_id' => $actorId ?? auth()->id(),
-                    'timestamp' => now(),
-                ]);
+                AuditLogger::adminChangeEmail()
+                    ->byId($actorId ?? auth()->id())
+                    ->forEntity($user, $user->name)
+                    ->module(AuditModule::USER)
+                    ->category(AuditCategory::SECURITY)
+                    ->context(['email' => $oldEmail], ['email' => $data['email']])
+                    ->write();
 
                 $emailChangeMail = [
                     'oldEmail' => $oldEmail,
@@ -233,17 +242,12 @@ class UserService
             // page used to leave behind. Log the credential change explicitly,
             // the same way the email-change branch above does.
             if ($passwordChanged) {
-                AuditLog::create([
-                    'action' => AuditAction::UPDATE->value,
-                    'module' => AuditModule::USER->value,
-                    'category' => AuditCategory::SECURITY,
-                    'entity_id' => $user->id,
-                    'old_value' => null,
-                    'new_value' => null,
-                    'description' => 'Password was reset by administrator',
-                    'user_id' => $actorId ?? auth()->id(),
-                    'timestamp' => now(),
-                ]);
+                AuditLogger::adminResetPassword()
+                    ->byId($actorId ?? auth()->id())
+                    ->forEntity($user, $user->name)
+                    ->module(AuditModule::USER)
+                    ->category(AuditCategory::SECURITY)
+                    ->write();
             }
 
             return $user;
@@ -291,6 +295,13 @@ class UserService
             $user->delete();
 
             $this->invalidateSessions($user);
+
+            AuditLogger::deactivateUser()
+                ->byId(auth()->id())
+                ->forEntity($user, $user->name)
+                ->module(AuditModule::USER)
+                ->context(['is_active' => true], ['is_active' => false])
+                ->write();
 
             return $user;
         });
@@ -356,6 +367,12 @@ class UserService
                 $this->invalidateSessions($locked);
 
                 $locked->forceDelete();
+
+                AuditLogger::purgeUser()
+                    ->byId(auth()->id())
+                    ->forEntity($user, $user->name)
+                    ->module(AuditModule::USER)
+                    ->write();
             });
         } catch (QueryException $e) {
             // A RESTRICT column is rejected by an immediate trigger and
@@ -473,16 +490,12 @@ class UserService
             $user->deleted_by = null;
             $user->saveQuietly();
 
-            AuditLog::create([
-                'action' => AuditAction::UPDATE->value,
-                'module' => AuditModule::USER->value,
-                'entity_id' => $user->id,
-                'description' => 'User '.$user->name.' reactivated',
-                'old_value' => ['is_active' => false, 'is_deleted' => true],
-                'new_value' => ['is_active' => true, 'is_deleted' => false],
-                'user_id' => $actorId ?? auth()->id(),
-                'timestamp' => now(),
-            ]);
+            AuditLogger::reactivateUser()
+                ->byId($actorId ?? auth()->id())
+                ->forEntity($user, $user->name)
+                ->module(AuditModule::USER)
+                ->context(['is_active' => false], ['is_active' => true])
+                ->write();
 
             return $user;
         });
@@ -492,6 +505,13 @@ class UserService
     {
         $user->email_verified_at = $user->email_verified_at ? null : now();
         $user->save();
+
+        AuditLogger::adminVerifyEmail()
+            ->by(auth()->user())
+            ->forEntity($user, $user->name)
+            ->module(AuditModule::USER)
+            ->context(null, ['email_verified_at' => $user->email_verified_at ? 'verified' : 'unverified'])
+            ->write();
 
         return $user;
     }
@@ -507,7 +527,11 @@ class UserService
             // Kill active sessions for the target user to force re-login
             $this->invalidateSessions($target);
 
-            SecurityAuditLogger::log('mfa', sprintf('%s admin-reset MFA for %s', $admin->name, $target->name));
+            AuditLogger::resetMfa()
+                ->by($admin)
+                ->forEntity($target, $target->name)
+                ->module(AuditModule::MFA)
+                ->write();
 
             return $target;
         });

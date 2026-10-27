@@ -6,7 +6,6 @@ use App\Enums\AuditAction;
 use App\Enums\AuditModule;
 use App\Enums\UserRole;
 use App\Helpers\CacheHelper;
-use App\Models\AuditLog;
 use App\Models\CaseCategory;
 use App\Models\CaseDocument;
 use App\Models\CaseFile;
@@ -241,16 +240,13 @@ class CaseService
 
             $this->eventRecorder->caseOpened($case, $userId);
 
-            AuditLog::create([
-                'action' => AuditAction::PUBLISH->value,
-                'module' => AuditModule::CASE->value,
-                'entity_id' => $case->id,
-                'description' => 'Case '.$case->case_number.' approved'.(! empty($case->summary) ? ' — '.$case->summary : ''),
-                'old_value' => ['status' => CaseFile::STATUS_PENDING_REVIEW],
-                'new_value' => ['status' => 'OPEN'],
-                'user_id' => $userId,
-                'timestamp' => now(),
-            ]);
+            AuditLogger::approve()
+                ->byId($userId)
+                ->forEntity($case, $case->case_number)
+                ->module(AuditModule::CASE)
+                ->context(['status' => CaseFile::STATUS_PENDING_REVIEW], ['status' => 'OPEN'])
+                ->description('Case '.$case->case_number.' approved'.(! empty($case->summary) ? ' — '.$case->summary : ''))
+                ->write();
 
             return $case->load(['client.addresses', 'client.employments', 'client.nextOfKin', 'user', 'category', 'categories', 'caseIssue']);
         });
@@ -279,16 +275,12 @@ class CaseService
             $case->categories()->detach();
             $case->delete();
 
-            AuditLog::create([
-                'action' => AuditAction::DELETE->value,
-                'module' => AuditModule::CASE->value,
-                'entity_id' => $case->id,
-                'description' => "Filing {$case->case_number} rejected — {$reason}",
-                'old_value' => ['status' => CaseFile::STATUS_PENDING_REVIEW],
-                'new_value' => ['is_deleted' => true, 'deletion_reason' => $reason],
-                'user_id' => $userId,
-                'timestamp' => now(),
-            ]);
+            AuditLogger::reject()
+                ->byId($userId)
+                ->forEntity($case, $case->case_number)
+                ->module(AuditModule::CASE)
+                ->context(['status' => CaseFile::STATUS_PENDING_REVIEW], ['is_deleted' => true, 'deletion_reason' => $reason])
+                ->write();
 
             return $case;
         });
@@ -354,16 +346,13 @@ class CaseService
             return;
         }
 
-        AuditLog::create([
-            'action' => $action,
-            'module' => AuditModule::CASE->value,
-            'entity_id' => $case->id,
-            'description' => 'Case category assignments changed.',
-            'old_value' => ['category_ids' => $oldCategoryIds],
-            'new_value' => ['category_ids' => $newCategoryIds],
-            'user_id' => $userId,
-            'timestamp' => now(),
-        ]);
+        AuditLogger::log(AuditAction::from($action))
+            ->byId($userId)
+            ->forEntity($case, $case->case_number)
+            ->module(AuditModule::CASE)
+            ->context(['category_ids' => $oldCategoryIds], ['category_ids' => $newCategoryIds])
+            ->description('Case category assignments changed.')
+            ->write();
     }
 
     private function sortedCategoryIds(array $categoryIds): array
@@ -650,7 +639,8 @@ class CaseService
                 $this->recordCategoryMutation($case, $oldCategoryIds, $categoryIds, $userId);
             }
 
-            // Audit logging is handled by AuditObserver::updated() — no manual log needed.
+            // Field-level audit logging is handled by AuditObserver::updated();
+            // the close decision below is written as its own purposeful entry.
 
             if ($case->wasChanged('status')) {
                 // Case edits can close or reopen a case just like toggleCaseStatus —
@@ -658,6 +648,13 @@ class CaseService
                 // administrative and intentionally not client-visible.)
                 if ($case->status === 'CLOSED') {
                     $this->eventRecorder->caseClosed($case, $userId);
+
+                    AuditLogger::close()
+                        ->byId($userId)
+                        ->forEntity($case, $case->case_number)
+                        ->module(AuditModule::CASE)
+                        ->context(['status' => $oldStatus], ['status' => 'CLOSED'])
+                        ->write();
                 } elseif ($case->status === 'OPEN' && $oldStatus === 'CLOSED') {
                     $this->eventRecorder->caseReopened($case, $userId);
                 }
@@ -737,16 +734,12 @@ class CaseService
                 'status' => 'ARCHIVED',
             ]);
 
-            AuditLog::create([
-                'action' => AuditAction::ARCHIVE->value,
-                'module' => AuditModule::CASE->value,
-                'entity_id' => $case->id,
-                'description' => 'Case '.$case->case_number.' archived',
-                'old_value' => ['status' => 'CLOSED'],
-                'new_value' => ['status' => 'ARCHIVED'],
-                'user_id' => $userId,
-                'timestamp' => now(),
-            ]);
+            AuditLogger::log(AuditAction::ARCHIVE)
+                ->byId($userId)
+                ->forEntity($case, $case->case_number)
+                ->module(AuditModule::CASE)
+                ->context(['status' => 'CLOSED'], ['status' => 'ARCHIVED'])
+                ->write();
 
             return $case->load([
                 'client.addresses',
@@ -780,16 +773,12 @@ class CaseService
                 'closed_at' => $case->closed_at ?? now(),
             ]);
 
-            AuditLog::create([
-                'action' => AuditAction::UNARCHIVE->value,
-                'module' => AuditModule::CASE->value,
-                'entity_id' => $case->id,
-                'description' => 'Case '.$case->case_number.' unarchived',
-                'old_value' => ['status' => 'ARCHIVED'],
-                'new_value' => ['status' => 'CLOSED'],
-                'user_id' => $userId,
-                'timestamp' => now(),
-            ]);
+            AuditLogger::log(AuditAction::UNARCHIVE)
+                ->byId($userId)
+                ->forEntity($case, $case->case_number)
+                ->module(AuditModule::CASE)
+                ->context(['status' => 'ARCHIVED'], ['status' => 'CLOSED'])
+                ->write();
 
             return $case->load([
                 'client.addresses',
@@ -858,11 +847,19 @@ class CaseService
 
             if ($case->status === 'CLOSED') {
                 $this->eventRecorder->caseClosed($case, $userId);
+
+                AuditLogger::close()
+                    ->byId($userId)
+                    ->forEntity($case, $case->case_number)
+                    ->module(AuditModule::CASE)
+                    ->context(['status' => $oldStatus], ['status' => 'CLOSED'])
+                    ->write();
             } else {
                 $this->eventRecorder->caseReopened($case, $userId);
             }
 
-            // Audit logging is handled by AuditObserver::updated() — no manual log needed.
+            // Reopening is captured by AuditObserver::updated(); the close
+            // decision above is written as its own purposeful entry.
 
             DB::afterCommit(function () use ($case, $oldStatus, $userId) {
                 try {
@@ -1207,16 +1204,13 @@ class CaseService
             // Explicit audit entry with the deletion reason for COA compliance.
             // AuditObserver::deleted() also fires, but that captures field diffs;
             // this entry captures the human-provided reason.
-            AuditLog::create([
-                'action' => AuditAction::DELETE->value,
-                'module' => AuditModule::CASE->value,
-                'entity_id' => $case->id,
-                'description' => "Case {$case->case_number} deleted — {$reason}",
-                'old_value' => ['status' => $case->status, 'case_number' => $case->case_number],
-                'new_value' => ['is_deleted' => true, 'deletion_reason' => $reason],
-                'user_id' => $userId,
-                'timestamp' => now(),
-            ]);
+            AuditLogger::log(AuditAction::DELETE)
+                ->byId($userId)
+                ->forEntity($case, $case->case_number)
+                ->module(AuditModule::CASE)
+                ->context(['status' => $case->status, 'case_number' => $case->case_number], ['is_deleted' => true, 'deletion_reason' => $reason])
+                ->description("Case {$case->case_number} deleted — {$reason}")
+                ->write();
         });
     }
 
@@ -1436,23 +1430,20 @@ class CaseService
         // Audit the purge batch, including what the run could not purge.
         $skippedCount = count($skippedCaseIds);
 
-        AuditLog::create([
-            'action' => AuditAction::PURGE->value,
-            'module' => AuditModule::CASE->value,
-            'entity_id' => null,
-            'description' => "Auto-purged {$purgedCount} case(s) with deleted_at before {$cutoff->toDateString()}"
-                .($skippedCount > 0 ? "; skipped {$skippedCount} held by a RESTRICT foreign key" : ''),
-            'old_value' => [
+        AuditLogger::log(AuditAction::PURGE)
+            ->byId(null)
+            ->entity(null)
+            ->module(AuditModule::CASE)
+            ->context([
                 'purged_count' => $purgedCount,
                 'purged_file_count' => $purgedFileCount,
                 'skipped_count' => $skippedCount,
                 'skipped_case_ids' => $skippedCaseIds,
                 'cutoff_date' => $cutoff->toDateString(),
-            ],
-            'new_value' => null,
-            'user_id' => null,
-            'timestamp' => now(),
-        ]);
+            ], null)
+            ->description("Auto-purged {$purgedCount} case(s) with deleted_at before {$cutoff->toDateString()}"
+                .($skippedCount > 0 ? "; skipped {$skippedCount} held by a RESTRICT foreign key" : ''))
+            ->write();
 
         return $purgedCount;
     }

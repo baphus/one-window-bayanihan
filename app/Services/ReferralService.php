@@ -577,7 +577,7 @@ class ReferralService
             ->where('service_id', $serviceId)
             ->max('sort_order');
 
-        return ReferralServiceRequirement::create([
+        $requirement = ReferralServiceRequirement::create([
             'referral_id' => $referral->id,
             'service_id' => $serviceId,
             'name' => $data['name'],
@@ -585,6 +585,16 @@ class ReferralService
             'is_required' => $data['is_required'] ?? true,
             'sort_order' => ($maxSortOrder ?? -1) + 1,
         ]);
+
+        // Purposeful audit entry: the observer only records a generic CREATE.
+        AuditLogger::addRequirement()
+            ->byId(auth()->id())
+            ->forEntity($referral, $referral->agency?->name)
+            ->module(AuditModule::REFERRAL_SERVICE_REQUIREMENT)
+            ->context(null, ['service_id' => $serviceId, 'requirement_name' => $requirement->name])
+            ->write();
+
+        return $requirement;
     }
 
     public function updateRequirement(Referral $referral, string $serviceId, string $requirementId, array $data): ReferralServiceRequirement
@@ -600,7 +610,17 @@ class ReferralService
             'is_required' => $data['is_required'] ?? null,
         ], fn ($v) => $v !== null));
 
-        return $requirement->fresh();
+        $requirement = $requirement->fresh();
+
+        // Purposeful audit entry: the observer only records a generic UPDATE.
+        AuditLogger::updateRequirement()
+            ->byId(auth()->id())
+            ->forEntity($referral, $referral->agency?->name)
+            ->module(AuditModule::REFERRAL_SERVICE_REQUIREMENT)
+            ->context(null, ['service_id' => $serviceId, 'requirement_name' => $requirement?->name])
+            ->write();
+
+        return $requirement;
     }
 
     public function deleteRequirement(Referral $referral, string $serviceId, string $requirementId): void
@@ -610,7 +630,17 @@ class ReferralService
             ->where('service_id', $serviceId)
             ->firstOrFail();
 
+        $requirementName = $requirement->name;
+
         $requirement->delete();
+
+        // Purposeful audit entry: the observer only records a generic DELETE.
+        AuditLogger::removeRequirement()
+            ->byId(auth()->id())
+            ->forEntity($referral, $referral->agency?->name)
+            ->module(AuditModule::REFERRAL_SERVICE_REQUIREMENT)
+            ->context(['service_id' => $serviceId, 'requirement_name' => $requirementName], null)
+            ->write();
     }
 
     /**
@@ -680,6 +710,30 @@ class ReferralService
 
             $changed = true;
             $caseId = $referral->case_id;
+
+            // Purposeful audit entry for the transition (the observer only
+            // records a generic UPDATE). PROCESSING is "accept" on first
+            // engagement and "resume" when coming back from FOR_COMPLIANCE.
+            $audit = match (true) {
+                $status === 'PROCESSING' && $oldStatus === 'FOR_COMPLIANCE' => AuditLogger::resume(),
+                $status === 'PROCESSING' => AuditLogger::acceptReferral(),
+                $status === 'FOR_COMPLIANCE' => AuditLogger::requestCompliance(),
+                $status === 'COMPLETED' => AuditLogger::completeReferral(),
+                $status === 'REJECTED' => AuditLogger::log(AuditAction::REJECT),
+                default => AuditLogger::resume(),
+            };
+
+            $newContext = ['status' => $status];
+
+            if ($status === 'REJECTED') {
+                $newContext['rejection_reason'] = $rejectionReason;
+            }
+
+            $audit->byId($userId)
+                ->forEntity($referral, $referral->agency?->name)
+                ->module(AuditModule::REFERRAL)
+                ->context(['status' => $oldStatus], $newContext)
+                ->write();
 
             $this->eventRecorder->referralStatusChanged($referral, $oldStatus, $status, $userId);
 
@@ -1070,19 +1124,13 @@ class ReferralService
             $attachment->deleted_at = now();
             $attachment->saveQuietly();
 
-            AuditLog::create([
-                'action' => AuditAction::DELETE->value,
-                'module' => AuditModule::REFERRAL_ATTACHMENT->value,
-                'entity_id' => $attachmentId,
-                'old_value' => ['file_name' => $fileName, 'referral_id' => $referralId],
-                'new_value' => null,
-                'user_id' => $userId,
-                'timestamp' => now(),
-                'ip_address' => request()?->ip() ?? 'cli',
-                'user_agent' => request()?->userAgent() ?? 'cli',
-                'request_id' => request()?->attributes->get('correlation_id') ?? (string) Str::uuid(),
-                'description' => "Removed attachment: {$fileName}",
-            ]);
+            AuditLogger::log(AuditAction::DELETE)
+                ->byId($userId)
+                ->forEntity($attachment, $fileName)
+                ->module(AuditModule::REFERRAL_ATTACHMENT)
+                ->context(['file_name' => $fileName, 'referral_id' => $referralId], null)
+                ->description("Removed attachment: {$fileName}")
+                ->write();
         });
     }
 

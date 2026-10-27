@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\AuditAction;
 use App\Enums\AuditModule;
 use App\Enums\UserRole;
 use App\Helpers\CacheHelper;
@@ -14,6 +13,7 @@ use App\Models\Referral;
 use App\Models\ReferralAttachment;
 use App\Services\AuditCategory;
 use App\Services\AuditLogFormatter;
+use App\Services\AuditLogger;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -469,21 +469,16 @@ class AuditLogController extends Controller
 
     private function logExportAttempt(Request $request, string $result): void
     {
-        AuditLog::create([
-            'action' => AuditAction::EXPORT->value,
-            'module' => AuditModule::AUDIT->value,
-            'entity_id' => $request->user()->id,
-            'description' => sprintf('%s requested an audit log export — %s', $request->user()->name, $result),
-            'new_value' => [
+        AuditLogger::export()
+            ->by($request->user())
+            ->forEntity($request->user(), $request->user()->name)
+            ->module(AuditModule::AUDIT)
+            ->description(sprintf('%s requested an audit log export — %s', $request->user()->name, $result))
+            ->context(null, [
                 'result' => $result,
                 'filters' => $request->only(['action', 'module', 'category', 'user_id', 'role', 'has_changes', 'date_from', 'date_to', 'search']),
-            ],
-            'user_id' => $request->user()->id,
-            'timestamp' => now(),
-            'ip_address' => $request->ip(),
-            'user_agent' => $request->userAgent(),
-            'request_id' => $request->attributes->get('correlation_id') ?? $request->header('X-Request-ID') ?? (string) Str::uuid(),
-        ]);
+            ])
+            ->write();
     }
 
     /**

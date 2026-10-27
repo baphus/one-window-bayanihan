@@ -7,7 +7,7 @@ use App\Enums\AuditModule;
 use App\Helpers\CacheHelper;
 use App\Http\Controllers\Concerns\ResolvesPerPage;
 use App\Models\Agency;
-use App\Models\AuditLog;
+use App\Services\AuditLogger;
 use App\Services\CloudinaryAvatarService;
 use App\Services\OnboardingService;
 use Illuminate\Http\Request;
@@ -272,6 +272,13 @@ class AdminAgencyController extends Controller
         $agency->is_active = false;
         $agency->delete();
 
+        AuditLogger::log(AuditAction::DEACTIVATE)
+            ->byId(auth()->id())
+            ->forEntity($agency, $agency->name)
+            ->module(AuditModule::AGENCY)
+            ->context(['is_active' => true], ['is_active' => false])
+            ->write();
+
         return redirect()->route('admin.agencies.index')
             ->with('success', 'Agency deactivated successfully.');
     }
@@ -291,16 +298,12 @@ class AdminAgencyController extends Controller
         $agency->deleted_by = null;
         $agency->saveQuietly();
 
-        AuditLog::create([
-            'action' => AuditAction::UPDATE->value,
-            'module' => AuditModule::AGENCY->value,
-            'entity_id' => $agency->id,
-            'description' => 'Agency '.$agency->name.' reactivated',
-            'old_value' => ['is_active' => false, 'is_deleted' => true],
-            'new_value' => ['is_active' => true, 'is_deleted' => false],
-            'user_id' => auth()->id(),
-            'timestamp' => now(),
-        ]);
+        AuditLogger::log(AuditAction::REACTIVATE)
+            ->byId(auth()->id())
+            ->forEntity($agency, $agency->name)
+            ->module(AuditModule::AGENCY)
+            ->context(['is_active' => false, 'is_deleted' => true], ['is_active' => true, 'is_deleted' => false])
+            ->write();
 
         return redirect()->route('admin.agencies.index')
             ->with('success', 'Agency reactivated successfully.');

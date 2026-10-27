@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\AuditModule;
 use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Mail\ReferralOverdueMail;
 use App\Models\SystemSetting;
 use App\Notifications\OverdueReferralNotification;
+use App\Services\AuditLogger;
 use App\Services\ReferralService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
@@ -75,6 +77,14 @@ class OverdueReferralController extends Controller
         $message = $sentCount
             ? "{$sentCount} reminder email(s) queued successfully."
             : 'No overdue referrals found to notify.';
+
+        if ($sentCount > 0) {
+            AuditLogger::sendReminder()
+                ->byId($user->id)
+                ->module(AuditModule::REFERRAL)
+                ->context(null, ['reminder_count' => $sentCount])
+                ->write();
+        }
 
         return redirect()->route('overdue-referrals.index')
             ->with('success', $message);

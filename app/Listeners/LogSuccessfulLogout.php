@@ -5,8 +5,8 @@ namespace App\Listeners;
 use App\Enums\AuditAction;
 use App\Enums\AuditModule;
 use App\Models\AuditLog;
+use App\Services\AuditLogger;
 use Illuminate\Auth\Events\Logout;
-use Illuminate\Support\Str;
 
 class LogSuccessfulLogout
 {
@@ -32,21 +32,10 @@ class LogSuccessfulLogout
             return;
         }
 
-        $request = request();
-
-        AuditLog::create([
-            'action' => AuditAction::LOGOUT->value,
-            'module' => AuditModule::AUTH->value,
-            'entity_id' => $user->getKey(),
-            'old_value' => null,
-            'new_value' => null,
-            'user_id' => $user->getKey(),
-            'timestamp' => now(),
-            'ip_address' => $request?->ip(),
-            'user_agent' => $request?->userAgent(),
-            'request_id' => $request?->attributes->get('correlation_id')
-                ?? $request?->header('X-Request-ID')
-                ?? (string) Str::uuid(),
-        ]);
+        AuditLogger::logout()
+            ->byId($user->getKey())
+            ->forEntity($user, $user->name)
+            ->module(AuditModule::AUTH)
+            ->write();
     }
 }

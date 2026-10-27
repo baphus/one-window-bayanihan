@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Enums\AuditModule;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\UserInvite;
+use App\Services\AuditLogger;
 use App\Services\CloudinaryAvatarService;
 use App\Services\OnboardingService;
 use Illuminate\Http\Request;
@@ -108,6 +110,12 @@ class RegisterViaInviteController extends Controller
             }
 
             $user->save();
+
+            AuditLogger::acceptInvite()
+                ->by($user)
+                ->forEntity($user, $user->name)
+                ->module(AuditModule::AUTH)
+                ->write();
 
             // Consume the invite
             $lockedInvite->update(['consumed_at' => now()]);

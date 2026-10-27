@@ -2,18 +2,16 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\AuditAction;
 use App\Enums\AuditModule;
 use App\Http\Requests\EmailChangeInitRequest;
 use App\Http\Requests\EmailChangeSendOtpRequest;
 use App\Http\Requests\EmailChangeVerifyOtpRequest;
 use App\Mail\EmailChangedNotification;
-use App\Models\AuditLog;
 use App\Services\AuditCategory;
+use App\Services\AuditLogger;
 use App\Services\OtpService;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -110,21 +108,13 @@ class EmailChangeController extends Controller
         );
 
         // Audit the email change (email is excluded from AuditObserver to prevent noise in general updates)
-        AuditLog::create([
-            'action' => AuditAction::UPDATE->value,
-            'module' => AuditModule::USER->value,
-            // Account-credential change: must appear in the Security view
-            'category' => AuditCategory::SECURITY,
-            'entity_id' => $user->id,
-            'old_value' => ['email' => $oldEmail],
-            'new_value' => ['email' => $newEmail],
-            'description' => 'Email changed from '.$oldEmail.' to '.$newEmail,
-            'user_id' => $user->id,
-            'timestamp' => now(),
-            'ip_address' => $request->ip(),
-            'user_agent' => $request->userAgent() ?? '',
-            'request_id' => $request->attributes->get('correlation_id') ?? $request->header('X-Request-ID') ?? (string) Str::uuid(),
-        ]);
+        AuditLogger::changeEmail()
+            ->by($user)
+            ->forEntity($user, $user->email)
+            ->module(AuditModule::USER)
+            ->category(AuditCategory::SECURITY)
+            ->context(['email' => $oldEmail], ['email' => $newEmail])
+            ->write();
 
         // Clear email change session state so the section resets
         $request->session()->forget(['email_change_step', 'email_change_hint', 'pending_new_email']);

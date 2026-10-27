@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\AuditModule;
 use App\Http\Requests\StoreCaseDocumentRequest;
 use App\Models\CaseDocument;
 use App\Models\CaseFile;
 use App\Models\Referral;
+use App\Services\AuditLogger;
 use App\Services\StorageService;
 use Illuminate\Http\Request;
 
@@ -139,6 +141,12 @@ class CaseDocumentController extends Controller
         if (! $url) {
             abort(404, 'File not found or unavailable.');
         }
+
+        AuditLogger::download()
+            ->by($request->user())
+            ->forEntity($document, $document->file_name)
+            ->module(AuditModule::CASE_DOCUMENT)
+            ->write();
 
         return redirect()->away($url);
     }

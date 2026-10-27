@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\AuditModule;
 use App\Enums\UserRole;
 use App\Http\Requests\StoreCaseRequest;
 use App\Http\Requests\StoreIntakeRequest;
@@ -12,6 +13,7 @@ use App\Models\Client;
 use App\Models\SystemSetting;
 use App\Models\User;
 use App\Rules\VulnerabilityRule;
+use App\Services\AuditLogger;
 use App\Services\CaseService;
 use App\Services\Export\DataExportQueries;
 use App\Services\Export\DataExportService;
@@ -227,6 +229,14 @@ class CaseController extends Controller
 
         foreach ($caseManagers as $caseManager) {
             Mail::to($caseManager->email)->queue((new IntakeReviewMail($case))->afterCommit());
+        }
+
+        if ($user->role === UserRole::OFW->value) {
+            AuditLogger::fileIntake()
+                ->by($user)
+                ->forEntity($case, $case->case_number ?? $case->tracker_number)
+                ->module(AuditModule::CASE)
+                ->write();
         }
 
         return redirect()
@@ -460,6 +470,12 @@ class CaseController extends Controller
 
         $filename = 'cases-export-'.now()->format('Ymd-His').'.xlsx';
 
+        AuditLogger::export()
+            ->by($request->user())
+            ->module(AuditModule::DATA_EXPORT)
+            ->context(null, ['format' => 'excel', 'scope' => 'cases'])
+            ->write();
+
         return $exportService->generateSingleSheet(
             'Cases',
             self::casesExportColumnMap(),
@@ -515,6 +531,12 @@ class CaseController extends Controller
 
         $pdf = Pdf::loadView('pdf.case-report', $data);
         $filename = 'case-report-'.$case->case_number.'-'.now(config('app.operating_timezone', 'Asia/Manila'))->format('Ymd-His').'.pdf';
+
+        AuditLogger::export()
+            ->by($request->user())
+            ->module(AuditModule::DATA_EXPORT)
+            ->context(null, ['format' => 'pdf', 'scope' => 'case'])
+            ->write();
 
         return response()->streamDownload(function () use ($pdf) {
             echo $pdf->output();

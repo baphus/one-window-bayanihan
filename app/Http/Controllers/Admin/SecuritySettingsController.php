@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Enums\AuditAction;
+use App\Enums\AuditModule;
 use App\Http\Controllers\Controller;
 use App\Models\SystemSetting;
-use App\Services\SecurityAuditLogger;
+use App\Services\AuditLogger;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -34,12 +34,11 @@ class SecuritySettingsController extends Controller
         }
 
         if ($changedKeys !== []) {
-            SecurityAuditLogger::log(
-                'security_settings',
-                'Security settings updated: '.implode(', ', $changedKeys),
-                null,
-                AuditAction::UPDATE->value,
-            );
+            AuditLogger::updateSecurity()
+                ->byId(auth()->id())
+                ->module(AuditModule::SYSTEM_SETTING)
+                ->context(null, ['keys' => $changedKeys])
+                ->write();
         }
 
         return back()->with('success', 'Security settings updated.');

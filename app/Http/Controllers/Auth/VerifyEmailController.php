@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Enums\AuditModule;
 use App\Http\Controllers\Controller;
+use App\Services\AuditLogger;
 use Illuminate\Auth\Events\Verified;
 use Illuminate\Foundation\Auth\EmailVerificationRequest;
 use Illuminate\Http\RedirectResponse;
@@ -20,6 +22,12 @@ class VerifyEmailController extends Controller
 
         if ($request->user()->markEmailAsVerified()) {
             event(new Verified($request->user()));
+
+            AuditLogger::verifyEmail()
+                ->by($request->user())
+                ->forEntity($request->user(), $request->user()->email)
+                ->module(AuditModule::AUTH)
+                ->write();
         }
 
         return redirect()->intended(route('dashboard', absolute: false).'?verified=1');

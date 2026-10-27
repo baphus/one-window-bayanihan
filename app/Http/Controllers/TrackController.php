@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\AuditModule;
 use App\Enums\UserRole;
 use App\Http\Requests\Track\StoreTrackingRequest;
 use App\Http\Requests\Track\UpdateTrackingRequest;
 use App\Models\Referral;
 use App\Models\User;
+use App\Services\AuditLogger;
 use App\Services\TrackingService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -87,6 +89,16 @@ class TrackController extends Controller
             'email' => $email,
             'verified_at' => now()->getTimestamp(),
         ]);
+
+        // Public, OTP-verified access to a case. Logged once the session
+        // binding is in place, so a failed verification never produces an
+        // entry. byId(null): the visitor is anonymous (link holder).
+        AuditLogger::trackCase()
+            ->byId(null)
+            ->forEntity($case, $case->tracker_number)
+            ->module(AuditModule::CASE)
+            ->context(null, ['tracker_number' => $case->tracker_number])
+            ->write();
 
         return redirect()->route('track.show', ['tracker_number' => $case->tracker_number]);
     }

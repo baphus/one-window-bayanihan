@@ -40,22 +40,21 @@ class AuditCoverageGapsTest extends TestCase
         ])->assertRedirect();
 
         $this->assertDatabaseHas('audit_logs', [
-            'module' => 'security_settings',
-            'action' => AuditAction::UPDATE->value,
+            'module' => 'system_setting',
+            'action' => AuditAction::UPDATE_SECURITY->value,
             'user_id' => $admin->id,
         ]);
 
         $entry = AuditLog::query()
-            ->where('module', 'security_settings')
-            ->where('action', AuditAction::UPDATE->value)
+            ->where('module', 'system_setting')
+            ->where('action', AuditAction::UPDATE_SECURITY->value)
             ->firstOrFail();
 
         // Only the changed key NAMES are logged — never the values. The
         // absence of any value below proves values are excluded.
-        $this->assertStringContainsString('two_factor_required', $entry->description);
+        $this->assertSame(['keys' => ['two_factor_required']], $entry->new_value);
         $this->assertStringNotContainsString('true', $entry->description);
         $this->assertNull($entry->old_value);
-        $this->assertNull($entry->new_value);
     }
 
     /**
@@ -127,8 +126,7 @@ class AuditCoverageGapsTest extends TestCase
         // `remember_token`), so UserService::updateUser logs it explicitly.
         $this->assertDatabaseHas('audit_logs', [
             'module' => 'user',
-            'action' => AuditAction::UPDATE->value,
-            'description' => 'Password was reset by administrator',
+            'action' => AuditAction::ADMIN_RESET_PASSWORD->value,
             'user_id' => $admin->id,
             'entity_id' => $target->id,
         ]);
@@ -144,9 +142,8 @@ class AuditCoverageGapsTest extends TestCase
             (new MaintenanceService)->enable('test-bypass-secret');
 
             $this->assertDatabaseHas('audit_logs', [
-                'module' => 'maintenance',
-                'action' => AuditAction::UPDATE->value,
-                'description' => 'Maintenance mode was enabled',
+                'module' => 'system_setting',
+                'action' => AuditAction::TOGGLE_MAINTENANCE->value,
                 'user_id' => $admin->id,
             ]);
         } finally {
@@ -167,9 +164,8 @@ class AuditCoverageGapsTest extends TestCase
             (new MaintenanceService)->disable();
 
             $this->assertDatabaseHas('audit_logs', [
-                'module' => 'maintenance',
-                'action' => AuditAction::UPDATE->value,
-                'description' => 'Maintenance mode was disabled',
+                'module' => 'system_setting',
+                'action' => AuditAction::TOGGLE_MAINTENANCE->value,
                 'user_id' => $admin->id,
             ]);
         } finally {

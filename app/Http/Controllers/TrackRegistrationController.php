@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\AuditModule;
 use App\Enums\UserRole;
 use App\Models\User;
+use App\Services\AuditLogger;
 use App\Services\TrackingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -85,6 +87,16 @@ class TrackRegistrationController extends Controller
             'email_verified_at' => now(),
             'is_active' => true,
         ]);
+
+        // Purposeful registration verb, mirroring OfwRegistrationController: the
+        // observer row above records the raw insert, this records the business
+        // decision and attributes it to the account that was just created.
+        AuditLogger::register()
+            ->by($user)
+            ->forEntity($user, $user->email)
+            ->module(AuditModule::AUTH)
+            ->context(null, ['email' => $email])
+            ->write();
 
         Auth::login($user);
 

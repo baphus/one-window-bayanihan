@@ -2,11 +2,9 @@
 
 namespace App\Listeners;
 
-use App\Enums\AuditAction;
 use App\Enums\AuditModule;
-use App\Models\AuditLog;
+use App\Services\AuditLogger;
 use Illuminate\Auth\Events\Failed;
-use Illuminate\Support\Str;
 
 class LogFailedLogin
 {
@@ -16,19 +14,12 @@ class LogFailedLogin
         // (AuditLog::saving additionally redacts any password/secret/token keys.)
         $email = $event->credentials['email'] ?? null;
 
-        AuditLog::create([
-            'action' => AuditAction::LOGIN_FAILED->value,
-            'module' => AuditModule::AUTH->value,
-            'entity_id' => $event->user?->getKey(),
-            'description' => sprintf('Failed sign-in attempt for %s', $email ?? 'unknown account'),
-            'new_value' => ['email' => $email],
-            'user_id' => null,
-            'timestamp' => now(),
-            'ip_address' => request()?->ip(),
-            'user_agent' => request()?->userAgent(),
-            'request_id' => request()?->attributes->get('correlation_id')
-                ?? request()?->header('X-Request-ID')
-                ?? (string) Str::uuid(),
-        ]);
+        AuditLogger::loginFailed()
+            ->byId(null)
+            ->forEntity($event->user?->getKey())
+            ->module(AuditModule::AUTH)
+            ->context(null, ['email' => $email])
+            ->description(sprintf('Failed sign-in attempt for %s', $email ?? 'unknown account'))
+            ->write();
     }
 }

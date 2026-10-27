@@ -137,7 +137,7 @@ class CategoryAnalyticsAuditHardeningTest extends TestCase
         $this->assertSame('OPEN', $approved->status);
         $publicationAudit = AuditLog::where('module', 'case')
             ->where('entity_id', $pending->id)
-            ->where('action', 'PUBLISH')
+            ->where('action', 'APPROVE')
             ->orderBy('chain_seq')
             ->get()
             ->last();

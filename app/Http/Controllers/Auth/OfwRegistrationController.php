@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Enums\AuditModule;
 use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Models\Client;
 use App\Models\User;
 use App\Rules\EmploymentStartAtWorkingAge;
 use App\Rules\ServedRegion;
+use App\Services\AuditLogger;
 use App\Services\CloudinaryAvatarService;
 use App\Services\NotificationService;
 use App\Services\OfwProfileService;
@@ -280,6 +282,15 @@ class OfwRegistrationController extends Controller
                 }
 
                 $user->save();
+
+                // Purposeful registration verb: the observer rows above record
+                // the raw create/update, this records the business decision.
+                AuditLogger::register()
+                    ->by($user)
+                    ->forEntity($user, $user->email)
+                    ->module(AuditModule::AUTH)
+                    ->context(null, ['email' => $email])
+                    ->write();
 
                 // Persist address to ClientAddress
                 $service = new OfwProfileService($this->notificationService);
