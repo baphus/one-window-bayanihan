@@ -70,7 +70,7 @@ Failure semantics: unknown facts produce `unsupported` (abstain, never an unrela
 |-----------|---------|----------------|
 | `enabled` (`AI_CHATBOT_ENABLED`) | `false` | Feature is off unless explicitly enabled |
 | `provider` (`AI_CHATBOT_PROVIDER`) | `gemini` | Any of the 15 drivers in `config/ai.php` (anthropic, azure, bedrock, cohere, deepseek, eleven, gemini, groq, jina, mistral, ollama, openai, openrouter, voyageai, xai) |
-| `model` (`AI_CHATBOT_MODEL`) | `gemini-flash-latest` | Must support function tools + structured JSON output |
+| `model` (`AI_CHATBOT_MODEL`) | `gemini-3.5-flash-lite` | Must support function tools + structured JSON output |
 | `temperature` (`AI_CHATBOT_TEMPERATURE`) | `0.2` | Low; factual answers over creativity |
 | `max_tokens` (`AI_CHATBOT_MAX_TOKENS`) | `2000` | Floor of 500 |
 | `timeout` (`AI_CHATBOT_TIMEOUT`) | `45` (s) | Clamped 1–120; applied to every model HTTP request against remaining time via a scoped cloned HTTP factory, restored in `finally`. Synchronous PHP request model — no coroutines. |

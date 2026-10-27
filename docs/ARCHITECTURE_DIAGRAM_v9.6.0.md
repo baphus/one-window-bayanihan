@@ -26,7 +26,7 @@ flowchart TB
   subgraph SERVICES["External services"]
     MAIL["Resend — sends email,\nreports bounces back"]
     IMG["Cloudinary CDN — serves profile photos,\nagency logos"]
-    AI["OpenRouter — AI chatbot answers\nfree-tier models"]
+    AI["Gemini — AI chatbot answers\ngemini-3.5-flash-lite"]
     BOT["Cloudflare Turnstile — blocks bots at login"]
     ERR["Sentry — error tracking and monitoring\napp + browser"]
   end
@@ -45,7 +45,7 @@ flowchart TB
   WORK <-->|"reads job list"| DB
   WEB <-->|"sends mail, gets delivery status"| MAIL
   WEB <-->|"serves photos via CDN"| IMG
-  WEB -->|"asks help questions via OpenRouter"| AI
+  WEB -->|"asks help questions via Gemini"| AI
   WEB -->|"checks humans at login\n+ password reset"| BOT
   WEB -->|"reports errors to"| ERR
   SHIP -.->|"delivers new version"| HOST
@@ -63,7 +63,7 @@ flowchart TB
 - **Cloudflare R2 — audit archive bucket** — sealed, checksum-verified audit bundles; a monthly scheduled job archives expired entries first, and old entries are pruned only after archiving.
 - **Resend** — sends login codes, notices, reminders; reports bounces and delivery status back via webhook.
 - **Cloudinary CDN** — serves profile photos and agency logos from Cloudinary's CDN (`res.cloudinary.com`); uploads go through the app, browsers load images straight from the CDN.
-- **OpenRouter** — AI chatbot answers via OpenRouter free-tier models (Laravel AI SDK, `AI_CHATBOT_PROVIDER=openrouter`, key from `OPENROUTER_API_KEY`).
+- **Gemini** — AI chatbot answers via Gemini (`gemini-3.5-flash-lite`) through the Laravel AI SDK, `AI_CHATBOT_PROVIDER=gemini`, key from `GEMINI_API_KEY`.
 - **Cloudflare Turnstile** — human-vs-robot check at login and password reset (verified against Cloudflare).
 - **Sentry** — error tracking and monitoring for the app and the browser (backend SDK + browser SDK via `initSentry`, scrubbed before send) so the team sees failures fast, including scheduled-job failures.
 - **CI/CD — GitHub Actions (high level)** — pull requests and merges to `main` run lint, audits, builds, and tests; release images are built manually into AWS ECR; production releases are manual (typed confirmation) promoting a tested image tag, with a pre-deploy database snapshot, migrations inside the container, and `/up` + `/api/readyz` health gates before traffic switches over.

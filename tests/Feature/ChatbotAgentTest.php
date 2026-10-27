@@ -13,6 +13,7 @@ use App\Services\Chatbot\ChatbotKnowledge;
 use App\Services\Chatbot\ChatbotResponse;
 use App\Services\Chatbot\ChatbotTurn;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Laravel\Ai\Responses\Data\ToolCall;
 use Laravel\Ai\Tools\Request;
 use Tests\TestCase;
@@ -86,6 +87,21 @@ class ChatbotAgentTest extends TestCase
         $result = app(ChatbotResponse::class)->assemble(['status' => 'answered', 'reply' => 'Tracking help.', 'evidence_ids' => [$first['evidence_id'], $second['evidence_id']]], $turn);
         $this->assertCount(1, $result['sources']);
         $this->assertCount(2, $result['sources'][0]['sections']);
+    }
+
+    public function test_provider_failure_logs_cause_and_returns_graceful_fallback(): void
+    {
+        Log::spy();
+        Http::fake(['generativelanguage.googleapis.com/*' => Http::response(['error' => ['message' => 'models/gemini-3.5-flash-lite is not found']], 404)]);
+
+        $result = app(ChatbotConversationService::class)->reply(['message' => 'How do I track my case?'], new ChatbotAudience);
+
+        $this->assertSame('unavailable', $result['status']);
+        $this->assertStringNotContainsString('not found', $result['reply']);
+        Log::shouldHaveReceived('warning')->withArgs(fn ($message, $context) => $message === 'Chatbot provider request failed'
+            && $context['status'] === 404
+            && $context['provider'] === 'gemini'
+            && str_contains($context['provider_error'], 'is not found'))->once();
     }
 
     public function test_missing_sections_and_content_budget_do_not_silently_truncate(): void

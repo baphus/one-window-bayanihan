@@ -199,6 +199,7 @@ jobs:
           SENTRY_LARAVEL_DSN: ${{ secrets.SENTRY_LARAVEL_DSN || vars.SENTRY_LARAVEL_DSN }}
           SENTRY_LARAVEL_TRACES_SAMPLE_RATE: ${{ vars.SENTRY_LARAVEL_TRACES_SAMPLE_RATE || '0.2' }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           TURNSTILE_SITE_KEY: ${{ secrets.TURNSTILE_SITE_KEY }}
           TURNSTILE_SECRET_KEY: ${{ secrets.TURNSTILE_SECRET_KEY }}
           # All GitHub Environment variables are merged into the container env
@@ -240,6 +241,7 @@ jobs:
             --arg release   "$IMAGE_TAG" \
             --arg tracesRate "${SENTRY_LARAVEL_TRACES_SAMPLE_RATE:-0.2}" \
             --arg openrouter "$OPENROUTER_API_KEY" \
+            --arg gemini "$GEMINI_API_KEY" \
             --arg turnstileSite "$TURNSTILE_SITE_KEY" \
             --arg turnstileSecret "$TURNSTILE_SECRET_KEY" \
             --argjson ghVars "$GH_VARS_JSON" \
@@ -299,6 +301,7 @@ jobs:
                     SENTRY_RELEASE: $release,
                     SENTRY_LARAVEL_TRACES_SAMPLE_RATE: $tracesRate,
                     OPENROUTER_API_KEY: $openrouter,
+                    GEMINI_API_KEY: $gemini,
                     TURNSTILE_SITE_KEY: $turnstileSite,
                     TURNSTILE_SECRET_KEY: $turnstileSecret
                   })

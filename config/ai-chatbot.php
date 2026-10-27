@@ -4,7 +4,7 @@ return [
     'enabled' => env('AI_CHATBOT_ENABLED', false),
     // Use a model that supports function tools and structured output.
     'provider' => env('AI_CHATBOT_PROVIDER', 'gemini'),
-    'model' => env('AI_CHATBOT_MODEL', 'gemini-flash-latest'),
+    'model' => env('AI_CHATBOT_MODEL', 'gemini-3.5-flash-lite'),
     'temperature' => (float) env('AI_CHATBOT_TEMPERATURE', 0.2),
     'max_tokens' => max(500, (int) env('AI_CHATBOT_MAX_TOKENS', 2000)),
     'timeout' => max(1, min(120, (int) env('AI_CHATBOT_TIMEOUT', 45))),
