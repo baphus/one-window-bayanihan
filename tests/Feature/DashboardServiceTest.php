@@ -361,6 +361,36 @@ class DashboardServiceTest extends TestCase
         $this->assertSame([], $payload['category_mix']);
     }
 
+    #[Test]
+    public function admin_period_data_returns_kpis_charts_and_role_distribution(): void
+    {
+        Cache::flush();
+
+        $payload = app(DashboardService::class)->getAdminPeriodData(30);
+
+        $this->assertSame(30, $payload['period']['days']);
+        $this->assertSame('Last 30 days', $payload['period']['label']);
+
+        foreach (['total_users', 'total_agencies', 'pending_invites', 'security_events'] as $key) {
+            $this->assertArrayHasKey($key, $payload['kpis']);
+        }
+
+        // Activity series: one bucket per day, no gaps.
+        $this->assertCount(30, $payload['activity']['labels']);
+        $this->assertCount(30, $payload['activity']['events']);
+    }
+
+    #[Test]
+    public function admin_period_data_only_accepts_the_offered_windows(): void
+    {
+        Cache::flush();
+
+        $payload = app(DashboardService::class)->getAdminPeriodData(365);
+
+        $this->assertSame(30, $payload['period']['days']);
+        $this->assertCount(30, $payload['activity']['labels']);
+    }
+
     private function createReferralForAgency(Agency $agency, array $attributes = []): Referral
     {
         $case = $this->createCaseForClient();

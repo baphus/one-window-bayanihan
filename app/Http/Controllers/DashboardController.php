@@ -76,6 +76,29 @@ class DashboardController extends Controller
     }
 
     /**
+     * Period-scoped numbers for the system admin overview.
+     *
+     * System health, user/agency management, and security monitoring — not
+     * casework. Scoped to a 7/30/90-day window.
+     */
+    public function adminPeriod(): JsonResponse
+    {
+        $user = request()->user();
+
+        abort_unless(
+            $user?->role === UserRole::ADMIN->value,
+            403,
+            'This summary is only available to system administrators.',
+        );
+
+        $days = (int) request()->integer('days', 30);
+
+        return response()->json(
+            app(DashboardService::class)->getAdminPeriodData($days),
+        );
+    }
+
+    /**
      * Load all dashboard data (executed in a separate deferred request).
      */
     private function loadDashboardData(User $user): array

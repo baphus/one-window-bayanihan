@@ -70,6 +70,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('dashboard.agency-period')
         ->middleware('throttle:api-global');
 
+    // Period-scoped summary for the system admin overview.
+    Route::get('/dashboard/admin-period', [DashboardController::class, 'adminPeriod'])
+        ->name('dashboard.admin-period')
+        ->middleware('throttle:api-global');
+
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');

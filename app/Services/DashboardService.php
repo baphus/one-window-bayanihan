@@ -633,6 +633,127 @@ class DashboardService
         ];
     }
 
+    /**
+     * The system admin overview, scoped to a period.
+     *
+     * System health, user/agency management, and security monitoring — not
+     * casework. Four numbers (users, agencies, pending invites, security
+     * events), a system-activity line, a role distribution donut, and a
+     * security-events-by-type bar.
+     *
+     * @param  int  $days  Window length: 7, 30 or 90.
+     */
+    public function getAdminPeriodData(int $days = 30): array
+    {
+        $days = in_array($days, [7, 30, 90], true) ? $days : 30;
+
+        $to = CarbonImmutable::now(ReportCalendar::timezone())->startOfDay();
+        $from = $to->subDays($days - 1);
+        $fromDate = $from->toDateString();
+        $toDate = $to->toDateString();
+
+        return CacheHelper::safeRemember("dashboard:admin_period:{$days}", 60, function () use ($days, $from, $to, $fromDate, $toDate) {
+            [$startBound] = ReportCalendar::localDayBounds($fromDate);
+            [, $endBound] = ReportCalendar::localDayBounds($toDate);
+
+            // Headline counts. Users and agencies are lifetime (they answer
+            // "how big is the system"); invites and security events are
+            // period-scoped (they answer "what needs attention now").
+            $userCounts = (array) DB::selectOne('
+                SELECT
+                    COUNT(*) AS total,
+                    COUNT(*) FILTER (WHERE is_active = true) AS active,
+                    COUNT(*) FILTER (WHERE email_verified_at IS NOT NULL) AS verified
+                FROM users WHERE is_deleted = false
+            ');
+
+            $agencyCounts = (array) DB::selectOne('
+                SELECT
+                    COUNT(*) AS total,
+                    COUNT(*) FILTER (WHERE is_active = true) AS active
+                FROM agencies WHERE is_deleted = false
+            ');
+
+            // Pending invitations: sent but not consumed and not expired.
+            $pendingInvites = (int) DB::selectOne('
+                SELECT COUNT(*) AS total
+                FROM user_invites
+                WHERE consumed_at IS NULL
+                  AND cancelled_at IS NULL
+                  AND expires_at > NOW()
+            ')->total;
+
+            // Security events in the window.
+            $securityEvents = (int) DB::selectOne('
+                SELECT COUNT(*) AS total
+                FROM audit_logs
+                WHERE category = ?
+                  AND timestamp >= ? AND timestamp < ?
+            ', ['security', $startBound, $endBound])->total;
+
+            // System activity over time — every audit event, bucketed by day.
+            $activity = DB::table('audit_logs')
+                ->selectRaw(ReportCalendar::localDay('timestamp').' AS bucket, COUNT(*) AS total')
+                ->where('timestamp', '>=', $startBound)
+                ->where('timestamp', '<', $endBound)
+                ->groupByRaw(ReportCalendar::localDay('timestamp'))
+                ->pluck('total', 'bucket');
+
+            $labels = [];
+            $activitySeries = [];
+            for ($day = $from; $day->lessThanOrEqualTo($to); $day = $day->addDay()) {
+                $key = $day->toDateString();
+                $labels[] = $key;
+                $activitySeries[] = (int) ($activity[$key] ?? 0);
+            }
+
+            // Users by role (lifetime — the distribution doesn't change by window).
+            $usersByRole = DB::table('users')
+                ->select('role', DB::raw('COUNT(*) AS total'))
+                ->where('is_deleted', false)
+                ->groupBy('role')
+                ->orderByDesc('total')
+                ->get()
+                ->map(fn ($row) => ['role' => $row->role, 'total' => (int) $row->total])
+                ->toArray();
+
+            // Security events by action in the window.
+            $securityByType = DB::select('
+                SELECT action, COUNT(*) AS total
+                FROM audit_logs
+                WHERE category = ?
+                  AND timestamp >= ? AND timestamp < ?
+                GROUP BY action
+                ORDER BY total DESC
+                LIMIT 10
+            ', ['security', $startBound, $endBound]);
+
+            return [
+                'period' => [
+                    'days' => $days,
+                    'label' => "Last {$days} days",
+                    'from' => $fromDate,
+                    'to' => $toDate,
+                ],
+                'kpis' => [
+                    'total_users' => (int) ($userCounts['total'] ?? 0),
+                    'total_agencies' => (int) ($agencyCounts['total'] ?? 0),
+                    'pending_invites' => $pendingInvites,
+                    'security_events' => $securityEvents,
+                ],
+                'activity' => [
+                    'labels' => $labels,
+                    'events' => $activitySeries,
+                ],
+                'users_by_role' => $usersByRole,
+                'security_by_type' => array_map(fn ($row) => [
+                    'action' => $row->action,
+                    'total' => (int) $row->total,
+                ], $securityByType),
+            ];
+        });
+    }
+
     public function getAdminData(): array
     {
         $formatter = app(AuditLogFormatter::class);
