@@ -48,6 +48,6 @@ Cases filed by clients themselves do not arrive as an ordinary draft awaiting pu
 
 ![Case details](/assets/helpdesk/cases-show.png)
 
-<!-- TODO: capture screenshot of the Pending Reviews queue and the Approve case / Reject case modal -->
+![Pending Reviews queue with a PENDING_REVIEW case awaiting a category](/assets/helpdesk/pending-reviews.png)
 `;
 export default content;

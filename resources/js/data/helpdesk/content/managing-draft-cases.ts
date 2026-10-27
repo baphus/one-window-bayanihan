@@ -47,6 +47,6 @@ Publishing requires at least one active category. After publishing, the case bec
 
 Delete a draft only when it was created by mistake, duplicated, or no longer represents a valid case. Review old drafts weekly so unfinished assistance is not hidden.
 
-<!-- TODO: capture screenshot of the Pending Reviews queue and the Approve case / Reject case modal -->
+![Pending Reviews queue with a PENDING_REVIEW case awaiting a category](/assets/helpdesk/pending-reviews.png)
 `;
 export default content;

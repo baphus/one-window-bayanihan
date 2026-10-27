@@ -62,18 +62,21 @@ When you save a new case, the system creates it as **DRAFT** by default. This is
 
 ## 5. Clear the Pending Reviews queue
 
-Cases do not only come from your own drafting. When an OFW files a request through their own account, it arrives already submitted and lands in **Pending Reviews** with status **PENDING_REVIEW**, unassigned. Any case manager can pick it up.
+Cases do not only come from your own drafting. When an OFW files a request through their own account, it arrives already submitted and lands in **Pending Reviews** with status **PENDING_REVIEW**, unassigned. Any case manager can pick it up; the sidebar badge shows how many are waiting.
 
 Open **Pending Reviews** and for each request:
 
 1. Read the submitted summary, vulnerability indicators and consent.
 2. Check for an existing case for the same concern before approving.
 3. Attach any documents the filer referenced, if needed.
-4. Then either:
+4. Set the **category** — a filed request arrives without one and is flagged **Needs category** in the list.
+5. Then either:
    - **Approve case** — pick at least one category, and an issue or concern if the draft has none. Approving moves the case to **OPEN** and assigns ownership to you.
    - **Reject case** — a reason is mandatory (the *Reject case request* dialog). Rejecting removes the draft and emails the filer an explanation.
 
-<!-- TODO: capture screenshot of the Pending Reviews queue and the Approve case / Reject case modal -->
+Use **All cases** / **Oldest first** to control which requests you see first.
+
+![Pending Reviews queue with a PENDING_REVIEW case awaiting a category](/assets/helpdesk/pending-reviews.png)
 
 ## 6. Review and publish your own draft
 
