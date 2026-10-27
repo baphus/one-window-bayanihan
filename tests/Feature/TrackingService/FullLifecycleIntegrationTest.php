@@ -300,6 +300,22 @@ class FullLifecycleIntegrationTest extends TestCase
         $this->assertEquals('RESOLVED', $data['trackedCase']['status']);
     }
 
+    public function test_case_status_mapping_draft_falls_back_to_unknown(): void
+    {
+        // DRAFT is no longer a case lifecycle state — nothing writes it, and it
+        // is excluded from every client surface. If one somehow reaches this
+        // mapper the documented UNKNOWN fallback applies (a neutral "will
+        // update as your case progresses" sentence) rather than a bespoke
+        // draft status no client UI knows how to render.
+        $case = CaseFile::factory()->create(['status' => 'DRAFT']);
+        $this->loadRelations($case);
+
+        $data = app(TrackingService::class)->buildTrackingData($case);
+
+        $this->assertEquals('UNKNOWN', $data['trackedCase']['status']);
+        $this->assertNotEquals('COMPLETED', $data['trackedCase']['status']);
+    }
+
     public function test_empty_tracking_agencies_and_minimal_timelines(): void
     {
         // ARRANGE — OPEN case with a client but no referrals or milestones
