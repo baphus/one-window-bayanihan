@@ -1,6 +1,6 @@
 import { Link } from '@inertiajs/react';
-import OfwLayout from '@/Layouts/OfwLayout';
-import { EmptyState, PageHeader, SectionCard } from '@/Components/Dashboard/primitives';
+import OfwPortalLayout from '@/Layouts/OfwPortalLayout';
+import { EmptyState, SectionCard } from '@/Components/Dashboard/primitives';
 
 // Laravel paginator labels are server-escaped strings limited to page
 // numbers plus &laquo; / &raquo; / &hellip; entities — decode them as text
@@ -68,20 +68,15 @@ export default function Notifications({ notifications }) {
     const notificationList = notifications?.data ?? [];
 
     return (
-        <OfwLayout title="Notifications">
-            {/* Back to My Cases */}
-            <Link
-                href={route('ofw.dashboard')}
-                className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-slate-600 hover:text-slate-900"
-            >
-                <span className="material-symbols-outlined text-[18px]">arrow_back</span>
-                Back to My Cases
-            </Link>
+        <OfwPortalLayout title="Notifications">
+            <p className="text-[12px] text-slate-500">Home / My Cases / Notifications</p>
 
-            <PageHeader
-                title="Notifications"
-                subtitle="Updates about your cases"
-            />
+            <h1 className="mt-2 font-headline text-[28px] font-extrabold tracking-tight text-slate-900 sm:text-[32px]">
+                Notifications
+            </h1>
+            <p className="mt-1.5 text-[14px] text-slate-600">
+                Updates about your cases and requests.
+            </p>
 
             <div className="mt-6">
                 {notificationList.length === 0 ? (
@@ -129,6 +124,6 @@ export default function Notifications({ notifications }) {
                     })}
                 </nav>
             )}
-        </OfwLayout>
+        </OfwPortalLayout>
     );
 }

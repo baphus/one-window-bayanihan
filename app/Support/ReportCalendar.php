@@ -54,6 +54,16 @@ class ReportCalendar
     }
 
     /**
+     * SQL expression for a column's "YYYY-MM-DD" bucket in the operating
+     * timezone — the day-level counterpart of localMonth(), used by charts
+     * whose window is too short for monthly buckets to say anything.
+     */
+    public static function localDay(string $column): string
+    {
+        return "to_char({$column} AT TIME ZONE '".self::storageTimezone()."' AT TIME ZONE '".self::timezone()."', 'YYYY-MM-DD')";
+    }
+
+    /**
      * Timezone the stored timestamps are written in, i.e. `app.timezone`.
      */
     public static function storageTimezone(): string

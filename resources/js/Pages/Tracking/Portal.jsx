@@ -10,6 +10,7 @@ import TurnstileWidget from '@/Components/TurnstileWidget';
 import useInView from '@/Hooks/useInView';
 
 import useClientValidation from '@/Hooks/useClientValidation';
+import safeRoute from '@/utils/safeRoute';
 import { z } from 'zod';
 import { getTurnstileError } from '@/lib/turnstile';
 
@@ -88,69 +89,113 @@ export default function TrackingPortal() {
           </div>
         </section>
 
-        <section className="relative -mt-12 md:-mt-16 pb-24 px-4">
+        <section className="relative -mt-12 pb-24 px-4 md:-mt-16">
           <div className="mx-auto max-w-3xl">
-            <div ref={formRef} className={`bg-white p-5 md:p-8 shadow-lg md:shadow-2xl border border-slate-200 rounded-xl owb-reveal ${formVisible ? 'is-visible' : ''}`}>
-              <div className="mb-6 flex items-center gap-3 border-b border-slate-200 pb-4">
-                <span className="material-symbols-outlined text-primary text-2xl">confirmation_number</span>
-                <h2 className="font-headline text-lg font-bold text-slate-900">Tracking ID Details</h2>
+            <div ref={formRef} className={`rounded-xl border border-slate-200 bg-white p-5 shadow-lg md:p-8 md:shadow-2xl owb-reveal ${formVisible ? 'is-visible' : ''}`}>
+              {/* Program identity */}
+              <div className="flex items-center gap-2.5">
+                <img src="/logo.png" alt="One Window Bayanihan logo" className="h-9 w-9 shrink-0 object-contain" />
+                <span className="min-w-0 leading-tight">
+                  <span className="block font-headline text-[13px] font-extrabold tracking-tight text-blue-950">
+                    One Window Bayanihan
+                  </span>
+                  <span className="block text-[8px] font-bold uppercase tracking-[0.14em] text-slate-500">
+                    Assistance Program
+                  </span>
+                </span>
               </div>
 
+              <p className="mt-5 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                DMW Region VII · Secure case access
+              </p>
+              <span className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-primary/25 bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary">
+                <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                Step 1 of 2
+              </span>
+
+              <h2 className="mt-4 font-headline text-[26px] font-extrabold tracking-tight text-slate-900 sm:text-[30px]">
+                Track your case securely
+              </h2>
+              <p className="mt-2 text-[14px] leading-relaxed text-slate-600">
+                Enter your tracking number. We&rsquo;ll send a one-time code to the registered
+                email associated with your case.
+              </p>
+
               <form
-                className="flex flex-col gap-4"
+                className="mt-6 flex flex-col gap-4"
                 onSubmit={(e) => { e.preventDefault(); handleTrackSubmit(); }}
               >
-                <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 text-[20px] material-symbols-outlined">confirmation_number</span>
+                <div>
+                  <label htmlFor="tracker-number" className="block text-[13px] font-bold text-slate-700">
+                    Tracking number
+                  </label>
                   <input
+                    id="tracker-number"
                     type="text"
                     value={data.tracker_number}
                     onChange={(e) => handleTrackerChange(e.target.value)}
-                    placeholder="Enter Tracking Number"
-                    className="w-full border border-slate-200 bg-white px-4 py-3 md:py-5 pl-12 text-sm md:text-base text-slate-900 placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary md:px-6 md:pl-14 rounded-md"
+                    placeholder="OWB-2026-001284"
+                    className="mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-3 py-3 text-[14px] text-slate-900 placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                     aria-label="Tracker Number"
                     required
                   />
                   <InputError message={errors.tracker_number} className="mt-1" />
                 </div>
-                <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 text-[20px] material-symbols-outlined">alternate_email</span>
+
+                <div>
+                  <label htmlFor="tracker-email" className="block text-[13px] font-bold text-slate-700">
+                    Registered email address
+                  </label>
                   <input
+                    id="tracker-email"
                     type="email"
                     value={data.email}
                     onChange={(e) => setData('email', e.target.value)}
-                    placeholder="Enter your email address"
-                    className="w-full border border-slate-200 bg-white px-4 py-3 md:py-5 pl-12 text-sm md:text-base text-slate-900 placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary md:px-6 md:pl-14 rounded-md"
+                    placeholder="you@example.com"
+                    className="mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-3 py-3 text-[14px] text-slate-900 placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                     aria-label="Email Address"
                     required
                   />
                   <InputError message={errors.email} className="mt-1" />
                 </div>
+
                 {turnstile?.enabled && (
                   <div className="text-center">
                     <TurnstileWidget onToken={setTurnstileToken} onExpire={() => setTurnstileToken('')} onStatusChange={setTurnstileStatus} />
                     <InputError message={errors.captcha} className="mt-1" />
                   </div>
                 )}
+
                 <button
                   type="submit"
                   disabled={processing}
-                  className="w-full bg-primary text-white rounded-md px-8 py-4 text-sm font-bold shadow-md hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3.5 text-[14px] font-bold text-white shadow-md transition-all hover:bg-primary-container active:scale-[0.99] disabled:opacity-60"
                 >
-                  <span className="material-symbols-outlined text-[18px]">search</span>
-                  {processing ? 'Sending OTP...' : 'Go to Tracking'}
+                  <span className="material-symbols-outlined text-[18px]" aria-hidden="true">mail</span>
+                  {processing ? 'Sending OTP...' : 'Send One-Time Code'}
                 </button>
               </form>
 
-              <div className="mt-8 bg-info-container/50 border border-info rounded-xl p-4">
+              {/* Privacy note */}
+              <div className="mt-5 rounded-lg border border-info/25 bg-info-container/40 px-4 py-3.5">
                 <div className="flex gap-3">
-                  <span className="material-symbols-outlined text-primary text-[20px] shrink-0">info</span>
-                  <div className="text-sm text-slate-600 leading-relaxed">
-                    <p className="font-bold text-slate-900 mb-1">Where can I find my Tracking ID?</p>
-                    <p>Tracking IDs (e.g., OWBAP-4Z7K9M2QXT) are typically found on your acknowledgment receipt or sent via SMS/Email after your initial case intake.</p>
+                  <span className="material-symbols-outlined mt-px shrink-0 text-[18px] leading-none text-info" aria-hidden="true">info</span>
+                  <div className="text-[13px]">
+                    <p className="font-bold text-slate-900">Your case stays private</p>
+                    <p className="mt-0.5 leading-relaxed text-slate-600">
+                      No case details are displayed until the verification code is confirmed.
+                    </p>
                   </div>
                 </div>
               </div>
+
+              <p className="mt-5 text-[13px] text-slate-500">Can&rsquo;t access your registered email?</p>
+              <a
+                href={safeRoute('contact', undefined, '/contact')}
+                className="mt-2 flex w-full items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-[13px] font-bold text-primary transition-colors hover:border-slate-300 hover:bg-slate-50"
+              >
+                Contact DMW
+              </a>
             </div>
           </div>
         </section>

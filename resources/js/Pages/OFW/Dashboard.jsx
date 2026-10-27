@@ -1,9 +1,9 @@
+import { useMemo, useState } from 'react';
 import { Link, usePage } from '@inertiajs/react';
-import { Hourglass } from 'lucide-react';
-import OfwLayout from '@/Layouts/OfwLayout';
+import { Hourglass, Info } from 'lucide-react';
+import OfwPortalLayout from '@/Layouts/OfwPortalLayout';
 import StatusBadge from '@/Components/ui/StatusBadge';
-import OfwNotificationBell from '@/Components/OfwNotificationBell';
-import { DashboardTable, EmptyState, PageHeader, QuickActions, SectionCard, StatRow } from '@/Components/Dashboard/primitives';
+import { EmptyState, FilterChip } from '@/Components/Dashboard/primitives';
 import { usePersistedViewMode } from '@/Hooks/usePersistedViewState';
 import safeRoute from '@/utils/safeRoute';
 
@@ -28,13 +28,40 @@ function formatDate(dateStr) {
 }
 
 /**
- * Segmented list/grid switch rendered in the "Your cases" section header.
- * Mirrors the toggle used by UnifiedTable so the control reads the same
- * across staff and OFW surfaces.
+ * Map a case status onto the three filter buckets the citizen portal
+ * exposes: All / Open / Closed. OPEN and PENDING_REVIEW count as open;
+ * CLOSED and ARCHIVED count as closed. This mirrors the bucketing the
+ * backend already does for the overview counts.
+ */
+function caseBucket(status) {
+    const normalized = String(status ?? '').toUpperCase();
+    if (normalized === 'CLOSED' || normalized === 'ARCHIVED') return 'closed';
+    return 'open';
+}
+
+function statusBadge(status) {
+    const normalized = String(status ?? '').toUpperCase();
+    const isUnderReview = normalized === 'PENDING_REVIEW';
+
+    return (
+        <StatusBadge
+            variant="pill"
+            status={status}
+            showIcon={isUnderReview}
+            label={isUnderReview ? 'Under Review' : undefined}
+            icon={isUnderReview ? Hourglass : undefined}
+        />
+    );
+}
+
+/**
+ * Segmented list/grid switch. The reference presents the case list as a
+ * table, so this is offered as a secondary control that remembers the
+ * citizen's choice the same way the rest of the portal does.
  */
 function ViewModeToggle({ viewMode, onChange }) {
     const options = [
-        { key: 'list', icon: 'list', label: 'List view' },
+        { key: 'list', icon: 'view_list', label: 'List view' },
         { key: 'grid', icon: 'grid_view', label: 'Grid view' },
     ];
 
@@ -78,36 +105,29 @@ function ViewModeToggle({ viewMode, onChange }) {
  */
 function CaseCardGrid({ cases }) {
     return (
-        <div className="grid grid-cols-1 gap-4 p-5 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 p-5 sm:grid-cols-2">
             {cases.map((caseItem) => {
-                const isUnderReview = caseItem.status === 'PENDING_REVIEW';
                 const href = route('ofw.case.show', caseItem.id);
 
                 return (
                     <Link
                         key={caseItem.id}
                         href={href}
-                        className="flex flex-col justify-between gap-4 rounded-xl border border-slate-200 bg-white p-4 transition-colors hover:border-slate-300 hover:bg-slate-50/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                        className="flex flex-col justify-between gap-4 rounded-lg border border-slate-200 bg-white p-4 transition-colors hover:border-slate-300 hover:bg-slate-50/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                     >
                         <div className="min-w-0">
                             <div className="flex items-start justify-between gap-2">
-                                <span className="truncate text-sm font-bold text-primary">
+                                <span className="truncate font-headline text-[15px] font-extrabold tracking-tight text-primary">
                                     {caseItem.tracker_number ?? caseItem.case_number}
                                 </span>
-                                <StatusBadge
-                                    variant="pill"
-                                    status={caseItem.status}
-                                    showIcon={isUnderReview}
-                                    label={isUnderReview ? 'Under Review' : undefined}
-                                    icon={isUnderReview ? Hourglass : undefined}
-                                />
+                                {statusBadge(caseItem.status)}
                             </div>
 
                             <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">
                                 Case {caseItem.case_number ?? 'Pending'}
                             </p>
 
-                            <p className="mt-2 line-clamp-3 text-sm text-slate-600">
+                            <p className="mt-2 line-clamp-3 text-[13px] text-slate-600">
                                 {caseItem.summary ?? 'No summary provided'}
                             </p>
                         </div>
@@ -116,7 +136,7 @@ function CaseCardGrid({ cases }) {
                             <span className="text-[11px] text-slate-400">
                                 Submitted {formatDate(caseItem.created_at)}
                             </span>
-                            <span className="text-xs font-bold text-primary">View</span>
+                            <span className="text-[12px] font-bold text-primary">View</span>
                         </div>
                     </Link>
                 );
@@ -125,99 +145,291 @@ function CaseCardGrid({ cases }) {
     );
 }
 
+/**
+ * The case table: CASE / CATEGORY, CASE STATUS, UPDATED, ACTION.
+ */
+function CaseTable({ cases }) {
+    return (
+        <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-slate-200 text-left">
+                <thead className="bg-slate-50">
+                    <tr>
+                        <th
+                            scope="col"
+                            className="whitespace-nowrap px-5 py-3 text-[11px] font-extrabold uppercase tracking-[0.14em] text-slate-500"
+                        >
+                            Case / Category
+                        </th>
+                        <th
+                            scope="col"
+                            className="whitespace-nowrap px-5 py-3 text-[11px] font-extrabold uppercase tracking-[0.14em] text-slate-500"
+                        >
+                            Case status
+                        </th>
+                        <th
+                            scope="col"
+                            className="whitespace-nowrap px-5 py-3 text-[11px] font-extrabold uppercase tracking-[0.14em] text-slate-500"
+                        >
+                            Updated
+                        </th>
+                        <th
+                            scope="col"
+                            className="whitespace-nowrap px-5 py-3 text-right text-[11px] font-extrabold uppercase tracking-[0.14em] text-slate-500"
+                        >
+                            Action
+                        </th>
+                    </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                    {cases.map((caseItem) => {
+                        const href = route('ofw.case.show', caseItem.id);
+                        const categories = caseItem.categories ?? [];
+
+                        return (
+                            <tr key={caseItem.id} className="transition-colors hover:bg-slate-50">
+                                <td className="px-5 py-4 align-top">
+                                    <Link
+                                        href={href}
+                                        className="font-headline text-[15px] font-extrabold tracking-tight text-primary hover:underline"
+                                    >
+                                        {caseItem.tracker_number ?? caseItem.case_number}
+                                    </Link>
+                                    <p className="mt-0.5 text-[13px] text-slate-700">Request for Assistance</p>
+                                    <p className="mt-0.5 text-[13px] text-slate-500">
+                                        {categories.length > 0
+                                            ? categories.map((c) => c?.name ?? c).join(', ')
+                                            : 'No category recorded'}
+                                    </p>
+                                    <p className="mt-1 text-[11px] text-slate-400">
+                                        Submitted {formatDate(caseItem.created_at)}
+                                    </p>
+                                </td>
+                                <td className="px-5 py-4 align-top">{statusBadge(caseItem.status)}</td>
+                                <td className="whitespace-nowrap px-5 py-4 align-top text-[13px] text-slate-600">
+                                    {formatDate(caseItem.updated_at ?? caseItem.created_at)}
+                                </td>
+                                <td className="px-5 py-4 text-right align-top">
+                                    <Link
+                                        href={href}
+                                        className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-2 text-[12px] font-bold text-primary transition-colors hover:border-slate-300 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                                    >
+                                        View Case
+                                    </Link>
+                                </td>
+                            </tr>
+                        );
+                    })}
+                </tbody>
+            </table>
+        </div>
+    );
+}
+
+/** "Need help?" aside card. */
+function HelpCard() {
+    return (
+        <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div className="px-5 py-5">
+                <span
+                    aria-hidden="true"
+                    className="material-symbols-outlined text-[20px] leading-none text-slate-400"
+                >
+                    help
+                </span>
+                <h2 className="mt-3 font-headline text-[17px] font-extrabold tracking-tight text-slate-900">
+                    Need help with your case?
+                </h2>
+                <p className="mt-2 text-[13px] leading-relaxed text-slate-600">
+                    Contact DMW for assistance understanding your case status or responding to a request.
+                </p>
+
+                <Link
+                    href={safeRoute('home', undefined, '/')}
+                    className="mt-4 flex w-full items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-[13px] font-bold text-primary transition-colors hover:border-slate-300 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                >
+                    Help Center
+                </Link>
+
+                <Link
+                    href={safeRoute('contact', undefined, '/contact')}
+                    className="mt-3 block text-center text-[13px] font-bold text-primary transition-colors hover:text-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                >
+                    Contact DMW
+                </Link>
+
+                <p className="mt-4 flex items-start gap-2 border-t border-slate-100 pt-4 text-[12px] leading-relaxed text-slate-500">
+                    <span
+                        aria-hidden="true"
+                        className="material-symbols-outlined mt-px shrink-0 text-[16px] leading-none text-slate-400"
+                    >
+                        shield
+                    </span>
+                    <span>Keep your tracking number private. Share it only through official DMW channels.</span>
+                </p>
+            </div>
+        </section>
+    );
+}
+
 export default function Dashboard({ cases, caseStats }) {
     const { auth } = usePage().props;
     const caseList = cases?.data ?? [];
     const stats = caseStats ?? {};
     const fileCaseHref = safeRoute('ofw.intake', undefined, '/my-cases/intake');
-    // OFWs land on the card grid first — it reads better on phones than the
-    // six-column table — but the choice is remembered once they pick one.
-    const [viewMode, setViewMode] = usePersistedViewMode('owb-view_ofw-cases', 'grid');
+    const [viewMode, setViewMode] = usePersistedViewMode('owb-view_ofw-cases', 'list');
+    // Client-side search + filter over the current page only. The backend
+    // remains the source of truth for the dataset and pagination; these only
+    // narrow what is visible on the current page.
+    const [query, setQuery] = useState('');
+    const [filter, setFilter] = useState('all');
+
+    const visibleCases = useMemo(() => {
+        const needle = query.trim().toLowerCase();
+        return caseList.filter((caseItem) => {
+            if (filter !== 'all' && caseBucket(caseItem.status) !== filter) return false;
+            if (!needle) return true;
+            const haystack = [
+                caseItem.tracker_number,
+                caseItem.case_number,
+                caseItem.summary,
+                ...(caseItem.categories ?? []).map((c) => c?.name ?? c),
+            ]
+                .filter(Boolean)
+                .join(' ')
+                .toLowerCase();
+            return haystack.includes(needle);
+        });
+    }, [caseList, query, filter]);
+
+    const hasCases = caseList.length > 0;
+    const total = Number(stats.total ?? 0);
+    const open = Number(stats.under_review ?? 0) + Number(stats.in_progress ?? 0);
+    const closed = Number(stats.completed ?? 0);
+    const requestCount = caseList.length === 1 ? '1 request for assistance' : `${caseList.length} requests for assistance`;
 
     return (
-        <OfwLayout title="My Cases">
-            <div className="pt-3">
-                <PageHeader
-                    eyebrow="Case Dashboard"
-                    title={`Welcome back, ${auth?.user?.name}`}
-                    subtitle="Here's where your requests stand today."
+        <OfwPortalLayout title="My Cases">
+            <p className="text-[12px] text-slate-500">Home / My Cases</p>
+
+            <h1 className="mt-2 font-headline text-[28px] font-extrabold tracking-tight text-slate-900 sm:text-[32px]">
+                My Cases
+            </h1>
+            <p className="mt-1.5 text-[14px] text-slate-600">
+                View your requests for assistance and follow their latest updates.
+            </p>
+
+            {/* Welcome banner */}
+            <div className="mt-5 flex items-start gap-3 rounded-lg border border-info/25 bg-info-container/40 px-5 py-4">
+                <span
+                    aria-hidden="true"
+                    className="material-symbols-outlined mt-px shrink-0 text-[20px] leading-none text-info"
                 >
-                    <div className="flex items-center gap-2">
-                        <OfwNotificationBell />
-                        <QuickActions
-                            actions={[
-                                { href: route('ofw.profile.edit'), label: 'View Profile', icon: 'person' },
-                                ...(caseList.length > 0
-                                    ? [{ href: fileCaseHref, label: 'File a New Case', icon: 'add', primary: true }]
-                                    : []),
-                            ]}
-                        />
-                    </div>
-                </PageHeader>
+                    info
+                </span>
+                <div className="text-[13px]">
+                    <p className="font-bold text-slate-900">Welcome, {auth?.user?.name ?? 'OFW'}</p>
+                    <p className="mt-0.5 text-slate-600">Only cases associated with your account are shown here.</p>
+                </div>
             </div>
 
-            {/* Overview stat cards */}
-            <StatRow
-                dataTour="ofw-overview"
-                stats={[
-                    { title: 'Total Requests', value: stats.total, icon: 'inbox', iconBg: 'bg-primary-fixed', iconColor: 'text-primary' },
-                    { title: 'Under Review', value: stats.under_review, icon: 'hourglass_top', iconBg: 'bg-primary-fixed', iconColor: 'text-primary' },
-                    { title: 'In Progress', value: stats.in_progress, icon: 'progress_activity', iconBg: 'bg-primary-fixed', iconColor: 'text-primary' },
-                    { title: 'Completed', value: stats.completed, icon: 'task_alt', iconBg: 'bg-primary-fixed', iconColor: 'text-primary' },
-                ]}
-            />
+            {/* Cases + help aside */}
+            <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+                <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                    <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
+                        <div>
+                            <h2 className="font-headline text-[17px] font-extrabold tracking-tight text-slate-900">
+                                Your cases
+                            </h2>
+                            <p className="mt-0.5 text-[12px] text-slate-500">{requestCount}</p>
+                        </div>
+                        {hasCases ? (
+                            <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
+                        ) : null}
+                    </header>
 
-            {/* Case list section */}
-            <SectionCard
-                title="Your cases"
-                dataTour="ofw-cases"
-                bodyClassName=""
-                action={
-                    caseList.length > 0 ? (
-                        <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
-                    ) : null
-                }
-            >
-                {caseList.length === 0 ? (
-                    <EmptyState
-                        message="You haven't filed any cases yet. Start by filing a new case and a Case Manager will review it."
-                        href={fileCaseHref}
-                        actionLabel="File a New Case"
-                    />
-                ) : viewMode === 'grid' ? (
-                    <CaseCardGrid cases={caseList} />
-                ) : (
-                    <DashboardTable
-                            columns={[
-                                { key: 'trackingId', label: 'Tracking ID' },
-                                { key: 'caseNumber', label: 'Case number' },
-                                { key: 'summary', label: 'Request' },
-                                { key: 'status', label: 'Status' },
-                                { key: 'submitted', label: 'Submitted' },
-                                { key: 'action', label: '', className: 'text-right', cellClassName: 'text-right' },
-                            ]}
-                            rows={caseList.map((caseItem) => {
-                                const isUnderReview = caseItem.status === 'PENDING_REVIEW';
-                                const href = route('ofw.case.show', caseItem.id);
+                    {hasCases ? (
+                        <>
+                            {/* Search + filters */}
+                            <div className="space-y-3 border-b border-slate-100 px-5 py-4">
+                                <div className="relative">
+                                    <span
+                                        aria-hidden="true"
+                                        className="material-symbols-outlined pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[18px] leading-none text-slate-400"
+                                    >
+                                        search
+                                    </span>
+                                    <input
+                                        type="search"
+                                        value={query}
+                                        onChange={(e) => setQuery(e.target.value)}
+                                        placeholder="Search by tracking number or category"
+                                        aria-label="Search your cases"
+                                        className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-[13px] text-slate-900 placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                                    />
+                                </div>
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <FilterChip
+                                        label="All cases"
+                                        count={total}
+                                        active={filter === 'all'}
+                                        onClick={() => setFilter('all')}
+                                    />
+                                    <FilterChip
+                                        label="Open"
+                                        count={open}
+                                        active={filter === 'open'}
+                                        onClick={() => setFilter('open')}
+                                    />
+                                    <FilterChip
+                                        label="Closed"
+                                        count={closed}
+                                        active={filter === 'closed'}
+                                        onClick={() => setFilter('closed')}
+                                    />
+                                </div>
+                            </div>
 
-                                return {
-                                    key: caseItem.id,
-                                    trackingId: <Link href={href} className="font-bold text-primary hover:text-primary-container">{caseItem.tracker_number ?? caseItem.case_number}</Link>,
-                                    caseNumber: caseItem.case_number ?? 'Pending',
-                                    summary: <span className="block max-w-sm truncate">{caseItem.summary ?? 'No summary provided'}</span>,
-                                    status: <StatusBadge variant="pill" status={caseItem.status} showIcon={isUnderReview} label={isUnderReview ? 'Under Review' : undefined} icon={isUnderReview ? Hourglass : undefined} />,
-                                    submitted: formatDate(caseItem.created_at),
-                                    action: <Link href={href} className="font-bold text-primary hover:text-primary-container">View</Link>,
-                                };
-                            })}
-                            empty={<EmptyState message="No cases to show." />}
-                    />
-                )}
-            </SectionCard>
+                            {visibleCases.length === 0 ? (
+                                <EmptyState message="No cases on this page match your search or filter." />
+                            ) : viewMode === 'grid' ? (
+                                <CaseCardGrid cases={visibleCases} />
+                            ) : (
+                                <CaseTable cases={visibleCases} />
+                            )}
+
+                            <p className="border-t border-slate-100 px-5 py-3 text-[12px] text-slate-500">
+                                Showing {visibleCases.length} of {caseList.length} case{caseList.length === 1 ? '' : 's'} · Your records only
+                            </p>
+                        </>
+                    ) : (
+                        <EmptyState
+                            message="You haven't filed any cases yet. Start by filing a new case and a Case Manager will review it."
+                            href={fileCaseHref}
+                            actionLabel="File a New Case"
+                        />
+                    )}
+                </section>
+
+                <aside className="lg:sticky lg:top-24 lg:self-start">
+                    <HelpCard />
+                </aside>
+            </div>
+
+            {/* Protect your case information */}
+            <div className="mt-6 flex items-start gap-3 rounded-lg border border-info/25 bg-info-container/40 px-5 py-4">
+                <Info className="mt-0.5 h-4 w-4 shrink-0 text-info" aria-hidden="true" />
+                <div className="text-[13px]">
+                    <p className="font-bold text-slate-900">Protect your case information</p>
+                    <p className="mt-0.5 text-slate-600">
+                        Keep your tracking number and verification codes private. DMW will not ask you to
+                        share a one-time code with another person.
+                    </p>
+                </div>
+            </div>
 
             {/* Pagination links */}
             {cases?.links && cases.links.length > 3 && (
-                <nav className="mt-8 flex items-center justify-center gap-1" aria-label="Pagination">
+                <nav className="mt-6 flex items-center justify-center gap-1" aria-label="Pagination">
                     {cases.links.map((link) => {
                         // Paginator labels are unique per control (Previous /
                         // page numbers / Next), so the decoded text is a
@@ -242,6 +454,16 @@ export default function Dashboard({ cases, caseStats }) {
                     })}
                 </nav>
             )}
-        </OfwLayout>
+
+            <p className="mt-6 flex items-center gap-1.5 text-[11px] text-slate-400">
+                <span
+                    aria-hidden="true"
+                    className="material-symbols-outlined text-[14px] leading-none"
+                >
+                    info
+                </span>
+                All case information on this page comes from your own records.
+            </p>
+        </OfwPortalLayout>
     );
 }

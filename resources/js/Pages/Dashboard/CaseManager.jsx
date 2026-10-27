@@ -1,37 +1,51 @@
-import { useMemo, useState } from 'react';
-import { Link, router, usePage } from '@inertiajs/react';
-import useJsonPoll, { JSON_HEADERS } from '@/Hooks/useJsonPoll';
-import { Bar, Line, Pie } from 'react-chartjs-2';
-import { ArcElement, Chart as ChartJS, Filler, Legend, LineElement, PointElement, Tooltip } from 'chart.js';
+import { useEffect, useMemo, useState } from 'react';
+import { usePage } from '@inertiajs/react';
+import { Line } from 'react-chartjs-2';
+import { CategoryScale, Chart as ChartJS, Filler, Legend, LinearScale, LineElement, PointElement, Tooltip } from 'chart.js';
 import GettingStartedChecklist from '@/Components/GettingStartedChecklist';
 import StatusBadge from '@/Components/ui/StatusBadge';
+import { ActivityFeed, EmptyState, QuickActions, SectionCard, ViewAllLink, formatCount, safeArray } from '@/Components/Dashboard/primitives';
+import { DashboardRow, DashboardRowList, RowAgeFlag } from '@/Components/Dashboard/DashboardRow';
 import { formatDisplayDate, getCaseAgeInDays } from '@/lib/utils';
 import { humanizeStatus } from '@/lib/statusLabels';
-import { formatRelativeTime } from '@/lib/relativeTime';
 import safeRoute from '@/utils/safeRoute';
-import { getSeverityConfig, normalizeNotification } from '@/lib/notifications';
-import {
-    ActivityFeed,
-    DashboardTable,
-    EmptyState,
-    EntityList,
-    EntityRow,
-    MaterialSymbol,
-    PageHeader,
-    QuickActions,
-    SectionCard,
-    ViewAllLink,
-    formatCount,
-    safeArray,
-    toneHex,
-} from '@/Components/Dashboard/primitives';
 
-ChartJS.register(ArcElement, Filler, Legend, LineElement, PointElement, Tooltip);
+ChartJS.register(CategoryScale, Filler, Legend, LinearScale, LineElement, PointElement, Tooltip);
+
+/**
+ * Case manager overview.
+ *
+ * Four numbers, one chart, and the two queues a case manager actually works
+ * from (Needs You, Pending Reviews). Distribution charts deliberately live on
+ * the Reports page so this screen stays a glance, not a dashboard wall.
+ */
+
+const PERIODS = [
+    { days: 7, label: 'Last 7 days' },
+    { days: 30, label: 'Last 30 days' },
+    { days: 90, label: 'Last 90 days' },
+];
 
 const OVERDUE_DAYS = 5;
 
-const CASE_STATUSES = ['OPEN', 'CLOSED', 'ARCHIVED'];
-const REFERRAL_STATUSES = ['PENDING', 'PROCESSING', 'FOR_COMPLIANCE', 'COMPLETED', 'REJECTED'];
+/** "Wednesday, 28 October 2026" for the header. */
+function formatToday() {
+    return new Date().toLocaleDateString('en-PH', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+    });
+}
+
+/** 2026-10-28 -> "28 Oct" for the chart axis. */
+function formatBucket(value) {
+    const date = new Date(`${value}T00:00:00`);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleDateString('en-PH', { day: '2-digit', month: 'short' });
+}
+
+/* ---------- shared helpers (ported unchanged from the previous page) ---------- */
 
 function pick(...values) {
     for (const value of values) {
@@ -54,18 +68,6 @@ function createdAtOf(item) {
     return pick(item?.createdAt, item?.created_at, item?.occurredAt, item?.occurred_at, item?.timestamp, item?.time);
 }
 
-function relativeOf(item) {
-    const stamp = createdAtOf(item);
-    if (!stamp) {
-        return pick(item?.time, '—');
-    }
-    try {
-        return formatRelativeTime(String(stamp));
-    } catch {
-        return pick(item?.time, '—');
-    }
-}
-
 function AgeFlag({ days }) {
     const parsed = toAgeDays(days, 0);
     const overdue = parsed >= OVERDUE_DAYS;
@@ -82,396 +84,69 @@ function AgeFlag({ days }) {
     );
 }
 
-function normalizeTrend(dashboard) {
-    // First source with labels wins: cases-over-time, then case trends,
-    // then referral trends — so the chart renders whenever any source
-    // has labels. Shapes differ (datasets[0].data vs flat data), hence
-    // both are read. Short data arrays are zero-padded to the labels.
-    const sources = [dashboard?.casesOverTime, dashboard?.referralTrends];
-    for (const source of sources) {
-        const labels = safeArray(source?.labels);
-        if (labels.length === 0) {
-            continue;
-        }
-        const dataset = safeArray(source?.datasets)[0] ?? {};
-        const rawData = Array.isArray(source?.data) ? source.data : dataset.data;
-        const data = safeArray(rawData).map((value) => Number(value ?? 0));
-        while (data.length < labels.length) {
-            data.push(0);
-        }
-        return { labels, data: data.slice(0, labels.length) };
-    }
-    return { labels: [], data: [] };
-}
+/* ---------- KPI + chart ---------- */
 
-function applyThirtyDayWindow(labels, data) {
-    const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
-    const kept = labels
-        .map((label, index) => ({ label, value: data[index] ?? 0 }))
-        .filter(({ label }) => {
-            const parsed = new Date(label).getTime();
-            if (Number.isNaN(parsed)) {
-                return true;
-            }
-            return parsed >= cutoff;
-        });
-    // Monthly labels rarely fall inside 30 days — keep the latest periods
-    // so the filter never blanks the chart.
-    if (kept.length === 0) {
-        return { labels: labels.slice(-4), data: data.slice(-4) };
-    }
-    return { labels: kept.map((item) => item.label), data: kept.map((item) => item.value) };
+function KpiCard({ label, value, hint, tone = 'default' }) {
+    const valueTone = {
+        default: 'text-slate-900',
+        positive: 'text-emerald-700',
+        attention: 'text-amber-700',
+    }[tone] ?? 'text-slate-900';
+
+    return (
+        <div className="rounded-xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">{label}</p>
+            <p className={`mt-1.5 font-headline text-[28px] font-extrabold leading-none tracking-tight ${valueTone}`}>
+                {value ?? 0}
+            </p>
+            {hint ? <p className="mt-1.5 text-[11px] text-slate-500">{hint}</p> : null}
+        </div>
+    );
 }
 
 const chartOptions = {
     responsive: true,
     maintainAspectRatio: false,
-    plugins: { legend: { display: false } },
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+        legend: { display: false },
+        tooltip: {
+            backgroundColor: '#0f172a',
+            padding: 10,
+            cornerRadius: 6,
+            titleFont: { size: 11 },
+            bodyFont: { size: 11 },
+            boxWidth: 8,
+            boxHeight: 8,
+        },
+    },
+    elements: {
+        line: { tension: 0.35, borderWidth: 2 },
+        point: { radius: 0, hoverRadius: 4, hitRadius: 12 },
+    },
     scales: {
-        y: { beginAtZero: true, ticks: { precision: 0, font: { size: 10 } }, grid: { color: '#f1f5f9' } },
-        x: { ticks: { font: { size: 10 } }, grid: { display: false } },
+        y: {
+            beginAtZero: true,
+            ticks: { precision: 0, font: { size: 10 }, color: '#94a3b8', padding: 6 },
+            grid: { color: '#f1f5f9', drawTicks: false },
+            border: { display: false },
+        },
+        x: {
+            ticks: {
+                font: { size: 10 },
+                color: '#94a3b8',
+                maxTicksLimit: 8,
+                maxRotation: 0,
+                autoSkip: true,
+                padding: 4,
+            },
+            grid: { display: false },
+            border: { display: false },
+        },
     },
 };
 
-/**
- * Single source for the exact status counts shown in the Numbers block.
- * The pies below reuse it so every total on screen always matches.
- */
-function getStatusCounts(dashboard) {
-    const distribution = safeArray(dashboard?.referralStatusDistribution);
-    const countFor = (status) => distribution.find((item) => item.status === status)?.count;
-
-    return {
-        caseCounts: {
-            OPEN: dashboard?.openCases ?? 0,
-            CLOSED: dashboard?.closedCases ?? 0,
-        },
-        referralCounts: {
-            PENDING: dashboard?.pendingReferrals ?? countFor('PENDING') ?? 0,
-            PROCESSING: dashboard?.processingReferrals ?? countFor('PROCESSING') ?? 0,
-            FOR_COMPLIANCE: countFor('FOR_COMPLIANCE') ?? 0,
-            COMPLETED: dashboard?.completedReferrals ?? countFor('COMPLETED') ?? 0,
-            REJECTED: dashboard?.rejectedReferrals ?? countFor('REJECTED') ?? 0,
-        },
-    };
-}
-
-function NumbersBlock({ dashboard }) {
-    const [chartType, setChartType] = useState('line');
-    const [last30Only, setLast30Only] = useState(false);
-
-    const { caseCounts, referralCounts } = useMemo(() => getStatusCounts(dashboard), [dashboard]);
-
-    const trend = useMemo(() => normalizeTrend(dashboard), [dashboard]);
-    const visible = useMemo(
-        () => (last30Only ? applyThirtyDayWindow(trend.labels, trend.data) : trend),
-        [trend, last30Only],
-    );
-    const chartData = {
-        labels: visible.labels,
-        datasets: [
-            {
-                data: visible.data,
-                borderColor: '#005288',
-                backgroundColor: chartType === 'line' ? 'rgba(0, 82, 136, 0.12)' : '#005288',
-                borderRadius: 3,
-                maxBarThickness: 22,
-                fill: chartType === 'line',
-                tension: 0.3,
-                pointRadius: 2,
-            },
-        ],
-    };
-
-    return (
-        <SectionCard
-            title="Numbers"
-            dataTour="dashboard-stats"
-            action={
-                <div className="flex items-center gap-1.5">
-                    <button
-                        type="button"
-                        onClick={() => setLast30Only((value) => !value)}
-                        aria-pressed={last30Only}
-                        className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
-                            last30Only
-                                ? 'border-primary bg-primary text-white'
-                                : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-                        }`}
-                    >
-                        <MaterialSymbol name="calendar_month" className="text-[14px]" />
-                        30 days
-                    </button>
-                    <div className="inline-flex overflow-hidden rounded-full border border-slate-200" role="group" aria-label="Chart type">
-                        {[
-                            { key: 'line', label: 'Line', icon: 'show_chart' },
-                            { key: 'bar', label: 'Bar', icon: 'bar_chart' },
-                        ].map((option) => (
-                            <button
-                                key={option.key}
-                                type="button"
-                                onClick={() => setChartType(option.key)}
-                                aria-pressed={chartType === option.key}
-                                className={`inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary ${
-                                    chartType === option.key ? 'bg-primary text-white' : 'bg-white text-slate-600 hover:bg-slate-50'
-                                }`}
-                            >
-                                <MaterialSymbol name={option.icon} className="text-[14px]" />
-                                {option.label}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-            }
-        >
-            <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Cases</p>
-            <div className="mt-2 grid grid-cols-3 gap-2">
-                {CASE_STATUSES.map((status) => (
-                    <div key={status} className="rounded-lg bg-slate-50 px-3 py-2.5">
-                        <p className="text-lg font-black text-slate-900">{formatCount(caseCounts[status])}</p>
-                        <div className="mt-1">
-                            <StatusBadge status={status} label={humanizeStatus(status)} />
-                        </div>
-                    </div>
-                ))}
-            </div>
-
-            <p className="mt-4 text-[11px] font-bold uppercase tracking-widest text-slate-400">Referrals</p>
-            <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
-                {REFERRAL_STATUSES.map((status) => (
-                    <div key={status} className="rounded-lg bg-slate-50 px-3 py-2.5">
-                        <p className="text-lg font-black text-slate-900">{formatCount(referralCounts[status])}</p>
-                        <div className="mt-1">
-                            <StatusBadge status={status} label={humanizeStatus(status)} />
-                        </div>
-                    </div>
-                ))}
-            </div>
-
-            <div className="mt-4 border-t border-slate-100 pt-3">
-                {visible.labels.length > 0 ? (
-                    <div className="h-36">
-                        {chartType === 'line' ? (
-                            <Line data={chartData} options={chartOptions} />
-                        ) : (
-                            <Bar data={chartData} options={chartOptions} />
-                        )}
-                    </div>
-                ) : (
-                    <p className="text-sm text-slate-500">The trend appears as case activity accumulates.</p>
-                )}
-            </div>
-        </SectionCard>
-    );
-}
-
-// Slice hues mirror StatusBadge: exact DB status text, CaseStatus colors.
-const STATUS_TONE = {
-    DRAFT: 'amber',
-    OPEN: 'blue',
-    CLOSED: 'slate',
-    PENDING: 'amber',
-    PROCESSING: 'blue',
-    FOR_COMPLIANCE: 'orange',
-    COMPLETED: 'emerald',
-    REJECTED: 'rose',
-};
-
-const AGENCY_TONES = ['blue', 'cyan', 'emerald', 'amber', 'orange', 'rose'];
-
-const pieOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: { legend: { display: false } },
-};
-
-function PieCard({ title, dataTour, slices, emptyMessage }) {
-    const visible = slices.filter((slice) => Number(slice.count) > 0);
-
-    return (
-        <SectionCard title={title} dataTour={dataTour}>
-            {visible.length === 0 ? (
-                <p className="text-sm text-slate-500">{emptyMessage}</p>
-            ) : (
-                <div>
-                    <div className="h-44">
-                        <Pie
-                            data={{
-                                labels: visible.map((slice) => slice.label),
-                                datasets: [
-                                    {
-                                        data: visible.map((slice) => Number(slice.count)),
-                                        backgroundColor: visible.map((slice) => slice.hex),
-                                        borderColor: '#ffffff',
-                                        borderWidth: 1,
-                                    },
-                                ],
-                            }}
-                            options={pieOptions}
-                        />
-                    </div>
-                    <ul className="mt-3 space-y-1.5">
-                        {visible.map((slice) => (
-                            <li key={slice.key} className="flex items-center justify-between gap-2 text-xs">
-                                <span className="flex min-w-0 items-center gap-1.5">
-                                    <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: slice.hex }} />
-                                    <span className="truncate font-semibold text-slate-700">{slice.label}</span>
-                                </span>
-                                <span className="shrink-0 font-bold text-slate-900">{formatCount(slice.count)}</span>
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-            )}
-        </SectionCard>
-    );
-}
-
-function PiesRow({ dashboard }) {
-    const { caseCounts, referralCounts } = useMemo(() => getStatusCounts(dashboard), [dashboard]);
-    const agencies = useMemo(() => normalizeAgencies(dashboard), [dashboard]);
-
-    return (
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-            <PieCard
-                title="Cases by status"
-                dataTour="dashboard-pie-cases"
-                slices={CASE_STATUSES.map((status) => ({
-                    key: status,
-                    label: humanizeStatus(status),
-                    count: caseCounts[status],
-                    hex: toneHex(STATUS_TONE[status]),
-                }))}
-                emptyMessage="No case data to show."
-            />
-            <PieCard
-                title="Referrals by agency"
-                dataTour="dashboard-pie-agencies"
-                slices={agencies.map((agency, index) => ({
-                    key: agency.id ?? agency.name ?? index,
-                    label: agency.name,
-                    count: agency.active,
-                    hex: toneHex(AGENCY_TONES[index % AGENCY_TONES.length]),
-                }))}
-                emptyMessage="No agency data to show."
-            />
-            <PieCard
-                title="Referrals by status"
-                dataTour="dashboard-pie-status"
-                slices={REFERRAL_STATUSES.map((status) => ({
-                    key: status,
-                    label: humanizeStatus(status),
-                    count: referralCounts[status],
-                    hex: toneHex(STATUS_TONE[status]),
-                }))}
-                emptyMessage="No referral data to show."
-            />
-        </div>
-    );
-}
-
-function NotificationsBlock() {
-    const { data: notifData, isLoading, reload: reloadList } = useJsonPoll(
-        safeRoute('notifications.index', { per_page: 20 }, '/notifications?per_page=20'),
-    );
-
-    const [marking, setMarking] = useState(false);
-
-    const markRead = async (rawId) => {
-        setMarking(true);
-        try {
-            const res = await fetch(safeRoute('notifications.mark-as-read', rawId, `/notifications/${rawId}/read`), {
-                method: 'PATCH',
-                headers: {
-                    ...JSON_HEADERS,
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
-                },
-            });
-            if (!res.ok) throw new Error(`Failed to mark as read: ${res.status}`);
-            await res.json();
-            await reloadList();
-        } finally {
-            setMarking(false);
-        }
-    };
-
-    const items = safeArray(notifData?.data).map((row) => normalizeNotification(row)).slice(0, 5);
-    // The list endpoint already reports the unread count in meta — the
-    // client-side count is only a fallback.
-    const unreadCount = Number(notifData?.meta?.unread ?? items.filter((item) => !item.is_read).length);
-
-    return (
-        <SectionCard
-            title="Notifications"
-            dataTour="dashboard-work-queue"
-            action={
-                <div className="flex items-center gap-2">
-                    {unreadCount > 0 ? (
-                        <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-700">
-                            {formatCount(unreadCount)} unread
-                        </span>
-                    ) : null}
-                    <ViewAllLink href={safeRoute('notifications.page', undefined, '/notifications/page')}>View all</ViewAllLink>
-                </div>
-            }
-            bodyClassName=""
-        >
-            {isLoading && items.length === 0 ? (
-                <p className="px-5 py-6 text-sm text-slate-500">Loading notifications...</p>
-            ) : items.length === 0 ? (
-                <EmptyState message="No notifications." />
-            ) : (
-                <div className="divide-y divide-slate-100">
-                    {items.map((item) => {
-                        const config = getSeverityConfig(item.severity);
-                        const isUnread = !item.is_read;
-                        return (
-                            <div
-                                key={item.id}
-                                onClick={() => {
-                                    if (item.action_url) {
-                                        router.visit(item.action_url);
-                                    }
-                                }}
-                                className={`flex items-center gap-3 px-5 py-3 transition-colors ${
-                                    isUnread ? 'bg-blue-50/40' : ''
-                                } ${item.action_url ? 'cursor-pointer hover:bg-slate-100' : ''}`}
-                            >
-                                <div className="min-w-0 flex-1">
-                                    <div className="flex flex-wrap items-center gap-2">
-                                        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${config.dot}`} />
-                                        <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500">
-                                            {config.label}
-                                        </span>
-                                        <span className="truncate text-sm font-bold text-slate-900">
-                                            {item.title || 'Notification'}
-                                        </span>
-                                    </div>
-                                    <p className="mt-0.5 text-[11px] text-slate-400">{formatRelativeTime(item.created_at || '')}</p>
-                                </div>
-                                {isUnread ? (
-                                    <button
-                                        type="button"
-                                        onClick={(event) => {
-                                            event.stopPropagation();
-                                            markRead(item._rawId);
-                                        }}
-                                        disabled={marking}
-                                        title="Mark as read"
-                                        className="inline-flex shrink-0 items-center rounded-lg border border-slate-200 px-2.5 py-1.5 text-[11px] font-bold text-slate-500 transition-colors hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-                                    >
-                                        Read
-                                    </button>
-                                ) : null}
-                                <MaterialSymbol name="chevron_right" className="shrink-0 text-[16px] text-slate-300" />
-                            </div>
-                        );
-                    })}
-                </div>
-            )}
-        </SectionCard>
-    );
-}
+/* ---------- Needs You ---------- */
 
 const URGENCY = { REJECTED: 5, FOR_COMPLIANCE: 4, PENDING: 3, OPEN: 2, PROCESSING: 1 };
 
@@ -515,70 +190,43 @@ function buildNeedsYou(dashboard) {
 
 function NeedsYouBlock({ dashboard }) {
     const rows = useMemo(() => buildNeedsYou(dashboard), [dashboard]);
-    const columns = [
-        { key: 'trackingId', label: 'Tracking ID' },
-        { key: 'client', label: 'Client' },
-        { key: 'detail', label: 'Detail' },
-        { key: 'status', label: 'Status' },
-        { key: 'age', label: 'Age', className: 'text-right', cellClassName: 'text-right' },
-        { key: 'action', label: '', className: 'text-right', cellClassName: 'text-right' },
-    ];
-    const tableRows = rows.map((row) => ({
-        key: row.key,
-        trackingId: <Link href={row.href} className="font-bold text-primary hover:text-primary-container">{row.trackingId}</Link>,
-        client: <span className="font-semibold text-slate-900">{row.title}</span>,
-        detail: row.note,
-        status: <StatusBadge status={row.status} label={humanizeStatus(row.status)} />,
-        age: <AgeFlag days={row.age} />,
-        action: <Link href={row.href} className="font-bold text-primary hover:text-primary-container">Open</Link>,
-    }));
 
     return (
         <SectionCard title="Needs You" dataTour="dashboard-needs-you" bodyClassName="">
-            <DashboardTable
-                columns={columns}
-                rows={tableRows}
-                empty={<EmptyState message="Nothing needs attention." href={safeRoute('overdue-referrals.index', undefined, '/overdue-referrals')} actionLabel="Check overdue" />}
-            />
+            <DashboardRowList empty={<EmptyState message="Nothing needs attention." href={safeRoute('overdue-referrals.index', undefined, '/overdue-referrals')} actionLabel="Check overdue" />}>
+                {rows.map((row) => (
+                    <DashboardRow
+                        key={row.key}
+                        href={row.href}
+                        pill={row.trackingId}
+                        title={row.title}
+                        note={row.note}
+                        right={
+                            <>
+                                <StatusBadge status={row.status} label={humanizeStatus(row.status)} />
+                                <RowAgeFlag days={row.age} overdueDays={OVERDUE_DAYS} />
+                            </>
+                        }
+                    />
+                ))}
+            </DashboardRowList>
         </SectionCard>
     );
 }
+
+/* ---------- Pending Reviews ---------- */
 
 function PendingReviews({ dashboard }) {
     const items = useMemo(
         () =>
             safeArray(dashboard?.intakeReview)
                 .slice()
-                .sort(
-                    (a, b) =>
-                        new Date(createdAtOf(a) ?? 0).getTime() - new Date(createdAtOf(b) ?? 0).getTime(),
-                )
+                .sort((a, b) => new Date(createdAtOf(a) ?? 0).getTime() - new Date(createdAtOf(b) ?? 0).getTime())
                 .slice(0, 5),
         [dashboard],
     );
     const count = dashboard?.pendingReviewCount ?? items.length;
     const listHref = safeRoute('cases.review-pending', undefined, '/cases/review-pending');
-    const columns = [
-        { key: 'trackingId', label: 'Tracking ID' },
-        { key: 'client', label: 'Client' },
-        { key: 'filed', label: 'Filed' },
-        { key: 'status', label: 'Status' },
-        { key: 'action', label: '', className: 'text-right', cellClassName: 'text-right' },
-    ];
-    const rows = items.map((item) => {
-        const id = item.id;
-        const filed = createdAtOf(item);
-        const href = item.href && typeof item.href === 'string' && item.href.length > 0 ? item.href : listHref;
-
-        return {
-            key: id,
-            trackingId: <Link href={href} className="font-bold text-primary hover:text-primary-container">{pick(item.trackerNumber, item.tracker_number, item.caseNo, item.case_number, '—')}</Link>,
-            client: <span className="font-semibold text-slate-900">{pick(item.clientName, item.client_name, 'Unnamed client')}</span>,
-            filed: filed ? formatDisplayDate(String(filed)) : '—',
-            status: <StatusBadge status={pick(item.status, 'PENDING_REVIEW')} label={humanizeStatus(pick(item.status, 'PENDING_REVIEW'))} />,
-            action: <Link href={href} className="font-bold text-primary hover:text-primary-container">Review</Link>,
-        };
-    });
 
     return (
         <SectionCard
@@ -587,130 +235,31 @@ function PendingReviews({ dashboard }) {
             action={<ViewAllLink href={listHref}>View all</ViewAllLink>}
             bodyClassName=""
         >
-            <DashboardTable columns={columns} rows={rows} empty={<EmptyState message="No filings waiting for review." />} />
-        </SectionCard>
-    );
-}
+            <DashboardRowList empty={<EmptyState message="No filings waiting for review." />}>
+                {items.map((item) => {
+                    const filed = createdAtOf(item);
+                    const href = item.href && typeof item.href === 'string' && item.href.length > 0 ? item.href : listHref;
+                    const trackingId = pick(item.trackerNumber, item.tracker_number, item.caseNo, item.case_number, '—');
+                    const clientName = pick(item.clientName, item.client_name, 'Unnamed client');
+                    const filedLabel = filed ? formatDisplayDate(String(filed)) : '';
 
-function normalizeReferralNews(dashboard) {
-    return safeArray(dashboard?.referralNews)
-        .map((item) => ({
-            id: pick(item.id, `${item.from}-${item.to}-${item.occurredAt}`),
-            from: pick(item.from, item.fromStatus, item.oldStatus, item.meta?.from),
-            to: pick(item.to, item.toStatus, item.newStatus, item.meta?.to),
-            kind: pick(item.kind, item.type),
-            caseNumber: pick(item.caseNumber, item.case_number, item.meta?.case_number),
-            clientName: pick(item.clientName, item.client_name, item.meta?.client_name),
-            milestone: pick(item.milestone, item.milestoneTitle, item.title),
-            href: pick(item.href, item.referral_id ? safeRoute('referrals.show', item.referral_id, `/referrals/${item.referral_id}`) : item.case_id ? safeRoute('cases.show', item.case_id, `/cases/${item.case_id}`) : safeRoute('referrals.index', undefined, '/referrals')),
-            at: createdAtOf(item) ?? pick(item.time),
-        }))
-        .sort((a, b) => new Date(b.at ?? 0).getTime() - new Date(a.at ?? 0).getTime());
-}
-
-function ReferralNewsBlock({ dashboard }) {
-    const news = useMemo(() => normalizeReferralNews(dashboard), [dashboard]);
-
-    return (
-        <SectionCard
-            title="Referral News"
-            dataTour="dashboard-referral-news"
-            action={<ViewAllLink href={safeRoute('referrals.index', undefined, '/referrals')}>View all</ViewAllLink>}
-            bodyClassName=""
-        >
-            {news.length === 0 ? (
-                <EmptyState message="No referral updates yet." />
-            ) : (
-                <div className="divide-y divide-slate-100">
-                    {news.map((item) => (
-                        <Link
+                    return (
+                        <DashboardRow
                             key={item.id}
-                            href={item.href}
-                            className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
-                        >
-                            <div className="min-w-0 flex-1">
-                                {item.kind === 'milestone_added' ? (
-                                    <p className="truncate text-sm font-bold text-slate-900">
-                                        Milestone added{item.caseNumber ? ` · ${item.caseNumber}` : ''}
-                                    </p>
-                                ) : (
-                                    <p className="flex flex-wrap items-center gap-1.5">
-                                        <StatusBadge status={item.from ?? 'PENDING'} label={humanizeStatus(item.from ?? 'PENDING')} />
-                                        <MaterialSymbol name="arrow_forward" className="text-[14px] text-slate-400" />
-                                        <StatusBadge status={item.to ?? 'PROCESSING'} label={humanizeStatus(item.to ?? 'PROCESSING')} />
-                                    </p>
-                                )}
-                                <p className="mt-0.5 truncate text-xs text-slate-500">
-                                    {[item.clientName, item.caseNumber, item.kind === 'milestone_added' ? item.milestone : null]
-                                        .filter(Boolean)
-                                        .join(' · ') || 'Referral update'}
-                                </p>
-                            </div>
-                            <span className="shrink-0 text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                                {relativeOf({ createdAt: item.at })}
-                            </span>
-                            <MaterialSymbol name="chevron_right" className="shrink-0 text-[16px] text-slate-300" />
-                        </Link>
-                    ))}
-                </div>
-            )}
+                            href={href}
+                            pill={trackingId}
+                            title={clientName}
+                            note={`Request for Assistance${filedLabel ? ` · filed ${filedLabel}` : ''}`}
+                            right={<StatusBadge status={pick(item.status, 'PENDING_REVIEW')} label={humanizeStatus(pick(item.status, 'PENDING_REVIEW'))} />}
+                        />
+                    );
+                })}
+            </DashboardRowList>
         </SectionCard>
     );
 }
 
-function normalizeAgencies(dashboard) {
-    const breakdown = safeArray(dashboard?.agencyBreakdown);
-    if (breakdown.length > 0) {
-        return breakdown.slice(0, 5).map((item) => ({
-            id: pick(item.agencyId, item.agency_id, item.id),
-            name: pick(item.agencyName, item.agency_name, item.name, 'Unknown'),
-            active: Number(pick(item.activeCount, item.count, 0)),
-            overdue: Number(pick(item.overdueCount, 0)),
-            detail: undefined,
-        }));
-    }
-    return safeArray(dashboard?.agencyResponseScorecard).slice(0, 5).map((agency) => ({
-        id: pick(agency.id, agency.agencyId),
-        name: pick(agency.name, agency.agencyName, 'Unknown'),
-        active: Number(pick(agency.activeReferrals, agency.activeCount, 0)),
-        overdue: Number(pick(agency.overdueReferrals, agency.overdueCount, 0)),
-        detail: agency.completionRate !== undefined ? `${agency.completionRate}% done` : undefined,
-    }));
-}
-
-function AgenciesBlock({ dashboard }) {
-    const agencies = useMemo(() => normalizeAgencies(dashboard), [dashboard]);
-
-    return (
-        <SectionCard
-            title="Agencies Handling"
-            dataTour="dashboard-agencies"
-            action={<ViewAllLink href={safeRoute('reports.index', undefined, '/reports')}>View all</ViewAllLink>}
-            bodyClassName=""
-        >
-            <EntityList empty={<EmptyState message="No agencies handling referrals." />}>
-                {agencies.map((agency, index) => (
-                    <EntityRow
-                        key={agency.id ?? agency.name ?? index}
-                        href={agency.id ? safeRoute('admin.agencies.show', agency.id, `/admin/agencies/${agency.id}`) : safeRoute('reports.index', undefined, '/reports')}
-                        title={agency.name}
-                        note={[`${formatCount(agency.active)} active`, agency.detail].filter(Boolean).join(' · ')}
-                        age={agency.overdue > 0 ? <AgeFlag days={OVERDUE_DAYS} /> : undefined}
-                        right={
-                            <span
-                                className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold ${
-                                    agency.overdue > 0 ? 'bg-rose-50 text-rose-700' : 'bg-slate-100 text-slate-500'
-                                }`}
-                            >
-                                {formatCount(agency.overdue)} overdue
-                            </span>
-                        }
-                    />
-                ))}
-            </EntityList>
-        </SectionCard>
-    );
-}
+/* ---------- Case activity ---------- */
 
 function normalizeCaseEvents(dashboard) {
     // Case-only slice of the AuditLog feed (no login / system noise).
@@ -732,47 +281,190 @@ function CaseActivityBlock({ dashboard }) {
     );
 }
 
+/* ---------- Page ---------- */
+
 export default function CaseManagerDashboard({ dashboard = {} }) {
     const { auth } = usePage().props;
     const firstName = auth?.user?.name?.split(' ')[0] ?? 'there';
-    const stats = dashboard.stats ?? dashboard;
+
+    const [days, setDays] = useState(30);
+    const [period, setPeriod] = useState(null);
+    const [loading, setLoading] = useState(true);
+
+    // The page itself keeps rendering from the deferred dashboard payload while
+    // this first request is in flight, so the skeleton is only the KPI/chart
+    // area, never the whole page.
+    useEffect(() => {
+        let cancelled = false;
+        setLoading(true);
+
+        fetch(safeRoute('dashboard.case-manager-period', { days }, `/dashboard/case-manager-period?days=${days}`), {
+            headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        })
+            .then((res) => (res.ok ? res.json() : null))
+            .then((data) => {
+                if (!cancelled && data) setPeriod(data);
+            })
+            .catch(() => {})
+            .finally(() => {
+                if (!cancelled) setLoading(false);
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [days]);
+
+    const kpis = period?.kpis ?? { active: 0, awaiting_agency: 0, needs_action: 0, closed: 0 };
+    const volume = period?.volume ?? { labels: [], received: [], closed: [] };
+
+    const chartData = useMemo(() => ({
+        labels: (volume.labels ?? []).map(formatBucket),
+        datasets: [
+            {
+                label: 'Cases received',
+                data: volume.received ?? [],
+                borderColor: '#005288',
+                backgroundColor: 'rgba(0, 82, 136, 0.10)',
+                pointBackgroundColor: '#005288',
+                fill: true,
+            },
+            {
+                label: 'Cases closed',
+                data: volume.closed ?? [],
+                borderColor: '#10b981',
+                backgroundColor: 'rgba(16, 185, 129, 0.10)',
+                pointBackgroundColor: '#10b981',
+                fill: true,
+            },
+        ],
+    }), [volume]);
+
+    const hasVolume = (volume.labels ?? []).length > 0;
+    const periodLabel = period?.period?.label ?? PERIODS.find((p) => p.days === days)?.label;
 
     return (
         <div className="mx-auto max-w-7xl pb-8">
             <GettingStartedChecklist />
 
-            <PageHeader
-                eyebrow="Case manager"
-                title={`Welcome back, ${firstName}`}
-                subtitle="What needs you today."
-            >
-                <QuickActions
-                    actions={[
-                        { href: safeRoute('cases.create', undefined, '/cases/create'), label: 'New case', icon: 'add', primary: true },
-                        { href: safeRoute('cases.index', undefined, '/cases'), label: 'Cases', icon: 'folder', count: stats.totalCases },
-                        { href: safeRoute('referrals.index', undefined, '/referrals'), label: 'Referrals', icon: 'send', count: stats.totalReferrals },
-                    ]}
-                />
-            </PageHeader>
-
-            <div className="mb-6">
-                <NumbersBlock dashboard={dashboard} />
-            </div>
-
-            <div className="mb-6">
-                <PiesRow dashboard={dashboard} />
-            </div>
-
-            <div className="grid gap-6 xl:grid-cols-12">
-                <div className="space-y-6 xl:col-span-7">
-                    <NotificationsBlock />
-                    <PendingReviews dashboard={dashboard} />
-                    <ReferralNewsBlock dashboard={dashboard} />
+            {/* Greeting + today's date + period filter */}
+            <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div className="min-w-0">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Case manager</p>
+                    <h1 className="mt-1 font-headline text-[28px] font-extrabold tracking-tight text-slate-900 sm:text-[32px]">
+                        Good day, {firstName}
+                    </h1>
+                    <p className="mt-1 text-[14px] text-slate-500">{formatToday()}</p>
                 </div>
 
-                <div className="space-y-6 xl:col-span-5">
+                <div className="flex flex-wrap items-center gap-3">
+                    <label htmlFor="dashboard-period" className="sr-only">Reporting period</label>
+                    <div className="relative">
+                        <span
+                            aria-hidden="true"
+                            className="material-symbols-outlined pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[17px] leading-none text-slate-400"
+                        >
+                            calendar_month
+                        </span>
+                        <select
+                            id="dashboard-period"
+                            value={days}
+                            onChange={(e) => setDays(Number(e.target.value))}
+                            className="appearance-none rounded-lg border border-slate-200 bg-white py-2.5 pl-9 pr-9 text-[13px] font-semibold text-slate-700 shadow-sm transition-colors focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                        >
+                            {PERIODS.map((option) => (
+                                <option key={option.days} value={option.days}>{option.label}</option>
+                            ))}
+                        </select>
+                        <span
+                            aria-hidden="true"
+                            className="material-symbols-outlined pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[18px] leading-none text-slate-400"
+                        >
+                            expand_more
+                        </span>
+                    </div>
+
+                    <QuickActions
+                        actions={[
+                            { href: safeRoute('cases.create', undefined, '/cases/create'), label: 'New case', icon: 'add', primary: true },
+                            { href: safeRoute('cases.index', undefined, '/cases'), label: 'Cases', icon: 'folder' },
+                        ]}
+                    />
+                </div>
+            </div>
+
+            {/* Four KPIs */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <KpiCard label="Total active cases" value={kpis.active} hint="Open cases right now" />
+                <KpiCard
+                    label="Awaiting agency response"
+                    value={kpis.awaiting_agency}
+                    hint="Referrals awaiting a partner office"
+                />
+                <KpiCard
+                    label="Cases needing action"
+                    value={kpis.needs_action}
+                    hint="Documents requested or referral rejected"
+                    tone="attention"
+                />
+                <KpiCard
+                    label="Cases closed this period"
+                    value={kpis.closed}
+                    hint={periodLabel ?? 'In the selected period'}
+                    tone="positive"
+                />
+            </div>
+
+            {/* Case volume */}
+            <section className="mt-6 rounded-xl border border-slate-200 bg-white shadow-sm">
+                <header className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
+                    <div>
+                        <h2 className="font-headline text-[15px] font-extrabold tracking-tight text-slate-900">
+                            Case volume over time
+                        </h2>
+                        <p className="mt-0.5 text-[12px] text-slate-500">Filings against closures, day by day.</p>
+                    </div>
+
+                    <div className="flex items-center gap-4 pt-1">
+                        <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-600">
+                            <span className="h-2 w-2 rounded-full bg-[#005288]" />
+                            Cases received
+                        </span>
+                        <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-600">
+                            <span className="h-2 w-2 rounded-full bg-[#10b981]" />
+                            Cases closed
+                        </span>
+                    </div>
+                </header>
+
+                <div className="px-5 py-5">
+                    {loading && !hasVolume ? (
+                        <div className="flex h-64 items-center justify-center">
+                            <span aria-hidden="true" className="material-symbols-outlined animate-spin text-[24px] text-slate-300">
+                                progress_activity
+                            </span>
+                        </div>
+                    ) : hasVolume ? (
+                        <div className="h-64">
+                            <Line data={chartData} options={chartOptions} />
+                        </div>
+                    ) : (
+                        <div className="flex h-64 flex-col items-center justify-center text-center">
+                            <span className="material-symbols-outlined text-3xl text-slate-300" aria-hidden="true">show_chart</span>
+                            <p className="mt-2 text-[13px] font-semibold text-slate-700">No case activity in this period</p>
+                            <p className="mt-0.5 text-[12px] text-slate-500">Try a longer period to see the trend.</p>
+                        </div>
+                    )}
+                </div>
+            </section>
+
+            {/* Work queues + activity */}
+            <div className="mt-6 grid gap-6 xl:grid-cols-12">
+                <div className="space-y-6 xl:col-span-7">
+                    <PendingReviews dashboard={dashboard} />
                     <NeedsYouBlock dashboard={dashboard} />
-                    <AgenciesBlock dashboard={dashboard} />
+                </div>
+                <div className="space-y-6 xl:col-span-5">
                     <CaseActivityBlock dashboard={dashboard} />
                 </div>
             </div>

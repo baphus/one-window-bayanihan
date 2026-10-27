@@ -10,11 +10,11 @@ vi.mock('@inertiajs/react', () => ({
     router: { post: vi.fn(), reload: vi.fn() },
 }));
 
-vi.mock('@/Layouts/OfwLayout', () => ({
+vi.mock('@/Layouts/OfwPortalLayout', () => ({
     default: ({ children }) => <div>{children}</div>,
 }));
 
-vi.mock('@/Components/Timeline', () => ({ default: () => <div /> }));
+vi.mock('@/Components/CitizenTimeline', () => ({ default: () => <div /> }));
 
 globalThis.route = (name, params) => `/${name}/${Array.isArray(params) ? params.join('/') : params ?? ''}`;
 

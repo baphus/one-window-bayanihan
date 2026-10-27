@@ -275,6 +275,132 @@ class DashboardServiceTest extends TestCase
         $this->assertArrayHasKey('operationalQueues', $second);
     }
 
+    #[Test]
+    public function case_manager_period_data_returns_four_kpis_and_a_zero_filled_daily_series(): void
+    {
+        Cache::flush();
+
+        $payload = app(DashboardService::class)->getCaseManagerPeriodData(30);
+
+        $this->assertSame(30, $payload['period']['days']);
+        $this->assertSame('Last 30 days', $payload['period']['label']);
+
+        foreach (['active', 'awaiting_agency', 'needs_action', 'closed'] as $key) {
+            $this->assertArrayHasKey($key, $payload['kpis']);
+        }
+
+        // One bucket per day across the whole window, with no gaps: a chart
+        // that skipped empty days would draw a misleading line.
+        $this->assertCount(30, $payload['volume']['labels']);
+        $this->assertCount(30, $payload['volume']['received']);
+        $this->assertCount(30, $payload['volume']['closed']);
+    }
+
+    #[Test]
+    public function case_manager_period_data_only_accepts_the_offered_windows(): void
+    {
+        Cache::flush();
+
+        // An unrecognised window falls back to the 30-day default rather than
+        // running an unbounded scan.
+        $payload = app(DashboardService::class)->getCaseManagerPeriodData(365);
+
+        $this->assertSame(30, $payload['period']['days']);
+        $this->assertCount(30, $payload['volume']['labels']);
+    }
+
+    #[Test]
+    public function case_manager_period_data_counts_a_filing_in_the_received_series(): void
+    {
+        Cache::flush();
+
+        $this->createCaseForClient([
+            'status' => 'OPEN',
+            'created_at' => now()->subDay(),
+        ]);
+
+        $payload = app(DashboardService::class)->getCaseManagerPeriodData(30);
+
+        $this->assertGreaterThanOrEqual(1, array_sum($payload['volume']['received']));
+        $this->assertGreaterThanOrEqual(1, $payload['kpis']['active']);
+    }
+
+    #[Test]
+    public function agency_period_data_is_scoped_to_the_agencys_own_referrals(): void
+    {
+        Cache::flush();
+
+        $agency = Agency::factory()->create();
+        $otherAgency = Agency::factory()->create();
+
+        $this->createReferralForAgency($agency, ['status' => 'PENDING', 'created_at' => now()->subDays(2)]);
+        $this->createReferralForAgency($agency, ['status' => 'COMPLETED', 'created_at' => now()->subDays(3)]);
+        // Another agency's referral must never be counted.
+        $this->createReferralForAgency($otherAgency, ['status' => 'PENDING', 'created_at' => now()->subDays(2)]);
+
+        $payload = app(DashboardService::class)->getAgencyPeriodData($agency->id, 30);
+
+        $this->assertSame(2, $payload['kpis']['assigned']);
+        $this->assertSame(1, $payload['kpis']['awaiting']);
+        $this->assertSame(1, $payload['kpis']['resolved']);
+        $this->assertCount(30, $payload['volume']['labels']);
+        $this->assertSame(2, array_sum($payload['volume']['received']));
+    }
+
+    #[Test]
+    public function agency_period_data_returns_an_empty_shape_without_an_agency(): void
+    {
+        Cache::flush();
+
+        // An account with no agency must not fall back to every agency's rows.
+        $payload = app(DashboardService::class)->getAgencyPeriodData(null, 30);
+
+        $this->assertSame(0, $payload['kpis']['assigned']);
+        $this->assertSame([], $payload['volume']['labels']);
+        $this->assertSame([], $payload['status_mix']);
+        $this->assertSame([], $payload['category_mix']);
+    }
+
+    #[Test]
+    public function admin_period_data_returns_kpis_charts_and_role_distribution(): void
+    {
+        Cache::flush();
+
+        $payload = app(DashboardService::class)->getAdminPeriodData(30);
+
+        $this->assertSame(30, $payload['period']['days']);
+        $this->assertSame('Last 30 days', $payload['period']['label']);
+
+        foreach (['total_users', 'total_agencies', 'pending_invites', 'security_events'] as $key) {
+            $this->assertArrayHasKey($key, $payload['kpis']);
+        }
+
+        // Activity series: one bucket per day, no gaps.
+        $this->assertCount(30, $payload['activity']['labels']);
+        $this->assertCount(30, $payload['activity']['events']);
+    }
+
+    #[Test]
+    public function admin_period_data_only_accepts_the_offered_windows(): void
+    {
+        Cache::flush();
+
+        $payload = app(DashboardService::class)->getAdminPeriodData(365);
+
+        $this->assertSame(30, $payload['period']['days']);
+        $this->assertCount(30, $payload['activity']['labels']);
+    }
+
+    private function createReferralForAgency(Agency $agency, array $attributes = []): Referral
+    {
+        $case = $this->createCaseForClient();
+
+        return Referral::factory()->create(array_merge([
+            'case_id' => $case->id,
+            'agcy_id' => $agency->id,
+        ], $attributes));
+    }
+
     private function createCaseForClient(array $attributes = []): CaseFile
     {
         $client = Client::factory()->create();

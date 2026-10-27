@@ -393,18 +393,13 @@ function ClientRequestPanel({ clientRequestPanel }) {
       <AppHeader />
 
       <main className="mx-auto w-full max-w-4xl px-4 pt-24 pb-16 sm:px-6">
-        <header className="bg-primary px-6 py-8 text-white shadow-2xl sm:px-10 sm:py-10">
-          <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-primary-fixed-dim">Secure client request</p>
-          <h1 className="mt-2 font-headline text-2xl font-extrabold tracking-tight sm:text-3xl">
-            {request?.title ?? 'Client request'}
-          </h1>
-          {request?.agency_name && (
-            <p className="mt-2 text-sm text-primary-fixed/90">From {request.agency_name}</p>
-          )}
-          <p className="mt-5 max-w-2xl text-sm leading-relaxed text-primary-fixed/90">
-            This page shows only the information needed to respond to this request.
-          </p>
-        </header>
+        <h1 className="font-headline text-[26px] font-extrabold tracking-tight text-slate-900 sm:text-[30px]">
+          Document request and response
+        </h1>
+        <p className="mt-1.5 text-[14px] text-slate-600">
+          Respond to the agency request for case
+          {request?.case_number ? <span className="font-semibold text-slate-800"> {request.case_number}</span> : null}.
+        </p>
 
         {tokenError ? (
           <section className="mt-8 rounded-md border border-slate-300 bg-white px-5 py-8 text-center shadow-sm">
@@ -452,36 +447,73 @@ function ClientRequestPanel({ clientRequestPanel }) {
                 </div>
               </section>
             )}
-            <section className="rounded-md border border-slate-300 bg-white px-5 py-5 shadow-sm">
-              <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-300 pb-4">
-                <div>
-                  <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">Request details</p>
-                  <p className="mt-2 text-sm font-semibold text-slate-800">
-                    {CLIENT_REQUEST_TYPE_LABELS[request.type] ?? 'Information requested'}
-                  </p>
-                  {request.agency_name && <p className="mt-1 text-[13px] text-slate-500">Agency: {request.agency_name}</p>}
+            <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
+              <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-5 sm:px-6">
+                <div className="min-w-0">
+                  <h2 className="font-headline text-[19px] font-extrabold tracking-tight text-slate-900">
+                    Respond to Agency Request
+                  </h2>
+                  {request.agency_name && (
+                    <p className="mt-1 text-[12px] text-slate-500">{request.agency_name}</p>
+                  )}
                 </div>
-                <span className={`border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] ${statusBadgeClass}`}>
-                  {CLIENT_REQUEST_STATUS_LABELS[request.status] ?? 'Request status unavailable'}
-                </span>
+                <Link
+                  href={route('track.index')}
+                  aria-label="Close and return to tracking"
+                  className="shrink-0 text-slate-400 transition-colors hover:text-slate-700"
+                >
+                  <span aria-hidden="true" className="material-symbols-outlined text-[22px]">close</span>
+                </Link>
               </div>
 
-              {dueDate && <p className="mt-4 text-[13px] text-slate-500"><span className="font-semibold text-slate-800">Due date:</span> {dueDate}</p>}
-              {request.instructions && <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-slate-800">{request.instructions}</p>}
+              <div className="px-5 py-5 sm:px-6">
+                <span className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-[11px] font-semibold ${statusBadgeClass}`}>
+                  <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                  {CLIENT_REQUEST_STATUS_LABELS[request.status] ?? 'Request status unavailable'}
+                </span>
 
-              {request.checklist?.length > 0 && (
-                <div className="mt-5 border border-slate-300 bg-slate-50 p-4">
-                  <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">Documents to prepare</p>
-                  <ul className="mt-2.5 space-y-2">
-                    {request.checklist.map((item) => (
-                      <li key={item.id ?? item.sort_order ?? item.label} className="flex items-start gap-2 text-[13px] text-slate-800">
-                        <span className="material-symbols-outlined mt-px text-[16px] text-slate-400">description</span>
-                        <span>{item.label}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+                <h3 className="mt-4 font-headline text-[19px] font-extrabold tracking-tight text-slate-900">
+                  {request.title ?? CLIENT_REQUEST_TYPE_LABELS[request.type] ?? 'Information requested'}
+                </h3>
+                <p className="mt-1 text-[13px] text-slate-500">
+                  {[
+                    CLIENT_REQUEST_TYPE_LABELS[request.type],
+                    request.agency_name,
+                    `Requested ${formatRequestDate(request.created_at)}`,
+                  ].filter(Boolean).join(' · ')}
+                </p>
+                {request.case_number && (
+                  <p className="mt-0.5 text-[13px] text-slate-500">
+                    Case <span className="font-semibold text-slate-800">{request.case_number}</span>
+                  </p>
+                )}
+
+                {request.instructions && (
+                  <div className="mt-4 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3.5">
+                    <span aria-hidden="true" className="material-symbols-outlined mt-px shrink-0 text-[18px] leading-none text-amber-600">error</span>
+                    <div className="text-[13px]">
+                      <p className="font-bold text-amber-800">{request.instructions}</p>
+                      <p className="mt-0.5 text-amber-700">
+                        {dueDate ? `Please respond by ${dueDate}.` : 'No deadline is recorded for this request.'}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {request.checklist?.length > 0 && (
+                  <div className="mt-5">
+                    <p className="text-[13px] font-bold text-slate-800">Documents to prepare</p>
+                    <ul className="mt-2 space-y-1.5">
+                      {request.checklist.map((item) => (
+                        <li key={item.id ?? item.sort_order ?? item.label} className="flex items-start gap-2 text-[13px] text-slate-700">
+                          <span aria-hidden="true" className="material-symbols-outlined mt-px text-[16px] text-slate-400">description</span>
+                          <span>{item.label}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
             </section>
 
             <section className="overflow-hidden rounded-md border border-slate-300 bg-white shadow-sm">
