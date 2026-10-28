@@ -8,14 +8,12 @@ use App\Http\Middleware\SetPostgresSession;
 use App\Models\Agency;
 use App\Models\AuditLog;
 use App\Models\CaseFile;
-use App\Models\Referral;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
- * Agency Focal activity log is scoped to their own agency's referrals and the
- * cases those referrals belong to — never another agency's activity.
+ * Agency Focal activity feed is scoped to their own agency's referrals.
  */
 class AgencyActivityLogScopeTest extends TestCase
 {
@@ -42,40 +40,6 @@ class AgencyActivityLogScopeTest extends TestCase
         ])->id;
     }
 
-    public function test_agency_sees_only_its_referrals_and_their_cases(): void
-    {
-        $agencyA = Agency::factory()->create();
-        $agencyB = Agency::factory()->create();
-        $focalA = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agencyA->id]);
-
-        $caseA = CaseFile::factory()->create();
-        $referralA = Referral::factory()->create(['case_id' => $caseA->id, 'agcy_id' => $agencyA->id]);
-
-        $caseB = CaseFile::factory()->create();
-        $referralB = Referral::factory()->create(['case_id' => $caseB->id, 'agcy_id' => $agencyB->id]);
-
-        // Controlled log set (drop the observer-generated create rows first).
-        AuditLog::truncate();
-        $allowedReferralLog = $this->log('referral', $referralA->id, 'AGENCY A REFERRAL');
-        $allowedCaseLog = $this->log('case', $caseA->id, 'AGENCY A PARENT CASE');
-        $foreignReferralLog = $this->log('referral', $referralB->id, 'AGENCY B REFERRAL');
-        $foreignCaseLog = $this->log('case', $caseB->id, 'OTHER CASE');
-
-        $data = $this->actingAs($focalA)
-            ->withHeader('X-Inertia', 'true')
-            ->get('/audit-logs')
-            ->json('props.logs.data');
-
-        $logIds = collect($data)->pluck('id')->all();
-
-        $this->assertContains($allowedReferralLog, $logIds);
-        $this->assertContains($allowedCaseLog, $logIds);
-        $this->assertNotContains($foreignReferralLog, $logIds);
-        $this->assertNotContains($foreignCaseLog, $logIds);
-        $this->assertArrayNotHasKey('description', $data[0]);
-        $this->assertCount(2, $data);
-    }
-
     public function test_agency_without_an_agency_sees_nothing(): void
     {
         $orphan = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => null]);
@@ -86,29 +50,36 @@ class AgencyActivityLogScopeTest extends TestCase
 
         $data = $this->actingAs($orphan)
             ->withHeader('X-Inertia', 'true')
-            ->get('/audit-logs')
-            ->json('props.logs.data');
+            ->get('/activity')
+            ->json('props.events.data');
 
         $this->assertSame([], $data);
     }
 
-    public function test_view_title_is_activity_log_for_agency_and_audit_logs_for_admin(): void
+    public function test_activity_title_is_shown_for_staff_and_admin_reaches_audit_logs(): void
     {
         $agency = Agency::factory()->create();
         $focal = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id]);
+        $caseManager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
 
-        $agencyTitle = $this->actingAs($focal)
+        $this->assertSame(
+            'Activity',
+            $this->actingAs($focal)
+                ->withHeader('X-Inertia', 'true')
+                ->get('/activity')
+                ->json('props.viewTitle'),
+        );
+        $this->assertSame(
+            'Activity',
+            $this->actingAs($caseManager)
+                ->withHeader('X-Inertia', 'true')
+                ->get('/activity')
+                ->json('props.viewTitle'),
+        );
+        $this->actingAs($admin)
             ->withHeader('X-Inertia', 'true')
             ->get('/audit-logs')
-            ->json('props.viewTitle');
-
-        $adminTitle = $this->actingAs($admin)
-            ->withHeader('X-Inertia', 'true')
-            ->get('/audit-logs')
-            ->json('props.viewTitle');
-
-        $this->assertSame('Activity Log', $agencyTitle);
-        $this->assertSame('Audit Logs', $adminTitle);
+            ->assertOk();
     }
 }

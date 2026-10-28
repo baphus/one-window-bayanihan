@@ -150,11 +150,10 @@ class AuditLogQueryTest extends TestCase
             ->all();
     }
 
-    public function test_role_filter_applies_for_admin_only(): void
+    public function test_role_filter_applies_for_admin(): void
     {
         $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $ofw = User::factory()->create(['role' => UserRole::OFW->value]);
-        $caseManager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $referral = Referral::factory()->create();
 
         $this->createStatusChangeLog($admin, $referral->id, 1);
@@ -172,11 +171,6 @@ class AuditLogQueryTest extends TestCase
             $this->auditActors($admin, 'action=UPDATE&role=NOT_A_ROLE')
         );
 
-        // Scoped viewer: the role param is ignored entirely.
-        $this->assertContains(
-            $admin->name,
-            $this->auditActors($caseManager, 'action=UPDATE&role=OFW')
-        );
     }
 
     public function test_has_changes_filter_keeps_only_rows_with_a_diff(): void

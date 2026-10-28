@@ -11,6 +11,7 @@ use App\Models\CaseCategory;
 use App\Models\CaseDocument;
 use App\Models\CaseFile;
 use App\Models\Client;
+use App\Models\Milestone;
 use App\Models\Referral;
 use App\Models\ReferralAttachment;
 use App\Models\ReferralClientAccessLink;

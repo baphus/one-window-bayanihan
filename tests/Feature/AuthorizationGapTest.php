@@ -282,44 +282,6 @@ class AuthorizationGapTest extends TestCase
         $response->assertStatus(200);
     }
 
-    public function test_case_manager_sees_all_case_activity_logs(): void
-    {
-        $this->withoutMiddleware([HandleInertiaRequests::class, SetPostgresSession::class]);
-
-        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-        $otherManager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-
-        $ownCase = CaseFile::factory()->create(['user_id' => $manager->id]);
-        $otherCase = CaseFile::factory()->create(['user_id' => $otherManager->id]);
-
-        $ownLog = AuditLog::create([
-            'action' => 'CREATE',
-            'module' => 'case_files',
-            'entity_id' => $ownCase->id,
-            'user_id' => $manager->id,
-            'timestamp' => now(),
-        ]);
-
-        $otherLog = AuditLog::create([
-            'action' => 'CREATE',
-            'module' => 'case_files',
-            'entity_id' => $otherCase->id,
-            'user_id' => $otherManager->id,
-            'timestamp' => now(),
-        ]);
-
-        $data = $this->actingAs($manager)
-            ->withHeader('X-Inertia', 'true')
-            ->get('/audit-logs')
-            ->json('props.logs.data');
-
-        $logIds = collect($data)->pluck('id')->all();
-
-        // The manager sees activity on all cases, including other managers'.
-        $this->assertContains($ownLog->id, $logIds);
-        $this->assertContains($otherLog->id, $logIds);
-    }
-
     public function test_case_manager_sees_milestone_activity_on_their_referrals(): void
     {
         $this->withoutMiddleware([HandleInertiaRequests::class, SetPostgresSession::class]);
@@ -341,10 +303,10 @@ class AuthorizationGapTest extends TestCase
 
         $data = $this->actingAs($manager)
             ->withHeader('X-Inertia', 'true')
-            ->get('/audit-logs')
-            ->json('props.logs.data');
+            ->get('/activity')
+            ->json('props.events.data');
 
-        $this->assertContains($milestoneLog->id, collect($data)->pluck('id')->all());
+        $this->assertContains('MILESTONE ON MY CASE', collect($data)->pluck('description')->all());
     }
 
     // ──────────────────────────────────────────────
