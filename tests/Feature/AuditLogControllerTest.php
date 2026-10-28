@@ -97,6 +97,9 @@ class AuditLogControllerTest extends TestCase
         $case = CaseFile::factory()->create(['user_id' => $this->user->id]);
         $referral = Referral::factory()->create(['case_id' => $case->id]);
         $sensitiveValue = 'private-referral-note-must-not-reach-the-api';
+        $rawOldValue = 'previous-private-referral-note-raw';
+        $rawNewValue = 'current-private-referral-note-raw';
+        $requestId = (string) Str::uuid();
 
         $log = AuditLog::create([
             'user_id' => $this->user->id,
@@ -105,30 +108,36 @@ class AuditLogControllerTest extends TestCase
             'category' => 'data',
             'entity_id' => $referral->id,
             'description' => "Referral note changed to {$sensitiveValue}",
-            'old_value' => ['private_note' => 'previous private note'],
-            'new_value' => ['private_note' => $sensitiveValue],
+            'old_value' => ['private_note' => $rawOldValue],
+            'new_value' => ['private_note' => $rawNewValue],
             'timestamp' => now(),
             'ip_address' => '203.0.113.71',
             'user_agent' => 'Sensitive API Test Agent',
-            'request_id' => (string) Str::uuid(),
+            'request_id' => $requestId,
         ]);
 
         foreach ([
-            "/api/cases/{$case->id}/audit-logs",
-            "/api/referrals/{$referral->id}/audit-logs",
+            route('api.cases.activity', $case->id),
+            route('api.referrals.activity', $referral->id),
         ] as $url) {
             $response = $this->actingAs($this->user)->get($url);
 
             $response->assertOk();
-            $entry = collect($response->json('data'))->firstWhere('id', $log->id);
+            $entry = collect($response->json('data'))->firstWhere('description', $log->description);
 
             $this->assertNotNull($entry);
-            foreach (['description', 'old_value', 'new_value', 'entity_id', 'ip_address', 'user_agent', 'request_id', 'prev_hash', 'user'] as $field) {
+            // Description is deliberately returned as feed content; raw audit context is not.
+            foreach (['old_value', 'new_value', 'entity_id', 'ip_address', 'user_agent', 'request_id', 'prev_hash', 'changes', 'user'] as $field) {
                 $this->assertArrayNotHasKey($field, $entry, "{$field} must not reach {$url}");
             }
-            $response->assertDontSee($sensitiveValue);
             $response->assertDontSee('203.0.113.71');
             $response->assertDontSee('Sensitive API Test Agent');
+            $response->assertDontSee($requestId);
+            if ($log->prev_hash !== null) {
+                $response->assertDontSee((string) $log->prev_hash);
+            }
+            $response->assertDontSee($rawOldValue);
+            $response->assertDontSee($rawNewValue);
         }
     }
 

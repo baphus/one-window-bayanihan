@@ -3,7 +3,9 @@
 namespace App\Models;
 
 use App\Enums\AuditAction;
+use App\Enums\AuditModule;
 use App\Models\Concerns\UsesUuid;
+use App\Services\ActivityVisibility;
 use App\Services\AuditCategory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -150,6 +152,38 @@ class AuditLog extends Model
         // a tamper-evident chain: any modification to a past row breaks
         // the chain for all subsequent rows. Runs under the advisory lock
         // taken in save(), so the predecessor cannot change before insert.
+        static::created(function (self $log) {
+            try {
+                $module = AuditModule::tryFromLegacy((string) $log->module)?->value;
+                $action = strtoupper((string) $log->action);
+
+                if ($module === null || ! ActivityVisibility::isVisibleToStaff($module, $action)) {
+                    return;
+                }
+
+                $actor = $log->relationLoaded('user')
+                    ? $log->getRelation('user')
+                    : ($log->user_id ? User::query()->find($log->user_id) : null);
+
+                DB::transaction(fn () => ActivityEvent::create([
+                    'occurred_at' => $log->timestamp,
+                    'actor_id' => $actor?->getKey() ?? $log->user_id,
+                    'actor_name' => $actor?->name ?? 'System',
+                    'actor_role' => $actor?->role,
+                    'module' => $module,
+                    'action' => $action,
+                    'description' => $log->description,
+                    'entity_id' => $log->entity_id,
+                    'audit_log_id' => $log->getKey(),
+                ]));
+            } catch (\Throwable $exception) {
+                logger()->warning('Failed to mirror audit log to activity event.', [
+                    'audit_log_id' => $log->getKey(),
+                    'exception' => $exception->getMessage(),
+                ]);
+            }
+        });
+
         static::creating(function (self $auditLog) {
             // Chain insertion order: the lock is taken here, in the caller's
             // transaction, rather than in a save() override that opened its own

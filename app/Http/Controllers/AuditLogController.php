@@ -7,10 +7,6 @@ use App\Enums\UserRole;
 use App\Helpers\CacheHelper;
 use App\Http\Controllers\Concerns\ResolvesPerPage;
 use App\Models\AuditLog;
-use App\Models\CaseFile;
-use App\Models\Milestone;
-use App\Models\Referral;
-use App\Models\ReferralAttachment;
 use App\Services\AuditCategory;
 use App\Services\AuditLogFormatter;
 use App\Services\AuditLogger;
@@ -31,8 +27,6 @@ class AuditLogController extends Controller
     {
         $user = $request->user();
         $formatter = app(AuditLogFormatter::class);
-        $isAdmin = $user->isAdmin();
-
         $query = $this->buildFilteredQuery($request, $user)->with('user');
 
         // Deterministic ordering so offset pages never shift between requests.
@@ -44,27 +38,18 @@ class AuditLogController extends Controller
         // paginator supplies the `page` (and omits any stale cursor) itself.
         $logs = $query->paginate($perPage)->appends($request->except(['page', 'cursor']));
 
-        $this->presentLogs($logs, $formatter, $isAdmin);
+        $this->presentLogs($logs, $formatter, true);
 
-        // Filter facets. Admins draw from the whole table (cached, shared);
-        // scoped roles draw only from the rows they can actually see, so the
-        // filter chips never offer options that would return nothing.
-        if ($isAdmin || $user->isCaseManager()) {
-            $availableActions = CacheHelper::safeRemember(
-                'audit_log_available_actions',
-                now()->addHours(24),
-                fn () => AuditLog::distinct()->pluck('action')->values()->toArray()
-            );
-            $availableModulesRaw = CacheHelper::safeRemember(
-                'audit_log_available_modules',
-                now()->addHours(24),
-                fn () => AuditLog::distinct()->pluck('module')->values()->toArray()
-            );
-        } else {
-            $scopedIds = $this->scopedEntityIds($user);
-            $availableActions = AuditLog::whereIn('entity_id', $scopedIds)->distinct()->pluck('action')->values()->toArray();
-            $availableModulesRaw = AuditLog::whereIn('entity_id', $scopedIds)->distinct()->pluck('module')->values()->toArray();
-        }
+        $availableActions = CacheHelper::safeRemember(
+            'audit_log_available_actions',
+            now()->addHours(24),
+            fn () => AuditLog::distinct()->pluck('action')->values()->toArray()
+        );
+        $availableModulesRaw = CacheHelper::safeRemember(
+            'audit_log_available_modules',
+            now()->addHours(24),
+            fn () => AuditLog::distinct()->pluck('module')->values()->toArray()
+        );
 
         // Collapse every stored spelling to its canonical module (AuditModule),
         // falling back to a lower-cased spelling for anything unrecognised.
@@ -78,16 +63,6 @@ class AuditLogController extends Controller
             $m => $formatter->formatModule($m),
         ])->toArray();
 
-        // Admins see the full audit trail ("Audit Logs"); scoped roles see a
-        // filtered "Activity Log" of what they are responsible for.
-        $viewTitle = $isAdmin ? 'Audit Logs' : 'Activity Log';
-        $viewSubtitle = match (true) {
-            $isAdmin => 'Complete, tamper-evident record of all system activity.',
-            $user->isCaseManager() => 'Complete, tamper-evident record of all system activity.',
-            $user->isAgency() => "Activity on your agency's referrals and the cases they belong to.",
-            default => 'Your recorded activity.',
-        };
-
         return Inertia::render('AuditLog/Index', [
             'logs' => $logs,
             'availableActions' => Inertia::lazy(fn () => $availableActions),
@@ -95,10 +70,6 @@ class AuditLogController extends Controller
             'availableModulesLabels' => Inertia::lazy(fn () => $availableModulesLabels),
             'availableCategories' => AuditCategory::ALL,
             'activeCategories' => $this->requestedCategories($request),
-            'canExport' => $isAdmin,
-            'isScoped' => ! $isAdmin,
-            'viewTitle' => $viewTitle,
-            'viewSubtitle' => $viewSubtitle,
             'exportDefaultDays' => (int) config('audit.export.default_days'),
             'exportMaxDays' => (int) config('audit.retention_days'),
             'filterValues' => (object) $request->only(['action', 'module', 'category', 'user_id', 'role', 'has_changes', 'date_from', 'date_to', 'search', 'per_page']),
@@ -375,50 +346,9 @@ class AuditLogController extends Controller
      */
     private function scopedEntityIds($user): array
     {
-        // ADMIN and CASE_MANAGER: see all audit logs
-        if ($user->isAdmin() || $user->isCaseManager()) {
-            return []; // Empty array = no filter applied (caller skips filter when empty)
-        }
-
-        if ($user->isAgency()) {
-            // An agency user with no agency sees nothing. Use a sentinel that
-            // never matches a real UUID so the caller's whereIn filter is
-            // applied but matches zero rows (returning [] would mean "no
-            // filter" — the same signal ADMIN/CASE_MANAGER use to see all).
-            if (! $user->agcy_id) {
-                return ['00000000-0000-0000-0000-000000000000'];
-            }
-
-            $agencyReferrals = Referral::where('agcy_id', $user->agcy_id)->get(['id', 'case_id']);
-            $referralIds = $agencyReferrals->pluck('id');
-            $caseIds = $agencyReferrals->pluck('case_id')->filter()->unique();
-
-            return $this->caseScopeEntityIds($caseIds, $referralIds);
-        }
-
-        return [];
-    }
-
-    /**
-     * Expand a set of cases + referrals to every audit entity_id under them:
-     * the cases and referrals themselves plus those referrals' milestones and
-     * attachments (soft-deleted attachments included for a complete trail).
-     * Shared by the case-manager and agency scopes so both are equally complete.
-     */
-    private function caseScopeEntityIds($caseIds, $referralIds): array
-    {
-        $milestoneIds = Milestone::whereIn('refr_id', $referralIds)->pluck('id');
-        $attachmentIds = ReferralAttachment::withTrashed()
-            ->whereIn('referral_id', $referralIds)
-            ->pluck('id');
-
-        return collect($caseIds)
-            ->concat($referralIds)
-            ->concat($milestoneIds)
-            ->concat($attachmentIds)
-            ->unique()
-            ->values()
-            ->toArray();
+        return $user->isAdmin()
+            ? []
+            : ['00000000-0000-0000-0000-000000000000'];
     }
 
     /** True only for a strict, well-formed Y-m-d date string. */
@@ -479,116 +409,6 @@ class AuditLogController extends Controller
                 'filters' => $request->only(['action', 'module', 'category', 'user_id', 'role', 'has_changes', 'date_from', 'date_to', 'search']),
             ])
             ->write();
-    }
-
-    /**
-     * JSON endpoint: audit logs for a specific case and its referrals.
-     */
-    public function caseAuditLogs(string $id, Request $request)
-    {
-        $user = $request->user();
-        $case = CaseFile::where('is_deleted', false)->findOrFail($id);
-
-        // Authorization: Admin and Case Manager see all; Agency only if they have a referral for this case
-        if (! $user->isAdmin() && ! $user->isCaseManager()) {
-            $hasReferral = $case->referrals()
-                ->where('agcy_id', $user->agcy_id)
-                ->whereNotIn('status', ['COMPLETED', 'REJECTED'])
-                ->exists();
-
-            if (! $hasReferral) {
-                abort(403, 'You do not have access to this case.');
-            }
-        }
-
-        $caseModules = ['CASE', 'cases', 'case_files', 'case'];
-        $referralModules = ['REFERRAL', 'referrals', 'referral'];
-
-        // Get referral IDs belonging to this case
-        $referralIds = Referral::where('case_id', $id)
-            ->where('is_deleted', false)
-            ->pluck('id')
-            ->toArray();
-
-        $query = AuditLog::where(function ($q) use ($id, $caseModules, $referralIds, $referralModules) {
-            // Case logs
-            $q->where(function ($sub) use ($id, $caseModules) {
-                $sub->where('entity_id', $id)->whereIn('module', $caseModules);
-            });
-            // Related referral logs
-            if (! empty($referralIds)) {
-                $q->orWhere(function ($sub) use ($referralIds, $referralModules) {
-                    $sub->whereIn('entity_id', $referralIds)->whereIn('module', $referralModules);
-                });
-            }
-        });
-
-        $query->with('user')->orderBy('timestamp', 'desc')->orderBy('id', 'desc');
-
-        $perPage = $this->perPage($request, 50);
-        $logs = $query->cursorPaginate($perPage);
-
-        $formatter = app(AuditLogFormatter::class);
-        $this->presentLogs($logs, $formatter, $user->isAdmin());
-
-        return response()->json($logs);
-    }
-
-    /**
-     * JSON endpoint: audit logs for a specific referral and its milestones.
-     */
-    public function referralAuditLogs(string $id, Request $request)
-    {
-        $user = $request->user();
-        $referral = Referral::where('is_deleted', false)->findOrFail($id);
-
-        // Authorization: Admin and Case Manager see all; Agency only if agcy_id matches
-        if (! $user->isAdmin() && ! $user->isCaseManager()) {
-            if ($referral->agcy_id !== $user->agcy_id) {
-                abort(403, 'You do not have access to this referral.');
-            }
-        }
-
-        $referralModules = ['REFERRAL', 'referrals', 'referral'];
-        $milestoneModules = ['milestone', 'milestones'];
-        $attachmentModules = ['referral_attachment', 'referral_attachments'];
-        // Get milestone IDs belonging to this referral
-        $milestoneIds = $referral->milestones()->pluck('id')->toArray();
-
-        // Get attachment IDs belonging to this referral (include soft-deleted for audit trail)
-        $attachmentIds = ReferralAttachment::withTrashed()
-            ->where('referral_id', $id)
-            ->pluck('id')
-            ->toArray();
-
-        $query = AuditLog::where(function ($q) use ($id, $referralModules, $milestoneIds, $milestoneModules, $attachmentIds, $attachmentModules) {
-            // Referral logs
-            $q->where(function ($sub) use ($id, $referralModules) {
-                $sub->where('entity_id', $id)->whereIn('module', $referralModules);
-            });
-            // Related milestone logs
-            if (! empty($milestoneIds)) {
-                $q->orWhere(function ($sub) use ($milestoneIds, $milestoneModules) {
-                    $sub->whereIn('entity_id', $milestoneIds)->whereIn('module', $milestoneModules);
-                });
-            }
-            // Related attachment logs
-            if (! empty($attachmentIds)) {
-                $q->orWhere(function ($sub) use ($attachmentIds, $attachmentModules) {
-                    $sub->whereIn('entity_id', $attachmentIds)->whereIn('module', $attachmentModules);
-                });
-            }
-        });
-
-        $query->with('user')->orderBy('timestamp', 'desc')->orderBy('id', 'desc');
-
-        $perPage = $this->perPage($request, 50);
-        $logs = $query->cursorPaginate($perPage);
-
-        $formatter = app(AuditLogFormatter::class);
-        $this->presentLogs($logs, $formatter, $user->isAdmin());
-
-        return response()->json($logs);
     }
 
     /**
