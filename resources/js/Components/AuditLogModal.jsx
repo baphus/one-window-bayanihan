@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react';
-import { AuditLogRow, actionStyle } from '@/lib/audit';
 
 /**
  * AuditLogModal — full-screen modal displaying paginated audit log entries
@@ -20,8 +19,8 @@ export default function AuditLogModal({ show, onClose, entityType, entityId, tit
 
     const buildUrl = useCallback((nextCursor = null) => {
         const base = entityType === 'case'
-            ? `/api/cases/${entityId}/audit-logs`
-            : `/api/referrals/${entityId}/audit-logs`;
+            ? `/api/cases/${entityId}/activity`
+            : `/api/referrals/${entityId}/activity`;
         return nextCursor ? `${base}?cursor=${encodeURIComponent(nextCursor)}` : base;
     }, [entityType, entityId]);
 
@@ -43,7 +42,7 @@ export default function AuditLogModal({ show, onClose, entityType, entityId, tit
             });
 
             if (!response.ok) {
-                throw new Error(`Failed to fetch audit logs: ${response.status}`);
+                throw new Error(`Failed to fetch activity: ${response.status}`);
             }
 
             const data = await response.json();
@@ -162,14 +161,24 @@ export default function AuditLogModal({ show, onClose, entityType, entityId, tit
 }
 
 /**
- * Individual audit log entry row (dense, shares AuditLogRow styling).
+ * Individual activity row (dense, shares modal styling).
  */
 function LogEntry({ log }) {
-    const style = actionStyle(log.action);
+    const occurredAt = log.occurredAt;
+    const actor = log.actor || 'System';
+    const timestamp = occurredAt ? new Date(occurredAt).toLocaleString() : 'Unknown time';
+
     return (
         <div className="flex gap-3 border-b border-slate-100 pb-3 last:border-b-0 last:pb-0">
-            <div className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${style.dot}`} aria-hidden="true" />
-            <AuditLogRow log={log} maxRows={3} variant="compact" />
+            <div className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-slate-400" aria-hidden="true" />
+            <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] leading-5">
+                    <time dateTime={occurredAt} className="whitespace-nowrap tabular-nums text-slate-500">{timestamp}</time>
+                    <span aria-hidden="true" className="text-slate-300">•</span>
+                    <span className="font-medium text-slate-700">{actor}</span>
+                </div>
+                <p className="mt-0.5 text-[13px] leading-5 text-slate-800">{log.description}</p>
+            </div>
         </div>
     );
 }

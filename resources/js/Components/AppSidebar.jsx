@@ -25,7 +25,7 @@ export const navByRole = {
     ]},
     { label: 'Reports', items: [
       { name: 'Reports', href: '/reports', route: 'reports.index', icon: 'summarize' },
-      { name: 'Audit Logs', href: '/audit-logs', route: 'audit-logs.index', icon: 'history' },
+      { name: 'Activity', href: '/activity', route: 'activity.index', icon: 'history' },
     ]},
     { label: 'Resources', items: [
       { name: 'Help Center', href: '/help', route: 'helpdesk.index', icon: 'help', external: true },
@@ -49,7 +49,7 @@ export const navByRole = {
     ]},
     { label: 'Reports', items: [
       { name: 'Reports', href: '/reports', route: 'reports.index', icon: 'summarize' },
-      { name: 'Audit Logs', href: '/audit-logs', route: 'audit-logs.index', icon: 'history' },
+      { name: 'Activity', href: '/activity', route: 'activity.index', icon: 'history' },
     ]},
     { label: 'Resources', items: [
       { name: 'Help Center', href: '/help', route: 'helpdesk.index', icon: 'help', external: true },

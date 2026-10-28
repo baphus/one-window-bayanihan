@@ -13,9 +13,12 @@ use App\Models\CaseFile;
 use App\Models\Client;
 use App\Models\Referral;
 use App\Models\ReferralAttachment;
+use App\Models\ReferralClientAccessLink;
 use App\Models\ReferralClientMessage;
 use App\Models\ReferralClientMessageAttachment;
 use App\Models\ReferralClientRequest;
+use App\Models\ReferralClientRequestItem;
+use App\Models\ReferralComment;
 use App\Models\User;
 use App\Notifications\CaseStatusUpdated;
 use App\Notifications\CaseUpdated;
@@ -1441,6 +1444,23 @@ class CaseService
                             // $cascadeSoftDeletes (CaseEvent is append-only; its deleting hook throws).
                             // Limit: event rows go without per-row audit.
                             DB::table('case_events')->where('case_id', $case->id)->delete();
+
+                            $referralIds = Referral::withTrashed()->where('case_id', $case->id)->pluck('id');
+                            $activityEntityIds = $referralIds->prepend($case->id);
+                            $activityEntityIds = $activityEntityIds
+                                ->merge(Milestone::withTrashed()->whereIn('refr_id', $referralIds)->pluck('id'))
+                                ->merge(ReferralAttachment::withTrashed()->whereIn('referral_id', $referralIds)->pluck('id'))
+                                ->merge(ReferralComment::withTrashed()->whereIn('refr_id', $referralIds)->pluck('id'));
+                            $requestIds = ReferralClientRequest::withTrashed()->whereIn('referral_id', $referralIds)->pluck('id');
+                            $activityEntityIds = $activityEntityIds
+                                ->merge($requestIds)
+                                ->merge(ReferralClientRequestItem::withTrashed()->whereIn('request_id', $requestIds)->pluck('id'))
+                                ->merge(ReferralClientAccessLink::whereIn('request_id', $requestIds)->pluck('id'));
+                            $messageIds = ReferralClientMessage::withTrashed()->whereIn('request_id', $requestIds)->pluck('id');
+                            $activityEntityIds = $activityEntityIds
+                                ->merge($messageIds)
+                                ->merge(ReferralClientMessageAttachment::withTrashed()->whereIn('message_id', $messageIds)->pluck('id'));
+                            DB::table('activity_events')->whereIn('entity_id', $activityEntityIds->unique())->delete();
 
                             // CascadeSoftDeletes handles child force-deletes when forceDelete() is called.
                             $case->forceDelete();

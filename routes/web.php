@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\ActivityController;
 use App\Http\Controllers\Admin\AdminCaseCategoryController;
 use App\Http\Controllers\Admin\AdminCaseIssueController;
 use App\Http\Controllers\Admin\AdminCaseStatusController;
@@ -127,8 +128,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/referrals/{referral}/attachments/{attachment}/download', [ReferralController::class, 'downloadAttachment'])->name('referrals.attachments.download');
     Route::get('/referrals/{referral}/attachments/{versionGroupId}/versions', [ReferralController::class, 'getAttachmentVersions'])->name('referrals.attachments.versions');
 
-    Route::get('/api/referrals/{referral}/audit-logs', [AuditLogController::class, 'referralAuditLogs'])->name('api.referrals.audit-logs')->middleware('throttle:api-global');
-
     Route::get('/reports', [ReportsController::class, 'index'])->name('reports.index')->middleware(['role:CASE_MANAGER,ADMIN,AGENCY', 'throttle:reports-view']);
     // The exports are the expensive half of this controller (DomPDF + GD chart
     // images, PhpSpreadsheet) and php-fpm, the queue worker and scheduler share
@@ -167,11 +166,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/stakeholders', [StakeholderController::class, 'index'])->name('stakeholders.index');
         Route::get('/stakeholders/{stakeholder}', [StakeholderController::class, 'show'])->name('stakeholders.show');
 
-        // Export stays admin-only (controller enforces isAdmin); route kept
-        // here so Agency Focal never sees an export surface.
-        Route::get('/audit-logs/export', [AuditLogController::class, 'export'])->name('audit-logs.export');
-
-        Route::get('/api/cases/{case}/audit-logs', [AuditLogController::class, 'caseAuditLogs'])->name('api.cases.audit-logs')->middleware('throttle:api-global');
     });
 
     // Case filing: staff + OFW self-file. OFW create() prefills their own
@@ -181,14 +175,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/cases', [CaseController::class, 'store'])->name('cases.store');
     });
 
-    // Activity/Audit log viewer — CASE_MANAGER + ADMIN + AGENCY. Each role's
-    // visible rows are scoped in AuditLogController::buildFilteredQuery:
-    // admin sees all, case manager sees their cases, agency sees their
-    // agency's referrals and the cases those referrals belong to.
-    Route::middleware('role:CASE_MANAGER,ADMIN,AGENCY')->group(function () {
+    Route::middleware('role:ADMIN')->group(function () {
         Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('audit-logs.index');
-        // Actor lookup for the filter select; controller enforces isAdmin.
+        Route::get('/audit-logs/export', [AuditLogController::class, 'export'])->name('audit-logs.export');
         Route::get('/audit-logs/actors', [AuditLogController::class, 'actorOptions'])->name('audit-logs.actors');
+    });
+
+    Route::middleware('role:CASE_MANAGER,AGENCY,ADMIN')->group(function () {
+        Route::get('/activity', [ActivityController::class, 'index'])->name('activity.index');
+        Route::get('/api/cases/{case}/activity', [ActivityController::class, 'caseActivity'])
+            ->name('api.cases.activity')->middleware('throttle:api-global');
+        Route::get('/api/referrals/{referral}/activity', [ActivityController::class, 'referralActivity'])
+            ->name('api.referrals.activity')->middleware('throttle:api-global');
     });
 
     // Case show: AGENCY can view cases with active referrals (authorized in controller)
