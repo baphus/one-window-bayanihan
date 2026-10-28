@@ -497,37 +497,6 @@ export function UnifiedTable({
           </div>
         )}
 
-        {activeFilters && activeFilters.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2 border-y border-slate-200 py-2.5">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">Active filters</span>
-            {activeFilters.map((filter, index) => (
-              <span
-                key={`${filter.key}-${index}`}
-                className="inline-flex items-center gap-1.5 rounded border border-primary/25 bg-primary-fixed/60 px-2 py-1 text-[12px] font-medium text-primary"
-              >
-                {filter.label}: {filter.value}
-                <button
-                  type="button"
-                  aria-label={`Remove ${filter.label} filter`}
-                  onClick={() => onRemoveFilter?.(filter)}
-                  className="flex items-center justify-center rounded text-primary/70 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                >
-                  <span aria-hidden="true" className="material-symbols-outlined text-[15px]">close</span>
-                </button>
-              </span>
-            ))}
-            {onClearFilters && (
-              <button
-                type="button"
-                onClick={onClearFilters}
-                className="text-[12.5px] font-semibold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
-              >
-                Clear all
-              </button>
-            )}
-          </div>
-        )}
-
         {viewMode === 'list' ? (
           <div className="relative overflow-x-auto owb-scroll-wide">
             <table className={`${tableTrackClass} border-collapse text-left`}>

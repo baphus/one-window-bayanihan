@@ -1,4 +1,4 @@
-import AppLayout from '@/Layouts/AppLayout';
+﻿import AppLayout from '@/Layouts/AppLayout';
 import { Head, router, usePage } from '@inertiajs/react';
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
@@ -78,22 +78,26 @@ function getCaseCategories(caseFile, availableCategories = []) {
   return (caseFile?.category_ids || []).map((id) => availableCategories.find((category) => String(category.id) === String(id))).filter(Boolean);
 }
 
+// Merged cells keep identifiers and qualifying details together; source fields remain optional.
 const COLUMN_DEFS = [
-  { key: 'case_number', label: 'Case Number', default: true },
-  { key: 'tracker_number', label: 'Tracking ID', default: true },
-  { key: 'client_type', label: 'Client Type', default: true },
-  { key: 'client_name', label: 'Client Name', default: true },
+  { key: 'case_reference', label: 'Case / Tracking ID', sortKey: 'case_number', default: true },
+  { key: 'client', label: 'Client', sortKey: 'client_name', default: true },
+  { key: 'issue_category', label: 'Issue / Category', sortable: false, default: true },
+  { key: 'vulnerability_indicator', label: 'Vulnerability', sortable: false, default: true },
   { key: 'author', label: 'Author', default: true },
-  { key: 'vulnerability_indicator', label: 'Vulnerability', default: true },
-  { key: 'category', label: 'Category', default: true },
-  { key: 'issue_concern', label: 'Issue/Concern', default: true },
-  { key: 'age', label: 'Age', default: true },
   { key: 'status', label: 'Case Status', default: true },
-  { key: 'approval', label: 'Approval', default: true },
-  { key: 'referred_to', label: 'Referred To', default: true },
-  { key: 'latest_update', label: 'Latest Update', default: true },
+  { key: 'approval', label: 'Approval', sortable: false, default: true },
+  { key: 'referred_to', label: 'Referred To', sortable: false, default: true },
+  { key: 'latest_update', label: 'Latest Update', sortable: false, default: true },
   { key: 'created_at', label: 'Date Created', default: true },
-  { key: 'actions', label: 'Actions', default: true },
+  { key: 'actions', label: 'Actions', sortable: false, default: true },
+  { key: 'case_number', label: 'Case Number', default: false },
+  { key: 'tracker_number', label: 'Tracking ID', default: false },
+  { key: 'client_type', label: 'Client Type', default: false },
+  { key: 'client_name', label: 'Client Name', default: false },
+  { key: 'category', label: 'Category', sortable: false, default: false },
+  { key: 'issue_concern', label: 'Issue/Concern', sortable: false, default: false },
+  { key: 'age', label: 'Age', sortable: false, default: false },
 ];
 
 export default function CaseIndex({ cases, filters: rawFilters, stats, users = [], agencies = [], categories = [], caseIssues = [] }) {
@@ -109,7 +113,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
   const searchTimeout = useRef(null);
 
   const [visibleColumns, setVisibleColumns] = usePersistedColumns(
-    'cases',
+    'cases-v2',
     COLUMN_DEFS.filter((c) => c.default).map((c) => c.key),
   );
 
@@ -173,7 +177,15 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
 
   const handleRowContextMenu = (e, row) => {
     e.preventDefault();
+    actionTriggerRef.current = null;
     setContextMenu({ x: e.clientX, y: e.clientY, row });
+  };
+
+  const handleActionMenu = (e, row) => {
+    e.stopPropagation();
+    actionTriggerRef.current = e.currentTarget;
+    const rect = e.currentTarget.getBoundingClientRect();
+    setContextMenu({ x: rect.right, y: rect.bottom, anchorRect: rect, row });
   };
 
   useEffect(() => {
@@ -312,8 +324,62 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
     COLUMN_DEFS
       .filter((col) => visibleColumns.includes(col.key))
       .map((col) => {
-        const base = { key: col.key, title: col.label, sortable: true };
+        const base = { key: col.key, title: col.label, sortable: col.sortable ?? true, ...(col.sortKey ? { sortKey: col.sortKey } : {}) };
         switch (col.key) {
+          case 'case_reference':
+            return {
+              ...base,
+              render: (row) => (
+                <div className="space-y-0.5">
+                  <button
+                    type="button"
+                    onClick={() => router.visit(route('cases.show', row.id))}
+                    className="block font-mono text-xs font-bold text-blue-900 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    aria-label={row.case_number}
+                  >
+                    {row.case_number}
+                  </button>
+                  <span className="block font-mono text-[10px] text-slate-500">{row.tracker_number}</span>
+                </div>
+              ),
+            };
+          case 'client':
+            return {
+              ...base,
+              render: (row) => {
+                const clientName = row.client ? `${row.client.first_name} ${row.client.last_name}` : 'N/A';
+                const clientType = row.client_type === 'OFW' ? 'OFW' : 'Next of Kin';
+                return (
+                  <div>
+                    <div className="text-xs font-medium text-slate-800">{clientName}</div>
+                    <div className="text-[10px] text-slate-500">{clientType} · {getClientAge(row.client?.date_of_birth)}</div>
+                  </div>
+                );
+              },
+              sortAccessor: (row) => row.client ? `${row.client.last_name}, ${row.client.first_name}` : '',
+            };
+          case 'issue_category':
+            return {
+              ...base,
+              sortable: false,
+              render: (row) => {
+                const rowCategories = getCaseCategories(row, categories);
+                return (
+                  <div className="space-y-1">
+                    <div className="text-xs text-slate-700">{row.case_issue?.name || <span className="text-slate-400">&mdash;</span>}</div>
+                    <div className="flex max-w-[220px] flex-wrap gap-1">
+                      {rowCategories.length > 0 ? rowCategories.map((category) => (
+                        <span key={category.id || category.name} className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                          style={{ backgroundColor: category.color ? `${category.color}20` : '#f1f5f9', color: category.color || '#64748b' }}>
+                          {category.color && <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: category.color }} />}
+                          {category.name || category.title}
+                        </span>
+                      )) : <span className="text-[10px] text-slate-400">&mdash;</span>}
+                    </div>
+                  </div>
+                );
+              },
+            };
           case 'case_number':
             return {
               ...base,
@@ -487,37 +553,24 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
             return {
               ...base,
               sortable: false,
-              title: 'Actions',
               render: (row) => (
-                <div className="flex items-center gap-1.5">
-                  <button
-                    onClick={() => router.visit(route('cases.show', row.id))}
-                    className="min-h-[28px] px-2.5 bg-blue-900 text-white hover:bg-blue-800 text-[11px] font-bold rounded-[3px] transition-colors border border-blue-900"
-                  >
-                    View
-                  </button>
-                  <button
-                    onClick={() => router.visit(`${route('cases.show', row.id)}?edit=1`)}
-                    className="min-h-[28px] px-2.5 bg-slate-100 text-slate-700 hover:bg-slate-200 text-[11px] font-bold rounded-[3px] transition-colors border border-slate-300"
-                  >
-                    Edit
-                  </button>
-                  {canArchiveCase(row) && (
-                    <button
-                      onClick={() => setConfirmArchiveId(row.id)}
-                      className="min-h-[28px] px-2.5 bg-gray-100 text-gray-600 hover:bg-gray-200 text-[11px] font-bold rounded-[3px] transition-colors border border-gray-300"
-                    >
-                      Archive
-                    </button>
-                  )}
-                </div>
+                <button
+                  type="button"
+                  aria-label={`Actions for case ${row.case_number}`}
+                  aria-haspopup="menu"
+                  aria-expanded={contextMenu?.row?.id === row.id}
+                  onClick={(e) => handleActionMenu(e, row)}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded text-slate-500 hover:bg-slate-100 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                >
+                  <span aria-hidden="true" className="material-symbols-outlined text-[20px]">more_vert</span>
+                </button>
               ),
             };
           default:
             return { ...base, render: (row) => row[col.key] };
         }
       }),
-  [visibleColumns]);
+  [visibleColumns, categories]);
 
   const handleSearchClear = () => {
     setSearchValue('');
@@ -834,6 +887,8 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
         emptyStateMessage="No cases found"
         sortKey={filters?.sort ?? 'created_at'}
         sortDirection={filters?.direction ?? 'desc'}
+        defaultSortKey="created_at"
+        defaultSortDirection="desc"
         onSortChange={handleSortChange}
         searchValue={searchValue}
         searchPlaceholder="Search by tracking ID, client name, or client type..."
@@ -859,7 +914,13 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
       </div>
 
       {contextMenu && (
-        <RowContextMenu x={contextMenu.x} y={contextMenu.y} triggerRef={actionTriggerRef} onClose={() => setContextMenu(null)}>
+        <RowContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          anchorRect={contextMenu.anchorRect}
+          triggerRef={actionTriggerRef}
+          onClose={() => setContextMenu(null)}
+        >
           <RowContextMenuItem icon="visibility" label="View" onClick={() => {
             router.visit(route('cases.show', contextMenu.row.id));
             setContextMenu(null);

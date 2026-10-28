@@ -183,6 +183,21 @@ describe('UnifiedTable filter panel contract', () => {
     expect(screen.queryByRole('dialog', { name: /filters/i })).not.toBeInTheDocument();
   });
 
+  it('hides the active-filter strip while preserving the popover Clear all action and count', () => {
+    renderTable({
+      activeFilters: [{ key: 'status', label: 'Status', value: 'Open' }],
+      activeFilterCount: 1,
+      onAdvancedFilters: vi.fn(),
+      isAdvancedFiltersOpen: true,
+      advancedFiltersContent: <button type="button">Clear all</button>,
+    });
+
+    expect(screen.queryByText('Active filters')).not.toBeInTheDocument();
+    expect(screen.queryByText('Status: Open')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /filters, 1 active/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Clear all' })).toBeInTheDocument();
+  });
+
   it('asks the page to close the panel on Escape', () => {
     const onAdvancedFilters = vi.fn();
     renderTable({
