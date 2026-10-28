@@ -192,7 +192,9 @@ describe('UnifiedTable filter panel contract', () => {
       advancedFiltersContent: <button type="button">Clear all</button>,
     });
 
-    expect(screen.queryByText('Active filters')).not.toBeInTheDocument();
+    // The strip used to render here; filters are now managed from the compact
+    // popover, so nothing is drawn between the toolbar and the table.
+    expect(screen.queryByText(/active filters/i)).not.toBeInTheDocument();
     expect(screen.queryByText('Status: Open')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /filters, 1 active/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Clear all' })).toBeInTheDocument();

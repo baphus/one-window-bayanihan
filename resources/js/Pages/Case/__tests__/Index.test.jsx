@@ -73,6 +73,10 @@ beforeEach(() => {
   globalThis.route = vi.fn((name, params) => (params ? `/cases?${new URLSearchParams(params)}` : '/cases'));
   routerGet.mockClear();
   routerVisit.mockClear();
+  // The page persists its filters and restores them on mount. A previous test's
+  // stored filters would restore themselves here and issue an extra request,
+  // which is not what the test under way is about.
+  localStorage.clear();
   vi.useFakeTimers({ shouldAdvanceTime: true });
 });
 
@@ -281,12 +285,17 @@ describe('Case Index advanced filter panel', () => {
     expect(lastCall[1]).not.toHaveProperty('vulnerability_indicator');
   });
 
-  it('shows active filter chips for a multi-value selection', () => {
-    const { container } = renderIndex({ filters: { status: ['OPEN', 'CLOSED'] } });
+  it('marks a multi-value selection as active in the filter panel', () => {
+    renderIndex({ filters: { status: ['OPEN', 'CLOSED'] } });
+    openFilters();
 
-    // The chip renders label and value as separate text nodes, so assert on the
-    // container text rather than a single node.
-    expect(container.textContent).toContain('Status: Open, Closed');
+    // The active-filter chip strip was removed from the table, so the applied
+    // state now lives in the panel: both values read as checked and the trigger
+    // reports how many filters are active.
+    const panel = screen.getByRole('dialog', { name: /filters/i });
+    expect(within(panel).getByRole('checkbox', { name: 'Open' })).toBeChecked();
+    expect(within(panel).getByRole('checkbox', { name: 'Closed' })).toBeChecked();
+    expect(screen.getByRole('button', { name: /filters, 1 active/i })).toBeInTheDocument();
   });
 });
 
