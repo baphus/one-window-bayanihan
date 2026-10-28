@@ -202,7 +202,7 @@ class CaseFile extends Model
         return $this->belongsTo(User::class);
     }
 
-    public function reviewedBy()
+    public function reviewer()
     {
         return $this->belongsTo(User::class, 'reviewed_by');
     }
