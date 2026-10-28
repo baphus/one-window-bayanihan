@@ -50,3 +50,4 @@ openspec
 .slim
 # Local-only agent notes (e.g. workstation AWS setup). Never track.
 AGENTS.local.md
+.env.testing
