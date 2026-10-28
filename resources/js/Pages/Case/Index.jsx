@@ -2,6 +2,7 @@ import AppLayout from '@/Layouts/AppLayout';
 import { Head, router, usePage } from '@inertiajs/react';
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
+import TableTabs from '@/Components/ui/TableTabs';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import { FolderCheck, Users, ArrowRightLeft, TrendingUp, Clock } from 'lucide-react';
 import { formatDisplayDate, formatDisplayTime, getCategoryFilterIds } from '@/lib/utils';
@@ -115,6 +116,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
   const { isLoading: tableLoading, withLoading } = useTableVisitLoading();
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState(null);
+  const actionTriggerRef = useRef(null);
   const [confirmArchiveId, setConfirmArchiveId] = useState(null);
 
   const handleExport = useCallback(() => {
@@ -706,36 +708,22 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
 
   const quickFilterPills = useMemo(() => {
     const statuses = [
-      { label: 'All', value: '', count: stats?.total_cases },
-      { label: 'Open', value: 'OPEN', count: stats?.open_cases },
-      { label: 'Closed', value: 'CLOSED', count: stats?.closed_cases },
-      { label: 'Archived', value: 'ARCHIVED', count: stats?.archived_cases },
+      { key: 'all', label: 'All', value: '', count: stats?.total_cases },
+      { key: 'open', label: 'Open', value: 'OPEN', count: stats?.open_cases },
+      { key: 'closed', label: 'Closed', value: 'CLOSED', count: stats?.closed_cases },
+      { key: 'archived', label: 'Archived', value: 'ARCHIVED', count: stats?.archived_cases },
     ];
-    const currentStatus = filters?.status ?? '';
 
     return (
-      <div className="flex items-center gap-1.5" role="group" aria-label="Quick status filters">
-        <span className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mr-1">Show:</span>
-        {statuses.map((s) => {
-          const isActive = currentStatus === s.value || (!currentStatus && s.value === '');
-          return (
-            <button
-              key={s.label}
-              onClick={() => handleStatusQuickFilter(s.value || undefined)}
-              className={`px-3 py-1.5 text-[12px] font-bold rounded-md transition-colors border ${
-                isActive
-                  ? 'bg-blue-900 text-white border-blue-900 shadow-sm'
-                  : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50 hover:text-slate-800'
-              }`}
-            >
-              {s.label}
-              {s.count > 0 && ` (${s.count})`}
-            </button>
-          );
-        })}
-      </div>
+      <TableTabs
+        label="Filter cases by status"
+        items={statuses}
+        value={filters?.status ?? ''}
+        allValue=""
+        onSelect={(value) => handleStatusQuickFilter(value || undefined)}
+      />
     );
-  }, [filters?.status, stats]);
+  }, [filters, stats, handleStatusQuickFilter]);
 
   const columnControlContent = useMemo(() => (
     <div className="space-y-2">
@@ -871,7 +859,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
       </div>
 
       {contextMenu && (
-        <RowContextMenu x={contextMenu.x} y={contextMenu.y} onClose={() => setContextMenu(null)}>
+        <RowContextMenu x={contextMenu.x} y={contextMenu.y} triggerRef={actionTriggerRef} onClose={() => setContextMenu(null)}>
           <RowContextMenuItem icon="visibility" label="View" onClick={() => {
             router.visit(route('cases.show', contextMenu.row.id));
             setContextMenu(null);

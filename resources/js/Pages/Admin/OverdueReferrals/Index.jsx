@@ -3,6 +3,7 @@ import { Head, Link, router, usePage } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
+import TableTabs from '@/Components/ui/TableTabs';
 import useTableVisitLoading from '@/Hooks/useTableVisitLoading';
 import { formatDisplayDate } from '@/lib/utils';
 
@@ -139,33 +140,20 @@ export default function OverdueReferralsIndex({ stats = {}, referrals, userRole 
 
   const quickFilters = useMemo(() => {
     const pills = [
-      { label: 'All', value: 'all', count: stats.total ?? 0 },
-      { label: 'Pending', value: 'pending', count: stats.pending_count ?? 0 },
-      { label: 'Processing', value: 'processing', count: stats.processing_count ?? 0 },
-      { label: 'For Compliance', value: 'for_compliance', count: stats.for_compliance_count ?? 0 },
+      { key: 'all', label: 'All', value: 'all', count: stats.total ?? 0 },
+      { key: 'pending', label: 'Pending', value: 'pending', count: stats.pending_count ?? 0 },
+      { key: 'processing', label: 'Processing', value: 'processing', count: stats.processing_count ?? 0 },
+      { key: 'for_compliance', label: 'For Compliance', value: 'for_compliance', count: stats.for_compliance_count ?? 0 },
     ];
 
     return (
-      <div className="flex items-center gap-1.5" role="group" aria-label="Quick status filters">
-        <span className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mr-1">Show:</span>
-        {pills.map((pill) => {
-          const isActive = currentFilter === pill.value;
-          return (
-            <button
-              key={pill.value}
-              onClick={() => handleStatusFilter(pill.value)}
-              className={`px-3 py-1.5 text-[12px] font-bold rounded-md transition-colors border ${
-                isActive
-                  ? 'bg-blue-900 text-white border-blue-900 shadow-sm'
-                  : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50 hover:text-slate-800'
-              }`}
-            >
-              {pill.label}
-              {pill.count > 0 && ` (${pill.count})`}
-            </button>
-          );
-        })}
-      </div>
+      <TableTabs
+        label="Filter referrals by status"
+        items={pills}
+        value={currentFilter}
+        allValue="all"
+        onSelect={(value) => handleStatusFilter(value)}
+      />
     );
   }, [currentFilter, stats, handleStatusFilter]);
 
