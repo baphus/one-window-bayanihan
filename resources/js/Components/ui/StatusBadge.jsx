@@ -56,6 +56,57 @@ const pillSizes = {
 const variantClasses = {
   sharp: 'rounded-[2px] font-extrabold uppercase tracking-wide',
   pill: 'rounded-full font-semibold',
+  soft: 'rounded font-semibold',
+};
+
+/**
+ * Soft register treatment: a low-saturation tint with a saturated leading dot.
+ * Text keeps full contrast against the tint, so the label — not the colour —
+ * carries the meaning (WCAG 1.4.1).
+ */
+const softColors = {
+  OPEN: 'bg-primary-fixed/70 text-primary',
+  CLOSED: 'bg-slate-100 text-slate-700',
+  ARCHIVED: 'bg-gray-100 text-gray-700',
+  PENDING: 'bg-amber-50 text-amber-800',
+  PROCESSING: 'bg-primary-fixed/70 text-primary',
+  FOR_COMPLIANCE: 'bg-orange-50 text-orange-800',
+  COMPLETED: 'bg-emerald-50 text-emerald-800',
+  REJECTED: 'bg-rose-50 text-rose-800',
+  OVERDUE: 'bg-red-50 text-red-800',
+  ACTIVE: 'bg-emerald-50 text-emerald-800',
+  INACTIVE: 'bg-slate-100 text-slate-700',
+  BEING_PREPARED: 'bg-primary-fixed/70 text-primary',
+  IN_PROGRESS: 'bg-indigo-50 text-indigo-800',
+  RESOLVED: 'bg-emerald-50 text-emerald-800',
+  PENDING_REVIEW: 'bg-amber-50 text-amber-800',
+  FOR_REFERRAL: 'bg-sky-50 text-sky-800',
+  DEFAULT: 'bg-slate-100 text-slate-700',
+};
+
+const softDotColors = {
+  OPEN: 'bg-primary',
+  CLOSED: 'bg-slate-400',
+  ARCHIVED: 'bg-gray-400',
+  PENDING: 'bg-amber-500',
+  PROCESSING: 'bg-primary',
+  FOR_COMPLIANCE: 'bg-orange-500',
+  COMPLETED: 'bg-emerald-500',
+  REJECTED: 'bg-rose-500',
+  OVERDUE: 'bg-red-500',
+  ACTIVE: 'bg-emerald-500',
+  INACTIVE: 'bg-slate-400',
+  BEING_PREPARED: 'bg-primary',
+  IN_PROGRESS: 'bg-indigo-500',
+  RESOLVED: 'bg-emerald-500',
+  PENDING_REVIEW: 'bg-amber-500',
+  FOR_REFERRAL: 'bg-sky-500',
+  DEFAULT: 'bg-slate-400',
+};
+
+const softSizes = {
+  sm: 'text-[11.5px] px-2 py-1 gap-1.5',
+  md: 'text-[12.5px] px-2.5 py-1.5 gap-1.5',
 };
 
 function normalizeStatus(status) {
@@ -96,6 +147,25 @@ export default function StatusBadge({
   icon: iconOverride,
 }) {
   const normalizedStatus = normalizeStatus(status);
+
+  if (variant === 'soft') {
+    const label =
+      labelOverride ?? titleCase(humanizeStatus(status));
+    const classes =
+      'inline-flex items-center ' +
+      `${softSizes[size] ?? softSizes.sm} ${softColors[normalizedStatus] ?? softColors.DEFAULT}`;
+
+    return (
+      <span className={classes}>
+        <span
+          aria-hidden="true"
+          className={`h-1.5 w-1.5 shrink-0 rounded-full ${softDotColors[normalizedStatus] ?? softDotColors.DEFAULT}`}
+        />
+        {label}
+      </span>
+    );
+  }
+
   const Icon = iconOverride ?? icons[normalizedStatus];
   const label =
     labelOverride ??

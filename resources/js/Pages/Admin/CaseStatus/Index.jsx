@@ -190,6 +190,7 @@ export default function CaseStatusIndex({ statuses }) {
           columns={statusColumns}
           data={list}
           keyExtractor={(s) => s.id}
+          variant="embedded"
           hideControlBar
           hidePagination
           onRowContextMenu={handleRowContextMenu}

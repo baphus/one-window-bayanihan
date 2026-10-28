@@ -1,5 +1,21 @@
+/**
+ * Page window control for the shared register table.
+ *
+ * Keeps the existing five-page window plus first/last jumps, and adds the
+ * keyboard/screen-reader contract the register design relies on: an accessible
+ * name for every chevron, `aria-current="page"` on the active number, and
+ * disabled bounds controls instead of silently no-op buttons.
+ *
+ * @param {object} props
+ * @param {number} props.currentPage
+ * @param {number} props.totalPages
+ * @param {function} props.onPageChange
+ */
 export default function TablePagination({ currentPage = 1, totalPages = 1, onPageChange }) {
     if (!totalPages || totalPages < 1) return null;
+
+    const isFirst = currentPage <= 1;
+    const isLast = currentPage >= totalPages;
 
     const maxVisible = 5;
     let start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
@@ -8,65 +24,88 @@ export default function TablePagination({ currentPage = 1, totalPages = 1, onPag
     const pages = [];
     for (let i = start; i <= end; i++) pages.push(i);
 
+    const navButtonClass =
+        'flex h-8 w-8 items-center justify-center rounded text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 disabled:pointer-events-none disabled:text-slate-300';
+    const numberClass =
+        'flex h-8 min-w-8 items-center justify-center rounded px-1.5 text-[13px] font-medium tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1';
+
     return (
-        <div className="flex items-center gap-1.5 text-slate-300">
+        <nav aria-label="Pagination" className="flex items-center gap-1">
             <button
+                type="button"
+                aria-label="First page"
+                disabled={isFirst}
                 onClick={() => onPageChange?.(1)}
-                className="w-7 h-7 flex items-center justify-center rounded-sm text-slate-300 hover:text-slate-700 transition"
+                className={navButtonClass}
             >
-                <span className="material-symbols-outlined text-[20px] font-bold">first_page</span>
+                <span aria-hidden="true" className="material-symbols-outlined text-[18px]">first_page</span>
             </button>
             <button
+                type="button"
+                aria-label="Previous page"
+                disabled={isFirst}
                 onClick={() => onPageChange?.(Math.max(1, currentPage - 1))}
-                className="w-7 h-7 flex items-center justify-center rounded-sm text-slate-300 hover:text-slate-700 transition"
+                className={navButtonClass}
             >
-                <span className="material-symbols-outlined text-[20px] font-bold">chevron_left</span>
+                <span aria-hidden="true" className="material-symbols-outlined text-[18px]">chevron_left</span>
             </button>
-            <div className="flex items-center gap-1 px-3">
+
+            <div className="flex items-center gap-1 px-1">
                 {start > 1 && (
                     <>
-                        <button
-                            onClick={() => onPageChange?.(1)}
-                            className="w-[30px] h-[30px] flex items-center justify-center rounded-[2px] hover:bg-slate-100 text-slate-700 text-[13px] font-bold transition"
-                        >
+                        <button type="button" aria-label="Page 1" onClick={() => onPageChange?.(1)} className={`${numberClass} text-slate-600 hover:bg-slate-100`}>
                             1
                         </button>
-                        <span className="w-[30px] h-[30px] flex items-center justify-center text-slate-400 text-[13px] font-bold">...</span>
+                        <span aria-hidden="true" className="flex h-8 w-6 items-center justify-center text-[13px] text-slate-400">…</span>
                     </>
                 )}
-                {pages.map((p) => (
-                    <button
-                        key={p}
-                        onClick={() => onPageChange?.(p)}
-                        className={`w-[30px] h-[30px] flex items-center justify-center rounded-[2px] text-[13px] font-bold shadow-sm transition ${p === currentPage ? "bg-blue-900 text-white" : "hover:bg-slate-100 text-slate-700"}`}
-                    >
-                        {p}
-                    </button>
-                ))}
+                {pages.map((p) => {
+                    const isActive = p === currentPage;
+                    return (
+                        <button
+                            key={p}
+                            type="button"
+                            aria-label={`Page ${p}`}
+                            aria-current={isActive ? 'page' : undefined}
+                            onClick={() => onPageChange?.(p)}
+                            className={`${numberClass} ${
+                                isActive
+                                    ? 'bg-primary-fixed font-semibold text-primary'
+                                    : 'text-slate-600 hover:bg-slate-100'
+                            }`}
+                        >
+                            {p}
+                        </button>
+                    );
+                })}
                 {end < totalPages && (
                     <>
-                        <span className="w-[30px] h-[30px] flex items-center justify-center text-slate-400 text-[13px] font-bold">...</span>
-                        <button
-                            onClick={() => onPageChange?.(totalPages)}
-                            className="w-[30px] h-[30px] flex items-center justify-center rounded-[2px] hover:bg-slate-100 text-slate-700 text-[13px] font-bold transition"
-                        >
+                        <span aria-hidden="true" className="flex h-8 w-6 items-center justify-center text-[13px] text-slate-400">…</span>
+                        <button type="button" aria-label={`Page ${totalPages}`} onClick={() => onPageChange?.(totalPages)} className={`${numberClass} text-slate-600 hover:bg-slate-100`}>
                             {totalPages}
                         </button>
                     </>
                 )}
             </div>
+
             <button
+                type="button"
+                aria-label="Next page"
+                disabled={isLast}
                 onClick={() => onPageChange?.(Math.min(totalPages, currentPage + 1))}
-                className="w-7 h-7 flex items-center justify-center rounded-sm text-slate-700 hover:text-slate-900 transition"
+                className={navButtonClass}
             >
-                <span className="material-symbols-outlined text-[20px] font-bold">chevron_right</span>
+                <span aria-hidden="true" className="material-symbols-outlined text-[18px]">chevron_right</span>
             </button>
             <button
+                type="button"
+                aria-label="Last page"
+                disabled={isLast}
                 onClick={() => onPageChange?.(totalPages)}
-                className="w-7 h-7 flex items-center justify-center rounded-sm text-slate-700 hover:text-slate-900 transition"
+                className={navButtonClass}
             >
-                <span className="material-symbols-outlined text-[20px] font-bold">last_page</span>
+                <span aria-hidden="true" className="material-symbols-outlined text-[18px]">last_page</span>
             </button>
-        </div>
+        </nav>
     );
 }

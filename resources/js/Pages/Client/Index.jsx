@@ -660,6 +660,7 @@ export default function ClientIndex({ clients, filters: rawFilters, stats, users
     () => [
       {
         key: 'account_status',
+        single: true,
         label: 'Account',
         options: [
           { value: 'linked', label: 'With account' },

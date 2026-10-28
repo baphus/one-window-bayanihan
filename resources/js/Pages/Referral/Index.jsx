@@ -2,6 +2,7 @@ import AppLayout from '@/Layouts/AppLayout';
 import { Head, router, usePage } from '@inertiajs/react';
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
+import TableTabs from '@/Components/ui/TableTabs';
 import { RowContextMenu, RowContextMenuItem } from '@/Components/ui/RowContextMenu';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import { formatResolvedAddress } from '@/lib/addressResolver';
@@ -246,41 +247,24 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
 
     const quickFilterPills = useMemo(() => {
         const statuses = [
-            { label: 'All', value: '' },
-            { label: 'Pending', value: 'PENDING', count: stats?.pending },
-            { label: 'Processing', value: 'PROCESSING', count: stats?.processing },
-            { label: 'For Compliance', value: 'FOR_COMPLIANCE', count: stats?.for_compliance },
-            { label: 'Completed', value: 'COMPLETED', count: stats?.completed },
-            { label: 'Rejected', value: 'REJECTED', count: stats?.rejected },
+            { key: 'all', label: 'All', value: '' },
+            { key: 'pending', label: 'Pending', value: 'PENDING', count: stats?.pending },
+            { key: 'processing', label: 'Processing', value: 'PROCESSING', count: stats?.processing },
+            { key: 'for_compliance', label: 'For Compliance', value: 'FOR_COMPLIANCE', count: stats?.for_compliance },
+            { key: 'completed', label: 'Completed', value: 'COMPLETED', count: stats?.completed },
+            { key: 'rejected', label: 'Rejected', value: 'REJECTED', count: stats?.rejected },
         ];
-        const currentStatus = filters?.status ?? '';
 
         return (
-            <div className="flex items-center gap-1.5 flex-wrap" role="group" aria-label="Quick status filters">
-                <span className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mr-1">Show:</span>
-                {statuses.map((s) => {
-                    const isActive = currentStatus === s.value || (!currentStatus && s.value === '');
-                    return (
-                        <button
-                            key={s.label}
-                            type="button"
-                            aria-label={s.label}
-                            aria-pressed={isActive}
-                            onClick={() => handleStatusQuickFilter(s.value || undefined)}
-                            className={`px-3 py-1.5 text-[12px] font-bold rounded-md transition-colors border ${
-                                isActive
-                                    ? 'bg-blue-900 text-white border-blue-900 shadow-sm'
-                                    : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50 hover:text-slate-800'
-                            }`}
-                        >
-                            {s.label}
-                            {s.count > 0 && <span aria-hidden="true" className="ml-1 font-medium opacity-70">{`(${s.count})`}</span>}
-                        </button>
-                    );
-                })}
-            </div>
+            <TableTabs
+                label="Filter referrals by status"
+                items={statuses}
+                value={filters?.status ?? ''}
+                allValue=""
+                onSelect={(value) => handleStatusQuickFilter(value || undefined)}
+            />
         );
-    }, [filters?.status, stats]);
+    }, [filters?.status, stats, handleStatusQuickFilter]);
 
     function paginatorProps(paginator) {
         return {
@@ -460,7 +444,7 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
     };
 
     const advancedFilterContent = useMemo(() => (
-        <div className="space-y-4">
+        <div className="flex flex-col gap-3">
             <FilterPanel
                 searchable
                 groups={filterGroups}
@@ -469,48 +453,50 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
                 onClearAll={handleClearFilters}
                 activeCount={activeFilters.length}
             />
-            <div className="border-t border-slate-200 pt-3">
-                <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Received Within</label>
-                <select
-                    value={filters?.age_max_days ?? ''}
-                    onChange={(e) => {
-                        const val = e.target.value;
-                        updateTable({ ...filters, age_max_days: val || undefined, page: undefined });
-                    }}
-                    className="w-full border border-slate-300 rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
-                >
-                    <option value="">Any time</option>
-                    <option value="1">Last 24 hours</option>
-                    <option value="2">Last 2 days</option>
-                    <option value="3">Last 3 days</option>
-                    <option value="7">Last 7 days</option>
-                    <option value="14">Last 14 days</option>
-                    <option value="30">Last 30 days</option>
-                </select>
+            <div className="flex flex-col gap-2 border-t border-slate-200 pt-2.5">
+                <label className="flex flex-col gap-1">
+                    <span className="text-[11px] text-slate-500">Received within</span>
+                    <select
+                        value={filters?.age_max_days ?? ''}
+                        onChange={(e) => {
+                            const val = e.target.value;
+                            updateTable({ ...filters, age_max_days: val || undefined, page: undefined });
+                        }}
+                        className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-[12.5px] text-slate-800 outline-none transition-colors focus:border-primary focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
+                    >
+                        <option value="">Any time</option>
+                        <option value="1">Last 24 hours</option>
+                        <option value="2">Last 2 days</option>
+                        <option value="3">Last 3 days</option>
+                        <option value="7">Last 7 days</option>
+                        <option value="14">Last 14 days</option>
+                        <option value="30">Last 30 days</option>
+                    </select>
+                </label>
+                <label className="flex flex-col gap-1">
+                    <span className="text-[11px] text-slate-500">Older than</span>
+                    <select
+                        value={filters?.age_min_days ?? ''}
+                        onChange={(e) => {
+                            const val = e.target.value;
+                            updateTable({ ...filters, age_min_days: val || undefined, page: undefined });
+                        }}
+                        className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-[12.5px] text-slate-800 outline-none transition-colors focus:border-primary focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
+                    >
+                        <option value="">Any age</option>
+                        <option value="3">3+ days</option>
+                        <option value="7">7+ days</option>
+                        <option value="14">14+ days</option>
+                        <option value="30">30+ days</option>
+                        <option value="60">60+ days</option>
+                    </select>
+                </label>
             </div>
-            <div>
-                <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Older Than</label>
-                <select
-                    value={filters?.age_min_days ?? ''}
-                    onChange={(e) => {
-                        const val = e.target.value;
-                        updateTable({ ...filters, age_min_days: val || undefined, page: undefined });
-                    }}
-                    className="w-full border border-slate-300 rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
-                >
-                    <option value="">Any age</option>
-                    <option value="3">3+ days</option>
-                    <option value="7">7+ days</option>
-                    <option value="14">14+ days</option>
-                    <option value="30">30+ days</option>
-                    <option value="60">60+ days</option>
-                </select>
-            </div>
-            <div className="border-t border-slate-200 pt-3 mt-3">
-                <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Date Range</label>
-                <div className="flex gap-2">
-                    <div className="flex-1">
-                        <label className="block text-[10px] text-slate-400 mb-1">From</label>
+            <div className="border-t border-slate-200 pt-2.5">
+                <span className="mb-1 block text-[10.5px] font-semibold uppercase tracking-[0.12em] text-slate-500">Date range</span>
+                <div className="flex flex-col gap-2">
+                    <label className="flex flex-col gap-1">
+                        <span className="text-[11px] text-slate-500">From</span>
                         <input
                             type="date"
                             value={filters?.date_from ?? ''}
@@ -518,11 +504,11 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
                                 const val = e.target.value;
                                 updateTable({ ...filters, date_from: val || undefined, page: undefined });
                             }}
-                            className="w-full border border-slate-300 rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
+                            className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-[12.5px] text-slate-800 outline-none transition-colors focus:border-primary focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
                         />
-                    </div>
-                    <div className="flex-1">
-                        <label className="block text-[10px] text-slate-400 mb-1">To</label>
+                    </label>
+                    <label className="flex flex-col gap-1">
+                        <span className="text-[11px] text-slate-500">To</span>
                         <input
                             type="date"
                             value={filters?.date_to ?? ''}
@@ -530,16 +516,16 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
                                 const val = e.target.value;
                                 updateTable({ ...filters, date_to: val || undefined, page: undefined });
                             }}
-                            className="w-full border border-slate-300 rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
+                            className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-[12.5px] text-slate-800 outline-none transition-colors focus:border-primary focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
                         />
-                    </div>
+                    </label>
                 </div>
             </div>
-            <div className="border-t border-slate-200 pt-4 mt-4">
+            <div className="border-t border-slate-200 pt-2.5">
                 <button
                     type="button"
                     onClick={() => setFilterOpen(false)}
-                    className="w-full h-[36px] bg-blue-900 text-white text-[13px] font-bold rounded-[2px] hover:bg-blue-800 transition-colors"
+                    className="h-9 w-full rounded-md bg-primary text-[12.5px] font-semibold text-white transition-colors hover:bg-primary-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                 >
                     Done
                 </button>
@@ -697,6 +683,8 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
                 // default controlled until the user chooses a visible column.
                 sortKey={filters?.sort ?? 'created_at'}
                 sortDirection={filters?.direction ?? 'desc'}
+                defaultSortKey="created_at"
+                defaultSortDirection="desc"
                 onSortChange={handleSortChange}
                 showSortReset={false}
                 isLoading={tableLoading}

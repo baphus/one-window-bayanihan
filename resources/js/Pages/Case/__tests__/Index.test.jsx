@@ -1,15 +1,15 @@
 import '@testing-library/jest-dom/vitest';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import CaseIndex from '../Index.jsx';
 
-const { routerGet } = vi.hoisted(() => ({ routerGet: vi.fn() }));
+const { routerGet, routerVisit } = vi.hoisted(() => ({ routerGet: vi.fn(), routerVisit: vi.fn() }));
 
 vi.mock('@inertiajs/react', () => ({
   Head: () => null,
   router: {
     get: routerGet,
-    visit: vi.fn(),
+    visit: routerVisit,
     patch: vi.fn(),
     post: vi.fn(),
     delete: vi.fn(),
@@ -72,6 +72,11 @@ function lastVisitOptions() {
 beforeEach(() => {
   globalThis.route = vi.fn((name, params) => (params ? `/cases?${new URLSearchParams(params)}` : '/cases'));
   routerGet.mockClear();
+  routerVisit.mockClear();
+  // The page persists its filters and restores them on mount. A previous test's
+  // stored filters would restore themselves here and issue an extra request,
+  // which is not what the test under way is about.
+  localStorage.clear();
   vi.useFakeTimers({ shouldAdvanceTime: true });
 });
 
@@ -130,6 +135,167 @@ describe('Case Index approval column', () => {
     });
 
     expect(screen.getByText('Approver Ana')).toBeInTheDocument();
+  });
+});
+
+describe('Case Index register columns', () => {
+  it('merges case number and tracking ID into one column', () => {
+    renderIndex();
+
+    expect(screen.getByRole('columnheader', { name: /Case \/ Tracking ID/i })).toBeInTheDocument();
+    // Both identifiers render, and neither survives as its own column header.
+    expect(screen.getByText('CASE-001')).toBeInTheDocument();
+    expect(screen.getByText('TRK-001')).toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: /^Case Number$/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: /^Tracking ID$/ })).not.toBeInTheDocument();
+  });
+
+  it('merges client name with client type and age into one column', () => {
+    renderIndex({
+      cases: page({ data: [{ ...caseRow, client: { first_name: 'Maria', last_name: 'Santos', date_of_birth: '1990-01-01' } }] }),
+    });
+
+    expect(screen.getByRole('columnheader', { name: /^Client$/ })).toBeInTheDocument();
+    expect(screen.getByText('Maria Santos')).toBeInTheDocument();
+    // Secondary line carries type + derived age.
+    expect(screen.getByText(/OFW · \d+ yrs?/)).toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: /^Client Name$/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: /^Client Type$/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: /^Age$/ })).not.toBeInTheDocument();
+  });
+
+  it('merges issue and category into one column', () => {
+    renderIndex({
+      cases: page({
+        data: [{
+          ...caseRow,
+          case_issue: { id: 'i1', name: 'Unpaid final salary' },
+          categories: [{ id: 'c1', name: 'Employment' }],
+        }],
+      }),
+      categories: [{ id: 'c1', name: 'Employment' }],
+    });
+
+    expect(screen.getByRole('columnheader', { name: /Issue \/ Category/i })).toBeInTheDocument();
+    expect(screen.getByText('Unpaid final salary')).toBeInTheDocument();
+    expect(screen.getByText('Employment')).toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: /^Issue\/Concern$/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: /^Category$/ })).not.toBeInTheDocument();
+  });
+
+  it('keeps the register default to nine data columns plus actions', () => {
+    renderIndex();
+
+    // Address headers by accessible name: the sort glyph is aria-hidden, so it
+    // never joins the name the way it joins textContent.
+    const expectedHeaders = [
+      'Case / Tracking ID',
+      'Client',
+      'Issue / Category',
+      'Vulnerability',
+      'Author',
+      'Case Status',
+      'Approval',
+      'Referred To',
+      'Latest Update',
+      'Actions',
+    ];
+
+    for (const header of expectedHeaders) {
+      expect(screen.getByRole('columnheader', { name: header })).toBeInTheDocument();
+    }
+
+    expect(screen.getByRole('columnheader', { name: /Date Created/i })).toBeInTheDocument();
+    expect(screen.getAllByRole('columnheader')).toHaveLength(expectedHeaders.length + 1);
+  });
+});
+
+describe('Case Index row actions', () => {
+  it('replaces inline buttons with a labelled kebab per row', () => {
+    renderIndex();
+
+    expect(screen.getByRole('button', { name: /Actions for case CASE-001/i })).toBeInTheDocument();
+    // The old inline action buttons are gone; the menu now owns them.
+    expect(screen.queryByRole('button', { name: /^View$/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Edit$/ })).not.toBeInTheDocument();
+  });
+
+  it('makes the case reference a keyboard-reachable link to the case', () => {
+    renderIndex();
+
+    const reference = screen.getByRole('button', { name: 'CASE-001' });
+    fireEvent.click(reference);
+
+    expect(routerVisit).toHaveBeenCalledTimes(1);
+    expect(String(routerVisit.mock.calls[0][0])).toContain('/cases');
+  });
+});
+
+describe('Case Index advanced filter panel', () => {
+  function openFilters() {
+    fireEvent.click(screen.getByRole('button', { name: /^Filters/ }));
+  }
+  it('presents the list filters as checkboxes rather than dropdowns', () => {
+    renderIndex();
+    openFilters();
+
+    const panel = screen.getByRole('dialog', { name: /filters/i });
+    expect(within(panel).getAllByRole('checkbox').length).toBeGreaterThan(0);
+
+    // The only remaining select is Case Age, which the backend accepts as a
+    // scalar integer only; every list filter is a checkbox group.
+    const comboboxes = within(panel).getAllByRole('combobox');
+    expect(comboboxes).toHaveLength(1);
+    expect(comboboxes[0]).toHaveAccessibleName(/case age/i);
+  });
+
+  it('sends a multi-select status list when a second status is ticked', () => {
+    // Filters come from server props, so the second tick is applied to a table
+    // that already holds the first value.
+    renderIndex({ filters: { status: 'OPEN' } });
+    openFilters();
+
+    const panel = screen.getByRole('dialog', { name: /filters/i });
+    expect(within(panel).getByRole('checkbox', { name: 'Open' })).toBeChecked();
+    fireEvent.click(within(panel).getByRole('checkbox', { name: 'Closed' }));
+
+    const lastCall = routerGet.mock.calls[routerGet.mock.calls.length - 1];
+    expect(lastCall[1]).toMatchObject({ status: ['OPEN', 'CLOSED'] });
+  });
+
+  it('collapses a two-value selection back to the scalar form when one is unticked', () => {
+    renderIndex({ filters: { status: ['OPEN', 'CLOSED'] } });
+    openFilters();
+
+    const panel = screen.getByRole('dialog', { name: /filters/i });
+    fireEvent.click(within(panel).getByRole('checkbox', { name: 'Closed' }));
+
+    const lastCall = routerGet.mock.calls[routerGet.mock.calls.length - 1];
+    expect(lastCall[1]).toMatchObject({ status: 'OPEN' });
+  });
+
+  it('clears a filter group by unticking its only value', () => {
+    renderIndex({ filters: { vulnerability_indicator: 'PWD' } });
+    openFilters();
+
+    const panel = screen.getByRole('dialog', { name: /filters/i });
+    fireEvent.click(within(panel).getByRole('checkbox', { name: 'PWD' }));
+
+    const lastCall = routerGet.mock.calls[routerGet.mock.calls.length - 1];
+    expect(lastCall[1]).not.toHaveProperty('vulnerability_indicator');
+  });
+
+  it('marks a multi-value selection as active in the filter panel', () => {
+    renderIndex({ filters: { status: ['OPEN', 'CLOSED'] } });
+    openFilters();
+
+    // The active-filter chip strip was removed from the table, so the applied
+    // state now lives in the panel: both values read as checked and the trigger
+    // reports how many filters are active.
+    const panel = screen.getByRole('dialog', { name: /filters/i });
+    expect(within(panel).getByRole('checkbox', { name: 'Open' })).toBeChecked();
+    expect(within(panel).getByRole('checkbox', { name: 'Closed' })).toBeChecked();
+    expect(screen.getByRole('button', { name: /filters, 1 active/i })).toBeInTheDocument();
   });
 });
 

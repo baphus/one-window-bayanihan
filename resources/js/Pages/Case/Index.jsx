@@ -1,7 +1,10 @@
-import AppLayout from '@/Layouts/AppLayout';
+﻿import AppLayout from '@/Layouts/AppLayout';
 import { Head, router, usePage } from '@inertiajs/react';
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
+import TableTabs from '@/Components/ui/TableTabs';
+import FilterPanel from '@/Components/ui/FilterPanel';
+import { toFilterList, toggleFilterValue, useArrayFilters } from '@/Hooks/useArrayFilters';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import { FolderCheck, Users, ArrowRightLeft, TrendingUp, Clock } from 'lucide-react';
 import { formatDisplayDate, formatDisplayTime, getCategoryFilterIds } from '@/lib/utils';
@@ -77,22 +80,26 @@ function getCaseCategories(caseFile, availableCategories = []) {
   return (caseFile?.category_ids || []).map((id) => availableCategories.find((category) => String(category.id) === String(id))).filter(Boolean);
 }
 
+// Merged cells keep identifiers and qualifying details together; source fields remain optional.
 const COLUMN_DEFS = [
-  { key: 'case_number', label: 'Case Number', default: true },
-  { key: 'tracker_number', label: 'Tracking ID', default: true },
-  { key: 'client_type', label: 'Client Type', default: true },
-  { key: 'client_name', label: 'Client Name', default: true },
+  { key: 'case_reference', label: 'Case / Tracking ID', sortKey: 'case_number', default: true },
+  { key: 'client', label: 'Client', sortKey: 'client_name', default: true },
+  { key: 'issue_category', label: 'Issue / Category', sortable: false, default: true },
+  { key: 'vulnerability_indicator', label: 'Vulnerability', sortable: false, default: true },
   { key: 'author', label: 'Author', default: true },
-  { key: 'vulnerability_indicator', label: 'Vulnerability', default: true },
-  { key: 'category', label: 'Category', default: true },
-  { key: 'issue_concern', label: 'Issue/Concern', default: true },
-  { key: 'age', label: 'Age', default: true },
   { key: 'status', label: 'Case Status', default: true },
-  { key: 'approval', label: 'Approval', default: true },
-  { key: 'referred_to', label: 'Referred To', default: true },
-  { key: 'latest_update', label: 'Latest Update', default: true },
+  { key: 'approval', label: 'Approval', sortable: false, default: true },
+  { key: 'referred_to', label: 'Referred To', sortable: false, default: true },
+  { key: 'latest_update', label: 'Latest Update', sortable: false, default: true },
   { key: 'created_at', label: 'Date Created', default: true },
-  { key: 'actions', label: 'Actions', default: true },
+  { key: 'actions', label: 'Actions', sortable: false, default: true },
+  { key: 'case_number', label: 'Case Number', default: false },
+  { key: 'tracker_number', label: 'Tracking ID', default: false },
+  { key: 'client_type', label: 'Client Type', default: false },
+  { key: 'client_name', label: 'Client Name', default: false },
+  { key: 'category', label: 'Category', sortable: false, default: false },
+  { key: 'issue_concern', label: 'Issue/Concern', sortable: false, default: false },
+  { key: 'age', label: 'Age', sortable: false, default: false },
 ];
 
 export default function CaseIndex({ cases, filters: rawFilters, stats, users = [], agencies = [], categories = [], caseIssues = [] }) {
@@ -108,13 +115,14 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
   const searchTimeout = useRef(null);
 
   const [visibleColumns, setVisibleColumns] = usePersistedColumns(
-    'cases',
+    'cases-v2',
     COLUMN_DEFS.filter((c) => c.default).map((c) => c.key),
   );
 
   const { isLoading: tableLoading, withLoading } = useTableVisitLoading();
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState(null);
+  const actionTriggerRef = useRef(null);
   const [confirmArchiveId, setConfirmArchiveId] = useState(null);
 
   const handleExport = useCallback(() => {
@@ -125,14 +133,20 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
   // preview, so the count shown always matches the export that will run.
   const buildExportQuery = useCallback(({ dateFrom, dateTo }) => {
     const params = new URLSearchParams();
-    if (filters.status) params.set('status', filters.status);
+    // List filters may arrive as arrays (checkbox panel) or scalars (old URLs),
+    // so every one is appended in the `key[]=` form the export endpoint reads.
+    const appendList = (key, value) => {
+      toFilterList(value).forEach((item) => params.append(`${key}[]`, item));
+    };
+
+    appendList('status', filters.status);
     if (filters.search) params.set('search', filters.search);
-    if (filters.client_type) params.set('client_type', filters.client_type);
-    if (filters.vulnerability_indicator) params.set('vulnerability_indicator', filters.vulnerability_indicator);
-    if (filters.user_id) params.set('user_id', filters.user_id);
-    if (filters.agcy_id) params.set('agcy_id', filters.agcy_id);
+    appendList('client_type', filters.client_type);
+    appendList('vulnerability_indicator', filters.vulnerability_indicator);
+    appendList('user_id', filters.user_id);
+    appendList('agcy_id', filters.agcy_id);
     getCategoryFilterIds(filters).forEach((id) => params.append('category_ids[]', id));
-    if (filters.case_issue_id) params.set('case_issue_id', filters.case_issue_id);
+    appendList('case_issue_id', filters.case_issue_id);
     if (filters.age_min_days) params.set('age_min_days', filters.age_min_days);
     if (filters.referral_state) params.set('referral_state', filters.referral_state);
     if (dateFrom) params.set('date_from', dateFrom);
@@ -155,14 +169,27 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
 
   const activeFilterChips = useMemo(() => {
     const chips = [];
-    if (filters?.status) chips.push({ label: 'Status', value: filters.status });
-    if (filters?.client_type) chips.push({ label: 'Client Type', value: filters.client_type });
-    if (filters?.vulnerability_indicator) chips.push({ label: 'Vulnerability', value: filters.vulnerability_indicator });
-    if (getCategoryFilterIds(filters).length) chips.push({ label: 'Category', value: getCategoryFilterIds(filters).join(', ') });
-    if (filters?.case_issue_id) chips.push({ label: 'Issue', value: filters.case_issue_id });
-    if (filters?.age_min_days) chips.push({ label: 'Case Age', value: `${filters.age_min_days}+ days` });
-    if (filters?.user_id) chips.push({ label: 'Author', value: filters.user_id });
-    if (filters?.agcy_id) chips.push({ label: 'Referred To', value: filters.agcy_id });
+    const labelsFor = (options) => Object.fromEntries(options.map((o) => [String(o.value), o.label]));
+    const labelList = (value, options) => {
+      const labels = labelsFor(options);
+      return toFilterList(value).map((v) => labels[v] ?? v).join(', ');
+    };
+
+    if (toFilterList(filters?.status).length) chips.push({ label: 'Status', value: labelList(filters.status, [
+      { value: 'OPEN', label: 'Open' }, { value: 'CLOSED', label: 'Closed' }, { value: 'ARCHIVED', label: 'Archived' },
+    ]) });
+    if (toFilterList(filters?.client_type).length) chips.push({ label: 'Client Type', value: labelList(filters.client_type, [
+      { value: 'OFW', label: 'OFW' }, { value: 'NEXT_OF_KIN', label: 'Next of Kin' },
+    ]) });
+    if (toFilterList(filters?.vulnerability_indicator).length) chips.push({ label: 'Vulnerability', value: toFilterList(filters.vulnerability_indicator).join(', ') });
+    if (getCategoryFilterIds(filters).length) {
+      const names = getCategoryFilterIds(filters).map((id) => categories?.find((c) => String(c.id) === id)?.name || id);
+      chips.push({ label: 'Category', value: names.join(', ') });
+    }
+    if (toFilterList(filters?.case_issue_id).length) chips.push({ label: 'Issue', value: labelList(filters.case_issue_id, (caseIssues ?? []).map((c) => ({ value: c.id, label: c.name }))) });
+    if (toFilterList(filters?.age_min_days).length) chips.push({ label: 'Case Age', value: toFilterList(filters.age_min_days).map((d) => `${d}+ days`).join(', ') });
+    if (toFilterList(filters?.user_id).length) chips.push({ label: 'Author', value: labelList(filters.user_id, users.map((u) => ({ value: u.id, label: u.name }))) });
+    if (toFilterList(filters?.agcy_id).length) chips.push({ label: 'Referred To', value: labelList(filters.agcy_id, agencies.map((a) => ({ value: a.id, label: a.name }))) });
     if (filters?.referral_state) chips.push({ label: 'Referral State', value: filters.referral_state });
     if (filters?.date_from) chips.push({ label: 'From', value: filters.date_from });
     if (filters?.date_to) chips.push({ label: 'To', value: filters.date_to });
@@ -171,7 +198,15 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
 
   const handleRowContextMenu = (e, row) => {
     e.preventDefault();
+    actionTriggerRef.current = null;
     setContextMenu({ x: e.clientX, y: e.clientY, row });
+  };
+
+  const handleActionMenu = (e, row) => {
+    e.stopPropagation();
+    actionTriggerRef.current = e.currentTarget;
+    const rect = e.currentTarget.getBoundingClientRect();
+    setContextMenu({ x: rect.right, y: rect.bottom, anchorRect: rect, row });
   };
 
   useEffect(() => {
@@ -244,34 +279,44 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
 
   const activeFilters = useMemo(() => {
     const chips = [];
-    if (filters?.status) chips.push({ key: 'status', label: 'Status', value: filters.status });
-    if (filters?.client_type) chips.push({ key: 'client_type', label: 'Client Type', value: filters.client_type === 'OFW' ? 'OFW' : 'NOK' });
-    if (filters?.vulnerability_indicator) chips.push({ key: 'vulnerability_indicator', label: 'Vulnerability', value: filters.vulnerability_indicator });
-    if (filters?.user_id) {
-      const author = users.find(u => u.id === filters.user_id);
-      chips.push({ key: 'user_id', label: 'Author', value: author?.name || filters.user_id });
+    const join = (list, labels) => list.map((value) => labels?.[value] ?? value).join(', ');
+
+    const statusList = toFilterList(filters?.status);
+    if (statusList.length) chips.push({ key: 'status', label: 'Status', value: join(statusList, { OPEN: 'Open', CLOSED: 'Closed', ARCHIVED: 'Archived' }) });
+
+    const clientTypeList = toFilterList(filters?.client_type);
+    if (clientTypeList.length) chips.push({ key: 'client_type', label: 'Client Type', value: join(clientTypeList, { OFW: 'OFW', NEXT_OF_KIN: 'Next of Kin' }) });
+
+    const vulnerabilityList = toFilterList(filters?.vulnerability_indicator);
+    if (vulnerabilityList.length) chips.push({ key: 'vulnerability_indicator', label: 'Vulnerability', value: vulnerabilityList.join(', ') });
+
+    const authorList = toFilterList(filters?.user_id);
+    if (authorList.length) {
+      chips.push({ key: 'user_id', label: 'Author', value: join(authorList, Object.fromEntries(users.map((u) => [u.id, u.name]))) });
     }
-    if (filters?.agcy_id) {
-      const agency = agencies.find(a => a.id === filters.agcy_id);
-      chips.push({ key: 'agcy_id', label: 'Referred To', value: agency?.name || filters.agcy_id });
+
+    const agencyList = toFilterList(filters?.agcy_id);
+    if (agencyList.length) {
+      chips.push({ key: 'agcy_id', label: 'Referred To', value: join(agencyList, Object.fromEntries(agencies.map((a) => [a.id, a.name]))) });
     }
+
     if (getCategoryFilterIds(filters).length) {
       const ids = getCategoryFilterIds(filters);
       const names = ids.map((id) => categories?.find(c => String(c.id) === id)?.name || id);
       chips.push({ key: 'category_ids', label: 'Category', value: names.join(', ') });
     }
-    if (filters?.case_issue_id) {
-      const issue = caseIssues?.find(c => c.id === filters.case_issue_id);
-      chips.push({ key: 'case_issue_id', label: 'Issue/Concern', value: issue?.name || filters.case_issue_id });
+
+    const issueList = toFilterList(filters?.case_issue_id);
+    if (issueList.length) {
+      chips.push({ key: 'case_issue_id', label: 'Issue/Concern', value: join(issueList, Object.fromEntries((caseIssues ?? []).map((c) => [c.id, c.name]))) });
     }
-    if (filters?.age_min_days) chips.push({ key: 'age_min_days', label: 'Age', value: `${filters.age_min_days}+ days` });
+
+    const ageList = toFilterList(filters?.age_min_days);
+    if (ageList.length) chips.push({ key: 'age_min_days', label: 'Age', value: ageList.map((d) => `${d}+ days`).join(', ') });
+
     if (filters?.referral_state === 'none') chips.push({ key: 'referral_state', label: 'Referrals', value: 'None' });
     return chips;
   }, [filters, users, agencies, categories, caseIssues]);
-
-  const handleRemoveFilter = (filter) => {
-    updateTable({ ...filters, [filter.key]: undefined, ...(filter.key === 'category_ids' ? { category_id: undefined } : {}), page: undefined });
-  };
 
   const handleClearFilters = () => {
     updateTable({
@@ -310,8 +355,62 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
     COLUMN_DEFS
       .filter((col) => visibleColumns.includes(col.key))
       .map((col) => {
-        const base = { key: col.key, title: col.label, sortable: true };
+        const base = { key: col.key, title: col.label, sortable: col.sortable ?? true, ...(col.sortKey ? { sortKey: col.sortKey } : {}) };
         switch (col.key) {
+          case 'case_reference':
+            return {
+              ...base,
+              render: (row) => (
+                <div className="space-y-0.5">
+                  <button
+                    type="button"
+                    onClick={() => router.visit(route('cases.show', row.id))}
+                    className="block font-mono text-xs font-bold text-blue-900 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    aria-label={row.case_number}
+                  >
+                    {row.case_number}
+                  </button>
+                  <span className="block font-mono text-[10px] text-slate-500">{row.tracker_number}</span>
+                </div>
+              ),
+            };
+          case 'client':
+            return {
+              ...base,
+              render: (row) => {
+                const clientName = row.client ? `${row.client.first_name} ${row.client.last_name}` : 'N/A';
+                const clientType = row.client_type === 'OFW' ? 'OFW' : 'Next of Kin';
+                return (
+                  <div>
+                    <div className="text-xs font-medium text-slate-800">{clientName}</div>
+                    <div className="text-[10px] text-slate-500">{clientType} · {getClientAge(row.client?.date_of_birth)}</div>
+                  </div>
+                );
+              },
+              sortAccessor: (row) => row.client ? `${row.client.last_name}, ${row.client.first_name}` : '',
+            };
+          case 'issue_category':
+            return {
+              ...base,
+              sortable: false,
+              render: (row) => {
+                const rowCategories = getCaseCategories(row, categories);
+                return (
+                  <div className="space-y-1">
+                    <div className="text-xs text-slate-700">{row.case_issue?.name || <span className="text-slate-400">&mdash;</span>}</div>
+                    <div className="flex max-w-[220px] flex-wrap gap-1">
+                      {rowCategories.length > 0 ? rowCategories.map((category) => (
+                        <span key={category.id || category.name} className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                          style={{ backgroundColor: category.color ? `${category.color}20` : '#f1f5f9', color: category.color || '#64748b' }}>
+                          {category.color && <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: category.color }} />}
+                          {category.name || category.title}
+                        </span>
+                      )) : <span className="text-[10px] text-slate-400">&mdash;</span>}
+                    </div>
+                  </div>
+                );
+              },
+            };
           case 'case_number':
             return {
               ...base,
@@ -485,37 +584,24 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
             return {
               ...base,
               sortable: false,
-              title: 'Actions',
               render: (row) => (
-                <div className="flex items-center gap-1.5">
-                  <button
-                    onClick={() => router.visit(route('cases.show', row.id))}
-                    className="min-h-[28px] px-2.5 bg-blue-900 text-white hover:bg-blue-800 text-[11px] font-bold rounded-[3px] transition-colors border border-blue-900"
-                  >
-                    View
-                  </button>
-                  <button
-                    onClick={() => router.visit(`${route('cases.show', row.id)}?edit=1`)}
-                    className="min-h-[28px] px-2.5 bg-slate-100 text-slate-700 hover:bg-slate-200 text-[11px] font-bold rounded-[3px] transition-colors border border-slate-300"
-                  >
-                    Edit
-                  </button>
-                  {canArchiveCase(row) && (
-                    <button
-                      onClick={() => setConfirmArchiveId(row.id)}
-                      className="min-h-[28px] px-2.5 bg-gray-100 text-gray-600 hover:bg-gray-200 text-[11px] font-bold rounded-[3px] transition-colors border border-gray-300"
-                    >
-                      Archive
-                    </button>
-                  )}
-                </div>
+                <button
+                  type="button"
+                  aria-label={`Actions for case ${row.case_number}`}
+                  aria-haspopup="menu"
+                  aria-expanded={contextMenu?.row?.id === row.id}
+                  onClick={(e) => handleActionMenu(e, row)}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded text-slate-500 hover:bg-slate-100 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                >
+                  <span aria-hidden="true" className="material-symbols-outlined text-[20px]">more_vert</span>
+                </button>
               ),
             };
           default:
             return { ...base, render: (row) => row[col.key] };
         }
       }),
-  [visibleColumns]);
+  [visibleColumns, categories]);
 
   const handleSearchClear = () => {
     setSearchValue('');
@@ -524,150 +610,130 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
   };
 
   const handleStatusQuickFilter = (status) => {
-    updateTable({ ...filters, status: status || undefined, page: undefined });
+    const base = pendingParamsRef.current ?? filtersRef.current;
+    pendingParamsRef.current = null;
+    updateTable({ ...base, status: status || undefined, page: undefined });
   };
 
+  const filterGroups = useMemo(
+    () => [
+      {
+        key: 'status',
+        label: 'Status',
+        options: [
+          { value: 'OPEN', label: 'Open' },
+          { value: 'CLOSED', label: 'Closed' },
+          { value: 'ARCHIVED', label: 'Archived' },
+        ],
+      },
+      {
+        key: 'client_type',
+        label: 'Client Type',
+        options: [
+          { value: 'OFW', label: 'OFW' },
+          { value: 'NEXT_OF_KIN', label: 'Next of Kin' },
+        ],
+      },
+      {
+        key: 'vulnerability_indicator',
+        label: 'Vulnerability',
+        options: [
+          { value: 'PWD', label: 'PWD' },
+          { value: 'Senior Citizen', label: 'Senior Citizen' },
+          { value: 'Solo Parent', label: 'Solo Parent' },
+          { value: 'Indigenous Person', label: 'Indigenous Person' },
+          { value: 'None', label: 'None' },
+        ],
+      },
+      {
+        key: 'category_ids',
+        label: 'Category',
+        options: (categories ?? []).map((category) => ({ value: String(category.id), label: category.name })),
+      },
+      {
+        key: 'case_issue_id',
+        label: 'Issue / Concern',
+        options: (caseIssues ?? []).map((issue) => ({ value: issue.id, label: issue.name })),
+      },
+      {
+        key: 'user_id',
+        label: 'Author',
+        options: (users ?? []).map((user) => ({ value: user.id, label: user.name })),
+      },
+      {
+        key: 'agcy_id',
+        label: 'Referred To',
+        options: (agencies ?? []).map((agency) => ({ value: agency.id, label: agency.name })),
+      },
+    ],
+    [users, agencies, categories, caseIssues],
+  );
+
+  const selectedFilters = useMemo(
+    () => ({
+      status: toFilterList(filters?.status),
+      client_type: toFilterList(filters?.client_type),
+      vulnerability_indicator: toFilterList(filters?.vulnerability_indicator),
+      category_ids: getCategoryFilterIds(filters),
+      case_issue_id: toFilterList(filters?.case_issue_id),
+      user_id: toFilterList(filters?.user_id),
+      agcy_id: toFilterList(filters?.agcy_id),
+    }),
+    [filters],
+  );
+
+  const { toggleFilter } = useArrayFilters();
+
+  const handleFilterToggle = (key, value) => {
+    if (key === 'category_ids') {
+      const next = toggleFilterValue(getCategoryFilterIds(filters), value);
+      updateTable({ ...filters, category_ids: next.length ? next : undefined, category_id: undefined, page: undefined });
+      return;
+    }
+
+    updateTable(toggleFilter(filters, key, value));
+  };
+
+  // Every list filter is a checkbox group (Jira-style). Case Age stays a single
+  // select: `age_min_days` is validated as a scalar integer server-side, so an
+  // array there would be rejected.
   const advancedFilterContent = useMemo(() => (
-    <div className="space-y-4">
-      <div>
-        <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Status</label>
-        <select
-          value={filters?.status ?? ''}
-          onChange={(e) => {
-            const val = e.target.value;
-            updateTable({ ...filters, status: val || undefined, page: undefined });
-          }}
-          className="w-full border border-slate-300 rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
-        >
-          <option value="">All Statuses</option>
-          <option value="OPEN">Open</option>
-          <option value="CLOSED">Closed</option>
-          <option value="ARCHIVED">Archived</option>
-        </select>
-      </div>
-      <div>
-        <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Client Type</label>
-        <select
-          value={filters?.client_type ?? ''}
-          onChange={(e) => {
-            const val = e.target.value;
-            updateTable({ ...filters, client_type: val || undefined, page: undefined });
-          }}
-          className="w-full border border-slate-300 rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
-        >
-          <option value="">All Types</option>
-          <option value="OFW">OFW</option>
-          <option value="NEXT_OF_KIN">Next of Kin</option>
-        </select>
-      </div>
-      <div>
-        <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Vulnerability</label>
-        <select
-          value={filters?.vulnerability_indicator ?? ''}
-          onChange={(e) => {
-            const val = e.target.value;
-            updateTable({ ...filters, vulnerability_indicator: val || undefined, page: undefined });
-          }}
-          className="w-full border border-slate-300 rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
-        >
-          <option value="">All</option>
-          <option value="PWD">PWD</option>
-          <option value="Senior Citizen">Senior Citizen</option>
-          <option value="Solo Parent">Solo Parent</option>
-          <option value="Indigenous Person">Indigenous Person</option>
-          <option value="None">None</option>
-        </select>
+    <div className="flex flex-col gap-3">
+      <FilterPanel
+        searchable
+        groups={filterGroups}
+        selected={selectedFilters}
+        onToggle={handleFilterToggle}
+        onClearAll={handleClearFilters}
+        activeCount={activeFilters.length}
+      />
+
+      <div className="flex flex-col gap-1 border-t border-slate-200 pt-2.5">
+        <label className="flex flex-col gap-1">
+          <span className="text-[11px] text-slate-500">Case age</span>
+          <select
+            value={filters?.age_min_days ?? ''}
+            onChange={(e) => {
+              const val = e.target.value;
+              updateTable({ ...filters, age_min_days: val || undefined, page: undefined });
+            }}
+            className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-[12.5px] text-slate-800 outline-none transition-colors focus:border-primary focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
+          >
+            <option value="">Any age</option>
+            <option value="7">7+ days</option>
+            <option value="14">14+ days</option>
+            <option value="30">30+ days</option>
+            <option value="60">60+ days</option>
+            <option value="90">90+ days</option>
+          </select>
+        </label>
       </div>
 
-      <div>
-        <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Category</label>
-        <select
-          multiple
-          value={getCategoryFilterIds(filters)}
-          onChange={(e) => {
-            const values = Array.from(e.target.selectedOptions, (option) => option.value);
-            updateTable({ ...filters, category_ids: values.length ? values : undefined, category_id: undefined, page: undefined });
-          }}
-          className="min-h-24 w-full border border-slate-300 rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
-        >
-          <option value="">All Categories</option>
-          {categories?.map((cat) => (
-            <option key={cat.id} value={cat.id}>{cat.name}</option>
-          ))}
-        </select>
-        <p className="mt-1 text-[11px] text-slate-500">Select any categories assigned to the case.</p>
-      </div>
-      <div>
-        <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Issue/Concern</label>
-        <select
-          value={filters?.case_issue_id ?? ''}
-          onChange={(e) => {
-            const val = e.target.value;
-            updateTable({ ...filters, case_issue_id: val || undefined, page: undefined });
-          }}
-          className="w-full border border-slate-300 rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
-        >
-          <option value="">All Issues</option>
-          {caseIssues?.map((issue) => (
-            <option key={issue.id} value={issue.id}>{issue.name}</option>
-          ))}
-        </select>
-      </div>
-      <div>
-        <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Case Age</label>
-        <select
-          value={filters?.age_min_days ?? ''}
-          onChange={(e) => {
-            const val = e.target.value;
-            updateTable({ ...filters, age_min_days: val || undefined, page: undefined });
-          }}
-          className="w-full border border-slate-300 rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
-        >
-          <option value="">All Ages</option>
-          <option value="7">7+ days</option>
-          <option value="14">14+ days</option>
-          <option value="30">30+ days</option>
-          <option value="60">60+ days</option>
-          <option value="90">90+ days</option>
-        </select>
-      </div>
-      <div>
-        <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Author</label>
-        <select
-          value={filters?.user_id ?? ''}
-          onChange={(e) => {
-            const val = e.target.value;
-            updateTable({ ...filters, user_id: val || undefined, page: undefined });
-          }}
-          className="w-full border border-slate-300 rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
-        >
-          <option value="">All Authors</option>
-          {users.map((u) => (
-            <option key={u.id} value={u.id}>{u.name}</option>
-          ))}
-        </select>
-      </div>
-      <div>
-        <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Referred To</label>
-        <select
-          value={filters?.agcy_id ?? ''}
-          onChange={(e) => {
-            const val = e.target.value;
-            updateTable({ ...filters, agcy_id: val || undefined, page: undefined });
-          }}
-          className="w-full border border-slate-300 rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
-        >
-          <option value="">All Agencies</option>
-          {agencies.map((a) => (
-            <option key={a.id} value={a.id}>{a.name}</option>
-          ))}
-        </select>
-      </div>
-      <div className="border-t border-slate-200 pt-3 mt-3">
-        <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Date Range</label>
-        <div className="flex gap-2">
-          <div className="flex-1">
-            <label className="block text-[10px] text-slate-400 mb-1">From</label>
+      <div className="border-t border-slate-200 pt-2.5">
+        <span className="mb-1 block text-[10.5px] font-semibold uppercase tracking-[0.12em] text-slate-500">Date range</span>
+        <div className="flex flex-col gap-2">
+          <label className="flex flex-col gap-1">
+            <span className="text-[11px] text-slate-500">From</span>
             <input
               type="date"
               value={filters?.date_from ?? ''}
@@ -675,11 +741,11 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
                 const val = e.target.value;
                 updateTable({ ...filters, date_from: val || undefined, page: undefined });
               }}
-              className="w-full border border-slate-300 rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
+              className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-[12.5px] text-slate-800 outline-none transition-colors focus:border-primary focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
             />
-          </div>
-          <div className="flex-1">
-            <label className="block text-[10px] text-slate-400 mb-1">To</label>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-[11px] text-slate-500">To</span>
             <input
               type="date"
               value={filters?.date_to ?? ''}
@@ -687,55 +753,42 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
                 const val = e.target.value;
                 updateTable({ ...filters, date_to: val || undefined, page: undefined });
               }}
-              className="w-full border border-slate-300 rounded-[2px] px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
+              className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-[12.5px] text-slate-800 outline-none transition-colors focus:border-primary focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
             />
-          </div>
+          </label>
         </div>
       </div>
-      <div className="border-t border-slate-200 pt-4 mt-4">
+
+      <div className="border-t border-slate-200 pt-2.5">
         <button
           type="button"
           onClick={() => setFilterOpen(false)}
-          className="w-full h-[36px] bg-blue-900 text-white text-[13px] font-bold rounded-[2px] hover:bg-blue-800 transition-colors"
+          className="h-9 w-full rounded-md bg-primary text-[12.5px] font-semibold text-white transition-colors hover:bg-primary-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
         >
           Done
         </button>
       </div>
     </div>
-  ), [filters, users, agencies, categories, caseIssues, updateTable]);
+  ), [filters, filterGroups, selectedFilters, activeFilters.length, updateTable]);
 
   const quickFilterPills = useMemo(() => {
     const statuses = [
-      { label: 'All', value: '', count: stats?.total_cases },
-      { label: 'Open', value: 'OPEN', count: stats?.open_cases },
-      { label: 'Closed', value: 'CLOSED', count: stats?.closed_cases },
-      { label: 'Archived', value: 'ARCHIVED', count: stats?.archived_cases },
+      { key: 'all', label: 'All', value: '', count: stats?.total_cases },
+      { key: 'open', label: 'Open', value: 'OPEN', count: stats?.open_cases },
+      { key: 'closed', label: 'Closed', value: 'CLOSED', count: stats?.closed_cases },
+      { key: 'archived', label: 'Archived', value: 'ARCHIVED', count: stats?.archived_cases },
     ];
-    const currentStatus = filters?.status ?? '';
 
     return (
-      <div className="flex items-center gap-1.5" role="group" aria-label="Quick status filters">
-        <span className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mr-1">Show:</span>
-        {statuses.map((s) => {
-          const isActive = currentStatus === s.value || (!currentStatus && s.value === '');
-          return (
-            <button
-              key={s.label}
-              onClick={() => handleStatusQuickFilter(s.value || undefined)}
-              className={`px-3 py-1.5 text-[12px] font-bold rounded-md transition-colors border ${
-                isActive
-                  ? 'bg-blue-900 text-white border-blue-900 shadow-sm'
-                  : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50 hover:text-slate-800'
-              }`}
-            >
-              {s.label}
-              {s.count > 0 && ` (${s.count})`}
-            </button>
-          );
-        })}
-      </div>
+      <TableTabs
+        label="Filter cases by status"
+        items={statuses}
+        value={filters?.status ?? ''}
+        allValue=""
+        onSelect={(value) => handleStatusQuickFilter(value || undefined)}
+      />
     );
-  }, [filters?.status, stats]);
+  }, [filters, stats]);
 
   const columnControlContent = useMemo(() => (
     <div className="space-y-2">
@@ -846,6 +899,8 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
         emptyStateMessage="No cases found"
         sortKey={filters?.sort ?? 'created_at'}
         sortDirection={filters?.direction ?? 'desc'}
+        defaultSortKey="created_at"
+        defaultSortDirection="desc"
         onSortChange={handleSortChange}
         searchValue={searchValue}
         searchPlaceholder="Search by tracking ID, client name, or client type..."
@@ -864,14 +919,19 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
         onRowContextMenu={handleRowContextMenu}
         activeFilters={activeFilters}
         activeFilterCount={activeFilters.length}
-        onRemoveFilter={handleRemoveFilter}
         onClearFilters={handleClearFilters}
         quickFilters={quickFilterPills}
       />
       </div>
 
       {contextMenu && (
-        <RowContextMenu x={contextMenu.x} y={contextMenu.y} onClose={() => setContextMenu(null)}>
+        <RowContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          anchorRect={contextMenu.anchorRect}
+          triggerRef={actionTriggerRef}
+          onClose={() => setContextMenu(null)}
+        >
           <RowContextMenuItem icon="visibility" label="View" onClick={() => {
             router.visit(route('cases.show', contextMenu.row.id));
             setContextMenu(null);
