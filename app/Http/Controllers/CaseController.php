@@ -360,12 +360,20 @@ class CaseController extends Controller
         $categories = $this->referenceData->getActiveCategories();
         $caseIssues = $this->referenceData->getActiveIssues();
 
+        $approver = $case->reviewer ? [
+            'name' => $case->reviewer->name,
+            'role' => UserRole::tryFrom($case->reviewer->role)?->label(),
+            'at' => $case->reviewed_at?->toISOString(),
+        ] : null;
+
         return Inertia::render('Case/Show', [
             'case' => $case,
             'overdueDays' => $overdueDays,
             'milestoneTimeline' => $trackingData['milestoneTimeline'],
             'categories' => $categories,
             'caseIssues' => $caseIssues,
+            'approver' => $approver,
+            'lifecycle' => $this->caseService->getCaseLifecycle($case),
         ]);
     }
 

@@ -6,6 +6,7 @@ use App\Enums\AuditAction;
 use App\Enums\AuditModule;
 use App\Enums\UserRole;
 use App\Helpers\CacheHelper;
+use App\Models\AuditLog;
 use App\Models\CaseCategory;
 use App\Models\CaseDocument;
 use App\Models\CaseFile;
@@ -428,7 +429,7 @@ class CaseService
     {
         $sortSpec = self::SORT_KEYS[$sort] ?? self::SORT_KEYS['created_at'];
 
-        $query = CaseFile::with(['client', 'user', 'category', 'categories', 'caseIssue', 'referrals.agency', 'referrals.milestones']);
+        $query = CaseFile::with(['client', 'user', 'reviewer:id,name,role', 'category', 'categories', 'caseIssue', 'referrals.agency', 'referrals.milestones']);
 
         // A sort that reads a related table needs it joined. The join exists
         // only to ORDER BY, so it is added only for that sort and always with
@@ -575,11 +576,59 @@ class CaseService
             'referrals.agency',
             'referrals.attachments.user',
             'user',
+            'reviewer:id,name,role',
             'category',
             'categories',
             'caseIssue',
             'documents' => fn ($q) => $q->where('is_deleted', false),
         ])->findOrFail($id);
+    }
+
+    /**
+     * Case lifecycle transitions with the actor who performed each one.
+     *
+     * Reads the append-only audit log rather than inventing a second history.
+     * UPDATE rows are included only for CLOSED → OPEN (reopen): every other
+     * status transition already has its own purposeful row (CREATE, APPROVE,
+     * REJECT, CLOSE, ARCHIVE, UNARCHIVE).
+     *
+     * @return array<int, array{action: string, label: string, actor: string, role: string|null, at: string|null}>
+     */
+    public function getCaseLifecycle(CaseFile $case): array
+    {
+        return AuditLog::with('user:id,name,role')
+            ->where('entity_id', $case->id)
+            ->whereIn('module', AuditModule::CASE->aliases())
+            ->whereIn('action', ['CREATE', 'APPROVE', 'REJECT', 'CLOSE', 'ARCHIVE', 'UNARCHIVE', 'UPDATE'])
+            ->orderBy('timestamp')
+            ->orderBy('id')
+            ->get()
+            ->filter(fn (AuditLog $log) => $log->action !== 'UPDATE'
+                || (($log->old_value['status'] ?? null) === 'CLOSED'
+                    && ($log->new_value['status'] ?? null) === 'OPEN'))
+            ->map(function (AuditLog $log) {
+                $role = $log->user
+                    ? UserRole::tryFrom($log->user->role)?->label()
+                    : null;
+
+                return [
+                    'action' => $log->action,
+                    'label' => match ($log->action) {
+                        'CREATE' => 'Case created',
+                        'APPROVE' => 'Approved',
+                        'REJECT' => 'Rejected',
+                        'CLOSE' => 'Closed',
+                        'ARCHIVE' => 'Archived',
+                        'UNARCHIVE' => 'Restored from archive',
+                        'UPDATE' => 'Reopened',
+                    },
+                    'actor' => $log->user?->name ?? 'System',
+                    'role' => $role,
+                    'at' => $log->timestamp?->toISOString(),
+                ];
+            })
+            ->values()
+            ->all();
     }
 
     public function updateCase(string $id, array $data, string $userId): CaseFile

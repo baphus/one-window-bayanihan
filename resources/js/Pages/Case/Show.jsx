@@ -68,7 +68,7 @@ function formatNokAddress(nok) {
   return formatResolvedAddress(nok, nok?.full_address || 'N/A');
 }
 
-export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTimeline = [], categories = [], caseIssues = [] }) {
+export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTimeline = [], categories = [], caseIssues = [], approver = null, lifecycle = [] }) {
   const EVENT_CONFIG = {
     case_opened:             { dot: 'bg-blue-50 border-blue-200 text-blue-600',       icon: 'folder' },
     referral_sent:           { dot: 'bg-purple-50 border-purple-200 text-purple-600',   icon: 'forward_to_inbox' },
@@ -557,9 +557,37 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
               <InfoCell label="Issue / concern" value={caseFile.case_issue?.name || '-'} />
               <InfoCell label="Case narrative" value={caseFile.summary || '-'} />
               <InfoCell label="Opened by" value={caseFile.user?.name || '-'} />
+              <InfoCell
+                label="Final approver"
+                value={approver ? (
+                  <>
+                    {approver.name}
+                    {approver.role && <span className="block text-[10px] font-normal text-slate-500">{approver.role}</span>}
+                  </>
+                ) : '-'}
+              />
             </div>
             <p className="border-t border-[#dce3eb] px-5 py-3 text-center text-[11px] text-slate-400">Close Case is unavailable while referrals are active. All referrals must be completed or rejected.</p>
           </section>
+
+          {lifecycle.length > 0 && (
+            <section className="rounded-xl border border-[#dce3eb] bg-white shadow-[0_1px_3px_rgba(23,35,51,0.04)]">
+              <CardHeader title="Case Lifecycle" meta={`${lifecycle.length} transition${lifecycle.length === 1 ? '' : 's'}`} />
+              <ol className="divide-y divide-slate-100 px-5 pb-5">
+                {lifecycle.map((event, index) => (
+                  <li key={`${event.action}-${event.at}-${index}`} className="flex items-start justify-between gap-3 py-2.5">
+                    <div>
+                      <p className="text-[12px] font-semibold text-slate-700">{event.label}</p>
+                      <p className="text-[11px] text-slate-500">
+                        {event.actor}{event.role ? ` (${event.role})` : ''}
+                      </p>
+                    </div>
+                    <span className="whitespace-nowrap text-[10px] text-slate-400">{event.at ? formatDisplayDateTime(event.at) : ''}</span>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          )}
 
           {/* Referrals table */}
           <section data-tour="case-referrals" className="rounded-xl border border-[#dce3eb] bg-white shadow-[0_1px_3px_rgba(23,35,51,0.04)]">

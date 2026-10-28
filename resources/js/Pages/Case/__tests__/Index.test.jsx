@@ -115,6 +115,24 @@ describe('Case Index table loading', () => {
   });
 });
 
+describe('Case Index approval column', () => {
+  it('shows the final approver only after the case is approved', () => {
+    const notApproved = renderIndex({
+      cases: page({ data: [{ ...caseRow, reviewer: null }] }),
+    });
+
+    expect(screen.getByRole('columnheader', { name: /Approval/i })).toBeInTheDocument();
+    expect(screen.queryByText('Approver Ana')).not.toBeInTheDocument();
+    notApproved.unmount();
+
+    renderIndex({
+      cases: page({ data: [{ ...caseRow, reviewer: { name: 'Approver Ana' } }] }),
+    });
+
+    expect(screen.getByText('Approver Ana')).toBeInTheDocument();
+  });
+});
+
 describe('Case Index search debounce', () => {
   it('sends the search after the debounce window', async () => {
     renderIndex();

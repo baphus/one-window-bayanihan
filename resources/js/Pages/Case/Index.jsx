@@ -88,6 +88,7 @@ const COLUMN_DEFS = [
   { key: 'issue_concern', label: 'Issue/Concern', default: true },
   { key: 'age', label: 'Age', default: true },
   { key: 'status', label: 'Case Status', default: true },
+  { key: 'approval', label: 'Approval', default: true },
   { key: 'referred_to', label: 'Referred To', default: true },
   { key: 'latest_update', label: 'Latest Update', default: true },
   { key: 'created_at', label: 'Date Created', default: true },
@@ -434,6 +435,14 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
               ...base,
               render: (row) => (
                 <StatusBadge status={row.status} />
+              ),
+            };
+          case 'approval':
+            return {
+              ...base,
+              sortable: false,
+              render: (row) => (
+                <span className="text-xs text-slate-600">{row.reviewer?.name || <span className="text-slate-400">&mdash;</span>}</span>
               ),
             };
           case 'referred_to':
