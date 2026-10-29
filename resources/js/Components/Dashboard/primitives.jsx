@@ -141,12 +141,20 @@ export function ViewAllLink({ href, children = 'View all' }) {
     );
 }
 
-export function EmptyState({ message, href, actionLabel }) {
+export function EmptyState({ message, href, actionLabel, art = false }) {
     return (
-        <div className="px-5 py-6 text-sm text-slate-500">
-            {message}
+        <div className="flex flex-col items-center gap-3 px-5 py-12 text-center">
+            {art ? (
+                <div className="relative flex h-24 w-32 items-center justify-center rounded-2xl bg-slate-50">
+                    <span className="absolute h-12 w-20 rounded-lg border-2 border-slate-200 bg-white shadow-sm" />
+                    <span className="absolute h-2 w-12 -translate-y-4 rounded-full bg-slate-200" />
+                    <span className="absolute h-2 w-8 translate-y-1 rounded-full bg-slate-100" />
+                    <span className="absolute -right-1 top-2 h-5 w-5 rounded-full border-2 border-primary/30 bg-primary/10" />
+                </div>
+            ) : null}
+            <p className="text-sm text-slate-500">{message}</p>
             {href ? (
-                <Link href={href} className="ml-2 font-bold text-primary hover:text-primary/80">
+                <Link href={href} className="font-bold text-primary hover:text-primary/80">
                     {actionLabel}
                 </Link>
             ) : null}
