@@ -272,13 +272,24 @@ class CaseService
                 ->lockForUpdate()
                 ->findOrFail($id);
 
+            $case->status = 'REJECTED';
             $case->deletion_reason = $reason;
-            $case->deleted_by = $userId;
+            $case->deleted_by = null;
             $case->saveQuietly();
-            // A rejected filing never publishes: drop its category assignments
-            // so usage counts and filters don't carry a dead filing's tags.
-            $case->categories()->detach();
-            $case->delete();
+
+            $case->loadMissing('client', 'user');
+            $clientEmail = $this->resolveClientNotificationEmail($case);
+            if ($clientEmail) {
+                $this->notificationService->notifyOfw(
+                    $case,
+                    $clientEmail,
+                    'case_rejected',
+                    "Case {$case->case_number} was not approved",
+                    "Your case request was not approved. Reason: {$reason}",
+                    ['reason' => $reason, 'status' => 'REJECTED'],
+                    route('ofw.case.show', $case->id),
+                );
+            }
 
             AuditLogger::reject()
                 ->byId($userId)

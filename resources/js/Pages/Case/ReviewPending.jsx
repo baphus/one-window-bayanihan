@@ -6,7 +6,6 @@ import StatusBadge from '@/Components/ui/StatusBadge';
 import ConfirmDialog from '@/Components/ui/ConfirmDialog';
 import { formatDisplayDate, formatDisplayTime } from '@/lib/utils';
 import safeRoute from '@/utils/safeRoute';
-import { useToast } from '@/Hooks/useToast';
 
 const vulnStyles = {
   PWD: 'bg-purple-100 text-purple-800',
@@ -35,6 +34,40 @@ function excerpt(text, len = 140) {
   return text.length > len ? `${text.slice(0, len).trim()}…` : text;
 }
 
+function displayValue(value, isDate = false) {
+  if (value === null || value === undefined || value === '') return 'Not provided';
+  if (isDate) return formatDisplayDate(String(value));
+  return String(value);
+}
+
+function InfoCard({ title, children, tone = 'default' }) {
+  const tones = {
+    default: 'border-transparent bg-transparent',
+    muted: 'border-transparent bg-transparent',
+    warning: 'border-transparent bg-transparent',
+  };
+
+  return (
+    <section className={`rounded-xl border p-4 shadow-sm ${tones[tone]}`}>
+      <h3 className="mb-3 text-sm font-bold text-slate-900">{title}</h3>
+      {children}
+    </section>
+  );
+}
+
+function InfoGrid({ fields }) {
+  return (
+    <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      {fields.map(([label, value, isDate = false]) => (
+        <div key={label} className="min-w-0">
+          <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</dt>
+          <dd className="mt-1 break-words text-[13px] text-slate-800">{displayValue(value, isDate)}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
 function ReviewDetail({ caseFile, categories, caseIssues, onClose }) {
   const needsClassification = !caseHasCategories(caseFile);
   const [categoryIds, setCategoryIds] = useState([]);
@@ -45,14 +78,13 @@ function ReviewDetail({ caseFile, categories, caseIssues, onClose }) {
   const [addingIssue, setAddingIssue] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const [rejectOpen, setRejectOpen] = useState(false);
-  const [docFile, setDocFile] = useState(null);
-  const [uploading, setUploading] = useState(false);
-  const [uploadError, setUploadError] = useState('');
   const [formError, setFormError] = useState('');
   const [processing, setProcessing] = useState(false);
-  const toast = useToast();
 
   const client = caseFile.client || {};
+  const address = client.addresses?.[0] || {};
+  const employment = client.employments?.[0] || {};
+  const nextOfKin = client.nextOfKin?.[0] || {};
   const vuln = caseFile.vulnerability_indicator || 'None';
 
   // Keep the dropdown in step with server props without discarding issues
@@ -111,7 +143,7 @@ function ReviewDetail({ caseFile, categories, caseIssues, onClose }) {
     setProcessing(true);
     router.post(
       safeRoute('cases.review-reject', caseFile.id, `/cases/${caseFile.id}/review-reject`),
-      { deletion_reason: rejectReason.trim() },
+      { reason: rejectReason.trim() },
       {
         preserveScroll: true,
         onSuccess: () => {
@@ -119,44 +151,9 @@ function ReviewDetail({ caseFile, categories, caseIssues, onClose }) {
           onClose();
         },
         onError: (errors) => {
-          setFormError(errors?.deletion_reason || 'Could not reject this case.');
+          setFormError(errors?.reason || 'Could not reject this case.');
         },
         onFinish: () => setProcessing(false),
-      },
-    );
-  }
-
-  // Files must go out as multipart via the Inertia FormData protocol
-  // (`forceFormData: true`). Passing a bare `{ file }` object leaves the
-  // request without a proper multipart body on some browsers, and any failure
-  // surfaces only as a silent 422. Mirrors Referral/Show.jsx.
-  function handleDocUpload() {
-    if (!docFile || uploading) return;
-    setUploading(true);
-    setUploadError('');
-
-    const formData = new FormData();
-    formData.append('file', docFile);
-
-    router.post(
-      safeRoute('cases.documents.store', caseFile.id, `/cases/${caseFile.id}/documents`),
-      formData,
-      {
-        preserveScroll: true,
-        forceFormData: true,
-        onSuccess: () => {
-          setDocFile(null);
-          setUploadError('');
-          toast.success('Document uploaded successfully.');
-        },
-        onError: (errors) => {
-          const message = errors?.file
-            || Object.values(errors || {})[0]
-            || 'Could not upload the document. Please try again.';
-          setUploadError(message);
-          toast.error(message);
-        },
-        onFinish: () => setUploading(false),
       },
     );
   }
@@ -164,16 +161,17 @@ function ReviewDetail({ caseFile, categories, caseIssues, onClose }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" onClick={onClose}>
       <div
-        className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg owb-modal-animate"
+        className="max-h-[94vh] w-full max-w-6xl overflow-y-auto rounded-2xl border border-slate-200 bg-slate-50 shadow-2xl owb-modal-animate"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-label={`Review case ${caseFile.case_number || ''}`}
       >
-        <div className="flex items-start justify-between border-b border-slate-200 px-5 py-4">
+        <div className="flex items-start justify-between border-b border-slate-200 bg-white px-6 py-5">
           <div>
-            <h2 className="text-[16px] font-extrabold text-slate-900">Review case request</h2>
-            <p className="mt-0.5 text-[12px] text-slate-500">
+            <p className="text-xs font-semibold uppercase tracking-wide text-blue-900">Case review</p>
+            <h2 className="mt-1 text-xl font-extrabold text-slate-950">Review case request</h2>
+            <p className="mt-1 text-[13px] text-slate-500">
               {clientName(caseFile)} · Submitted {formatDisplayDate(caseFile.created_at)}
             </p>
           </div>
@@ -182,27 +180,73 @@ function ReviewDetail({ caseFile, categories, caseIssues, onClose }) {
           </button>
         </div>
 
-        <div className="space-y-4 px-5 py-4">
-          <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
-            <p className="text-[11px] font-bold uppercase tracking-widest text-slate-500">Full summary</p>
-            <p className="mt-1 whitespace-pre-wrap text-[13px] leading-relaxed text-slate-700">{caseFile.summary || 'No summary provided.'}</p>
+        <div className="grid grid-cols-1 gap-4 px-6 py-5 lg:grid-cols-[minmax(0,1fr)_22rem]">
+          <div className="space-y-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <InfoCard title="Case request" tone="muted">
+              <InfoGrid fields={[
+                ['Case number', caseFile.case_number],
+                ['Tracking number', caseFile.tracker_number],
+                ['Vulnerability', vuln],
+                ['Status', caseFile.status],
+              ]} />
+              <div className="mt-4 border-t border-slate-200 pt-4">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Original summary</p>
+                <p className="mt-2 whitespace-pre-wrap text-[13px] leading-relaxed text-slate-800">{caseFile.summary || 'Not provided'}</p>
+              </div>
+            </InfoCard>
+
+            <InfoCard title="Personal information">
+              <InfoGrid fields={[
+                ['Full name', clientName(caseFile)],
+                ['Date of birth', client.date_of_birth, true],
+                ['Sex', client.sex],
+                ['Client type', client.type],
+                ['Email', client.email],
+                ['Mobile number', client.contact_number],
+              ]} />
+            </InfoCard>
+
+            <InfoCard title="Address and location">
+              <InfoGrid fields={[
+                ['Region', address.region_name || address.region],
+                ['Province', address.province_name || address.province],
+                ['City / municipality', address.city_municipality],
+                ['Barangay', address.barangay],
+                ['Street', address.street],
+              ]} />
+            </InfoCard>
+
+            <InfoCard title="Employment and deployment">
+              <InfoGrid fields={[
+                ['Position', employment.position],
+                ['Employer name', employment.employer_name],
+                ['Country of employment', employment.country || employment.last_country],
+                ['Start date', employment.start_date, true],
+                ['End date', employment.end_date, true],
+                ['Last position', employment.last_position],
+                ['Date arrived in the Philippines', employment.date_of_arrival, true],
+              ]} />
+            </InfoCard>
+
+            <InfoCard title="Emergency contact / next of kin">
+              <InfoGrid fields={[
+                ['Name', [nextOfKin.first_name, nextOfKin.middle_name, nextOfKin.last_name].filter(Boolean).join(' ')],
+                ['Relationship', nextOfKin.relationship],
+                ['Phone number', nextOfKin.phone_number],
+                ['Email', nextOfKin.email],
+              ]} />
+            </InfoCard>
           </div>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div className="rounded-md border border-slate-200 p-3">
-              <p className="text-[11px] font-bold uppercase tracking-widest text-slate-500">Client</p>
-              <p className="mt-1 text-[13px] font-semibold text-slate-800">{clientName(caseFile)}</p>
-              <p className="text-[12px] text-slate-500">{client.email || 'No email'} · {client.contact_number || 'No contact number'}</p>
-            </div>
-            <div className="rounded-md border border-slate-200 p-3">
-              <p className="text-[11px] font-bold uppercase tracking-widest text-slate-500">Vulnerability</p>
-              <p className="mt-1 text-[13px] font-semibold text-slate-800">{vuln}</p>
-              <p className="mt-1 text-[12px] text-slate-500">Case {caseFile.case_number || '—'} · Tracking {caseFile.tracker_number || '—'}</p>
-            </div>
-          </div>
-
+          <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm lg:sticky lg:top-0 lg:self-start">
+            <InfoCard title="Internal review" tone="muted">
+              <div className="space-y-4">
+                <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-3">
+                  <p className="text-[12px] font-bold text-blue-950">Classification required</p>
+                  <p className="mt-1 text-[12px] leading-5 text-blue-800">Select category and issue before approval.</p>
+                </div>
           {needsClassification ? (
-            <div className="rounded-md border border-amber-200 bg-amber-50 p-3">
+            <div className="space-y-4">
               <p className="text-[11px] font-bold uppercase tracking-widest text-amber-800">Classify before approving</p>
               <p className="mt-0.5 text-[12px] text-amber-700">This request came from online intake, so it has no category yet. A category and an issue are required to approve.</p>
               <div className="mt-3">
@@ -284,44 +328,19 @@ function ReviewDetail({ caseFile, categories, caseIssues, onClose }) {
               </div>
             </div>
           ) : (
-            <div className="flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2.5">
+            <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-3">
               <span className="material-symbols-outlined text-[16px] text-emerald-600">check_circle</span>
               <p className="text-[12px] text-emerald-800">This case already has a category, so it can be approved as is.</p>
             </div>
           )}
 
           {formError && <p className="text-[12px] font-semibold text-red-600">{formError}</p>}
-
-          <div className="rounded-md border border-slate-200 p-3">
-            <p className="text-[11px] font-bold uppercase tracking-widest text-slate-500">Attach a supporting document</p>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <input
-                type="file"
-                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                onChange={(e) => {
-                  setDocFile(e.target.files?.[0] || null);
-                  setUploadError('');
-                }}
-                disabled={uploading}
-                className="max-w-full text-[12px] text-slate-600"
-              />
-              <button
-                type="button"
-                disabled={!docFile || uploading}
-                onClick={handleDocUpload}
-                className="inline-flex min-h-[32px] items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 text-[12px] font-bold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <span className="material-symbols-outlined text-[15px]">upload</span>
-                {uploading ? 'Uploading…' : 'Attach file'}
-              </button>
-            </div>
-            {uploadError && (
-              <p className="mt-2 text-[11px] font-semibold text-red-600" role="alert">{uploadError}</p>
-            )}
+              </div>
+            </InfoCard>
           </div>
         </div>
 
-        <div className="flex flex-wrap justify-end gap-2 border-t border-slate-200 px-5 py-3">
+        <div className="flex flex-wrap justify-end gap-2 border-t border-slate-200 bg-white px-6 py-4">
           <button
             type="button"
             onClick={() => setRejectOpen(true)}
@@ -365,6 +384,7 @@ function ReviewDetail({ caseFile, categories, caseIssues, onClose }) {
           placeholder="Tell us briefly why this request cannot be approved…"
           className="w-full rounded-md border border-slate-300 px-3 py-2 text-[13px] text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
         />
+        {!rejectReason.trim() && <p className="mt-1 text-[11px] text-slate-500">Reason is required.</p>}
       </ConfirmDialog>
     </div>
   );

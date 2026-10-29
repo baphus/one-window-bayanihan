@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\UserRole;
+use App\Mail\ClientUpdateMail;
 use App\Models\CaseCategory;
 use App\Models\CaseFile;
 use App\Models\Client;
@@ -107,9 +108,19 @@ class CaseReviewTest extends TestCase
         $response->assertRedirect();
 
         $case->refresh();
-        $this->assertTrue((bool) $case->trashed());
+        $this->assertFalse((bool) $case->trashed());
+        $this->assertEquals('REJECTED', $case->status);
         $this->assertEquals('Incomplete employment history.', $case->deletion_reason);
-        $this->assertEquals($cm->id, $case->deleted_by);
+        $this->assertNull($case->deleted_by);
+        $this->assertDatabaseHas('case_notifications', [
+            'case_id' => $case->id,
+            'type' => 'case_rejected',
+            'message' => 'Your case request was not approved. Reason: Incomplete employment history.',
+        ]);
+        Mail::assertQueued(ClientUpdateMail::class, function (ClientUpdateMail $mail) use ($case): bool {
+            return $mail->case->id === $case->id
+                && str_contains($mail->message, 'Incomplete employment history.');
+        });
     }
 
     // ── authorization guard ─────────────────────────────────────────────────
