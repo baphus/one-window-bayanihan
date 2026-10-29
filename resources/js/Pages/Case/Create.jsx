@@ -1224,7 +1224,7 @@ function handleConfirmClient(picked) {
                             <p className="mt-2 text-[14px] font-bold text-slate-800">Step {currentStep} of {STEPS.length}</p>
                             <p className="mt-1 text-[12px] text-slate-500">Estimated time: 3-5 minutes</p>
                             <div className="mt-4 h-2 w-full rounded-full bg-slate-100">
-                                <div className="h-2 rounded-full bg-primary transition-all" style={{ width: `${stepProgress}%` }} />
+                                <div className="h-2 rounded-full bg-primary transition-all" style={{ width: `${Math.round((currentStep / STEPS.length) * 100)}%` }} />
                             </div>
                         </div>
 
@@ -1295,7 +1295,7 @@ function handleConfirmClient(picked) {
                                     </div>
                                     <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
                                         <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">Progress</p>
-                                        <p className="text-[14px] font-bold text-slate-800 mt-1">{stepProgress}% complete</p>
+                                        <p className="text-[14px] font-bold text-slate-800 mt-1">{Math.round((currentStep / STEPS.length) * 100)}% complete</p>
                                     </div>
                                 </div>
                             </div>
