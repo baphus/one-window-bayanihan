@@ -135,12 +135,15 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
   const [deletionReason, setDeletionReason] = useState('');
   const [deletionReasonError, setDeletionReasonError] = useState('');
   const [deletingArchived, setDeletingArchived] = useState(false);
-  const [formStatus, setFormStatus] = useState(caseFile.status);
   const [formIssueId, setFormIssueId] = useState(caseFile.case_issue_id || '');
   const [formCategoryIds, setFormCategoryIds] = useState(getCaseCategories(caseFile).map(c => c.id));
-  const [formVulnerability, setFormVulnerability] = useState(caseFile.vulnerability_indicator || '');
-  const [nokVulnerability, setNokVulnerability] = useState(caseFile.nok_vulnerability_indicator || '');
-  const [formSummary, setFormSummary] = useState(caseFile.summary || '');
+  // Issues created inline in the modal are appended to this local list so the
+  // select can show them without waiting for a page reload. The server prop
+  // is the source of truth on every other open.
+  const [localIssues, setLocalIssues] = useState(caseIssues);
+  const [showAddIssue, setShowAddIssue] = useState(false);
+  const [newIssueName, setNewIssueName] = useState('');
+  const [addingIssue, setAddingIssue] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploadingDoc, setUploadingDoc] = useState(false);
 
@@ -179,35 +182,26 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
     );
   }
 
-  const initialEditRef = useRef({ status: caseFile.status, issueId: caseFile.case_issue_id || '', categoryIds: getCaseCategories(caseFile).map(c => c.id), vulnerability: caseFile.vulnerability_indicator || '', nokVulnerability: caseFile.nok_vulnerability_indicator || '', summary: caseFile.summary || '' });
+  const initialEditRef = useRef({ issueId: caseFile.case_issue_id || '', categoryIds: getCaseCategories(caseFile).map(c => c.id) });
   const editIntentHandledRef = useRef(false);
   const hasEditDirty = useMemo(() => (
-    formStatus !== initialEditRef.current.status
-    || formIssueId !== initialEditRef.current.issueId
+    formIssueId !== initialEditRef.current.issueId
     || JSON.stringify(formCategoryIds) !== JSON.stringify(initialEditRef.current.categoryIds)
-    || formVulnerability !== initialEditRef.current.vulnerability
-    || nokVulnerability !== initialEditRef.current.nokVulnerability
-    || formSummary !== initialEditRef.current.summary
-  ), [formStatus, formIssueId, formCategoryIds, formVulnerability, nokVulnerability, formSummary]);
+  ), [formIssueId, formCategoryIds]);
   const { UnsavedModal, bypassNext } = useUnsavedChanges(hasEditDirty && isEditOpen);
 
   function openEditDetails() {
     const initial = {
-      status: caseFile.status,
       issueId: caseFile.case_issue_id || '',
       categoryIds: getCaseCategories(caseFile).map(c => c.id),
-      vulnerability: caseFile.vulnerability_indicator || '',
-      nokVulnerability: caseFile.nok_vulnerability_indicator || '',
-      summary: caseFile.summary || '',
     };
 
     initialEditRef.current = initial;
-    setFormStatus(initial.status);
     setFormIssueId(initial.issueId);
     setFormCategoryIds(initial.categoryIds);
-    setFormVulnerability(initial.vulnerability);
-    setNokVulnerability(initial.nokVulnerability);
-    setFormSummary(initial.summary);
+    setLocalIssues(caseIssues);
+    setShowAddIssue(false);
+    setNewIssueName('');
     setIsEditOpen(true);
   }
 
@@ -351,11 +345,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
     setSaving(true);
     bypassNext();
     router.patch(route('cases.update', caseFile.id), {
-      status: formStatus,
       case_issue_id: formIssueId || null,
-      vulnerability_indicator: formVulnerability,
-      nok_vulnerability_indicator: nokVulnerability,
-      summary: formSummary,
       category_ids: formCategoryIds,
     }, {
       preserveScroll: true,
@@ -365,6 +355,30 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
       },
       onError: () => setSaving(false),
     });
+  }
+
+  /**
+   * Create a new issue reference record from inside the modal and select it.
+   * Mirrors the inline add on Case/ReviewPending.jsx and Case/Create.jsx: the
+   * new record is returned by the server and appended to the local option list
+   * so the select can show it without a page reload.
+   */
+  async function handleQuickAddIssue() {
+    const name = newIssueName.trim();
+    if (!name || addingIssue) return;
+    setAddingIssue(true);
+    try {
+      const res = await window.axios.post(route('case-issues.quick'), { name });
+      const newIssue = res.data;
+      setLocalIssues((prev) => [...prev, newIssue]);
+      setFormIssueId(newIssue.id);
+      setNewIssueName('');
+      setShowAddIssue(false);
+    } catch (err) {
+      toast.error(err.response?.data?.errors?.name?.[0] || 'Failed to add issue.');
+    } finally {
+      setAddingIssue(false);
+    }
   }
 
   function handleToggleStatus() {
@@ -895,88 +909,70 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
               <p className="mt-1 text-[12px] text-slate-500">Update visible case details for this record.</p>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 px-5 py-4 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 px-5 py-4">
               <div>
-                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-slate-600">Case Status</label>
-                <select
-                  value={formStatus}
-                  onChange={(e) => setFormStatus(e.target.value)}
-                  className="h-10 w-full rounded-md border border-slate-200 px-3 py-2 text-[13px] text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
-                >
-                  <option value="OPEN">Open</option>
-                  <option value="CLOSED">Closed</option>
-                  <option value="ARCHIVED">Archived</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-slate-600">Issue/Concern</label>
-                <select
-                  value={formIssueId}
-                  onChange={(e) => setFormIssueId(e.target.value)}
-                  className="h-10 w-full rounded-md border border-slate-200 px-3 py-2 text-[13px] text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
-                >
-                  <option value="">None</option>
-                  {caseFile.case_issue && !caseIssues.some(i => i.id === caseFile.case_issue_id) && (
-                    <option value={caseFile.case_issue_id}>{caseFile.case_issue.name}</option>
-                  )}
-                  {caseIssues.map((issue) => (
-                    <option key={issue.id} value={issue.id}>{issue.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-slate-600">Vulnerability</label>
-                <div className="flex flex-wrap gap-3">
-                  {['PWD', 'Senior Citizen', 'Solo Parent', 'Indigenous Person'].map((opt) => {
-                    const val = formVulnerability || '';
-                    const checked = val !== '' && val !== 'None' && val.split(',').map(s => s.trim()).includes(opt);
-                    return (
-                      <label key={opt} className="inline-flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => {
-                            const current = val && val !== 'None' ? val.split(',').map(s => s.trim()).filter(Boolean) : [];
-                            const next = checked ? current.filter(v => v !== opt) : [...current, opt];
-                            setFormVulnerability(next.length > 0 ? next.join(', ') : '');
-                          }}
-                          className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                        />
-                        <span className="text-[13px] text-slate-700">{opt}</span>
-                      </label>
-                    );
-                  })}
+                <label htmlFor="edit-case-issue" className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-slate-600">Issue/Concern</label>
+                <div className="flex gap-2">
+                  <select
+                    id="edit-case-issue"
+                    value={formIssueId}
+                    onChange={(e) => setFormIssueId(e.target.value)}
+                    className="h-10 min-w-0 flex-1 rounded-md border border-slate-200 px-3 py-2 text-[13px] text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
+                  >
+                    <option value="">None</option>
+                    {caseFile.case_issue && !localIssues.some(i => i.id === caseFile.case_issue_id) && (
+                      <option value={caseFile.case_issue_id}>{caseFile.case_issue.name}</option>
+                    )}
+                    {localIssues.map((issue) => (
+                      <option key={issue.id} value={issue.id}>{issue.name}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => { setNewIssueName(''); setShowAddIssue(!showAddIssue); }}
+                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-dashed border-blue-900/50 text-blue-900 transition-colors hover:bg-blue-50"
+                    title="Add new issue"
+                    aria-label="Add new issue"
+                    aria-expanded={showAddIssue}
+                  >
+                    <span className="material-symbols-outlined text-[20px]">add</span>
+                  </button>
                 </div>
+                {showAddIssue && (
+                  <div className="mt-2 rounded-md border border-slate-200 bg-slate-50 p-3">
+                    <label htmlFor="edit-new-issue" className="mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-slate-600">New issue name</label>
+                    <input
+                      id="edit-new-issue"
+                      type="text"
+                      value={newIssueName}
+                      onChange={(e) => setNewIssueName(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleQuickAddIssue(); } }}
+                      placeholder="Enter new issue name..."
+                      className="h-10 w-full rounded-md border border-slate-200 px-3 text-[13px] text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
+                      autoFocus
+                    />
+                    <div className="mt-2 flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleQuickAddIssue}
+                        disabled={addingIssue || !newIssueName.trim()}
+                        className="inline-flex items-center gap-1.5 rounded-md bg-blue-900 px-3 py-1.5 text-[12px] font-bold text-white transition-colors hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {addingIssue ? 'Adding…' : 'Add'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setShowAddIssue(false); setNewIssueName(''); }}
+                        className="text-[12px] font-medium text-slate-500 hover:text-slate-700"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              <div className="md:col-span-2">
-                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-slate-600">NOK Vulnerability</label>
-                <div className="flex flex-wrap gap-3">
-                  {['PWD', 'Senior Citizen', 'Solo Parent', 'Indigenous Person'].map((opt) => {
-                    const val = nokVulnerability || '';
-                    const checked = val !== '' && val !== 'None' && val.split(',').map(s => s.trim()).includes(opt);
-                    return (
-                      <label key={opt} className="inline-flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => {
-                            const current = val && val !== 'None' ? val.split(',').map(s => s.trim()).filter(Boolean) : [];
-                            const next = checked ? current.filter(v => v !== opt) : [...current, opt];
-                            setNokVulnerability(next.length > 0 ? next.join(', ') : '');
-                          }}
-                          className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                        />
-                        <span className="text-[13px] text-slate-700">{opt}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="md:col-span-2">
+              <div>
                 <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-slate-600">Category</label>
                 <div className="flex flex-wrap gap-3">
                   {categories.map((cat) => {
@@ -1002,16 +998,6 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
                     <span className="text-[12px] text-slate-400">No categories available.</span>
                   )}
                 </div>
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-slate-600">Case Narrative</label>
-                <textarea
-                  rows={5}
-                  value={formSummary}
-                  onChange={(e) => setFormSummary(e.target.value)}
-                  className="w-full rounded-md border border-slate-200 px-3 py-2 text-[13px] text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
-                />
               </div>
             </div>
 
