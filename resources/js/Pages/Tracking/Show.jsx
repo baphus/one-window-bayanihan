@@ -720,7 +720,6 @@ export default function TrackingShow({
     );
   }
 
-  const { auth } = usePage().props;
   const feedbackNtfn = caseNotifications?.items?.find((n) => n.type === 'feedback_request');
   const showFeedback = completedAgencies > 0 && feedbackNtfn;
 
@@ -729,90 +728,63 @@ export default function TrackingShow({
       <Head title={`Case Record — ${trackingId}`} />
       <AppHeader />
 
-      <main className="mx-auto w-full max-w-7xl px-4 pt-24 pb-16 sm:px-6">
+      <main className="mx-auto w-full max-w-6xl px-4 pt-24 pb-16 sm:px-6 lg:px-8">
+        <p className="text-[12px] text-slate-500">Home / Track Your Case / Case Details</p>
+        <h1 className="mt-2 font-headline text-[28px] font-extrabold tracking-tight text-slate-900 sm:text-[32px]">My Case Tracking</h1>
+        <p className="mt-1.5 text-[14px] text-slate-600">Track your case and follow updates from partner agencies.</p>
 
-        {/* Case record header — full width */}
-        <header className="bg-primary px-6 py-8 text-white shadow-2xl sm:px-10 sm:py-10">
-          <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-primary-fixed-dim">Case record</p>
-          <h1 className="mt-2 font-headline font-mono text-2xl font-extrabold tracking-tight sm:text-3xl">
-            {trackingId}
-          </h1>
-          <p className="mt-1.5 text-sm text-primary-fixed/90">
-            {trackedCase.clientName} · Case opened {formatLongDate(trackedCase.createdAt)}
-          </p>
-          {trackedCase.categories?.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {trackedCase.categories.map((category) => (
-                <span key={category.name} className="border border-white/30 px-2 py-1 text-[11px] font-semibold">{category.name}</span>
-              ))}
+        <section className="mt-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+          <div className="px-5 py-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Request for Assistance</p>
+              <span className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-600"><span className="h-1.5 w-1.5 rounded-full bg-current" />Read-only tracking</span>
             </div>
-          )}
-
-          <p className="mt-6 max-w-2xl font-headline text-lg font-bold leading-snug sm:text-xl">
-            {statusLine}
-          </p>
-
-          {totalAgencies > 0 && (
-            <div className="mt-5">
-              <div className="flex h-1.5 gap-1" role="img" aria-label={`${completionPercentage}% of processing complete`}>
-                {trackingAgencies.map((a) => (
-                  <span
-                    key={a.referralId ?? a.name}
-                    title={`${a.name} — ${(REFERRAL_STAMP[a.status] ?? REFERRAL_STAMP.PENDING).label}`}
-                    className={`flex-1 rounded-sm ${
-                      a.status === 'COMPLETED' ? 'bg-emerald-300' :
-                      a.status === 'REJECTED' ? 'bg-white/20' :
-                      a.status === 'FOR_COMPLIANCE' ? 'bg-amber-300/60' :
-                      a.status === 'PROCESSING' ? 'bg-primary-fixed-dim/70' :
-                      'bg-white/30'
-                    }`}
-                  >
-                    <span className="sr-only">{`${a.name} — ${(REFERRAL_STAMP[a.status] ?? REFERRAL_STAMP.PENDING).label}`}</span>
-                  </span>
-                ))}
+            <h2 className="mt-2 font-headline font-mono text-[26px] font-extrabold tracking-tight text-slate-900">{trackingId}</h2>
+            <p className="mt-2 text-[13px] leading-relaxed text-slate-600">{statusLine}</p>
+            <p className="mt-1 text-[12px] text-slate-400">{trackedCase.clientName} · Opened {formatLongDate(trackedCase.createdAt)}</p>
+            {caseOverview?.narrative && (
+              <div className="mt-5 border-t border-slate-100 pt-4">
+                <h3 className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Case Summary</h3>
+                <p className="mt-2 whitespace-pre-wrap text-[13px] leading-relaxed text-slate-700">{caseOverview.narrative}</p>
               </div>
-              <p className="mt-2 text-[11px] text-primary-fixed-dim/80">
-                Last updated {formatLongDate(trackedCase.updatedAt)} · {completionPercentage}% of processing complete
-              </p>
-            </div>
-          )}
-        </header>
-
-        {auth?.user ? null : (
-          <section className="mt-6 rounded-md border border-primary/20 bg-primary/5 px-5 py-4 shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h2 className="font-headline text-sm font-extrabold tracking-tight text-slate-800">Have an account?</h2>
-                <p className="mt-0.5 text-[13px] leading-relaxed text-slate-600">
-                  Log in to file new requests and view all your cases in one place.
-                </p>
-              </div>
-              <Link
-                href={route('login')}
-                className="inline-flex items-center gap-2 bg-primary px-4 py-2.5 text-sm font-bold text-white transition-colors hover:brightness-110"
-              >
-                <span aria-hidden="true" className="material-symbols-outlined text-[17px]">login</span>
-                Log in
-              </Link>
-            </div>
-          </section>
-        )}
+            )}
+          </div>
+          {totalAgencies > 0 && <div className="border-t border-slate-100 px-5 py-4"><div className="flex h-1.5 gap-1" role="img" aria-label={`${completionPercentage}% of processing complete`}>{trackingAgencies.map((a) => <span key={a.referralId ?? a.name} className={`flex-1 rounded-sm ${a.status === 'COMPLETED' ? 'bg-emerald-300' : a.status === 'REJECTED' ? 'bg-rose-300/60' : a.status === 'FOR_COMPLIANCE' ? 'bg-amber-300/70' : a.status === 'PROCESSING' ? 'bg-blue-300/80' : 'bg-slate-200'}`} />)}</div><p className="mt-2 text-[11px] text-slate-400">Last updated {formatLongDate(trackedCase.updatedAt)} · {completionPercentage}% of processing complete</p></div>}
+        </section>
 
         {/* Two-column layout: main content + case history sidebar */}
-        <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-[1fr_20rem]">
+        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
 
           {/* Left column — main content */}
           <div className="min-w-0">
-            {/* Overview narrative */}
-            {caseOverview?.narrative && (
-              <section className="rounded-md border border-slate-300 bg-white px-5 py-4 shadow-sm">
-                <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-primary">Case summary</h2>
-                <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-slate-800">{caseOverview.narrative}</p>
-              </section>
-            )}
+            {/* Case timeline */}
+            <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+              <header className="border-b border-slate-100 px-5 py-4">
+                <h2 className="font-headline text-[15px] font-extrabold tracking-tight text-slate-900">Case Timeline</h2>
+                <p className="mt-0.5 text-[12px] text-slate-500">Follow recorded milestones and updates for your case.</p>
+              </header>
+              {milestoneTimeline.length > 0 ? (
+                <UnifiedTimeline
+                  variant="ledger"
+                  items={milestoneTimeline}
+                  listClassName="max-h-[32rem] overflow-y-auto px-5 pb-5 pt-2 owb-scroll-wide"
+                />
+              ) : (
+                <div className="px-5 py-8 text-center">
+                  <span className="material-symbols-outlined text-3xl text-slate-300">history</span>
+                  <p className="mt-2 text-[13px] font-semibold text-slate-700">No milestones recorded yet</p>
+                  <p className="mt-1 text-[12px] text-slate-500">Updates will appear here as your case progresses.</p>
+                </div>
+              )}
+            </section>
 
             {/* Agency chapters */}
-            <section className="mt-8">
+            <section className="mt-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+              <header className="border-b border-slate-100 px-5 py-4">
+                <h2 className="font-headline text-[15px] font-extrabold tracking-tight text-slate-900">Agencies Handling Your Case</h2>
+                <p className="mt-0.5 text-[12px] text-slate-500">Each agency has a separate referral status.</p>
+              </header>
+              <div className="p-5">
               <h2 className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
                 <span className="h-2 w-2 rounded-full bg-primary"></span>
                 What each office has done
@@ -843,6 +815,7 @@ export default function TrackingShow({
                   </p>
                 </div>
               )}
+              </div>
             </section>
 
             {/* Feedback request */}
@@ -863,7 +836,7 @@ export default function TrackingShow({
             <aside className="lg:sticky lg:top-24 lg:self-start">
               <section className="rounded-md border border-slate-300 bg-white shadow-sm">
                 <header className="border-b border-slate-300 bg-info-container/60 px-4 py-3 rounded-t-md">
-                  <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-primary">
+                  <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-700">
                     Complete case history
                   </h2>
                   <p className="mt-0.5 text-[11px] text-slate-400">

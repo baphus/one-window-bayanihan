@@ -439,6 +439,15 @@ export default function CaseDetail({
                 ) : null}
             </section>
 
+            {caseOverview?.narrative ? (
+                <section className="mt-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                    <header className="border-b border-slate-100 px-5 py-4">
+                        <h2 className="font-headline text-[15px] font-extrabold tracking-tight text-slate-900">Case Summary</h2>
+                    </header>
+                    <p className="whitespace-pre-wrap px-5 py-5 text-[13px] leading-relaxed text-slate-700">{caseOverview.narrative}</p>
+                </section>
+            ) : null}
+
             {/* Timeline + aside */}
             <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
                 <div className="min-w-0 space-y-6">
