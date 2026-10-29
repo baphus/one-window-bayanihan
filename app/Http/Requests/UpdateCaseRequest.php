@@ -2,7 +2,6 @@
 
 namespace App\Http\Requests;
 
-use App\Rules\VulnerabilityRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -26,24 +25,17 @@ class UpdateCaseRequest extends FormRequest
         if ($this->has('case_issue_id') && $this->case_issue_id === '') {
             $this->merge(['case_issue_id' => null]);
         }
-
-        foreach (['vulnerability_indicator', 'nok_vulnerability_indicator'] as $field) {
-            if ($this->has($field)) {
-                $raw = $this->input($field);
-                if (is_string($raw)) {
-                    $this->merge([$field => VulnerabilityRule::normalize($raw)]);
-                }
-            }
-        }
     }
 
     public function rules(): array
     {
+        // Only issue/concern and category are editable on the case detail
+        // screen. Status, vulnerability and narrative are deliberately not
+        // accepted here: status changes go through the dedicated toggle /
+        // archive routes, and narrative + vulnerability are set at intake and
+        // approval time. Keys outside this list are ignored, so a caller that
+        // still sends them gets a silent no-op rather than a partial write.
         return [
-            'status' => ['nullable', Rule::in(['OPEN', 'CLOSED', 'ARCHIVED'])],
-            'vulnerability_indicator' => ['nullable', 'string', 'max:255', new VulnerabilityRule],
-            'nok_vulnerability_indicator' => ['nullable', 'string', 'max:255', new VulnerabilityRule],
-            'summary' => ['nullable', 'string', 'max:5000'],
             'case_issue_id' => ['nullable', 'string', 'exists:case_issues,id'],
             // Category fields are optional on partial edits; existing assignments
             // remain unchanged when neither field is submitted.
