@@ -100,7 +100,7 @@ describe('OFW/Dashboard case view mode', () => {
     it('renders the empty state without a layout toggle when the OFW has no cases', () => {
         renderDashboard({ cases: { data: [] } });
 
-        expect(screen.getByText(/You haven't filed any cases yet/i)).toBeInTheDocument();
+        expect(screen.getByText(/You have no cases yet/i)).toBeInTheDocument();
         expect(screen.queryByRole('group', { name: 'Case layout' })).not.toBeInTheDocument();
     });
 

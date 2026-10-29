@@ -314,22 +314,9 @@ export default function Dashboard({ cases, caseStats }) {
             <h1 className="mt-2 font-headline text-[28px] font-extrabold tracking-tight text-slate-900 sm:text-[32px]">
                 My Cases
             </h1>
-            <p className="mt-1.5 text-[14px] text-slate-600">
-                View your requests for assistance and follow their latest updates.
-            </p>
-
-            {/* Welcome banner */}
-            <div className="mt-5 flex items-start gap-3 rounded-lg border border-info/25 bg-info-container/40 px-5 py-4">
-                <span
-                    aria-hidden="true"
-                    className="material-symbols-outlined mt-px shrink-0 text-[20px] leading-none text-info"
-                >
-                    info
-                </span>
-                <div className="text-[13px]">
-                    <p className="font-bold text-slate-900">Welcome, {auth?.user?.name ?? 'OFW'}</p>
-                    <p className="mt-0.5 text-slate-600">Only cases associated with your account are shown here.</p>
-                </div>
+            <div className="mt-3">
+                <p className="text-[16px] font-bold text-slate-900">Welcome, {auth?.user?.name ?? 'OFW'}</p>
+                <p className="mt-1 text-[13px] text-slate-600">View your requests for assistance and follow their latest updates.</p>
             </div>
 
             {/* Cases + help aside */}
@@ -342,9 +329,18 @@ export default function Dashboard({ cases, caseStats }) {
                             </h2>
                             <p className="mt-0.5 text-[12px] text-slate-500">{requestCount}</p>
                         </div>
-                        {hasCases ? (
-                            <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
-                        ) : null}
+                        <div className="flex items-center gap-2">
+                            <Link
+                                href={fileCaseHref}
+                                className="inline-flex min-h-[34px] items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-[12px] font-bold text-on-primary transition-colors hover:bg-primary/90"
+                            >
+                                <span className="material-symbols-outlined text-[16px]">add</span>
+                                New case
+                            </Link>
+                            {hasCases ? (
+                                <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
+                            ) : null}
+                        </div>
                     </header>
 
                     {hasCases ? (
@@ -403,9 +399,10 @@ export default function Dashboard({ cases, caseStats }) {
                         </>
                     ) : (
                         <EmptyState
-                            message="You haven't filed any cases yet. Start by filing a new case and a Case Manager will review it."
+                            message="You have no cases yet."
                             href={fileCaseHref}
-                            actionLabel="File a New Case"
+                            actionLabel="File one"
+                            art
                         />
                     )}
                 </section>

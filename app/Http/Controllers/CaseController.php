@@ -252,7 +252,14 @@ class CaseController extends Controller
         ]);
         $direction = $listing['direction'] ?? 'asc';
 
-        $cases = CaseFile::with(['client'])
+        $cases = CaseFile::with([
+            'client.addresses',
+            'client.employments',
+            'client.nextOfKin',
+            'categories',
+            'category',
+            'caseIssue',
+        ])
             ->where('status', CaseFile::STATUS_PENDING_REVIEW)
             ->where('is_deleted', false)
             ->when($request->user()->isAgency() && $request->user()->agcy_id, function ($query) use ($request) {

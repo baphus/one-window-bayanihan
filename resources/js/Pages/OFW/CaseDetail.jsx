@@ -409,6 +409,12 @@ export default function CaseDetail({
                     </div>
 
                     <p className="mt-2 text-[13px] leading-relaxed text-slate-600">{statusLine}</p>
+                    {trackedCase?.status === 'REJECTED' && trackedCase?.rejectionReason ? (
+                        <div className="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-[13px] text-rose-800">
+                            <p className="font-bold">Why this request was not approved</p>
+                            <p className="mt-1 leading-relaxed">{trackedCase.rejectionReason}</p>
+                        </div>
+                    ) : null}
                 </div>
 
                 <CaseMetaGrid trackedCase={trackedCase} caseOverview={caseOverview} />

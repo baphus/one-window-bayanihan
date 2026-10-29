@@ -25,7 +25,13 @@ class OfwDashboardController extends Controller
 
         $cases = CaseFile::where('client_id', $user->client_id)
             ->where('is_deleted', false)
-            ->clientVisible()
+            ->whereIn('status', [
+                CaseFile::STATUS_PENDING_REVIEW,
+                'REJECTED',
+                'OPEN',
+                'CLOSED',
+                'ARCHIVED',
+            ])
             ->with(['categories', 'referrals.agency'])
             ->orderBy('created_at', 'desc')
             ->paginate(15);
@@ -43,7 +49,13 @@ class OfwDashboardController extends Controller
         // one card (archived cases remain client-visible and count as completed).
         $caseStatsRow = CaseFile::where('client_id', $user->client_id)
             ->where('is_deleted', false)
-            ->clientVisible()
+            ->whereIn('status', [
+                CaseFile::STATUS_PENDING_REVIEW,
+                'REJECTED',
+                'OPEN',
+                'CLOSED',
+                'ARCHIVED',
+            ])
             ->selectRaw('count(*) as total')
             ->selectRaw("count(*) filter (where status = '".CaseFile::STATUS_PENDING_REVIEW."') as under_review")
             ->selectRaw("count(*) filter (where status = 'OPEN') as in_progress")

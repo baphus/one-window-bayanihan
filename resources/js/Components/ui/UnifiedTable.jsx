@@ -339,9 +339,16 @@ export function UnifiedTable({
 
     return (
       <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-        <span aria-hidden="true" className="material-symbols-outlined mb-3 text-[40px] text-slate-300">
-          {isFiltered ? "search_off" : "inbox"}
-        </span>
+        {isFiltered ? (
+          <span aria-hidden="true" className="material-symbols-outlined mb-3 text-[40px] text-slate-300">search_off</span>
+        ) : (
+          <div className="relative mb-3 flex h-24 w-32 items-center justify-center rounded-2xl bg-slate-50">
+            <span className="absolute h-12 w-20 rounded-lg border-2 border-slate-200 bg-white shadow-sm" />
+            <span className="absolute h-2 w-12 -translate-y-4 rounded-full bg-slate-200" />
+            <span className="absolute h-2 w-8 translate-y-1 rounded-full bg-slate-100" />
+            <span className="absolute -right-1 top-2 h-5 w-5 rounded-full border-2 border-primary/30 bg-primary/10" />
+          </div>
+        )}
         <p className="text-[14px] font-semibold text-slate-700">
           {isFiltered ? "No results found" : (emptyStateMessage || "No records yet")}
         </p>
@@ -539,10 +546,19 @@ export function UnifiedTable({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 bg-white">
-                {sortedData.map((row) => (
+                {isLoading ? Array.from({ length: 5 }, (_, row) => (
+                  <tr key={`loading-row-${row}`} className={`animate-pulse ${rowHeightClass}`}>
+                    {selectable && <td className={rowPaddingClass}><div className="h-4 w-4 rounded-full bg-slate-200" /></td>}
+                    {columns.map((col, ci) => {
+                      const widths = ['w-24', 'w-36', 'w-20', 'w-32', 'w-16', 'w-40', 'w-28'];
+                      const width = col.key === 'actions' || String(col.title).toUpperCase() === 'ACTIONS' ? 'w-12' : widths[ci % widths.length];
+                      return <td key={col.key} className={rowPaddingClass}><div className={`h-3 rounded-full bg-slate-200 ${width}`} /></td>;
+                    })}
+                  </tr>
+                )) : sortedData.map((row) => (
                   <tr
                     key={keyExtractor(row)}
-                    className={`align-top transition-colors hover:bg-slate-50/70 ${rowHeightClass} ${onRowContextMenu ? 'cursor-context-menu' : ''} ${isLoading ? 'opacity-30 pointer-events-none' : ''}`}
+                    className={`align-top transition-colors hover:bg-slate-50/70 ${rowHeightClass} ${onRowContextMenu ? 'cursor-context-menu' : ''}`}
                     onContextMenu={onRowContextMenu ? (e) => onRowContextMenu(e, row) : undefined}
                   >
                     {selectable && (
@@ -569,30 +585,22 @@ export function UnifiedTable({
             {sortedData.length === 0 && !isLoading && emptyState}
 
             {isLoading && (
-              <div
-                role="status"
-                aria-live="polite"
-                aria-label="Loading updated records"
-                className="absolute inset-0 z-10 flex flex-col gap-3 bg-white/80 p-5"
-              >
-                <span className="sr-only">Loading updated records…</span>
-                {[0, 1, 2, 3, 4].map((row) => (
-                  <div key={row} className="flex animate-pulse items-center gap-5 border-b border-slate-100 py-4 last:border-b-0">
-                    {selectable && <div className="h-4 w-4 shrink-0 rounded bg-slate-200" />}
-                    {columns.map((col, ci) => {
-                      const widths = ['110px', '150px', '90px', '130px', '70px', '170px', '100px'];
-                      const w = col.key === 'actions' || String(col.title).toUpperCase() === 'ACTIONS' ? '50px' : widths[ci % widths.length];
-                      return <div key={col.key} className="h-4 shrink-0 rounded bg-slate-200" style={{ width: w }} />;
-                    })}
-                  </div>
-                ))}
-              </div>
+              <span className="sr-only" role="status" aria-live="polite">Loading updated records…</span>
             )}
           </div>
         ) : (
           <div className="pt-4">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {sortedData.map((row) => (
+              {isLoading ? Array.from({ length: 6 }, (_, card) => (
+                <div key={`loading-card-${card}`} className="animate-pulse rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                  <div className="flex flex-col gap-4">
+                    <div className="h-3 w-24 rounded-full bg-slate-200" />
+                    <div className="h-3 w-40 rounded-full bg-slate-200" />
+                    <div className="h-3 w-28 rounded-full bg-slate-200" />
+                    <div className="h-3 w-20 rounded-full bg-slate-200" />
+                  </div>
+                </div>
+              )) : sortedData.map((row) => (
                 <div key={keyExtractor(row)} className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition hover:border-slate-300 hover:shadow-md">
                   {columns.map((col) => (
                     <div
@@ -612,7 +620,7 @@ export function UnifiedTable({
                 </div>
               ))}
             </div>
-            {sortedData.length === 0 && emptyState}
+            {sortedData.length === 0 && !isLoading && emptyState}
           </div>
         )}
 

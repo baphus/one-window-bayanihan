@@ -303,6 +303,7 @@ class TrackingService
                 'service' => $referrals->first()?->services->pluck('name')->implode(', ') ?? '',
                 'milestone' => '',
                 'status' => $this->caseStatusKey($case->status),
+                'rejectionReason' => $case->status === 'REJECTED' ? $case->deletion_reason : null,
                 'createdAt' => $case->created_at->toISOString(),
                 'updatedAt' => $case->updated_at->toISOString(),
             ],
