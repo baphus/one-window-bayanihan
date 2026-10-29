@@ -147,7 +147,7 @@ class MultiCategoryCaseSupportTest extends TestCase
         );
     }
 
-    public function test_rejecting_pending_filing_removes_pivot_without_orphan(): void
+    public function test_rejecting_pending_filing_preserves_category_assignment(): void
     {
         $user = User::factory()->create();
         $category = CaseCategory::factory()->create();
@@ -156,7 +156,10 @@ class MultiCategoryCaseSupportTest extends TestCase
 
         app(CaseService::class)->rejectCase($case->id, 'Duplicate filing.', $user->id);
 
-        $this->assertDatabaseMissing('case_category', ['case_id' => $case->id]);
+        $this->assertDatabaseHas('case_category', [
+            'case_id' => $case->id,
+            'case_category_id' => $category->id,
+        ]);
     }
 
     public function test_admin_category_usage_counts_secondary_assignments(): void
