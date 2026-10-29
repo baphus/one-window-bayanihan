@@ -474,7 +474,6 @@ export default function CaseCreate() {
     // NEXT_OF_KIN filers pick an existing OFW or toggle "Add new OFW".
     const [clientSource, setClientSource] = useState(client?.id ? 'existing' : 'new');
     const [selectedClient, setSelectedClient] = useState(null);
-    const [viewMode, setViewMode] = useState('grid');
     const [searchQuery, setSearchQuery] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const searchDebounceRef = useRef(null);
@@ -642,7 +641,6 @@ export default function CaseCreate() {
         setSelectedClient(null);
     }
 
-    const stepProgress = Math.round((currentStep / STEPS.length) * 100);
 
     function handleClientChange(field, value) {
         setData('client', { ...data.client, [field]: value });
@@ -804,6 +802,7 @@ export default function CaseCreate() {
         return true;
     }
 
+    /* Legacy helper retained for form validation diagnostics. */
     function getMissingFields() {
         if (currentStep === 1) {
             const missing = [];
@@ -1189,13 +1188,26 @@ function handleConfirmClient(picked) {
             )}
 
             <div className="mb-6">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-2xl font-bold text-slate-900">Create New Case</h1>
-                        <p className="text-sm text-slate-500 mt-1">A guided onboarding flow to register the case with confidence.</p>
+                <>
+                    <Link href={route('cases.index')} className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-primary hover:text-primary-container transition-colors">
+                        <span className="material-symbols-outlined text-[18px]">arrow_back</span> Back to Cases
+                    </Link>
+                    <div className="mt-3 flex flex-wrap items-end justify-between gap-4">
+                        <div>
+                            <h1 className="text-2xl font-bold text-slate-900">Create new case</h1>
+                            <p className="text-[13px] text-slate-500 mt-1">Register client details, define case parameters and tracking, then document the client's situation.</p>
+                        </div>
+                        <p className="text-[13px] text-slate-500">Estimated time: 3-5 minutes</p>
                     </div>
-                    <Link href={route('cases.index')} className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-primary-container transition-colors shrink-0">&larr; Back to Cases</Link>
-                </div>
+                </>
+            </div>
+
+            <div data-tour="case-create-steps" className="mb-6 grid grid-cols-3 border-b border-slate-200">
+                {STEPS.map((step) => (
+                    <div key={step.id} className={`flex items-center justify-center gap-2 border-b-2 py-3 text-[13px] font-semibold ${currentStep === step.id ? 'border-primary text-primary' : currentStep > step.id ? 'border-transparent text-primary' : 'border-transparent text-slate-500'}`}>
+                        <span>{step.id}</span><span>{step.title}</span>
+                    </div>
+                ))}
             </div>
 
             <form data-tour="case-create-form" onSubmit={handleSubmit} onKeyDown={(e) => {
@@ -1205,8 +1217,8 @@ function handleConfirmClient(picked) {
                     e.preventDefault();
                 }
             }}>
-                <section className="mx-auto flex max-w-6xl overflow-visible rounded-xl border border-outline-variant bg-white shadow-sm">
-                    <div data-tour="case-create-steps" className="w-1/3 min-w-[280px] max-w-[320px] shrink-0 border-r border-outline-variant bg-slate-50/60 p-8">
+                <section className="mx-auto max-w-6xl overflow-visible rounded-xl border border-slate-200 bg-white shadow-sm">
+                    <div className="hidden">
                         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
                             <h3 className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-slate-500">Step Guide</h3>
                             <p className="mt-2 text-[14px] font-bold text-slate-800">Step {currentStep} of {STEPS.length}</p>
@@ -1272,7 +1284,7 @@ function handleConfirmClient(picked) {
                         </div>
                     </div>
 
-                    <div className="flex-1 flex flex-col p-8">
+                    <div className="flex flex-col">
                         <div className="flex-1">
                             <div className="mb-6 rounded-xl border border-slate-200 bg-gradient-to-br from-primary-fixed via-white to-white p-6">
                                 <div className="flex flex-wrap items-center justify-between gap-4">
@@ -1334,7 +1346,7 @@ function handleConfirmClient(picked) {
                                                                         ? `Recent clients (${searchResults.length})`
                                                                         : 'Type to search clients'}
                                                             </span>
-                                                            <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5">
+                                                            <div className="hidden">
                                                                 <button
                                                                     type="button"
                                                                     onClick={() => setViewMode('grid')}
@@ -2067,7 +2079,7 @@ function handleConfirmClient(picked) {
                             </div>
                         </div>
 
-                        <div data-tour="case-create-actions" className="mt-8 flex items-center justify-between border-t border-slate-200 pt-6">
+                        <div data-tour="case-create-actions" className="flex items-center justify-between border-t border-slate-200 p-6">
                             <div className="flex items-center gap-2">
                                 <button type="button" onClick={handleBack} disabled={currentStep === 1}
                                     className="inline-flex items-center gap-2 rounded-md border border-outline-variant bg-white px-5 py-2.5 text-[13px] font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">
@@ -2076,16 +2088,12 @@ function handleConfirmClient(picked) {
 
                             </div>
                             {currentStep < 3 ? (
-                                <div className="flex flex-col items-end gap-1">
+                                <div className="flex items-center gap-4">
+                                    <span className="text-[13px] text-slate-500">Complete required fields and confirm client consent to continue.</span>
                                     <button type="button" onClick={handleNext} disabled={!canProceed()}
                                         className="inline-flex items-center gap-2 rounded-md bg-primary px-5 py-2.5 text-[13px] font-bold text-white transition hover:bg-primary-container disabled:cursor-not-allowed disabled:opacity-50">
                                         Next <span className="material-symbols-outlined text-[18px]">chevron_right</span>
                                     </button>
-                                    {!canProceed() && getMissingFields().length > 0 && (
-                                        <span className="text-[11px] text-amber-600 text-right leading-tight">
-                                            Complete: {getMissingFields().join(', ')}
-                                        </span>
-                                    )}
                                 </div>
                             ) : (
                                 <button type="button" onClick={handleSubmit} disabled={processing || !canSubmit()}
