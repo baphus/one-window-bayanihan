@@ -18,10 +18,10 @@ const flush = async () => {
   await act(async () => { await Promise.resolve(); });
 };
 
-function fireBefore(method) {
+function fireBefore(method, url = `/target-${method}`) {
   const event = new CustomEvent('inertia:before', {
     cancelable: true,
-    detail: { visit: { method, url: `/target-${method}`, data: {}, replace: false } },
+    detail: { visit: { method, url, data: {}, replace: false } },
   });
   act(() => { document.dispatchEvent(event); });
   return event;
@@ -82,6 +82,21 @@ describe('useUnsavedChanges bypass lifecycle', () => {
     const laterGet = fireBefore('get');
     expect(laterGet.defaultPrevented).toBe(true);
     expect(result.current.showModal).toBe(true);
+  });
+
+  it('allows the follow-up reload after a bypassed form submission', async () => {
+    const { result } = renderHook(() => useUnsavedChanges(true));
+    await flush();
+
+    act(() => { result.current.bypassNext(); });
+    const post = fireBefore('post');
+    expect(post.defaultPrevented).toBe(false);
+
+    const reload = fireBefore('get', window.location.href);
+    expect(reload.defaultPrevented).toBe(false);
+
+    const laterGet = fireBefore('get');
+    expect(laterGet.defaultPrevented).toBe(true);
   });
 
   it('does not accumulate bypasses across several non-GET visits', async () => {
