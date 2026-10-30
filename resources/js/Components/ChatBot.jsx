@@ -423,7 +423,7 @@ function ChatBotSession() {
                     <div className="group flex max-w-[80%] flex-col">
                         <div className="flex gap-3">
                             <div className="self-end shrink-0">
-                                <img src="/images/assistantavatar.png" alt={assistantName} className="h-9 w-9 rounded-full" />
+                                <img src="/images/assistantavatar.png?v=1" alt="" className="h-9 w-9 rounded-full object-contain" onError={(event) => { event.currentTarget.style.display = 'none'; }} />
                             </div>
                             <div className="overflow-hidden rounded-xl bg-white text-sm leading-relaxed text-on-surface shadow-sm ring-1 ring-outline-variant/60">
                                 <div className="chatbot-markdown px-4 py-3">
@@ -638,7 +638,7 @@ function ChatBotSession() {
                             {loading && (
                                 <div className="mt-4 flex gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
                                     <div className="mt-0.5 shrink-0">
-                                        <img src="/images/assistantavatar.png" alt={assistantName} className="h-9 w-9 rounded-full" />
+                                        <img src="/images/assistantavatar.png?v=1" alt="" className="h-9 w-9 rounded-full object-contain" onError={(event) => { event.currentTarget.style.display = 'none'; }} />
                                     </div>
                                     <LoadingMessages name={assistantName} />
                                 </div>
