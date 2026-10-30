@@ -1,3 +1,4 @@
+import NativeSelect from '@/Components/Select';
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import { useState, useMemo, useEffect, useRef, lazy, Suspense } from 'react';
@@ -143,19 +144,19 @@ function Input({ value, onChange, placeholder, type = 'text', maxLength, minLeng
     );
 }
 
-function Select({ value, onChange, options, placeholder, required }) {
+function SelectField({ value, onChange, options, placeholder, required }) {
     return (
-        <select
+        <NativeSelect
             value={value}
             onChange={onChange}
             required={required}
-            className="h-10 w-full rounded-md border border-outline-variant px-3 py-2 text-[13px] text-slate-700 outline-none focus:border-primary focus:ring-1 focus:ring-primary/40"
+            className="h-10 w-full px-3 py-2 text-[13px]"
         >
             {placeholder && <option value="">{placeholder}</option>}
             {options.map((opt) => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
             ))}
-        </select>
+        </NativeSelect>
     );
 }
 
@@ -220,21 +221,14 @@ function CategoryCheckboxDropdown({ categories, selectedIds, onChange, error }) 
                 aria-controls={listboxId}
                 aria-haspopup="listbox"
                 onClick={() => setOpen((v) => !v)}
-                className={`flex h-10 w-full items-center justify-between gap-2 rounded-md border px-3 text-left text-[13px] outline-none transition-colors bg-white ${
+                className={`flex h-10 w-full items-center justify-between gap-2 rounded-[3px] border px-3 text-left text-[13px] outline-none transition-colors bg-white ${
                     error
                         ? 'border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500'
-                        : 'border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary/40'
+                        : 'border-slate-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500'
                 } ${count === 0 ? 'text-slate-400' : 'text-slate-700'}`}
             >
                 <span className="truncate">{summary}</span>
-                <svg
-                    className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`}
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                    aria-hidden="true"
-                >
-                    <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
-                </svg>
+                <span className={`material-symbols-outlined shrink-0 text-[16px] text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden="true">expand_more</span>
             </button>
             {open && (
                 <div
@@ -260,8 +254,8 @@ function CategoryCheckboxDropdown({ categories, selectedIds, onChange, error }) 
                                     }
                                 }}
                                 tabIndex={-1}
-                                className={`flex cursor-pointer items-center gap-2 px-3 py-2 text-[13px] transition-colors ${
-                                    checked ? 'bg-primary-fixed text-slate-900' : 'text-slate-700 hover:bg-slate-50'
+                                className={`flex cursor-pointer items-center gap-2 px-3 py-1.5 text-[12px] transition-colors ${
+                                    checked ? 'bg-indigo-50 text-indigo-700' : 'text-slate-700 hover:bg-slate-50'
                                 }`}
                             >
                                 <div className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors ${
@@ -1334,7 +1328,7 @@ function handleConfirmClient(picked) {
                                                                     }, 300);
                                                                 }}
                                                                 placeholder="Search clients by name..."
-                                                                className="h-10 w-full rounded-md border border-outline-variant px-3 py-2 text-[13px] text-slate-700 outline-none focus:border-primary focus:ring-1 focus:ring-primary/40"
+                                                                className="h-10 w-full px-3 py-2 text-[13px]"
                                                             />
                                                         </div>
 
@@ -1485,13 +1479,13 @@ function handleConfirmClient(picked) {
                                                         <Input value={data.client.last_name} onChange={(e) => handleClientChange('last_name', e.target.value)} required maxLength={255} />
                                                     </Field>
                                                     <Field label="Suffix">
-                                                        <Select value={data.client.suffix} onChange={(e) => handleClientChange('suffix', e.target.value)} options={SUFFIX_OPTIONS.filter(Boolean).map((s) => ({ label: s, value: s }))} placeholder="None" />
+                                                        <SelectField value={data.client.suffix} onChange={(e) => handleClientChange('suffix', e.target.value)} options={SUFFIX_OPTIONS.filter(Boolean).map((s) => ({ label: s, value: s }))} placeholder="None" />
                                                     </Field>
                                                     <Field label="Date of Birth" required>
                                                         <Input type="date" value={data.client.date_of_birth} onChange={(e) => handleClientChange('date_of_birth', e.target.value)} min={DOB_BOUNDS.min} max={DOB_BOUNDS.max} required />
                                                     </Field>
                                                     <Field label="Sex" required>
-                                                        <Select value={data.client.sex} onChange={(e) => handleClientChange('sex', e.target.value)} options={[{ label: 'Male', value: 'Male' }, { label: 'Female', value: 'Female' }]} required />
+                                                        <SelectField value={data.client.sex} onChange={(e) => handleClientChange('sex', e.target.value)} options={[{ label: 'Male', value: 'Male' }, { label: 'Female', value: 'Female' }]} required />
                                                     </Field>
                                                 </div>
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
@@ -1700,7 +1694,7 @@ function handleConfirmClient(picked) {
                                                                 <Input value={nok.last_name} onChange={(e) => updateNokField(idx, 'last_name', e.target.value)} />
                                                             </Field>
                                                             <Field label="Relationship" required>
-                                                                <Select value={nok.relationship} onChange={(e) => updateNokField(idx, 'relationship', e.target.value)}
+                                                                <SelectField value={nok.relationship} onChange={(e) => updateNokField(idx, 'relationship', e.target.value)}
                                                                     options={['Mother', 'Father', 'Spouse', 'Sibling', 'Other'].map((r) => ({ label: r, value: r }))}
                                                                     placeholder="Select relationship" />
                                                             </Field>
@@ -1793,15 +1787,15 @@ function handleConfirmClient(picked) {
                                             <p className="mt-2 text-[13px] text-slate-500">Pick the client category to tailor the next steps.</p>
                                             <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-5">
                                                 <Field label="Client Type" required>
-                                                    <select
+                                                    <NativeSelect
                                                         value={data.client_type}
                                                         onChange={(e) => setData('client_type', e.target.value)}
-                                                        className="h-10 w-full rounded-md border border-outline-variant px-3 py-2 text-[13px] text-slate-700 outline-none focus:border-primary focus:ring-1 focus:ring-primary/40"
+                                                        className="h-10 w-full px-3 py-2 text-[13px]"
                                                         required
                                                     >
                                                         <option value="OFW">Overseas Filipino Worker</option>
                                                         <option value="NEXT_OF_KIN">Next of Kin</option>
-                                                    </select>
+                                                    </NativeSelect>
                                                 </Field>
                                                 <Field label="Category" required>
                                                     <CategoryCheckboxDropdown
@@ -1817,13 +1811,13 @@ function handleConfirmClient(picked) {
                                                 <div className="mt-4 pt-4 border-t border-slate-200">
                                                     {data.next_of_kin.length > 0 ? (
                                                         <Field label="Select Next of Kin" required>
-                                                            <select
+                                                            <NativeSelect
                                                                 value={data.selected_nok_index}
                                                                 onChange={(e) => {
                                                                     setData('selected_nok_index', e.target.value);
                                                                     clearErrors('selected_nok_index', 'next_of_kin.email');
                                                                 }}
-                                                                className="h-10 w-full rounded-md border border-outline-variant px-3 py-2 text-[13px] text-slate-700 outline-none focus:border-primary focus:ring-1 focus:ring-primary/40"
+                                                                className="h-10 w-full px-3 py-2 text-[13px]"
                                                                 required
                                                             >
                                                                 <option value="">Select next of kin...</option>
@@ -1832,7 +1826,7 @@ function handleConfirmClient(picked) {
                                                                         {[nok.first_name, nok.last_name].filter(Boolean).join(' ')}
                                                                     </option>
                                                                 ))}
-                                                            </select>
+                                                            </NativeSelect>
                                                             <InputError message={errors.selected_nok_index} className="mt-1" />
                                                         </Field>
                                                     ) : (
@@ -1934,7 +1928,7 @@ function handleConfirmClient(picked) {
                                             <div className="mt-4">
                                                 <Field label="Issue/Concern" required>
                                                     <div className="flex gap-2">
-                                                        <select
+                                                        <NativeSelect
                                                             value={data.case_issue_id}
                                                             onChange={(e) => setData('case_issue_id', e.target.value)}
                                                             className="h-10 flex-1 rounded-md border border-outline-variant px-3 py-2 text-[13px] text-slate-700 outline-none focus:border-primary focus:ring-1 focus:ring-primary/40"
@@ -1944,7 +1938,7 @@ function handleConfirmClient(picked) {
                                                             {localIssues.map((issue) => (
                                                                 <option key={issue.id} value={issue.id}>{issue.name}</option>
                                                             ))}
-                                                        </select>
+                                                        </NativeSelect>
                                                         <button
                                                             type="button"
                                                             onClick={() => { setNewIssueName(''); setShowAddIssue(!showAddIssue); }}
@@ -1965,7 +1959,7 @@ function handleConfirmClient(picked) {
                                                             onChange={(e) => setNewIssueName(e.target.value)}
                                                             onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleQuickAddIssue(); } }}
                                                             placeholder="Enter new issue name..."
-                                                            className="h-10 w-full rounded-md border border-outline-variant px-3 py-2 text-[13px] text-slate-700 outline-none focus:border-primary focus:ring-1 focus:ring-primary/40"
+                                                            className="h-10 w-full px-3 py-2 text-[13px]"
                                                             autoFocus
                                                         />
                                                     </Field>
@@ -2019,7 +2013,7 @@ function handleConfirmClient(picked) {
                                             <div className="mt-4">
                                                 <Field label="Issue/Concern" required>
                                                     <div className="flex gap-2">
-                                                        <select
+                                                        <NativeSelect
                                                             value={data.case_issue_id}
                                                             onChange={(e) => setData('case_issue_id', e.target.value)}
                                                             className="h-10 flex-1 rounded-md border border-outline-variant px-3 py-2 text-[13px] text-slate-700 outline-none focus:border-primary focus:ring-1 focus:ring-primary/40"
@@ -2029,7 +2023,7 @@ function handleConfirmClient(picked) {
                                                             {localIssues.map((issue) => (
                                                                 <option key={issue.id} value={issue.id}>{issue.name}</option>
                                                             ))}
-                                                        </select>
+                                                        </NativeSelect>
                                                         <button
                                                             type="button"
                                                             onClick={() => { setNewIssueName(''); setShowAddIssue(!showAddIssue); }}
@@ -2050,7 +2044,7 @@ function handleConfirmClient(picked) {
                                                             onChange={(e) => setNewIssueName(e.target.value)}
                                                             onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleQuickAddIssue(); } }}
                                                             placeholder="Enter new issue name..."
-                                                            className="h-10 w-full rounded-md border border-outline-variant px-3 py-2 text-[13px] text-slate-700 outline-none focus:border-primary focus:ring-1 focus:ring-primary/40"
+                                                            className="h-10 w-full px-3 py-2 text-[13px]"
                                                             autoFocus
                                                         />
                                                     </Field>

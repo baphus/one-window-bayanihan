@@ -1,3 +1,4 @@
+import Select from '@/Components/Select';
 import { useRef, useState } from 'react';
 import { Head, router, useForm, usePage } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
@@ -317,7 +318,7 @@ export default function Edit({ mustVerifyEmail, status, mfaEnabled, defaultAgenc
                                     autoComplete="tel"
                                 />
                                 <ProfileField label="Timezone" htmlFor="timezone" error={errors.timezone}>
-                                    <select
+                                    <Select
                                         id="timezone"
                                         value={data.timezone}
                                         onChange={(e) => setData('timezone', e.target.value)}
@@ -326,7 +327,7 @@ export default function Edit({ mustVerifyEmail, status, mfaEnabled, defaultAgenc
                                         {TIMEZONES.map((tz) => (
                                             <option key={tz} value={tz}>{tz}</option>
                                         ))}
-                                    </select>
+                                    </Select>
                                 </ProfileField>
                                 <div className="sm:col-span-2">
                                     <ProfileField label="Bio / About me" htmlFor="bio" error={errors.bio}>

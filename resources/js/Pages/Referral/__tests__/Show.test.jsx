@@ -231,7 +231,9 @@ describe('Referral/Show client request permissions', () => {
     );
 
     expect(screen.getAllByRole('combobox').length).toBeGreaterThan(0);
-    fireEvent.change(screen.getAllByRole('combobox')[0], { target: { value: 'ACCEPTED' } });
+    fireEvent.click(screen.getAllByRole('combobox')[0]);
+    fireEvent.mouseDown(screen.getByRole('option', { name: 'Accept' }));
+    fireEvent.click(screen.getAllByRole('combobox')[1]);
     expect(screen.getByRole('option', { name: 'Selected agencies' })).toBeInTheDocument();
   });
 
@@ -239,8 +241,11 @@ describe('Referral/Show client request permissions', () => {
     state.role = 'AGENCY';
     const reviewedHistory = [{ ...requestHistory[0], messages: [{ id: 'message-1', sender_kind: 'CLIENT_ACCESS', body: 'Document', attachments: [{ id: 'attachment-1', file_name: 'id.pdf', file_type: 'application/pdf', size: 100, request_item_id: 'item-1', review_status: 'ACCEPTED', visibility: 'HIDDEN' }] }] }];
     render(<ReferralShow referral={{ ...referral, case_file: { ...referral.case_file, referrals: [{ agency: { id: 'agency-2', name: 'Partner Agency' } }] } }} clientRequestHistory={reviewedHistory} clientRequestPermissions={{ canCreate: true, canReply: true, canTransition: true, canRevokeAccess: true }} timeline={[]} />);
-    const visibility = screen.getAllByRole('combobox').find((select) => Array.from(select.options).some((option) => option.textContent === 'Selected agencies'));
-    fireEvent.change(visibility, { target: { value: 'SELECTED' } });
+    const visibility = screen.getAllByRole('combobox').find((select) => select.textContent.includes('Hidden'));
+    fireEvent.click(visibility);
+    fireEvent.mouseDown(screen.getByRole('option', { name: 'Selected agencies' }));
+    const agencyPicker = screen.getAllByRole('combobox').at(-1);
+    fireEvent.click(agencyPicker);
     expect(screen.getByRole('option', { name: 'Partner Agency' })).toBeInTheDocument();
   });
 
@@ -298,11 +303,12 @@ describe('Referral/Show reject reason', () => {
 
     const modal = within(document.querySelector('.fixed.inset-0.z-50'));
     const reasonSelect = modal.getByRole('combobox');
-    expect(within(reasonSelect).getAllByRole('option')).toHaveLength(7);
+    fireEvent.click(reasonSelect);
+    expect(screen.getAllByRole('option')).toHaveLength(7);
     const confirm = screen.getByRole('button', { name: 'Confirm Reject' });
     expect(confirm).toBeDisabled();
 
-    fireEvent.change(reasonSelect, { target: { value: 'INCOMPLETE_REQUIREMENTS' } });
+    fireEvent.mouseDown(screen.getByRole('option', { name: 'Incomplete requirements' }));
     expect(confirm).toBeDisabled();
 
     fireEvent.change(screen.getByPlaceholderText('Enter your decision remark...'), { target: { value: 'Missing birth certificate' } });
@@ -326,7 +332,8 @@ describe('Referral/Show reject reason', () => {
     fireEvent.click(within(document.querySelector('[data-tour="referral-actions"]')).getByRole('button', { name: 'Reject' }));
 
     const modal = within(document.querySelector('.fixed.inset-0.z-50'));
-    fireEvent.change(modal.getByRole('combobox'), { target: { value: 'OTHER' } });
+    fireEvent.click(modal.getByRole('combobox'));
+    fireEvent.mouseDown(screen.getByRole('option', { name: 'Other' }));
     expect(screen.getByText('Please explain in at least 10 characters.')).toBeInTheDocument();
 
     const confirm = screen.getByRole('button', { name: 'Confirm Reject' });
@@ -358,12 +365,14 @@ describe('Referral/Show reject reason', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Update Status' }));
 
     const modal = within(screen.getByText('New Status').closest('.fixed'));
-    const statusSelect = modal.getAllByRole('combobox').find((select) => within(select).queryByText('Processing'));
-    fireEvent.change(statusSelect, { target: { value: 'REJECTED' } });
+    const statusSelect = modal.getAllByRole('combobox').find((select) => select.textContent.includes('Processing'));
+    fireEvent.click(statusSelect);
+    fireEvent.mouseDown(screen.getByRole('option', { name: 'Rejected' }));
 
-    const reasonSelect = modal.getAllByRole('combobox').find((select) => within(select).queryByText('Incomplete requirements'));
+    const reasonSelect = modal.getAllByRole('combobox').find((select) => select.textContent.includes('Select a reason'));
     expect(reasonSelect).toBeDefined();
-    fireEvent.change(reasonSelect, { target: { value: 'OUTSIDE_MANDATE' } });
+    fireEvent.click(reasonSelect);
+    fireEvent.mouseDown(screen.getByRole('option', { name: 'Outside agency mandate' }));
     fireEvent.change(modal.getByPlaceholderText('Enter a remark for this status update...'), { target: { value: 'Not our mandate' } });
     fireEvent.click(modal.getByRole('button', { name: 'Update Status' }));
 

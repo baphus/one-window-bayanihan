@@ -1,9 +1,7 @@
 import { useMemo } from 'react';
 import { usePage } from '@inertiajs/react';
 import ChartSkeleton from '@/Components/Reports/ChartSkeleton';
-import SectionAccordion from '@/Components/Reports/SectionAccordion';
 import RegionVIIMap, { matchRegionVII, RENDERED_PROVINCE_IDS } from '@/Components/Reports/RegionVIIMap';
-import { cardShell } from '@/Components/Reports/pageHeadingStyles';
 import { useLazyProp } from '@/Hooks/useLazyProp';
 
 // Region VII matching lives in RegionVIIMap; this alias keeps the
@@ -69,7 +67,7 @@ function GeographicPanel({ geoData, province, onProvinceClick, provinceOptions =
   }
 
   return (
-    <article className={`${cardShell} p-4`}>
+    <div className="min-w-0">
       <RegionVIIMap
         provinces={mapProvinces}
         selectedProvince={province}
@@ -100,7 +98,7 @@ function GeographicPanel({ geoData, province, onProvinceClick, provinceOptions =
           );
         })}
       </ul>
-    </article>
+    </div>
   );
 }
 
@@ -110,10 +108,11 @@ export default function GeographicMapSection({ province, setProvince, setCity, p
   const hasGeoData = Boolean(geoData?.labels?.length || mapData?.provinces?.length);
 
   return (
-    <SectionAccordion title="Geographic Distribution" defaultOpen>
+    <div className="border-t border-slate-200 pt-4 dark:border-slate-700">
+      <h3 className="mb-3 text-sm font-semibold text-black dark:text-white">Geographic distribution</h3>
       {(geoLoading || mapLoading) && !hasGeoData ? <ChartSkeleton /> : null}
       {!geoLoading && !mapLoading && !hasGeoData ? (
-        <div className="rounded-[3px] border border-surface-variant bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+        <div className="py-3">
           <p className="py-8 text-center text-[13px] text-slate-400 dark:text-slate-500">No geographic data available.</p>
         </div>
       ) : null}
@@ -128,6 +127,6 @@ export default function GeographicMapSection({ province, setProvince, setCity, p
           }}
         />
       ) : null}
-    </SectionAccordion>
+    </div>
   );
 }

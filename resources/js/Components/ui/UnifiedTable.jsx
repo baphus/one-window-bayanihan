@@ -1,3 +1,4 @@
+import Select from '@/Components/Select';
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import TablePagination from "./TablePagination";
 
@@ -636,17 +637,17 @@ export function UnifiedTable({
                 <label htmlFor={rowsPerPageId} className="text-[12.5px] text-slate-500">
                   Rows per page
                 </label>
-                <select
+                <Select
                   id={rowsPerPageId}
                   aria-label="Rows per page"
                   value={rowsPerPage}
                   onChange={(e) => onRowsPerPageChange?.(Number(e.target.value))}
-                  className="h-9 rounded-md border border-slate-300 bg-white pl-2.5 pr-7 text-[13px] font-medium text-slate-700 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
+                  className="h-9 pl-2.5 pr-7 text-[13px] font-medium"
                 >
                   {rowsPerPageOptions.map(opt => (
                     <option key={opt} value={opt}>{opt}</option>
                   ))}
-                </select>
+                </Select>
               </div>
 
               {renderPagination()}

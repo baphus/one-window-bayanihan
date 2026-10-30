@@ -2,273 +2,78 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Case Report - {{ $case->case_number }}</title>
+    <title>Case Summary - {{ $case->case_number }}</title>
     <style>
-        @page { margin: 32px 36px; footer: page-footer; }
-        body { font-family: DejaVu Sans, sans-serif; font-size: 9px; line-height: 1.5; color: #1e293b; }
-
-        .report-header { border-bottom: 3px solid #005288; padding-bottom: 12px; margin-bottom: 16px; }
-        .report-header h1 { margin: 0 0 2px; font-size: 18px; color: #005288; font-weight: 700; letter-spacing: -0.3px; }
-        .report-header .sub { font-size: 10px; color: #475569; }
-        .report-header .meta { font-size: 7.5px; color: #64748b; margin-top: 2px; }
-
-        h2 { margin: 18px 0 8px; font-size: 11px; color: #005288; font-weight: 700; border-bottom: 2px solid #005288; padding-bottom: 3px; }
-
-        /* ── Info table ── */
-        table.info-table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
-        table.info-table td { padding: 4px 8px; vertical-align: top; border-bottom: 1px solid #f1f5f9; }
-        table.info-table td.label { font-weight: 700; color: #475569; width: 28%; font-size: 7.5px; text-transform: uppercase; letter-spacing: 0.05em; }
-        table.info-table td.value { color: #1e293b; }
-
-        /* ── Status badges ── */
-        .status-badge { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 8px; font-weight: 700; }
-        .status-OPEN { background: #dbeafe; color: #1e40af; }
-        .status-CLOSED { background: #d1fae5; color: #065f46; }
-        .status-DRAFT { background: #f1f5f9; color: #475569; }
-        .status-ARCHIVED { background: #e2e8f0; color: #64748b; }
-
-        /* ── Case highlight cards ── */
-        .highlight-row { width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 5px; margin: 8px 0; }
-        .highlight-row td { border: 1px solid #e2e8f0; background: #f8fafc; padding: 8px 10px; text-align: center; border-radius: 4px; }
-        .highlight-row .hl-value { font-size: 14px; font-weight: 800; color: #005288; }
-        .highlight-row .hl-label { font-size: 7px; text-transform: uppercase; color: #64748b; margin-top: 2px; }
-
-        /* ── Referral status summary ── */
-        .referral-summary { margin: 8px 0 12px; }
-        .referral-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
-        .referral-dot-label { font-size: 8px; margin-right: 12px; vertical-align: middle; }
-        .dot-PENDING { background: #f59e0b; }
-        .dot-PROCESSING { background: #3b82f6; }
-        .dot-FOR_COMPLIANCE { background: #f97316; }
-        .dot-COMPLETED { background: #22c55e; }
-        .dot-REJECTED { background: #ef4444; }
-        .dot-IN_PROGRESS { background: #3b82f6; }
-
-        /* ── Data table ── */
-        table.data-table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
-        table.data-table th { background: #005288; color: white; padding: 5px 8px; text-align: left; font-size: 7.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
-        table.data-table td { padding: 4px 8px; border-bottom: 1px solid #e2e8f0; font-size: 9px; }
-        table.data-table tr:nth-child(even) td { background: #f8fafc; }
-
-        /* ── Visual timeline ── */
-        .timeline { margin: 8px 0; }
-        .timeline-item { position: relative; padding-left: 24px; padding-bottom: 12px; border-left: 2px solid #e2e8f0; margin-left: 6px; }
-        .timeline-item:last-child { border-left: 2px solid transparent; }
-        .timeline-dot { position: absolute; left: -7px; top: 2px; width: 12px; height: 12px; border-radius: 50%; background: #005288; border: 2px solid #fff; }
-        .timeline-date { font-size: 7.5px; color: #64748b; font-weight: 600; }
-        .timeline-title { font-size: 9px; font-weight: 700; color: #1e293b; margin-top: 1px; }
-        .timeline-desc { font-size: 8px; color: #64748b; margin-top: 1px; }
-
-        /* ── Dividers ── */
-        .section-divider { border: none; border-top: 1px solid #e2e8f0; margin: 16px 0; }
-
-        .section-note { font-size: 8px; color: #64748b; font-style: italic; margin-bottom: 8px; }
+        @page { size: A4 portrait; margin: 28pt 32pt; }
+        body { font-family: DejaVu Sans, sans-serif; font-size: 9pt; line-height: 1.2; color: #000; }
+        h1 { font-size: 14pt; margin: 0 0 3pt; }
+        h2 { font-size: 10pt; margin: 9pt 0 3pt; padding-bottom: 2pt; border-bottom: 0.5pt solid #000; }
+        p { margin: 3pt 0; overflow-wrap: anywhere; }
+        table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        td, th { padding: 2pt 4pt; vertical-align: top; text-align: left; overflow-wrap: anywhere; }
+        .label { width: 18%; font-weight: bold; }
+        .value { width: 32%; }
+        .agencies td, .agencies th { border-bottom: 0.5pt solid #000; }
+        .small { font-size: 8pt; }
+        footer { position: fixed; bottom: -12pt; font-size: 7pt; }
     </style>
 </head>
 <body>
-    <div class="report-header">
-        <h1>One Window Bayanihan Assistance Program</h1>
-        <div class="sub">Case Report &mdash; <strong>{{ $case->case_number }}</strong></div>
-        <div class="meta">
-            Tracking ID: {{ $case->tracker_number ?? '—' }} &bull;
-            Exported: {{ $exportedAt }} &bull;
-            Department of Migrant Workers &mdash; Region VII
-        </div>
-    </div>
+    @php
+        $text = fn ($value) => trim(preg_replace('/\s+/u', ' ', (string) $value)) ?: '—';
+        $short = fn ($value, $limit) => \Illuminate\Support\Str::limit($text($value), $limit, '…');
+        $date = fn ($value) => $value ? \Carbon\Carbon::parse($value)->format('d M Y') : '—';
+        $label = fn ($value) => ucwords(strtolower(str_replace('_', ' ', $value ?? '—')));
+    @endphp
+    @if(!empty($avatar))
+        <img src="{{ $avatar }}" alt="Client photo" style="position: absolute; top: 0; right: 0; width: 42pt; height: 42pt; object-fit: contain;">
+    @endif
+    <h1>Case Summary — {{ $case->case_number }}</h1>
+    <p class="small">One Window Bayanihan · Department of Migrant Workers, Region VII</p>
 
-    {{-- Case Highlights --}}
-    <table class="highlight-row">
-        <tr>
-            <td>
-                <div class="hl-value"><span class="status-badge status-{{ $case->status }}">{{ $case->status }}</span></div>
-                <div class="hl-label">Status</div>
-            </td>
-            <td>
-                <div class="hl-value">{{ $case->client_type === 'OFW' ? 'OFW' : 'NOK' }}</div>
-                <div class="hl-label">Client Type</div>
-            </td>
-            <td>
-                <div class="hl-value">{{ $referrals->count() }}</div>
-                <div class="hl-label">Referrals</div>
-            </td>
-            <td>
-                <div class="hl-value">{{ $case->created_at ? (int) \Carbon\Carbon::parse($case->created_at)->diffInDays(now()) : '—' }}d</div>
-                <div class="hl-label">Case Age</div>
-            </td>
-        </tr>
+    <h2>Case Details</h2>
+    <table>
+        <tr><td class="label">Status</td><td class="value">{{ $label($case->status) }}</td><td class="label">Tracking ID</td><td class="value">{{ $text($case->tracker_number) }}</td></tr>
+        <tr><td class="label">Opened</td><td>{{ $date($case->created_at) }}</td><td class="label">Closed</td><td>{{ $date($case->closed_at) }}</td></tr>
+        <tr><td class="label">Case Manager</td><td colspan="3">{{ $text($case->user?->name) }}</td></tr>
+        <tr><td class="label">Categories</td><td colspan="3">{{ $short(($case->categories ?? collect())->pluck('name')->filter()->unique()->implode(', ') ?: $case->category?->name, $textLimit) }}</td></tr>
+        <tr><td class="label">Issue</td><td colspan="3">{{ $short($case->caseIssue?->name, $textLimit) }}</td></tr>
+        <tr><td class="label">Vulnerability</td><td colspan="3">{{ $short($case->vulnerability_indicator, $textLimit) }}</td></tr>
     </table>
 
-    {{-- Case Information --}}
-    <h2>Case Information</h2>
-    <table class="info-table">
-        <tr>
-            <td class="label">Case Number</td>
-            <td class="value">{{ $case->case_number }}</td>
-            <td class="label">Tracking ID</td>
-            <td class="value">{{ $case->tracker_number ?? '—' }}</td>
-        </tr>
-        <tr>
-            <td class="label">Categories</td>
-            <td class="value">{{ ($case->categories ?? collect())->pluck('name')->filter()->unique()->sort()->implode(', ') ?: ($case->category->name ?? '—') }}</td>
-            <td class="label">Case Issue</td>
-            <td class="value">{{ $case->caseIssue->name ?? '—' }}</td>
-        </tr>
-        <tr>
-            <td class="label">Created By</td>
-            <td class="value">{{ $case->user->name ?? '—' }}</td>
-            <td class="label">Date Opened</td>
-            <td class="value">{{ $case->created_at ? \Carbon\Carbon::parse($case->created_at)->format('M d, Y') : '—' }}</td>
-        </tr>
-    </table>
-
-    <hr class="section-divider">
-
-    {{-- Client Profile --}}
-    <h2>Client Profile</h2>
-    <table class="info-table">
-        <tr>
-            <td class="label">Full Name</td>
-            <td class="value">
-                {{ trim($client->last_name . ', ' . $client->first_name . ' ' . $client->middle_name) }}
-                @if($client->suffix) {{ $client->suffix }} @endif
-            </td>
-            <td class="label">Date of Birth</td>
-            <td class="value">{{ $client->date_of_birth ? \Carbon\Carbon::parse($client->date_of_birth)->format('M d, Y') : '—' }}</td>
-        </tr>
-        <tr>
-            <td class="label">Sex</td>
-            <td class="value">{{ $client->sex ?? '—' }}</td>
-            <td class="label">Contact</td>
-            <td class="value">{{ $client->contact_number ?? '—' }}</td>
-        </tr>
-        @if($address)
-        <tr>
-            <td class="label">Address</td>
-            <td class="value" colspan="3">
-                {{ collect([$address->street, $address->barangay, $address->city_municipality, $address->province, $address->region])->filter()->implode(', ') ?: '—' }}
-            </td>
-        </tr>
-        @endif
+    <h2>Client Information</h2>
+    <table>
+        <tr><td class="label">Full Name</td><td colspan="3">{{ $text(collect([$client->first_name, $client->middle_name, $client->last_name, $client->suffix])->filter()->implode(' ')) }}</td></tr>
+        <tr><td class="label">Client Type</td><td class="value">{{ $label($client->type) }}</td><td class="label">Date of Birth</td><td class="value">{{ $date($client->date_of_birth) }}</td></tr>
+        <tr><td class="label">Sex</td><td>{{ $text($client->sex) }}</td><td class="label">Contact</td><td>{{ $text($client->contact_number) }}</td></tr>
+        <tr><td class="label">Email</td><td colspan="3">{{ $text($client->email) }}</td></tr>
+        <tr><td class="label">Address</td><td colspan="3">{{ $address ? $short(collect([$address->street, $address->barangay, $address->city_municipality, $address->province, $address->region])->filter()->implode(', '), $textLimit) : '—' }}</td></tr>
     </table>
 
     @if($employment)
-    <h2>Employment</h2>
-    <table class="info-table">
-        <tr>
-            <td class="label">Employer</td>
-            <td class="value">{{ $employment->employer_name ?? '—' }}</td>
-            <td class="label">Country</td>
-            <td class="value">{{ $employment->last_country ?? '—' }}</td>
-        </tr>
-        <tr>
-            <td class="label">Position</td>
-            <td class="value">{{ $employment->last_position ?? '—' }}</td>
-            <td class="label">Period</td>
-            <td class="value">
-                @if($employment->start_date)
-                    {{ \Carbon\Carbon::parse($employment->start_date)->format('M Y') }}
-                    – {{ $employment->end_date ? \Carbon\Carbon::parse($employment->end_date)->format('M Y') : 'Present' }}
-                @else — @endif
-            </td>
-        </tr>
-    </table>
+        <h2>Employment</h2>
+        <table>
+            <tr><td class="label">Employer</td><td colspan="3">{{ $short($employment->employer_name, $textLimit) }}</td></tr>
+            <tr><td class="label">Position</td><td class="value">{{ $short($employment->position ?: $employment->last_position, 100) }}</td><td class="label">Country</td><td class="value">{{ $short($employment->country ?: $employment->last_country, 80) }}</td></tr>
+            <tr><td class="label">Period</td><td>{{ $date($employment->start_date) }} – {{ $employment->end_date ? $date($employment->end_date) : 'Present' }}</td><td class="label">Arrival</td><td>{{ $date($employment->date_of_arrival) }}</td></tr>
+        </table>
     @endif
 
-    @if($nok)
-    <h2>Next of Kin</h2>
-    <table class="info-table">
-        <tr>
-            <td class="label">Name</td>
-            <td class="value">{{ trim($nok->last_name . ', ' . $nok->first_name . ' ' . $nok->middle_name) ?: '—' }}</td>
-            <td class="label">Relationship</td>
-            <td class="value">{{ $nok->relationship ?? '—' }}</td>
-        </tr>
-        <tr>
-            <td class="label">Contact</td>
-            <td class="value">{{ $nok->phone_number ?? '—' }}</td>
-            <td class="label">Email</td>
-            <td class="value">{{ $nok->email ?? '—' }}</td>
-        </tr>
-    </table>
-    @endif
+    <h2>Concern and Current Progress</h2>
+    <p><strong>Summary:</strong> {{ $short($case->summary, $textLimit) }}</p>
+    <p><strong>Latest progress:</strong> @if($latestEvent){{ $date($latestEvent->occurred_at ?: $latestEvent->created_at) }} — {{ $short($latestEvent->title, 120) }}. {{ $short($latestEvent->description, $textLimit) }}@else No activity recorded.@endif</p>
 
-    @if($case->summary)
-    <h2>Case Summary</h2>
-    <p style="margin-bottom: 12px; font-size: 9px; line-height: 1.6;">{{ $case->summary }}</p>
-    @endif
-
-    <hr class="section-divider">
-
-    {{-- Referrals with status visualization --}}
-    <h2>Referrals</h2>
-    @if($referrals->count() > 0)
-    <div class="referral-summary">
-        @php
-            $statusCounts = $referrals->groupBy('status')->map->count();
-        @endphp
-        @foreach($statusCounts as $status => $count)
-            <span class="referral-dot dot-{{ $status }}"></span>
-            <span class="referral-dot-label">{{ ucwords(strtolower(str_replace('_', ' ', $status))) }} ({{ $count }})</span>
-        @endforeach
-    </div>
-
-    <table class="data-table">
-        <thead>
-            <tr><th>Agency</th><th>Service</th><th>Status</th><th>Referred</th><th>Updated</th></tr>
-        </thead>
+    <h2>Agency Involvement / Pending Services</h2>
+    <table class="agencies">
+        <thead><tr><th style="width:30%">Agency</th><th style="width:35%">Applied Service/Services</th><th style="width:20%">Status</th><th style="width:15%">Updated</th></tr></thead>
         <tbody>
-            @foreach($referrals as $referral)
-            <tr>
-                <td>{{ $referral->agency->name ?? '—' }}</td>
-                <td>{{ $referral->required_services ?? '—' }}</td>
-                <td><strong>{{ $referral->status }}</strong></td>
-                <td>{{ $referral->created_at ? \Carbon\Carbon::parse($referral->created_at)->format('M d, Y') : '—' }}</td>
-                <td>{{ $referral->updated_at ? \Carbon\Carbon::parse($referral->updated_at)->format('M d, Y') : '—' }}</td>
-            </tr>
-            @endforeach
+            @forelse($referrals as $referral)
+                <tr><td>{{ $text($referral->agency?->name) }}</td><td>{{ $short($referral->required_services, min($textLimit, 70)) }}</td><td>{{ $label($referral->status) }}</td><td>{{ $date($referral->updated_at) }}</td></tr>
+            @empty
+                <tr><td colspan="4">No agency referrals recorded.</td></tr>
+            @endforelse
         </tbody>
     </table>
-    @else
-    <p class="section-note">No referrals have been made for this case.</p>
-    @endif
-
-    <hr class="section-divider">
-
-    {{-- Visual Timeline --}}
-    <h2>Activity Timeline</h2>
-    @if($milestones->count() > 0)
-    <div class="timeline">
-        @foreach($milestones as $milestone)
-        <div class="timeline-item">
-            <div class="timeline-dot"></div>
-            <div class="timeline-date">
-                {{ $milestone->occurred_at ? \Carbon\Carbon::parse($milestone->occurred_at)->format('M d, Y h:i A') : ($milestone->created_at ? \Carbon\Carbon::parse($milestone->created_at)->format('M d, Y h:i A') : '—') }}
-            </div>
-            <div class="timeline-title">
-                {{ $milestone->title ?? ucwords(str_replace('_', ' ', $milestone->type ?? 'update')) }}
-            </div>
-            @if($milestone->description)
-            <div class="timeline-desc">{{ $milestone->description }}</div>
-            @endif
-        </div>
-        @endforeach
-    </div>
-    @else
-    <p class="section-note">No activity recorded for this case.</p>
-    @endif
-
-    @if(!empty($eventsTruncated))
-    <p class="section-note">Showing the 500 most recent of {{ $eventsTotal }} timeline events; older events are omitted from this export.</p>
-    @endif
-
-    <htmlpagefooter name="page-footer">
-        <table style="width:100%; border-top:1px solid #e2e8f0; font-size:7px; color:#94a3b8; padding-top:4px;">
-            <tr>
-                <td style="text-align:left;">One Window Bayanihan &bull; DMW Region VII</td>
-                <td style="text-align:center;">Case {{ $case->case_number }}</td>
-                <td style="text-align:right;">Exported {{ $exportedAt }}</td>
-            </tr>
-        </table>
-    </htmlpagefooter>
+    <footer>Confidential — authorized case handling only. Exported {{ $exportedAt }}. See full case record for shortened text, history and documents.</footer>
 </body>
 </html>

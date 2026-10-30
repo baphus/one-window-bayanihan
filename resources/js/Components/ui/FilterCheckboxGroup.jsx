@@ -55,8 +55,8 @@ export default function FilterCheckboxGroup({ label, options = [], selected = []
                     return (
                         <label
                             key={option.value}
-                            className={`group flex items-center gap-2 rounded px-1.5 py-1 ${
-                                disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:bg-slate-100'
+                            className={`group flex items-center gap-2 rounded-[3px] px-3 py-1.5 ${
+                                disabled ? 'cursor-not-allowed opacity-60' : checked ? 'cursor-pointer bg-indigo-50 text-indigo-700 font-semibold' : 'cursor-pointer text-slate-700 hover:bg-slate-50'
                             }`}
                         >
                             <input
@@ -79,7 +79,7 @@ export default function FilterCheckboxGroup({ label, options = [], selected = []
                                     <span className="material-symbols-outlined text-[11px] leading-none">check</span>
                                 )}
                             </span>
-                            <span className="min-w-0 flex-1 truncate text-[12.5px] text-slate-700" title={option.label}>
+                            <span className="min-w-0 flex-1 truncate text-[12px]" title={option.label}>
                                 {option.label}
                             </span>
                             {Number.isFinite(Number(option.count)) && (

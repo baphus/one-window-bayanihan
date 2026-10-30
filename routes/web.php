@@ -133,6 +133,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // images, PhpSpreadsheet) and php-fpm, the queue worker and scheduler share
     // one container, so they get their own limit rather than relying on the
     // generic web throttle. The index above keeps its own budget.
+    Route::get('/reports/print', [ReportsController::class, 'print'])->name('reports.print')->middleware(['role:CASE_MANAGER,ADMIN,AGENCY', 'throttle:reports-export']);
     Route::get('/reports/export-pdf', [ReportsController::class, 'exportPdf'])->name('reports.export-pdf')->middleware(['role:CASE_MANAGER,ADMIN,AGENCY', 'throttle:reports-export']);
     Route::get('/reports/export-excel', [ReportsController::class, 'exportExcel'])->name('reports.export-excel')->middleware(['role:CASE_MANAGER,ADMIN,AGENCY', 'throttle:reports-export']);
 

@@ -1,13 +1,8 @@
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, usePage } from '@inertiajs/react';
 import { useState, useEffect, useMemo } from 'react';
-import { Users, Target, Clock, GitFork, CheckCircle2, Hourglass, ClipboardCheck } from 'lucide-react';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, PointElement, LineElement, Title, Tooltip, Legend, Filler } from 'chart.js';
-import { COLORS } from '@/Components/Reports/pageHeadingStyles';
-import KpiCard from '@/Components/ui/KpiCard';
-import TopServiceRequestedCard from '@/Components/Reports/TopServiceRequestedCard';
-import TrendIndicator from '@/Components/Reports/TrendIndicator';
-import Sparkline from '@/Components/Reports/Sparkline';
+
 import DateRangePicker from '@/Components/Reports/DateRangePicker';
 import AgencyFilter from '@/Components/Reports/AgencyFilter';
 import ProvinceCityFilter from '@/Components/Reports/ProvinceCityFilter';
@@ -19,7 +14,8 @@ import ReferralsTab from '@/Pages/Reports/sections/ReferralsTab';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, PointElement, LineElement, Title, Tooltip, Legend, Filler);
 
-function ReportsDashboard({
+export function ReportsDashboard({
+  printMode = false,
   // Eager props
   kpis,
   province: initialProvince, city: initialCity,
@@ -32,8 +28,7 @@ function ReportsDashboard({
   const [province, setProvince] = useState(initialProvince || null);
   const [city, setCity] = useState(initialCity || null);
   const [agencyId, setAgencyId] = useState(initialAgencyId || null);
-  const [casesSeries] = useLazyProp('casesOverTime');
-  const [referralSeries] = useLazyProp('referralTrends');
+  const [mostRequestedService] = useLazyProp('mostRequestedService');
   const roles = usePage().props.roles;
 
   // PSGC dataset loads lazily so it stays out of the initial chunk; the city
@@ -48,8 +43,6 @@ function ReportsDashboard({
     return () => { live = false; };
   }, []);
 
-  const caseSparkline = casesSeries?.datasets?.[0]?.data;
-  const referralSparkline = referralSeries?.datasets?.[0]?.data;
   const localCityOptions = useMemo(() => {
     if (!province) return cityOptions || [];
     const selected = provinceOptions.find((p) => p.value === province);
@@ -91,21 +84,30 @@ function ReportsDashboard({
     : role === roles.ADMIN
       ? 'System-wide performance metrics and trends.'
       : 'Numbers for the whole organization, on one page.';
-  const heroCols = role === roles.CASE_MANAGER ? 'xl:grid-cols-5' : 'xl:grid-cols-4';
+  const metrics = [
+    ['Active caseload', kpis?.openCases ?? 0],
+    ['Completed referrals', kpis?.completedReferrals ?? 0],
+    ['Completion rate', `${kpis?.completionRate ?? 0}%`],
+    ['Avg resolution', `${kpis?.avgResolutionDays ?? 0}d`],
+    ['Total referrals', kpis?.totalReferrals ?? 0],
+    ['Pending', kpis?.pendingReferrals ?? 0],
+    ['For compliance', kpis?.forComplianceReferrals ?? 0],
+    ...(role === roles.CASE_MANAGER ? [['Most active service', mostRequestedService?.name || 'Not available']] : []),
+  ];
 
-  const mapProps = { province, setProvince, setCity, provinceOptions: provinceOptions || [] };
+  const mapProps = { province, setProvince: printMode ? undefined : setProvince, setCity: printMode ? undefined : setCity, provinceOptions: provinceOptions || [] };
 
   return (
-    <div className="mx-auto max-w-7xl space-y-5 pb-4">
+    <div className="mx-auto w-full max-w-[1440px] space-y-4 pb-4">
       <header data-tour="reports-header" className="flex flex-col gap-4 mb-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <h1 className="text-2xl md:text-3xl font-extrabold font-headline tracking-tight text-slate-900">
+            <h1 className="text-[28px] font-extrabold leading-tight tracking-[-0.02em] text-black dark:text-white">
               Reports
             </h1>
             <p className="text-sm text-slate-400 font-body mt-0.5">{roleSubtitle}</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className={printMode || hasPendingChanges ? 'hidden' : 'flex items-center gap-3'}>
             <ExportButtons
               fromDateISO={fromDateISO}
               toDateISO={toDateISO}
@@ -117,62 +119,38 @@ function ReportsDashboard({
             />
           </div>
         </div>
-        <div data-tour="reports-filters" className="flex flex-col gap-4">
-          {role !== roles.AGENCY && (
-            <div className="flex flex-wrap items-center gap-3">
-              <AgencyFilter
-                agencyOptions={agencyOptions || []}
-                agencyId={agencyId}
-                onChange={setAgencyId}
-              />
-              {role === roles.CASE_MANAGER && (
-                <ProvinceCityFilter
-                  provinceOptions={provinceOptions || []}
-                  cityOptions={localCityOptions}
-                  province={province}
-                  city={city}
-                  onProvinceChange={setProvince}
-                  onCityChange={setCity}
-                />
-              )}
-            </div>
-          )}
-          <div className="flex flex-wrap items-center gap-3">
-            <DateRangePicker
-              fromDateISO={fromDateISO}
-              toDateISO={toDateISO}
-              quickRange={quickRange}
-              onFromChange={setFromDateISO}
-              onToChange={setToDateISO}
-              onQuickRangeSelect={handleQuickRange}
-              onReset={resetDateRange}
-            />
-            <button
-              type="button"
-              onClick={applyFilters}
-              disabled={!hasPendingChanges}
-              className={`inline-flex h-10 items-center justify-center rounded-md px-4 text-sm font-semibold shadow-sm transition focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-                hasPendingChanges
-                  ? 'bg-primary text-white hover:bg-primary-container focus:ring-primary'
-                  : 'cursor-not-allowed border border-slate-200 bg-slate-100 text-slate-400'
-              }`}
-            >
-              Show
-            </button>
-          </div>
+        <div data-tour="reports-filters" role="group" aria-label="Report filters" className={printMode ? 'hidden' : 'flex min-w-0 items-center gap-2 overflow-x-auto py-1'}>
+          <DateRangePicker
+            fromDateISO={fromDateISO} toDateISO={toDateISO} quickRange={quickRange}
+            onFromChange={setFromDateISO} onToChange={setToDateISO} onQuickRangeSelect={handleQuickRange}
+          />
+          {role !== roles.AGENCY && <AgencyFilter agencyOptions={agencyOptions || []} agencyId={agencyId} onChange={setAgencyId} />}
+          {role === roles.CASE_MANAGER && <ProvinceCityFilter
+            provinceOptions={provinceOptions || []} cityOptions={localCityOptions}
+            province={province} city={city} onProvinceChange={setProvince} onCityChange={setCity}
+          />}
+          {hasPendingChanges && <button type="button" onClick={applyFilters} disabled={!fromDateISO || !toDateISO || fromDateISO > toDateISO}
+            className="inline-flex h-9 shrink-0 items-center rounded-md bg-primary px-3 text-sm font-semibold text-white focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-50">
+            Apply
+          </button>}
+          {(quickRange !== '30_DAYS' || (role !== roles.AGENCY && agencyId) || province || city) && <button type="button" onClick={() => { resetDateRange(); setAgencyId(null); setProvince(null); setCity(null); }}
+            className="inline-flex h-9 shrink-0 items-center rounded-md px-3 text-sm font-medium text-slate-600 hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-primary dark:text-slate-300">
+            Clear filters
+          </button>}
         </div>
       </header>
 
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+      <div className="py-1">
+        <p className="mb-1 text-xs text-slate-600 dark:text-slate-300">Applied period: {initialFrom || fromDateISO} to {initialTo || toDateISO}</p>
         <p className="text-sm text-slate-500 dark:text-slate-400">
           <strong className="text-slate-700 dark:text-slate-300">How to read this page:</strong>{' '}
           All numbers cover cases filed in the chosen period. Percentages use only clients with
           that detail recorded. Some clients appear in more than one row. Small groups may be
-          hidden in the PDF or Excel export to protect privacy.
+          hidden in the PDF export to protect privacy.
         </p>
       </div>
 
-      <div data-tour="reports-tabs" role="tablist" aria-label="Report parts" className="grid grid-cols-2 gap-0 overflow-hidden rounded-xl border-2 border-primary">
+      <div data-tour="reports-tabs" role="tablist" aria-label="Report parts" className={printMode ? 'hidden' : 'flex gap-1 border-b border-slate-200 dark:border-slate-700'}>
         {[
           { key: 'cases', label: 'Cases' },
           { key: 'referrals', label: 'Referrals' },
@@ -183,10 +161,10 @@ function ReportsDashboard({
             role="tab"
             aria-selected={activeTab === tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className={`px-4 py-3 text-base font-extrabold transition-colors focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary ${
+            className={`rounded-t-md px-4 py-2 text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary ${
               activeTab === tab.key
-                ? 'bg-primary text-white'
-                : 'bg-white text-primary hover:bg-slate-50 dark:bg-slate-900'
+                ? 'border-b-2 border-black text-black dark:border-white dark:text-white'
+                : 'border-b-2 border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'
             }`}
           >
             {tab.label}
@@ -194,37 +172,25 @@ function ReportsDashboard({
         ))}
       </div>
 
-      {/* ── KPI hero ── */}
-      <section data-tour="reports-kpis" className={`grid grid-cols-1 gap-3 sm:grid-cols-2 ${heroCols}`}>
-        <KpiCard label="Active Caseload" value={`${kpis?.openCases ?? 0}`}
-          icon={<Users className="w-4 h-4 text-primary" />} iconBg="bg-slate-100/80 dark:bg-slate-800"
-          sparkline={<Sparkline data={caseSparkline} color={COLORS.primary} />} />
-        <KpiCard label="Completed This Period" value={`${kpis?.completedReferrals ?? 0}`}
-          icon={<CheckCircle2 className="w-4 h-4 text-[#3f915f]" />} iconBg="bg-slate-100/80 dark:bg-slate-800"
-          trailing={<TrendIndicator change={kpis?.kpiChanges?.completedReferrals} />} />
-        <KpiCard label="Completion Rate" value={`${kpis?.completionRate || 0}%`}
-          icon={<Target className="w-4 h-4 text-[#0b7a75]" />} iconBg="bg-slate-100/80 dark:bg-slate-800"
-          trailing={<TrendIndicator change={kpis?.kpiChanges?.completionRate} />} />
-        <KpiCard label="Avg Resolution" value={`${kpis?.avgResolutionDays ?? 0}d`}
-          icon={<Hourglass className="w-4 h-4 text-[#9b51b0]" />} iconBg="bg-slate-100/80 dark:bg-slate-800"
-          description="Time from case open to close" />
-        <TopServiceRequestedCard role={role} />
+      <section data-tour="reports-kpis" aria-label="Key performance indicators" className="rounded-xl border border-slate-200 bg-white px-4 py-2 dark:border-slate-700 dark:bg-slate-900">
+        <dl className="grid grid-cols-2 gap-x-6 sm:grid-cols-3 lg:grid-cols-4">
+          {metrics.map(([label, value]) => (
+            <div key={label} className="min-w-0 border-b border-slate-100 py-3 dark:border-slate-800">
+              <dt className="text-xs font-medium text-slate-600 dark:text-slate-300">{label}</dt>
+              <dd className={label === 'Most active service' ? 'mt-1 text-sm font-semibold text-black dark:text-white' : 'mt-1 text-xl font-semibold tabular-nums text-black dark:text-white'}>{value}</dd>
+            </div>
+          ))}
+        </dl>
       </section>
 
-      {/* ── KPI hero: volume strip ── */}
-      <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <KpiCard label="Total Referrals" value={`${kpis?.totalReferrals ?? 0}`}
-          icon={<GitFork className="w-4 h-4 text-primary" />} iconBg="bg-slate-100/80 dark:bg-slate-800"
-          trailing={<TrendIndicator change={kpis?.kpiChanges?.totalReferrals} />}
-          sparkline={<Sparkline data={referralSparkline} color={COLORS.primary} />} />
-        <KpiCard label="Pending" value={`${kpis?.pendingReferrals ?? 0}`} valueTone="text-[#9a5b1a] dark:text-amber-400"
-          icon={<Clock className="w-4 h-4 text-[#9a5b1a]" />} iconBg="bg-slate-100/80 dark:bg-slate-800"
-          trailing={<TrendIndicator change={kpis?.kpiChanges?.pendingReferrals} />} />
-        <KpiCard label="For Compliance" value={`${kpis?.forComplianceReferrals ?? 0}`} valueTone="text-[#d9663b]"
-          icon={<ClipboardCheck className="w-4 h-4 text-[#d9663b]" />} iconBg="bg-slate-100/80 dark:bg-slate-800" />
-      </section>
-
-      {activeTab === 'cases' ? (
+      {printMode ? (
+        <>
+          <h2 className="text-lg font-semibold">Cases</h2>
+          <CasesTab mapProps={mapProps} />
+          <h2 className="text-lg font-semibold">Referrals</h2>
+          <ReferralsTab />
+        </>
+      ) : activeTab === 'cases' ? (
         <div role="tabpanel" aria-label="Cases">
           <CasesTab mapProps={mapProps} />
         </div>

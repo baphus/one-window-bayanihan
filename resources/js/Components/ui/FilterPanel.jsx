@@ -77,7 +77,7 @@ export default function FilterPanel({
                         onChange={(event) => setQuery(event.target.value)}
                         placeholder="Search filters"
                         aria-label="Search filter options"
-                        className="h-9 w-full rounded-md border border-slate-300 bg-white py-1.5 pl-8 pr-2.5 text-[12.5px] text-slate-800 placeholder:text-slate-400 outline-none transition-colors focus:border-primary focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
+                        className="h-9 w-full rounded-[3px] border border-slate-300 bg-white py-1.5 pl-8 pr-2.5 text-[13px] text-slate-700 placeholder:text-slate-400 outline-none transition-colors focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                     />
                 </div>
             )}

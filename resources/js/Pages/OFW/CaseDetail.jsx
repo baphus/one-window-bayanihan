@@ -1,3 +1,4 @@
+import Select from '@/Components/Select';
 import { useMemo, useState } from 'react';
 import { Link } from '@inertiajs/react';
 import { CheckCircle2, Copy } from 'lucide-react';
@@ -311,14 +312,14 @@ export default function CaseDetail({
             {trackingId ? (
                 <div className="mt-5">
                     <label htmlFor="case-selector" className="sr-only">Select a case</label>
-                    <select
+                    <Select
                         id="case-selector"
                         value={trackingId}
                         onChange={() => {}}
-                        className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white py-2 pl-3 pr-8 text-[13px] font-semibold text-primary focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                        className="inline-flex items-center gap-2 py-2 pl-3 pr-8 text-[13px] font-semibold"
                     >
                         <option value={trackingId}>{trackingId}</option>
-                    </select>
+                    </Select>
                 </div>
             ) : null}
 

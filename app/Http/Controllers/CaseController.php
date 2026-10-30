@@ -23,8 +23,11 @@ use App\Services\TrackingService;
 use App\Support\CategoryFilter;
 use App\Support\MultiSelectFilter;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
@@ -523,28 +526,64 @@ class CaseController extends Controller
         $client = $case->client;
         $primaryEmployment = $client->employments->first();
         $primaryAddress = $client->addresses->first();
-        $primaryNok = $client->nextOfKin->first();
+        $latestEvent = $case->caseEvents()->latest('occurred_at')->latest('created_at')->first();
+        $avatar = null;
+        $avatarUrl = $client->getRawOriginal('avatar_url');
 
-        // dompdf builds the whole DOM before paging, so cap the timeline: a
-        // case with thousands of events would otherwise exhaust the 256M limit.
-        $eventsQuery = $case->caseEvents()->latest('occurred_at');
-        $eventsTotal = $eventsQuery->count();
-        $eventsLimit = 500;
+        // Only fetch uploaded avatars from the trusted image host; never arbitrary URLs.
+        if ($avatarUrl && parse_url($avatarUrl, PHP_URL_SCHEME) === 'https'
+            && parse_url($avatarUrl, PHP_URL_HOST) === 'res.cloudinary.com') {
+            try {
+                $response = Http::timeout(5)
+                    ->withOptions(['allow_redirects' => false])->get($avatarUrl);
+                $image = $response->body();
+                $info = $response->successful() && strlen($image) <= 5 * 1024 * 1024
+                    ? @getimagesizefromstring($image) : false;
+
+                if ($info && $info['mime'] === 'image/webp' && function_exists('imagecreatefromstring')) {
+                    $decoded = @imagecreatefromstring($image);
+                    if ($decoded !== false) {
+                        ob_start();
+                        imagepng($decoded);
+                        $image = ob_get_clean();
+                        imagedestroy($decoded);
+                        $info['mime'] = 'image/png';
+                    }
+                }
+
+                if ($info && in_array($info['mime'], ['image/jpeg', 'image/png', 'image/gif'], true)) {
+                    $avatar = 'data:'.$info['mime'].';base64,'.base64_encode($image);
+                }
+            } catch (ConnectionException $e) {
+                Log::notice('Case PDF avatar unavailable.', ['case_id' => $case->id]);
+            }
+        }
 
         $data = [
             'case' => $case,
             'client' => $client,
+            'avatar' => $avatar,
             'employment' => $primaryEmployment,
             'address' => $primaryAddress,
-            'nok' => $primaryNok,
             'referrals' => $case->referrals,
-            'milestones' => $eventsQuery->limit($eventsLimit)->get(),
-            'eventsTruncated' => $eventsTotal > $eventsLimit,
-            'eventsTotal' => $eventsTotal,
+            'latestEvent' => $latestEvent,
             'exportedAt' => now(config('app.operating_timezone', 'Asia/Manila'))->format('M d, Y h:i A'),
         ];
 
-        $pdf = Pdf::loadView('pdf.case-report', $data);
+        // Shorten narrative, never shrink text or silently discard agency rows.
+        foreach ([500, 240, 100] as $textLimit) {
+            $pdf = Pdf::loadView('pdf.case-report', $data + ['textLimit' => $textLimit])
+                ->setPaper('a4', 'portrait');
+            $pdf->render();
+
+            if ($pdf->getDomPDF()->getCanvas()->get_page_count() === 1) {
+                break;
+            }
+        }
+
+        abort_if($pdf->getDomPDF()->getCanvas()->get_page_count() !== 1, 422,
+            'This case has too much agency or profile information for a readable one-page summary. No details were silently omitted.');
+
         $filename = 'case-report-'.$case->case_number.'-'.now(config('app.operating_timezone', 'Asia/Manila'))->format('Ymd-His').'.pdf';
 
         AuditLogger::export()

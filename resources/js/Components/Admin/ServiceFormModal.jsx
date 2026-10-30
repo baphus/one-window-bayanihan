@@ -1,3 +1,4 @@
+import Select from '@/Components/Select';
 import { useState } from 'react';
 import { useForm } from '@inertiajs/react';
 import InputError from '@/Components/InputError';
@@ -129,17 +130,17 @@ export default function ServiceFormModal({ service, allAgencies, onClose, onBypa
               {!selectedAgencyId ? (
                 <div>
                   <label className="block text-sm font-medium text-slate-700">Agency <span className="text-red-500">*</span></label>
-                  <select
+                  <Select
                     value={data.agcy_id}
                     onChange={(e) => setData('agcy_id', e.target.value)}
-                    className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-primary focus:ring-primary py-2 text-sm"
+                    className="mt-1 w-full py-2 text-sm"
                     required
                   >
                     <option value="">Select an agency...</option>
                     {allAgencies.map((agency) => (
                       <option key={agency.id} value={agency.id}>{agency.name}{agency.short ? ` (${agency.short})` : ''}</option>
                     ))}
-                  </select>
+                  </Select>
                   <InputError message={errors.agcy_id} className="mt-1" />
                 </div>
               ) : (

@@ -1,84 +1,30 @@
-import { CalendarRange, RotateCcw } from 'lucide-react';
-import { useMemo } from 'react';
-import { COLORS } from '@/Components/Reports/pageHeadingStyles';
+import Select from '@/Components/Select';
 import { formatDisplayDate } from '@/lib/utils';
 
-export default function DateRangePicker({
-  fromDateISO,
-  toDateISO,
-  quickRange,
-  onFromChange,
-  onToChange,
-  onQuickRangeSelect,
-  onReset,
-}) {
-  const currentLabel = useMemo(() => formatDisplayDate(fromDateISO) + ' - ' + formatDisplayDate(toDateISO), [fromDateISO, toDateISO]);
+const controlClass = 'h-9 shrink-0 rounded-md border border-slate-300 bg-white px-3 py-0 text-sm font-medium text-slate-700 focus:border-primary focus:ring-primary dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200';
 
-  const quickOptions = [
-    { label: '6 Months', value: '6_MONTHS' },
-    { label: '1 Year', value: '1_YEAR' },
-    { label: 'Custom', value: 'CUSTOM' },
-  ];
-
+export default function DateRangePicker({ fromDateISO, toDateISO, quickRange, onFromChange, onToChange, onQuickRangeSelect }) {
   return (
-    <div className="flex items-center gap-1.5 flex-nowrap">
-      <CalendarRange className="h-4 w-4 text-slate-400 shrink-0" />
-      <div className="inline-flex overflow-hidden rounded-[2px] divide-x divide-slate-300" style={{ border: `1px solid ${COLORS.border}` }}>
-        {quickOptions.map((option) => {
-          const isActive = quickRange === option.value;
-          return (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => onQuickRangeSelect(option.value)}
-              className={`h-8 px-2.5 text-[11px] font-semibold transition-colors ${
-                isActive
-                  ? 'text-white'
-                  : 'bg-white text-slate-600 hover:bg-slate-50'
-              }`}
-              style={isActive ? { backgroundColor: COLORS.primary } : undefined}
-            >
-              {option.label}
-            </button>
-          );
-        })}
-      </div>
+    <div className="flex shrink-0 items-center gap-2">
+      <Select aria-label="Date range" value={quickRange} onChange={(event) => onQuickRangeSelect(event.target.value)} className={`${controlClass} w-40 pr-8`}>
+        <option value="7_DAYS">Last 7 days</option>
+        <option value="14_DAYS">Last 14 days</option>
+        <option value="30_DAYS">Last 30 days</option>
+        <optgroup label="More ranges">
+          <option value="3_MONTHS">Last 3 months</option>
+          <option value="6_MONTHS">Last 6 months</option>
+          <option value="9_MONTHS">Last 9 months</option>
+          <option value="1_YEAR">Last year</option>
+        </optgroup>
+        <option value="CUSTOM">Custom dates</option>
+      </Select>
       {quickRange === 'CUSTOM' ? (
         <>
-          <input
-            type="date"
-            value={fromDateISO}
-            onChange={(e) => {
-              const next = e.target.value;
-              onFromChange(next);
-              if (next > toDateISO) onToChange(next);
-            }}
-            className="h-8 min-w-[140px] rounded-[2px] bg-white px-2 text-center text-[13px] text-slate-700 shadow-none"
-            style={{ border: `1px solid ${COLORS.border}` }}
-          />
-          <span className="px-0.5 text-slate-400">—</span>
-          <input
-            type="date"
-            value={toDateISO}
-            onChange={(e) => {
-              const next = e.target.value;
-              onToChange(next);
-              if (next < fromDateISO) onFromChange(next);
-            }}
-            className="h-8 min-w-[140px] rounded-[2px] bg-white px-2 text-center text-[13px] text-slate-700 shadow-none"
-            style={{ border: `1px solid ${COLORS.border}` }}
-          />
+          <input aria-label="Start date" type="date" value={fromDateISO} max={toDateISO} onChange={(event) => onFromChange(event.target.value)} className={controlClass} />
+          <span className="text-sm text-slate-500">to</span>
+          <input aria-label="End date" type="date" value={toDateISO} min={fromDateISO} onChange={(event) => onToChange(event.target.value)} className={controlClass} />
         </>
-      ) : (
-        <span className="text-[11px] font-medium text-slate-500">{currentLabel}</span>
-      )}
-      <button
-        onClick={onReset}
-        className="inline-flex h-8 items-center gap-1 rounded-[2px] px-2 text-[11px] font-medium text-slate-400 hover:text-slate-600 transition-colors"
-      >
-        <RotateCcw className="h-3.5 w-3.5" />
-        Reset
-      </button>
+      ) : <span className="sr-only">{formatDisplayDate(fromDateISO)} to {formatDisplayDate(toDateISO)}</span>}
     </div>
   );
 }

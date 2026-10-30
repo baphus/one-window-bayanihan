@@ -5,7 +5,7 @@ import TrendChart from '@/Components/Reports/TrendChart';
 export default function ReferralTrendsSection() {
   return (
     <ReportLazySection lazyKey="referralTrends" skeleton={<ChartSkeleton />} emptyMessage="No referral activity in this period.">
-      {(data) => <TrendChart title="Referrals Over Time" data={data} />}
+      {(data) => <TrendChart title="Referrals Over Time" data={data} embedded />}
     </ReportLazySection>
   );
 }

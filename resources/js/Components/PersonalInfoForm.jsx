@@ -1,3 +1,4 @@
+import Select from '@/Components/Select';
 import InputError from '@/Components/InputError';
 import TextInput from '@/Components/TextInput';
 import { CardSection as Section } from '@/Components/ui/CardSection';
@@ -74,16 +75,16 @@ export default function PersonalInfoForm({ data, setData, errors, onDirtyChange 
 
                 <div>
                     <FieldLabel>Timezone</FieldLabel>
-                    <select
+                    <Select
                         id="timezone"
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary py-2 text-[13px]"
+                        className="mt-1 w-full py-2 text-[13px]"
                         value={data.timezone}
                         onChange={(e) => setData('timezone', e.target.value)}
                     >
                         {timezones.map((tz) => (
                             <option key={tz} value={tz}>{tz}</option>
                         ))}
-                    </select>
+                    </Select>
                     <InputError className="mt-1.5" message={errors.timezone} />
                 </div>
             </div>

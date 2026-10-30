@@ -53,9 +53,7 @@ function AgencyTableSection() {
                             </tbody>
                         </table>
                     </div>
-                    <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                        Overdue per agency is not available yet.
-                    </p>
+
                 </>
             )}
         </ReportCard>
@@ -135,40 +133,12 @@ function RejectedSection() {
     );
 }
 
-function FirstResponseSection() {
-    const [, settled] = useSettledProp('agencyFirstResponse');
-    return (
-        <ReportCard title="First response per agency">
-            {!settled ? (
-                <LoadingBlock />
-            ) : (
-                <EmptyLine message="First-response times are not available yet." />
-            )}
-        </ReportCard>
-    );
-}
-
-function RequestTypeSection() {
-    const [, settled] = useSettledProp('clientRequestTypeDistribution');
-    return (
-        <ReportCard title="Client requests by type">
-            {!settled ? (
-                <LoadingBlock />
-            ) : (
-                <EmptyLine message="Client request types are not available yet." />
-            )}
-        </ReportCard>
-    );
-}
-
 export default function ReferralsTab() {
     return (
-        <div className="space-y-5">
-            <AgencyTableSection />
+        <div className="grid min-w-0 gap-4 xl:grid-cols-2">
             <AgencyPictureSection />
+            <AgencyTableSection />
             <RejectedSection />
-            <FirstResponseSection />
-            <RequestTypeSection />
         </div>
     );
 }

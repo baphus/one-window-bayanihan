@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Support\ReportCalendar;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
@@ -21,6 +22,11 @@ class ReportsFilterRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        if (! $this->has('from') && ! $this->has('to')) {
+            $today = now(ReportCalendar::timezone());
+            $this->merge(['from' => $today->copy()->subDays(29)->toDateString(), 'to' => $today->toDateString()]);
+        }
+
         if (! $this->has('date_scope')) {
             $this->merge(['date_scope' => 'case_created_at']);
         }

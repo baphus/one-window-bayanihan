@@ -136,12 +136,14 @@ describe('SeniorReport visuals', () => {
       colors: [],
     });
     render(<DonutWithList slices={slices} showAll />);
-    const chart = screen.getByTestId('donut-chart');
-    expect(JSON.parse(chart.getAttribute('data-values'))).toEqual([50, 20, 10, 8, 6, 4, 2]);
+    expect(screen.queryByTestId('donut-chart')).not.toBeInTheDocument();
+    for (const count of [50, 20, 10, 8, 6, 4, 2]) {
+      expect(screen.getByText(String(count))).toBeInTheDocument();
+    }
     for (const label of ['A', 'B', 'C', 'D', 'E', 'F', 'G']) {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
-    expect(screen.getByText('2 (2%)')).toBeInTheDocument();
+    expect(screen.getByText('2')).toBeInTheDocument();
   });
 
   it('keeps remainder buckets out of ranked headlines', () => {

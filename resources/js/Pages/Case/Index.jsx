@@ -1,4 +1,5 @@
-﻿import AppLayout from '@/Layouts/AppLayout';
+import Select from '@/Components/Select';
+import AppLayout from '@/Layouts/AppLayout';
 import { Head, router, usePage } from '@inertiajs/react';
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
@@ -712,13 +713,13 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
       <div className="flex flex-col gap-1 border-t border-slate-200 pt-2.5">
         <label className="flex flex-col gap-1">
           <span className="text-[11px] text-slate-500">Case age</span>
-          <select
+          <Select
             value={filters?.age_min_days ?? ''}
             onChange={(e) => {
               const val = e.target.value;
               updateTable({ ...filters, age_min_days: val || undefined, page: undefined });
             }}
-            className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-[12.5px] text-slate-800 outline-none transition-colors focus:border-primary focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
+            className="h-9 w-full px-2.5 text-[12.5px]"
           >
             <option value="">Any age</option>
             <option value="7">7+ days</option>
@@ -726,7 +727,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
             <option value="30">30+ days</option>
             <option value="60">60+ days</option>
             <option value="90">90+ days</option>
-          </select>
+          </Select>
         </label>
       </div>
 

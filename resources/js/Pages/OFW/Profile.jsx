@@ -1,3 +1,4 @@
+import Select from '@/Components/Select';
 import { useMemo, useState } from 'react';
 import { useForm, usePage } from '@inertiajs/react';
 import { z } from 'zod';
@@ -450,7 +451,7 @@ export default function Profile({ user, client }) {
                                 disabled
                             />
                             <Field label="Sex" htmlFor="profile_sex" error={form.errors.sex}>
-                                <select
+                                <Select
                                     id="profile_sex"
                                     value={form.data.sex}
                                     onChange={(e) => form.setData('sex', e.target.value)}
@@ -461,10 +462,10 @@ export default function Profile({ user, client }) {
                                     {SEX_OPTIONS.map((s) => (
                                         <option key={s} value={s.toUpperCase()}>{s}</option>
                                     ))}
-                                </select>
+                                </Select>
                             </Field>
                             <Field label="Suffix" htmlFor="profile_suffix" error={form.errors.suffix}>
-                                <select
+                                <Select
                                     id="profile_suffix"
                                     value={form.data.suffix}
                                     onChange={(e) => form.setData('suffix', e.target.value)}
@@ -479,7 +480,7 @@ export default function Profile({ user, client }) {
                                     {form.data.suffix && !SUFFIX_OPTIONS.includes(form.data.suffix) && (
                                         <option value={form.data.suffix}>{form.data.suffix}</option>
                                     )}
-                                </select>
+                                </Select>
                             </Field>
                         </div>
                     </ProfileSection>
@@ -634,7 +635,7 @@ export default function Profile({ user, client }) {
                                                 <TextInput id={`nok_${i}_middle`} label="Middle name" value={row.middle_name ?? ''} onChange={(v) => setNokField(i, 'middle_name', v)} error={nokError(i, 'middle_name')} placeholder="Optional" maxLength={255} />
                                                 <TextInput id={`nok_${i}_last`} label="Last name" value={row.last_name ?? ''} onChange={(v) => setNokField(i, 'last_name', v)} error={nokError(i, 'last_name')} placeholder="e.g. Dela Cruz" />
                                                 <Field label="Relationship" htmlFor={`nok_${i}_relationship`} error={nokError(i, 'relationship')}>
-                                                    <select
+                                                    <Select
                                                         id={`nok_${i}_relationship`}
                                                         value={row.relationship ?? ''}
                                                         onChange={(e) => setNokField(i, 'relationship', e.target.value)}
@@ -644,7 +645,7 @@ export default function Profile({ user, client }) {
                                                         {NOK_RELATIONSHIP_OPTIONS.map((r) => (
                                                             <option key={r} value={r}>{r}</option>
                                                         ))}
-                                                    </select>
+                                                    </Select>
                                                 </Field>
                                                 <TextInput id={`nok_${i}_phone`} label="Phone number" type="tel" value={row.phone_number ?? ''} onChange={(v) => setNokField(i, 'phone_number', v)} error={nokError(i, 'phone_number')} placeholder="e.g. 09171234567" maxLength={20} />
                                                 <TextInput id={`nok_${i}_email`} label="Email" type="email" value={row.email ?? ''} onChange={(v) => setNokField(i, 'email', v)} error={nokError(i, 'email')} placeholder="e.g. name@example.com" />

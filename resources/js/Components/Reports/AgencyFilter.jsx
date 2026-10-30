@@ -1,21 +1,10 @@
-import { Building2 } from 'lucide-react';
-import { COLORS } from '@/Components/Reports/pageHeadingStyles';
+import Select from '@/Components/Select';
 
 export default function AgencyFilter({ agencyOptions = [], agencyId, onChange }) {
   return (
-    <div className="inline-flex items-center gap-1.5">
-      <Building2 className="h-4 w-4 shrink-0 text-slate-400" />
-      <select
-        value={agencyId || ''}
-        onChange={(e) => onChange(e.target.value || null)}
-        className="h-8 rounded-[2px] bg-white py-1 pl-2.5 pr-6 text-left text-[11px] font-semibold text-slate-600 shadow-none appearance-none"
-        style={{ border: `1px solid ${COLORS.border}` }}
-      >
-        <option value="">All Agencies</option>
-        {agencyOptions.map((opt) => (
-          <option key={opt.value} value={opt.value}>{opt.label}</option>
-        ))}
-      </select>
-    </div>
+    <Select aria-label="Agency" value={agencyId || ''} onChange={(event) => onChange(event.target.value || null)} className="h-9 w-40 shrink-0 rounded-md border-slate-300 bg-white py-0 pl-3 pr-8 text-sm font-medium text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200">
+      <option value="">All agencies</option>
+      {agencyOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+    </Select>
   );
 }

@@ -1,3 +1,4 @@
+import Select from '@/Components/Select';
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, router, usePage } from '@inertiajs/react';
 import { useState, useMemo, useRef, useEffect } from 'react';
@@ -288,7 +289,7 @@ export default function AdminAgencyIndex({ agencies, filters, stats }) {
     <div className="space-y-4">
       <div>
         <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Status</label>
-        <select
+        <Select
           value={statusFilter}
           onChange={(e) => {
             const val = e.target.value;
@@ -296,16 +297,16 @@ export default function AdminAgencyIndex({ agencies, filters, stats }) {
             setFilterOpen(false);
             navigateWith({ status: val || undefined });
           }}
-          className="w-full border border-slate-200 rounded-md px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
+          className="w-full px-3 py-2 text-[13px] font-medium"
         >
           <option value="">All</option>
           <option value="1">Active</option>
           <option value="0">Inactive</option>
-        </select>
+        </Select>
       </div>
       <div>
         <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Default</label>
-        <select
+        <Select
           value={isDefaultFilter}
           onChange={(e) => {
             const val = e.target.value;
@@ -313,12 +314,12 @@ export default function AdminAgencyIndex({ agencies, filters, stats }) {
             setFilterOpen(false);
             navigateWith({ is_default: val || undefined });
           }}
-          className="w-full border border-slate-200 rounded-md px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
+          className="w-full px-3 py-2 text-[13px] font-medium"
         >
           <option value="">All</option>
           <option value="1">Default Only</option>
           <option value="0">Standard</option>
-        </select>
+        </Select>
       </div>
     </div>
   ), [statusFilter, isDefaultFilter]);

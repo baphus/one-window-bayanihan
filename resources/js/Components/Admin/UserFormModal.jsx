@@ -1,3 +1,4 @@
+import Select from '@/Components/Select';
 import { useForm, router, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 import InputError from '@/Components/InputError';
@@ -222,7 +223,7 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
                 </>
               ) : (
                 <>
-                  <select
+                  <Select
                     value={data.role}
                     onChange={(e) => {
                       setData('role', e.target.value);
@@ -230,13 +231,13 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
                         setData('agcy_id', '');
                       }
                     }}
-                    className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-primary focus:ring-primary py-2 text-sm"
+                    className="mt-1 w-full py-2 text-sm"
                     required
                   >
                     {roleOptions.map((opt) => (
                       <option key={opt.value} value={opt.value}>{opt.label}</option>
                     ))}
-                  </select>
+                  </Select>
                   {selectedRole && (
                     <p className="mt-1 text-xs text-slate-500">{selectedRole.description}</p>
                   )}
@@ -249,17 +250,17 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
             {data.role === roles.AGENCY && !isNewUserViaSelectedAgency && (
               <div>
                 <label className="block text-sm font-medium text-slate-700">Agency <span className="text-red-500">*</span></label>
-                <select
+                <Select
                   value={data.agcy_id}
                   onChange={(e) => setData('agcy_id', e.target.value)}
-                  className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-primary focus:ring-primary py-2 text-sm"
+                  className="mt-1 w-full py-2 text-sm"
                   required
                 >
                   <option value="">Select agency...</option>
                   {agencies.map((a) => (
                     <option key={a.id} value={a.id}>{a.name} ({a.short})</option>
                   ))}
-                </select>
+                </Select>
                 <InputError message={errors.agcy_id} className="mt-1" />
               </div>
             )}
