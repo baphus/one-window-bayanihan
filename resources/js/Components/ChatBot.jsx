@@ -182,7 +182,7 @@ function FrequentlyAskedQuestions({ suggestions, onQuestionClick, onClose }) {
     return (
         <div className="relative animate-in fade-in slide-in-from-bottom-2 rounded-none bg-white px-5 py-3 shadow-sm ring-1 ring-outline-variant/60 duration-300">
             <div className="flex items-center justify-between mb-2">
-                <p className="text-[11px] font-semibold text-on-surface-variant">Frequently asked questions</p>
+                <p className="text-[11px] font-semibold text-on-surface-variant">Frequently Asked Questions</p>
                 <button
                     type="button"
                     onClick={onClose}
