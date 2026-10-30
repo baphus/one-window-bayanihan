@@ -25,7 +25,7 @@ export const FAQ_ITEMS = [
   {
     id: 'request-assistance', category: 'Getting Assistance',
     question: 'How do I request assistance?',
-    answer: 'You can visit the nearest DMW office or coordinate with authorized personnel who will register your case in the system.',
+    answer: 'First, create an account and confirm your email. Sign in, then choose “File a new case” under My Cases. A DMW Case Manager will review your request before it becomes active.',
   },
   {
     id: 'multiple-offices', category: 'Getting Assistance',
