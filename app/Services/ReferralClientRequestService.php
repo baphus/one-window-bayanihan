@@ -44,14 +44,18 @@ class ReferralClientRequestService
 
         $sourceRequirementIds = collect($items)
             ->filter(static fn ($item): bool => is_array($item))
-            ->pluck('source_requirement_id')
+            ->flatMap(static fn (array $item): array => array_merge(
+                [$item['source_requirement_id'] ?? null],
+                $item['source_requirement_ids'] ?? [],
+            ))
             ->filter()
+            ->unique()
             ->values();
         if ($sourceRequirementIds->isNotEmpty()) {
             $validRequirementIds = $referral->serviceRequirements()
                 ->whereIn('id', $sourceRequirementIds)
                 ->pluck('id');
-            if ($validRequirementIds->count() !== $sourceRequirementIds->unique()->count()) {
+            if ($validRequirementIds->count() !== $sourceRequirementIds->count()) {
                 throw new InvalidArgumentException('One or more selected requirements do not belong to this referral.');
             }
         }

@@ -2,13 +2,12 @@
 
 namespace Tests\Feature\ReferralClientInbox;
 
-use App\Models\ReferralClientMessage;
-use App\Models\ReferralClientMessageAttachment;
 use App\Models\ReferralClientRequest;
 use App\Models\ReferralClientRequestItem;
 use App\Models\ReferralServiceRequirement;
 use App\Models\Service as AgencyService;
 use App\Services\ReferralClientRequestService;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 
 class ClientRequestDocumentGovernanceTest extends ReferralClientInboxTestCase
@@ -59,11 +58,26 @@ class ClientRequestDocumentGovernanceTest extends ReferralClientInboxTestCase
         Storage::fake('object-storage');
         $context = $this->context();
         $item = ReferralClientRequestItem::factory()->create(['request_id' => $context['clientRequest']->id]);
-        $message = ReferralClientMessage::factory()->create(['request_id' => $context['clientRequest']->id]);
-        $old = ReferralClientMessageAttachment::create(['message_id' => $message->id, 'request_item_id' => $item->id, 'file_name' => 'old.pdf', 'file_path' => 'old.pdf', 'review_status' => 'PENDING', 'visibility' => 'HIDDEN']);
-        $new = ReferralClientMessageAttachment::create(['message_id' => $message->id, 'request_item_id' => $item->id, 'file_name' => 'new.pdf', 'file_path' => 'new.pdf', 'review_status' => 'PENDING', 'visibility' => 'HIDDEN']);
+        $accessLink = $this->issue($context)['link'];
+        $service = app(ReferralClientRequestService::class);
 
-        $item->attachments()->where('id', '<>', $new->id)->update(['is_deleted' => true, 'deleted_at' => now()]);
+        $service->sendClientMessage(
+            $context['clientRequest'],
+            '',
+            $accessLink,
+            [UploadedFile::fake()->createWithContent('old.pdf', '%PDF-1.4 old')],
+            [$item->id],
+        );
+        $old = $item->attachments()->first();
+
+        $service->sendClientMessage(
+            $context['clientRequest'],
+            '',
+            $accessLink->fresh(),
+            [UploadedFile::fake()->createWithContent('new.pdf', '%PDF-1.4 new')],
+            [$item->id],
+        );
+        $new = $item->attachments()->latest()->first();
 
         $this->assertTrue($old->fresh()->is_deleted);
         $this->assertFalse($new->fresh()->is_deleted);

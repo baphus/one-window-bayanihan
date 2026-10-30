@@ -1,4 +1,4 @@
-﻿import AppLayout from '@/Layouts/AppLayout';
+import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { useEffect, useRef, useState } from 'react';
 import PrimaryButton from '@/Components/PrimaryButton';
@@ -122,7 +122,7 @@ function ClientRequestAccess({ request, canIssue, canRevoke, onMutate }) {
                     {!link && <p className="mt-1 text-[11px] text-slate-600">No access link has been issued yet.</p>}
                     {link?.state === 'active' && (
                         <p className="mt-1 text-[11px] text-emerald-700">
-                            Active link{link.expires_at ? ` Â· Expires ${formatDisplayDateTime(link.expires_at)}` : ''}
+                            Active link{link.expires_at ? ` · Expires ${formatDisplayDateTime(link.expires_at)}` : ''}
                         </p>
                     )}
                     {link?.state === 'expired' && <p className="mt-1 text-[11px] text-amber-700">The previous link has expired. A replacement link can be issued.</p>}
@@ -130,8 +130,8 @@ function ClientRequestAccess({ request, canIssue, canRevoke, onMutate }) {
                     {link && (
                         <p className="mt-1 text-[10px] text-slate-400">
                             Used {link.use_count ?? 0} time{link.use_count === 1 ? '' : 's'}
-                            {link.first_used_at ? ` Â· First used ${formatDisplayDateTime(link.first_used_at)}` : ''}
-                            {link.last_used_at ? ` Â· Last used ${formatDisplayDateTime(link.last_used_at)}` : ''}
+                            {link.first_used_at ? ` · First used ${formatDisplayDateTime(link.first_used_at)}` : ''}
+                            {link.last_used_at ? ` · Last used ${formatDisplayDateTime(link.last_used_at)}` : ''}
                         </p>
                     )}
                 </div>
@@ -142,7 +142,7 @@ function ClientRequestAccess({ request, canIssue, canRevoke, onMutate }) {
                         disabled={!!loading}
                         className={`h-[28px] shrink-0 rounded-md px-3 text-[10px] font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${link?.state === 'active' ? 'border border-red-200 bg-white text-red-700 hover:bg-red-50' : 'border border-blue-900 bg-blue-900 text-white hover:bg-blue-800'}`}
                     >
-                        {loading ? 'Workingâ€¦' : actionLabel}
+                        {loading ? 'Working…' : actionLabel}
                     </button>
                 )}
             </div>
@@ -321,7 +321,7 @@ function ClientRequestCard({ request, permissions, isOversight, onMutate, embedd
                                                     </div>
                                                 )}
                                             </div>
-                                            <p className={`mt-1 text-[9px] text-slate-400 ${isOwn ? 'text-right' : ''}`}>{senderName} Â· {formatDisplayDateTime(message.created_at)}</p>
+                                            <p className={`mt-1 text-[9px] text-slate-400 ${isOwn ? 'text-right' : ''}`}>{senderName} · {formatDisplayDateTime(message.created_at)}</p>
                                         </div>
                                     </article>
                                 );
@@ -341,12 +341,12 @@ function ClientRequestCard({ request, permissions, isOversight, onMutate, embedd
             {!isOversight && permissions.canReply && !isTerminal && (
                 <form onSubmit={sendReply} className="mt-3 border-t border-slate-200 pt-3">
                     <label htmlFor={`request-reply-${request.id}`} className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Reply to client</label>
-                    <textarea id={`request-reply-${request.id}`} value={reply} onChange={(event) => { setReply(event.target.value); setError(''); }} rows={2} disabled={!!loading} className="mt-1.5 w-full resize-none rounded-md border border-slate-200 px-3 py-2 text-[12px] text-slate-700 outline-none focus:border-blue-900 focus:ring-1 focus:ring-blue-900/20 disabled:opacity-60" placeholder="Write a replyâ€¦" />
+                    <textarea id={`request-reply-${request.id}`} value={reply} onChange={(event) => { setReply(event.target.value); setError(''); }} rows={2} disabled={!!loading} className="mt-1.5 w-full resize-none rounded-md border border-slate-200 px-3 py-2 text-[12px] text-slate-700 outline-none focus:border-blue-900 focus:ring-1 focus:ring-blue-900/20 disabled:opacity-60" placeholder="Write a reply…" />
                     <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2">
                         <p className="text-[10px] text-slate-400">Your reply will be shared with the client.</p>
                         <button type="submit" disabled={!!loading || !reply.trim()} className="inline-flex h-[28px] items-center gap-1.5 rounded-md bg-blue-900 px-3 text-[10px] font-bold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60">
                             <span aria-hidden="true" className="material-symbols-outlined text-[13px]">{loading === 'referrals.client-requests.messages.store' ? 'progress_activity' : 'send'}</span>
-                            {loading === 'referrals.client-requests.messages.store' ? 'Sendingâ€¦' : 'Send reply'}
+                            {loading === 'referrals.client-requests.messages.store' ? 'Sending…' : 'Send reply'}
                         </button>
                     </div>
                 </form>
@@ -356,9 +356,9 @@ function ClientRequestCard({ request, permissions, isOversight, onMutate, embedd
 
             {!isOversight && permissions.canTransition && (
                 <div className="mt-3 flex flex-wrap gap-2 border-t border-slate-200 pt-3">
-                    {!isTerminal && <button type="button" onClick={() => submit('referrals.client-requests.complete', [request.id])} disabled={!!loading} className="h-[28px] rounded-md border border-emerald-200 bg-emerald-50 px-3 text-[10px] font-bold text-emerald-700 hover:bg-emerald-100 disabled:opacity-60">{loading === 'referrals.client-requests.complete' ? 'Workingâ€¦' : 'Complete'}</button>}
-                    {!isTerminal && <button type="button" onClick={() => submit('referrals.client-requests.cancel', [request.id])} disabled={!!loading} className="h-[28px] rounded-md border border-red-200 bg-red-50 px-3 text-[10px] font-bold text-red-700 hover:bg-red-100 disabled:opacity-60">{loading === 'referrals.client-requests.cancel' ? 'Workingâ€¦' : 'Cancel'}</button>}
-                    {isTerminal && <button type="button" onClick={() => submit('referrals.client-requests.reopen', [request.id])} disabled={!!loading} className="h-[28px] rounded-md border border-blue-200 bg-blue-50 px-3 text-[10px] font-bold text-blue-700 hover:bg-blue-100 disabled:opacity-60">{loading === 'referrals.client-requests.reopen' ? 'Workingâ€¦' : 'Reopen'}</button>}
+                    {!isTerminal && <button type="button" onClick={() => submit('referrals.client-requests.complete', [request.id])} disabled={!!loading} className="h-[28px] rounded-md border border-emerald-200 bg-emerald-50 px-3 text-[10px] font-bold text-emerald-700 hover:bg-emerald-100 disabled:opacity-60">{loading === 'referrals.client-requests.complete' ? 'Working…' : 'Complete'}</button>}
+                    {!isTerminal && <button type="button" onClick={() => submit('referrals.client-requests.cancel', [request.id])} disabled={!!loading} className="h-[28px] rounded-md border border-red-200 bg-red-50 px-3 text-[10px] font-bold text-red-700 hover:bg-red-100 disabled:opacity-60">{loading === 'referrals.client-requests.cancel' ? 'Working…' : 'Cancel'}</button>}
+                    {isTerminal && <button type="button" onClick={() => submit('referrals.client-requests.reopen', [request.id])} disabled={!!loading} className="h-[28px] rounded-md border border-blue-200 bg-blue-50 px-3 text-[10px] font-bold text-blue-700 hover:bg-blue-100 disabled:opacity-60">{loading === 'referrals.client-requests.reopen' ? 'Working…' : 'Reopen'}</button>}
                 </div>
             )}
 
@@ -431,7 +431,7 @@ function ClientRequestsSection({ referral, requests, permissions, isReceivingAge
                     <p className="text-[11px] text-slate-500">Secure requests and replies shared with the client.</p>
                     {canCreate && <button type="button" onClick={() => setShowCreate(true)} className="inline-flex h-[28px] items-center gap-1.5 rounded-md border border-blue-900 bg-blue-900 px-3 text-[10px] font-bold text-white hover:bg-blue-800"><span className="material-symbols-outlined text-[14px]">add</span>Request client</button>}
                 </div>
-                {isOversight && <div className="mb-3 flex items-center gap-2 rounded-md border border-sky-200 bg-sky-50 px-3 py-2"><span className="material-symbols-outlined text-[16px] text-sky-700">visibility</span><p className="text-[11px] font-semibold text-sky-800">Oversight view â€” request history and messages are read-only.</p></div>}
+                {isOversight && <div className="mb-3 flex items-center gap-2 rounded-md border border-sky-200 bg-sky-50 px-3 py-2"><span className="material-symbols-outlined text-[16px] text-sky-700">visibility</span><p className="text-[11px] font-semibold text-sky-800">Oversight view — request history and messages are read-only.</p></div>}
                 {requests.length > 1 ? (
                     <div className="overflow-hidden rounded-md border border-slate-200 bg-white md:grid md:grid-cols-[17rem_minmax(0,1fr)]">
                         <aside className="flex flex-col border-b border-slate-200 bg-slate-50/70 md:border-b-0 md:border-r">
@@ -460,9 +460,9 @@ function ClientRequestsSection({ referral, requests, permissions, isReceivingAge
                                                 </div>
                                                 <p className="mt-0.5 truncate text-[10px] text-slate-400">
                                                     {CLIENT_REQUEST_TYPES[request.type] ?? 'Client request'}
-                                                    {lastMessage?.body ? ` Â· ${lastSender}: ${lastMessage.body}` : ''}
+                                                    {lastMessage?.body ? ` · ${lastSender}: ${lastMessage.body}` : ''}
                                                 </p>
-                                                <p className="mt-0.5 text-[9px] text-slate-400">{request.messages?.length ?? 0} {request.messages?.length === 1 ? 'message' : 'messages'}{request.due_at ? ` Â· Due ${formatDisplayDateTime(request.due_at)}` : ''}</p>
+                                                <p className="mt-0.5 text-[9px] text-slate-400">{request.messages?.length ?? 0} {request.messages?.length === 1 ? 'message' : 'messages'}{request.due_at ? ` · Due ${formatDisplayDateTime(request.due_at)}` : ''}</p>
                                             </button>
                                         </li>
                                     );
@@ -490,7 +490,7 @@ function ClientRequestsSection({ referral, requests, permissions, isReceivingAge
                                 <div><label htmlFor="client_request_due_at" className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-600">Due date <span className="font-normal normal-case text-slate-400">(optional)</span></label><input id="client_request_due_at" type="date" value={createForm.data.due_at} onChange={(event) => createForm.setData('due_at', event.target.value)} className="h-10 rounded border border-slate-300 px-3 text-sm text-slate-700 outline-none focus:border-blue-700 focus:ring-1 focus:ring-blue-700" /><InputError message={createForm.errors.due_at} className="mt-1" /></div>
                                 {createForm.data.type === 'DOCUMENT_REQUEST' && <div>{referralRequirements.length > 0 && <div className="mb-3 rounded border border-indigo-100 bg-indigo-50/40 p-2.5"><p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-indigo-700">Referral requirements</p><div className="space-y-1.5">{referralRequirements.map((item) => <label key={item.id} className="flex items-start gap-2 text-[11px] text-slate-700"><input type="checkbox" checked={selectedRequirements.some((selected) => selected.id === item.id)} onChange={(event) => setSelectedRequirements((current) => event.target.checked ? [...current, item] : current.filter((selected) => selected.id !== item.id))} /><span>{item.name}</span></label>)}</div></div>}<div><div className="mb-1.5 flex items-center justify-between"><label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600">Checklist</label><button type="button" onClick={() => createForm.setData('checklist', [...createForm.data.checklist, ''])} className="text-[10px] font-bold text-blue-900 hover:underline">+ Add item</button></div><div className="space-y-2">{createForm.data.checklist.map((item, index) => <div key={index} className="flex gap-2"><input aria-label={`Checklist item ${index + 1}`} value={item} onChange={(event) => { const next = [...createForm.data.checklist]; next[index] = event.target.value; createForm.setData('checklist', next); }} className="h-9 min-w-0 flex-1 rounded border border-slate-300 px-3 text-[12px] text-slate-700" placeholder="Document or item needed" />{createForm.data.checklist.length > 1 && <button type="button" onClick={() => createForm.setData('checklist', createForm.data.checklist.filter((_, itemIndex) => itemIndex !== index))} className="text-[18px] text-slate-400">×</button>}</div>)}</div></div></div>}
                             </div>
-                            <div className="flex justify-end gap-2 border-t border-slate-200 px-5 py-3"><button type="button" onClick={() => setShowCreate(false)} className="h-9 rounded border border-slate-300 bg-white px-4 text-xs font-bold text-slate-700 hover:bg-slate-50">Cancel</button><button type="submit" disabled={createForm.processing || !createForm.data.title.trim() || !createForm.data.instructions.trim()} className="h-9 rounded bg-blue-900 px-4 text-xs font-bold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50">{createForm.processing ? 'Creatingâ€¦' : 'Create request'}</button></div>
+                            <div className="flex justify-end gap-2 border-t border-slate-200 px-5 py-3"><button type="button" onClick={() => setShowCreate(false)} className="h-9 rounded border border-slate-300 bg-white px-4 text-xs font-bold text-slate-700 hover:bg-slate-50">Cancel</button><button type="submit" disabled={createForm.processing || !createForm.data.title.trim() || !createForm.data.instructions.trim()} className="h-9 rounded bg-blue-900 px-4 text-xs font-bold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50">{createForm.processing ? 'Creating…' : 'Create request'}</button></div>
                         </form>
                     </div>
                 </div>
@@ -690,7 +690,7 @@ function ServiceAddDropdown({ referralId, selectedIds, serviceRequirements }) {
                                 >
                                     <span className="material-symbols-outlined text-[14px] text-slate-400">add_circle</span>
                                     <span className="font-medium">{svc.title}</span>
-                                    {adding === svc.id && <span className="ml-auto text-[10px] text-slate-400">Addingâ€¦</span>}
+                                    {adding === svc.id && <span className="ml-auto text-[10px] text-slate-400">Adding…</span>}
                                 </button>
                             ))}
                         </div>
@@ -1064,7 +1064,7 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                             ) : (
                                 <p className="text-[12px] text-slate-500">
                                     {isAgency
-                                        ? 'No services assigned yet â€” add the services this referral will apply for.'
+                                        ? 'No services assigned yet — add the services this referral will apply for.'
                                         : 'No services assigned yet. The agency focal will assign services for this referral.'}
                                 </p>
                             )}
@@ -1157,7 +1157,7 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                                                 {latestMilestone && (
                                                     <p className="text-[9px] text-slate-500 truncate">
                                                         <span className="material-symbols-outlined inline-block align-[-2px] text-[11px] text-emerald-500 mr-0.5">flag</span>
-                                                        {latestMilestone.title} Â· {formatRelativeTime(latestMilestone.created_at)}
+                                                        {latestMilestone.title} · {formatRelativeTime(latestMilestone.created_at)}
                                                     </p>
                                                 )}
                                             </div>
@@ -1380,7 +1380,7 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                                                             )}
                                                             {(emp.employer_name || emp.last_country || emp.country) && (
                                                                 <p className="text-[11px] text-slate-600 mt-0.5">
-                                                                    {[emp.employer_name, emp.last_country || emp.country].filter(Boolean).join(' Â· ')}
+                                                                    {[emp.employer_name, emp.last_country || emp.country].filter(Boolean).join(' · ')}
                                                                 </p>
                                                             )}
                                                         </div>
@@ -1471,7 +1471,7 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                                             {uploadingDoc ? (
                                                 <>
                                                     <span className="material-symbols-outlined text-[15px] animate-spin">progress_activity</span>
-                                                    Uploadingâ€¦
+                                                    Uploading…
                                                 </>
                                             ) : (
                                                 <>
@@ -1661,7 +1661,7 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                                 });
                             }} disabled={!decisionRemark.trim() || decisionSubmitting || (pendingDecision.mode === 'REJECT' && (!decisionReason || (decisionReason === 'OTHER' && decisionRemark.trim().length < 10)))}
                                 className="h-9 rounded bg-blue-900 px-4 text-xs font-bold text-white hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed">
-                                {decisionSubmitting ? 'Savingâ€¦' : pendingDecision.mode === 'ACCEPT'
+                                {decisionSubmitting ? 'Saving…' : pendingDecision.mode === 'ACCEPT'
                                     ? `Confirm ${pendingDecision.status === 'FOR_COMPLIANCE' ? 'For Compliance' : 'Accept'}`
                                     : 'Confirm Reject'}
                             </button>
@@ -1811,7 +1811,7 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                 onClose={() => setShowAuditLog(false)}
                 entityType="referral"
                 entityId={referral.id}
-                title={`Audit Log â€” ${referral.case_file?.case_number ?? 'Referral'}`}
+                title={`Audit Log — ${referral.case_file?.case_number ?? 'Referral'}`}
             />
             <PeerProfileModal user={peerProfileUser} show={!!peerProfileUser} onClose={() => setPeerProfileUser(null)} />
             <ConfirmDialog
@@ -1974,7 +1974,7 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                         <div className="flex max-h-[60vh] flex-col">
                             <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4">
                                 {threadLoading ? (
-                                    <p className="py-2 text-center text-[11px] italic text-slate-400">Loading messagesâ€¦</p>
+                                    <p className="py-2 text-center text-[11px] italic text-slate-400">Loading messages…</p>
                                 ) : threadMessages.length === 0 ? (
                                     <p className="py-2 text-center text-[11px] italic text-slate-400">No messages yet. Start the conversation below.</p>
                                 ) : (
@@ -1993,7 +1993,7 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                                                     <p className="text-[9px] font-extrabold uppercase tracking-[0.08em] text-slate-500">
                                                         {msg.sender?.name ?? 'Unknown'}
                                                         {msg.sender?.agency?.name && msg.sender.agency.name !== selectedRelatedReferral.agency?.name && (
-                                                            <span className="mx-1 font-semibold normal-case text-slate-400">Â· {msg.sender.agency.name}</span>
+                                                            <span className="mx-1 font-semibold normal-case text-slate-400">· {msg.sender.agency.name}</span>
                                                         )}
                                                     </p>
                                                     <p className="text-[9px] text-slate-400">{formatDisplayDateTime(msg.created_at)}</p>
@@ -2018,7 +2018,7 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                                     onChange={(e) => setThreadDraft(e.target.value)}
                                     rows={2}
                                     disabled={threadSending}
-                                    placeholder={`Message to ${selectedRelatedReferral.agency?.name ?? 'agency'}â€¦`}
+                                    placeholder={`Message to ${selectedRelatedReferral.agency?.name ?? 'agency'}…`}
                                     className="flex-1 resize-none rounded-md border border-slate-200 bg-white px-3 py-2 text-[11px] text-slate-700 outline-none transition-colors focus:border-blue-900 focus:ring-1 focus:ring-blue-900 disabled:opacity-60"
                                 />
                                 <button
@@ -2026,7 +2026,7 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                                     disabled={threadSending || !threadDraft.trim()}
                                     className="inline-flex h-[34px] items-center rounded-md border border-blue-900 bg-blue-900 px-4 text-[10px] font-bold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
                                 >
-                                    {threadSending ? 'Sendingâ€¦' : 'Send'}
+                                    {threadSending ? 'Sending…' : 'Send'}
                                 </button>
                             </form>
                         </div>

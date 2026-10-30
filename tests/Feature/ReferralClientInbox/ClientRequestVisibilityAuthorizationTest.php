@@ -45,6 +45,13 @@ class ClientRequestVisibilityAuthorizationTest extends ReferralClientInboxTestCa
         ])->assertRedirect();
 
         $this->actingAs($context['otherAgencyUser'])->get(route('referrals.client-requests.attachments.download', [$context['referral']->id, $context['attachment']->id]))->assertRedirect();
+
+        $unselectedAgencyUser = $context['otherAgencyUser']->replicate();
+        $unselectedAgencyUser->id = (string) str()->uuid();
+        $unselectedAgencyUser->email = 'unselected@example.test';
+        $unselectedAgencyUser->agcy_id = $context['thirdAgency']->id;
+        $unselectedAgencyUser->save();
+        $this->actingAs($unselectedAgencyUser)->get(route('referrals.client-requests.attachments.download', [$context['referral']->id, $context['attachment']->id]))->assertForbidden();
     }
 
     public function test_inactive_referral_denies_other_agency_even_when_selected(): void
@@ -63,6 +70,14 @@ class ClientRequestVisibilityAuthorizationTest extends ReferralClientInboxTestCa
         Config::set('filesystems.default', 'object-storage');
         Storage::fake('object-storage');
         $context = $this->context();
+        $thirdAgency = $context['otherAgency']->replicate();
+        $thirdAgency->id = (string) str()->uuid();
+        $thirdAgency->name = 'Third Agency';
+        $thirdAgency->short = 'THIRD';
+        $thirdAgency->slug = 'third-agency';
+        $thirdAgency->save();
+        $context['thirdAgency'] = $thirdAgency;
+
         $otherReferral = $context['referral']->replicate();
         $otherReferral->id = (string) str()->uuid();
         $otherReferral->agcy_id = $context['otherAgency']->id;
