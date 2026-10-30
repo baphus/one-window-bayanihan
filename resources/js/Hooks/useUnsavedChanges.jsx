@@ -8,6 +8,7 @@ export default function useUnsavedChanges(dirty, { onDiscard, onSaveDraft } = {}
   const dirtyRef = useRef(dirty);
   const pendingVisitRef = useRef(null);
   const bypassRef = useRef(false);
+  const allowReloadRef = useRef(false);
 
   dirtyRef.current = dirty;
 
@@ -23,9 +24,18 @@ export default function useUnsavedChanges(dirty, { onDiscard, onSaveDraft } = {}
       // with no warning. The flag is one-shot for whichever visit comes next.
       const bypassed = bypassRef.current;
       bypassRef.current = false;
-      if (bypassed) return;
+      if (bypassed) {
+        if (visit.method !== 'get') {
+          allowReloadRef.current = window.location.href.split('?')[0];
+        }
+        return;
+      }
 
       if (visit.method !== 'get') return;
+      if (allowReloadRef.current && visit.url.split('?')[0] === allowReloadRef.current) {
+        allowReloadRef.current = false;
+        return;
+      }
 
       if (dirtyRef.current) {
         event.preventDefault();
