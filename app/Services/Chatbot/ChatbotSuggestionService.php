@@ -6,7 +6,7 @@ use App\Enums\UserRole;
 use App\Models\Agency;
 
 /**
- * Builds the quick-suggestion replies shown in the chatbot welcome card.
+ * Builds frequently asked questions shown in the chatbot welcome card.
  * Suggestions are role-aware: OFW/guest users see public-facing help,
  * while ADMIN, CASE_MANAGER, and AGENCY users see internal help relevant
  * to their workflow.

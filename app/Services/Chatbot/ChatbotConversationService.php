@@ -3,7 +3,6 @@
 namespace App\Services\Chatbot;
 
 use App\Ai\Agents\HelpdeskAgent;
-use App\Ai\Tools\GetAgencyServices;
 use App\Ai\Tools\ReadHelpdeskArticle;
 use App\Ai\Tools\SearchHelpdesk;
 use Illuminate\Http\Client\RequestException;
@@ -44,7 +43,7 @@ class ChatbotConversationService
                 $message .= "\n\nPrevious article hint (not evidence): ".$hint['source_label'];
             }
             $agent = new HelpdeskAgent([
-                new SearchHelpdesk($this->knowledge, $audience, $turn), new ReadHelpdeskArticle($this->knowledge, $audience, $turn), new GetAgencyServices($turn),
+                new SearchHelpdesk($this->knowledge, $audience, $turn), new ReadHelpdeskArticle($this->knowledge, $audience, $turn),
             ], $history);
             // Scope the remaining deadline to all HTTP requests in this synchronous turn.
             $scopedHttp = clone $http;

@@ -155,17 +155,39 @@ function formatTime(date) {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-function WelcomeCard({ suggestions, onSuggestionClick, onClose }) {
-    const labels = suggestions ? Object.keys(suggestions) : [];
+function StreamingMarkdown({ text, stream, remarkPlugins, rehypePlugins, components }) {
+    const [visible, setVisible] = useState(stream ? '' : text);
+
+    useEffect(() => {
+        if (!stream) {
+            setVisible(text);
+            return undefined;
+        }
+
+        let position = 0;
+        const timer = setInterval(() => {
+            position = Math.min(text.length, position + Math.max(1, Math.ceil((text.length - position) / 18)));
+            setVisible(text.slice(0, position));
+            if (position >= text.length) clearInterval(timer);
+        }, 24);
+
+        return () => clearInterval(timer);
+    }, [text, stream]);
+
+    return <ReactMarkdown remarkPlugins={remarkPlugins} rehypePlugins={rehypePlugins} components={components}>{visible}</ReactMarkdown>;
+}
+
+function FrequentlyAskedQuestions({ suggestions, onQuestionClick, onClose }) {
+    const questions = suggestions ? Object.keys(suggestions) : [];
     return (
         <div className="relative animate-in fade-in slide-in-from-bottom-2 rounded-none bg-white px-5 py-3 shadow-sm ring-1 ring-outline-variant/60 duration-300">
             <div className="flex items-center justify-between mb-2">
-                <p className="text-[11px] font-semibold text-on-surface-variant">Quick help</p>
+                <p className="text-[11px] font-semibold text-on-surface-variant">Frequently asked questions</p>
                 <button
                     type="button"
                     onClick={onClose}
                     className="flex h-5 w-5 items-center justify-center rounded text-on-surface-variant/50 transition-all hover:bg-surface-container-low hover:text-on-surface-variant"
-                    aria-label="Hide quick help"
+                    aria-label="Hide frequently asked questions"
                 >
                     <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -173,14 +195,14 @@ function WelcomeCard({ suggestions, onSuggestionClick, onClose }) {
                 </button>
             </div>
             <div className="flex flex-wrap gap-1.5">
-                {labels.map((label) => (
+                {questions.map((question) => (
                     <button
-                        key={label}
+                        key={question}
                         type="button"
-                        onClick={() => onSuggestionClick(label)}
+                        onClick={() => onQuestionClick(question)}
                         className="rounded-full bg-primary/10 px-3 py-1.5 text-[11px] font-medium text-primary transition-all hover:bg-primary/20 hover:shadow-sm active:scale-95"
                     >
-                        {label}
+                        {question}
                     </button>
                 ))}
             </div>
@@ -335,7 +357,7 @@ function ChatBotSession() {
             }
             setMessages((prev) => [
                 ...prev,
-                { role: 'bot', text: data.reply, time: new Date(), actions: data.actions || [], sources: data.sources || [] },
+                { role: 'bot', text: data.reply, stream: true, time: new Date(), actions: data.actions || [], sources: data.sources || [] },
             ]);
             // Store context for follow-up augmentation on next turn
             setLastContext(data.lastContext || null);
@@ -405,7 +427,9 @@ function ChatBotSession() {
                             </div>
                             <div className="overflow-hidden rounded-xl bg-white text-sm leading-relaxed text-on-surface shadow-sm ring-1 ring-outline-variant/60">
                                 <div className="chatbot-markdown px-4 py-3">
-                                    <ReactMarkdown
+                                    <StreamingMarkdown
+                                         text={msg.text}
+                                         stream={msg.stream}
                                         remarkPlugins={[remarkGfm]}
                                         rehypePlugins={[rehypeSanitize]}
                                         components={{
@@ -456,8 +480,7 @@ function ChatBotSession() {
                                             ),
                                         }}
                                     >
-                                        {msg.text}
-                                    </ReactMarkdown>
+                                        </StreamingMarkdown>
                                 </div>
                                 <ChatbotSources sources={msg.sources} />
                                 {msg.actions && msg.actions.length > 0 && (
@@ -590,7 +613,7 @@ function ChatBotSession() {
                         {/* ── Welcome card / quick help (stuck below header, not scrollable) ── */}
                         {!loading && quickHelpVisible && (
                             <div className="shrink-0">
-                                <WelcomeCard suggestions={chatbot?.suggestions} onSuggestionClick={handleSuggestionClick} onClose={() => setQuickHelpVisible(false)} />
+                                <FrequentlyAskedQuestions suggestions={chatbot?.suggestions} onQuestionClick={handleSuggestionClick} onClose={() => setQuickHelpVisible(false)} />
                             </div>
                         )}
                         {!loading && !quickHelpVisible && (
