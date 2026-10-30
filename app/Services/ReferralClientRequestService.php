@@ -42,6 +42,24 @@ class ReferralClientRequestService
             throw new InvalidArgumentException('Document requests require at least one checklist item.');
         }
 
+        $sourceRequirementIds = collect($items)
+            ->filter(static fn ($item): bool => is_array($item))
+            ->flatMap(static fn (array $item): array => array_merge(
+                [$item['source_requirement_id'] ?? null],
+                $item['source_requirement_ids'] ?? [],
+            ))
+            ->filter()
+            ->unique()
+            ->values();
+        if ($sourceRequirementIds->isNotEmpty()) {
+            $validRequirementIds = $referral->serviceRequirements()
+                ->whereIn('id', $sourceRequirementIds)
+                ->pluck('id');
+            if ($validRequirementIds->count() !== $sourceRequirementIds->count()) {
+                throw new InvalidArgumentException('One or more selected requirements do not belong to this referral.');
+            }
+        }
+
         $request = DB::transaction(function () use ($referral, $actor, $data, $type, $items) {
             $request = ReferralClientRequest::create([
                 'referral_id' => $referral->id,
@@ -53,11 +71,27 @@ class ReferralClientRequestService
                 'due_at' => $data['due_at'] ?? null,
             ]);
 
+            $seen = [];
             foreach ($items as $position => $item) {
-                $request->items()->create([
-                    'label' => is_array($item) ? $item['label'] : $item,
+                $label = is_array($item) ? $item['label'] : $item;
+                $canonicalKey = is_array($item) ? ($item['canonical_key'] ?? null) : null;
+                $canonicalKey ??= preg_replace('/[^a-z0-9]+/', '_', strtolower(trim($label)));
+                if (isset($seen[$canonicalKey])) {
+                    continue;
+                }
+                $seen[$canonicalKey] = true;
+                $requestItem = $request->items()->create([
+                    'source_requirement_id' => is_array($item) ? ($item['source_requirement_id'] ?? null) : null,
+                    'label' => $label,
+                    'description' => is_array($item) ? ($item['description'] ?? null) : null,
+                    'canonical_key' => $canonicalKey,
                     'sort_order' => is_array($item) ? ($item['sort_order'] ?? $position) : $position,
                 ]);
+                if (is_array($item) && ! empty($item['source_requirement_ids'])) {
+                    $requestItem->sourceRequirements()->sync($item['source_requirement_ids']);
+                } elseif ($requestItem->source_requirement_id) {
+                    $requestItem->sourceRequirements()->sync([$requestItem->source_requirement_id]);
+                }
             }
 
             $milestone = Milestone::create([
@@ -121,7 +155,7 @@ class ReferralClientRequestService
     }
 
     /** Add a client message; link token validation belongs to the access service. */
-    public function sendClientMessage(ReferralClientRequest $request, string $body, ReferralClientAccessLink $accessLink, array $files = []): ReferralClientMessage
+    public function sendClientMessage(ReferralClientRequest $request, string $body, ReferralClientAccessLink $accessLink, array $files = [], array $requestItemIds = []): ReferralClientMessage
     {
         if (trim($body) === '' && $files === []) {
             throw new InvalidArgumentException('A message or at least one attachment is required.');
@@ -139,7 +173,7 @@ class ReferralClientRequestService
             }
         }
 
-        [$message, $referral] = DB::transaction(function () use ($request, $body, $accessLink, $files) {
+        [$message, $referral] = DB::transaction(function () use ($request, $body, $accessLink, $files, $requestItemIds) {
             $lockedRequest = ReferralClientRequest::query()
                 ->lockForUpdate()
                 ->findOrFail($request->id);
@@ -165,18 +199,33 @@ class ReferralClientRequestService
                 'kind' => ReferralClientMessage::KIND_MESSAGE,
             ]);
 
-            foreach ($files as $file) {
+            $items = $lockedRequest->items()->whereIn('id', array_filter($requestItemIds))->get()->keyBy('id');
+            foreach ($files as $index => $file) {
+                $itemId = $requestItemIds[$index] ?? null;
+                if ($itemId !== null && ! $items->has($itemId)) {
+                    throw new AuthorizationException('Invalid document request item.');
+                }
+
                 $result = $this->storage->store($file, 'client-request-attachments/'.$lockedRequest->id);
                 if (! $result->success) {
                     throw new InvalidArgumentException($result->error ?? 'Failed to store attachment.');
                 }
 
-                $message->attachments()->create([
+                $attachment = $message->attachments()->create([
+                    'request_item_id' => $itemId,
                     'file_name' => $result->originalName,
                     'file_path' => $result->path,
                     'file_type' => $result->type,
                     'size' => $result->size,
+                    'review_status' => 'PENDING',
+                    'visibility' => 'HIDDEN',
+                    'sha256' => hash_file('sha256', $file->getRealPath()),
                 ]);
+
+                if ($itemId !== null) {
+                    $items[$itemId]->update(['status' => 'SUBMITTED', 'submitted_at' => now()]);
+                    $items[$itemId]->attachments()->where('id', '<>', $attachment->id)->update(['is_deleted' => true, 'deleted_at' => now()]);
+                }
             }
 
             $lockedRequest->update(['status' => ReferralClientRequest::STATUS_CLIENT_RESPONDED]);

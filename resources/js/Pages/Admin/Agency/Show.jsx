@@ -2,6 +2,7 @@ import AppLayout from '@/Layouts/AppLayout';
 import { Head, router, Link, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 import StatusBadge from '@/Components/ui/StatusBadge';
+import KpiCard from '@/Components/ui/KpiCard';
 import ServiceFormModal from '@/Components/Admin/ServiceFormModal';
 import UserFormModal from '@/Components/Admin/UserFormModal';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
@@ -137,10 +138,16 @@ export default function AdminAgencyShow({ agency, referrals }) {
       <Head title={agency.name} />
 
       {/* ── Header ── */}
-      <header className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-6">
+      <div className="mb-5">
+        <Link href={route('admin.agencies.index')} className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-slate-500 transition hover:text-blue-900">
+          <span className="material-symbols-outlined text-[16px]">arrow_back</span>
+          Back to Agencies
+        </Link>
+      </div>
+      <header className="mx-auto mb-6 flex max-w-[1440px] flex-col items-start justify-between gap-4 md:flex-row md:items-end">
         <div>
-          <h1 className="text-2xl md:text-3xl font-extrabold font-headline tracking-tight text-slate-900">{agency.name}</h1>
-          <p className="text-sm text-slate-400 font-body mt-0.5">Agency details, services, and focal persons.</p>
+          <h1 className="text-[28px] font-extrabold leading-tight tracking-[-0.02em] text-[#172333]">{agency.name}</h1>
+          <p className="mt-2 text-[11px] leading-5 text-[#607080]">Agency profile, services, referrals, and focal persons</p>
         </div>
         <div className="flex items-center gap-3 shrink-0">
           {isAdmin && !isEditing && (
@@ -148,18 +155,16 @@ export default function AdminAgencyShow({ agency, referrals }) {
               Edit Agency
             </button>
           )}
-          {isAdmin && (
-            <Link href={route('admin.agencies.index')} className="px-4 py-2 text-sm font-medium text-white bg-blue-900 rounded-md hover:bg-blue-800 transition-colors shrink-0">&larr; Back to Agencies</Link>
-          )}
         </div>
       </header>
 
       {/* ── Agency Editor / Info Cards ── */}
       <form onSubmit={handleSave}>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+        <div className="mb-8 rounded-xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
+          <div className="grid grid-cols-1 gap-x-6 gap-y-5 md:grid-cols-2 lg:grid-cols-3">
 
           {/* Name */}
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+          <div className="border-b border-slate-100 pb-4">
             <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Name</p>
             {isEditing ? (
               <>
@@ -172,7 +177,7 @@ export default function AdminAgencyShow({ agency, referrals }) {
           </div>
 
           {/* Short Name */}
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+          <div className="border-b border-slate-100 pb-4">
             <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Short Name</p>
             {isEditing ? (
               <>
@@ -185,13 +190,14 @@ export default function AdminAgencyShow({ agency, referrals }) {
           </div>
 
           {/* Total Referrals */}
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Total Referrals</p>
-            <p className="text-2xl font-black text-slate-900">{agency.referrals_count ?? 0}</p>
-          </div>
+          <KpiCard
+            label="Total referrals"
+            value={agency.referrals_count}
+            icon="sync_alt"
+          />
 
           {/* Description */}
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 col-span-full">
+          <div className="border-b border-slate-100 pb-4 md:col-span-2 lg:col-span-3">
             <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Description</p>
             {isEditing ? (
               <>
@@ -204,7 +210,7 @@ export default function AdminAgencyShow({ agency, referrals }) {
           </div>
 
           {/* Contact Info */}
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+          <div className="border-b border-slate-100 pb-4">
             <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Contact Info</p>
             {isEditing ? (
               <>
@@ -217,7 +223,7 @@ export default function AdminAgencyShow({ agency, referrals }) {
           </div>
 
           {/* Status */}
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+          <div className="border-b border-slate-100 pb-4">
             <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Status</p>
             {isEditing ? (
               <div className="flex items-center gap-2 mt-1">
@@ -236,7 +242,7 @@ export default function AdminAgencyShow({ agency, referrals }) {
           </div>
 
           {/* Logo */}
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+          <div className="border-b border-slate-100 pb-4">
             <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Logo</p>
             {isEditing ? (
               <>
@@ -253,7 +259,7 @@ export default function AdminAgencyShow({ agency, referrals }) {
           </div>
 
           {/* Location / Map */}
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 col-span-full">
+          <div className="border-b border-slate-100 pb-4 md:col-span-2 lg:col-span-3">
             <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Location</p>
             {isEditing ? (
               <>
@@ -290,6 +296,7 @@ export default function AdminAgencyShow({ agency, referrals }) {
                 embedHeight="200px"
               />
             )}
+          </div>
           </div>
         </div>
 

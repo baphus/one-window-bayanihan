@@ -6,6 +6,7 @@ import { RowContextMenu, RowContextMenuItem } from '@/Components/ui/RowContextMe
 import StatusBadge from '@/Components/ui/StatusBadge';
 import { formatDisplayDate, formatDisplayTime, getCategoryFilterIds } from '@/lib/utils';
 import { Users, UserCheck, Shield, ArrowRightLeft } from 'lucide-react';
+import KpiCard from '@/Components/ui/KpiCard';
 import ExportDialog from '@/Components/ExportDialog';
 import ExportExcelButton from '@/Components/ExportExcelButton';
 import usePersistedColumns from '@/Hooks/usePersistedColumns';
@@ -818,7 +819,7 @@ export default function ClientIndex({ clients, filters: rawFilters, stats, users
       </header>
 
       <div data-tour="clients-stats">
-        <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+        <section className="grid grid-cols-2 gap-3 mb-6 lg:grid-cols-4">
           <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
             <div className="flex items-start justify-between mb-2">
               <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Total Clients</p>

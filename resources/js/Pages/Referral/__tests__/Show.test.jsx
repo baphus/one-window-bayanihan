@@ -196,6 +196,54 @@ describe('Referral/Show client request permissions', () => {
     expect(document.querySelector('iframe[title="contract.pdf"]')).toBeNull();
   });
 
+  it('shows grouped referral requirements for request creation and deduplicates shared labels', () => {
+    state.role = 'AGENCY';
+    render(
+      <ReferralShow
+        referral={{ ...referral, service_requirements: [
+          { id: 'req-1', name: 'Valid ID', description: 'Government ID', service_id: 'service-1' },
+          { id: 'req-2', name: 'Valid ID', description: 'Government ID', service_id: 'service-2' },
+          { id: 'req-3', name: 'Payslip', description: 'Latest payslip', service_id: 'service-1' },
+        ], services: [{ id: 'service-1', name: 'Financial Aid' }, { id: 'service-2', name: 'Job Placement' }] }}
+        clientRequestHistory={requestHistory}
+        clientRequestPermissions={{ canCreate: true, canReply: true, canTransition: true, canRevokeAccess: true }}
+        timeline={[]}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Request client/i }));
+    expect(screen.getByText('Referral requirements')).toBeInTheDocument();
+    expect(screen.getAllByText('Valid ID').length).toBeGreaterThan(0);
+    expect(screen.getByText('Payslip')).toBeInTheDocument();
+    expect(screen.getAllByRole('checkbox')).toHaveLength(3);
+  });
+
+  it('shows selected-agency visibility controls for reviewed client documents', () => {
+    state.role = 'AGENCY';
+    const reviewedHistory = [{ ...requestHistory[0], messages: [{ id: 'message-1', sender_kind: 'CLIENT_ACCESS', body: 'Document', attachments: [{ id: 'attachment-1', file_name: 'id.pdf', file_type: 'application/pdf', size: 100, request_item_id: 'item-1', review_status: 'ACCEPTED', visibility: 'HIDDEN' }] }] }];
+    render(
+      <ReferralShow
+        referral={{ ...referral, case_file: { ...referral.case_file, referrals: [{ agency: { id: 'agency-1', name: 'Requesting Agency' } }, { agency: { id: 'agency-2', name: 'Partner Agency' } }] } }}
+        clientRequestHistory={reviewedHistory}
+        clientRequestPermissions={{ canCreate: true, canReply: true, canTransition: true, canRevokeAccess: true }}
+        timeline={[]}
+      />,
+    );
+
+    expect(screen.getAllByRole('combobox').length).toBeGreaterThan(0);
+    fireEvent.change(screen.getAllByRole('combobox')[0], { target: { value: 'ACCEPTED' } });
+    expect(screen.getByRole('option', { name: 'Selected agencies' })).toBeInTheDocument();
+  });
+
+  it('shows selected agency picker after choosing selected visibility', () => {
+    state.role = 'AGENCY';
+    const reviewedHistory = [{ ...requestHistory[0], messages: [{ id: 'message-1', sender_kind: 'CLIENT_ACCESS', body: 'Document', attachments: [{ id: 'attachment-1', file_name: 'id.pdf', file_type: 'application/pdf', size: 100, request_item_id: 'item-1', review_status: 'ACCEPTED', visibility: 'HIDDEN' }] }] }];
+    render(<ReferralShow referral={{ ...referral, case_file: { ...referral.case_file, referrals: [{ agency: { id: 'agency-2', name: 'Partner Agency' } }] } }} clientRequestHistory={reviewedHistory} clientRequestPermissions={{ canCreate: true, canReply: true, canTransition: true, canRevokeAccess: true }} timeline={[]} />);
+    const visibility = screen.getAllByRole('combobox').find((select) => Array.from(select.options).some((option) => option.textContent === 'Selected agencies'));
+    fireEvent.change(visibility, { target: { value: 'SELECTED' } });
+    expect(screen.getByRole('option', { name: 'Partner Agency' })).toBeInTheDocument();
+  });
+
   it('shows a conversation list and switches between multiple client requests', () => {
     state.role = 'AGENCY';
     const twoRequests = [

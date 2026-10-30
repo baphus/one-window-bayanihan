@@ -83,6 +83,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
     { value: 'case_opened',  label: 'Case Opened' },
     { value: 'referral',     label: 'Referrals' },
     { value: 'referral_status_changed', label: 'Status Updates' },
+    { value: 'lifecycle', label: 'Lifecycle' },
     { value: 'milestone_added',    label: 'Milestones' },
     { value: 'case_closed',  label: 'Case Closed' },
   ];
@@ -99,19 +100,27 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
 
   const filteredTimeline = useMemo(() => {
     if (!milestoneTimeline) return [];
-    let items = [...milestoneTimeline];
+    let items = [...milestoneTimeline, ...(lifecycle || []).map((event) => ({
+      type: 'case_lifecycle',
+      title: event.label,
+      description: event.actor ? `${event.actor}${event.role ? ` (${event.role})` : ''}` : event.label,
+      date: event.at,
+    }))];
     if (timelineAgencyFilter !== 'ALL') {
       items = items.filter(i => i.agency === timelineAgencyFilter);
     }
     if (timelineTypeFilter === 'referral') {
       items = items.filter(i => i.type === 'referral_sent' || i.type === 'referral_status_changed');
+    } else if (timelineTypeFilter === 'lifecycle') {
+      items = items.filter(i => i.type === 'case_lifecycle');
     } else if (timelineTypeFilter !== 'ALL') {
       items = items.filter(i => i.type === timelineTypeFilter);
     }
     // Newest-first ordering is enforced inside UnifiedTimeline — never reverse here.
     return items;
-  }, [milestoneTimeline, timelineAgencyFilter, timelineTypeFilter]);
+  }, [milestoneTimeline, lifecycle, timelineAgencyFilter, timelineTypeFilter]);
 
+  const timelineEventCount = (milestoneTimeline?.length || 0) + (lifecycle?.length || 0);
   const hasActiveFilters = timelineAgencyFilter !== 'ALL' || timelineTypeFilter !== 'ALL';
 
   const clearFilters = () => {
@@ -126,6 +135,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [showReferralPrompt, setShowReferralPrompt] = useState(!!page.props.just_published);
   const [showOverdueInfo, setShowOverdueInfo] = useState(false);
+  const [showReferralBlockingInfo, setShowReferralBlockingInfo] = useState(false);
   const [showAuditLog, setShowAuditLog] = useState(false);
   const [confirmDeleteDoc, setConfirmDeleteDoc] = useState(null);
   const [confirmToggleStatus, setConfirmToggleStatus] = useState(false);
@@ -584,25 +594,6 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
             <p className="border-t border-[#dce3eb] px-5 py-3 text-center text-[11px] text-slate-400">Close Case is unavailable while referrals are active. All referrals must be completed or rejected.</p>
           </section>
 
-          {lifecycle.length > 0 && (
-            <section className="rounded-xl border border-[#dce3eb] bg-white shadow-[0_1px_3px_rgba(23,35,51,0.04)]">
-              <CardHeader title="Case Lifecycle" meta={`${lifecycle.length} transition${lifecycle.length === 1 ? '' : 's'}`} />
-              <ol className="divide-y divide-slate-100 px-5 pb-5">
-                {lifecycle.map((event, index) => (
-                  <li key={`${event.action}-${event.at}-${index}`} className="flex items-start justify-between gap-3 py-2.5">
-                    <div>
-                      <p className="text-[12px] font-semibold text-slate-700">{event.label}</p>
-                      <p className="text-[11px] text-slate-500">
-                        {event.actor}{event.role ? ` (${event.role})` : ''}
-                      </p>
-                    </div>
-                    <span className="whitespace-nowrap text-[10px] text-slate-400">{event.at ? formatDisplayDateTime(event.at) : ''}</span>
-                  </li>
-                ))}
-              </ol>
-            </section>
-          )}
-
           {/* Referrals table */}
           <section data-tour="case-referrals" className="rounded-xl border border-[#dce3eb] bg-white shadow-[0_1px_3px_rgba(23,35,51,0.04)]">
             <CardHeader
@@ -647,10 +638,20 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
             <div className="space-y-3 px-5 pb-5">
               {caseFile.status === 'OPEN' && hasActiveReferrals && (
                 <div className="flex items-start gap-2.5 rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5">
-                  <span className="material-symbols-outlined text-[16px] text-amber-600 shrink-0 mt-px">warning</span>
-                  <p className="text-[11px] leading-5 text-amber-800">
-                    This case cannot be closed until all referrals are completed or rejected. Resolve the active referrals below first.
-                  </p>
+                  <button
+                    type="button"
+                    aria-label="Show referral closure requirement"
+                    aria-expanded={showReferralBlockingInfo}
+                    onClick={() => setShowReferralBlockingInfo((prev) => !prev)}
+                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-amber-700 transition-colors hover:bg-amber-100"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">info</span>
+                  </button>
+                  {showReferralBlockingInfo && (
+                    <p className="text-[11px] leading-5 text-amber-800">
+                      This case cannot be closed until all referrals are completed or rejected. Resolve the active referrals below first.
+                    </p>
+                  )}
                 </div>
               )}
               <UnifiedTable

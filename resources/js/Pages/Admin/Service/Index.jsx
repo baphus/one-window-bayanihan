@@ -2,6 +2,7 @@ import AppLayout from '@/Layouts/AppLayout';
 import { Head, router } from '@inertiajs/react';
 import { useState, useMemo } from 'react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
+import KpiCard from '@/Components/ui/KpiCard';
 import { RowContextMenu, RowContextMenuItem } from '@/Components/ui/RowContextMenu';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import useTableVisitLoading from '@/Hooks/useTableVisitLoading';
@@ -9,7 +10,7 @@ import ConfirmDialog from '@/Components/ui/ConfirmDialog';
 
 import ServiceFormModal from '@/Components/Admin/ServiceFormModal';
 
-export default function AdminServiceIndex({ services, allAgencies }) {
+export default function AdminServiceIndex({ services, allAgencies, stats = {} }) {
   const [showForm, setShowForm] = useState(false);
   const [editingService, setEditingService] = useState(null);
   const [contextMenu, setContextMenu] = useState(null);
@@ -96,6 +97,12 @@ export default function AdminServiceIndex({ services, allAgencies }) {
           + New Service
         </button>
       </div>
+
+      <section data-tour="admin-services-stats" className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <KpiCard label="Total services" value={stats.total} icon="medical_services" iconBg="bg-blue-50" iconColor="text-blue-900" />
+        <KpiCard label="Active agencies" value={stats.active_agencies} icon="business" iconBg="bg-emerald-50" iconColor="text-emerald-600" tone="positive" />
+        <KpiCard label="Total requirements" value={stats.requirements} icon="checklist" iconBg="bg-violet-50" iconColor="text-violet-600" />
+      </section>
 
       <div data-tour="admin-services-table">
       <UnifiedTable

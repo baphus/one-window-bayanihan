@@ -181,7 +181,10 @@ function AttachmentThumb({ attachment, href, onPreview }) {
     );
 }
 
-function ClientRequestCard({ request, permissions, isOversight, onMutate, embedded = false }) {
+function ClientRequestCard({ request, permissions, isOversight, onMutate, embedded = false, activeAgencies = [] }) {
+    const [reviewingAttachment, setReviewingAttachment] = useState({});
+    const [attachmentVisibility, setAttachmentVisibility] = useState({});
+    const [selectedAgencies, setSelectedAgencies] = useState({});
     const [reply, setReply] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(null);
@@ -200,6 +203,21 @@ function ClientRequestCard({ request, permissions, isOversight, onMutate, embedd
             preserveScroll: true,
             onSuccess: reloadRequests,
             onError: (errors) => setError(Object.values(errors ?? {}).flat().find(Boolean) || 'Unable to complete this action.'),
+            onFinish: () => setLoading(null),
+        });
+    }
+
+    function reviewAttachment(attachment, reviewStatus, visibility = attachment.visibility ?? 'HIDDEN') {
+        if (loading || !permissions.canReply) return;
+        setLoading(`review-${attachment.id}`);
+        router.patch(route('referrals.client-requests.attachments.review', [attachment.id]), {
+            review_status: reviewStatus,
+            visibility,
+            agency_ids: visibility === 'SELECTED' ? (selectedAgencies[attachment.id] ?? []) : [],
+        }, {
+            preserveScroll: true,
+            onSuccess: reloadRequests,
+            onError: (errors) => setError(Object.values(errors ?? {}).flat().find(Boolean) || 'Unable to review document.'),
             onFinish: () => setLoading(null),
         });
     }
@@ -275,7 +293,18 @@ function ClientRequestCard({ request, permissions, isOversight, onMutate, embedd
                                                             const isPdf = fileType === 'application/pdf';
                                                             return (
                                                                 <div key={attachment.id} className="flex items-center gap-1.5">
-                                                                    {isImage
+                                                                    {!isOwn && attachment.request_item_id && (
+                                                                         <div className="flex shrink-0 flex-col gap-1">
+                                                                             <select value={reviewingAttachment?.[attachment.id] ?? attachment.review_status ?? 'PENDING'} onChange={(event) => setReviewingAttachment((current) => ({ ...current, [attachment.id]: event.target.value }))} className="rounded border border-slate-200 px-1 py-0.5 text-[9px]">
+                                                                                 <option value="PENDING">Pending</option>
+                                                                                 <option value="ACCEPTED">Accept</option>
+                                                                                 <option value="REJECTED">Reject</option>
+                                                                                 <option value="NEEDS_REVISION">Needs revision</option>
+                                                                             </select>
+                                                                             <select value={attachmentVisibility[attachment.id] ?? attachment.visibility ?? 'HIDDEN'} onChange={(event) => setAttachmentVisibility((current) => ({ ...current, [attachment.id]: event.target.value }))} className="rounded border border-slate-200 px-1 py-0.5 text-[9px]"><option value="HIDDEN">Hidden</option><option value="ALL">All agencies</option><option value="SELECTED">Selected agencies</option></select>{(attachmentVisibility[attachment.id] ?? attachment.visibility) === 'SELECTED' && <select multiple value={selectedAgencies[attachment.id] ?? []} onChange={(event) => setSelectedAgencies((current) => ({ ...current, [attachment.id]: Array.from(event.target.selectedOptions, (option) => option.value) }))} className="max-w-[150px] rounded border border-slate-200 px-1 py-0.5 text-[9px]">{activeAgencies.map((agency) => <option key={agency.id} value={agency.id}>{agency.name}</option>)}</select>}<button type="button" onClick={() => reviewAttachment(attachment, reviewingAttachment?.[attachment.id] ?? 'PENDING', attachmentVisibility[attachment.id] ?? attachment.visibility ?? 'HIDDEN')} className="text-[9px] font-bold text-blue-900">Save review</button>
+                                                                         </div>
+                                                                     )}
+                                                                     {isImage
                                                                         ? <AttachmentThumb attachment={attachment} href={downloadHref} onPreview={() => setPreview(attachment)} />
                                                                         : isPdf
                                                                             ? <button type="button" onClick={() => setPreview(attachment)} aria-label={`Preview ${attachment.file_name}`} title={`Preview ${attachment.file_name}`} className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border transition-colors ${isOwn ? 'border-white/20 bg-white/10 text-blue-100 hover:bg-white/20' : 'border-slate-200 bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
@@ -375,10 +404,12 @@ function ClientRequestCard({ request, permissions, isOversight, onMutate, embedd
     );
 }
 
-function ClientRequestsSection({ referral, requests, permissions, isReceivingAgency, isCaseManager, isAdmin }) {
+function ClientRequestsSection({ referral, requests, permissions, isReceivingAgency, isCaseManager, isAdmin, activeAgencies = [] }) {
     const [showCreate, setShowCreate] = useState(false);
     const [selectedRequestId, setSelectedRequestId] = useState(null);
     const createForm = useForm({ type: 'DOCUMENT_REQUEST', title: '', instructions: '', due_at: '', checklist: [''] });
+    const referralRequirements = referral.service_requirements ?? [];
+    const [selectedRequirements, setSelectedRequirements] = useState([]);
     const isOversight = isAdmin;
     const canCreate = isReceivingAgency && permissions.canCreate;
     const activeRequest = requests.find((request) => request.id === selectedRequestId) ?? requests[0];
@@ -386,10 +417,10 @@ function ClientRequestsSection({ referral, requests, permissions, isReceivingAge
 
     function submitCreate(event) {
         event.preventDefault();
-        createForm.transform((data) => ({ ...data, checklist: data.type === 'DOCUMENT_REQUEST' ? data.checklist.map((item) => item.trim()).filter(Boolean) : undefined }));
+        createForm.transform((data) => ({ ...data, checklist: data.type === 'DOCUMENT_REQUEST' ? [...Object.values(selectedRequirements.reduce((grouped, item) => { const canonicalKey = item.name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, ''); grouped[canonicalKey] ??= { label: item.name, description: item.description, source_requirement_id: item.id, source_requirement_ids: [] }; grouped[canonicalKey].source_requirement_ids.push(item.id); return grouped; }, {})), ...data.checklist.map((item) => item.trim()).filter(Boolean)] : undefined }));
         createForm.post(route('referrals.client-requests.store', [referral.id]), {
             preserveScroll: true,
-            onSuccess: () => { setShowCreate(false); createForm.reset(); reloadRequests(); },
+            onSuccess: () => { setShowCreate(false); createForm.reset(); setSelectedRequirements([]); reloadRequests(); },
         });
     }
 
@@ -439,11 +470,11 @@ function ClientRequestsSection({ referral, requests, permissions, isReceivingAge
                             </ul>
                         </aside>
                         <div className="min-w-0">
-                            <ClientRequestCard key={activeRequest.id} request={activeRequest} permissions={permissions} isOversight={isOversight} onMutate={reloadRequests} embedded />
+                            <ClientRequestCard key={activeRequest.id} request={activeRequest} permissions={permissions} isOversight={isOversight} onMutate={reloadRequests} activeAgencies={activeAgencies} embedded />
                         </div>
                     </div>
                 ) : requests.length === 1 ? (
-                    <ClientRequestCard request={activeRequest} permissions={permissions} isOversight={isOversight} onMutate={reloadRequests} />
+                    <ClientRequestCard request={activeRequest} permissions={permissions} isOversight={isOversight} onMutate={reloadRequests} activeAgencies={activeAgencies} />
                 ) : <div className="flex flex-col items-center justify-center rounded-md border border-dashed border-slate-200 py-7 text-center"><span className="material-symbols-outlined text-[24px] text-slate-300">inbox</span><p className="mt-2 text-[11px] font-semibold text-slate-500">No client requests yet</p><p className="mt-1 text-[10px] text-slate-400">Requests created here will appear in this history.</p></div>}
             </CardSection>
 
@@ -457,7 +488,7 @@ function ClientRequestsSection({ referral, requests, permissions, isReceivingAge
                                 <div><label htmlFor="client_request_title" className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-600">Title *</label><input id="client_request_title" value={createForm.data.title} onChange={(event) => createForm.setData('title', event.target.value)} className="h-10 w-full rounded border border-slate-300 px-3 text-sm text-slate-700 outline-none focus:border-blue-700 focus:ring-1 focus:ring-blue-700" /><InputError message={createForm.errors.title} className="mt-1" /></div>
                                 <div><label htmlFor="client_request_instructions" className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-600">Instructions *</label><textarea id="client_request_instructions" rows={3} value={createForm.data.instructions} onChange={(event) => createForm.setData('instructions', event.target.value)} className="w-full resize-none rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-700 focus:ring-1 focus:ring-blue-700" /><InputError message={createForm.errors.instructions} className="mt-1" /></div>
                                 <div><label htmlFor="client_request_due_at" className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-600">Due date <span className="font-normal normal-case text-slate-400">(optional)</span></label><input id="client_request_due_at" type="date" value={createForm.data.due_at} onChange={(event) => createForm.setData('due_at', event.target.value)} className="h-10 rounded border border-slate-300 px-3 text-sm text-slate-700 outline-none focus:border-blue-700 focus:ring-1 focus:ring-blue-700" /><InputError message={createForm.errors.due_at} className="mt-1" /></div>
-                                {createForm.data.type === 'DOCUMENT_REQUEST' && <div><div className="mb-1.5 flex items-center justify-between"><label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600">Checklist</label><button type="button" onClick={() => createForm.setData('checklist', [...createForm.data.checklist, ''])} className="text-[10px] font-bold text-blue-900 hover:underline">+ Add item</button></div><div className="space-y-2">{createForm.data.checklist.map((item, index) => <div key={index} className="flex gap-2"><input aria-label={`Checklist item ${index + 1}`} value={item} onChange={(event) => { const next = [...createForm.data.checklist]; next[index] = event.target.value; createForm.setData('checklist', next); }} className="h-9 min-w-0 flex-1 rounded border border-slate-300 px-3 text-[12px] text-slate-700 outline-none focus:border-blue-700 focus:ring-1 focus:ring-blue-700" placeholder="Document or item needed" />{createForm.data.checklist.length > 1 && <button type="button" aria-label={`Remove checklist item ${index + 1}`} onClick={() => createForm.setData('checklist', createForm.data.checklist.filter((_, itemIndex) => itemIndex !== index))} className="text-[18px] text-slate-400 hover:text-red-600">×</button>}</div>)}</div><InputError message={createForm.errors.checklist} className="mt-1" /></div>}
+                                {createForm.data.type === 'DOCUMENT_REQUEST' && <div>{referralRequirements.length > 0 && <div className="mb-3 rounded border border-indigo-100 bg-indigo-50/40 p-2.5"><p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-indigo-700">Referral requirements</p><div className="space-y-1.5">{referralRequirements.map((item) => <label key={item.id} className="flex items-start gap-2 text-[11px] text-slate-700"><input type="checkbox" checked={selectedRequirements.some((selected) => selected.id === item.id)} onChange={(event) => setSelectedRequirements((current) => event.target.checked ? [...current, item] : current.filter((selected) => selected.id !== item.id))} /><span>{item.name}</span></label>)}</div></div>}<div><div className="mb-1.5 flex items-center justify-between"><label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600">Checklist</label><button type="button" onClick={() => createForm.setData('checklist', [...createForm.data.checklist, ''])} className="text-[10px] font-bold text-blue-900 hover:underline">+ Add item</button></div><div className="space-y-2">{createForm.data.checklist.map((item, index) => <div key={index} className="flex gap-2"><input aria-label={`Checklist item ${index + 1}`} value={item} onChange={(event) => { const next = [...createForm.data.checklist]; next[index] = event.target.value; createForm.setData('checklist', next); }} className="h-9 min-w-0 flex-1 rounded border border-slate-300 px-3 text-[12px] text-slate-700" placeholder="Document or item needed" />{createForm.data.checklist.length > 1 && <button type="button" onClick={() => createForm.setData('checklist', createForm.data.checklist.filter((_, itemIndex) => itemIndex !== index))} className="text-[18px] text-slate-400">×</button>}</div>)}</div></div></div>}
                             </div>
                             <div className="flex justify-end gap-2 border-t border-slate-200 px-5 py-3"><button type="button" onClick={() => setShowCreate(false)} className="h-9 rounded border border-slate-300 bg-white px-4 text-xs font-bold text-slate-700 hover:bg-slate-50">Cancel</button><button type="submit" disabled={createForm.processing || !createForm.data.title.trim() || !createForm.data.instructions.trim()} className="h-9 rounded bg-blue-900 px-4 text-xs font-bold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50">{createForm.processing ? 'Creating…' : 'Create request'}</button></div>
                         </form>
@@ -1273,6 +1304,7 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                         isReceivingAgency={isReceivingAgency}
                         isCaseManager={isCaseManager}
                         isAdmin={isAdmin}
+                        activeAgencies={referral.case_file?.referrals?.map((item) => item.agency).filter(Boolean) ?? []}
                     />
                     )}
                 </main>

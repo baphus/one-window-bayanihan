@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Agency;
 use App\Models\Service;
+use App\Models\ServiceRequirement;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
@@ -32,6 +33,11 @@ class AdminServiceController extends Controller
         return Inertia::render('Admin/Service/Index', [
             'services' => $services,
             'allAgencies' => $allAgencies,
+            'stats' => [
+                'total' => Service::count(),
+                'active_agencies' => Agency::where('is_active', true)->count(),
+                'requirements' => ServiceRequirement::count(),
+            ],
         ]);
     }
 

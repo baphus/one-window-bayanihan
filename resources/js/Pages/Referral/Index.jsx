@@ -8,6 +8,7 @@ import StatusBadge from '@/Components/ui/StatusBadge';
 import { formatResolvedAddress } from '@/lib/addressResolver';
 import { getCategoryFilterIds } from '@/lib/utils';
 import { ArrowRightLeft, Clock, Loader, ClipboardCheck, CheckCircle2, XCircle } from 'lucide-react';
+import KpiCard from '@/Components/ui/KpiCard';
 import ExportDialog from '@/Components/ExportDialog';
 import ExportExcelButton from '@/Components/ExportExcelButton';
 import InputError from '@/Components/InputError';

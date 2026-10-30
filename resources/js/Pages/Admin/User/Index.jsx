@@ -5,6 +5,7 @@ import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import UserAvatar from '@/Components/ui/UserAvatar';
 import { Users, UserCheck, Briefcase, Building2, Shield, Plane } from 'lucide-react';
+import KpiCard from '@/Components/ui/KpiCard';
 import { formatDisplayDate, formatDisplayTime } from '@/lib/utils';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import useTableVisitLoading from '@/Hooks/useTableVisitLoading';
@@ -334,22 +335,13 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [], p
               ...base,
               sortable: false,
               render: (row) => (
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={!!row.email_verified_at}
+                <span
                   title={row.email_verified_at ? 'Verified' : 'Unverified'}
-                  onClick={() => {
-                    if (row.email_verified_at) {
-                      setConfirmAction({ type: 'unverify', id: row.id });
-                      return;
-                    }
-                    router.patch(route('admin.users.verify', row.id), {}, { preserveScroll: true });
-                  }}
-                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-blue-900 focus:ring-offset-1 ${row.email_verified_at ? 'bg-emerald-500' : 'bg-slate-300'}`}
+                  aria-label={row.email_verified_at ? 'Verified' : 'Unverified'}
+                  className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-sm font-bold ${row.email_verified_at ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-500'}`}
                 >
-                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition ${row.email_verified_at ? 'translate-x-4' : 'translate-x-0'}`} />
-                </button>
+                  {row.email_verified_at ? '✓' : '×'}
+                </span>
               ),
             };
           case 'mfa_status':

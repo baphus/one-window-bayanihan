@@ -275,6 +275,7 @@ function requestStateCopy(state) {
 function ClientRequestPanel({ clientRequestPanel }) {
   const [body, setBody] = useState('');
   const [files, setFiles] = useState([]);
+  const [fileItems, setFileItems] = useState([]);
   const [fileError, setFileError] = useState('');
   const [replying, setReplying] = useState(false);
   const [requestingReplacement, setRequestingReplacement] = useState(false);
@@ -345,6 +346,7 @@ function ClientRequestPanel({ clientRequestPanel }) {
 
     if (accepted.length > 0) {
       setFiles((prev) => [...prev, ...accepted].slice(0, MAX_ATTACHMENTS));
+      setFileItems((prev) => [...prev, ...accepted.map(() => '')].slice(0, MAX_ATTACHMENTS));
     }
     event.target.value = '';
   }
@@ -359,13 +361,17 @@ function ClientRequestPanel({ clientRequestPanel }) {
 
     const formData = new FormData();
     if (trimmed) formData.append('body', trimmed);
-    files.forEach((file) => formData.append('attachments[]', file));
+    files.forEach((file, index) => {
+      formData.append('attachments[]', file);
+      formData.append('request_item_ids[]', fileItems[index] ?? '');
+    });
 
     router.post(replyAction, formData, {
       preserveScroll: true,
       onSuccess: () => {
         setBody('');
         setFiles([]);
+        setFileItems([]);
         setFileError('');
         router.reload({ only: ['clientRequestPanel'], preserveScroll: true });
       },

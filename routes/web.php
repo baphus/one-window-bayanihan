@@ -231,6 +231,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::middleware('role:ADMIN,AGENCY')->group(function () {
         Route::get('/referrals/{referral}/client-requests', [ReferralClientRequestController::class, 'index'])->name('referrals.client-requests.index');
+        Route::patch('/client-request-attachments/{attachment}/review', [ReferralClientRequestController::class, 'reviewAttachment'])->name('referrals.client-requests.attachments.review');
         Route::get('/referrals/{referral}/client-requests/attachments/{attachment}/download', [ReferralClientRequestController::class, 'downloadAgencyAttachment'])->name('referrals.client-requests.attachments.download');
         Route::post('/client-access-links/{accessLink}/revoke', [ReferralClientRequestController::class, 'revoke'])->name('referrals.client-requests.access.revoke');
     });
