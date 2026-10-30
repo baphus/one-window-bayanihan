@@ -7,6 +7,7 @@ import FilterPanel from '@/Components/ui/FilterPanel';
 import { toFilterList, toggleFilterValue, useArrayFilters } from '@/Hooks/useArrayFilters';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import { FolderCheck, Users, ArrowRightLeft, TrendingUp, Clock } from 'lucide-react';
+import KpiCard from '@/Components/ui/KpiCard';
 import { formatDisplayDate, formatDisplayTime, getCategoryFilterIds } from '@/lib/utils';
 import { RowContextMenu, RowContextMenuItem } from '@/Components/ui/RowContextMenu';
 import ExportDialog from '@/Components/ExportDialog';
@@ -832,61 +833,12 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
       </header>
 
       <div data-tour="cases-filter">
-        <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-          <div className="flex items-start justify-between mb-2">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Total Cases</p>
-            <span className="p-1.5 bg-blue-50 rounded-lg"><FolderCheck className="w-4 h-4 text-blue-900" /></span>
-          </div>
-          <p className="text-2xl font-black text-slate-900">{stats?.total_cases ?? 0}</p>
-          <div className="flex items-center gap-1.5 mt-1.5">
-            <TrendingUp className="w-3 h-3 text-emerald-500" />
-            <span className="text-[11px] font-bold text-emerald-600">
-              {stats?.open_cases ?? 0} open &middot; {stats?.closed_cases ?? 0} closed
-              {stats?.archived_cases > 0 && <> &middot; {stats.archived_cases} archived</>}
-            </span>
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-          <div className="flex items-start justify-between mb-2">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Active Cases</p>
-            <span className="p-1.5 bg-emerald-50 rounded-lg"><Clock className="w-4 h-4 text-emerald-600" /></span>
-          </div>
-          <p className="text-2xl font-black text-slate-900">{stats?.open_cases ?? 0}</p>
-          <div className="flex items-center gap-1.5 mt-1.5">
-            <span className="text-[11px] font-medium text-slate-500">
-              {stats?.total_cases > 0
-                ? `${((stats.open_cases / stats.total_cases) * 100).toFixed(0)}% of total`
-                : 'No cases'}
-            </span>
-          </div>
-          <p className="text-[10px] text-slate-400 mt-0.5">Currently in progress</p>
-        </div>
-
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-          <div className="flex items-start justify-between mb-2">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Client Types</p>
-            <span className="p-1.5 bg-violet-50 rounded-lg"><Users className="w-4 h-4 text-violet-600" /></span>
-          </div>
-          <p className="text-2xl font-black text-slate-900">{stats?.ofw_cases ?? 0}</p>
-          <div className="flex items-center gap-1.5 mt-1.5">
-            <span className="text-[11px] font-bold text-violet-600">OFW</span>
-            <span className="text-[11px] text-slate-400">&middot;</span>
-            <span className="text-[11px] text-slate-500">{stats?.nok_cases ?? 0} Next of Kin</span>
-          </div>
-          <p className="text-[10px] text-slate-400 mt-0.5">Client type distribution</p>
-        </div>
-
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-          <div className="flex items-start justify-between mb-2">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Total Referrals</p>
-            <span className="p-1.5 bg-amber-50 rounded-lg"><ArrowRightLeft className="w-4 h-4 text-amber-600" /></span>
-          </div>
-          <p className="text-2xl font-black text-slate-900">{stats?.total_referrals ?? 0}</p>
-          <p className="text-[10px] text-slate-400 mt-0.5">Across all cases</p>
-        </div>
-      </section>
+        <section className="grid grid-cols-2 gap-3 mb-6 lg:grid-cols-4">
+          <KpiCard label="Total cases" value={stats?.total_cases} hint={`${stats?.open_cases ?? 0} open · ${stats?.closed_cases ?? 0} closed`} icon="folder_open" />
+          <KpiCard label="Active cases" value={stats?.open_cases} hint={stats?.total_cases > 0 ? `${((stats.open_cases / stats.total_cases) * 100).toFixed(0)}% of total` : 'No cases'} icon="schedule" />
+          <KpiCard label="Client types" value={stats?.ofw_cases} hint={`${stats?.nok_cases ?? 0} Next of Kin`} icon="groups" />
+          <KpiCard label="Total referrals" value={stats?.total_referrals} hint="Across all cases" icon="sync_alt" />
+        </section>
       </div>
 
       <div data-tour="cases-table">

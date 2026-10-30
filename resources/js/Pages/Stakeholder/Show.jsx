@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link } from '@inertiajs/react';
 import AgencyMapView from '@/Components/AgencyMapView';
+import KpiCard from '@/Components/ui/KpiCard';
 
 /**
  * Stakeholder details — partner office record.
@@ -253,20 +254,11 @@ export default function StakeholderShow({ stakeholder, stats }) {
                         <h2 className="border-b border-slate-100 px-5 py-3.5 text-[15px] font-bold text-slate-900">
                             Referral performance
                         </h2>
-                        <div className="px-5 py-4">
-                            <p className="text-[12px] font-medium text-slate-500">Total referrals received</p>
-                            <p className="mt-0.5 text-3xl font-black text-slate-900">{total}</p>
-
-                            <div className="mt-4 grid grid-cols-2 gap-4">
-                                <div>
-                                    <p className="text-[12px] font-medium text-slate-500">Active</p>
-                                    <p className="mt-0.5 text-2xl font-black text-amber-600">{active}</p>
-                                </div>
-                                <div>
-                                    <p className="text-[12px] font-medium text-slate-500">Completed</p>
-                                    <p className="mt-0.5 text-2xl font-black text-emerald-600">{completed}</p>
-                                </div>
-                            </div>
+                        <div className="grid grid-cols-1 gap-3 px-5 py-4 sm:grid-cols-3">
+                            <KpiCard label="Total referrals" value={total} icon="sync_alt" />
+                            <KpiCard label="Active" value={active} tone="attention" icon="pending_actions" />
+                            <KpiCard label="Completed" value={completed} tone="positive" icon="task_alt" />
+                        </div>
 
                             <div className="mt-4">
                                 <div className="flex items-center justify-between gap-3">
@@ -285,7 +277,6 @@ export default function StakeholderShow({ stakeholder, stats }) {
                                     />
                                 </div>
                             </div>
-                        </div>
                     </section>
 
                     <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">

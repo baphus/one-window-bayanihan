@@ -3,27 +3,8 @@ import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import ConfirmDialog from '@/Components/ui/ConfirmDialog';
-
-function formatNotificationLabel(key) {
-  return key
-    .replace(/^(email_on_|sms_on_)/i, '')
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-function ToggleBadge({ enabled }) {
-  return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-md border px-2 py-[3px] text-[10px] font-bold uppercase tracking-wide ${
-        enabled
-          ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-          : 'border-slate-200 bg-slate-100 text-slate-500'
-      }`}
-    >
-      {enabled ? 'On' : 'Off'}
-    </span>
-  );
-}
+import UserFormModal from '@/Components/Admin/UserFormModal';
+import { CardHeader, InfoField } from '@/Components/ui/CardSection';
 
 function StatusPill({ label, enabled }) {
   return (
@@ -39,9 +20,9 @@ function StatusPill({ label, enabled }) {
   );
 }
 
-export default function AdminUserShow({ user }) {
-  const [confirmUnverify, setConfirmUnverify] = useState(false);
+export default function AdminUserShow({ user, agencies = [] }) {
   const [confirmResetMfa, setConfirmResetMfa] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
   const roleLabels = {
     CASE_MANAGER: 'Case Manager',
     AGENCY: 'Agency Focal',
@@ -58,40 +39,40 @@ export default function AdminUserShow({ user }) {
 
   const agency = user.agency ?? null;
   const emergency = user.emergency_contact ?? {};
-  const notifications = user.notifications_config ?? {};
   const { auth } = usePage().props;
+
+  const cardSectionClass = 'rounded-xl border border-[#dce3eb] bg-white p-5 shadow-[0_1px_3px_rgba(23,35,51,0.04)]';
 
   return (
     <AppLayout title={`User Details — ${user.name}`}>
       <Head title={`User Details — ${user.name}`} />
 
-      {/* Breadcrumb */}
-      <div className="mb-4 text-xs font-bold uppercase tracking-widest text-slate-500">
-        <Link href={route('admin.users.index')} className="transition hover:text-blue-900">
-          Users
-        </Link>
-        <span className="mx-2">/</span>
-        <span>{user.name}</span>
-      </div>
+      <div className="min-h-full bg-slate-50">
+        <div className="mx-auto max-w-[1440px] p-6">
+          <div className="mb-5">
+            <Link href={route('admin.users.index')} className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-slate-500 transition hover:text-blue-900">
+              <span className="material-symbols-outlined text-[16px]">arrow_back</span>
+              Back to Users
+            </Link>
+          </div>
 
-      {/* Header */}
-      <div className="mb-6 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-extrabold font-headline tracking-tight text-slate-900">User Details</h1>
-          <p className="text-sm text-slate-500 mt-1">View and manage user information.</p>
-        </div>
-        <Link
-          href={route('admin.users.index')}
-          className="px-4 py-2 text-sm font-medium text-white bg-blue-900 rounded-md hover:bg-blue-800 transition-colors shrink-0"
-        >
-          &larr; Back to Users
-        </Link>
-      </div>
+          <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <h1 className="text-[28px] font-extrabold leading-tight tracking-[-0.02em] text-[#172333]">User Details</h1>
+              <p className="mt-2 text-[11px] leading-5 text-[#607080]">View and manage user information</p>
+            </div>
+            <button type="button" onClick={() => setShowEdit(true)} className="inline-flex min-h-[34px] items-center gap-1.5 rounded-md bg-blue-900 px-3.5 text-[12px] font-bold text-white transition hover:bg-blue-800">
+              <span className="material-symbols-outlined text-[15px]">edit</span>
+              Edit User
+            </button>
+          </div>
 
-      <div className="space-y-6">
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
+            <main className="space-y-4 xl:col-span-8">
         {/* 1. Profile */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3">Profile</p>
+        <section className={cardSectionClass.replace(' p-5', '')}>
+          <CardHeader title="Profile" />
+          <div className="px-5 pb-5">
           <div className="flex items-start gap-5">
             <span className="inline-flex shrink-0 overflow-hidden rounded-full">
               {user.avatar_url ? (
@@ -120,13 +101,14 @@ export default function AdminUserShow({ user }) {
               </div>
             </div>
           </div>
-        </div>
+          </div>
+        </section>
 
         {/* 2. Agency Information, or the citizen's client record.
             OFW and next-of-kin accounts share users.role = OFW, so the client's
             type is the only thing that says which one this is. */}
         {user.role === 'OFW' ? (
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+          <div className="rounded-xl border border-[#dce3eb] bg-white p-5 shadow-[0_1px_3px_rgba(23,35,51,0.04)]">
             <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3">Linked Client</p>
             {client ? (
               <div className="space-y-4">
@@ -166,7 +148,7 @@ export default function AdminUserShow({ user }) {
             )}
           </div>
         ) : (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+        <div className="rounded-xl border border-[#dce3eb] bg-white p-5 shadow-[0_1px_3px_rgba(23,35,51,0.04)]">
           <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3">Agency Information</p>
           {agency ? (
             <div className="space-y-4">
@@ -208,7 +190,7 @@ export default function AdminUserShow({ user }) {
         )}
 
         {/* 3. Personal Information */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+        <div className="rounded-xl border border-[#dce3eb] bg-white p-5 shadow-[0_1px_3px_rgba(23,35,51,0.04)]">
           <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3">Personal Information</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div>
@@ -249,7 +231,7 @@ export default function AdminUserShow({ user }) {
         </div>
 
         {/* 4. Emergency Contact */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+        <div className="rounded-xl border border-[#dce3eb] bg-white p-5 shadow-[0_1px_3px_rgba(23,35,51,0.04)]">
           <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3">Emergency Contact</p>
           {emergency.name ? (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -272,7 +254,7 @@ export default function AdminUserShow({ user }) {
         </div>
 
         {/* 5. Security */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+        <div className="rounded-xl border border-[#dce3eb] bg-white p-5 shadow-[0_1px_3px_rgba(23,35,51,0.04)]">
           <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3">Security</p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
@@ -297,63 +279,42 @@ export default function AdminUserShow({ user }) {
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Email Verified</p>
                 <div className="mt-1">
-                  {auth && user.id !== auth.user.id ? (
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={!!user.email_verified_at}
-                      title={user.email_verified_at ? 'Verified' : 'Unverified'}
-                      onClick={() => {
-                        if (user.email_verified_at) { setConfirmUnverify(true); return; }
-                        router.patch(route('admin.users.verify', user.id), {}, { preserveScroll: true });
-                      }}
-                      className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-blue-900 focus:ring-offset-1 ${user.email_verified_at ? 'bg-emerald-500' : 'bg-slate-300'}`}
-                    >
-                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition ${user.email_verified_at ? 'translate-x-4' : 'translate-x-0'}`} />
-                    </button>
-                  ) : (
-                    <StatusPill label={user.email_verified_at ? 'Verified' : 'Unverified'} enabled={!!user.email_verified_at} />
-                  )}
+                  <span
+                    title={user.email_verified_at ? 'Verified' : 'Unverified'}
+                    aria-label={user.email_verified_at ? 'Verified' : 'Unverified'}
+                    className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-sm font-bold ${user.email_verified_at ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-500'}`}
+                  >
+                    {user.email_verified_at ? '✓' : '×'}
+                  </span>
                   <p className="text-[10px] text-slate-400 mt-1">Users invited via email are auto-verified upon registration.</p>
                 </div>
               </div>
           </div>
         </div>
 
-        {/* 6. Notification Preferences */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3">Notification Preferences</p>
-          {Object.keys(notifications).length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {Object.entries(notifications).map(([key, value]) => (
-                <div
-                  key={key}
-                  className="flex items-center justify-between rounded-md border border-slate-200 bg-white px-3 py-2"
-                >
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
-                    {formatNotificationLabel(key)}
-                  </p>
-                  <ToggleBadge enabled={!!value} />
+            </main>
+
+            <aside className="space-y-4 xl:col-span-4">
+              <section className={cardSectionClass.replace(' p-5', '')}>
+                <CardHeader title="Account Summary" />
+                <div className="space-y-4 px-5 pb-5">
+                  <InfoField label="Name" value={user.name} />
+                  <InfoField label="Email" value={user.email} />
+                  <InfoField label="Role" value={roleLabels[user.role] || user.role} />
+                  <InfoField label="Status" value={<StatusBadge status={user.is_active ? 'ACTIVE' : 'INACTIVE'} size="sm" />} />
                 </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-slate-500">&mdash;</p>
-          )}
+              </section>
+            </aside>
+          </div>
         </div>
       </div>
-      <ConfirmDialog
-        open={confirmUnverify}
-        title="Unverify User"
-        message="Unverifying this user will lock them out of the system until they re-verify via email. Continue?"
-        confirmLabel="Unverify"
-        tone="danger"
-        onConfirm={() => {
-          router.patch(route('admin.users.verify', user.id), {}, { preserveScroll: true });
-          setConfirmUnverify(false);
-        }}
-        onCancel={() => setConfirmUnverify(false)}
-      />
+      {showEdit && (
+        <UserFormModal
+          user={user}
+          agencies={agencies}
+          onClose={() => setShowEdit(false)}
+        />
+      )}
 
       <ConfirmDialog
         open={confirmResetMfa}

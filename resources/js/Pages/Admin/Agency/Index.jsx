@@ -2,6 +2,7 @@ import AppLayout from '@/Layouts/AppLayout';
 import { Head, router, usePage } from '@inertiajs/react';
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
+import KpiCard from '@/Components/ui/KpiCard';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import { Building2, Users, CheckCircle, XCircle, Shield, MapPin, Phone } from 'lucide-react';
 import { formatDisplayDate, formatDisplayTime } from '@/lib/utils';
@@ -368,48 +369,10 @@ export default function AdminAgencyIndex({ agencies, filters, stats }) {
         </div>
       </header>
 
-      <section data-tour="agencies-stats" className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-          <div className="flex items-start justify-between mb-2">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Total Agencies</p>
-            <span className="p-1.5 bg-blue-50 rounded-lg"><Building2 className="w-4 h-4 text-blue-900" /></span>
-          </div>
-          <p className="text-2xl font-black text-slate-900">{stats?.total ?? 0}</p>
-        </div>
-
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-          <div className="flex items-start justify-between mb-2">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Active</p>
-            <span className="p-1.5 bg-emerald-50 rounded-lg"><CheckCircle className="w-4 h-4 text-emerald-600" /></span>
-          </div>
-          <p className="text-2xl font-black text-slate-900">{stats?.active ?? 0}</p>
-          <div className="flex items-center gap-1.5 mt-1.5">
-            <span className="text-[11px] font-medium text-slate-500">
-              {stats?.total > 0 ? `${((stats.active / stats.total) * 100).toFixed(0)}%` : '—'}
-            </span>
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-          <div className="flex items-start justify-between mb-2">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Inactive</p>
-            <span className="p-1.5 bg-red-50 rounded-lg"><XCircle className="w-4 h-4 text-red-600" /></span>
-          </div>
-          <p className="text-2xl font-black text-slate-900">{stats?.inactive ?? 0}</p>
-          <div className="flex items-center gap-1.5 mt-1.5">
-            <span className="text-[11px] font-medium text-slate-500">
-              {stats?.total > 0 ? `${((stats.inactive / stats.total) * 100).toFixed(0)}%` : '—'}
-            </span>
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-          <div className="flex items-start justify-between mb-2">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Default Agencies</p>
-            <span className="p-1.5 bg-purple-50 rounded-lg"><Shield className="w-4 h-4 text-purple-600" /></span>
-          </div>
-          <p className="text-2xl font-black text-slate-900">{stats?.default ?? 0}</p>
-        </div>
+      <section data-tour="agencies-stats" className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <KpiCard label="Total agencies" value={stats?.total} icon="business" />
+        <KpiCard label="Active agencies" value={stats?.active} icon="check_circle" tone="positive" />
+        <KpiCard label="Inactive agencies" value={stats?.inactive} icon="block" tone="alert" />
       </section>
 
       <div data-tour="agencies-table">

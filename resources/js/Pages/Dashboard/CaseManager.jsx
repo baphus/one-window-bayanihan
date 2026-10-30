@@ -6,6 +6,7 @@ import GettingStartedChecklist from '@/Components/GettingStartedChecklist';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import { ActivityFeed, EmptyState, QuickActions, SectionCard, ViewAllLink, formatCount, safeArray } from '@/Components/Dashboard/primitives';
 import { DashboardRow, DashboardRowList, RowAgeFlag } from '@/Components/Dashboard/DashboardRow';
+import KpiCard from '@/Components/ui/KpiCard';
 import { formatDisplayDate, getCaseAgeInDays } from '@/lib/utils';
 import { humanizeStatus } from '@/lib/statusLabels';
 import safeRoute from '@/utils/safeRoute';
@@ -84,25 +85,6 @@ function AgeFlag({ days }) {
     );
 }
 
-/* ---------- KPI + chart ---------- */
-
-function KpiCard({ label, value, hint, tone = 'default' }) {
-    const valueTone = {
-        default: 'text-slate-900',
-        positive: 'text-emerald-700',
-        attention: 'text-amber-700',
-    }[tone] ?? 'text-slate-900';
-
-    return (
-        <div className="rounded-xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">{label}</p>
-            <p className={`mt-1.5 font-headline text-[28px] font-extrabold leading-none tracking-tight ${valueTone}`}>
-                {value ?? 0}
-            </p>
-            {hint ? <p className="mt-1.5 text-[11px] text-slate-500">{hint}</p> : null}
-        </div>
-    );
-}
 
 const chartOptions = {
     responsive: true,
@@ -395,23 +377,26 @@ export default function CaseManagerDashboard({ dashboard = {} }) {
 
             {/* Four KPIs */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                <KpiCard label="Total active cases" value={kpis.active} hint="Open cases right now" />
+                <KpiCard label="Total active cases" value={kpis.active} hint="Open cases right now" icon="folder_open" />
                 <KpiCard
                     label="Awaiting agency response"
                     value={kpis.awaiting_agency}
                     hint="Referrals awaiting a partner office"
+                    icon="hourglass_top"
                 />
                 <KpiCard
                     label="Cases needing action"
                     value={kpis.needs_action}
                     hint="Documents requested or referral rejected"
                     tone="attention"
+                    icon="priority_high"
                 />
                 <KpiCard
                     label="Cases closed this period"
                     value={kpis.closed}
                     hint={periodLabel ?? 'In the selected period'}
                     tone="positive"
+                    icon="task_alt"
                 />
             </div>
 

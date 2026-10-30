@@ -222,8 +222,11 @@ class ReferralClientRequestController extends Controller
             'body' => ['nullable', 'string', 'max:5000'],
             'attachments' => ['nullable', 'array', 'max:5'],
             'attachments.*' => ['file', 'mimes:pdf,jpg,jpeg,png,doc,docx', 'max:20480'],
+            'request_item_ids' => ['nullable', 'array'],
+            'request_item_ids.*' => ['nullable', 'uuid'],
         ]);
         $files = $request->file('attachments', []);
+        $requestItemIds = $validated['request_item_ids'] ?? [];
 
         if (trim($validated['body'] ?? '') === '' && $files === []) {
             throw ValidationException::withMessages(['body' => 'Write a message or attach at least one document.']);
@@ -241,6 +244,7 @@ class ReferralClientRequestController extends Controller
                 trim($validated['body'] ?? ''),
                 $link,
                 $files,
+                $requestItemIds,
             );
         } catch (InvalidArgumentException $e) {
             throw ValidationException::withMessages(['attachments' => $e->getMessage()]);
@@ -270,6 +274,46 @@ class ReferralClientRequestController extends Controller
         return $this->capabilityResponse(redirect()->away($url));
     }
 
+    public function reviewAttachment(Request $request, ReferralClientMessageAttachment $attachment): RedirectResponse
+    {
+        $attachment->loadMissing('message.request.referral');
+        $clientRequest = $attachment->message?->request;
+        $referral = $clientRequest?->referral;
+        if (! $clientRequest || ! $referral) {
+            abort(404);
+        }
+
+        $this->requestService->assertCanManage($clientRequest, $request->user());
+        $data = $request->validate([
+            'review_status' => ['required', 'in:PENDING,ACCEPTED,REJECTED,NEEDS_REVISION'],
+            'visibility' => ['required', 'in:HIDDEN,ALL,SELECTED'],
+            'agency_ids' => ['nullable', 'array'],
+            'agency_ids.*' => ['uuid'],
+        ]);
+
+        $agencyIds = $data['agency_ids'] ?? [];
+        if ($data['visibility'] === 'SELECTED' && $agencyIds !== []) {
+            $validAgencyIds = $referral->caseFile->referrals()
+                ->whereIn('agcy_id', $agencyIds)
+                ->whereNotIn('status', ['COMPLETED', 'REJECTED'])
+                ->pluck('agcy_id')
+                ->unique()
+                ->values()
+                ->all();
+            if (count($validAgencyIds) !== count(array_unique($agencyIds))) {
+                throw ValidationException::withMessages(['agency_ids' => 'Selected agencies must have an active referral for this case.']);
+            }
+        }
+
+        $attachment->update([
+            'review_status' => $data['review_status'],
+            'visibility' => $data['visibility'],
+        ]);
+        $attachment->agencies()->sync($data['visibility'] === 'SELECTED' ? ($data['agency_ids'] ?? []) : []);
+
+        return redirect()->back()->with('success', 'Document review updated.');
+    }
+
     public function downloadAgencyAttachment(Request $request, Referral $referral, ReferralClientMessageAttachment $attachment): RedirectResponse
     {
         $attachment->loadMissing('message.request');
@@ -279,7 +323,33 @@ class ReferralClientRequestController extends Controller
             abort(404);
         }
 
-        $this->requestService->assertCanRead($clientRequest, $request->user());
+        $isRequestingAgency = $request->user()->isAgency()
+            && $request->user()->agcy_id === $referral->agcy_id;
+        if (! $isRequestingAgency) {
+            $referral->loadMissing('caseFile');
+            $hasActiveCaseReferral = $request->user()->isAgency()
+                && $referral->caseFile?->referrals()
+                    ->where('agcy_id', $request->user()->agcy_id)
+                    ->whereNotIn('status', ['COMPLETED', 'REJECTED'])
+                    ->exists();
+            if (! $hasActiveCaseReferral) {
+                abort(403);
+            }
+        } else {
+            $this->requestService->assertCanRead($clientRequest, $request->user());
+        }
+        $isRequestingAgency = $request->user()->isAgency()
+            && $request->user()->agcy_id === $referral->agcy_id;
+        if ($request->user()->isAgency() && ! $isRequestingAgency && $attachment->review_status !== 'ACCEPTED') {
+            abort(403);
+        }
+        if ($request->user()->isAgency() && ! $isRequestingAgency && $attachment->visibility === 'HIDDEN') {
+            abort(403);
+        }
+        if ($request->user()->isAgency() && ! $isRequestingAgency && $attachment->visibility === 'SELECTED'
+            && ! $attachment->agencies()->whereKey($request->user()->agcy_id)->exists()) {
+            abort(403);
+        }
 
         $url = app(StorageService::class)->temporaryUrl($attachment->file_path, 24);
         if (! $url) {
@@ -477,6 +547,9 @@ class ReferralClientRequestController extends Controller
                     'file_name' => $attachment->file_name,
                     'file_type' => $attachment->file_type,
                     'size' => $attachment->size,
+                    'request_item_id' => $attachment->request_item_id,
+                    'review_status' => $attachment->review_status,
+                    'visibility' => $attachment->visibility,
                     'created_at' => $attachment->created_at?->toIso8601String(),
                 ])
                 ->values(),

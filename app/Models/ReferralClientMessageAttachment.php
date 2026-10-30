@@ -13,9 +13,19 @@ class ReferralClientMessageAttachment extends Model
 
     public static array $auditExclude = ['id', 'created_at', 'updated_at', 'deleted_at', 'deleted_by', 'message_id', 'file_name', 'file_path', 'file_type', 'size'];
 
-    protected $fillable = ['message_id', 'file_name', 'file_path', 'file_type', 'size'];
+    protected $fillable = ['message_id', 'request_item_id', 'file_name', 'file_path', 'file_type', 'size', 'review_status', 'visibility', 'sha256'];
 
     protected $casts = ['size' => 'integer', 'is_deleted' => 'boolean'];
+
+    public function agencies()
+    {
+        return $this->belongsToMany(Agency::class, 'referral_client_attachment_agencies', 'attachment_id', 'agency_id')->withTimestamps();
+    }
+
+    public function requestItem()
+    {
+        return $this->belongsTo(ReferralClientRequestItem::class, 'request_item_id');
+    }
 
     public function getAuditModuleName(): string
     {

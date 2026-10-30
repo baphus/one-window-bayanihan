@@ -25,6 +25,7 @@ import {
     safeArray,
 } from '@/Components/Dashboard/primitives';
 import { DashboardRow, DashboardRowList } from '@/Components/Dashboard/DashboardRow';
+import KpiCard from '@/Components/ui/KpiCard';
 import { formatDisplayDateTime } from '@/lib/utils';
 import safeRoute from '@/utils/safeRoute';
 
@@ -95,25 +96,6 @@ function formatBucket(value) {
     return date.toLocaleDateString('en-PH', { day: '2-digit', month: 'short' });
 }
 
-/* ---------- KPI ---------- */
-
-function KpiCard({ label, value, hint, tone = 'default' }) {
-    const valueTone = {
-        default: 'text-slate-900',
-        attention: 'text-amber-700',
-        alert: 'text-rose-700',
-    }[tone] ?? 'text-slate-900';
-
-    return (
-        <div className="rounded-xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">{label}</p>
-            <p className={`mt-1.5 font-headline text-[28px] font-extrabold leading-none tracking-tight ${valueTone}`}>
-                {value ?? 0}
-            </p>
-            {hint ? <p className="mt-1.5 text-[11px] text-slate-500">{hint}</p> : null}
-        </div>
-    );
-}
 
 /* ---------- Chart section (matches case manager / agency conventions) ---------- */
 
@@ -312,19 +294,21 @@ export default function AdminDashboard({ dashboard = {} }) {
 
             {/* Four KPIs */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                <KpiCard label="Total users" value={kpis.total_users} hint="Across all roles" />
-                <KpiCard label="Registered agencies" value={kpis.total_agencies} hint="Participating agencies and LGUs" />
+                <KpiCard label="Total users" value={kpis.total_users} hint="Across all roles" icon="group" />
+                <KpiCard label="Registered agencies" value={kpis.total_agencies} hint="Participating agencies and LGUs" icon="business" />
                 <KpiCard
                     label="Pending invitations"
                     value={kpis.pending_invites}
                     hint="Sent but not yet accepted"
                     tone="attention"
+                    icon="mail"
                 />
                 <KpiCard
                     label="Security alerts"
                     value={kpis.security_events}
                     hint={`Events in ${periodLabel?.toLowerCase() ?? 'the period'}`}
                     tone="alert"
+                    icon="warning"
                 />
             </div>
 

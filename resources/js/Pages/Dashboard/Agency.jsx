@@ -17,6 +17,7 @@ import GettingStartedChecklist from '@/Components/GettingStartedChecklist';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import { ActivityFeed, EmptyState, QuickActions, SectionCard, ViewAllLink, formatCount, safeArray } from '@/Components/Dashboard/primitives';
 import { DashboardRow, DashboardRowList, RowAgeFlag } from '@/Components/Dashboard/DashboardRow';
+import KpiCard from '@/Components/ui/KpiCard';
 import { humanizeStatus } from '@/lib/statusLabels';
 import safeRoute from '@/utils/safeRoute';
 
@@ -70,25 +71,6 @@ function toAgeDays(value, fallback = 0) {
     return Number.isFinite(parsed) && parsed >= 0 ? Math.floor(parsed) : fallback;
 }
 
-/* ---------- KPI ---------- */
-
-function KpiCard({ label, value, hint, tone = 'default' }) {
-    const valueTone = {
-        default: 'text-slate-900',
-        attention: 'text-amber-700',
-        positive: 'text-emerald-700',
-    }[tone] ?? 'text-slate-900';
-
-    return (
-        <div className="rounded-xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">{label}</p>
-            <p className={`mt-1.5 font-headline text-[28px] font-extrabold leading-none tracking-tight ${valueTone}`}>
-                {value ?? 0}
-            </p>
-            {hint ? <p className="mt-1.5 text-[11px] text-slate-500">{hint}</p> : null}
-        </div>
-    );
-}
 
 /* ---------- Charts ---------- */
 
@@ -333,19 +315,21 @@ export default function AgencyDashboard({ dashboard = {} }) {
 
             {/* Four KPIs */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                <KpiCard label="Assigned referrals" value={kpis.assigned} hint="Referrals this agency received" />
-                <KpiCard label="Awaiting our review" value={kpis.awaiting} hint="Pending or in progress" />
+                <KpiCard label="Assigned referrals" value={kpis.assigned} hint="Referrals this agency received" icon="assignment" />
+                <KpiCard label="Awaiting our review" value={kpis.awaiting} hint="Pending or in progress" icon="pending_actions" />
                 <KpiCard
                     label="Action required"
                     value={kpis.action}
                     hint="Awaiting information or unable to assist"
                     tone="attention"
+                    icon="priority_high"
                 />
                 <KpiCard
                     label="Resolved referrals"
                     value={kpis.resolved}
                     hint={periodLabel ?? 'In the selected period'}
                     tone="positive"
+                    icon="task_alt"
                 />
             </div>
 

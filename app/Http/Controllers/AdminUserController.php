@@ -147,7 +147,12 @@ class AdminUserController extends Controller
         // accounts (role OFW covers both OFWs and next of kin).
         $user = User::with(['agency', 'client.ofwClient'])->withTrashed()->findOrFail($id);
 
-        return Inertia::render('Admin/User/Show', ['user' => $user]);
+        return Inertia::render('Admin/User/Show', [
+            'user' => $user,
+            'agencies' => Agency::where('is_active', true)
+                ->orderBy('name')
+                ->get(['id', 'name', 'short']),
+        ]);
     }
 
     public function store(StoreAdminUserRequest $request)

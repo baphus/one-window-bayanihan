@@ -228,10 +228,10 @@ export default function AgencyServicesIndex({ services, allServices }) {
                 </p>
             </div>
 
-            <section data-tour="services-actions" className="grid grid-cols-1 gap-3 md:grid-cols-3 mb-6">
-                <KpiCard title="Total Services" value={stats.total} icon="medical_services" iconBg="bg-blue-50" iconColor="text-blue-900" />
-                <KpiCard title="Active Services" value={stats.active} icon="check_circle" iconBg="bg-emerald-50" iconColor="text-emerald-600" />
-                <KpiCard title="Total Requirements" value={stats.totalRequirements} icon="checklist" iconBg="bg-violet-50" iconColor="text-violet-600" />
+            <section data-tour="services-actions" className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                <KpiCard label="Total services" value={stats.total} icon="medical_services" iconBg="bg-blue-50" iconColor="text-blue-900" />
+                <KpiCard label="Active services" value={stats.active} icon="check_circle" iconBg="bg-emerald-50" iconColor="text-emerald-600" tone="positive" />
+                <KpiCard label="Total requirements" value={stats.totalRequirements} icon="checklist" iconBg="bg-violet-50" iconColor="text-violet-600" />
             </section>
 
             <div data-tour="services-list">

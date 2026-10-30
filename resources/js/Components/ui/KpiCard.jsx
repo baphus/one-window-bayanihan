@@ -3,48 +3,43 @@ export default function KpiCard({
   label,
   value,
   suffix = '',
-  icon,
+  icon = 'monitoring',
   iconBg = 'bg-primary-fixed',
   iconColor = 'text-primary',
   trend,
   description,
+  hint,
   trailing,
   sparkline,
-  valueTone = '',
+  tone = 'default',
+  valueTone,
 }) {
   const heading = title ?? label ?? '';
-
-  const iconWrapper = icon && typeof icon === 'string' ? (
-    <span className={`p-1.5 rounded-lg ${iconBg}`}>
-      <span className={`material-symbols-outlined text-lg ${iconColor}`}>{icon}</span>
-    </span>
-  ) : icon ? (
-    <span className={`p-1.5 rounded-lg ${iconBg}`}>{icon}</span>
-  ) : null;
-
+  const tones = {
+    default: 'text-slate-900 dark:text-slate-100',
+    positive: 'text-emerald-700 dark:text-emerald-400',
+    attention: 'text-amber-700 dark:text-amber-400',
+    alert: 'text-rose-700 dark:text-rose-400',
+  };
   const sideContent = trailing || sparkline ? (
-    <div className="flex flex-col items-end gap-1">
-      {trailing}
-      {sparkline}
-    </div>
+    <div className="flex flex-col items-end gap-1">{trailing}{sparkline}</div>
   ) : null;
 
   return (
-    <article className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-      <div className="flex items-start justify-between mb-2">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-400">{heading}</p>
-        {iconWrapper}
+    <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+      <div className="mb-1.5 flex items-start justify-between gap-2">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{heading}</p>
+        <span className={`rounded-lg p-1.5 ${iconBg}`} aria-hidden="true">
+          <span className={`material-symbols-outlined text-lg ${iconColor}`}>{icon}</span>
+        </span>
       </div>
-      <div className="flex items-end justify-between">
-        <p className={`text-2xl font-black text-slate-900 dark:text-slate-100 ${sideContent ? 'leading-none' : ''} ${valueTone}`}>{value}{suffix}</p>
+      <div className="flex items-end justify-between gap-2">
+        <p className={`text-2xl font-black leading-none ${valueTone || tones[tone] || tones.default}`}>{value ?? 0}{suffix}</p>
         {sideContent}
       </div>
-      {trend && (
-        <span className="mt-1.5 text-[11px] font-bold text-primary bg-primary-fixed px-1.5 py-0.5 rounded self-start">
-          {trend}
-        </span>
+      {(trend || hint || description) && (
+        <p className="mt-1.5 text-[10px] text-slate-400">{trend || hint || description}</p>
       )}
-      {description && <p className="mt-1.5 text-[10px] text-slate-400 dark:text-slate-400">{description}</p>}
     </article>
   );
 }
