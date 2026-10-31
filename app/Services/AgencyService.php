@@ -2,13 +2,59 @@
 
 namespace App\Services;
 
+use App\Models\Agency;
 use App\Models\Service;
 use App\Models\ServiceRequirement;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class AgencyService
 {
+    public function prepareAdminData(array $data): array
+    {
+        $contactFields = ['contact_address' => 'Address', 'contact_tel' => 'Tel', 'contact_email' => 'Email'];
+        if (array_intersect(array_keys($contactFields), array_keys($data)) === []) {
+            return $data;
+        }
+
+        $lines = [];
+        foreach ($contactFields as $key => $label) {
+            $value = trim((string) ($data[$key] ?? ''));
+            if ($value !== '') {
+                $lines[] = "{$label}: {$value}";
+            }
+        }
+
+        $contactInfo = $lines === [] ? null : implode("\n", $lines);
+        if ($contactInfo !== null && mb_strlen($contactInfo) > 255) {
+            throw ValidationException::withMessages(['contact_info' => 'Contact information must not exceed 255 characters.']);
+        }
+
+        $data['contact_info'] = $contactInfo;
+        foreach (array_keys($contactFields) as $key) {
+            unset($data[$key]);
+        }
+
+        return $data;
+    }
+
+    public function uniqueSlug(string $short, ?string $ignoreAgencyId = null): string
+    {
+        $baseSlug = Str::slug($short);
+        $slug = $baseSlug;
+        $suffix = 2;
+
+        while (Agency::withTrashed()->where('slug', $slug)
+            ->when($ignoreAgencyId, fn ($query) => $query->where('id', '!=', $ignoreAgencyId))
+            ->exists()) {
+            $slug = "{$baseSlug}-{$suffix}";
+            $suffix++;
+        }
+
+        return $slug;
+    }
+
     /**
      * Referral statuses that still need a service's display name and
      * requirement tracking — PENDING/PROCESSING/FOR_COMPLIANCE are the

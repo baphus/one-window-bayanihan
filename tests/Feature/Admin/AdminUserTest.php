@@ -248,7 +248,7 @@ class AdminUserTest extends TestCase
                 'role' => UserRole::AGENCY->value,
             ]);
 
-        $response->assertRedirect();
+        $response->assertRedirect(route('admin.users.index'));
         $response->assertSessionHas('success');
 
         $this->assertDatabaseHas('user_invites', [
@@ -748,12 +748,12 @@ class AdminUserTest extends TestCase
 
     // ── Invite route shape and password complexity ──────────────────────────
 
-    public function test_getting_invite_as_a_user_route_is_not_a_valid_user_lookup(): void
+    public function test_getting_invite_redirects_to_the_users_page(): void
     {
         $this->withoutMiddleware([CheckUserActive::class, CheckMfaEnrolled::class])
             ->actingAs($this->admin)
             ->get('/admin/users/invite')
-            ->assertNotFound();
+            ->assertRedirect(route('admin.users.index'));
     }
 
     public function test_admin_invite_requires_valid_email(): void

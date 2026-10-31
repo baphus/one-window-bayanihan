@@ -6,13 +6,14 @@ use App\Enums\AuditAction;
 use App\Enums\AuditModule;
 use App\Helpers\CacheHelper;
 use App\Http\Controllers\Concerns\ResolvesPerPage;
+use App\Http\Requests\StoreAgencyRequest;
+use App\Http\Requests\UpdateAgencyRequest;
 use App\Models\Agency;
+use App\Services\AgencyService;
 use App\Services\AuditLogger;
 use App\Services\CloudinaryAvatarService;
 use App\Services\OnboardingService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
-use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
 class AdminAgencyController extends Controller
@@ -63,21 +64,10 @@ class AdminAgencyController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(StoreAgencyRequest $request, AgencyService $agencyService)
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'short' => 'required|string|max:50',
-            'description' => 'nullable|string',
-            'contact_info' => 'nullable|string',
-            'logo_url' => 'nullable|image|max:2048',
-            'location_query' => 'nullable|string',
-            'latitude' => 'nullable|numeric|between:-90,90',
-            'longitude' => 'nullable|numeric|between:-180,180',
-            'map_link' => 'nullable|string|max:2048',
-        ]);
-
-        $validated['slug'] = Str::slug($validated['short']);
+        $validated = $agencyService->prepareAdminData($request->validated());
+        $validated['slug'] = $agencyService->uniqueSlug($validated['short']);
         $validated['is_active'] = true;
 
         $logoFile = $request->file('logo_url');
@@ -103,7 +93,7 @@ class AdminAgencyController extends Controller
             ->with('success', 'Agency created successfully.');
     }
 
-    public function update(Request $request, string $id)
+    public function update(UpdateAgencyRequest $request, string $id, AgencyService $agencyService)
     {
         // withTrashed(): a deactivated agency is still listed and its detail
         // page still edits it, so the update has to resolve the trashed row.
@@ -115,23 +105,7 @@ class AdminAgencyController extends Controller
             }
         }
 
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'short' => 'required|string|max:50',
-            'description' => 'nullable|string',
-            'contact_info' => 'nullable|string',
-            // Mirrors the store rule, but only when a file was actually
-            // uploaded. The edit form resubmits the *current* logo URL as a
-            // plain string whenever no new file is picked — that string is
-            // discarded by the branch below, so it must not be measured against
-            // the image rule or every ordinary agency edit would fail.
-            'logo_url' => ['nullable', Rule::when($request->hasFile('logo_url'), ['image', 'max:2048'])],
-            'location_query' => 'nullable|string',
-            'is_active' => 'boolean',
-            'latitude' => 'nullable|numeric|between:-90,90',
-            'longitude' => 'nullable|numeric|between:-180,180',
-            'map_link' => 'nullable|string|max:2048',
-        ]);
+        $validated = $agencyService->prepareAdminData($request->validated());
 
         if ($agency->is_default && array_key_exists('is_active', $validated) && $validated['is_active'] === false) {
             abort(422, 'Default agencies cannot be deactivated.');
@@ -157,7 +131,7 @@ class AdminAgencyController extends Controller
         // If logo_url not in request, keep existing value (not in validated)
 
         if (isset($validated['short']) && $validated['short'] !== $agency->short) {
-            $validated['slug'] = Str::slug($validated['short']);
+            $validated['slug'] = $agencyService->uniqueSlug($validated['short'], $agency->id);
         }
 
         $this->parseAndSetMapLink($validated);

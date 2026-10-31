@@ -56,7 +56,6 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
         post(route('admin.users.invite'), {
           onSuccess: () => {
             onClose?.();
-            router.reload({ only: ['users', 'pendingInvites'] });
           },
         });
       }

@@ -8,7 +8,7 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Public+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200">
 
     <script src="https://cdn.tailwindcss.com"></script>
@@ -29,359 +29,242 @@
     </script>
 
     <style>
+        :root {
+            --sky: #00a3f0;
+            --sky-deep: #0a5fb4;
+            --sky-soft: #aee0fc;
+            --mint: #22e05c;
+            --mint-soft: #b9f3cd;
+            --amber: #f5b83d;
+            --amber-deep: #e2962a;
+            --steel: #4a4e55;
+            --cycle: 10s;
+        }
+
         body {
             font-family: 'Public Sans', sans-serif;
             background: #ffffff;
         }
 
-        #snake-wrap {
-            font-family: 'Public Sans', sans-serif;
+        /* ---------- Crane animation ---------- */
+        .crane-svg { overflow: visible; }
+
+        .ease { animation-timing-function: cubic-bezier(.65, 0, .35, 1); }
+
+        /* trolley slides along the jib */
+        .trolley {
+            animation: slide var(--cycle) infinite;
+            animation-timing-function: cubic-bezier(.65, 0, .35, 1);
         }
-        #snake-score {
-            font-size: 12px;
-            font-weight: 700;
-            letter-spacing: 1px;
-            color: #64748b;
-            text-align: right;
-            margin-bottom: 8px;
-            max-width: 420px;
-            margin-left: auto;
-            margin-right: auto;
+        /* cable shortens / lengthens */
+        .cable {
+            transform-box: fill-box;
+            transform-origin: 50% 0;
+            animation: cable var(--cycle) infinite;
+            animation-timing-function: cubic-bezier(.65, 0, .35, 1);
         }
-        #snake-canvas {
-            display: block;
-            background: #ffffff;
-            border: 1px solid #dbe6ee;
-            border-radius: 10px;
-            image-rendering: pixelated;
-            width: 100%;
-            max-width: 420px;
-            height: auto;
-            margin: 0 auto;
+        /* hook + load ride the end of the cable */
+        .hook {
+            animation: lift var(--cycle) infinite;
+            animation-timing-function: cubic-bezier(.65, 0, .35, 1);
         }
-        #snake-msg {
-            color: #94a3b8;
-            font-size: 12px;
-            margin-top: 10px;
-            letter-spacing: 0.3px;
-            height: 18px;
+        .sway {
+            transform-origin: 0 0;
+            animation: sway 3.2s ease-in-out infinite;
+        }
+        .cargo { animation: cargo var(--cycle) infinite; }
+        .placed { animation: placed var(--cycle) infinite; }
+        .cloud { animation: drift 22s linear infinite; }
+        .cloud.two { animation-duration: 30s; animation-delay: -12s; }
+        .beacon { animation: blink 1.6s ease-in-out infinite; }
+
+        @keyframes slide {
+            0%, 18%  { transform: translateX(0); }
+            42%, 76% { transform: translateX(90px); }
+            90%, 100%{ transform: translateX(0); }
+        }
+        @keyframes cable {
+            0%, 6%   { transform: scaleY(1); }
+            18%, 40% { transform: scaleY(.3); }
+            54%, 64% { transform: scaleY(1); }
+            76%, 90% { transform: scaleY(.3); }
+            100%     { transform: scaleY(1); }
+        }
+        @keyframes lift {
+            0%, 6%   { transform: translateY(158px); }
+            18%, 40% { transform: translateY(47px); }
+            54%, 64% { transform: translateY(158px); }
+            76%, 90% { transform: translateY(47px); }
+            100%     { transform: translateY(158px); }
+        }
+        @keyframes sway {
+            0%, 100% { transform: rotate(-1.6deg); }
+            50%      { transform: rotate(1.6deg); }
+        }
+        /* load is carried until it is set down, then reappears at pickup */
+        @keyframes cargo {
+            0%, 56%  { opacity: 1; }
+            60%, 94% { opacity: 0; }
+            98%, 100%{ opacity: 1; }
+        }
+        @keyframes placed {
+            0%, 56%  { opacity: 0; }
+            62%, 92% { opacity: 1; }
+            98%, 100%{ opacity: 0; }
+        }
+        @keyframes drift {
+            from { transform: translateX(-60px); }
+            to   { transform: translateX(460px); }
+        }
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50%      { opacity: .25; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .trolley, .cable, .hook, .sway, .cargo, .placed, .cloud, .beacon { animation: none; }
+            .cable { transform: scaleY(.6); }
+            .hook  { transform: translateY(95px); }
+            .placed { opacity: 0; }
         }
     </style>
 </head>
-<body class="font-sans antialiased min-h-dvh flex items-center justify-center p-6 sm:p-10">
-    <div class="w-full max-w-xl">
-        <div class="px-6 py-6 sm:px-10 sm:py-8 text-center">
+<body class="font-sans antialiased min-h-dvh flex items-center justify-center p-4 sm:p-6">
+    <div class="w-full max-w-3xl">
 
-            <!-- logo row -->
-            <div class="flex items-center justify-center gap-3 mb-6">
-                <img src="/logo.png" alt="One Window Bayanihan Logo" class="w-10 h-10 object-contain" />
-                <div class="flex flex-col text-left" style="font-family: 'Outfit', sans-serif;">
-                    <span class="font-bold text-slate-800 text-sm tracking-tight leading-tight">One Window Bayanihan</span>
-                    <span class="text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500">Assistance Program</span>
-                </div>
+        <div class="flex items-center justify-center gap-3 pt-2 sm:pt-4">
+            <img src="/logo.png" alt="One Window Bayanihan Logo" class="w-9 h-9 object-contain" />
+            <div class="flex flex-col text-left" style="font-family: 'Outfit', sans-serif;">
+                <span class="font-bold text-slate-800 text-sm tracking-tight leading-tight">One Window Bayanihan</span>
+                <span class="text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500">Assistance Program</span>
             </div>
+        </div>
 
-            <!-- game, in place of the illustration -->
-            <div id="snake-wrap">
-                <div id="snake-score">HI 00000&nbsp;&nbsp;00000</div>
-                <canvas id="snake-canvas" width="420" height="150"></canvas>
-                <div id="snake-msg">PRESS SPACE TO START</div>
-            </div>
-
-            <h1 class="font-serif text-2xl sm:text-3xl font-bold text-slate-900 mb-3 tracking-tight mt-6">
-                The website is under maintenance
+        <div class="px-6 pt-6 sm:pt-8 text-center">
+            <h1 class="font-serif text-3xl sm:text-4xl font-bold text-[#3a3d42] leading-tight tracking-tight">
+                The site is currently<br class="hidden sm:block"> under maintenance.
             </h1>
 
-            <p class="text-sm text-slate-500 leading-relaxed max-w-sm mx-auto mb-6">
-                We sincerely apologize for the inconvenience. Our website is undergoing 
-                planned updates to improve performance. We expect to be back
+            <p class="mt-5 text-[13px] text-slate-600 leading-relaxed max-w-sm mx-auto">
+                We apologize for any inconvenience caused.
+                We're almost done&mdash;we expect to be back
                 @if(isset($retry) && $retry)
-                    in approximately <strong class="text-slate-600">{{ $retry }}</strong> minute{{ $retry > 1 ? 's' : '' }}.
+                    in about <strong class="text-slate-800">{{ $retry }}</strong> minute{{ $retry > 1 ? 's' : '' }}.
                 @else
                     in a few minutes.
                 @endif
             </p>
+        </div>
 
-            <button onclick="window.location.reload()" class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-primary text-white text-sm font-bold hover:bg-[#003d66] transition-colors shadow-md hover:shadow-lg">
+        <div class="mt-4 px-6" aria-hidden="true">
+            <svg class="crane-svg w-full max-w-sm mx-auto block" viewBox="0 0 400 270" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <!-- X-braced lattice, like the reference crane -->
+                    <pattern id="lattice-h" width="14" height="12" patternUnits="userSpaceOnUse">
+                        <path d="M0 0 L14 12 M14 0 L0 12" stroke="#e2962a" stroke-width="1.2" fill="none"/>
+                    </pattern>
+                    <pattern id="lattice-v" width="16" height="16" patternUnits="userSpaceOnUse">
+                        <path d="M0 0 L16 16 M16 0 L0 16" stroke="#e2962a" stroke-width="1.2" fill="none"/>
+                        <path d="M0 15.5 H16" stroke="#e2962a" stroke-width="1.6"/>
+                    </pattern>
+                    <clipPath id="clip-world"><rect x="0" y="0" width="400" height="270"/></clipPath>
+                </defs>
+
+                <!-- clouds -->
+                <g clip-path="url(#clip-world)">
+                    <g class="cloud" opacity=".9">
+                        <ellipse cx="40" cy="40" rx="22" ry="8" fill="#e3f5ff"/>
+                        <ellipse cx="56" cy="34" rx="14" ry="8" fill="#e3f5ff"/>
+                    </g>
+                    <g class="cloud two" opacity=".9">
+                        <ellipse cx="20" cy="95" rx="18" ry="6" fill="#e3f5ff"/>
+                        <ellipse cx="32" cy="90" rx="11" ry="6" fill="#e3f5ff"/>
+                    </g>
+                </g>
+
+                <!-- ground -->
+                <ellipse cx="200" cy="262" rx="190" ry="10" fill="#b9f3cd"/>
+                <rect x="30" y="256" width="340" height="6" rx="3" fill="#8eeaae"/>
+
+                <!-- drop pad -->
+                <rect x="198" y="253" width="50" height="4" rx="2" fill="#aee0fc"/>
+                <!-- pickup pad -->
+                <rect x="108" y="253" width="50" height="4" rx="2" fill="#aee0fc"/>
+
+                <!-- beams resting on the drop pad once set down -->
+                <g class="placed">
+                    <rect x="206" y="247" width="34" height="6" rx="1.5" fill="#00a3f0"/>
+                    <rect x="204" y="241" width="34" height="6" rx="1.5" fill="#22e05c"/>
+                    <rect x="208" y="235" width="34" height="6" rx="1.5" fill="#aee0fc"/>
+                </g>
+
+                <!-- tower -->
+                <rect x="262" y="250" width="56" height="8" rx="2" fill="#4a4e55"/>
+                <rect x="272" y="244" width="36" height="7" rx="1.5" fill="#62666d"/>
+                <rect x="282" y="52" width="16" height="193" fill="#f5b83d"/>
+                <rect x="285" y="52" width="10" height="193" fill="url(#lattice-v)"/>
+                <rect x="282" y="52" width="3" height="193" fill="#f5b83d"/>
+                <rect x="295" y="52" width="3" height="193" fill="#f5b83d"/>
+
+                <!-- apex mast -->
+                <polygon points="290,12 284,54 296,54" fill="none" stroke="#e2962a" stroke-width="1.6" stroke-linejoin="round"/>
+                <path d="M286 40 L294 28 M294 40 L286 28 M287 52 L293 44 M293 52 L287 44" stroke="#e2962a" stroke-width="1.1"/>
+                <circle cx="290" cy="12" r="3.2" fill="#e2962a"/>
+                <circle class="beacon" cx="290" cy="12" r="1.6" fill="#ff5b5b"/>
+
+                <!-- cab / slewing unit -->
+                <rect x="274" y="50" width="32" height="8" rx="2" fill="#4a4e55"/>
+                <rect x="268" y="40" width="22" height="12" rx="2" fill="#f2cf4a"/>
+                <rect x="272" y="43" width="9" height="6" rx="1" fill="#aee0fc"/>
+
+                <!-- jib (working arm) -->
+                <rect x="70" y="56" width="212" height="12" rx="1.5" fill="#f5b83d"/>
+                <rect x="70" y="58" width="212" height="8" fill="url(#lattice-h)"/>
+                <rect x="70" y="56" width="212" height="2.4" fill="#e2962a"/>
+                <rect x="70" y="65.6" width="212" height="2.4" fill="#e2962a"/>
+                <circle cx="70" cy="62" r="4.5" fill="#e2962a"/>
+                <circle cx="70" cy="62" r="2" fill="#f5b83d"/>
+
+                <!-- counter-jib -->
+                <rect x="298" y="56" width="62" height="10" rx="1.5" fill="#f5b83d"/>
+                <rect x="298" y="58" width="62" height="6" fill="url(#lattice-h)"/>
+                <rect x="298" y="56" width="62" height="2.2" fill="#e2962a"/>
+                <rect x="298" y="63.8" width="62" height="2.2" fill="#e2962a"/>
+                <rect x="338" y="64" width="22" height="22" rx="2" fill="#4a4e55"/>
+                <rect x="342" y="68" width="14" height="4" rx="1" fill="#62666d"/>
+
+                <!-- tie lines (pendants) -->
+                <path d="M290 12 L70 59 M290 12 L196 57 M290 12 L360 57" stroke="#4a4e55" stroke-width="1.1" fill="none"/>
+
+                <!-- trolley + cable + hook + load -->
+                <g transform="translate(130 68)">
+                    <g class="trolley">
+                        <rect x="-8" y="-2" width="16" height="7" rx="2" fill="#4a4e55"/>
+                        <rect class="cable" x="-0.8" y="5" width="1.6" height="153" fill="#4a4e55"/>
+                        <g class="hook">
+                            <g class="sway">
+                                <rect x="-4" y="0" width="8" height="8" rx="1.5" fill="#e2962a"/>
+                                <path d="M0 8 L-18 26 M0 8 L18 26" stroke="#4a4e55" stroke-width="1" fill="none"/>
+                                <g class="cargo">
+                                    <rect x="-20" y="26" width="40" height="6" rx="1.5" fill="#aee0fc"/>
+                                    <rect x="-22" y="32" width="40" height="6" rx="1.5" fill="#22e05c"/>
+                                    <rect x="-18" y="38" width="40" height="6" rx="1.5" fill="#00a3f0"/>
+                                </g>
+                            </g>
+                        </g>
+                    </g>
+                </g>
+            </svg>
+        </div>
+
+        <div class="mt-5 flex justify-center">
+            <button onclick="window.location.reload()" class="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-[#00a3f0] text-white text-[13px] font-semibold hover:bg-[#0a5fb4] transition-colors shadow-sm">
                 <span class="material-symbols-outlined text-[18px]">refresh</span>
                 Try Again
             </button>
-
-            <p class="mt-8 text-xs text-slate-400 italic">
-                Play a round or two while you wait &mdash; refresh whenever you're ready to check again.
-            </p>
         </div>
 
-        <p class="mt-6 text-center text-xs text-slate-400">&copy; {{ date('Y') }} One Window Bayanihan. All rights reserved.</p>
+        <p class="mt-8 pb-2 text-center text-[11px] text-slate-400">&copy; {{ date('Y') }} One Window Bayanihan. All rights reserved.</p>
     </div>
-
-    <script>
-    (function () {
-        const canvas = document.getElementById('snake-canvas');
-        const ctx = canvas.getContext('2d');
-        const scoreEl = document.getElementById('snake-score');
-        const msgEl = document.getElementById('snake-msg');
-
-        const GRID = 15; // cell size, smaller to fit the tighter illustration slot
-        const COLS = canvas.width / GRID;
-        const ROWS = canvas.height / GRID;
-        const GROUND_Y = ROWS - 2;
-
-        const COLOR = '#005288';
-        const BG = '#ffffff';
-
-        let snake, dir, nextDir, food, score, hiScore, running, gameOver, speed, timer;
-
-        hiScore = parseInt(localStorage.getItem('owb-503-snake-hi') || '0', 10);
-
-        function resetGame() {
-            snake = [
-                {x: 6, y: GROUND_Y},
-                {x: 5, y: GROUND_Y},
-                {x: 4, y: GROUND_Y}
-            ];
-            dir = {x: 1, y: 0};
-            nextDir = {x: 1, y: 0};
-            score = 0;
-            speed = 110;
-            running = false;
-            gameOver = false;
-            placeFood();
-            updateScore();
-            msgEl.textContent = 'PRESS SPACE TO START';
-            draw();
-        }
-
-        function placeFood() {
-            let ok = false;
-            while (!ok) {
-                food = {
-                    x: Math.floor(Math.random() * COLS),
-                    y: Math.floor(Math.random() * ROWS)
-                };
-                ok = !snake.some(s => s.x === food.x && s.y === food.y);
-            }
-        }
-
-        function updateScore() {
-            const s = String(score).padStart(5, '0');
-            const h = String(hiScore).padStart(5, '0');
-            scoreEl.textContent = `HI ${h}  ${s}`;
-        }
-
-        function drawGroundDashes() {
-            ctx.strokeStyle = COLOR;
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            const y = (GROUND_Y + 1) * GRID - 1;
-            ctx.moveTo(0, y);
-            ctx.lineTo(canvas.width, y);
-            ctx.stroke();
-        }
-
-        function drawCell(cell, filled) {
-            const px = cell.x * GRID;
-            const py = cell.y * GRID;
-            ctx.fillStyle = COLOR;
-            if (filled) {
-                ctx.fillRect(px + 1, py + 1, GRID - 2, GRID - 2);
-            } else {
-                ctx.strokeStyle = COLOR;
-                ctx.lineWidth = 2;
-                ctx.strokeRect(px + 3, py + 3, GRID - 6, GRID - 6);
-            }
-        }
-
-        function drawTailCell(cell, scale) {
-            const size = (GRID - 2) * scale;
-            const px = cell.x * GRID + GRID / 2 - size / 2;
-            const py = cell.y * GRID + GRID / 2 - size / 2;
-            ctx.fillStyle = COLOR;
-            ctx.fillRect(px, py, size, size);
-        }
-
-        function tailScale(indexFromEnd, tailCount) {
-            const t = (indexFromEnd + 1) / (tailCount + 1);
-            const minScale = 0.3;
-            return minScale + (1 - minScale) * t;
-        }
-
-        function bridgeSegments(a, b, scaleA, scaleB) {
-            const ax = a.x * GRID, ay = a.y * GRID;
-            const bx = b.x * GRID, by = b.y * GRID;
-
-            const dx = b.x - a.x, dy = b.y - a.y;
-            if (Math.abs(dx) > 1 || Math.abs(dy) > 1) return;
-
-            ctx.fillStyle = COLOR;
-            if (dx !== 0) {
-                const x = Math.min(ax, bx) + GRID - 1;
-                const y = ay + GRID / 2 - (GRID - 2) * Math.min(scaleA, scaleB) / 2;
-                ctx.fillRect(x, y, 2, (GRID - 2) * Math.min(scaleA, scaleB));
-            } else if (dy !== 0) {
-                const y = Math.min(ay, by) + GRID - 1;
-                const x = ax + GRID / 2 - (GRID - 2) * Math.min(scaleA, scaleB) / 2;
-                ctx.fillRect(x, y, (GRID - 2) * Math.min(scaleA, scaleB), 2);
-            }
-        }
-
-        function drawHead(cell) {
-            const px = cell.x * GRID;
-            const py = cell.y * GRID;
-
-            ctx.fillStyle = COLOR;
-            ctx.fillRect(px + 1, py + 1, GRID - 2, GRID - 2);
-
-            ctx.strokeStyle = COLOR;
-            ctx.lineWidth = 2;
-            ctx.strokeRect(px - 2, py - 2, GRID + 2, GRID + 2);
-
-            const eyeSize = 2.5;
-            const cx = px + GRID / 2;
-            const cy = py + GRID / 2;
-            const forward = GRID / 4;
-            const side = 3.5;
-
-            const perpX = dir.y !== 0 ? side : 0;
-            const perpY = dir.x !== 0 ? side : 0;
-
-            ctx.fillStyle = BG;
-            ctx.fillRect(cx + dir.x * forward - perpX / 2 - eyeSize / 2, cy + dir.y * forward - perpY / 2 - eyeSize / 2, eyeSize, eyeSize);
-            ctx.fillRect(cx + dir.x * forward + perpX / 2 - eyeSize / 2, cy + dir.y * forward + perpY / 2 - eyeSize / 2, eyeSize, eyeSize);
-        }
-
-        function draw() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            drawCell(food, false);
-
-            const tailCount = Math.max(2, Math.min(8, Math.round(snake.length * 0.25)));
-
-            const scales = snake.map((seg, i) => {
-                const fromEnd = snake.length - 1 - i;
-                return fromEnd < tailCount ? tailScale(fromEnd, tailCount) : 1;
-            });
-
-            for (let i = 0; i < snake.length - 1; i++) {
-                bridgeSegments(snake[i], snake[i + 1], scales[i], scales[i + 1]);
-            }
-
-            snake.forEach((seg, i) => {
-                if (i === 0) {
-                    drawHead(seg);
-                } else if (scales[i] < 1) {
-                    drawTailCell(seg, scales[i]);
-                } else {
-                    drawCell(seg, true);
-                }
-            });
-
-            if (gameOver) {
-                ctx.font = 'bold 15px "Public Sans", sans-serif';
-                ctx.textAlign = 'center';
-                ctx.lineWidth = 4;
-                ctx.strokeStyle = BG;
-                ctx.strokeText('GAME OVER', canvas.width / 2, canvas.height / 2 - 8);
-                ctx.fillStyle = COLOR;
-                ctx.fillText('GAME OVER', canvas.width / 2, canvas.height / 2 - 8);
-            }
-        }
-
-        function tick() {
-            if (!running) return;
-
-            dir = nextDir;
-            const head = {x: snake[0].x + dir.x, y: snake[0].y + dir.y};
-
-            if (head.x < 0) head.x = COLS - 1;
-            if (head.x >= COLS) head.x = 0;
-            if (head.y < 0) head.y = ROWS - 1;
-            if (head.y >= ROWS) head.y = 0;
-
-            if (snake.some(s => s.x === head.x && s.y === head.y)) {
-                endGame();
-                return;
-            }
-
-            snake.unshift(head);
-
-            if (head.x === food.x && head.y === food.y) {
-                score += 10;
-                if (score > hiScore) { hiScore = score; localStorage.setItem('owb-503-snake-hi', hiScore); }
-                updateScore();
-                placeFood();
-                speed = Math.max(60, speed - 3);
-                restartTimer();
-            } else {
-                snake.pop();
-            }
-
-            draw();
-        }
-
-        function restartTimer() {
-            clearInterval(timer);
-            timer = setInterval(tick, speed);
-        }
-
-        function endGame() {
-            running = false;
-            gameOver = true;
-            clearInterval(timer);
-            msgEl.textContent = 'PRESS SPACE TO RESTART';
-            draw();
-        }
-
-        function startGame() {
-            if (gameOver) {
-                resetGame();
-            }
-            running = true;
-            gameOver = false;
-            msgEl.textContent = '';
-            restartTimer();
-        }
-
-        document.addEventListener('keydown', (e) => {
-            const key = e.key;
-
-            if (key === ' ') {
-                e.preventDefault();
-                if (!running) startGame();
-                return;
-            }
-
-            if (!running) return;
-
-            if ((key === 'ArrowUp' || key === 'w') && dir.y === 0) nextDir = {x: 0, y: -1};
-            else if ((key === 'ArrowDown' || key === 's') && dir.y === 0) nextDir = {x: 0, y: 1};
-            else if ((key === 'ArrowLeft' || key === 'a') && dir.x === 0) nextDir = {x: -1, y: 0};
-            else if ((key === 'ArrowRight' || key === 'd') && dir.x === 0) nextDir = {x: 1, y: 0};
-        });
-
-        let touchStartX = 0, touchStartY = 0;
-        canvas.addEventListener('touchstart', (e) => {
-            if (!running) { startGame(); return; }
-            const t = e.touches[0];
-            touchStartX = t.clientX;
-            touchStartY = t.clientY;
-        }, {passive: true});
-
-        canvas.addEventListener('touchend', (e) => {
-            const t = e.changedTouches[0];
-            const dx = t.clientX - touchStartX;
-            const dy = t.clientY - touchStartY;
-            if (Math.abs(dx) > Math.abs(dy)) {
-                if (dx > 20 && dir.x === 0) nextDir = {x: 1, y: 0};
-                else if (dx < -20 && dir.x === 0) nextDir = {x: -1, y: 0};
-            } else {
-                if (dy > 20 && dir.y === 0) nextDir = {x: 0, y: 1};
-                else if (dy < -20 && dir.y === 0) nextDir = {x: 0, y: -1};
-            }
-        }, {passive: true});
-
-        resetGame();
-    })();
-    </script>
 </body>
 </html>

@@ -7,13 +7,67 @@ import { parseGoogleMapsUrl } from '@/lib/maps';
 import { agencyFormSchema } from '@/Schemas/adminSchemas';
 import useClientValidation from '@/Hooks/useClientValidation';
 
+function parseContactInfo(contactInfo) {
+  const fields = {
+    contact_address: '',
+    contact_tel: '',
+    contact_email: '',
+  };
+
+  const rawContactInfo = String(contactInfo || '');
+  const lines = rawContactInfo.split(/\r\n|\r|\n/);
+  const labels = /^(Address|Contact|Phone|Tel|Telephone|Email):\s*(.*)$/i;
+  const parsed = [];
+  const seenFields = new Set();
+  let currentField = null;
+  let hasUnmatchedContent = false;
+  let hasDuplicateField = false;
+
+  lines.forEach((line) => {
+    const match = line.match(labels);
+    if (match) {
+      currentField = {
+        address: 'contact_address',
+        contact: 'contact_tel',
+        phone: 'contact_tel',
+        tel: 'contact_tel',
+        telephone: 'contact_tel',
+        email: 'contact_email',
+      }[match[1].toLowerCase()];
+      hasDuplicateField = hasDuplicateField || seenFields.has(currentField);
+      seenFields.add(currentField);
+      parsed.push({ field: currentField, value: match[2] });
+    } else if (currentField === 'contact_address') {
+      parsed[parsed.length - 1].value += `\n${line}`;
+    } else if (currentField && line.trim()) {
+      hasUnmatchedContent = true;
+    } else if (line.trim()) {
+      hasUnmatchedContent = true;
+      currentField = null;
+    }
+  });
+
+  if (parsed.length === 0 || hasUnmatchedContent || hasDuplicateField) {
+    fields.contact_address = rawContactInfo;
+    return fields;
+  }
+
+  parsed.forEach(({ field, value }) => {
+    fields[field] = value.trim();
+  });
+
+  return fields;
+}
+
 export default function AgencyFormModal({ agency, onClose, onBypass }) {
   const isEdit = !!agency;
+  const contactFields = parseContactInfo(agency?.contact_info);
   const { data, setData, post, patch, transform, processing, errors, setError, clearErrors } = useForm({
     name: agency?.name ?? '',
     short: agency?.short ?? '',
     description: agency?.description ?? '',
     contact_info: agency?.contact_info ?? '',
+    ...contactFields,
     logo_url: agency?.logo_url ?? '',
     location_query: agency?.location_query ?? '',
     latitude: agency?.latitude ?? null,
@@ -25,6 +79,10 @@ export default function AgencyFormModal({ agency, onClose, onBypass }) {
   const [mapPreview, setMapPreview] = useState(null);
 
   const { validate } = useClientValidation(agencyFormSchema, data, setError);
+  const originalContactInfo = agency?.contact_info ?? '';
+  const isContactUnchanged = data.contact_address === contactFields.contact_address
+    && data.contact_tel === contactFields.contact_tel
+    && data.contact_email === contactFields.contact_email;
 
   function handleMapLinkChange(value) {
     setData('map_link', value);
@@ -45,9 +103,21 @@ export default function AgencyFormModal({ agency, onClose, onBypass }) {
     onBypass?.();
     clearErrors();
     if (!validate()) return;
+    transform((formData) => {
+      const payload = { ...formData };
+      if (isEdit && isContactUnchanged) {
+        delete payload.contact_address;
+        delete payload.contact_tel;
+        delete payload.contact_email;
+        payload.contact_info = originalContactInfo;
+      }
+      if (isEdit && data.logo_url instanceof File) {
+        payload._method = 'patch';
+      }
+      return payload;
+    });
     if (isEdit) {
       if (data.logo_url instanceof File) {
-        transform((formData) => ({ ...formData, _method: 'patch' }));
         post(route('admin.agencies.update', agency.id), { onSuccess: onClose, forceFormData: true });
       } else {
         patch(route('admin.agencies.update', agency.id), { onSuccess: onClose });
@@ -80,9 +150,23 @@ export default function AgencyFormModal({ agency, onClose, onBypass }) {
             <textarea rows={3} value={data.description} onChange={(e) => setData('description', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-primary focus:ring-primary text-sm" />
             <InputError message={errors.description} className="mt-1" />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700">Contact Info</label>
-            <input type="text" value={data.contact_info} onChange={(e) => setData('contact_info', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-primary focus:ring-primary text-sm" />
+          <div className="space-y-3">
+            <p className="text-sm font-semibold text-slate-700">Contact Information</p>
+            <div>
+              <label className="block text-sm font-medium text-slate-700">Address</label>
+              <textarea rows={2} value={data.contact_address} onChange={(e) => setData('contact_address', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-primary focus:ring-primary text-sm" />
+              <InputError message={errors.contact_address} className="mt-1" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700">Tel</label>
+              <input type="text" value={data.contact_tel} onChange={(e) => setData('contact_tel', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-primary focus:ring-primary text-sm" />
+              <InputError message={errors.contact_tel} className="mt-1" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700">Email</label>
+              <input type="email" value={data.contact_email} onChange={(e) => setData('contact_email', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-primary focus:ring-primary text-sm" />
+              <InputError message={errors.contact_email} className="mt-1" />
+            </div>
             <InputError message={errors.contact_info} className="mt-1" />
           </div>
           <LogoUpload

@@ -58,7 +58,7 @@ class ClientCaseQueryTest extends TestCase
         ]);
 
         $ofwClosed = Client::factory()->create(['type' => 'OFW']);
-        CaseFile::factory()->create([
+        $closedCase = CaseFile::factory()->create([
             'client_id' => $ofwClosed->id,
             'user_id' => $manager->id,
             'status' => 'CLOSED',
@@ -98,6 +98,10 @@ class ClientCaseQueryTest extends TestCase
         $deletedCase->delete();
 
         Referral::factory()->create([
+            'case_id' => $closedCase->id,
+            'agcy_id' => $agencyA->id,
+        ]);
+        Referral::factory()->create([
             'case_id' => $ofwOpen->caseFiles()->first()->id,
             'agcy_id' => $agencyA->id,
         ]);
@@ -125,7 +129,8 @@ class ClientCaseQueryTest extends TestCase
             'Indigenous Person' => 0,
         ], $stats['vulnerability_counts']);
         $this->assertSame(2, $stats['clients_with_open_cases']);
-        $this->assertSame(2, $stats['total_referrals']);
+        $this->assertSame(1, $stats['clients_with_closed_cases']);
+        $this->assertSame(3, $stats['total_referrals']);
     }
 
     public function test_client_index_serves_builder_stats(): void
@@ -183,18 +188,20 @@ class ClientCaseQueryTest extends TestCase
         $agencyUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agencyA->id]);
         $stats = app(CaseService::class)->getClientDirectoryStats($agencyUser);
 
-        $this->assertSame(2, $stats['total_clients']);
-        $this->assertSame(1, $stats['ofw_clients']);
+        $this->assertSame(3, $stats['total_clients']);
+        $this->assertSame(2, $stats['ofw_clients']);
         $this->assertSame(1, $stats['nok_clients']);
         $this->assertSame(1, $stats['vulnerability_counts']['PWD']);
         $this->assertSame(1, $stats['vulnerability_counts']['Senior Citizen']);
         $this->assertSame(2, $stats['clients_with_open_cases']);
-        $this->assertSame(2, $stats['total_referrals']);
+        $this->assertSame(1, $stats['clients_with_closed_cases']);
+        $this->assertSame(3, $stats['total_referrals']);
 
         $otherAgencyUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agencyB->id]);
         $otherStats = app(CaseService::class)->getClientDirectoryStats($otherAgencyUser);
 
         $this->assertSame(0, $otherStats['total_clients']);
+        $this->assertSame(0, $otherStats['clients_with_closed_cases']);
         $this->assertSame(0, $otherStats['total_referrals']);
 
         $orphanAgencyUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => null]);
@@ -204,6 +211,7 @@ class ClientCaseQueryTest extends TestCase
             'nok_clients' => 0,
             'vulnerability_counts' => ['PWD' => 0, 'Senior Citizen' => 0, 'Solo Parent' => 0, 'Indigenous Person' => 0],
             'clients_with_open_cases' => 0,
+            'clients_with_closed_cases' => 0,
             'total_referrals' => 0,
         ], app(CaseService::class)->getClientDirectoryStats($orphanAgencyUser));
     }

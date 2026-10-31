@@ -468,6 +468,7 @@ export default function CaseCreate() {
     // NEXT_OF_KIN filers pick an existing OFW or toggle "Add new OFW".
     const [clientSource, setClientSource] = useState(client?.id ? 'existing' : 'new');
     const [selectedClient, setSelectedClient] = useState(null);
+    const [viewMode, setViewMode] = useState('list');
     const [searchQuery, setSearchQuery] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const searchDebounceRef = useRef(null);

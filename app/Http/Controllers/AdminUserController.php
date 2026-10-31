@@ -175,7 +175,8 @@ class AdminUserController extends Controller
 
         $this->users->inviteUser($validated, $request->user()->id);
 
-        return back()->with('success', 'Invitation sent to '.$validated['email']);
+        return redirect()->route('admin.users.index')
+            ->with('success', 'Invitation sent to '.$validated['email']);
     }
 
     public function resendInvite(string $inviteId)

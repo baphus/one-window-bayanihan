@@ -5,7 +5,6 @@ import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import { useToast } from '@/Hooks/useToast';
 import { formatDisplayDateTime } from '@/lib/utils';
 
-
 export default function SystemSettings({ 
     referral_overdue_days,
     chatbot_last_reindexed_at,
@@ -36,14 +35,7 @@ export default function SystemSettings({
     const handleReindex = async () => {
         setReindexing(true);
         try {
-            const res = await fetch(route('admin.system-settings.reindex-chatbot'), {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                },
-            });
-            const data = await res.json();
+            const { data } = await window.axios.post(route('admin.system-settings.reindex-chatbot'));
             if (data.success) {
                 setLastReindexedAt(data.last_reindexed_at);
                 toast.success(data.message);
@@ -125,17 +117,7 @@ export default function SystemSettings({
                         disabled={reindexing}
                         className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        {reindexing ? (
-                            <>
-                                <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                                </svg>
-                                Refreshing…
-                            </>
-                        ) : (
-                            'Update Knowledge'
-                        )}
+                        {reindexing ? 'Refreshing…' : 'Update Knowledge'}
                     </button>
                 </div>
             </div>

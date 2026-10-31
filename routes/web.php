@@ -284,8 +284,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/users', [AdminUserController::class, 'index'])->name('users.index');
         Route::post('/users', [AdminUserController::class, 'store'])->name('users.store');
         Route::post('/users/invite', [AdminUserController::class, 'invite'])->name('users.invite');
-        // Invite is submitted from the users modal; there is intentionally no GET invite page.
-        Route::get('/users/invite', fn () => abort(404));
+        // A browser refresh can land on the POST endpoint after an interrupted
+        // Inertia visit; return admins to the users page instead of rendering 404.
+        Route::get('/users/invite', fn () => redirect()->route('admin.users.index'));
         Route::post('/users/invites/{inviteId}/resend', [AdminUserController::class, 'resendInvite'])->name('users.invites.resend')->whereUuid('inviteId');
         Route::delete('/users/invites/{inviteId}', [AdminUserController::class, 'cancelInvite'])->name('users.invites.cancel')->whereUuid('inviteId');
         // No `throttle:password-confirm` here on purpose: it would also meter every
