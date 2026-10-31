@@ -223,6 +223,7 @@ jobs:
           SEARCH_INDEXING_ENABLED: ${{ vars.SEARCH_INDEXING_ENABLED || 'false' }}
           MAIL_MAILER: ${{ vars.MAIL_MAILER || 'log' }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          RESEND_WEBHOOK_SECRET: ${{ secrets.RESEND_WEBHOOK_SECRET }}
           MAIL_FROM_ADDRESS: ${{ vars.MAIL_FROM_ADDRESS || 'noreply@owbap.app' }}
           # The Sentry DSN may be configured as either an Environment secret or
           # an Environment variable. Prefer the secret when both exist. Reading
@@ -268,6 +269,7 @@ jobs:
             --arg indexing  "$SEARCH_INDEXING_ENABLED" \
             --arg mailer    "$MAIL_MAILER" \
             --arg resend    "$RESEND_API_KEY" \
+            --arg resendWebhook "$RESEND_WEBHOOK_SECRET" \
             --arg mailFrom  "$MAIL_FROM_ADDRESS" \
             --arg sentry    "$SENTRY_LARAVEL_DSN" \
             --arg release   "$IMAGE_TAG" \
@@ -327,6 +329,7 @@ jobs:
                     MONITORING_READINESS_TOKEN: $monToken,
                     MAIL_MAILER: $mailer,
                     RESEND_API_KEY: $resend,
+                    RESEND_WEBHOOK_SECRET: $resendWebhook,
                     MAIL_FROM_ADDRESS: $mailFrom,
                     MAIL_FROM_NAME: "One Window Bayanihan",
                     SENTRY_LARAVEL_DSN: $sentry,
