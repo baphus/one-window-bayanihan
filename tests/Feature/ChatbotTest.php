@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Services\Chatbot\ChatbotAudience;
 use App\Services\Chatbot\ChatbotGuideService;
 use App\Services\Chatbot\ChatbotHelpdeskService;
 use Tests\TestCase;
@@ -73,7 +74,7 @@ class ChatbotTest extends TestCase
         $content = $service->getSections([
             'troubleshooting-common-issues::Login or access problems',
             'using-public-tracking-portal::What clients can see',
-        ]);
+        ], new ChatbotAudience('CASE_MANAGER'));
 
         // Should include the requested sections
         $this->assertStringContainsString('Login or access problems', $content);
@@ -98,7 +99,7 @@ class ChatbotTest extends TestCase
         ];
 
         foreach ($variations as $id) {
-            $content = $service->getSections([$id]);
+            $content = $service->getSections([$id], new ChatbotAudience('CASE_MANAGER'));
             $this->assertStringContainsString('correct account', $content, "Failed for identifier: {$id}");
         }
     }
@@ -135,7 +136,7 @@ class ChatbotTest extends TestCase
 
         // Should include sections from fallback articles (by title, not slug)
         $this->assertStringContainsString('Public Tracking Portal', $content);
-        $this->assertStringContainsString('Troubleshooting Common Issues', $content);
+        $this->assertStringNotContainsString('Troubleshooting Common Issues', $content);
 
         // Should NOT include unrelated articles
         $this->assertStringNotContainsString('Privacy', $content);

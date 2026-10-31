@@ -42,7 +42,7 @@ class ChatbotRetrievalService
      *
      * @param  list<array{source_type: string, source_key: string}>  $hits
      */
-    public function contentFor(array $hits): string
+    public function contentFor(array $hits, ?ChatbotAudience $audience = null): string
     {
         $guideKeys = [];
         $helpdeskIds = [];
@@ -66,7 +66,7 @@ class ChatbotRetrievalService
             }
         }
         if ($helpdeskIds !== []) {
-            $content = $this->helpdesk->getSections($helpdeskIds);
+            $content = $this->helpdesk->getSections($helpdeskIds, $audience);
             if ($content !== '') {
                 $parts[] = $content;
             }
