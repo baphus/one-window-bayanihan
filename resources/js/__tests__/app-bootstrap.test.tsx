@@ -6,6 +6,7 @@ import '../app';
 
 const bootstrap = vi.hoisted(() => ({
     options: null as null | {
+        resolve: (name: string) => Promise<unknown>;
         setup: (args: {
             el: HTMLElement;
             App: ComponentType;
@@ -56,6 +57,11 @@ beforeEach(() => {
 });
 
 describe('Inertia app bootstrap', () => {
+    it('excludes test modules from routable pages', () => {
+        expect(() => bootstrap.options?.resolve('Auth/__tests__/Register.test')).toThrow('Page not found');
+        expect(() => bootstrap.options?.resolve('MissingPage')).toThrow('Page not found');
+    });
+
     it('keeps request/user context tracking outside usePage consumers that lack Inertia context', () => {
         const PageApp = () => <div>Rendered Inertia page</div>;
 

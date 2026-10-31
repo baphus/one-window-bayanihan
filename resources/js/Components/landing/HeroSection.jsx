@@ -54,7 +54,7 @@ export default function HeroSection({ title, description, onTrackAction, agencie
                 In partnership with
               </span>
               <img
-                src="/images/landing/ctu_no_bg.png"
+                src="/images/landing/ctu_no_bg.webp"
                 alt="Cebu Technological University Official Seal"
                 className="h-10 w-10 rounded-full object-contain drop-shadow-lg sm:h-14 sm:w-14 lg:h-16 lg:w-16"
               />
