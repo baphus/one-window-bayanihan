@@ -135,6 +135,20 @@ class AdminAgencyControllerTest extends TestCase
         );
     }
 
+    public function test_structured_contact_fields_allow_exact_column_limit(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+
+        $response = $this->actingAs($admin)->post(route('admin.agencies.store'), [
+            'name' => 'Test Agency',
+            'short' => 'Test',
+            'contact_address' => str_repeat('A', 246),
+        ]);
+
+        $response->assertRedirect(route('admin.agencies.index'));
+        $this->assertSame(255, mb_strlen(Agency::where('name', 'Test Agency')->firstOrFail()->contact_info));
+    }
+
     public function test_structured_contact_fields_reject_combined_values_over_column_limit(): void
     {
         $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
@@ -142,8 +156,7 @@ class AdminAgencyControllerTest extends TestCase
         $response = $this->actingAs($admin)->post(route('admin.agencies.store'), [
             'name' => 'Test Agency',
             'short' => 'Test',
-            'contact_address' => str_repeat('A', 200),
-            'contact_tel' => str_repeat('B', 40),
+            'contact_address' => str_repeat('A', 247),
         ]);
 
         $response->assertInvalid(['contact_info']);
@@ -206,17 +219,66 @@ class AdminAgencyControllerTest extends TestCase
         ]);
     }
 
+    public function test_map_link_accepts_explicit_google_maps_regional_hosts(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+
+        foreach ([
+            'https://google.com/maps?q=cebu',
+            'https://www.google.com/maps?q=cebu',
+            'https://maps.google.com/maps?q=cebu',
+            'https://google.com.ph/maps?q=cebu',
+            'https://www.google.com.ph/maps?q=cebu',
+            'https://maps.google.com.ph/maps?q=cebu',
+        ] as $index => $mapLink) {
+            $this->actingAs($admin)->post(route('admin.agencies.store'), [
+                'name' => 'Regional Maps '.$index,
+                'short' => 'Regional '.$index,
+                'map_link' => $mapLink,
+            ])->assertRedirect(route('admin.agencies.index'));
+        }
+    }
+
+    public function test_map_link_accepts_goo_gl_only_with_maps_path(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+
+        $this->actingAs($admin)->post(route('admin.agencies.store'), [
+            'name' => 'Short Maps',
+            'short' => 'Short Maps',
+            'map_link' => 'https://goo.gl/maps/abc123',
+        ])->assertRedirect(route('admin.agencies.index'));
+
+        $this->actingAs($admin)->post(route('admin.agencies.store'), [
+            'name' => 'App Short Maps',
+            'short' => 'App Short Maps',
+            'map_link' => 'https://maps.app.goo.gl/abc123',
+        ])->assertRedirect(route('admin.agencies.index'));
+
+        $this->actingAs($admin)->post(route('admin.agencies.store'), [
+            'name' => 'App Short Maps Nested',
+            'short' => 'App Short Maps Nested',
+            'map_link' => 'https://maps.app.goo.gl/place/abc123',
+        ])->assertRedirect(route('admin.agencies.index'));
+    }
+
     public function test_map_link_rejects_non_google_maps_urls(): void
     {
         $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
 
-        $response = $this->actingAs($admin)->post(route('admin.agencies.store'), [
-            'name' => 'Test Agency',
-            'short' => 'Test',
-            'map_link' => 'https://example.com/maps/place/OWWA',
-        ]);
+        foreach ([
+            'https://example.com/maps/place/OWWA',
+            'https://google.com.evil.example/maps/place/OWWA',
+            'https://goo.gl/abc123',
+        ] as $mapLink) {
+            $response = $this->actingAs($admin)->post(route('admin.agencies.store'), [
+                'name' => 'Test Agency',
+                'short' => 'Test',
+                'map_link' => $mapLink,
+            ]);
 
-        $response->assertInvalid(['map_link']);
+            $response->assertInvalid(['map_link']);
+        }
     }
 
     public function test_map_link_parses_google_maps_query_url_with_coords(): void

@@ -17,8 +17,10 @@ export interface ParsedGoogleMapsUrl {
   isParseable: boolean;
 }
 
-const GOOGLE_MAPS_DOMAINS = /^https?:\/\/(www\.)?google\.(com|ph)\/maps\//;
-const GOOGLE_SHORT_DOMAIN = /^https?:\/\/maps\.app\.goo\.gl\//;
+const GOOGLE_MAPS_HOSTS = new Set([
+  'google.com', 'www.google.com', 'maps.google.com',
+  'google.com.ph', 'www.google.com.ph', 'maps.google.com.ph',
+]);
 
 export function isGoogleMapsUrl(url: string): boolean {
   if (!url.trim()) return true;
@@ -26,13 +28,11 @@ export function isGoogleMapsUrl(url: string): boolean {
   try {
     const parsed = new URL(url.trim());
     const host = parsed.hostname.toLowerCase();
-    const isGoogleMapsHost = [
-      'google.com',
-      'www.google.com',
-      'google.com.ph',
-      'www.google.com.ph',
-    ].includes(host) && (parsed.pathname === '/maps' || parsed.pathname.startsWith('/maps/'));
-    const isShortGoogleMapsHost = host === 'maps.app.goo.gl' && parsed.pathname !== '/';
+    const isGoogleMapsHost = GOOGLE_MAPS_HOSTS.has(host)
+      && (parsed.pathname === '/maps' || parsed.pathname.startsWith('/maps/'));
+    const isShortGoogleMapsHost = host === 'maps.app.goo.gl'
+      ? parsed.pathname !== '/'
+      : host === 'goo.gl' && parsed.pathname.startsWith('/maps/');
 
     return ['http:', 'https:'].includes(parsed.protocol)
       && (isGoogleMapsHost || isShortGoogleMapsHost);
@@ -89,12 +89,19 @@ export function parseGoogleMapsUrl(url: string): ParsedGoogleMapsUrl {
   const trimmed = url.trim();
 
   // Shortened goo.gl — cannot parse
-  if (GOOGLE_SHORT_DOMAIN.test(trimmed)) {
+  if (/^https?:\/\/(?:maps\.app\.)?goo\.gl\//i.test(trimmed)) {
     return { lat: null, lng: null, query: null, isParseable: false };
   }
 
-  // Not a Google Maps URL at all
-  if (!GOOGLE_MAPS_DOMAINS.test(trimmed)) {
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    return { lat: null, lng: null, query: null, isParseable: false };
+  }
+  if (!['http:', 'https:'].includes(parsed.protocol)
+    || !GOOGLE_MAPS_HOSTS.has(parsed.hostname.toLowerCase())
+    || !(parsed.pathname === '/maps' || parsed.pathname.startsWith('/maps/'))) {
     return { lat: null, lng: null, query: null, isParseable: false };
   }
 

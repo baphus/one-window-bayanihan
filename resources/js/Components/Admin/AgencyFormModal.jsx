@@ -15,29 +15,46 @@ function parseContactInfo(contactInfo) {
   };
 
   const rawContactInfo = String(contactInfo || '');
-  let hasStructuredValue = false;
+  const lines = rawContactInfo.split(/\r\n|\r|\n/);
+  const labels = /^(Address|Contact|Phone|Tel|Telephone|Email):\s*(.*)$/i;
+  const parsed = [];
+  const seenFields = new Set();
+  let currentField = null;
+  let hasUnmatchedContent = false;
+  let hasDuplicateField = false;
 
-  rawContactInfo.split(/\r?\n/).forEach((line) => {
-    const match = line.match(/^(Address|Contact|Phone|Email):\s*(.*)$/i);
-    if (!match) return;
-
-    const key = {
-      address: 'contact_address',
-      contact: 'contact_tel',
-      phone: 'contact_tel',
-      tel: 'contact_tel',
-      email: 'contact_email',
-    }[match[1].toLowerCase()];
-
-    if (key) {
-      fields[key] = match[2].trim();
-      hasStructuredValue = true;
+  lines.forEach((line) => {
+    const match = line.match(labels);
+    if (match) {
+      currentField = {
+        address: 'contact_address',
+        contact: 'contact_tel',
+        phone: 'contact_tel',
+        tel: 'contact_tel',
+        telephone: 'contact_tel',
+        email: 'contact_email',
+      }[match[1].toLowerCase()];
+      hasDuplicateField = hasDuplicateField || seenFields.has(currentField);
+      seenFields.add(currentField);
+      parsed.push({ field: currentField, value: match[2] });
+    } else if (currentField === 'contact_address') {
+      parsed[parsed.length - 1].value += `\n${line}`;
+    } else if (currentField && line.trim()) {
+      hasUnmatchedContent = true;
+    } else if (line.trim()) {
+      hasUnmatchedContent = true;
+      currentField = null;
     }
   });
 
-  if (rawContactInfo && !hasStructuredValue) {
+  if (parsed.length === 0 || hasUnmatchedContent || hasDuplicateField) {
     fields.contact_address = rawContactInfo;
+    return fields;
   }
+
+  parsed.forEach(({ field, value }) => {
+    fields[field] = value.trim();
+  });
 
   return fields;
 }
@@ -62,6 +79,10 @@ export default function AgencyFormModal({ agency, onClose, onBypass }) {
   const [mapPreview, setMapPreview] = useState(null);
 
   const { validate } = useClientValidation(agencyFormSchema, data, setError);
+  const originalContactInfo = agency?.contact_info ?? '';
+  const isContactUnchanged = data.contact_address === contactFields.contact_address
+    && data.contact_tel === contactFields.contact_tel
+    && data.contact_email === contactFields.contact_email;
 
   function handleMapLinkChange(value) {
     setData('map_link', value);
@@ -82,9 +103,21 @@ export default function AgencyFormModal({ agency, onClose, onBypass }) {
     onBypass?.();
     clearErrors();
     if (!validate()) return;
+    transform((formData) => {
+      const payload = { ...formData };
+      if (isEdit && isContactUnchanged) {
+        delete payload.contact_address;
+        delete payload.contact_tel;
+        delete payload.contact_email;
+        payload.contact_info = originalContactInfo;
+      }
+      if (isEdit && data.logo_url instanceof File) {
+        payload._method = 'patch';
+      }
+      return payload;
+    });
     if (isEdit) {
       if (data.logo_url instanceof File) {
-        transform((formData) => ({ ...formData, _method: 'patch' }));
         post(route('admin.agencies.update', agency.id), { onSuccess: onClose, forceFormData: true });
       } else {
         patch(route('admin.agencies.update', agency.id), { onSuccess: onClose });
