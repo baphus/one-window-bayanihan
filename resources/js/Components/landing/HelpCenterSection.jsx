@@ -79,7 +79,7 @@ export default function HelpCenterSection() {
         <div ref={ctaRef} className={`text-center owb-reveal ${ctaVisible ? 'is-visible' : ''}`}>
           <Link
             href={route('helpdesk.index')}
-            className="inline-flex items-center gap-2 rounded-md bg-primary px-8 py-3.5 text-sm font-bold uppercase tracking-widest text-white shadow-sm transition-all hover:bg-primary/90 active:scale-95"
+            className="inline-flex items-center gap-2 rounded-none bg-primary px-8 py-3.5 text-sm font-bold uppercase tracking-widest text-white shadow-sm transition-all hover:bg-primary/90 active:scale-95"
           >
             <span className="material-symbols-outlined text-lg">menu_book</span>
             Visit Help Center

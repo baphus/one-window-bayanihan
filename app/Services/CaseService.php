@@ -1157,6 +1157,7 @@ class CaseService
                 'nok_clients' => 0,
                 'vulnerability_counts' => ['PWD' => 0, 'Senior Citizen' => 0, 'Solo Parent' => 0, 'Indigenous Person' => 0],
                 'clients_with_open_cases' => 0,
+                'clients_with_closed_cases' => 0,
                 'total_referrals' => 0,
             ];
         }
@@ -1192,6 +1193,10 @@ class CaseService
             $q->withOpenStatus();
         });
 
+        $clientsWithClosedCases = $this->countDistinctClientsWithCases($agencyId, function ($q) {
+            $q->where('cases.status', 'CLOSED');
+        });
+
         $totalReferrals = Referral::where('is_deleted', false)
             ->whereHas('caseFile', function ($q) {
                 $q->live();
@@ -1212,6 +1217,7 @@ class CaseService
                 'Indigenous Person' => (int) $vulnerabilityCounts['Indigenous Person'],
             ],
             'clients_with_open_cases' => (int) $clientsWithOpenCases,
+            'clients_with_closed_cases' => (int) $clientsWithClosedCases,
             'total_referrals' => (int) $totalReferrals,
         ];
     }

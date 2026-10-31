@@ -20,6 +20,27 @@ export interface ParsedGoogleMapsUrl {
 const GOOGLE_MAPS_DOMAINS = /^https?:\/\/(www\.)?google\.(com|ph)\/maps\//;
 const GOOGLE_SHORT_DOMAIN = /^https?:\/\/maps\.app\.goo\.gl\//;
 
+export function isGoogleMapsUrl(url: string): boolean {
+  if (!url.trim()) return true;
+
+  try {
+    const parsed = new URL(url.trim());
+    const host = parsed.hostname.toLowerCase();
+    const isGoogleMapsHost = [
+      'google.com',
+      'www.google.com',
+      'google.com.ph',
+      'www.google.com.ph',
+    ].includes(host) && (parsed.pathname === '/maps' || parsed.pathname.startsWith('/maps/'));
+    const isShortGoogleMapsHost = host === 'maps.app.goo.gl' && parsed.pathname !== '/';
+
+    return ['http:', 'https:'].includes(parsed.protocol)
+      && (isGoogleMapsHost || isShortGoogleMapsHost);
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Try to parse a coordinate pair from a `@lat,lng[,zoom]` token.
  */

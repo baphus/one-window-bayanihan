@@ -2,18 +2,12 @@ import { useState, useRef, useMemo } from 'react';
 import { Head, router } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
-import { useToast } from '@/Hooks/useToast';
-import { formatDisplayDateTime } from '@/lib/utils';
 
 
 export default function SystemSettings({ 
     referral_overdue_days,
-    chatbot_last_reindexed_at,
 }) {
     const [overdueDays, setOverdueDays] = useState(referral_overdue_days);
-    const [reindexing, setReindexing] = useState(false);
-    const [lastReindexedAt, setLastReindexedAt] = useState(chatbot_last_reindexed_at);
-    const toast = useToast();
 
     const initialRef = useRef({ 
         overdueDays: referral_overdue_days,
@@ -31,30 +25,6 @@ export default function SystemSettings({
         }, {
             preserveScroll: true,
         });
-    };
-
-    const handleReindex = async () => {
-        setReindexing(true);
-        try {
-            const res = await fetch(route('admin.system-settings.reindex-chatbot'), {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                },
-            });
-            const data = await res.json();
-            if (data.success) {
-                setLastReindexedAt(data.last_reindexed_at);
-                toast.success(data.message);
-            } else {
-                toast.error(data.message || 'Refresh failed.');
-            }
-        } catch {
-            toast.error('Failed to reach the server. Please try again.');
-        } finally {
-            setReindexing(false);
-        }
     };
 
     return (
@@ -110,34 +80,6 @@ export default function SystemSettings({
                     </div>
                 </div>
 
-                <div className="rounded-lg bg-white shadow-sm border border-slate-200 p-6">
-                    <h3 className="text-base font-semibold text-slate-900 mb-4">Chatbot Knowledge</h3>
-                    <p className="text-sm text-slate-600 mb-4">
-                        Refresh the helpdesk articles used by the chatbot. Public agency information is read directly from the directory.
-                    </p>
-                    {lastReindexedAt && (
-                        <p className="text-xs text-slate-400 mb-4">
-                            Last updated: {formatDisplayDateTime(lastReindexedAt)}
-                        </p>
-                    )}
-                    <button
-                        onClick={handleReindex}
-                        disabled={reindexing}
-                        className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        {reindexing ? (
-                            <>
-                                <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                                </svg>
-                                Refreshing…
-                            </>
-                        ) : (
-                            'Update Knowledge'
-                        )}
-                    </button>
-                </div>
             </div>
             {UnsavedModal}
         </AppLayout>

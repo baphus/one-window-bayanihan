@@ -114,6 +114,58 @@ class AdminAgencyControllerTest extends TestCase
         ]);
     }
 
+    public function test_structured_contact_fields_are_combined_into_contact_info(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+
+        $response = $this->actingAs($admin)->post(route('admin.agencies.store'), [
+            'name' => 'Test Agency',
+            'short' => 'Test',
+            'contact_address' => '123 Main Street',
+            'contact_tel' => '+63 912 345 6789',
+            'contact_email' => 'maria@example.com',
+        ]);
+
+        $response->assertRedirect(route('admin.agencies.index'));
+
+        $agency = Agency::where('name', 'Test Agency')->firstOrFail();
+        $this->assertSame(
+            "Address: 123 Main Street\nTel: +63 912 345 6789\nEmail: maria@example.com",
+            $agency->contact_info,
+        );
+    }
+
+    public function test_structured_contact_fields_reject_combined_values_over_column_limit(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+
+        $response = $this->actingAs($admin)->post(route('admin.agencies.store'), [
+            'name' => 'Test Agency',
+            'short' => 'Test',
+            'contact_address' => str_repeat('A', 200),
+            'contact_tel' => str_repeat('B', 40),
+        ]);
+
+        $response->assertInvalid(['contact_info']);
+    }
+
+    public function test_duplicate_short_names_receive_unique_slugs(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        Agency::factory()->create(['short' => 'Test', 'slug' => 'test']);
+
+        $response = $this->actingAs($admin)->post(route('admin.agencies.store'), [
+            'name' => 'Another Test Agency',
+            'short' => 'Test',
+        ]);
+
+        $response->assertRedirect(route('admin.agencies.index'));
+        $this->assertDatabaseHas('agencies', [
+            'name' => 'Another Test Agency',
+            'slug' => 'test-2',
+        ]);
+    }
+
     public function test_map_link_is_auto_generated_from_latitude_and_longitude(): void
     {
         $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
@@ -152,6 +204,19 @@ class AdminAgencyControllerTest extends TestCase
             'longitude' => 123.8854,
             'location_query' => 'OWWA',
         ]);
+    }
+
+    public function test_map_link_rejects_non_google_maps_urls(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+
+        $response = $this->actingAs($admin)->post(route('admin.agencies.store'), [
+            'name' => 'Test Agency',
+            'short' => 'Test',
+            'map_link' => 'https://example.com/maps/place/OWWA',
+        ]);
+
+        $response->assertInvalid(['map_link']);
     }
 
     public function test_map_link_parses_google_maps_query_url_with_coords(): void

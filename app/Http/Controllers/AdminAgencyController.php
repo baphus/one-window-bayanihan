@@ -10,9 +10,11 @@ use App\Models\Agency;
 use App\Services\AuditLogger;
 use App\Services\CloudinaryAvatarService;
 use App\Services\OnboardingService;
+use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
 class AdminAgencyController extends Controller
@@ -70,14 +72,18 @@ class AdminAgencyController extends Controller
             'short' => 'required|string|max:50',
             'description' => 'nullable|string',
             'contact_info' => 'nullable|string',
+            'contact_address' => 'nullable|string|max:500',
+            'contact_tel' => 'nullable|string|max:100',
+            'contact_email' => 'nullable|email|max:255',
             'logo_url' => 'nullable|image|max:2048',
             'location_query' => 'nullable|string',
             'latitude' => 'nullable|numeric|between:-90,90',
             'longitude' => 'nullable|numeric|between:-180,180',
-            'map_link' => 'nullable|string|max:2048',
+            'map_link' => ['nullable', 'string', 'max:2048', Closure::fromCallable([$this, 'validateGoogleMapsLink'])],
         ]);
 
-        $validated['slug'] = Str::slug($validated['short']);
+        $this->combineContactInfo($validated);
+        $validated['slug'] = $this->uniqueSlug($validated['short']);
         $validated['is_active'] = true;
 
         $logoFile = $request->file('logo_url');
@@ -120,6 +126,9 @@ class AdminAgencyController extends Controller
             'short' => 'required|string|max:50',
             'description' => 'nullable|string',
             'contact_info' => 'nullable|string',
+            'contact_address' => 'nullable|string|max:500',
+            'contact_tel' => 'nullable|string|max:100',
+            'contact_email' => 'nullable|email|max:255',
             // Mirrors the store rule, but only when a file was actually
             // uploaded. The edit form resubmits the *current* logo URL as a
             // plain string whenever no new file is picked — that string is
@@ -130,8 +139,10 @@ class AdminAgencyController extends Controller
             'is_active' => 'boolean',
             'latitude' => 'nullable|numeric|between:-90,90',
             'longitude' => 'nullable|numeric|between:-180,180',
-            'map_link' => 'nullable|string|max:2048',
+            'map_link' => ['nullable', 'string', 'max:2048', Closure::fromCallable([$this, 'validateGoogleMapsLink'])],
         ]);
+
+        $this->combineContactInfo($validated);
 
         if ($agency->is_default && array_key_exists('is_active', $validated) && $validated['is_active'] === false) {
             abort(422, 'Default agencies cannot be deactivated.');
@@ -157,7 +168,7 @@ class AdminAgencyController extends Controller
         // If logo_url not in request, keep existing value (not in validated)
 
         if (isset($validated['short']) && $validated['short'] !== $agency->short) {
-            $validated['slug'] = Str::slug($validated['short']);
+            $validated['slug'] = $this->uniqueSlug($validated['short'], $agency->id);
         }
 
         $this->parseAndSetMapLink($validated);
@@ -166,6 +177,69 @@ class AdminAgencyController extends Controller
 
         return redirect()->route('admin.agencies.index')
             ->with('success', 'Agency updated successfully.');
+    }
+
+    /**
+     * Keep the legacy contact_info column as the single storage field while
+     * allowing the admin form to collect structured contact details.
+     */
+    private function combineContactInfo(array &$data): void
+    {
+        $contactFields = [
+            'contact_address' => 'Address',
+            'contact_tel' => 'Tel',
+            'contact_email' => 'Email',
+        ];
+
+        $hasStructuredFields = collect(array_keys($contactFields))
+            ->contains(fn (string $key): bool => array_key_exists($key, $data));
+
+        if (! $hasStructuredFields) {
+            return;
+        }
+
+        $lines = collect($contactFields)
+            ->map(function (string $label, string $key) use ($data): ?string {
+                $value = trim((string) ($data[$key] ?? ''));
+
+                return $value === '' ? null : "{$label}: {$value}";
+            })
+            ->filter()
+            ->values()
+            ->all();
+
+        $contactInfo = $lines === [] ? null : implode("\n", $lines);
+
+        if ($contactInfo !== null && mb_strlen($contactInfo) > 255) {
+            throw ValidationException::withMessages([
+                'contact_info' => 'Contact information must not exceed 255 characters.',
+            ]);
+        }
+
+        $data['contact_info'] = $contactInfo;
+
+        foreach (array_keys($contactFields) as $key) {
+            unset($data[$key]);
+        }
+    }
+
+    private function uniqueSlug(string $short, ?string $ignoreAgencyId = null): string
+    {
+        $baseSlug = Str::slug($short);
+        $slug = $baseSlug;
+        $suffix = 2;
+
+        while (
+            Agency::withTrashed()
+                ->where('slug', $slug)
+                ->when($ignoreAgencyId, fn ($query) => $query->where('id', '!=', $ignoreAgencyId))
+                ->exists()
+        ) {
+            $slug = "{$baseSlug}-{$suffix}";
+            $suffix++;
+        }
+
+        return $slug;
     }
 
     /**
@@ -235,6 +309,27 @@ class AdminAgencyController extends Controller
             $data['map_link'] = "https://www.google.com/maps?q={$data['latitude']},{$data['longitude']}";
         } elseif (array_key_exists('latitude', $data) || array_key_exists('longitude', $data)) {
             $data['map_link'] = null;
+        }
+    }
+
+    private function validateGoogleMapsLink(string $attribute, mixed $value, Closure $fail): void
+    {
+        if ($value === null || trim((string) $value) === '') {
+            return;
+        }
+
+        $url = filter_var(trim((string) $value), FILTER_VALIDATE_URL);
+        $parts = $url ? parse_url($url) : false;
+        $host = is_array($parts) ? strtolower($parts['host'] ?? '') : '';
+        $path = is_array($parts) ? ($parts['path'] ?? '') : '';
+        $allowedGoogleHost = in_array($host, [
+            'google.com', 'www.google.com', 'google.com.ph', 'www.google.com.ph',
+        ], true) && ($path === '/maps' || str_starts_with($path, '/maps/'));
+        $allowedShortHost = $host === 'maps.app.goo.gl' && $path !== '/';
+
+        if (! $parts || ! in_array(strtolower($parts['scheme'] ?? ''), ['http', 'https'], true)
+            || (! $allowedGoogleHost && ! $allowedShortHost)) {
+            $fail('The map link must be a valid Google Maps link.');
         }
     }
 

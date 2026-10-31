@@ -2,6 +2,7 @@ import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, router } from '@inertiajs/react';
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
+import TableTabs from '@/Components/ui/TableTabs';
 import { RowContextMenu, RowContextMenuItem } from '@/Components/ui/RowContextMenu';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import { formatDisplayDate, formatDisplayTime, getCategoryFilterIds } from '@/lib/utils';
@@ -625,34 +626,21 @@ export default function ClientIndex({ clients, filters: rawFilters, stats, users
 
   const quickFilterPills = useMemo(() => {
     const statuses = [
-      { label: 'All', value: '' },
-      { label: 'Open Cases', value: 'OPEN' },
-      { label: 'Closed Cases', value: 'CLOSED' },
+      { key: 'all', label: 'All', value: '', count: stats?.total_clients },
+      { key: 'open', label: 'Open', value: 'OPEN', count: stats?.clients_with_open_cases },
+      { key: 'closed', label: 'Closed', value: 'CLOSED', count: stats?.clients_with_closed_cases },
     ];
-    const currentStatus = filters?.case_status ?? '';
 
     return (
-      <div className="flex items-center gap-1.5" role="group" aria-label="Quick case status filters">
-        <span className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mr-1">Show:</span>
-        {statuses.map((s) => {
-          const isActive = currentStatus === s.value || (!currentStatus && s.value === '');
-          return (
-            <button
-              key={s.label}
-              onClick={() => handleStatusQuickFilter(s.value || undefined)}
-              className={`px-3 py-1.5 text-[12px] font-bold rounded-md transition-colors border ${
-                isActive
-                  ? 'bg-blue-900 text-white border-blue-900 shadow-sm'
-                  : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50 hover:text-slate-800'
-              }`}
-            >
-              {s.label}
-            </button>
-          );
-        })}
-      </div>
+      <TableTabs
+        label="Filter clients by case status"
+        items={statuses}
+        value={filters?.case_status ?? ''}
+        allValue=""
+        onSelect={(value) => handleStatusQuickFilter(value || undefined)}
+      />
     );
-  }, [filters?.case_status]);
+  }, [filters, stats]);
 
   // Every list filter is a checkbox group; the account selector and the date
   // range stay as plain controls. Group definitions are data so the panel can

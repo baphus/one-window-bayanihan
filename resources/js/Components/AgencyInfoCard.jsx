@@ -36,7 +36,9 @@ export default function AgencyInfoCard() {
 
                 <div className="grid grid-cols-2 gap-2">
                     {agency.contact_info && (
-                        <MetaTile label="Contact Info" value={agency.contact_info} />
+                        <div className="col-span-2">
+                            <MetaTile label="Contact Info" value={agency.contact_info} />
+                        </div>
                     )}
                     {user.position && (
                         <MetaTile label="Your Occupation" value={user.position} />

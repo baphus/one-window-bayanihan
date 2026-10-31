@@ -7,13 +7,50 @@ import { parseGoogleMapsUrl } from '@/lib/maps';
 import { agencyFormSchema } from '@/Schemas/adminSchemas';
 import useClientValidation from '@/Hooks/useClientValidation';
 
+function parseContactInfo(contactInfo) {
+  const fields = {
+    contact_address: '',
+    contact_tel: '',
+    contact_email: '',
+  };
+
+  const rawContactInfo = String(contactInfo || '');
+  let hasStructuredValue = false;
+
+  rawContactInfo.split(/\r?\n/).forEach((line) => {
+    const match = line.match(/^(Address|Contact|Phone|Email):\s*(.*)$/i);
+    if (!match) return;
+
+    const key = {
+      address: 'contact_address',
+      contact: 'contact_tel',
+      phone: 'contact_tel',
+      tel: 'contact_tel',
+      email: 'contact_email',
+    }[match[1].toLowerCase()];
+
+    if (key) {
+      fields[key] = match[2].trim();
+      hasStructuredValue = true;
+    }
+  });
+
+  if (rawContactInfo && !hasStructuredValue) {
+    fields.contact_address = rawContactInfo;
+  }
+
+  return fields;
+}
+
 export default function AgencyFormModal({ agency, onClose, onBypass }) {
   const isEdit = !!agency;
+  const contactFields = parseContactInfo(agency?.contact_info);
   const { data, setData, post, patch, transform, processing, errors, setError, clearErrors } = useForm({
     name: agency?.name ?? '',
     short: agency?.short ?? '',
     description: agency?.description ?? '',
     contact_info: agency?.contact_info ?? '',
+    ...contactFields,
     logo_url: agency?.logo_url ?? '',
     location_query: agency?.location_query ?? '',
     latitude: agency?.latitude ?? null,
@@ -80,9 +117,23 @@ export default function AgencyFormModal({ agency, onClose, onBypass }) {
             <textarea rows={3} value={data.description} onChange={(e) => setData('description', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-primary focus:ring-primary text-sm" />
             <InputError message={errors.description} className="mt-1" />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700">Contact Info</label>
-            <input type="text" value={data.contact_info} onChange={(e) => setData('contact_info', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-primary focus:ring-primary text-sm" />
+          <div className="space-y-3">
+            <p className="text-sm font-semibold text-slate-700">Contact Information</p>
+            <div>
+              <label className="block text-sm font-medium text-slate-700">Address</label>
+              <textarea rows={2} value={data.contact_address} onChange={(e) => setData('contact_address', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-primary focus:ring-primary text-sm" />
+              <InputError message={errors.contact_address} className="mt-1" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700">Tel</label>
+              <input type="text" value={data.contact_tel} onChange={(e) => setData('contact_tel', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-primary focus:ring-primary text-sm" />
+              <InputError message={errors.contact_tel} className="mt-1" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700">Email</label>
+              <input type="email" value={data.contact_email} onChange={(e) => setData('contact_email', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-primary focus:ring-primary text-sm" />
+              <InputError message={errors.contact_email} className="mt-1" />
+            </div>
             <InputError message={errors.contact_info} className="mt-1" />
           </div>
           <LogoUpload

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isGoogleMapsUrl } from '@/lib/maps';
 
 export const serviceFormSchema = z.object({
   name: z
@@ -39,12 +40,15 @@ export const agencyFormSchema = z.object({
     .max(50, 'Short name must not exceed 50 characters.'),
   description: z.string().optional(),
   contact_info: z.string().optional(),
+  contact_address: z.string().max(500, 'Address must not exceed 500 characters.').optional(),
+  contact_tel: z.string().max(100, 'Tel must not exceed 100 characters.').optional(),
+  contact_email: z.string().email('Must be a valid email address.').optional().or(z.literal('')),
   logo_url: z.any().nullable().optional(),
   location_query: z.string().nullable().optional(),
   latitude: z.number().nullable().optional(),
   longitude: z.number().nullable().optional(),
   is_active: z.boolean().optional(),
-  map_link: z.string().url('Must be a valid URL').optional().or(z.literal('')),
+  map_link: z.string().refine(isGoogleMapsUrl, 'Must be a valid Google Maps link.').optional().or(z.literal('')),
 });
 
 export const caseStatusSchema = z.object({
