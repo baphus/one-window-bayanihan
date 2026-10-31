@@ -1,3 +1,6 @@
+# Global scope: FROM arguments must be declared before the first stage.
+ARG PHP_VERSION=8.4.27
+
 # ============================================================================
 # Stage 1: Frontend build — Node.js
 # Builds Inertia SPA assets via Vite
@@ -42,12 +45,8 @@ RUN npm run build
 # registry, and `build-image.yml` asserts a floor so a pin that goes stale fails
 # the pipeline rather than shipping.
 #
-# ARG must be declared BEFORE FROM to be usable in it. It is out of scope for
-# the rest of the stage, so re-declare it after FROM if a later RUN or LABEL
-# needs the value.
-#
-# Bump this in the same commit that records the new CVE in the compliance docs.
-ARG PHP_VERSION=8.4.27
+# PHP_VERSION is declared globally above the first FROM. Bump it in the same
+# commit that records the new CVE in the compliance docs.
 FROM php:${PHP_VERSION}-fpm AS app
 
 LABEL org.opencontainers.image.source="https://github.com/dmw-region7/one-window-bayanihan"

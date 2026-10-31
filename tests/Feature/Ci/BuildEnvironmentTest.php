@@ -79,6 +79,15 @@ class BuildEnvironmentTest extends TestCase
         );
     }
 
+    public function test_php_base_image_version_is_declared_in_global_scope(): void
+    {
+        $dockerfile = file_get_contents(base_path('Dockerfile'));
+        $globalScope = preg_split('/^FROM\s/im', $dockerfile, 2)[0];
+
+        $this->assertMatchesRegularExpression('/^ARG PHP_VERSION=8\.4\.\d+$/m', $globalScope);
+        $this->assertStringContainsString('FROM php:${PHP_VERSION}-fpm AS app', $dockerfile);
+    }
+
     public function test_dockerfile_default_matches_the_dispatch_default(): void
     {
         $dockerfile = file_get_contents(base_path('Dockerfile'));
