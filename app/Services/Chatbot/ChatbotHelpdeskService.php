@@ -3,6 +3,7 @@
 namespace App\Services\Chatbot;
 
 use App\Helpers\CacheHelper;
+use App\Services\HelpdeskArticleService;
 use Illuminate\Support\Facades\Cache;
 
 class ChatbotHelpdeskService
@@ -48,6 +49,7 @@ class ChatbotHelpdeskService
         $files = glob("{$this->contentDir}/*.ts") ?: [];
         $files[] = $this->articlesTsPath;
         $files[] = $this->categoriesTsPath;
+        $files[] = resource_path('helpdesk/articles.json');
 
         $parts = [];
         foreach ($files as $file) {
@@ -194,11 +196,15 @@ class ChatbotHelpdeskService
         $parsed = $this->parsed();
 
         $result = [];
+        $audiences = array_column(app(HelpdeskArticleService::class)->all(), 'audience', 'slug');
         foreach ($parsed['sections'] as $slug => $sections) {
-            $categorySlug = $parsed['articles'][$slug]['categorySlug'] ?? null;
-            $group = $categorySlug !== null
-                ? ($parsed['groups'][$categorySlug] ?? 'General')
-                : 'General';
+            $group = match ($audiences[$slug] ?? 'ADMIN') {
+                'public' => 'OFW & Public',
+                'staff' => 'Staff',
+                'CASE_MANAGER' => 'Case Managers',
+                'AGENCY' => 'Agency Focal Persons',
+                default => 'System Administrators',
+            };
 
             $result[$slug] = [
                 'title' => $parsed['titles'][$slug] ?? $slug,
@@ -359,7 +365,9 @@ class ChatbotHelpdeskService
             return null;
         }
 
-        return substr($ts, $first + 1, $last - $first - 1);
+        $article = collect(app(HelpdeskArticleService::class)->all())->firstWhere('slug', $slug);
+
+        return $article['content'] ?? substr($ts, $first + 1, $last - $first - 1);
     }
 
     /**

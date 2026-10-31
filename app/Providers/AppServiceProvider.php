@@ -269,6 +269,10 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(300)->by($request->ip());
         });
 
+        RateLimiter::for('helpdesk-feedback', function (Request $request) {
+            return Limit::perMinute(10)->by($request->ip());
+        });
+
         RateLimiter::for('survey-view', function (Request $request) {
             return Limit::perMinute(30)->by($request->ip());
         });

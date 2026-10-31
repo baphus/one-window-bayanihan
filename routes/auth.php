@@ -140,6 +140,7 @@ Route::middleware('auth')->group(function () {
         app(MfaPendingState::class)->clear(request());
         request()->session()->forget(MfaPendingState::MARKER_KEY);
         request()->session()->invalidate();
+        Inertia::clearHistory();
         request()->session()->regenerateToken();
 
         return redirect('/');

@@ -20,6 +20,7 @@ use App\Http\Controllers\ChatbotController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\HelpdeskArticleFeedbackController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\MfaController;
 use App\Http\Controllers\NotificationController;
@@ -40,6 +41,7 @@ use App\Http\Controllers\TemporaryFileController;
 use App\Http\Controllers\TrackController;
 use App\Http\Controllers\TrackRegistrationController;
 use App\Models\Agency;
+use App\Services\HelpdeskArticleService;
 use App\Services\StorageService;
 use App\Services\TrackingService;
 use Illuminate\Http\Request;
@@ -267,6 +269,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/onboarding/skip-profile', [OnboardingController::class, 'skipProfile'])->name('onboarding.skip-profile');
 
     Route::prefix('admin')->name('admin.')->middleware('role:ADMIN')->group(function () {
+        Route::get('/helpdesk-feedback', [HelpdeskArticleFeedbackController::class, 'index'])->name('helpdesk-feedback.index');
         Route::get('/agencies', [AdminAgencyController::class, 'index'])->name('agencies.index');
         Route::post('/agencies', [AdminAgencyController::class, 'store'])->name('agencies.store');
         Route::patch('/agencies/{agency}', [AdminAgencyController::class, 'update'])->name('agencies.update');
@@ -426,20 +429,30 @@ Route::get('/track/request/attachments/{attachment}/download', [ReferralClientRe
     ->name('track.request.attachments.download')
     ->middleware('throttle:tracking');
 
+Route::get('/help/{slug}/feedback', [HelpdeskArticleFeedbackController::class, 'show'])
+    ->name('helpdesk.feedback.show')->middleware('throttle:helpdesk-feedback');
+Route::post('/help/{slug}/feedback', [HelpdeskArticleFeedbackController::class, 'store'])
+    ->name('helpdesk.feedback.store')->middleware('throttle:helpdesk-feedback');
+
 Route::prefix('help')->name('helpdesk.')->group(function () {
-    Route::get('/', function (Request $request) {
-        return inertia('Helpdesk/Index', [
-            'category' => $request->query('category'),
-        ]);
-    })->name('index');
-    Route::get('/search', function (Request $request) {
-        return inertia('Helpdesk/Search', [
-            'query' => $request->query('q', ''),
-        ]);
-    })->name('search');
-    Route::get('/{slug}', fn ($slug) => inertia('Helpdesk/Show', [
-        'slug' => $slug,
-    ]))->name('show');
+    $render = function (Request $request, string $page, array $props = []) {
+        $articles = app(HelpdeskArticleService::class)->allowedArticles($request->user());
+        Inertia::encryptHistory();
+
+        return inertia($page, [...$props, 'helpdeskArticles' => $articles])->toResponse($request)
+            ->header('Cache-Control', 'private, no-store');
+    };
+    Route::get('/', fn (Request $request) => $render($request, 'Helpdesk/Index', [
+        'category' => $request->query('category'),
+    ]))->name('index');
+    Route::get('/search', fn (Request $request) => $render($request, 'Helpdesk/Search', [
+        'query' => $request->query('q', ''),
+    ]))->name('search');
+    Route::get('/{slug}', function (Request $request, string $slug) use ($render) {
+        abort_if(app(HelpdeskArticleService::class)->findAllowed($slug, $request->user()) === null, 404);
+
+        return $render($request, 'Helpdesk/Show', ['slug' => $slug]);
+    })->name('show');
 });
 
 // Application-hosted expiring file links. StorageService falls back to these

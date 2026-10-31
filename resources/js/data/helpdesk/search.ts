@@ -1,5 +1,4 @@
 import type { HelpdeskArticle } from "./types";
-import { articles } from "./articles";
 import { categories } from "./categories";
 import { tags } from "./tags";
 
@@ -12,7 +11,7 @@ export interface SearchableArticle extends HelpdeskArticle {
   tagNames: string[];
 }
 
-function buildSearchableArticles(): SearchableArticle[] {
+function buildSearchableArticles(articles: HelpdeskArticle[]): SearchableArticle[] {
   return articles.map((article) => ({
     ...article,
     categoryName:
@@ -28,8 +27,8 @@ function buildSearchableArticles(): SearchableArticle[] {
  * that pre-resolve the corpus; searchArticles builds it lazily per call
  * (ponytail: corpus is small and static — no index cache until profiling says so).
  */
-export function buildSearchIndex(): SearchableArticle[] {
-  return buildSearchableArticles();
+export function buildSearchIndex(articles: HelpdeskArticle[] = []): SearchableArticle[] {
+  return buildSearchableArticles(articles);
 }
 
 function haystack(article: SearchableArticle): string {
@@ -46,6 +45,7 @@ function haystack(article: SearchableArticle): string {
 export function searchArticles(
   query: string,
   limit: number = 20,
+  articles: HelpdeskArticle[] = [],
 ): HelpdeskArticle[] {
   const trimmed = query.trim().toLowerCase();
 
@@ -57,7 +57,7 @@ export function searchArticles(
   const matchesAll = (text: string) => terms.every((term) => text.includes(term));
 
   return (
-    buildSearchableArticles()
+    buildSearchableArticles(articles)
       .filter((article) => matchesAll(haystack(article)))
       // Title hits first, then excerpt/category/tags, then body-only hits.
       .sort((left, right) => {

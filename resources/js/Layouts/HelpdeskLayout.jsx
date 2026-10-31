@@ -1,4 +1,4 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useState, useMemo, useEffect } from 'react';
 
 import ChatBot from '@/Components/ChatBot';
@@ -6,11 +6,11 @@ import AppHeader from '@/Components/landing/AppHeader';
 import AppFooter from '@/Components/landing/AppFooter';
 import useChecklistVisitTracking from '@/Onboarding/useChecklistVisitTracking';
 import { categories as categoryData, buildCategoryTree } from '@/data/helpdesk/categories';
-import { articles } from '@/data/helpdesk/articles';
 import { searchArticles } from '@/data/helpdesk/search';
 import safeRoute from '@/utils/safeRoute';
 
 export function SearchBar({ query, onSearch, large }) {
+  const { helpdeskArticles: articles = [] } = usePage().props;
   const [value, setValue] = useState(query || '');
 
   useEffect(() => {
@@ -20,8 +20,8 @@ export function SearchBar({ query, onSearch, large }) {
   const suggestions = useMemo(() => {
     const trimmed = value.trim();
     if (!large || trimmed.length < 2) return [];
-    return searchArticles(trimmed, 4);
-  }, [value, large]);
+    return searchArticles(trimmed, 4, articles);
+  }, [value, large, articles]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -252,7 +252,8 @@ export default function HelpdeskLayout({
   showCompactSearch = true,
 }) {
   // Always compute sidebar from the flat data module, not from page props.
-  const parentCategories = useMemo(() => buildCategoryTree(categoryData, articles), []);
+  const { helpdeskArticles: articles = [] } = usePage().props;
+  const parentCategories = useMemo(() => buildCategoryTree(categoryData, articles).filter((category) => category.articleCount > 0), [articles]);
 
   // Helpdesk pages live outside AppLayout, so the page-guide system and
   // checklist visit tracking (marks "open-help-center") mount here too.
