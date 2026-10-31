@@ -5,7 +5,6 @@ import ArticleListRow from '@/Components/Helpdesk/ArticleListRow';
 import Breadcrumbs from '@/Components/Helpdesk/Breadcrumbs';
 import EmptyState from '@/Components/Helpdesk/EmptyState';
 
-import { articles as allArticles } from '@/data/helpdesk/articles';
 import {
   categories as allCategories,
   buildCategoryTree,
@@ -32,8 +31,8 @@ function handleSearch(q) {
 // search hero, audience row, topic cards, curated popular list.
 // The single contact CTA is the layout footer.
 // ---------------------------------------------------------------------------
-function LandingView({ categoryTree }) {
-  const popular = useMemo(() => resolvePopularArticles(allArticles), []);
+function LandingView({ categoryTree, allArticles }) {
+  const popular = useMemo(() => resolvePopularArticles(allArticles), [allArticles]);
   return (
     <div className="mx-auto max-w-5xl">
       <div data-tour="helpdesk-header" className="flex flex-col items-center pb-10 pt-6 text-center">
@@ -56,7 +55,7 @@ function LandingView({ categoryTree }) {
           Find help for you
         </h2>
         <div className="grid gap-3 sm:grid-cols-3">
-          {audienceEntries.map((entry) => (
+          {audienceEntries.filter((entry) => entry.key === 'ofw' || allArticles.some((article) => article.audience === (entry.key === 'staff' ? 'CASE_MANAGER' : 'AGENCY'))).map((entry) => (
             <Link
               key={entry.key}
               href={entry.href}
@@ -142,7 +141,7 @@ function ArticleList({ articles }) {
   );
 }
 
-function CategoryView({ category, categoryTree }) {
+function CategoryView({ category, categoryTree, allArticles }) {
   const isSubcategory = Boolean(category.parentId);
   const parent = isSubcategory
     ? allCategories.find((c) => c.id === category.parentId)
@@ -266,9 +265,9 @@ function CategoryView({ category, categoryTree }) {
 }
 
 export default function Index() {
-  const { category: categorySlug } = usePage().props;
+  const { category: categorySlug, helpdeskArticles: allArticles = [] } = usePage().props;
 
-  const categoryTree = useMemo(() => buildCategoryTree(allCategories, allArticles), []);
+  const categoryTree = useMemo(() => buildCategoryTree(allCategories, allArticles).filter((category) => category.articleCount > 0), [allArticles]);
   const selectedCategory = useMemo(
     () => (categorySlug ? findCategoryBySlug(categorySlug) : null),
     [categorySlug]
@@ -308,14 +307,14 @@ export default function Index() {
   if (!selectedCategory) {
     return (
       <HelpdeskLayout title="Help Center" showSidebar={false} showCompactSearch={false}>
-        <LandingView categoryTree={categoryTree} />
+        <LandingView categoryTree={categoryTree} allArticles={allArticles} />
       </HelpdeskLayout>
     );
   }
 
   return (
     <HelpdeskLayout title={selectedCategory.name} activeSlug={categorySlug}>
-      <CategoryView category={selectedCategory} categoryTree={categoryTree} />
+      <CategoryView category={selectedCategory} categoryTree={categoryTree} allArticles={allArticles} />
     </HelpdeskLayout>
   );
 }

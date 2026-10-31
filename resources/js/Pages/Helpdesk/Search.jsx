@@ -17,6 +17,7 @@ function categoryName(categoryId) {
 
 export default function Search() {
   const page = usePage();
+  const articles = page.props?.helpdeskArticles ?? [];
   const routeQuery = page.props?.query ?? '';
   const urlQuery = getQueryFromUrl(page.url);
   const initialQuery = routeQuery || urlQuery;
@@ -30,8 +31,8 @@ export default function Search() {
   const results = useMemo(() => {
     const trimmed = query.trim();
     if (!trimmed) return [];
-    return searchArticles(trimmed);
-  }, [query]);
+    return searchArticles(trimmed, 20, articles);
+  }, [query, articles]);
 
   const hasSearched = query.trim().length > 0;
 

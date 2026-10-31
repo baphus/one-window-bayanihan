@@ -18,8 +18,8 @@ final class ChatbotAudience
     {
         return match ($this->role) {
             UserRole::ADMIN->value => null,
-            UserRole::CASE_MANAGER->value => ['OFW & Public', 'General', 'Case Managers'],
-            UserRole::AGENCY->value => ['OFW & Public', 'General', 'Agency Focal Persons'],
+            UserRole::CASE_MANAGER->value => ['OFW & Public', 'General', 'Staff', 'Case Managers'],
+            UserRole::AGENCY->value => ['OFW & Public', 'General', 'Staff', 'Agency Focal Persons'],
             default => ['OFW & Public', 'General'],
         };
     }

@@ -7,17 +7,13 @@ use Illuminate\Support\Facades\Cache;
 
 class ChatbotHelpdeskService
 {
-    private string $contentDir;
-
-    private string $articlesTsPath;
-
-    private string $categoriesTsPath;
+    private string $articlesPath;
 
     /**
      * Fully parsed helpdesk content, loaded once per content version from the
      * persistent cache (see parsed()).
      *
-     * @var array{titles: array<string, string>, sections: array<string, array<string, array{heading: string, content: string}>>, tokens: array<string, array{title: list<string>, sections: array<string, array{heading: list<string>, body: list<string>}}>>, articles: array<string, array{title: string, excerpt: string, categorySlug: string}>, groups: array<string, string>}|null
+     * @var array{titles: array<string, string>, sections: array<string, array<string, array{heading: string, content: string}>>, tokens: array<string, array{title: list<string>, sections: array<string, array{heading: list<string>, body: list<string>}}>>}|null
      */
     private ?array $parsed = null;
 
@@ -31,33 +27,17 @@ class ChatbotHelpdeskService
 
     public function __construct()
     {
-        $this->contentDir = resource_path('js/data/helpdesk/content');
-        $this->articlesTsPath = resource_path('js/data/helpdesk/articles.ts');
-        $this->categoriesTsPath = resource_path('js/data/helpdesk/categories.ts');
+        $this->articlesPath = resource_path('helpdesk/articles.json');
     }
 
     // ── Content versioning + persistent cache ──
 
     /**
-     * Hash of the helpdesk content files (name, mtime, size). Changes whenever
-     * any article, the article index, or the category tree changes — used as
-     * the cache key so edits invalidate automatically.
+     * Hash the canonical article corpus so body, metadata, and audience edits invalidate the cache.
      */
     public function contentHash(): string
     {
-        $files = glob("{$this->contentDir}/*.ts") ?: [];
-        $files[] = $this->articlesTsPath;
-        $files[] = $this->categoriesTsPath;
-
-        $parts = [];
-        foreach ($files as $file) {
-            if (is_file($file)) {
-                $parts[] = basename($file).'|'.hash_file('sha256', $file);
-            }
-        }
-        sort($parts);
-
-        return hash('sha256', implode("\n", $parts));
+        return hash_file('sha256', $this->articlesPath);
     }
 
     /**
@@ -133,15 +113,14 @@ class ChatbotHelpdeskService
             'titles' => $titles,
             'sections' => $sections,
             'tokens' => $tokens,
-            'articles' => $this->parseArticlesTsFile(),
-            'groups' => $this->buildAudienceGroupsFile(),
+
         ];
     }
 
     // ── Public API ──
 
     /**
-     * Return full article content for the given slugs, loaded from the TypeScript source files.
+     * Return full article content for the given slugs, loaded from the canonical JSON corpus.
      *
      * @param  list<string>  $slugs
      */
@@ -172,7 +151,7 @@ class ChatbotHelpdeskService
      */
     public function has(string $slug): bool
     {
-        return file_exists("{$this->contentDir}/{$slug}.ts");
+        return in_array($slug, $this->discoverSlugs(), true);
     }
 
     /**
@@ -194,11 +173,15 @@ class ChatbotHelpdeskService
         $parsed = $this->parsed();
 
         $result = [];
+        $audiences = array_column($this->sourceArticles(), 'audience', 'slug');
         foreach ($parsed['sections'] as $slug => $sections) {
-            $categorySlug = $parsed['articles'][$slug]['categorySlug'] ?? null;
-            $group = $categorySlug !== null
-                ? ($parsed['groups'][$categorySlug] ?? 'General')
-                : 'General';
+            $group = match ($audiences[$slug] ?? 'ADMIN') {
+                'public' => 'OFW & Public',
+                'staff' => 'Staff',
+                'CASE_MANAGER' => 'Case Managers',
+                'AGENCY' => 'Agency Focal Persons',
+                default => 'System Administrators',
+            };
 
             $result[$slug] = [
                 'title' => $parsed['titles'][$slug] ?? $slug,
@@ -235,24 +218,13 @@ class ChatbotHelpdeskService
      */
     public function getSectionList(?array $groupNames = null): string
     {
-        $slugs = $this->discoverSlugs();
-        $parsed = $this->parsed();
-        $meta = $parsed['articles'];
-        $groups = $parsed['groups'];
-
         $grouped = [];
-        foreach ($slugs as $slug) {
-            $group = 'General';
-            if (isset($meta[$slug]) && isset($groups[$meta[$slug]['categorySlug']])) {
-                $group = $groups[$meta[$slug]['categorySlug']];
-            }
-
+        foreach ($this->getAllParsedArticles() as $slug => $article) {
+            $group = $article['audience_group'];
             if ($groupNames !== null && ! in_array($group, $groupNames, true)) {
                 continue;
             }
-
-            $sections = $this->parseSections($slug);
-            foreach ($sections as $section) {
+            foreach ($article['sections'] as $section) {
                 $grouped[$group][] = "- {$slug}::{$section['heading']}";
             }
         }
@@ -275,8 +247,9 @@ class ChatbotHelpdeskService
      *
      * @param  list<string>  $identifiers
      */
-    public function getSections(array $identifiers): string
+    public function getSections(array $identifiers, ?ChatbotAudience $audience = null): string
     {
+        $allowed = (new ChatbotKnowledge($this))->articles($audience ?? new ChatbotAudience);
         $parts = [];
         foreach ($identifiers as $id) {
             $colonPos = strpos($id, '::');
@@ -286,6 +259,9 @@ class ChatbotHelpdeskService
 
             $slug = substr($id, 0, $colonPos);
             $heading = substr($id, $colonPos + 2);
+            if (! isset($allowed[$slug])) {
+                continue;
+            }
 
             $sections = $this->parseSections($slug);
             $matched = $this->findSection($sections, $heading);
@@ -324,42 +300,29 @@ class ChatbotHelpdeskService
     // ── Private helpers ──
 
     /**
-     * Discover all article slugs from the content directory.
+     * Discover all article slugs from the canonical corpus.
      *
      * @return list<string>
      */
     private function discoverSlugs(): array
     {
-        $files = glob($this->contentDir.'/*.ts');
-        $slugs = array_map(fn ($f) => pathinfo($f, PATHINFO_FILENAME), $files);
-        sort($slugs);
-
-        return $slugs;
+        return array_column($this->sourceArticles(), 'slug');
     }
 
-    /**
-     * Extract the markdown content from a TypeScript template-literal article file.
-     * Handles: const content = `...`; export default content;
-     */
+    private function sourceArticles(): array
+    {
+        return json_decode(file_get_contents($this->articlesPath), true, flags: JSON_THROW_ON_ERROR);
+    }
+
     private function loadContent(string $slug): ?string
     {
-        if (! preg_match('/^[a-z0-9]+(?:-[a-z0-9]+)*$/', $slug)) {
-            return null;
-        }
-        $path = "{$this->contentDir}/{$slug}.ts";
-        if (! file_exists($path)) {
-            return null;
+        foreach ($this->sourceArticles() as $article) {
+            if ($article['slug'] === $slug) {
+                return $article['content'];
+            }
         }
 
-        $ts = file_get_contents($path);
-        $first = strpos($ts, '`');
-        $last = strrpos($ts, '`');
-
-        if ($first === false || $last === false || $last <= $first) {
-            return null;
-        }
-
-        return substr($ts, $first + 1, $last - $first - 1);
+        return null;
     }
 
     /**
@@ -372,102 +335,6 @@ class ChatbotHelpdeskService
         }
 
         return 'Untitled';
-    }
-
-    /**
-     * Parse articles.ts to extract slug → title + excerpt + categorySlug mapping.
-     *
-     * @return array<string, array{title: string, excerpt: string, categorySlug: string}>
-     */
-    private function parseArticlesTsFile(): array
-    {
-        if (! file_exists($this->articlesTsPath)) {
-            return [];
-        }
-
-        $ts = file_get_contents($this->articlesTsPath);
-        preg_match_all(
-            '/title:\s*"([^"]++)",\s*slug:\s*"([^"]++)",\s*excerpt:\s*"([^"]++)",\s*content:\s*\w+,\s*categoryId:\s*CATEGORY\["([^"]++)"\]/s',
-            $ts,
-            $matches,
-            PREG_SET_ORDER,
-        );
-
-        $articles = [];
-        foreach ($matches as $m) {
-            $articles[$m[2]] = [
-                'title' => $m[1],
-                'excerpt' => $m[3],
-                'categorySlug' => $m[4],
-            ];
-        }
-
-        return $articles;
-    }
-
-    /**
-     * Build a slug → audience group mapping from the category hierarchy.
-     *
-     * @return array<string, string> category slug → audience group name
-     */
-    private function buildAudienceGroupsFile(): array
-    {
-        if (! file_exists($this->categoriesTsPath)) {
-            return [];
-        }
-
-        $ts = file_get_contents($this->categoriesTsPath);
-
-        // Parse all categories: id, name, slug, parentId
-        preg_match_all(
-            '/\{\s*id:\s*"([^"]++)",\s*name:\s*"([^"]++)",\s*slug:\s*"([^"]++)",.*?parentId:\s*(null|"[^"]++"),/s',
-            $ts,
-            $matches,
-            PREG_SET_ORDER,
-        );
-
-        $categories = [];
-        foreach ($matches as $m) {
-            $categories[$m[1]] = [
-                'slug' => $m[3],
-                'parentId' => $m[4] === 'null' ? null : trim($m[4], '"'),
-            ];
-        }
-
-        // Map top-level parent category slugs to audience group names
-        $topLevelMap = [
-            'ofw-assistance' => 'OFW & Public',
-            'case-management' => 'Case Managers',
-            'agency-partnership' => 'Agency Focal Persons',
-            'system-administration' => 'Administrators',
-        ];
-
-        // Build ID → group mapping (parent categories first)
-        $idToGroup = [];
-        foreach ($categories as $id => $cat) {
-            if ($cat['parentId'] === null && isset($topLevelMap[$cat['slug']])) {
-                $idToGroup[$id] = $topLevelMap[$cat['slug']];
-            }
-        }
-        // FAQ (cat-5) also belongs to OFW & Public
-        $idToGroup['cat-5'] = 'OFW & Public';
-
-        // Propagate group membership to child categories
-        foreach ($categories as $id => $cat) {
-            if ($cat['parentId'] !== null && isset($idToGroup[$cat['parentId']])) {
-                $idToGroup[$id] = $idToGroup[$cat['parentId']];
-            }
-        }
-
-        // Map slug → group
-        $slugToGroup = [];
-        foreach ($categories as $id => $cat) {
-            if (isset($idToGroup[$id])) {
-                $slugToGroup[$cat['slug']] = $idToGroup[$id];
-            }
-        }
-
-        return $slugToGroup;
     }
 
     // ── Section parsing ──

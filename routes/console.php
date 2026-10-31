@@ -63,6 +63,10 @@ Schedule::command('emails:prune')->daily()->withoutOverlapping()
 Schedule::command('queue:prune-failed --hours=168')->weekly()->withoutOverlapping()
     ->onFailure($reportFailure(['command' => 'queue:prune-failed']));
 
+// Remove article votes after 12 months.
+Schedule::command('app:cleanup-helpdesk-article-feedback')->daily()->withoutOverlapping()
+    ->onFailure($reportFailure(['command' => 'app:cleanup-helpdesk-article-feedback']));
+
 // Permanently delete soft-deleted cases older than the retention window.
 Schedule::command('cases:purge-trashed')->dailyAt('02:00')->withoutOverlapping()
     ->onFailure($reportFailure(['command' => 'cases:purge-trashed']));

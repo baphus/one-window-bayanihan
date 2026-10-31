@@ -6,7 +6,6 @@ import Breadcrumbs from '@/Components/Helpdesk/Breadcrumbs';
 import RelatedArticles from '@/Components/Helpdesk/RelatedArticles';
 import TagBadge from '@/Components/Helpdesk/TagBadge';
 import { formatDisplayDate } from '@/lib/utils';
-import { articles } from '@/data/helpdesk/articles';
 import { categories } from '@/data/helpdesk/categories';
 import { tags } from '@/data/helpdesk/tags';
 import safeRoute from '@/utils/safeRoute';
@@ -27,7 +26,7 @@ function buildBreadcrumbs(categoryId) {
 // ---------------------------------------------------------------------------
 // Compute related articles by shared tags (excluding current)
 // ---------------------------------------------------------------------------
-function computeRelated(article) {
+function computeRelated(article, articles) {
   return articles
     .filter((a) => a.id !== article.id)
     .map((a) => ({
@@ -41,7 +40,7 @@ function computeRelated(article) {
 
 export default function Show() {
   // ── Read slug from Inertia page props ──────────────────────────────────────
-  const { slug } = usePage().props;
+  const { slug, helpdeskArticles: articles = [] } = usePage().props;
 
   // ── Look up article by slug ────────────────────────────────────────────────
   const article = articles.find((a) => a.slug === slug);
@@ -80,7 +79,7 @@ export default function Show() {
 
   // ── Breadcrumbs and related articles ───────────────────────────────────────
   const breadcrumbItems = buildBreadcrumbs(article.categoryId);
-  const relatedArticles = computeRelated(article);
+  const relatedArticles = computeRelated(article, articles);
 
   // ── Reading time ───────────────────────────────────────────────────────────
   const wordCount = (content || '').split(/\s+/).filter(Boolean).length;
@@ -140,7 +139,7 @@ export default function Show() {
           <MarkdownRenderer content={content} />
         </div>
 
-        <ArticleFeedback slug={article.slug} />
+        <ArticleFeedback key={article.slug} slug={article.slug} />
       </article>
 
       {/* Related articles */}

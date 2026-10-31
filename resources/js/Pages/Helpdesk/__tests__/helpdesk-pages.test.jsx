@@ -15,7 +15,7 @@ vi.mock('@inertiajs/react', () => ({
   ),
   Head: () => null,
   router: { visit: vi.fn() },
-  usePage: () => ({ props: mockPageProps, url: mockPageUrl }),
+  usePage: () => ({ props: { helpdeskArticles: articles.map((article) => ({ ...article, audience: article.slug.includes('agency') ? 'AGENCY' : 'CASE_MANAGER' })), ...mockPageProps }, url: mockPageUrl }),
 }));
 
 vi.mock('@/Components/ChatBot', () => ({ default: () => null }));
@@ -51,6 +51,7 @@ beforeEach(() => {
   mockPageProps = {};
   mockPageUrl = '/help';
   window.localStorage.clear();
+  global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ vote: null }) });
 });
 
 import Index from '../Index';

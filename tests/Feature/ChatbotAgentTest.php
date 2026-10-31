@@ -11,6 +11,7 @@ use App\Services\Chatbot\ChatbotConversationService;
 use App\Services\Chatbot\ChatbotHelpdeskService;
 use App\Services\Chatbot\ChatbotKnowledge;
 use App\Services\Chatbot\ChatbotResponse;
+use App\Services\Chatbot\ChatbotRetrievalService;
 use App\Services\Chatbot\ChatbotTurn;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -182,24 +183,31 @@ class ChatbotAgentTest extends TestCase
     {
         $directory = sys_get_temp_dir().'/chatbot-'.bin2hex(random_bytes(6));
         mkdir($directory);
-        $path = $directory.'/sample.ts';
-        $metadata = tempnam(sys_get_temp_dir(), 'chatbot-meta');
+        $path = $directory.'/articles.json';
         $service = new ChatbotHelpdeskService;
-        foreach (['contentDir' => $directory, 'articlesTsPath' => $metadata, 'categoriesTsPath' => $metadata] as $property => $value) {
-            (new \ReflectionProperty($service, $property))->setValue($service, $value);
-        }
+        (new \ReflectionProperty($service, 'articlesPath'))->setValue($service, $path);
         try {
-            file_put_contents($path, 'const content = `# Sample'."\nIntro\n## Overview\nFirst".'`;');
+            file_put_contents($path, json_encode([['slug' => 'sample', 'audience' => 'public', 'content' => "# Sample\nIntro\n## Overview\nFirst"]]));
             $first = $service->getAllParsedArticles()['sample'];
             $this->assertStringContainsString('Intro', $first['sections']['Overview']['content']);
             $this->assertStringContainsString('First', $first['sections']['Overview']['content']);
-            file_put_contents($path, 'const content = `# Sample'."\nIntro\n## Overview\nLater".'`;');
+            file_put_contents($path, json_encode([['slug' => 'sample', 'audience' => 'public', 'content' => "# Sample\nIntro\n## Overview\nLater"]]));
             $this->assertStringContainsString('Later', $service->getAllParsedArticles()['sample']['sections']['Overview']['content']);
         } finally {
             unlink($path);
-            unlink($metadata);
             rmdir($directory);
         }
+    }
+
+    public function test_legacy_content_loader_defaults_to_public_and_enforces_explicit_audience(): void
+    {
+        $helpdesk = app(ChatbotHelpdeskService::class);
+        $heading = array_values($helpdesk->getArticleHeadings('getting-started-system-admin'))[0];
+        $hits = [['source_type' => 'helpdesk', 'source_key' => 'getting-started-system-admin::'.$heading]];
+        $loader = app(ChatbotRetrievalService::class);
+        $this->assertSame('', $loader->contentFor($hits));
+        $this->assertSame('', $loader->contentFor($hits, new ChatbotAudience('CASE_MANAGER')));
+        $this->assertNotSame('', $loader->contentFor($hits, new ChatbotAudience('ADMIN')));
     }
 
     public function test_retrieval_fixture_recall(): void
