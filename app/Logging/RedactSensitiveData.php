@@ -6,11 +6,18 @@ use Monolog\LogRecord;
 
 /**
  * Monolog processor that blanks personal and credential values in log
- * context before the record reaches disk.
+ * `context` and `extra` before the record reaches disk.
  *
- * Encrypted model columns protect the database, not the log file: exception
- * messages and `context` arrays routinely carry request bodies, emails and
- * tokens, and the app log keeps 14 days of them.
+ * Encrypted model columns protect the database, not the log file: `context`
+ * arrays routinely carry request bodies, emails and tokens, and the app log
+ * keeps 14 days of them.
+ *
+ * Known limit: this matches KEYS, not free text. An exception message — which
+ * Monolog puts in the record's own `message` field, not in `context` — passes
+ * through untouched, and so does any sensitive string inside a non-listed key
+ * (e.g. an `exception` value). Callers that build a message from outside data
+ * must keep that data out of it. Redacting arbitrary text with patterns is not
+ * attempted: it cannot be made reliable and invites false confidence.
  */
 class RedactSensitiveData
 {

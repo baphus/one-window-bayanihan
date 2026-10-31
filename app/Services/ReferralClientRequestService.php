@@ -12,7 +12,6 @@ use App\Models\ReferralClientRequest;
 use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use LogicException;
@@ -119,8 +118,6 @@ class ReferralClientRequestService
             return $request;
         });
 
-        $this->invalidateTrackingCaches($referral);
-
         return $this->loadRequest($request);
     }
 
@@ -142,8 +139,6 @@ class ReferralClientRequestService
 
             return $message;
         });
-
-        $this->invalidateTrackingCaches($request->referral);
 
         return $message->load(['user', 'request']);
     }
@@ -294,8 +289,6 @@ class ReferralClientRequestService
             return [$message, $referral];
         });
 
-        $this->invalidateTrackingCaches($referral);
-
         return $message->load(['accessLink', 'request', 'attachments']);
     }
 
@@ -364,8 +357,6 @@ class ReferralClientRequestService
 
             return $referral;
         });
-
-        $this->invalidateTrackingCaches($referral);
 
         return $accessLink->fresh(['request', 'revoker']);
     }
@@ -463,8 +454,6 @@ class ReferralClientRequestService
             return $lockedRequest;
         });
 
-        $this->invalidateTrackingCaches($lockedRequest->referral);
-
         return $this->loadRequest($lockedRequest->fresh());
     }
 
@@ -543,14 +532,5 @@ class ReferralClientRequestService
     private function loadRequest(ReferralClientRequest $request): ReferralClientRequest
     {
         return $request->load(['referral', 'creator', 'items', 'milestone', 'messages.user', 'messages.accessLink', 'messages.attachments', 'accessLinks']);
-    }
-
-    private function invalidateTrackingCaches(Referral $referral): void
-    {
-        $referral->loadMissing('caseFile');
-        if ($referral->case_id) {
-            Cache::forget(TrackingService::trackingMilestonesCacheKey($referral->case_id, $referral->id));
-            Cache::forget(TrackingService::trackingMilestonesCacheKey($referral->case_id, $referral->id, true));
-        }
     }
 }

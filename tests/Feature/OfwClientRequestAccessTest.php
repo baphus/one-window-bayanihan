@@ -125,8 +125,13 @@ class OfwClientRequestAccessTest extends TestCase
         ]))->assertNotFound();
     }
 
+    /**
+     * A request that closed while the page was open must read as gone, not as
+     * a bad upload: the service's LogicException used to surface as a
+     * validation error on the attachments field.
+     */
     #[Test]
-    public function terminal_request_rejects_owner_submission(): void
+    public function terminal_request_returns_not_found_rather_than_a_validation_error(): void
     {
         [$user, $case, $referral, $request] = $this->context(['status' => ReferralClientRequest::STATUS_COMPLETED]);
 
@@ -134,7 +139,9 @@ class OfwClientRequestAccessTest extends TestCase
             'case' => $case,
             'referral' => $referral,
             'request' => $request,
-        ]), ['body' => 'A reply'])->assertSessionHasErrors('attachments');
+        ]), ['body' => 'A reply'])
+            ->assertNotFound()
+            ->assertSessionHasNoErrors();
 
         $this->assertDatabaseMissing('referral_client_messages', ['request_id' => $request->id]);
     }

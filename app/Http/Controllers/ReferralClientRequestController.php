@@ -84,18 +84,43 @@ class ReferralClientRequestController extends Controller
         return redirect()->route('referrals.show', $referral)->with('client_access_delivery', $delivery);
     }
 
-    public function ownerShow(Request $request, string $case, string $referral, string $clientRequest): InertiaResponse
+    /**
+     * Resolve the case, referral and client request for a signed-in OFW owner.
+     *
+     * The three owner actions share one ownership rule, so it lives here: the
+     * request must belong to a case this account's client owns, sit on a
+     * referral of that same case, and not be deleted. A failure at any step is
+     * a 404 — a traversal must not reveal that a case or referral exists.
+     *
+     * @param  list<string>  $with  Relations to eager-load on the request.
+     * @return array{0: CaseFile, 1: Referral, 2: ReferralClientRequest}
+     */
+    private function ownerRequest(Request $request, string $case, string $referral, string $clientRequest, array $with = []): array
     {
         $ownedCase = CaseFile::query()->clientVisible()->whereKey($case)->firstOrFail();
         abort_unless($ownedCase->client_id === $request->user()->client_id, 403);
 
         $referralModel = Referral::query()->whereKey($referral)->where('case_id', $ownedCase->id)->firstOrFail();
+
         $clientRequestModel = ReferralClientRequest::query()
             ->whereKey($clientRequest)
             ->where('referral_id', $referralModel->id)
             ->where('is_deleted', false)
-            ->with(['items', 'referral.agency', 'messages' => fn ($query) => $query->where('is_deleted', false)->where('kind', 'MESSAGE')->orderBy('created_at'), 'messages.user', 'messages.attachments'])
+            ->when($with !== [], fn ($query) => $query->with($with))
             ->firstOrFail();
+
+        return [$ownedCase, $referralModel, $clientRequestModel];
+    }
+
+    public function ownerShow(Request $request, string $case, string $referral, string $clientRequest): InertiaResponse
+    {
+        [$ownedCase, $referralModel, $clientRequestModel] = $this->ownerRequest(
+            $request,
+            $case,
+            $referral,
+            $clientRequest,
+            with: ['items', 'referral.agency', 'messages' => fn ($query) => $query->where('is_deleted', false)->where('kind', 'MESSAGE')->orderBy('created_at'), 'messages.user', 'messages.attachments'],
+        );
 
         $agencyShort = $clientRequestModel->referral?->agency?->short;
         $milestonesUrl = route('ofw.case.milestones', ['case' => $ownedCase, 'referral' => $referralModel]);
@@ -133,10 +158,16 @@ class ReferralClientRequestController extends Controller
 
     public function ownerMessage(Request $request, string $case, string $referral, string $clientRequest): RedirectResponse
     {
-        $ownedCase = CaseFile::query()->clientVisible()->whereKey($case)->firstOrFail();
-        abort_unless($ownedCase->client_id === $request->user()->client_id, 403);
-        $referralModel = Referral::query()->whereKey($referral)->where('case_id', $ownedCase->id)->firstOrFail();
-        $clientRequestModel = ReferralClientRequest::query()->whereKey($clientRequest)->where('referral_id', $referralModel->id)->where('is_deleted', false)->firstOrFail();
+        [$ownedCase, $referralModel, $clientRequestModel] = $this->ownerRequest($request, $case, $referral, $clientRequest);
+
+        // A closed request or a referral that ended while the page was open is
+        // a 404 here, exactly as the anonymous link flow treats it. Without
+        // this check the service throws a LogicException that the catch below
+        // would report against the attachment field — telling the OFW their
+        // file is wrong when the request is what closed.
+        if (! $this->requestService->canClientSubmit($clientRequestModel)) {
+            abort(404);
+        }
 
         $validated = $request->validate([
             'body' => ['nullable', 'string', 'max:5000'],
@@ -159,7 +190,7 @@ class ReferralClientRequestController extends Controller
                 $files,
                 $validated['request_item_ids'] ?? [],
             );
-        } catch (InvalidArgumentException|LogicException $e) {
+        } catch (InvalidArgumentException $e) {
             throw ValidationException::withMessages(['attachments' => $e->getMessage()]);
         }
         $this->notifyClientReply($clientRequestModel);
@@ -169,11 +200,8 @@ class ReferralClientRequestController extends Controller
 
     public function ownerDownloadAttachment(Request $request, string $case, string $referral, string $clientRequest, ReferralClientMessageAttachment $attachment): RedirectResponse
     {
-        $ownedCase = CaseFile::query()->clientVisible()->whereKey($case)->firstOrFail();
-        abort_unless($ownedCase->client_id === $request->user()->client_id, 403);
-        $referralModel = Referral::query()->whereKey($referral)->where('case_id', $ownedCase->id)->firstOrFail();
+        [, , $requestModel] = $this->ownerRequest($request, $case, $referral, $clientRequest);
         $attachment->loadMissing('message.request');
-        $requestModel = ReferralClientRequest::query()->whereKey($clientRequest)->where('referral_id', $referralModel->id)->where('is_deleted', false)->firstOrFail();
         $attachedRequest = $attachment->message?->request;
         if (! $attachedRequest || $attachedRequest->id !== $requestModel->id || $attachment->is_deleted || $attachment->message->is_deleted) {
             abort(404);

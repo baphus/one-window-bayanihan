@@ -370,17 +370,18 @@ class CaseController extends Controller
         // client's address, next of kin, work history and notifications, plus
         // every referral's events. A partner agency opening a shared case must
         // never receive another agency's client record.
+        // The referral filter is passed into the query, not applied to its
+        // result: the event read is capped at the newest rows, so filtering
+        // afterwards would let a busy case evict this agency's older entries.
         $visibleReferralIds = $request->user()->isAgency()
             ? $case->referrals->where('agcy_id', $request->user()->agcy_id)->pluck('id')->all()
             : null;
 
-        $milestonesForViewer = $this->trackingService->buildTrackingData($case, withClientDetails: false)['milestoneTimeline'];
-        if ($visibleReferralIds !== null) {
-            $milestonesForViewer = array_values(array_filter(
-                $milestonesForViewer,
-                fn (array $event) => $event['referralId'] === null || in_array($event['referralId'], $visibleReferralIds, true),
-            ));
-        }
+        $milestonesForViewer = $this->trackingService->buildTrackingData(
+            $case,
+            withClientDetails: false,
+            visibleReferralIds: $visibleReferralIds,
+        )['milestoneTimeline'];
 
         $categories = $this->referenceData->getActiveCategories();
         $caseIssues = $this->referenceData->getActiveIssues();

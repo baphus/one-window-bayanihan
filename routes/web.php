@@ -110,12 +110,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Agency service management
     Route::post('/referrals/{referral}/services', [ReferralController::class, 'addService'])->name('referrals.services.add')->middleware('role:CASE_MANAGER,ADMIN,AGENCY');
-    Route::delete('/referrals/{referral}/services/{service}', [ReferralController::class, 'removeService'])->name('referrals.services.remove')->middleware('role:ADMIN,AGENCY');
+    Route::delete('/referrals/{referral}/services/{service}', [ReferralController::class, 'removeService'])->name('referrals.services.remove')->middleware('role:CASE_MANAGER,ADMIN,AGENCY');
 
     // Agency service requirements management (per-referral)
-    Route::post('/referrals/{referral}/services/{service}/requirements', [ReferralController::class, 'addRequirement'])->name('referrals.services.requirements.add');
-    Route::patch('/referrals/{referral}/services/{service}/requirements/{requirement}', [ReferralController::class, 'updateRequirement'])->name('referrals.services.requirements.update');
-    Route::delete('/referrals/{referral}/services/{service}/requirements/{requirement}', [ReferralController::class, 'deleteRequirement'])->name('referrals.services.requirements.delete');
+    Route::post('/referrals/{referral}/services/{service}/requirements', [ReferralController::class, 'addRequirement'])->name('referrals.services.requirements.add')->middleware('role:CASE_MANAGER,ADMIN,AGENCY');
+    Route::patch('/referrals/{referral}/services/{service}/requirements/{requirement}', [ReferralController::class, 'updateRequirement'])->name('referrals.services.requirements.update')->middleware('role:CASE_MANAGER,ADMIN,AGENCY');
+    Route::delete('/referrals/{referral}/services/{service}/requirements/{requirement}', [ReferralController::class, 'deleteRequirement'])->name('referrals.services.requirements.delete')->middleware('role:CASE_MANAGER,ADMIN,AGENCY');
 
     Route::post('/referrals/{referral}/comments', [ReferralController::class, 'addComment'])->name('referrals.comments.store');
     Route::post('/referrals/{referral}/comments/{comment}/reply', [ReferralController::class, 'replyToComment'])->name('referrals.comments.reply');

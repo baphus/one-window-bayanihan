@@ -29,7 +29,6 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -663,9 +662,8 @@ class ReferralService
     public function updateStatus(string $id, string $status, ?string $decision, ?string $decisionComment, string $userId, ?string $rejectionReason = null): Referral
     {
         $changed = false;
-        $caseId = null;
 
-        $referral = DB::transaction(function () use ($id, $status, $decision, $decisionComment, $userId, $rejectionReason, &$changed, &$caseId) {
+        $referral = DB::transaction(function () use ($id, $status, $decision, $decisionComment, $userId, $rejectionReason, &$changed) {
             // Row lock serializes concurrent updates so a second duplicate
             // request observes the new status and short-circuits below.
             $referral = Referral::whereKey($id)->lockForUpdate()->firstOrFail();
@@ -709,7 +707,6 @@ class ReferralService
             }
 
             $changed = true;
-            $caseId = $referral->case_id;
 
             // Purposeful audit entry for the transition (the observer only
             // records a generic UPDATE). PROCESSING is "accept" on first
@@ -747,26 +744,17 @@ class ReferralService
             return $referral->fresh(['agency', 'caseFile', 'milestones']);
         });
 
-        if ($changed && $caseId !== null) {
-            Cache::forget(TrackingService::trackingMilestonesCacheKey($caseId, $id));
-            Cache::forget(TrackingService::trackingMilestonesCacheKey($caseId, $id, true));
-        }
-
         return $referral;
     }
 
     public function addMilestone(string $referralId, string $title, ?string $description, string $userId, ?array $requirements = null): Milestone
     {
-        $caseId = null;
-
-        $milestone = DB::transaction(function () use ($referralId, $title, $description, $userId, $requirements, &$caseId) {
+        $milestone = DB::transaction(function () use ($referralId, $title, $description, $userId, $requirements) {
             $referral = Referral::findOrFail($referralId);
 
             if ($referral->status === 'COMPLETED') {
                 throw new \InvalidArgumentException('Cannot add milestones to a completed referral.');
             }
-
-            $caseId = $referral->case_id;
 
             $milestone = Milestone::create([
                 'title' => $title,
@@ -784,11 +772,6 @@ class ReferralService
 
             return $milestone->load('user');
         });
-
-        if ($caseId !== null) {
-            Cache::forget(TrackingService::trackingMilestonesCacheKey($caseId, $referralId));
-            Cache::forget(TrackingService::trackingMilestonesCacheKey($caseId, $referralId, true));
-        }
 
         return $milestone;
     }

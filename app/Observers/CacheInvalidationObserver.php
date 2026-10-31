@@ -15,7 +15,6 @@ use App\Models\User;
 use App\Services\ReferenceDataService;
 use App\Services\ReferralService;
 use App\Services\ReportsService;
-use App\Services\TrackingService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
 
@@ -166,12 +165,6 @@ class CacheInvalidationObserver
         }
         Cache::forget('stakeholder:agencies_list');
         // Agency-specific keys cleared via pattern (agcy_id may not be reliably available)
-
-        // Client-facing tracking pages read fresh DB state — never serve stale
-        // referral status to a tracked OFW. The agency-milestones read model
-        // is still cached, so its key is invalidated here.
-        Cache::forget(TrackingService::trackingMilestonesCacheKey($referral->case_id, $referral->id));
-        Cache::forget(TrackingService::trackingMilestonesCacheKey($referral->case_id, $referral->id, true));
     }
 
     private function invalidateService(): void
@@ -183,15 +176,5 @@ class CacheInvalidationObserver
     {
         // Clear dashboard priority referrals since milestone activity affects overdue logic
         Cache::forget('dashboard:cm_priority_referrals');
-
-        // A new milestone must appear immediately on the client tracking page.
-        // Resolve the case through the referral (or client request → referral) link.
-        $caseId = $milestone->referral?->case_id
-            ?? $milestone->clientRequest?->referral?->case_id;
-
-        if ($caseId !== null) {
-            Cache::forget(TrackingService::trackingMilestonesCacheKey($caseId, $milestone->refr_id));
-            Cache::forget(TrackingService::trackingMilestonesCacheKey($caseId, $milestone->refr_id, true));
-        }
     }
 }

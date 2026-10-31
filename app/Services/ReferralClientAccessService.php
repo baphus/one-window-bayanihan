@@ -6,7 +6,6 @@ use App\Enums\AuditModule;
 use App\Models\ReferralClientAccessLink;
 use App\Models\ReferralClientRequest;
 use App\Models\User;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use LogicException;
 
@@ -68,8 +67,6 @@ class ReferralClientAccessService
                 ->module(AuditModule::REFERRAL_CLIENT_ACCESS_LINK)
                 ->context(null, ['expires_at' => $expiresAt->toIso8601String()])
                 ->write();
-
-            $this->invalidateTrackingCaches($request);
 
             return [
                 'link' => $link,
@@ -167,9 +164,6 @@ class ReferralClientAccessService
             $link->setRawAttributes($locked->getAttributes());
         });
 
-        $link->loadMissing('request.referral.caseFile');
-        $this->invalidateTrackingCaches($link->request);
-
         return $link->fresh(['request', 'revoker']);
     }
 
@@ -217,17 +211,5 @@ class ReferralClientAccessService
                 ReferralClientRequest::STATUS_COMPLETED,
                 ReferralClientRequest::STATUS_CANCELLED,
             ], true);
-    }
-
-    private function invalidateTrackingCaches(ReferralClientRequest $request): void
-    {
-        $request->loadMissing('referral.caseFile');
-        $referral = $request->referral;
-        $caseId = $referral?->case_id;
-        if (! $caseId || ! $referral) {
-            return;
-        }
-        Cache::forget(TrackingService::trackingMilestonesCacheKey($caseId, $referral->id));
-        Cache::forget(TrackingService::trackingMilestonesCacheKey($caseId, $referral->id, true));
     }
 }

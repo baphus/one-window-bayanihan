@@ -502,7 +502,6 @@ export default function CaseDetail({
                                             name={agency.name}
                                             logoUrl={agency.logoUrl}
                                             description={agency.agencyDescription ?? agency.description}
-                                            initials={(agency.name ?? '').slice(0, 4)}
                                             statusLabel={status.label}
                                             statusClass={status.badge}
                                             note={agency.status === 'REJECTED' ? status.note : (agency.latestMilestoneLabel ?? status.note)}

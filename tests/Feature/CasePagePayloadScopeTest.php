@@ -124,4 +124,52 @@ class CasePagePayloadScopeTest extends TestCase
             ->get(route('cases.show', $this->case))
             ->assertForbidden();
     }
+
+    /**
+     * The timeline read is capped at the newest rows. Filtering the cap's
+     * RESULT would let a busy foreign referral evict this agency's own older
+     * entries, because the limit is consumed before the filter runs. The
+     * visibility filter therefore has to narrow the query itself.
+     */
+    #[Test]
+    public function a_busy_foreign_referral_does_not_evict_this_agencys_older_entries(): void
+    {
+        $base = now()->subDays(10);
+
+        // One older entry this agency owns.
+        CaseEvent::create([
+            'case_id' => $this->case->id,
+            'referral_id' => $this->ownReferral->id,
+            'type' => CaseEvent::TYPE_REFERRAL_STATUS_CHANGED,
+            'title' => 'Our oldest update',
+            'actor_type' => 'agency',
+            'occurred_at' => $base,
+        ]);
+
+        // More foreign events than the cap, all newer, so a case-wide read
+        // would return only these and drop "Our oldest update".
+        foreach (range(1, 230) as $index) {
+            CaseEvent::create([
+                'case_id' => $this->case->id,
+                'referral_id' => $this->foreignReferral->id,
+                'type' => CaseEvent::TYPE_REFERRAL_STATUS_CHANGED,
+                'title' => 'Foreign update '.$index,
+                'actor_type' => 'agency',
+                'occurred_at' => $base->copy()->addSeconds($index),
+            ]);
+        }
+
+        $response = $this->actingAs($this->agencyUser($this->ownAgency))
+            ->withHeaders([
+                'X-Inertia' => 'true',
+                'X-Inertia-Version' => app(HandleInertiaRequests::class)->version(request()),
+            ])
+            ->get(route('cases.show', $this->case));
+
+        $response->assertOk();
+
+        $titles = array_column($response->json('props.milestoneTimeline'), 'title');
+        $this->assertContains('Our oldest update', $titles);
+        $this->assertNotContains('Foreign update 230', $titles);
+    }
 }
