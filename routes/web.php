@@ -104,13 +104,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/referrals/export-excel', [ReferralController::class, 'exportExcel'])->name('referrals.export-excel')->middleware('role:CASE_MANAGER,ADMIN,AGENCY');
     Route::get('/referrals/export-count', [ReferralController::class, 'exportCount'])->name('referrals.export-count')->middleware('role:CASE_MANAGER,ADMIN,AGENCY');
     Route::get('/referrals/{referral}', [ReferralController::class, 'show'])->name('referrals.show')->middleware('role:CASE_MANAGER,ADMIN,AGENCY');
-    Route::patch('/referrals/{referral}/status', [ReferralController::class, 'updateStatus'])->name('referrals.update-status');
+    Route::patch('/referrals/{referral}/status', [ReferralController::class, 'updateStatus'])->name('referrals.update-status')->middleware('role:CASE_MANAGER,ADMIN,AGENCY');
     Route::delete('/referrals/{referral}', [ReferralController::class, 'destroy'])->name('referrals.destroy')->middleware('role:CASE_MANAGER,ADMIN');
-    Route::post('/referrals/{referral}/milestones', [ReferralController::class, 'addMilestone'])->name('referrals.milestones.store');
+    Route::post('/referrals/{referral}/milestones', [ReferralController::class, 'addMilestone'])->name('referrals.milestones.store')->middleware('role:CASE_MANAGER,ADMIN,AGENCY');
 
     // Agency service management
-    Route::post('/referrals/{referral}/services', [ReferralController::class, 'addService'])->name('referrals.services.add');
-    Route::delete('/referrals/{referral}/services/{service}', [ReferralController::class, 'removeService'])->name('referrals.services.remove');
+    Route::post('/referrals/{referral}/services', [ReferralController::class, 'addService'])->name('referrals.services.add')->middleware('role:CASE_MANAGER,ADMIN,AGENCY');
+    Route::delete('/referrals/{referral}/services/{service}', [ReferralController::class, 'removeService'])->name('referrals.services.remove')->middleware('role:ADMIN,AGENCY');
 
     // Agency service requirements management (per-referral)
     Route::post('/referrals/{referral}/services/{service}/requirements', [ReferralController::class, 'addRequirement'])->name('referrals.services.requirements.add');
@@ -124,9 +124,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/api/referrals/{referral}/messages', [ReferralMessageController::class, 'index'])->name('api.referrals.messages.index')->middleware('throttle:api-global');
     Route::post('/referrals/{referral}/messages', [ReferralMessageController::class, 'store'])->name('referrals.messages.store');
     Route::post('/referrals/{referral}/messages/read', [ReferralMessageController::class, 'markRead'])->name('referrals.messages.read');
-    Route::post('/referrals/{referral}/attachments', [ReferralController::class, 'addAttachment'])->name('referrals.attachments.store');
-    Route::post('/referrals/{referral}/attachments/{attachment}/replace', [ReferralController::class, 'replaceAttachment'])->name('referrals.attachments.replace');
-    Route::post('/referrals/{referral}/attachments/{attachment}/remove', [ReferralController::class, 'deleteAttachment'])->name('referrals.attachments.delete');
+    Route::post('/referrals/{referral}/attachments', [ReferralController::class, 'addAttachment'])->name('referrals.attachments.store')->middleware('role:CASE_MANAGER,ADMIN,AGENCY');
+    Route::post('/referrals/{referral}/attachments/{attachment}/replace', [ReferralController::class, 'replaceAttachment'])->name('referrals.attachments.replace')->middleware('role:CASE_MANAGER,ADMIN,AGENCY');
+    Route::post('/referrals/{referral}/attachments/{attachment}/remove', [ReferralController::class, 'deleteAttachment'])->name('referrals.attachments.delete')->middleware('role:CASE_MANAGER,ADMIN,AGENCY');
     Route::get('/referrals/{referral}/attachments/{attachment}/download', [ReferralController::class, 'downloadAttachment'])->name('referrals.attachments.download');
     Route::get('/referrals/{referral}/attachments/{versionGroupId}/versions', [ReferralController::class, 'getAttachmentVersions'])->name('referrals.attachments.versions');
 
@@ -339,14 +339,16 @@ Route::middleware(['auth', 'role:ADMIN,CASE_MANAGER,AGENCY'])->group(function ()
 });
 
 Route::get('/partners', function () {
+    // The directory has no paging UI: sending only page one would hide every
+    // agency past the first page, so read the whole active set.
     $agencies = Agency::where('is_active', true)
         ->orderBy('name')
-        ->paginate(50);
+        ->get();
 
     // Services are loaded on the show route only; the cards render them
     // conditionally and the eager load dominated the payload.
     return Inertia::render('PublicAgencies/Index', [
-        'agencies' => $agencies->getCollection()->toArray(),
+        'agencies' => $agencies->toArray(),
     ]);
 })->name('partners');
 
@@ -498,6 +500,9 @@ Route::middleware(['auth', 'role:OFW'])->prefix('my-cases')->name('ofw.')->group
     Route::get('/intake', [CaseController::class, 'intake'])->name('intake');
     Route::post('/intake', [CaseController::class, 'storeIntake'])->name('intake.store');
     Route::get('/{case}/agencies/{referral}/milestones', [OfwDashboardController::class, 'agencyMilestones'])->name('case.milestones');
+    Route::get('/{case}/agencies/{referral}/requests/{request}', [ReferralClientRequestController::class, 'ownerShow'])->name('case.requests.show');
+    Route::post('/{case}/agencies/{referral}/requests/{request}/messages', [ReferralClientRequestController::class, 'ownerMessage'])->name('case.requests.messages.store')->middleware('throttle:track-request-message');
+    Route::get('/{case}/agencies/{referral}/requests/{request}/attachments/{attachment}/download', [ReferralClientRequestController::class, 'ownerDownloadAttachment'])->name('case.requests.attachments.download')->middleware('throttle:tracking');
     Route::get('/profile', [OfwProfileController::class, 'edit'])->name('profile.edit');
     Route::put('/profile', [OfwProfileController::class, 'update'])->name('profile.update');
     Route::post('/profile/avatar', [OfwProfileController::class, 'storeAvatar'])->name('profile.avatar.store');

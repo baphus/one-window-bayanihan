@@ -3,11 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Enums\AuditModule;
-use App\Enums\UserRole;
 use App\Http\Requests\Track\StoreTrackingRequest;
 use App\Http\Requests\Track\UpdateTrackingRequest;
 use App\Models\Referral;
-use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\TrackingService;
 use Illuminate\Http\Request;
@@ -126,10 +124,6 @@ class TrackController extends Controller
         // Only relevant to guests — a signed-in OFW already has an account.
         $binding = $request->session()->get(TrackingService::SESSION_KEY);
         $email = strtolower(trim(is_array($binding) ? ($binding['email'] ?? '') : ''));
-        $data['verifiedEmail'] = $email;
-        $data['hasOfwAccount'] = $email !== ''
-            ? User::where('email', $email)->where('role', UserRole::OFW->value)->where('is_deleted', false)->exists()
-            : false;
 
         return Inertia::render('Tracking/Show', $data);
     }

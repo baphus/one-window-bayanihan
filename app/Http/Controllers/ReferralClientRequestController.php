@@ -7,9 +7,11 @@ use App\Enums\UserRole;
 use App\Http\Requests\StoreReferralClientMessageRequest;
 use App\Http\Requests\StoreReferralClientRequest;
 use App\Mail\ClientRequestMail;
+use App\Models\CaseFile;
 use App\Models\CaseNotification;
 use App\Models\Referral;
 use App\Models\ReferralClientAccessLink;
+use App\Models\ReferralClientMessage;
 use App\Models\ReferralClientMessageAttachment;
 use App\Models\ReferralClientRequest;
 use App\Models\User;
@@ -80,6 +82,111 @@ class ReferralClientRequestController extends Controller
         $this->notifyCaseManager($clientRequest, 'created', $request->user());
 
         return redirect()->route('referrals.show', $referral)->with('client_access_delivery', $delivery);
+    }
+
+    public function ownerShow(Request $request, string $case, string $referral, string $clientRequest): InertiaResponse
+    {
+        $ownedCase = CaseFile::query()->clientVisible()->whereKey($case)->firstOrFail();
+        abort_unless($ownedCase->client_id === $request->user()->client_id, 403);
+
+        $referralModel = Referral::query()->whereKey($referral)->where('case_id', $ownedCase->id)->firstOrFail();
+        $clientRequestModel = ReferralClientRequest::query()
+            ->whereKey($clientRequest)
+            ->where('referral_id', $referralModel->id)
+            ->where('is_deleted', false)
+            ->with(['items', 'referral.agency', 'messages' => fn ($query) => $query->where('is_deleted', false)->where('kind', 'MESSAGE')->orderBy('created_at'), 'messages.user', 'messages.attachments'])
+            ->firstOrFail();
+
+        $agencyShort = $clientRequestModel->referral?->agency?->short;
+        $milestonesUrl = route('ofw.case.milestones', ['case' => $ownedCase, 'referral' => $referralModel]);
+
+        return Inertia::render('Tracking/Show', [
+            'ofwRequestContext' => [
+                'trackingId' => $ownedCase->tracker_number,
+                'caseUrl' => route('ofw.case.show', $ownedCase),
+                'backUrl' => $milestonesUrl,
+                'agencyShort' => $agencyShort,
+            ],
+            'clientRequestPanel' => [
+                'state' => 'ready',
+                'activeRequest' => [
+                    'id' => $clientRequestModel->id,
+                    'type' => $clientRequestModel->type,
+                    'title' => $clientRequestModel->title,
+                    'instructions' => $clientRequestModel->instructions,
+                    'due_at' => $clientRequestModel->due_at?->toIso8601String(),
+                    'created_at' => $clientRequestModel->created_at?->toIso8601String(),
+                    'status' => $clientRequestModel->status,
+                    'agency_name' => $clientRequestModel->referral?->agency?->name ?? 'the agency',
+                    'checklist' => $clientRequestModel->items->where('is_deleted', false)->map(fn ($item) => ['id' => $item->id, 'label' => $item->label, 'sort_order' => $item->sort_order])->values(),
+                    'messages' => $clientRequestModel->messages->map(fn ($message) => $this->ownerMessagePayload($message))->values(),
+                ],
+                'actions' => [
+                    'reply' => route('ofw.case.requests.messages.store', ['case' => $ownedCase, 'referral' => $referralModel, 'request' => $clientRequestModel]),
+                    'requestReplacement' => null,
+                    'downloadAttachmentTemplate' => route('ofw.case.requests.attachments.download', ['case' => $ownedCase, 'referral' => $referralModel, 'request' => $clientRequestModel, 'attachment' => '__ATTACHMENT__']),
+                    'home' => $milestonesUrl,
+                ],
+            ],
+        ]);
+    }
+
+    public function ownerMessage(Request $request, string $case, string $referral, string $clientRequest): RedirectResponse
+    {
+        $ownedCase = CaseFile::query()->clientVisible()->whereKey($case)->firstOrFail();
+        abort_unless($ownedCase->client_id === $request->user()->client_id, 403);
+        $referralModel = Referral::query()->whereKey($referral)->where('case_id', $ownedCase->id)->firstOrFail();
+        $clientRequestModel = ReferralClientRequest::query()->whereKey($clientRequest)->where('referral_id', $referralModel->id)->where('is_deleted', false)->firstOrFail();
+
+        $validated = $request->validate([
+            'body' => ['nullable', 'string', 'max:5000'],
+            'attachments' => ['nullable', 'array', 'max:5'],
+            'attachments.*' => ['file', 'mimes:pdf,jpg,jpeg,png,doc,docx', 'max:20480'],
+            'request_item_ids' => ['nullable', 'array'],
+            'request_item_ids.*' => ['nullable', 'uuid'],
+        ]);
+        $files = $request->file('attachments', []);
+        $body = trim($validated['body'] ?? '');
+        if ($body === '' && $files === []) {
+            throw ValidationException::withMessages(['body' => 'Write a message or attach at least one document.']);
+        }
+
+        try {
+            $this->requestService->sendClientMessage(
+                $clientRequestModel,
+                $body,
+                $request->user(),
+                $files,
+                $validated['request_item_ids'] ?? [],
+            );
+        } catch (InvalidArgumentException|LogicException $e) {
+            throw ValidationException::withMessages(['attachments' => $e->getMessage()]);
+        }
+        $this->notifyClientReply($clientRequestModel);
+
+        return redirect()->route('ofw.case.requests.show', ['case' => $ownedCase, 'referral' => $referralModel, 'request' => $clientRequestModel])->with('success', 'Message sent.');
+    }
+
+    public function ownerDownloadAttachment(Request $request, string $case, string $referral, string $clientRequest, ReferralClientMessageAttachment $attachment): RedirectResponse
+    {
+        $ownedCase = CaseFile::query()->clientVisible()->whereKey($case)->firstOrFail();
+        abort_unless($ownedCase->client_id === $request->user()->client_id, 403);
+        $referralModel = Referral::query()->whereKey($referral)->where('case_id', $ownedCase->id)->firstOrFail();
+        $attachment->loadMissing('message.request');
+        $requestModel = ReferralClientRequest::query()->whereKey($clientRequest)->where('referral_id', $referralModel->id)->where('is_deleted', false)->firstOrFail();
+        $attachedRequest = $attachment->message?->request;
+        if (! $attachedRequest || $attachedRequest->id !== $requestModel->id || $attachment->is_deleted || $attachment->message->is_deleted) {
+            abort(404);
+        }
+        if ($attachment->message->sender_kind === ReferralClientMessage::SENDER_AGENCY_USER
+            && ($attachment->review_status !== 'ACCEPTED' || $attachment->visibility !== 'ALL')) {
+            abort(404);
+        }
+
+        $url = app(StorageService::class)->temporaryUrl($attachment->file_path, 24);
+        abort_unless($url, 404, 'File not found or unavailable.');
+
+        return redirect()->away($url);
     }
 
     public function sendMessage(StoreReferralClientMessageRequest $request, ReferralClientRequest $clientRequest): RedirectResponse
@@ -513,8 +620,10 @@ class ReferralClientRequestController extends Controller
 
     private function notifyClientReply(ReferralClientRequest $clientRequest): void
     {
+        // Case managers have no client-request permission (the inbox is
+        // agency/admin only), so they are not notified: the old notification
+        // carried the request title to a role that cannot open it.
         $this->notifyAgency($clientRequest, 'client_reply', 'Client');
-        $this->notifyCaseManager($clientRequest, 'client_reply');
     }
 
     private function agencyPayload(ReferralClientRequest $clientRequest): array
@@ -529,6 +638,30 @@ class ReferralClientRequestController extends Controller
             'due_at' => $clientRequest->due_at?->toIso8601String(),
             'checklist' => $clientRequest->items->map(fn ($item) => ['id' => $item->id, 'label' => $item->label])->values(),
             'messages' => $clientRequest->messages->map(fn ($message) => $this->messagePayload($message))->values(),
+        ];
+    }
+
+    private function ownerMessagePayload($message): array
+    {
+        return [
+            'id' => $message->id,
+            'body' => $message->body,
+            'sender_kind' => $message->sender_kind,
+            'created_at' => $message->created_at?->toIso8601String(),
+            'attachments' => $message->attachments
+                ?->filter(fn ($attachment) => ! $attachment->is_deleted
+                    && ($message->sender_kind !== ReferralClientMessage::SENDER_AGENCY_USER
+                        || ($attachment->review_status === 'ACCEPTED' && $attachment->visibility === 'ALL')))
+                ->values()
+                ->map(fn ($attachment) => [
+                    'id' => $attachment->id,
+                    'file_name' => $attachment->file_name,
+                    'file_type' => $attachment->file_type,
+                    'size' => $attachment->size,
+                    'request_item_id' => $attachment->request_item_id,
+                    'created_at' => $attachment->created_at?->toIso8601String(),
+                ])
+                ->values(),
         ];
     }
 

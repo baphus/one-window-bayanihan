@@ -44,7 +44,7 @@ class BuildAgencyStepsTest extends TestCase
             'PENDING standard' => ['PENDING',    3,  2],
             'PROCESSING' => ['PROCESSING',  5,  3],
             'COMPLETED' => ['COMPLETED',   5,  4],
-            'REJECTED' => ['REJECTED',    3,  null],
+            'REJECTED' => ['REJECTED',    4,  null],
             'UNKNOWN status' => ['UNKNOWN',     5,  null],
         ];
     }
@@ -83,7 +83,7 @@ class BuildAgencyStepsTest extends TestCase
         foreach ($steps as $step) {
             $this->assertArrayHasKey('label', $step);
             $this->assertArrayHasKey('state', $step);
-            $this->assertContains($step['state'], ['complete', 'active', 'pending']);
+            $this->assertContains($step['state'], ['complete', 'active', 'pending', 'rejected']);
         }
 
         // Assert — active position

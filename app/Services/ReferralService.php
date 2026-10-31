@@ -749,6 +749,7 @@ class ReferralService
 
         if ($changed && $caseId !== null) {
             Cache::forget(TrackingService::trackingMilestonesCacheKey($caseId, $id));
+            Cache::forget(TrackingService::trackingMilestonesCacheKey($caseId, $id, true));
         }
 
         return $referral;
@@ -786,6 +787,7 @@ class ReferralService
 
         if ($caseId !== null) {
             Cache::forget(TrackingService::trackingMilestonesCacheKey($caseId, $referralId));
+            Cache::forget(TrackingService::trackingMilestonesCacheKey($caseId, $referralId, true));
         }
 
         return $milestone;

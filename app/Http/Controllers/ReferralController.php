@@ -298,7 +298,7 @@ class ReferralController extends Controller
     public function replyToComment(StoreReferralCommentRequest $request, string $id, string $commentId)
     {
         $referral = $this->referralService->getReferral($id);
-        $this->authorizeReferralAccess($referral, $request->user());
+        $this->authorizeReferralWrite($referral, $request->user());
 
         // Do not let an accessible referral be used as a pivot to another
         // referral's comment tree.
@@ -322,7 +322,7 @@ class ReferralController extends Controller
     public function addAttachment(Request $request, string $id)
     {
         $referral = $this->referralService->getReferral($id);
-        $this->authorizeReferralAccess($referral, $request->user());
+        $this->authorizeReferralWrite($referral, $request->user());
 
         $file = $request->file('file');
 
@@ -358,7 +358,7 @@ class ReferralController extends Controller
     public function replaceAttachment(Request $request, string $id, string $attachmentId)
     {
         $referral = $this->referralService->getReferral($id);
-        $this->authorizeReferralAccess($referral, $request->user());
+        $this->authorizeReferralWrite($referral, $request->user());
 
         // The attachment must belong to the referral whose access was checked.
         ReferralAttachment::where('referral_id', $id)
@@ -457,7 +457,7 @@ class ReferralController extends Controller
     public function addService(Request $request, string $id)
     {
         $referral = $this->referralService->getReferral($id);
-        $this->authorizeReferralAccess($referral, $request->user());
+        $this->authorizeReferralWrite($referral, $request->user());
 
         if ($request->user()->role !== UserRole::AGENCY->value) {
             return redirect()->back()->with('error', 'Only the receiving agency can manage services.');
@@ -486,7 +486,7 @@ class ReferralController extends Controller
     public function removeService(Request $request, string $id, string $serviceId)
     {
         $referral = $this->referralService->getReferral($id);
-        $this->authorizeReferralAccess($referral, $request->user());
+        $this->authorizeReferralWrite($referral, $request->user());
 
         if ($request->user()->role !== UserRole::AGENCY->value) {
             return redirect()->back()->with('error', 'Only the receiving agency can manage services.');
@@ -511,7 +511,7 @@ class ReferralController extends Controller
     public function addRequirement(Request $request, string $id, string $serviceId)
     {
         $referral = $this->referralService->getReferral($id);
-        $this->authorizeReferralAccess($referral, $request->user());
+        $this->authorizeReferralWrite($referral, $request->user());
 
         if ($request->user()->role !== UserRole::AGENCY->value) {
             return redirect()->back()->with('error', 'Only the receiving agency can manage service requirements.');
@@ -539,7 +539,7 @@ class ReferralController extends Controller
     public function updateRequirement(Request $request, string $id, string $serviceId, string $requirementId)
     {
         $referral = $this->referralService->getReferral($id);
-        $this->authorizeReferralAccess($referral, $request->user());
+        $this->authorizeReferralWrite($referral, $request->user());
 
         if ($request->user()->role !== UserRole::AGENCY->value) {
             return redirect()->back()->with('error', 'Only the receiving agency can manage service requirements.');
@@ -567,7 +567,7 @@ class ReferralController extends Controller
     public function deleteRequirement(Request $request, string $id, string $serviceId, string $requirementId)
     {
         $referral = $this->referralService->getReferral($id);
-        $this->authorizeReferralAccess($referral, $request->user());
+        $this->authorizeReferralWrite($referral, $request->user());
 
         if ($request->user()->role !== UserRole::AGENCY->value) {
             return redirect()->back()->with('error', 'Only the receiving agency can manage service requirements.');
@@ -700,7 +700,7 @@ class ReferralController extends Controller
         if ($user->isAdmin() || $user->isCaseManager()) {
             return;
         }
-        if ($user->isAgency() && ! $user->agcy_id) {
+        if (! $user->isAgency() || ! $user->agcy_id) {
             abort(403, 'You do not have access to this referral.');
         }
         if ($referral->agcy_id === $user->agcy_id) {
@@ -708,5 +708,19 @@ class ReferralController extends Controller
         }
 
         abort(403, 'You do not have access to this referral.');
+    }
+
+    /**
+     * Agencies may only change the content of a referral they have accepted.
+     * The UI already hides these controls before accepting; the server had no
+     * matching rule, so a direct POST could edit a PENDING referral.
+     */
+    private function authorizeReferralWrite($referral, $user): void
+    {
+        $this->authorizeReferralAccess($referral, $user);
+
+        if ($user->isAgency() && ! in_array($referral->status, ['PROCESSING', 'FOR_COMPLIANCE'], true)) {
+            abort(403, 'You can only change a referral after accepting it.');
+        }
     }
 }

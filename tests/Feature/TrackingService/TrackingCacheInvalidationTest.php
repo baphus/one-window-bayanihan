@@ -53,7 +53,10 @@ class TrackingCacheInvalidationTest extends TestCase
 
         $service = app(TrackingService::class);
         $service->buildTrackingData($this->loadRelations($case));
-        $service->buildAgencyMilestonesData($case, $referral);
+        $referral->agency->update(['logo_url' => 'https://example.com/agency.png']);
+        $payload = $service->buildAgencyMilestonesData($case, $referral);
+        $this->assertSame('https://example.com/agency.png', $payload['agencyMilestones']['agencyLogoUrl']);
+        $this->assertSame('https://example.com/agency.png', $service->buildTrackingData($this->loadRelations($case))['trackingAgencies'][0]['logoUrl']);
 
         $this->assertSame('PENDING', $service->buildTrackingData($this->loadRelations($case))['trackingAgencies'][0]['status']);
         $this->assertTrue(Cache::has(TrackingService::trackingMilestonesCacheKey($case->id, $referral->id)));

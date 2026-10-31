@@ -171,6 +171,7 @@ class CacheInvalidationObserver
         // referral status to a tracked OFW. The agency-milestones read model
         // is still cached, so its key is invalidated here.
         Cache::forget(TrackingService::trackingMilestonesCacheKey($referral->case_id, $referral->id));
+        Cache::forget(TrackingService::trackingMilestonesCacheKey($referral->case_id, $referral->id, true));
     }
 
     private function invalidateService(): void
@@ -190,6 +191,7 @@ class CacheInvalidationObserver
 
         if ($caseId !== null) {
             Cache::forget(TrackingService::trackingMilestonesCacheKey($caseId, $milestone->refr_id));
+            Cache::forget(TrackingService::trackingMilestonesCacheKey($caseId, $milestone->refr_id, true));
         }
     }
 }

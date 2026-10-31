@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\AuditModule;
 use App\Http\Requests\AvatarUploadRequest;
 use App\Http\Requests\ProfileUpdateRequest;
+use App\Models\ReferralClientAccessLink;
 use App\Services\AuditLogger;
 use App\Services\CloudinaryAvatarService;
 use App\Services\OnboardingService;
@@ -13,6 +14,7 @@ use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redirect;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -170,7 +172,19 @@ class ProfileController extends Controller
 
         Auth::logout();
 
-        $user->delete();
+        // Account removal is a soft delete. The row stays because client
+        // access links, requests they created and message senders still
+        // reference it; a hard delete would break every emailed request link.
+        // Links live in a table without soft deletes, so revoke them here.
+        DB::transaction(function () use ($user) {
+            ReferralClientAccessLink::query()
+                ->where('issued_by', $user->id)
+                ->whereNull('revoked_at')
+                ->update(['revoked_at' => now(), 'revoked_by' => $user->id]);
+
+            $user->update(['is_active' => false]);
+            $user->delete();
+        });
 
         AuditLogger::deleteAccount()
             ->byId($userId)

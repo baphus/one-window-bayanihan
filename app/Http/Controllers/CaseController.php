@@ -365,7 +365,22 @@ class CaseController extends Controller
         }
         $overdueDays = (int) SystemSetting::getValue('referral_overdue_days', 7);
 
-        $trackingData = $this->trackingService->buildTrackingData($case);
+        // Staff pages get the timeline only, and only for referrals this user
+        // may see. buildTrackingData() is the CLIENT payload: it carries the
+        // client's address, next of kin, work history and notifications, plus
+        // every referral's events. A partner agency opening a shared case must
+        // never receive another agency's client record.
+        $visibleReferralIds = $request->user()->isAgency()
+            ? $case->referrals->where('agcy_id', $request->user()->agcy_id)->pluck('id')->all()
+            : null;
+
+        $milestonesForViewer = $this->trackingService->buildTrackingData($case, withClientDetails: false)['milestoneTimeline'];
+        if ($visibleReferralIds !== null) {
+            $milestonesForViewer = array_values(array_filter(
+                $milestonesForViewer,
+                fn (array $event) => $event['referralId'] === null || in_array($event['referralId'], $visibleReferralIds, true),
+            ));
+        }
 
         $categories = $this->referenceData->getActiveCategories();
         $caseIssues = $this->referenceData->getActiveIssues();
@@ -379,7 +394,7 @@ class CaseController extends Controller
         return Inertia::render('Case/Show', [
             'case' => $case,
             'overdueDays' => $overdueDays,
-            'milestoneTimeline' => $trackingData['milestoneTimeline'],
+            'milestoneTimeline' => $milestonesForViewer,
             'categories' => $categories,
             'caseIssues' => $caseIssues,
             'approver' => $approver,

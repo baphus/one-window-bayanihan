@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link, usePage } from '@inertiajs/react';
 import { Hourglass, Info } from 'lucide-react';
 import OfwPortalLayout from '@/Layouts/OfwPortalLayout';
+import OfwBreadcrumbs from '@/Components/OfwBreadcrumbs';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import { EmptyState, FilterChip } from '@/Components/Dashboard/primitives';
 import { usePersistedViewMode } from '@/Hooks/usePersistedViewState';
@@ -309,7 +310,9 @@ export default function Dashboard({ cases, caseStats }) {
 
     return (
         <OfwPortalLayout title="My Cases">
-            <p className="text-[12px] text-slate-500">Home / My Cases</p>
+            <OfwBreadcrumbs items={[
+                { label: 'My Cases' },
+            ]} />
 
             <h1 className="mt-2 font-headline text-[28px] font-extrabold tracking-tight text-slate-900 sm:text-[32px]">
                 My Cases

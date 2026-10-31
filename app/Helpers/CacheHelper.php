@@ -19,17 +19,13 @@ class CacheHelper
         try {
             $value = Cache::remember($key, $ttl, $callback);
 
-            // If a cached object corrupted into a __PHP_Incomplete_Class
-            // (from serialization glitches, PHP version changes, or
-            // partial writes), evict the stale entry and recompute.
-            if ($value instanceof \stdClass || static::isIncompleteClass($value)) {
-                if (static::isIncompleteClass($value)) {
-                    Cache::forget($key);
+            // A cached object that failed to unserialize properly (PHP version
+            // change, partial write) carries no usable data: drop it and build
+            // once more instead of returning it.
+            if (static::isIncompleteClass($value)) {
+                Cache::forget($key);
 
-                    return $callback();
-                }
-
-                return (object) (array) $value;
+                return $callback();
             }
 
             return $value;

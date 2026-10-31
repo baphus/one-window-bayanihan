@@ -4,6 +4,9 @@ import AppHeader from '@/Components/landing/AppHeader';
 import AppFooter from '@/Components/landing/AppFooter';
 import ChatBot from '@/Components/ChatBot';
 import UnifiedTimeline from '@/Components/Timeline';
+import OfwPortalLayout from '@/Layouts/OfwPortalLayout';
+import OfwBreadcrumbs from '@/Components/OfwBreadcrumbs';
+import safeRoute from '@/utils/safeRoute';
 import { buildCaseStatusLine } from '@/lib/caseStatusLine';
 
 /**
@@ -56,6 +59,7 @@ function StepBar({ steps }) {
         {steps.map((step) => {
           const isComplete = step.state === 'complete';
           const isActive = step.state === 'active';
+          const isRejected = step.state === 'rejected';
 
           return (
             <li key={step.label} className="flex flex-col items-center">
@@ -63,15 +67,17 @@ function StepBar({ steps }) {
                 className={`flex h-[18px] w-[18px] items-center justify-center rounded-full ring-4 ring-white ${
                   isComplete ? 'bg-primary text-white' :
                   isActive ? 'border-2 border-primary bg-white' :
+                  isRejected ? 'bg-rose-500 text-white' :
                   'bg-slate-200'
                 }`}
               >
                 {isComplete && <span aria-hidden="true" className="material-symbols-outlined text-[11px] font-bold">check</span>}
                 {isActive && <span className="h-1.5 w-1.5 rounded-full bg-primary motion-safe:animate-pulse" />}
+                {isRejected && <span aria-hidden="true" className="material-symbols-outlined text-[11px] font-bold">close</span>}
               </span>
               <span
                 className={`mt-1.5 hidden max-w-[90px] px-1 text-center text-[10px] font-semibold leading-tight tracking-tight sm:line-clamp-2 ${
-                  isActive ? 'text-primary' : isComplete ? 'text-slate-800' : 'text-slate-400'
+                  isRejected ? 'text-rose-700' : isActive ? 'text-primary' : isComplete ? 'text-slate-800' : 'text-slate-400'
                 }`}
                 title={step.label}
               >
@@ -272,7 +278,7 @@ function requestStateCopy(state) {
   }
 }
 
-function ClientRequestPanel({ clientRequestPanel }) {
+function ClientRequestPanel({ clientRequestPanel, ofwRequestContext }) {
   const [body, setBody] = useState('');
   const [files, setFiles] = useState([]);
   const [fileItems, setFileItems] = useState([]);
@@ -393,12 +399,14 @@ function ClientRequestPanel({ clientRequestPanel }) {
     });
   }
 
-  return (
-    <div className="min-h-screen bg-slate-50 font-body text-slate-800">
-      <Head title="Client Request" />
-      <AppHeader />
-
-      <main className="mx-auto w-full max-w-4xl px-4 pt-24 pb-16 sm:px-6">
+  const content = (
+      <div>
+        {ofwRequestContext && <OfwBreadcrumbs items={[
+          { label: 'My Cases', href: safeRoute('ofw.dashboard', undefined, '/my-cases') },
+          { label: `Case ${ofwRequestContext.trackingId}`, href: ofwRequestContext.caseUrl },
+          { label: `${ofwRequestContext.agencyShort || 'Agency'} referral`, href: ofwRequestContext.backUrl },
+          { label: 'Client request' },
+        ]} />}
         <h1 className="font-headline text-[26px] font-extrabold tracking-tight text-slate-900 sm:text-[30px]">
           Document request and response
         </h1>
@@ -464,8 +472,8 @@ function ClientRequestPanel({ clientRequestPanel }) {
                   )}
                 </div>
                 <Link
-                  href={route('track.index')}
-                  aria-label="Close and return to tracking"
+                  href={actions.home ?? ofwRequestContext?.backUrl ?? route('track.index')}
+                  aria-label={ofwRequestContext ? 'Close and return to agency referral' : 'Close and return to tracking'}
                   className="shrink-0 text-slate-400 transition-colors hover:text-slate-700"
                 >
                   <span aria-hidden="true" className="material-symbols-outlined text-[22px]">close</span>
@@ -537,7 +545,7 @@ function ClientRequestPanel({ clientRequestPanel }) {
                 {request.messages?.length > 0 ? (
                   <div className="space-y-4">
                     {request.messages.map((message) => {
-                      const isClient = message.sender_kind === 'CLIENT_ACCESS';
+                      const isClient = ['CLIENT_ACCESS', 'CLIENT_USER'].includes(message.sender_kind);
                       const senderName = isClient ? 'You' : 'Agency';
                       const messageDate = formatRequestDate(message.created_at);
                       return (
@@ -556,7 +564,7 @@ function ClientRequestPanel({ clientRequestPanel }) {
                                   {message.attachments.map((attachment) => (
                                     <li key={attachment.id}>
                                       <a
-                                        href={route('track.request.attachments.download', { attachment: attachment.id })}
+                                        href={attachment.download_url ?? (actions.downloadAttachmentTemplate ? actions.downloadAttachmentTemplate.replace('__ATTACHMENT__', encodeURIComponent(attachment.id)) : route('track.request.attachments.download', { attachment: attachment.id }))}
                                         className={`inline-flex max-w-full items-center gap-1.5 rounded-md border px-2 py-1 text-[12px] font-semibold transition-colors ${isClient ? 'border-white/20 bg-white/10 text-primary-fixed hover:bg-white/20' : 'border-slate-200 bg-slate-50 text-primary hover:bg-slate-100'}`}
                                       >
                                         <span aria-hidden="true" className="material-symbols-outlined shrink-0 text-[14px]">description</span>
@@ -658,8 +666,18 @@ function ClientRequestPanel({ clientRequestPanel }) {
             </section>
           </div>
         )}
-      </main>
+      </div>
+  );
 
+  if (ofwRequestContext) {
+    return <OfwPortalLayout title="Client Request">{content}</OfwPortalLayout>;
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-50 font-body text-slate-800">
+      <Head title="Client Request" />
+      <AppHeader />
+      <main className="mx-auto w-full max-w-4xl px-4 pt-24 pb-16 sm:px-6">{content}</main>
       <AppFooter />
       <ChatBot />
     </div>
@@ -676,9 +694,10 @@ export default function TrackingShow({
   completionPercentage = 0,
   rejectedCount = 0,
   clientRequestPanel,
+  ofwRequestContext,
 }) {
   if (clientRequestPanel) {
-    return <ClientRequestPanel clientRequestPanel={clientRequestPanel} />;
+    return <ClientRequestPanel clientRequestPanel={clientRequestPanel} ofwRequestContext={ofwRequestContext} />;
   }
 
   const totalAgencies = trackingAgencies.length;

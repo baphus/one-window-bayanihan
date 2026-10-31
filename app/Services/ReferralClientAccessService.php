@@ -228,5 +228,6 @@ class ReferralClientAccessService
             return;
         }
         Cache::forget(TrackingService::trackingMilestonesCacheKey($caseId, $referral->id));
+        Cache::forget(TrackingService::trackingMilestonesCacheKey($caseId, $referral->id, true));
     }
 }

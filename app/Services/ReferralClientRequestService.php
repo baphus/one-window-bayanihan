@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use LogicException;
+use RuntimeException;
 
 /**
  * Coordinates the agency/client request inbox without issuing access links.
@@ -106,7 +107,7 @@ class ReferralClientRequestService
                 'user_id' => $actor->id,
             ]);
 
-            $this->eventRecorder->milestoneAdded($referral, $milestone, $actor->id);
+            $this->eventRecorder->clientRequestActivity($request->loadMissing('referral'), 'opened', $request->title.' — request opened', 'The agency sent you a request.', 'agency');
 
             AuditLogger::issueClientRequest()
                 ->by($actor)
@@ -139,13 +140,6 @@ class ReferralClientRequestService
                 'kind' => ReferralClientMessage::KIND_MESSAGE,
             ]);
 
-            $this->recordRequestUpdate(
-                $request->referral,
-                'Reply: '.$request->title,
-                'The agency replied to this request.',
-                $actor->id,
-            );
-
             return $message;
         });
 
@@ -154,12 +148,17 @@ class ReferralClientRequestService
         return $message->load(['user', 'request']);
     }
 
-    /** Add a client message; link token validation belongs to the access service. */
-    public function sendClientMessage(ReferralClientRequest $request, string $body, ReferralClientAccessLink $accessLink, array $files = [], array $requestItemIds = []): ReferralClientMessage
+    /**
+     * Add a client message. Anonymous visitors arrive through a capability
+     * link; signed-in OFW owners arrive as a User (no link is issued).
+     */
+    public function sendClientMessage(ReferralClientRequest $request, string $body, ReferralClientAccessLink|User $sender, array $files = [], array $requestItemIds = []): ReferralClientMessage
     {
         if (trim($body) === '' && $files === []) {
             throw new InvalidArgumentException('A message or at least one attachment is required.');
         }
+
+        $isOwner = $sender instanceof User;
 
         // Validate every file up front so a bad file fails the whole reply
         // before any storage or row writes happen.
@@ -173,87 +172,123 @@ class ReferralClientRequestService
             }
         }
 
-        [$message, $referral] = DB::transaction(function () use ($request, $body, $accessLink, $files, $requestItemIds) {
+        [$message, $referral] = DB::transaction(function () use ($request, $body, $sender, $isOwner, $files, $requestItemIds) {
             $lockedRequest = ReferralClientRequest::query()
                 ->lockForUpdate()
                 ->findOrFail($request->id);
             $referral = Referral::query()->lockForUpdate()->findOrFail($lockedRequest->referral_id);
             $case = $referral->caseFile()->lockForUpdate()->first();
             $referral->setRelation('caseFile', $case);
-            $lockedLink = ReferralClientAccessLink::query()->lockForUpdate()->findOrFail($accessLink->id);
 
-            if ($lockedLink->request_id !== $lockedRequest->id) {
-                throw new AuthorizationException('This access link does not belong to the request.');
+            $lockedLink = null;
+            if ($isOwner) {
+                if ($sender->role !== UserRole::OFW->value || $sender->is_active === false || ! $case || $case->client_id !== $sender->client_id) {
+                    throw new AuthorizationException('You are not allowed to reply to this request.');
+                }
+            } else {
+                $lockedLink = ReferralClientAccessLink::query()->lockForUpdate()->findOrFail($sender->id);
+
+                if ($lockedLink->request_id !== $lockedRequest->id) {
+                    throw new AuthorizationException('This access link does not belong to the request.');
+                }
+                if ($lockedLink->revoked_at !== null || ! $lockedLink->expires_at?->isFuture()) {
+                    throw new LogicException('This access link is no longer usable.');
+                }
             }
+
             $this->assertClientFacingWriteAllowed($referral);
             $this->assertOpen($lockedRequest);
-            if ($lockedLink->revoked_at !== null || ! $lockedLink->expires_at?->isFuture()) {
-                throw new LogicException('This access link is no longer usable.');
-            }
 
             $message = ReferralClientMessage::create([
                 'request_id' => $lockedRequest->id,
                 'body' => $body,
-                'sender_kind' => ReferralClientMessage::SENDER_CLIENT_ACCESS,
-                'access_link_id' => $lockedLink->id,
+                'sender_kind' => $isOwner ? ReferralClientMessage::SENDER_CLIENT_USER : ReferralClientMessage::SENDER_CLIENT_ACCESS,
+                'user_id' => $isOwner ? $sender->id : null,
+                'access_link_id' => $lockedLink?->id,
                 'kind' => ReferralClientMessage::KIND_MESSAGE,
             ]);
 
             $items = $lockedRequest->items()->whereIn('id', array_filter($requestItemIds))->get()->keyBy('id');
-            foreach ($files as $index => $file) {
-                $itemId = $requestItemIds[$index] ?? null;
-                if ($itemId !== null && ! $items->has($itemId)) {
-                    throw new AuthorizationException('Invalid document request item.');
+            // Rows are new (and roll back with the transaction); the stored
+            // files are not. Remember their paths so a failed reply after the
+            // first upload does not leave orphaned objects in the bucket.
+            $storedPaths = [];
+            try {
+                foreach ($files as $index => $file) {
+                    $itemId = $requestItemIds[$index] ?? null;
+                    if ($itemId !== null && ! $items->has($itemId)) {
+                        throw new AuthorizationException('Invalid document request item.');
+                    }
+
+                    $result = $this->storage->store($file, 'client-request-attachments/'.$lockedRequest->id);
+                    if (! $result->success) {
+                        // The storage error text names the bucket and endpoint;
+                        // log it for staff and show the client a fixed sentence.
+                        report(new RuntimeException('Client attachment upload failed: '.($result->error ?? 'unknown error')));
+                        throw new InvalidArgumentException('We could not save your file. Please try again.');
+                    }
+                    $storedPaths[] = $result->path;
+
+                    $attachment = $message->attachments()->create([
+                        'request_item_id' => $itemId,
+                        'file_name' => $result->originalName,
+                        'file_path' => $result->path,
+                        'file_type' => $result->type,
+                        'size' => $result->size,
+                        'review_status' => 'PENDING',
+                        'visibility' => 'HIDDEN',
+                        'sha256' => hash_file('sha256', $file->getRealPath()),
+                    ]);
+
+                    if ($itemId !== null) {
+                        $items[$itemId]->update(['status' => 'SUBMITTED', 'submitted_at' => now()]);
+                        $items[$itemId]->attachments()->where('id', '<>', $attachment->id)->update(['is_deleted' => true, 'deleted_at' => now()]);
+                    }
+                }
+            } catch (\Throwable $e) {
+                foreach ($storedPaths as $path) {
+                    try {
+                        $this->storage->delete($path);
+                    } catch (\Throwable $cleanupError) {
+                        report($cleanupError);
+                    }
                 }
 
-                $result = $this->storage->store($file, 'client-request-attachments/'.$lockedRequest->id);
-                if (! $result->success) {
-                    throw new InvalidArgumentException($result->error ?? 'Failed to store attachment.');
-                }
-
-                $attachment = $message->attachments()->create([
-                    'request_item_id' => $itemId,
-                    'file_name' => $result->originalName,
-                    'file_path' => $result->path,
-                    'file_type' => $result->type,
-                    'size' => $result->size,
-                    'review_status' => 'PENDING',
-                    'visibility' => 'HIDDEN',
-                    'sha256' => hash_file('sha256', $file->getRealPath()),
-                ]);
-
-                if ($itemId !== null) {
-                    $items[$itemId]->update(['status' => 'SUBMITTED', 'submitted_at' => now()]);
-                    $items[$itemId]->attachments()->where('id', '<>', $attachment->id)->update(['is_deleted' => true, 'deleted_at' => now()]);
-                }
+                throw $e;
             }
 
             $lockedRequest->update(['status' => ReferralClientRequest::STATUS_CLIENT_RESPONDED]);
 
             // Anonymous actor: the holder of the client access link.
-            AuditLogger::replyClientRequest()
-                ->byId(null)
+            $audit = AuditLogger::replyClientRequest()
                 ->forEntity($referral, $referral->agency?->name)
                 ->module(AuditModule::REFERRAL_CLIENT_REQUEST)
-                ->context(null, ['attachment_count' => count($files)])
-                ->write();
+                ->context(null, ['attachment_count' => count($files)]);
+
+            $isOwner ? $audit->by($sender) : $audit->byId(null);
+            $audit->write();
 
             if ($files !== []) {
-                AuditLogger::uploadReplyDoc()
-                    ->byId(null)
+                $upload = AuditLogger::uploadReplyDoc()
                     ->forEntity($referral, $referral->agency?->name)
                     ->module(AuditModule::REFERRAL_CLIENT_REQUEST)
-                    ->context(null, ['count' => count($files)])
-                    ->write();
+                    ->context(null, ['count' => count($files)]);
+
+                $isOwner ? $upload->by($sender) : $upload->byId(null);
+                $upload->write();
             }
 
-            // milestones.user_id is NOT NULL; anonymous tracking clients have no
-            // user row, so record the request creator as the owning account.
-            $this->recordRequestUpdate(
-                $referral,
-                'Client reply: '.$lockedRequest->title,
-                'The client replied to this request.',
-                $lockedRequest->creator_user_id,
+            $this->eventRecorder->clientRequestActivity(
+                $lockedRequest->loadMissing('referral'),
+                'client_responded',
+                'You responded to “'.$lockedRequest->title.'”',
+                match (true) {
+                    $files === [] => 'You sent a response.',
+                    trim($body) === '' => 'You submitted '.count($files).' '.(count($files) === 1 ? 'document.' : 'documents.'),
+                    default => 'You sent a response and submitted '.count($files).' '.(count($files) === 1 ? 'document.' : 'documents.'),
+                },
+                'client',
+                count($files),
             );
 
             return [$message, $referral];
@@ -417,11 +452,12 @@ class ReferralClientRequestService
                 ->context(['status' => $oldStatus], ['status' => $status])
                 ->write();
 
-            $this->recordRequestUpdate(
-                $referral,
-                $verb.': '.$lockedRequest->title,
+            $this->eventRecorder->clientRequestActivity(
+                $lockedRequest->loadMissing('referral'),
+                strtolower($verb),
+                $lockedRequest->title.' — '.strtolower($verb),
                 $description,
-                $actor->id,
+                'agency',
             );
 
             return $lockedRequest;
@@ -504,24 +540,6 @@ class ReferralClientRequestService
         return [ReferralClientRequest::TYPE_DOCUMENT_REQUEST, ReferralClientRequest::TYPE_QUESTION, ReferralClientRequest::TYPE_INFORMATION_UPDATE];
     }
 
-    /**
-     * Mirror a reply or status change into the referral milestone feed so the
-     * client-facing milestone pages see it, not just the request's creation.
-     * client_request_id stays null: ReferralClientRequest::milestone() is a
-     * hasOne link to the creation row.
-     */
-    private function recordRequestUpdate(Referral $referral, string $title, string $description, ?string $userId = null): void
-    {
-        $milestone = Milestone::create([
-            'title' => $title,
-            'description' => $description,
-            'refr_id' => $referral->id,
-            'user_id' => $userId,
-        ]);
-
-        $this->eventRecorder->milestoneAdded($referral, $milestone, $userId);
-    }
-
     private function loadRequest(ReferralClientRequest $request): ReferralClientRequest
     {
         return $request->load(['referral', 'creator', 'items', 'milestone', 'messages.user', 'messages.accessLink', 'messages.attachments', 'accessLinks']);
@@ -532,6 +550,7 @@ class ReferralClientRequestService
         $referral->loadMissing('caseFile');
         if ($referral->case_id) {
             Cache::forget(TrackingService::trackingMilestonesCacheKey($referral->case_id, $referral->id));
+            Cache::forget(TrackingService::trackingMilestonesCacheKey($referral->case_id, $referral->id, true));
         }
     }
 }
