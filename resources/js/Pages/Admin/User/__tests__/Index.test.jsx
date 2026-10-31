@@ -83,7 +83,12 @@ describe('Citizen accounts in the users list', () => {
     // The advanced filter panel only mounts once its toggle is clicked.
     fireEvent.click(screen.getByRole('button', { name: /filters/i }));
 
+    const roleFilter = screen.getAllByRole('combobox').find((combobox) => /all roles/i.test(combobox.textContent));
+    fireEvent.click(roleFilter);
     expect(screen.getByRole('option', { name: 'Citizen' })).toBeInTheDocument();
+    fireEvent.click(roleFilter);
+    const clientTypeFilter = screen.getAllByRole('combobox').find((combobox) => /all client types/i.test(combobox.textContent));
+    fireEvent.click(clientTypeFilter);
     expect(screen.getByRole('option', { name: 'Next of Kin' })).toBeInTheDocument();
   });
 

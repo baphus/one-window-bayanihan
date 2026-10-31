@@ -25,6 +25,7 @@ namespace Database\Seeders;
  */
 
 use App\Models\AuditLog;
+use App\Services\CaseNumberGenerator;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
@@ -506,9 +507,8 @@ class TestingSeeder extends Seeder
         // We assign the first 850 clients to cases. The remaining 150 clients
         // exist in the database but have no case — that's realistic.
         $casesToCreate = 850;
-        $caseCounter = 1;
+        $caseNumbers = app(CaseNumberGenerator::class);
         $usedTrackers = [];
-        $periodPrefix = now()->format('Ym');
 
         // Status distribution: 40% OPEN, 30% CLOSED, 15% PENDING_REVIEW, 15% ARCHIVED
         $caseStatusDistribution = [];
@@ -538,8 +538,7 @@ class TestingSeeder extends Seeder
             $caseIds[] = $caseId;
             $status = $caseStatusDistribution[$i];
 
-            // Unique case_number — OWB-{YEAR}{MONTH}-{NNNNN} to match CaseNumberGenerator
-            $caseNumber = 'OWB-'.$periodPrefix.'-'.str_pad($caseCounter++, 5, '0', STR_PAD_LEFT);
+            $caseNumber = $caseNumbers->nextCaseNumber();
 
             // Unique tracker_number
             do {

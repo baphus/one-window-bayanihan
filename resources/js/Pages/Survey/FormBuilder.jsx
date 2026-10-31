@@ -1,3 +1,4 @@
+import Select from '@/Components/Select';
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { useRef } from 'react';
@@ -54,7 +55,7 @@ function QuestionCard({ index, question, errors, onChange, onMoveUp, onMoveDown,
                 <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
                   Question Type
                 </label>
-                <select
+                <Select
                   value={question.type}
                   onChange={(e) => onChange('type', e.target.value)}
                   className={`h-10 w-full rounded-md border px-3 py-2 text-sm text-slate-700 outline-none focus:ring-1 ${
@@ -68,7 +69,7 @@ function QuestionCard({ index, question, errors, onChange, onMoveUp, onMoveDown,
                       {QUESTION_TYPE_LABELS[type] || type}
                     </option>
                   ))}
-                </select>
+                </Select>
                 <p className="mt-1.5 text-xs text-slate-500">{TYPE_DESCRIPTIONS[question.type]}</p>
                 <InputError message={errors[`questions.${index}.type`]} className="mt-1.5" />
               </div>

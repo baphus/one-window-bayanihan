@@ -1,44 +1,18 @@
-import { MapPin } from 'lucide-react';
-import { COLORS } from '@/Components/Reports/pageHeadingStyles';
+import Select from '@/Components/Select';
 
-export default function ProvinceCityFilter({
-  provinceOptions = [],
-  cityOptions = [],
-  province,
-  city,
-  onProvinceChange,
-  onCityChange,
-}) {
+const controlClass = 'h-9 w-40 shrink-0 rounded-md border-slate-300 bg-white py-0 pl-3 pr-8 text-sm font-medium text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200';
+
+export default function ProvinceCityFilter({ provinceOptions = [], cityOptions = [], province, city, onProvinceChange, onCityChange }) {
   return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      <MapPin className="h-4 w-4 text-slate-400 shrink-0" />
-      {/* Province */}
-      <select
-        value={province || ''}
-        onChange={(e) => {
-          onProvinceChange(e.target.value || null);
-          onCityChange(null);
-        }}
-        className="h-8 rounded-[2px] bg-white py-1 pl-2.5 pr-6 text-left text-[11px] font-semibold text-slate-600 shadow-none appearance-none"
-        style={{ border: `1px solid ${COLORS.border}` }}
-      >
-        <option value="">All Provinces</option>
-        {provinceOptions.map((opt) => (
-          <option key={opt.value} value={opt.value}>{opt.label}</option>
-        ))}
-      </select>
-      {/* City/Municipality */}
-      <select
-        value={city || ''}
-        onChange={(e) => onCityChange(e.target.value || null)}
-        className="h-8 rounded-[2px] bg-white py-1 pl-2.5 pr-6 text-left text-[11px] font-semibold text-slate-600 shadow-none appearance-none"
-        style={{ border: `1px solid ${COLORS.border}` }}
-      >
-        <option value="">All Cities</option>
-        {cityOptions.map((opt) => (
-          <option key={opt.value} value={opt.value}>{opt.label}</option>
-        ))}
-      </select>
+    <div className="flex shrink-0 items-center gap-2">
+      <Select aria-label="Province" value={province || ''} onChange={(event) => { onProvinceChange(event.target.value || null); onCityChange(null); }} className={controlClass}>
+        <option value="">All provinces</option>
+        {provinceOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+      </Select>
+      {province && <Select aria-label="City or municipality" value={city || ''} onChange={(event) => onCityChange(event.target.value || null)} className={controlClass}>
+        <option value="">All cities</option>
+        {cityOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+      </Select>}
     </div>
   );
 }

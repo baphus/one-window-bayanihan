@@ -1,3 +1,4 @@
+import Select from '@/Components/Select';
 import { useEffect, useRef, useState } from 'react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, router } from '@inertiajs/react';
@@ -28,7 +29,7 @@ function cleanParams(filters) {
 }
 
 // Same compact scale as the audit page so the two surfaces read as siblings.
-const CONTROL_BASE = 'h-8 px-2.5 border border-slate-300 rounded-md text-xs bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary';
+const CONTROL_BASE = 'h-8 px-2.5 text-xs';
 const LABEL_QUIET = 'text-[11px] font-medium uppercase tracking-wide text-slate-400';
 const PAGE_BTN = 'h-8 inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary';
 
@@ -159,7 +160,7 @@ export default function ActivityIndex({ events, filters = {}, availableModules =
                         </div>
                         <div className="flex flex-col gap-1">
                             <label htmlFor="activity-module" className={LABEL_QUIET}>Module</label>
-                            <select
+                            <Select
                                 id="activity-module"
                                 value={filters.module ?? ''}
                                 onChange={(event) => updateFilters({ module: event.target.value, page: undefined })}
@@ -169,11 +170,11 @@ export default function ActivityIndex({ events, filters = {}, availableModules =
                                 {availableModules.map((module) => (
                                     <option key={module.value} value={module.value}>{module.label}</option>
                                 ))}
-                            </select>
+                            </Select>
                         </div>
                         <div className="flex flex-col gap-1">
                             <label htmlFor="activity-per-page" className={LABEL_QUIET}>Per page</label>
-                            <select
+                            <Select
                                 id="activity-per-page"
                                 value={filters.per_page ?? events?.per_page ?? 25}
                                 onChange={(event) => updateFilters({ per_page: event.target.value, page: undefined })}
@@ -182,7 +183,7 @@ export default function ActivityIndex({ events, filters = {}, availableModules =
                                 {[10, 25, 50, 100].map((count) => (
                                     <option key={count} value={count}>{count}</option>
                                 ))}
-                            </select>
+                            </Select>
                         </div>
 
                         {hasActiveFilters && (

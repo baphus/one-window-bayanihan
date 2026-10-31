@@ -1,3 +1,4 @@
+import Select from '@/Components/Select';
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
@@ -271,17 +272,17 @@ function ReviewDetail({ caseFile, categories, caseIssues, onClose }) {
               <div className="mt-3">
                 <label htmlFor="review-case-issue" className="mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-slate-600">Issue / concern *</label>
                 <div className="flex gap-2">
-                  <select
+                  <Select
                     id="review-case-issue"
                     value={caseIssueId}
                     onChange={(e) => { setCaseIssueId(e.target.value); setFormError(''); }}
-                    className="h-10 min-w-0 flex-1 rounded-md border border-slate-300 px-3 text-[13px] text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
+                    className="h-10 min-w-0 flex-1 px-3 text-[13px]"
                   >
                     <option value="">Select an issue…</option>
                     {localIssues.map((issue) => (
                       <option key={issue.id} value={issue.id}>{issue.name}</option>
                     ))}
-                  </select>
+                  </Select>
                   <button
                     type="button"
                     onClick={() => { setNewIssueName(''); setFormError(''); setShowAddIssue(!showAddIssue); }}

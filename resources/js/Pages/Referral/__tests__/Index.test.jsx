@@ -1,5 +1,10 @@
 import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen, within } from '@testing-library/react';
+
+function chooseOption(combobox, name) {
+    fireEvent.click(combobox);
+    fireEvent.mouseDown(screen.getByRole('option', { name }));
+}
 import { describe, expect, it, vi } from 'vitest';
 import ReferralIndex from '../Index.jsx';
 
@@ -83,12 +88,13 @@ describe('Referral Index reject reason', () => {
 
         const modal = within(document.querySelector('.fixed.inset-0.z-50'));
         const reasonSelect = modal.getByRole('combobox');
-        expect(within(reasonSelect).getAllByRole('option')).toHaveLength(7);
+        fireEvent.click(reasonSelect);
+        expect(screen.getAllByRole('option')).toHaveLength(7);
 
         const confirm = modal.getByRole('button', { name: 'Confirm Reject' });
         expect(confirm).toBeDisabled();
 
-        fireEvent.change(reasonSelect, { target: { value: 'DUPLICATE_REFERRAL' } });
+        fireEvent.mouseDown(screen.getByRole('option', { name: 'Duplicate referral' }));
         fireEvent.change(modal.getByPlaceholderText('Enter your decision remark...'), { target: { value: 'Already referred last week' } });
         expect(confirm).not.toBeDisabled();
 
@@ -110,7 +116,7 @@ describe('Referral Index reject reason', () => {
         fireEvent.click(screen.getByRole('button', { name: 'Reject' }));
 
         const modal = within(document.querySelector('.fixed.inset-0.z-50'));
-        fireEvent.change(modal.getByRole('combobox'), { target: { value: 'OTHER' } });
+        chooseOption(modal.getByRole('combobox'), 'Other');
         expect(modal.getByText('Please explain in at least 10 characters.')).toBeInTheDocument();
 
         const confirm = modal.getByRole('button', { name: 'Confirm Reject' });

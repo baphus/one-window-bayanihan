@@ -15,6 +15,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
+use Inertia\Response;
 
 class ReportsController extends Controller
 {
@@ -120,6 +121,38 @@ class ReportsController extends Controller
             'closedCasesOverTime' => Inertia::defer(fn () => $data['closedCasesOverTime'] ?? null),
             'agencyFirstResponse' => Inertia::defer(fn () => $data['agencyFirstResponse'] ?? null),
             'clientRequestTypeDistribution' => Inertia::defer(fn () => $data['clientRequestTypeDistribution'] ?? null),
+        ]);
+    }
+
+    public function print(ReportsFilterRequest $request): Response|RedirectResponse
+    {
+        $this->assertAgencyLinked($request->user(), 'print reports');
+        $request->query->add($request->validated());
+        $criteria = $this->reportsExportService->extractCriteria($request);
+        if ($criteria instanceof RedirectResponse) {
+            return $criteria;
+        }
+        $guard = $this->guardAndAudit($request, $criteria, 'pdf');
+        if ($guard instanceof RedirectResponse) {
+            return $guard;
+        }
+        $payload = $this->reportsExportService->buildPdfPayloadFromCriteria($criteria);
+        // Only aggregate, privacy-safe data belongs in the browser print view.
+        unset($payload['topReferrals'], $payload['topCases'], $payload['appendix'], $payload['sheets']);
+        $this->recordExport($request, $criteria, 'pdf', 'PREPARED', [
+            'suppression_applied' => $payload['suppression']['applied'] ?? false,
+        ]);
+
+        return Inertia::render('Reports/Print', $payload + [
+            'role' => $criteria['role'],
+            'from' => $criteria['from'],
+            'to' => $criteria['to'],
+            'province' => $criteria['province'],
+            'city' => $criteria['city'],
+            'agencyId' => $criteria['agency_id'],
+            'agencyOptions' => [],
+            'provinceOptions' => [],
+            'cityOptions' => [],
         ]);
     }
 

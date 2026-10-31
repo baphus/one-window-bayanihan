@@ -47,7 +47,7 @@ export const pageHeadingStyles = {
     'text-2xl md:text-3xl font-extrabold font-headline tracking-tight text-slate-900 dark:text-slate-100',
   pageSubtitle: 'text-sm text-slate-400 font-body mt-0.5 dark:text-slate-400',
   sectionTitle:
-    'text-[11px] font-extrabold uppercase tracking-[0.14em] text-primary dark:text-primary-fixed-dim',
+    'text-sm font-semibold text-black dark:text-white',
   metricLabel:
     'text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400',
 };

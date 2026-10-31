@@ -2,14 +2,14 @@ import { useState, useCallback, useMemo } from 'react';
 import { router } from '@inertiajs/react';
 import { getQuickRangeDates } from '@/lib/dates';
 
-const QUICK_RANGE_OPTIONS = ['7_DAYS', '14_DAYS', '30_DAYS', '6_MONTHS', '1_YEAR'];
+const QUICK_RANGE_OPTIONS = ['7_DAYS', '14_DAYS', '30_DAYS', '3_MONTHS', '6_MONTHS', '9_MONTHS', '1_YEAR'];
 
 function defaultFromDateISO() {
-  return new Date(new Date().getFullYear(), 0, 1).toISOString().slice(0, 10);
+  return getQuickRangeDates('30_DAYS').fromISO;
 }
 
 function defaultToDateISO() {
-  return new Date().toISOString().slice(0, 10);
+  return getQuickRangeDates('30_DAYS').toISO;
 }
 
 function buildFilterQueryString(fromDateISO, toDateISO, deps = {}) {
@@ -26,17 +26,11 @@ function buildFilterQueryString(fromDateISO, toDateISO, deps = {}) {
 }
 
 function guessQuickRange(fromISO, toISO) {
-  if (!fromISO || !toISO) return '1_YEAR';
-  const from = new Date(fromISO);
-  const to = new Date(toISO);
-  const diffDays = Math.round((to - from) / (1000 * 60 * 60 * 24));
-  // Maximum tolerance of ±1 day for rounding errors
-  if (Math.abs(diffDays - 6) <= 1) return '7_DAYS';
-  if (Math.abs(diffDays - 13) <= 1) return '14_DAYS';
-  if (Math.abs(diffDays - 29) <= 1) return '30_DAYS';
-  if (Math.abs(diffDays - 182) <= 3) return '6_MONTHS';
-  if (Math.abs(diffDays - 365) <= 3) return '1_YEAR';
-  return 'CUSTOM';
+  if (!fromISO || !toISO) return '30_DAYS';
+  return QUICK_RANGE_OPTIONS.find((option) => {
+    const range = getQuickRangeDates(option);
+    return range.fromISO === fromISO && range.toISO === toISO;
+  }) || 'CUSTOM';
 }
 
 /**
@@ -94,10 +88,10 @@ export function useReportFilters(initialFrom, initialTo, extraDeps = {}, applied
   }, []);
 
   const resetDateRange = useCallback(() => {
-    const range = getQuickRangeDates('1_YEAR');
+    const range = getQuickRangeDates('30_DAYS');
     setFromDateISO(range.fromISO);
     setToDateISO(range.toISO);
-    setQuickRange('1_YEAR');
+    setQuickRange('30_DAYS');
   }, []);
 
   return {

@@ -3,7 +3,7 @@ import {
     DonutWithList,
     EmptyLine,
     ensureDistinctHues,
-    FunnelSteps,
+    BarRows,
     LoadingBlock,
     ReportCard,
     topNamedWithTail,
@@ -12,7 +12,8 @@ import {
     totalOf,
     useSettledProp,
 } from '@/Pages/Reports/sections/SeniorReport';
-import LazyTrendChart from '@/Pages/Reports/sections/LazyTrendChart';
+import CaseVolumeChart from '@/Components/Reports/CaseVolumeChart';
+
 import ReferralTrendsSection from '@/Pages/Reports/sections/ReferralTrendsSection';
 import GeographicMapSection from '@/Pages/Reports/sections/GeographicMapSection';
 
@@ -40,52 +41,18 @@ function StatusSection() {
             takeaway={`${top.label} is the largest group at ${top.percent}%.`}
             dataTour="reports-charts"
         >
-            <div className="mb-6">
-                <FunnelSteps slices={slices} />
-            </div>
-            <DonutWithList slices={slices} large />
+            <BarRows items={slices} />
         </ReportCard>
     );
 }
 
 function TrendsSection({ avgFinish }) {
-    const { props } = usePage();
-    const [closed, closedSettled] = useSettledProp('closedCasesOverTime');
-    const filedData = Array.isArray(props.casesOverTime?.datasets?.[0]?.data)
-        ? props.casesOverTime.datasets[0].data
-        : [];
-    const closedData = Array.isArray(closed?.datasets?.[0]?.data) ? closed.datasets[0].data : [];
-    const hasClosed = closedData.length > 0;
-    const months = Math.max(1, filedData.length);
-    const gap = hasClosed
-        ? Math.round(
-            (filedData.reduce((sum, value) => sum + Number(value ?? 0), 0) -
-                closedData.reduce((sum, value) => sum + Number(value ?? 0), 0)) / months,
-        )
-        : null;
-
     return (
         <ReportCard
-            title="How we are doing over time"
-            takeaway={
-                gap == null
-                    ? 'Cases filed and referrals finished, month by month.'
-                    : `Filings run ahead of closures by about ${gap} cases a month.`
-            }
+            title="Referral activity over time"
+            takeaway="Referral volume, month by month."
         >
-            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-                <LazyTrendChart lazyKey="casesOverTime" title="Cases filed per month" />
-                <ReferralTrendsSection />
-            </div>
-            <div className="mt-4">
-                {!closedSettled ? (
-                    <LoadingBlock />
-                ) : hasClosed ? (
-                    <LazyTrendChart lazyKey="closedCasesOverTime" title="Closed per month" />
-                ) : (
-                    <EmptyLine message="Closures per month are not available yet." />
-                )}
-            </div>
+            <ReferralTrendsSection />
             {avgFinish}
         </ReportCard>
     );
@@ -106,8 +73,8 @@ function AvgFinishLine() {
 
 function MiniBox({ heading, lines }) {
     return (
-        <div className="rounded-xl border-2 border-slate-300 p-4 dark:border-slate-600">
-            <h3 className="text-xs font-extrabold uppercase tracking-wider text-primary">{heading}</h3>
+        <div className="min-w-0">
+            <h3 className="text-xs font-extrabold uppercase tracking-wider text-black dark:text-white">{heading}</h3>
             <div className="mt-2 space-y-1 text-sm">
                 {lines.map((line) => (
                     <p key={line.label}>
@@ -177,7 +144,9 @@ function DemographicsSection({ mapProps }) {
                 </div>
             )}
 
-            <h3 className="mb-2 mt-6 text-xs font-extrabold uppercase tracking-wider text-primary">
+            <div className="mt-5 grid min-w-0 gap-5 lg:grid-cols-2">
+            <div>
+            <h3 className="mb-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
                 Top needs
             </h3>
             {!issuesSettled ? (
@@ -193,14 +162,16 @@ function DemographicsSection({ mapProps }) {
                 </>
             )}
 
+            </div>
             {sexSlices.length > 0 ? (
-                <div className="mt-6">
-                    <h3 className="mb-3 text-xs font-extrabold uppercase tracking-wider text-primary">By sex</h3>
+                <div>
+                    <h3 className="mb-3 text-xs font-extrabold uppercase tracking-wider text-black dark:text-white">By sex</h3>
                     <DonutWithList slices={sexSlices} />
                 </div>
             ) : null}
 
-            <h3 className="mb-2 mt-6 text-xs font-extrabold uppercase tracking-wider text-primary">
+            <div>
+            <h3 className="mb-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
                 Age groups{ageTotal > 0 ? ` (of ${ageTotal} clients with age recorded)` : ''}
             </h3>
             {!ageSettled ? (
@@ -216,7 +187,9 @@ function DemographicsSection({ mapProps }) {
                 </>
             )}
 
-            <h3 className="mb-2 mt-6 text-xs font-extrabold uppercase tracking-wider text-primary">
+            </div>
+            <div>
+            <h3 className="mb-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
                 Clients needing extra care (a client may be counted more than once)
             </h3>
             {!vulnSettled ? (
@@ -232,7 +205,9 @@ function DemographicsSection({ mapProps }) {
                 </>
             )}
 
-            <div className="mt-6">
+            </div>
+            </div>
+            <div className="mt-5">
                 <GeographicMapSection {...mapProps} />
             </div>
         </ReportCard>
@@ -252,7 +227,7 @@ function CountryRankList({ top, tailCount, tailCountries, tailSingle = 'country'
                 {top.map((slice, index) => (
                     <li key={slice.key}>
                         <div className="flex items-baseline gap-3">
-                            <span className="w-6 shrink-0 text-center text-sm font-black text-primary">
+                            <span className="w-6 shrink-0 text-center text-sm font-black text-black dark:text-white">
                                 {index + 1}
                             </span>
                             <span className="min-w-0 flex-1 truncate text-sm font-bold text-slate-800 dark:text-slate-200">
@@ -309,7 +284,7 @@ function JobsSection() {
 
     return (
         <ReportCard title="Work and jobs">
-            <h3 className="mb-2 text-xs font-extrabold uppercase tracking-wider text-primary">Last country worked in</h3>
+            <h3 className="mb-2 text-xs font-extrabold uppercase tracking-wider text-black dark:text-white">Last country worked in</h3>
             {!countriesSettled ? (
                 <LoadingBlock />
             ) : countrySlices.length === 0 || totalOf(countrySlices) === 0 ? (
@@ -327,7 +302,7 @@ function JobsSection() {
                 </>
             )}
 
-            <h3 className="mb-2 mt-6 text-xs font-extrabold uppercase tracking-wider text-primary">Common jobs</h3>
+            <h3 className="mb-2 mt-6 text-xs font-extrabold uppercase tracking-wider text-black dark:text-white">Common jobs</h3>
             {!occupationsSettled ? (
                 <LoadingBlock />
             ) : occupationSlices.length === 0 || totalOf(occupationSlices) === 0 ? (
@@ -398,7 +373,7 @@ function CaseMixSection() {
         >
             <div className="grid grid-cols-1 gap-8 xl:grid-cols-2">
                 <div>
-                    <h3 className="mb-3 text-xs font-extrabold uppercase tracking-wider text-primary">By status</h3>
+                    <h3 className="mb-3 text-xs font-extrabold uppercase tracking-wider text-black dark:text-white">By status</h3>
                     {!statusSettled ? (
                         <LoadingBlock />
                     ) : statusSlices.length === 0 || totalOf(statusSlices) === 0 ? (
@@ -408,7 +383,7 @@ function CaseMixSection() {
                     )}
                 </div>
                 <div>
-                    <h3 className="mb-3 text-xs font-extrabold uppercase tracking-wider text-primary">By client type</h3>
+                    <h3 className="mb-3 text-xs font-extrabold uppercase tracking-wider text-black dark:text-white">By client type</h3>
                     {!clientTypeSettled ? (
                         <LoadingBlock />
                     ) : clientTypeSlices.length === 0 || totalOf(clientTypeSlices) === 0 ? (
@@ -424,13 +399,20 @@ function CaseMixSection() {
 
 export default function CasesTab({ mapProps }) {
     return (
-        <div className="space-y-5">
-            <StatusSection />
-            <CaseMixSection />
-            <TrendsSection avgFinish={<AvgFinishLine />} />
+        <div className="space-y-4">
+            <div className="grid min-w-0 items-start gap-4 lg:grid-cols-2">
+                <CaseVolumeChart />
+                <TrendsSection avgFinish={<AvgFinishLine />} />
+            </div>
+            <div className="grid min-w-0 items-start gap-4 lg:grid-cols-2">
+                <CaseMixSection />
+                <StatusSection />
+            </div>
             <DemographicsSection mapProps={mapProps} />
-            <JobsSection />
-            <AssistanceSection />
+            <div className="grid min-w-0 items-start gap-4 lg:grid-cols-2">
+                <JobsSection />
+                <AssistanceSection />
+            </div>
         </div>
     );
 }

@@ -1,3 +1,4 @@
+import Select from '@/Components/Select';
 import { useState, useMemo, useEffect } from 'react';
 import axios from 'axios';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
@@ -532,16 +533,16 @@ export default function Register({ initial = {} }) {
                                         <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-on-surface-variant">
                                             Suffix
                                         </label>
-                                        <select
+                                        <Select
                                             value={data.suffix}
                                             onChange={(e) => setData('suffix', e.target.value)}
-                                            className={inputClass}
+                                            className="h-10 w-full px-4 py-3 text-sm"
                                         >
                                             <option value="">None</option>
                                             {SUFFIX_OPTIONS.filter(Boolean).map((suffix) => (
                                                 <option key={suffix} value={suffix}>{suffix}</option>
                                             ))}
-                                        </select>
+                                        </Select>
                                         <FieldError message={errors.suffix} />
                                     </div>
 
@@ -566,16 +567,16 @@ export default function Register({ initial = {} }) {
                                             <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-on-surface-variant">
                                                 Sex
                                             </label>
-                                            <select
+                                            <Select
                                                 value={data.sex}
                                                 onChange={(e) => setData('sex', e.target.value)}
-                                                className={inputClass}
+                                                className="h-10 w-full px-4 py-3 text-sm"
                                                 required
                                             >
                                                 <option value="">Select…</option>
                                                 <option value="Male">Male</option>
                                                 <option value="Female">Female</option>
-                                            </select>
+                                            </Select>
                                             <FieldError message={errors.sex} />
                                         </div>
                                     </div>

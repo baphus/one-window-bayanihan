@@ -1,3 +1,4 @@
+import Select from '@/Components/Select';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import phoneCodes from '@/data/phone-codes.json';
 
@@ -136,17 +137,17 @@ export default function PhoneInput({
     return (
         <div className={className}>
             <div className="flex gap-2">
-                <select
+                <Select
                     value={countryCode}
                     onChange={handleCountryChange}
-                    className="h-10 w-[96px] shrink-0 rounded-[3px] border border-slate-300 px-2 py-2 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                    className="h-10 w-[96px] shrink-0 px-2 py-2 text-[13px]"
                 >
                     {countries.map((c) => (
                         <option key={c.code} value={c.code}>
                             {c.flag} {c.dial_code}
                         </option>
                     ))}
-                </select>
+                </Select>
                 <input
                     type="tel"
                     value={rawInput}

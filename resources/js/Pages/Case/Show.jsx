@@ -1,3 +1,4 @@
+import Select from '@/Components/Select';
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useState, useMemo, useRef, useEffect } from 'react';
@@ -268,12 +269,6 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
     return (caseFile.referrals || []).some(
       (ref) => !['COMPLETED', 'REJECTED'].includes(ref.status),
     );
-  }, [caseFile.referrals]);
-
-  const activeReferralCount = useMemo(() => {
-    return (caseFile.referrals || []).filter(
-      (ref) => !['COMPLETED', 'REJECTED'].includes(ref.status),
-    ).length;
   }, [caseFile.referrals]);
 
   const [contextMenu, setContextMenu] = useState(null);
@@ -598,9 +593,29 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
           <section data-tour="case-referrals" className="rounded-xl border border-[#dce3eb] bg-white shadow-[0_1px_3px_rgba(23,35,51,0.04)]">
             <CardHeader
               title="Referrals"
-              meta={`${(caseFile.referrals || []).length} referrals · ${activeReferralCount} active`}
               actions={(
                 <>
+                  {caseFile.status === 'OPEN' && hasActiveReferrals && (
+                    <div className="relative">
+                      <button
+                        type="button"
+                        aria-label="Show referral closure requirement"
+                        aria-expanded={showReferralBlockingInfo}
+                        aria-controls="referral-closure-requirement"
+                        onClick={() => setShowReferralBlockingInfo((prev) => !prev)}
+                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-amber-700 transition-colors hover:bg-amber-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+                      >
+                        <span aria-hidden="true" className="material-symbols-outlined text-[18px]">info</span>
+                      </button>
+                      {showReferralBlockingInfo && (
+                        <div id="referral-closure-requirement" className="absolute right-0 top-full z-20 mt-1 w-64 max-w-[calc(100vw-3rem)] rounded-md border border-amber-200 bg-amber-50 px-3 py-2 shadow-md">
+                          <p className="text-[11px] leading-5 text-amber-800">
+                            This case cannot be closed until all referrals are completed or rejected. Resolve the active referrals below first.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                   {hasOverdueReferrals && (
                     <>
                       <span
@@ -636,24 +651,6 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
               )}
             />
             <div className="space-y-3 px-5 pb-5">
-              {caseFile.status === 'OPEN' && hasActiveReferrals && (
-                <div className="flex items-start gap-2.5 rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5">
-                  <button
-                    type="button"
-                    aria-label="Show referral closure requirement"
-                    aria-expanded={showReferralBlockingInfo}
-                    onClick={() => setShowReferralBlockingInfo((prev) => !prev)}
-                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-amber-700 transition-colors hover:bg-amber-100"
-                  >
-                    <span className="material-symbols-outlined text-[16px]">info</span>
-                  </button>
-                  {showReferralBlockingInfo && (
-                    <p className="text-[11px] leading-5 text-amber-800">
-                      This case cannot be closed until all referrals are completed or rejected. Resolve the active referrals below first.
-                    </p>
-                  )}
-                </div>
-              )}
               <UnifiedTable
                 variant="embedded"
                 data={referralRows}
@@ -675,31 +672,29 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
                     {/* Agency filter */}
                     {timelineAgencyNames.length > 0 && (
                       <div className="relative inline-flex">
-                        <select
+                        <Select
                           value={timelineAgencyFilter}
                           onChange={e => setTimelineAgencyFilter(e.target.value)}
                           aria-label="Filter events by agency"
-                          className="min-h-[34px] cursor-pointer appearance-none rounded-md border border-slate-200 bg-white pl-3 pr-8 text-[12px] font-semibold text-slate-600 outline-none transition-colors hover:border-slate-300 focus:ring-1 focus:ring-blue-900"
+                          className="min-h-[34px] cursor-pointer appearance-none pl-3 pr-8 text-[12px] font-semibold"
                         >
                           <option value="ALL">All agencies</option>
                           {timelineAgencyNames.map(a => <option key={a} value={a}>{a}</option>)}
-                        </select>
-                        <span className="material-symbols-outlined pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-[16px] text-slate-400">expand_more</span>
+                        </Select>
                       </div>
                     )}
                     {/* Type filter */}
                     <div className="relative inline-flex">
-                      <select
+                      <Select
                         value={timelineTypeFilter}
                         onChange={e => setTimelineTypeFilter(e.target.value)}
                         aria-label="Filter events by type"
-                        className="min-h-[34px] cursor-pointer appearance-none rounded-md border border-slate-200 bg-white pl-3 pr-8 text-[12px] font-semibold text-slate-600 outline-none transition-colors hover:border-slate-300 focus:ring-1 focus:ring-blue-900"
+                        className="min-h-[34px] cursor-pointer appearance-none pl-3 pr-8 text-[12px] font-semibold"
                       >
                         {EVENT_TYPE_OPTIONS.map(opt => (
                           <option key={opt.value} value={opt.value}>{opt.label}</option>
                         ))}
-                      </select>
-                      <span className="material-symbols-outlined pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-[16px] text-slate-400">expand_more</span>
+                      </Select>
                     </div>
                     {/* Clear filters */}
                     {hasActiveFilters && (
@@ -914,11 +909,11 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
               <div>
                 <label htmlFor="edit-case-issue" className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-slate-600">Issue/Concern</label>
                 <div className="flex gap-2">
-                  <select
+                  <Select
                     id="edit-case-issue"
                     value={formIssueId}
                     onChange={(e) => setFormIssueId(e.target.value)}
-                    className="h-10 min-w-0 flex-1 rounded-md border border-slate-200 px-3 py-2 text-[13px] text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
+                    className="h-10 min-w-0 flex-1 px-3 py-2 text-[13px]"
                   >
                     <option value="">None</option>
                     {caseFile.case_issue && !localIssues.some(i => i.id === caseFile.case_issue_id) && (
@@ -927,7 +922,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
                     {localIssues.map((issue) => (
                       <option key={issue.id} value={issue.id}>{issue.name}</option>
                     ))}
-                  </select>
+                  </Select>
                   <button
                     type="button"
                     onClick={() => { setNewIssueName(''); setShowAddIssue(!showAddIssue); }}

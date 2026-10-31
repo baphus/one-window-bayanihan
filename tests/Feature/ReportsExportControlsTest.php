@@ -13,6 +13,7 @@ use App\Services\Reports\ReportsExportService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Inertia\Testing\AssertableInertia;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -130,6 +131,38 @@ class ReportsExportControlsTest extends TestCase
         $query = $this->criteriaFor($user, $overrides);
         $response = $this->actingAs($user)->get(route('reports.export-pdf', $query));
         $response->assertSuccessful();
+    }
+
+    #[Test]
+    public function print_view_uses_suppressed_aggregates_without_record_details(): void
+    {
+        config(['reports.suppression_threshold' => 5]);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $this->seedCases($admin, 2);
+
+        $this->actingAs($admin)->get(route('reports.print'))->assertInertia(fn (AssertableInertia $page) => $page
+            ->component('Reports/Print')
+            ->where('suppression.applied', true)
+            ->where('clientTypeDistribution.data', [0])
+            ->missing('topCases')
+            ->missing('topReferrals')
+            ->missing('appendix')
+            ->missing('sheets'));
+    }
+
+    #[Test]
+    public function print_view_refuses_an_agency_without_an_agency_link(): void
+    {
+        $user = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => null]);
+        $this->actingAs($user)->get(route('reports.print'))->assertForbidden();
+    }
+
+    #[Test]
+    public function print_view_rejects_reversed_dates(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $this->actingAs($admin)->get(route('reports.print', ['from' => '2026-02-01', 'to' => '2026-01-01']))
+            ->assertRedirect(route('reports.index'))->assertSessionHasErrors('to');
     }
 
     #[Test]

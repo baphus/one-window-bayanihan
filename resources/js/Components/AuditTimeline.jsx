@@ -1,3 +1,4 @@
+import Select from '@/Components/Select';
 import { useMemo, useCallback, useState, useEffect, useRef, useId } from 'react';
 import { formatDateGroup } from '@/lib/relativeTime';
 import { AuditLogRow, CATEGORY_LABELS, actionStyle } from '@/lib/audit';
@@ -797,7 +798,7 @@ function ActorPicker({ inputId, filterValues, onFilterChange }) {
                 aria-autocomplete="list"
                 aria-label="Actor"
                 aria-activedescendant={open && actors[highlighted] ? `${listboxId}-${highlighted}` : undefined}
-                className="w-full h-8 pl-2.5 pr-8 border border-slate-300 rounded-md text-xs bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                className="w-full h-8 pl-2.5 pr-8 border border-slate-300 rounded-[3px] text-xs text-slate-700 bg-white outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
             />
             {userId && !open ? (
                 <button
@@ -836,8 +837,8 @@ function ActorPicker({ inputId, filterValues, onFilterChange }) {
                             aria-selected={String(actor.id) === String(userId)}
                             onMouseDown={(e) => { e.preventDefault(); select(actor); }}
                             onMouseEnter={() => setHighlighted(idx)}
-                            className={`px-2.5 py-1 text-[12px] cursor-pointer transition-colors ${
-                                idx === highlighted ? 'bg-slate-100' : 'hover:bg-slate-50'
+                            className={`px-3 py-1.5 text-[12px] cursor-pointer transition-colors ${
+                                String(actor.id) === String(userId) ? 'bg-indigo-50 text-indigo-700 font-semibold' : idx === highlighted ? 'bg-slate-100 text-slate-800' : 'text-slate-700 hover:bg-slate-50'
                             }`}
                         >
                             <div className="flex items-center justify-between gap-2">
@@ -875,14 +876,14 @@ function PaginationFooter({ pagination, onPageChange, perPage = 15, onPerPageCha
                 {onPerPageChange && (
                     <div className="flex items-center gap-2">
                         <label htmlFor="audit-rows-per-page" className={LABEL_QUIET}>Rows per page:</label>
-                        <select
+                        <Select
                             id="audit-rows-per-page"
                             value={perPage}
                             onChange={(e) => onPerPageChange(Number(e.target.value))}
                             className="bg-white border border-slate-300 text-xs font-semibold text-slate-700 rounded-md pl-2.5 pr-6 h-7 outline-none focus:ring-1 focus:ring-primary"
                         >
                             {[15, 25, 50, 100].map(size => <option key={size} value={size}>{size}</option>)}
-                        </select>
+                        </Select>
                     </div>
                 )}
 

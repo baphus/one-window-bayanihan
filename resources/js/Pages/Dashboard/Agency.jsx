@@ -1,3 +1,4 @@
+import Select from '@/Components/Select';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, usePage } from '@inertiajs/react';
 import { Bar, Doughnut, Line } from 'react-chartjs-2';
@@ -286,7 +287,7 @@ export default function AgencyDashboard({ dashboard = {} }) {
                         >
                             calendar_month
                         </span>
-                        <select
+                        <Select
                             id="agency-dashboard-period"
                             value={days}
                             onChange={(e) => setDays(Number(e.target.value))}
@@ -295,13 +296,7 @@ export default function AgencyDashboard({ dashboard = {} }) {
                             {PERIODS.map((option) => (
                                 <option key={option.days} value={option.days}>{option.label}</option>
                             ))}
-                        </select>
-                        <span
-                            aria-hidden="true"
-                            className="material-symbols-outlined pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[18px] leading-none text-slate-400"
-                        >
-                            expand_more
-                        </span>
+                        </Select>
                     </div>
 
                     <QuickActions

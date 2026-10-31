@@ -1,3 +1,4 @@
+import Select from '@/Components/Select';
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { useEffect, useRef, useState } from 'react';
@@ -295,13 +296,13 @@ function ClientRequestCard({ request, permissions, isOversight, onMutate, embedd
                                                                 <div key={attachment.id} className="flex items-center gap-1.5">
                                                                     {!isOwn && attachment.request_item_id && (
                                                                          <div className="flex shrink-0 flex-col gap-1">
-                                                                             <select value={reviewingAttachment?.[attachment.id] ?? attachment.review_status ?? 'PENDING'} onChange={(event) => setReviewingAttachment((current) => ({ ...current, [attachment.id]: event.target.value }))} className="rounded border border-slate-200 px-1 py-0.5 text-[9px]">
+                                                                             <Select value={reviewingAttachment?.[attachment.id] ?? attachment.review_status ?? 'PENDING'} onChange={(event) => setReviewingAttachment((current) => ({ ...current, [attachment.id]: event.target.value }))} className="h-auto w-auto px-1 py-0.5 text-[9px]">
                                                                                  <option value="PENDING">Pending</option>
                                                                                  <option value="ACCEPTED">Accept</option>
                                                                                  <option value="REJECTED">Reject</option>
                                                                                  <option value="NEEDS_REVISION">Needs revision</option>
-                                                                             </select>
-                                                                             <select value={attachmentVisibility[attachment.id] ?? attachment.visibility ?? 'HIDDEN'} onChange={(event) => setAttachmentVisibility((current) => ({ ...current, [attachment.id]: event.target.value }))} className="rounded border border-slate-200 px-1 py-0.5 text-[9px]"><option value="HIDDEN">Hidden</option><option value="ALL">All agencies</option><option value="SELECTED">Selected agencies</option></select>{(attachmentVisibility[attachment.id] ?? attachment.visibility) === 'SELECTED' && <select multiple value={selectedAgencies[attachment.id] ?? []} onChange={(event) => setSelectedAgencies((current) => ({ ...current, [attachment.id]: Array.from(event.target.selectedOptions, (option) => option.value) }))} className="max-w-[150px] rounded border border-slate-200 px-1 py-0.5 text-[9px]">{activeAgencies.map((agency) => <option key={agency.id} value={agency.id}>{agency.name}</option>)}</select>}<button type="button" onClick={() => reviewAttachment(attachment, reviewingAttachment?.[attachment.id] ?? 'PENDING', attachmentVisibility[attachment.id] ?? attachment.visibility ?? 'HIDDEN')} className="text-[9px] font-bold text-blue-900">Save review</button>
+                                                                             </Select>
+                                                                             <Select value={attachmentVisibility[attachment.id] ?? attachment.visibility ?? 'HIDDEN'} onChange={(event) => setAttachmentVisibility((current) => ({ ...current, [attachment.id]: event.target.value }))} className="h-auto w-auto px-1 py-0.5 text-[9px]"><option value="HIDDEN">Hidden</option><option value="ALL">All agencies</option><option value="SELECTED">Selected agencies</option></Select>{(attachmentVisibility[attachment.id] ?? attachment.visibility) === 'SELECTED' && <Select multiple value={selectedAgencies[attachment.id] ?? []} onChange={(event) => setSelectedAgencies((current) => ({ ...current, [attachment.id]: Array.from(event.target.selectedOptions, (option) => option.value) }))} className="h-auto w-auto max-w-[150px] px-1 py-0.5 text-[9px]">{activeAgencies.map((agency) => <option key={agency.id} value={agency.id}>{agency.name}</option>)}</Select>}<button type="button" onClick={() => reviewAttachment(attachment, reviewingAttachment?.[attachment.id] ?? 'PENDING', attachmentVisibility[attachment.id] ?? attachment.visibility ?? 'HIDDEN')} className="text-[9px] font-bold text-blue-900">Save review</button>
                                                                          </div>
                                                                      )}
                                                                      {isImage
@@ -484,8 +485,8 @@ function ClientRequestsSection({ referral, requests, permissions, isReceivingAge
                         <div className="border-b border-slate-200 px-5 py-4"><h3 className="text-[16px] font-extrabold text-slate-900">Request client</h3><p className="mt-1 text-[12px] text-slate-500">Ask the client for information or documents needed by the agency.</p></div>
                         <form onSubmit={submitCreate}>
                             <div className="space-y-4 px-5 py-4">
-                                <div><label htmlFor="client_request_type" className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-600">Request type *</label><select id="client_request_type" value={createForm.data.type} onChange={(event) => createForm.setData('type', event.target.value)} className="h-10 w-full rounded border border-slate-300 px-3 text-sm text-slate-700 outline-none focus:border-blue-700 focus:ring-1 focus:ring-blue-700"><option value="DOCUMENT_REQUEST">Document request</option><option value="QUESTION">Question</option><option value="INFORMATION_UPDATE">Information update</option></select><InputError message={createForm.errors.type} className="mt-1" /></div>
-                                <div><label htmlFor="client_request_title" className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-600">Title *</label><input id="client_request_title" value={createForm.data.title} onChange={(event) => createForm.setData('title', event.target.value)} className="h-10 w-full rounded border border-slate-300 px-3 text-sm text-slate-700 outline-none focus:border-blue-700 focus:ring-1 focus:ring-blue-700" /><InputError message={createForm.errors.title} className="mt-1" /></div>
+                                <div><label htmlFor="client_request_type" className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-600">Request type *</label><Select id="client_request_type" value={createForm.data.type} onChange={(event) => createForm.setData('type', event.target.value)} className="h-10 w-full px-3 text-sm"><option value="DOCUMENT_REQUEST">Document request</option><option value="QUESTION">Question</option><option value="INFORMATION_UPDATE">Information update</option></Select><InputError message={createForm.errors.type} className="mt-1" /></div>
+                                <div><label htmlFor="client_request_title" className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-600">Title *</label><input id="client_request_title" value={createForm.data.title} onChange={(event) => createForm.setData('title', event.target.value)} className="h-10 w-full px-3 text-sm" /><InputError message={createForm.errors.title} className="mt-1" /></div>
                                 <div><label htmlFor="client_request_instructions" className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-600">Instructions *</label><textarea id="client_request_instructions" rows={3} value={createForm.data.instructions} onChange={(event) => createForm.setData('instructions', event.target.value)} className="w-full resize-none rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-700 focus:ring-1 focus:ring-blue-700" /><InputError message={createForm.errors.instructions} className="mt-1" /></div>
                                 <div><label htmlFor="client_request_due_at" className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-600">Due date <span className="font-normal normal-case text-slate-400">(optional)</span></label><input id="client_request_due_at" type="date" value={createForm.data.due_at} onChange={(event) => createForm.setData('due_at', event.target.value)} className="h-10 rounded border border-slate-300 px-3 text-sm text-slate-700 outline-none focus:border-blue-700 focus:ring-1 focus:ring-blue-700" /><InputError message={createForm.errors.due_at} className="mt-1" /></div>
                                 {createForm.data.type === 'DOCUMENT_REQUEST' && <div>{referralRequirements.length > 0 && <div className="mb-3 rounded border border-indigo-100 bg-indigo-50/40 p-2.5"><p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-indigo-700">Referral requirements</p><div className="space-y-1.5">{referralRequirements.map((item) => <label key={item.id} className="flex items-start gap-2 text-[11px] text-slate-700"><input type="checkbox" checked={selectedRequirements.some((selected) => selected.id === item.id)} onChange={(event) => setSelectedRequirements((current) => event.target.checked ? [...current, item] : current.filter((selected) => selected.id !== item.id))} /><span>{item.name}</span></label>)}</div></div>}<div><div className="mb-1.5 flex items-center justify-between"><label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600">Checklist</label><button type="button" onClick={() => createForm.setData('checklist', [...createForm.data.checklist, ''])} className="text-[10px] font-bold text-blue-900 hover:underline">+ Add item</button></div><div className="space-y-2">{createForm.data.checklist.map((item, index) => <div key={index} className="flex gap-2"><input aria-label={`Checklist item ${index + 1}`} value={item} onChange={(event) => { const next = [...createForm.data.checklist]; next[index] = event.target.value; createForm.setData('checklist', next); }} className="h-9 min-w-0 flex-1 rounded border border-slate-300 px-3 text-[12px] text-slate-700" placeholder="Document or item needed" />{createForm.data.checklist.length > 1 && <button type="button" onClick={() => createForm.setData('checklist', createForm.data.checklist.filter((_, itemIndex) => itemIndex !== index))} className="text-[18px] text-slate-400">×</button>}</div>)}</div></div></div>}
@@ -1599,29 +1600,29 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                             {pendingDecision.mode === 'ACCEPT' && (
                                 <div>
                                     <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-600">Status</label>
-                                    <select
+                                    <Select
                                         value={pendingDecision.status}
                                         onChange={(e) => setPendingDecision({ ...pendingDecision, status: e.target.value })}
-                                        className="h-10 w-full rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-700 focus:ring-1 focus:ring-blue-700"
+                                        className="h-10 w-full px-3 py-2 text-sm"
                                     >
                                         <option value="PROCESSING">Processing</option>
                                         <option value="FOR_COMPLIANCE">For Compliance</option>
-                                    </select>
+                                    </Select>
                                 </div>
                             )}
                             {pendingDecision.mode === 'REJECT' && (
                                 <div>
                                     <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-600">Reason *</label>
-                                    <select
+                                    <Select
                                         value={decisionReason}
                                         onChange={(e) => setDecisionReason(e.target.value)}
-                                        className="h-10 w-full rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-700 focus:ring-1 focus:ring-blue-700"
+                                        className="h-10 w-full px-3 py-2 text-sm"
                                     >
                                         <option value="">Select a reason</option>
                                         {REJECTION_REASONS.map((reason) => (
                                             <option key={reason.value} value={reason.value}>{reason.label}</option>
                                         ))}
-                                    </select>
+                                    </Select>
                                     <InputError message={errors?.rejection_reason} className="mt-1" />
                                 </div>
                             )}
@@ -1680,30 +1681,30 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                         <div className="px-5 py-4 space-y-4">
                             <div>
                                 <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-600">New Status</label>
-                                <select
+                                <Select
                                     value={updateStatusValue}
                                     onChange={(e) => setUpdateStatusValue(e.target.value)}
-                                    className="h-10 w-full rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-700 focus:ring-1 focus:ring-blue-700"
+                                    className="h-10 w-full px-3 py-2 text-sm"
                                 >
                                     <option value="PROCESSING">Processing</option>
                                     <option value="FOR_COMPLIANCE">For Compliance</option>
                                     <option value="COMPLETED">Completed</option>
                                     <option value="REJECTED">Rejected</option>
-                                </select>
+                                </Select>
                             </div>
                             {updateStatusValue === 'REJECTED' && (
                                 <div>
                                     <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-600">Reason *</label>
-                                    <select
+                                    <Select
                                         value={updateStatusReason}
                                         onChange={(e) => setUpdateStatusReason(e.target.value)}
-                                        className="h-10 w-full rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-700 focus:ring-1 focus:ring-blue-700"
+                                        className="h-10 w-full px-3 py-2 text-sm"
                                     >
                                         <option value="">Select a reason</option>
                                         {REJECTION_REASONS.map((reason) => (
                                             <option key={reason.value} value={reason.value}>{reason.label}</option>
                                         ))}
-                                    </select>
+                                    </Select>
                                     <InputError message={errors?.rejection_reason} className="mt-1" />
                                 </div>
                             )}

@@ -1,3 +1,4 @@
+import Select from '@/Components/Select';
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, useForm, router } from '@inertiajs/react';
 import { useState, useMemo, useCallback } from 'react';
@@ -61,15 +62,15 @@ function StatusForm({ status, onClose, onBypass }) {
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700">Type *</label>
-            <select
+            <Select
               value={data.type}
               onChange={(e) => setData('type', e.target.value)}
-              className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 text-sm"
+              className="mt-1 block w-full py-2 text-sm"
               required
             >
               <option value="case">Case</option>
               <option value="referral">Referral</option>
-            </select>
+            </Select>
             <InputError message={errors.type} className="mt-1" />
           </div>
           <div>

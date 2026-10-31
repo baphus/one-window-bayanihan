@@ -49,8 +49,9 @@ describe('Reports KPI count display characterization', () => {
       forComplianceReferrals: input,
     }} />);
 
-    for (const label of ['Active Caseload', 'Completed This Period', 'Total Referrals', 'Pending', 'For Compliance']) {
-      expect(screen.getByTestId(`metric-${label}`)).toHaveTextContent(expected);
+    expect(screen.getAllByRole('region', { name: 'Key performance indicators' })).toHaveLength(1);
+    for (const label of ['Active caseload', 'Completed referrals', 'Total referrals', 'Pending', 'For compliance']) {
+      expect(screen.getByText(label).nextElementSibling).toHaveTextContent(expected);
     }
   });
 });

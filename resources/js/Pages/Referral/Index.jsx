@@ -1,3 +1,4 @@
+import Select from '@/Components/Select';
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, router, usePage } from '@inertiajs/react';
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
@@ -457,7 +458,7 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
             <div className="flex flex-col gap-2 border-t border-slate-200 pt-2.5">
                 <label className="flex flex-col gap-1">
                     <span className="text-[11px] text-slate-500">Received within</span>
-                    <select
+                    <Select
                         value={filters?.age_max_days ?? ''}
                         onChange={(e) => {
                             const val = e.target.value;
@@ -472,11 +473,11 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
                         <option value="7">Last 7 days</option>
                         <option value="14">Last 14 days</option>
                         <option value="30">Last 30 days</option>
-                    </select>
+                    </Select>
                 </label>
                 <label className="flex flex-col gap-1">
                     <span className="text-[11px] text-slate-500">Older than</span>
-                    <select
+                    <Select
                         value={filters?.age_min_days ?? ''}
                         onChange={(e) => {
                             const val = e.target.value;
@@ -490,7 +491,7 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
                         <option value="14">14+ days</option>
                         <option value="30">30+ days</option>
                         <option value="60">60+ days</option>
-                    </select>
+                    </Select>
                 </label>
             </div>
             <div className="border-t border-slate-200 pt-2.5">
@@ -728,7 +729,7 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
                             {pendingDecision.action === 'REJECT' && (
                                 <div>
                                     <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-600">Reason *</label>
-                                    <select
+                                    <Select
                                         value={decisionReason}
                                         onChange={(e) => setDecisionReason(e.target.value)}
                                         className="h-10 w-full rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-700 focus:ring-1 focus:ring-blue-700"
@@ -737,7 +738,7 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
                                         {REJECTION_REASONS.map((reason) => (
                                             <option key={reason.value} value={reason.value}>{reason.label}</option>
                                         ))}
-                                    </select>
+                                    </Select>
                                     <InputError message={errors?.rejection_reason} className="mt-1" />
                                 </div>
                             )}

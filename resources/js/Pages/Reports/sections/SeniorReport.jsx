@@ -143,15 +143,15 @@ export function ReportCard({ title, takeaway, children, dataTour }) {
     return (
         <section
             data-tour={dataTour}
-            className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900"
+            className="min-w-0 rounded-xl border border-[#dce3eb] bg-white shadow-[0_1px_3px_rgba(23,35,51,0.04)] dark:border-slate-700 dark:bg-slate-900 print:break-inside-avoid"
         >
-            <h2 className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-primary">
-                {title}
-            </h2>
-            {takeaway ? (
-                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{takeaway}</p>
-            ) : null}
-            <div className="mt-4">{children}</div>
+            <header className="mb-4 border-b border-slate-200 px-5 py-4 dark:border-slate-700">
+                <h2 className="text-[15px] font-bold text-black dark:text-white">{title}</h2>
+            </header>
+            <div className="px-5 pb-4">
+                {takeaway ? <p className="mb-3 text-xs text-slate-600 dark:text-slate-300">{takeaway}</p> : null}
+                {children}
+            </div>
         </section>
     );
 }
@@ -184,7 +184,7 @@ export function BarRows({ items }) {
                         <div
                             className="h-full rounded-full"
                             style={{
-                                width: `${Math.max(2, Math.round((Number(item.count ?? 0) / peak) * 100))}%`,
+                                width: `${Math.round((Number(item.count ?? 0) / peak) * 100)}%`,
                                 backgroundColor: item.hex ?? '#0b5a8c',
                             }}
                         />
@@ -297,20 +297,17 @@ export function StackedBars({ rows }) {
 }
 
 /**
- * Donut strictly for 2–5-slice part-to-whole data, always paired with an
- * adjacent label — count (percent) list. Anything else renders the list
- * alone so no slice is ever hidden and no bare legend appears. Pass showAll
- * for complete many-slice pies: the chart draws every slice and the adjacent
- * list scrolls instead of truncating.
+ * Small part-to-whole distributions use a labelled donut; larger sets use
+ * horizontal bars so every category stays visible without crowded slices.
  */
-export function DonutWithList({ slices, large = false, showAll = false }) {
-    const chartable =
-        slices.length >= 2 && (showAll || slices.length <= 5) && slices.some((slice) => slice.count > 0);
+export function DonutWithList({ slices, large = false }) {
+    if (slices.length > 5) return <BarRows items={slices} />;
+    const chartable = slices.length >= 2 && slices.some((slice) => slice.count > 0);
 
     return (
-        <div className="flex flex-col items-start gap-5 sm:flex-row sm:items-center sm:gap-8">
+        <div className="flex flex-wrap items-center gap-4">
             {chartable ? (
-                <div className={`${large ? 'h-56 w-56' : 'h-44 w-44'} shrink-0`}>
+                <div className={`${large ? 'h-40 w-40' : 'h-32 w-32'} shrink-0`}>
                     <Doughnut
                         data={{
                             labels: slices.map((slice) => slice.label),
@@ -332,7 +329,7 @@ export function DonutWithList({ slices, large = false, showAll = false }) {
                     />
                 </div>
             ) : null}
-            <ul className={`min-w-0 flex-1 space-y-2${showAll ? ' max-h-64 overflow-y-auto pr-1' : ''}`}>
+            <ul className="min-w-[160px] flex-1 space-y-2">
                 {slices.map((slice) => (
                     <li key={slice.key} className="flex items-center justify-between gap-3 text-sm">
                         <span className="flex min-w-0 items-center gap-2">

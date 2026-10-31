@@ -4,9 +4,13 @@ namespace Tests\Feature;
 
 use App\Enums\UserRole;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Models\Agency;
+use App\Models\CaseFile;
+use App\Models\Referral;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
+use Inertia\Testing\AssertableInertia;
 use Tests\TestCase;
 
 class ReportsFiltersTest extends TestCase
@@ -77,6 +81,25 @@ class ReportsFiltersTest extends TestCase
 
         $response->assertOk();
         $response->assertHeader('X-Inertia', 'true');
+    }
+
+    public function test_admin_and_agency_reports_include_scoped_case_receipts(): void
+    {
+        $agency = Agency::factory()->create();
+        $case = CaseFile::factory()->open()->create(['created_at' => '2026-06-15 04:00:00']);
+        Referral::factory()->create(['case_id' => $case->id, 'agcy_id' => $agency->id]);
+        CaseFile::factory()->open()->create(['created_at' => '2026-06-16 04:00:00']);
+        CaseFile::factory()->open()->create(['created_at' => '2026-05-15 04:00:00']);
+
+        foreach ([UserRole::ADMIN, UserRole::AGENCY] as $role) {
+            $user = User::factory()->create(['role' => $role->value, 'agcy_id' => $role === UserRole::AGENCY ? $agency->id : null]);
+
+            $this->actingAs($user)->get(route('reports.index', ['from' => '2026-06-01', 'to' => '2026-06-30']))
+                ->assertInertia(fn (AssertableInertia $page) => $page
+                    ->component('Reports/Index')
+                    ->where('casesOverTime.labels', ['2026-06'])
+                    ->where('casesOverTime.datasets.0.data', [$role === UserRole::ADMIN ? 2 : 1]));
+        }
     }
 
     public function test_reports_page_exposes_the_new_aggregate_props(): void

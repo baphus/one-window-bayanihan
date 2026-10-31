@@ -63,7 +63,7 @@ function normalizeChartData(data, label) {
   return null;
 }
 
-export default function TrendChart({ title, data, options = {}, types = ['line', 'bar'] }) {
+export default function TrendChart({ title, data, options = {}, types = ['line', 'bar'], embedded = false }) {
   const [chartView, setChartView] = useState(types[0] || 'line');
 
   // Normalize data to the shape chart.js requires (handles both flat and datasets shapes)
@@ -71,7 +71,7 @@ export default function TrendChart({ title, data, options = {}, types = ['line',
 
   if (!chartData || !chartData.labels || chartData.labels.length === 0) {
     return (
-      <article className={`${cardShell} p-4`}>
+      <article className={embedded ? 'min-w-0' : `${cardShell} p-4`}>
         <h3 className={pageHeadingStyles.sectionTitle}>{title || 'Cases Over Time'}</h3>
         <p className="py-8 text-center text-[13px] text-slate-400 dark:text-slate-500">No trend data available.</p>
       </article>
@@ -88,9 +88,9 @@ export default function TrendChart({ title, data, options = {}, types = ['line',
   };
 
   return (
-    <article className={`${cardShell} p-4`}>
+    <article className={embedded ? 'min-w-0' : `${cardShell} p-4`}>
       <div className="mb-3 flex items-center justify-between">
-        <h3 className={pageHeadingStyles.sectionTitle}>{title || 'Trend'}</h3>
+        {!embedded && <h3 className={pageHeadingStyles.sectionTitle}>{title || 'Trend'}</h3>}
         <ChartTypeToggle value={chartView} onChange={setChartView} types={types} />
       </div>
       <div className="h-[220px]">

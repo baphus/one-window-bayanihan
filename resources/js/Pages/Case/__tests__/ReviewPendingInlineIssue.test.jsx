@@ -71,7 +71,8 @@ describe('Review case request — inline issue add', () => {
     });
 
     const select = screen.getByLabelText(/issue \/ concern/i);
-    await waitFor(() => expect(select).toHaveValue('issue-new'));
+    expect(select).toHaveTextContent('Lost passport');
+    fireEvent.click(select);
     expect(screen.getByRole('option', { name: 'Lost passport' })).toBeInTheDocument();
     expect(screen.queryByLabelText(/new issue name/i)).not.toBeInTheDocument();
   });

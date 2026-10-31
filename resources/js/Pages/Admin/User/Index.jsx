@@ -1,3 +1,4 @@
+import Select from '@/Components/Select';
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, router, usePage } from '@inertiajs/react';
 import { useState, useMemo, useRef, useEffect } from 'react';
@@ -438,7 +439,7 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [], p
     <div className="space-y-4">
       <div>
         <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Role</label>
-        <select
+        <Select
           value={roleFilter}
           onChange={(e) => {
             const val = e.target.value;
@@ -446,18 +447,18 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [], p
             setFilterOpen(false);
             navigateWith({ role: val || undefined });
           }}
-          className="w-full border border-slate-200 rounded-md px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
+          className="w-full px-3 py-2 text-[13px] font-medium"
         >
           <option value="">All Roles</option>
           <option value={roles.CASE_MANAGER}>Case Manager</option>
           <option value={roles.AGENCY}>Agency Focal</option>
           <option value={roles.ADMIN}>System Admin</option>
           <option value={roles.OFW}>Citizen</option>
-        </select>
+        </Select>
       </div>
       <div>
         <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Client Type</label>
-        <select
+        <Select
           value={clientTypeFilter}
           onChange={(e) => {
             const val = e.target.value;
@@ -465,16 +466,16 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [], p
             setFilterOpen(false);
             navigateWith({ client_type: val || undefined });
           }}
-          className="w-full border border-slate-200 rounded-md px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
+          className="w-full px-3 py-2 text-[13px] font-medium"
         >
           <option value="">All Client Types</option>
           <option value="OFW">OFW</option>
           <option value="NEXT_OF_KIN">Next of Kin</option>
-        </select>
+        </Select>
       </div>
       <div>
         <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Agency</label>
-        <select
+        <Select
           value={agencyFilter}
           onChange={(e) => {
             const val = e.target.value;
@@ -482,17 +483,17 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [], p
             setFilterOpen(false);
             navigateWith({ agcy_id: val || undefined });
           }}
-          className="w-full border border-slate-200 rounded-md px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
+          className="w-full px-3 py-2 text-[13px] font-medium"
         >
           <option value="">All Agencies</option>
           {agencies.map((a) => (
             <option key={a.id} value={a.id}>{a.name}</option>
           ))}
-        </select>
+        </Select>
       </div>
       <div>
         <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Status</label>
-        <select
+        <Select
           value={statusFilter}
           onChange={(e) => {
             const val = e.target.value;
@@ -500,16 +501,16 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [], p
             setFilterOpen(false);
             navigateWith({ status: val || undefined });
           }}
-          className="w-full border border-slate-200 rounded-md px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
+          className="w-full px-3 py-2 text-[13px] font-medium"
         >
           <option value="">All Statuses</option>
           <option value="active">Active</option>
           <option value="inactive">Inactive</option>
-        </select>
+        </Select>
       </div>
       <div>
         <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">MFA Status</label>
-        <select
+        <Select
           value={mfaFilter}
           onChange={(e) => {
             const val = e.target.value;
@@ -517,12 +518,12 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [], p
             setFilterOpen(false);
             navigateWith({ mfa_status: val || undefined });
           }}
-          className="w-full border border-slate-200 rounded-md px-3 py-2 text-[13px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
+          className="w-full px-3 py-2 text-[13px] font-medium"
         >
           <option value="">All</option>
           <option value="enabled">Enabled</option>
           <option value="disabled">Disabled</option>
-        </select>
+        </Select>
       </div>
       <div>
         <label className="flex items-center gap-2.5 cursor-pointer">
