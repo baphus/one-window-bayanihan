@@ -88,6 +88,19 @@ class DeploymentMailEnvContractTest extends TestCase
         }
     }
 
+    #[Test]
+    public function test_deploy_forwards_the_resend_webhook_signing_secret(): void
+    {
+        $workflow = (string) file_get_contents(base_path('.github/workflows/deploy.yml'));
+
+        $this->assertStringContainsString('RESEND_WEBHOOK_SECRET: ${{ secrets.RESEND_WEBHOOK_SECRET }}', $workflow);
+        $this->assertStringContainsString('--arg resendWebhook "$RESEND_WEBHOOK_SECRET"', $workflow);
+        $this->assertStringContainsString('RESEND_WEBHOOK_SECRET: $resendWebhook', $workflow);
+
+        $template = json_decode((string) file_get_contents(base_path('deploy/lightsail/app-deployment.template.json')), true, flags: JSON_THROW_ON_ERROR);
+        $this->assertArrayHasKey('RESEND_WEBHOOK_SECRET', $template['containers']['app']['environment']);
+    }
+
     /**
      * The env var name config/services.php actually reads for the Resend key.
      *

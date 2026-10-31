@@ -95,7 +95,11 @@ initSentry();
 createInertiaApp({
     title: (title) => `${title} - ${appName}`,
     resolve: (name) => {
-        const pages = import.meta.glob(['./Pages/**/*.{jsx,tsx}', '!./Pages/**/__tests__/**', '!./Pages/**/*.test.{jsx,tsx}']);
+        const pages = import.meta.glob([
+            './Pages/**/*.{jsx,tsx}',
+            '!./Pages/**/__tests__/**',
+            '!./Pages/**/*.{test,spec}.{jsx,tsx}',
+        ]);
         const page = pages[`./Pages/${name}.jsx`] ?? pages[`./Pages/${name}.tsx`];
         if (!page) {
             throw new Error(`Page not found: ${name}`);

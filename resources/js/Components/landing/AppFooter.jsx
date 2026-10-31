@@ -32,7 +32,7 @@ export default function AppFooter({ showImage = true }) {
           {/* CTU Partnership Credit */}
           <div className="mt-3 flex items-center gap-2.5 border-t border-slate-200 pt-3">
             <img
-              src="/images/landing/ctu_no_bg.png"
+              src="/images/landing/ctu_no_bg.webp"
               alt="Cebu Technological University Official Seal"
               className="h-8 w-8 flex-shrink-0 rounded-full object-contain"
             />
