@@ -26,6 +26,8 @@ class ReferralClientMessage extends Model
 
     public const SENDER_CLIENT_ACCESS = 'CLIENT_ACCESS';
 
+    public const SENDER_CLIENT_USER = 'CLIENT_USER';
+
     public const KIND_MESSAGE = 'MESSAGE';
 
     public const KIND_SYSTEM = 'SYSTEM';

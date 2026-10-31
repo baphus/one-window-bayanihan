@@ -700,7 +700,7 @@ class ReferralController extends Controller
         if ($user->isAdmin() || $user->isCaseManager()) {
             return;
         }
-        if ($user->isAgency() && ! $user->agcy_id) {
+        if (! $user->isAgency() || ! $user->agcy_id) {
             abort(403, 'You do not have access to this referral.');
         }
         if ($referral->agcy_id === $user->agcy_id) {

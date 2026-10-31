@@ -7,6 +7,7 @@ use App\Models\CaseEvent;
 use App\Models\CaseFile;
 use App\Models\Milestone;
 use App\Models\Referral;
+use App\Models\ReferralClientRequest;
 use App\Models\User;
 
 /**
@@ -100,7 +101,27 @@ class CaseEventRecorder
         return $this->record($referral->case_id, $referral->id, CaseEvent::TYPE_MILESTONE_ADDED, [
             'title' => $milestone->title,
             'description' => $milestone->description,
+            'meta' => ['milestone_id' => $milestone->id],
         ], $userId);
+    }
+
+    public function clientRequestActivity(ReferralClientRequest $request, string $action, string $title, string $description, string $actorType, int $attachmentCount = 0): CaseEvent
+    {
+        return CaseEvent::create([
+            'case_id' => $request->referral->case_id,
+            'referral_id' => $request->referral_id,
+            'type' => CaseEvent::TYPE_CLIENT_REQUEST_ACTIVITY,
+            'title' => $title,
+            'description' => $description,
+            'actor_type' => $actorType,
+            'occurred_at' => now(),
+            'meta' => [
+                'action' => $action,
+                'request_id' => $request->id,
+                'request_status' => $request->status,
+                'attachment_count' => $attachmentCount,
+            ],
+        ]);
     }
 
     private function record(string $caseId, ?string $referralId, string $type, array $payload, ?string $userId): CaseEvent

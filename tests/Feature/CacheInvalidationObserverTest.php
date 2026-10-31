@@ -3,57 +3,20 @@
 namespace Tests\Feature;
 
 use App\Models\CaseFile;
-use App\Models\Milestone;
-use App\Models\Referral;
-use App\Services\TrackingService as TrackingCacheKeys;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
+/**
+ * The tracking payloads are no longer cached (see TrackingCacheInvalidationTest
+ * for the read-freshness guarantees), so the referral and milestone observers
+ * no longer clear a milestones key. What remains here is the case-level audit
+ * cache, which is still written and still must be cleared on an update.
+ */
 class CacheInvalidationObserverTest extends TestCase
 {
     use RefreshDatabase;
-
-    #[Test]
-    public function referral_changes_invalidate_the_tracking_caches(): void
-    {
-        $referral = Referral::factory()->create();
-        $milestonesKey = TrackingCacheKeys::trackingMilestonesCacheKey($referral->case_id, $referral->id);
-
-        Cache::put($milestonesKey, ['milestones' => 'cached']);
-
-        $referral->update(['status' => 'PROCESSING']);
-
-        $this->assertFalse(Cache::has($milestonesKey));
-    }
-
-    #[Test]
-    public function milestone_changes_invalidate_the_tracking_caches(): void
-    {
-        $referral = Referral::factory()->create();
-        $milestone = Milestone::factory()->create(['refr_id' => $referral->id]);
-        $milestonesKey = TrackingCacheKeys::trackingMilestonesCacheKey($referral->case_id, $referral->id);
-
-        Cache::put($milestonesKey, ['milestones' => 'cached']);
-
-        $milestone->update(['title' => 'Follow-up document received']);
-
-        $this->assertFalse(Cache::has($milestonesKey));
-    }
-
-    #[Test]
-    public function milestone_creation_invalidates_the_tracking_caches(): void
-    {
-        $referral = Referral::factory()->create();
-        $milestonesKey = TrackingCacheKeys::trackingMilestonesCacheKey($referral->case_id, $referral->id);
-
-        Cache::put($milestonesKey, ['milestones' => 'cached']);
-
-        Milestone::factory()->create(['refr_id' => $referral->id]);
-
-        $this->assertFalse(Cache::has($milestonesKey));
-    }
 
     #[Test]
     public function case_changes_invalidate_the_cached_audit_case_number(): void

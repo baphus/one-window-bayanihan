@@ -7,6 +7,15 @@ const MIDDLE = { id: 'middle', date: '2026-02-01T08:00:00Z', title: 'Middle even
 const NEWEST = { id: 'newest', date: '2026-03-01T08:00:00Z', title: 'Latest event', type: 'case_closed' };
 
 describe('UnifiedTimeline bottom-up ordering', () => {
+    it('shows request activity actor, status, and action without changing newest-first order', () => {
+        render(<UnifiedTimeline items={[OLDEST, {
+            ...NEWEST, type: 'client_response', title: 'Response submitted', actor: 'You',
+            requestStatus: 'CLIENT_RESPONDED', actionUrl: '/my-cases/1/agencies/2/requests/3', actionLabel: 'View request',
+        }]} />);
+        expect(screen.getByText('You')).toBeInTheDocument();
+        expect(screen.getByText('Request status: client responded')).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: 'View request' })).toHaveAttribute('href', '/my-cases/1/agencies/2/requests/3');
+    });
     it('sorts items newest-first even when passed oldest-first', () => {
         expect(sortTimelineItems([OLDEST, MIDDLE, NEWEST]).map((i) => i.id)).toEqual([
             'newest',

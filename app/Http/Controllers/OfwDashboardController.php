@@ -137,7 +137,7 @@ class OfwDashboardController extends Controller
         }
 
         return Inertia::render('Tracking/AgencyMilestones', array_merge(
-            $this->trackingService->buildAgencyMilestonesData($case, $referral),
+            $this->trackingService->buildAgencyMilestonesData($case, $referral, forOfwPortal: true),
             ['backUrl' => route('ofw.case.show', $case->id)],
         ));
     }

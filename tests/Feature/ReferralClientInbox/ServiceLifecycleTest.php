@@ -57,23 +57,22 @@ class ServiceLifecycleTest extends ReferralClientInboxTestCase
         $this->assertSame(ReferralClientRequest::STATUS_CANCELLED, $cancelled->status);
     }
 
-    public function test_replies_and_status_changes_are_mirrored_to_the_milestone_feed(): void
+    public function test_replies_are_not_mirrored_but_status_changes_are_recorded_as_activity(): void
     {
         $context = $this->context();
         $service = app(ReferralClientRequestService::class);
-        $title = $context['clientRequest']->title;
 
         $service->sendAgencyMessage($context['clientRequest'], $context['agencyUser'], 'Please send page 2.');
         $service->complete($context['clientRequest'], $context['agencyUser']);
 
-        $milestoneTitles = $context['referral']->milestones()->pluck('title')->all();
-
-        $this->assertContains('Reply: '.$title, $milestoneTitles);
-        $this->assertContains('Completed: '.$title, $milestoneTitles);
+        // Routine replies stay in the request thread; only lifecycle activity
+        // reaches the client-facing referral timeline.
+        $this->assertSame([], $context['referral']->milestones()->pluck('title')->all());
         $this->assertSame(
-            2,
-            $context['case']->caseEvents()->where('type', 'milestone_added')->count(),
+            ['completed'],
+            $context['case']->caseEvents()->where('type', 'client_request_activity')->get()->pluck('meta.action')->all(),
         );
+        $this->assertSame(0, $context['case']->caseEvents()->where('type', 'milestone_added')->count());
     }
 
     public function test_terminal_referral_or_case_blocks_client_facing_writes(): void

@@ -244,31 +244,35 @@ class TrackingMilestonesNotesTest extends TestCase
             );
     }
 
+    /**
+     * The payload is no longer cached at all, so the versioned-key trick that
+     * used to orphan pre-fix entries is gone with it. The guarantee that
+     * matters still holds and is simpler: a stale entry sitting in the cache
+     * under ANY key the old release wrote is never read back.
+     */
     #[Test]
-    public function cache_key_is_versioned_so_pre_fix_entries_are_orphaned(): void
+    public function a_stale_entry_written_by_a_previous_release_is_never_served(): void
     {
         ['case' => $case, 'referral' => $referral] = $this->makeCase();
 
         $legacyKey = $this->legacyCacheKey($case, $referral);
-        $currentKey = TrackingService::trackingMilestonesCacheKey($case->id, $referral->id);
 
         // A payload written by the pre-fix release under the old key.
         Cache::put($legacyKey, [
             'agencyMilestones' => ['referralId' => $referral->id, 'notes' => self::INTERNAL_NOTE],
         ], 120);
 
-        $this->assertNotSame($legacyKey, $currentKey);
         $this->assertTrue(Cache::has($legacyKey));
 
         $payload = app(TrackingService::class)->buildAgencyMilestonesData($case, $referral);
 
-        // The stale entry is orphaned: never read, and still present so a TTL
-        // sweep can collect it.
+        // Built fresh: the stale entry is never read, and nothing is written
+        // back, so there is no cache key left to go stale in the first place.
         $this->assertArrayNotHasKey('notes', $payload['agencyMilestones']);
         $this->assertClientSafe($payload);
-        $this->assertTrue(Cache::has($currentKey));
+        $this->assertSame(['agencyMilestones' => ['referralId' => $referral->id, 'notes' => self::INTERNAL_NOTE]], Cache::get($legacyKey));
 
-        // Re-reading from the versioned cache keeps the payload clean.
+        // Re-reading keeps the payload clean too.
         $this->assertClientSafe(app(TrackingService::class)->buildAgencyMilestonesData($case, $referral));
     }
 }

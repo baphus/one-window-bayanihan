@@ -256,7 +256,7 @@ class ReferralLifecycleIntegrationTest extends TestCase
             'PENDING' => 3,
             'PROCESSING' => 5,
             'COMPLETED' => 5,
-            'REJECTED' => 3,
+            'REJECTED' => 4,
             'FOR_COMPLIANCE' => 5,
         ];
 

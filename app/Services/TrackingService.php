@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Helpers\CacheHelper;
 use App\Models\CaseEvent;
 use App\Models\CaseFile;
 use App\Models\CaseNotification;
@@ -21,14 +20,6 @@ class TrackingService
      * left unattended on the public tracking page does not stay signed in.
      */
     private const BINDING_TTL_SECONDS = 30 * 60;
-
-    /**
-     * Payload version for the cached agency-milestones payload. Bump whenever
-     * a key is removed or reshaped so already-cached entries from a previous
-     * release are orphaned instead of served. v2: dropped the internal
-     * `agencyMilestones.notes` key (staff free text).
-     */
-    private const MILESTONES_PAYLOAD_VERSION = 'v2';
 
     /**
      * Raw internal code fields stored in CaseNotification.data by the
@@ -52,11 +43,6 @@ class TrackingService
 
     private const NOTIFICATION_LIMIT = 50;
 
-    public static function trackingMilestonesCacheKey(string $caseId, string $referralId): string
-    {
-        return 'tracking:milestones:'.$caseId.':'.$referralId.':'.self::MILESTONES_PAYLOAD_VERSION;
-    }
-
     public function __construct(
         private readonly OtpService $otpService,
         private readonly PhilippineAddressService $addressResolver,
@@ -64,7 +50,7 @@ class TrackingService
 
     public function findCaseByTracker(string $trackerNumber): ?CaseFile
     {
-        $relations = [
+        return CaseFile::with([
             'client.addresses',
             'client.employments',
             'client.nextOfKin',
@@ -73,12 +59,8 @@ class TrackingService
             'referrals.milestones.user',
             'user:id,name',
             'category',
-        ];
-        if (method_exists(CaseFile::class, 'categories')) {
-            $relations[] = 'categories';
-        }
-
-        return CaseFile::with($relations)
+            'categories',
+        ])
             ->clientVisible()
             ->where('tracker_number', $trackerNumber)
             ->first();
@@ -135,20 +117,38 @@ class TrackingService
      *                              the public tracking-session route, which
      *                              would 404 because the OFW never completed
      *                              the anonymous /track OTP binding.
+     * @param  bool  $withClientDetails  False for staff pages: the client
+     *                                   record (address, next of kin, work history)
+     *                                   and the case notifications are the client's
+     *                                   own data and stay out of staff payloads.
+     *                                   Only the timeline and status are returned.
+     * @param  list<string>|null  $visibleReferralIds  Referral ids the viewer may
+     *                                                 see. Null means every referral (client
+     *                                                 payloads). Staff pages pass the viewer's
+     *                                                 own referrals; the timeline query is
+     *                                                 narrowed before the row cap is applied.
      */
-    public function buildTrackingData(CaseFile $case, bool $forOfwPortal = false): array
+    public function buildTrackingData(CaseFile $case, bool $forOfwPortal = false, bool $withClientDetails = true, ?array $visibleReferralIds = null): array
     {
-        $client = $case->client;
+        if ($withClientDetails) {
+            $case->loadMissing(['client.addresses', 'client.employments', 'client.nextOfKin']);
+        }
+        $case->loadMissing(['referrals.agency', 'referrals.services', 'referrals.milestones.user']);
+
+        // Client payloads are built only for the OFW and their tracking
+        // session. Staff pages pass false and receive just the timeline.
+        $client = false;
+        if ($withClientDetails) {
+            $client = $case->client;
+        }
         $referrals = $case->referrals;
-        $caseNotifications = [];
-        $unreadCount = 0;
 
         $primaryNok = $client && $client->nextOfKin->isNotEmpty()
             ? ($client->nextOfKin->where('is_primary', true)->first() ?? $client->nextOfKin->first())
             : null;
 
-        $homeAddress = $client?->addresses->first();
-        $lastEmployment = $client?->employments->first();
+        $homeAddress = $client ? $client->addresses->first() : null;
+        $lastEmployment = $client ? $client->employments->first() : null;
 
         $caseOverview = [
             'narrative' => $case->summary ?? '',
@@ -189,7 +189,18 @@ class TrackingService
         // (that is the direction the limit must trim from) and the outer query
         // restores the display order — ascending, oldest first — the timeline
         // and step builder have always consumed.
+        //
+        // $visibleReferralIds narrows the query itself rather than the result.
+        // Filtering after the LIMIT let a busy case evict an agency's own older
+        // entries: the newest 200 rows were fetched case-wide, then most were
+        // thrown away, and nothing refilled the gap. Case-level events (no
+        // referral_id, e.g. a reopening) are always visible.
         $events = CaseEvent::where('case_id', $case->id)
+            ->when($visibleReferralIds !== null, fn ($query) => $query->where(
+                fn ($query) => $query
+                    ->whereIn('referral_id', $visibleReferralIds)
+                    ->orWhereNull('referral_id'),
+            ))
             ->orderByDesc('occurred_at')
             ->orderByDesc('sequence')
             ->limit(self::TIMELINE_EVENT_LIMIT)
@@ -216,6 +227,7 @@ class TrackingService
             return [
                 'referralId' => $ref->id,
                 'name' => $ref->agency?->name ?? 'Unknown',
+                'logoUrl' => $ref->agency?->logo_url,
                 'status' => $ref->status,
                 'milestoneCount' => $ref->milestones->count(),
                 'steps' => $this->buildAgencySteps($ref),
@@ -250,7 +262,7 @@ class TrackingService
         $unreadCount = 0;
         $caseNotifications = [];
 
-        if ($case->client && $case->client->email) {
+        if ($withClientDetails && $case->client && $case->client->email) {
             $notifications = CaseNotification::where('case_id', $case->id)
                 ->where('client_email', $case->client->email)
                 ->orderBy('created_at', 'desc')
@@ -362,7 +374,7 @@ class TrackingService
 
     private function categoryPresentation(CaseFile $case): array
     {
-        $categories = method_exists($case, 'categories') ? $case->categories : collect();
+        $categories = $case->categories;
         if ($categories->isNotEmpty()) {
             return $categories->map(fn ($category) => ['name' => $category->name, 'color' => $category->color])->values()->all();
         }
@@ -410,81 +422,150 @@ class TrackingService
      * itself. No staff-facing consumer of this payload exists, so no
      * staff-only variant is needed.
      *
-     * The result is cached (see self::MILESTONES_PAYLOAD_VERSION), so a
-     * removal like this one must also bump that version to orphan entries
-     * already written by an earlier release.
+     * The result is deliberately NOT cached. The payload is rebuilt from the
+     * case-event log, and a case event (a request reply, a case reopen) is
+     * written without touching any referral, so no model observer can clear a
+     * cached copy. A cached entry would therefore show the client stale
+     * activity for up to its TTL. The build below is a single indexed query
+     * plus in-memory maps, which is cheaper than keeping two cache keys and
+     * an invalidation rule in sync.
      *
      * @return array<string, mixed>
      */
-    public function buildAgencyMilestonesData(CaseFile $case, Referral $referral): array
+    public function buildAgencyMilestonesData(CaseFile $case, Referral $referral, bool $forOfwPortal = false): array
     {
-        return CacheHelper::safeRemember(self::trackingMilestonesCacheKey($case->id, $referral->id), 120, function () use ($case, $referral) {
-            $case->loadMissing(['client.addresses', 'client.employments']);
-            $referral->loadMissing(['agency', 'milestones.user', 'services']);
+        $referral->loadMissing(['agency', 'milestones.user', 'services']);
 
-            $agencyName = $referral->agency?->name ?? 'Unknown agency';
-            $latestMilestone = $referral->milestones->sortByDesc('created_at')->first();
-            $referralStatusTitle = match ($referral->status) {
-                'PROCESSING' => $agencyName.' is now processing your referral',
-                'FOR_COMPLIANCE' => 'Additional documents may be needed for '.$agencyName,
-                'COMPLETED' => 'Your referral with '.$agencyName.' has been completed',
-                'REJECTED' => $agencyName.' was unable to process your referral',
-                default => 'Referral received by '.$agencyName,
-            };
-            $referralStatusDescription = match ($referral->status) {
-                'PROCESSING' => 'The agency is actively reviewing your request.',
-                'FOR_COMPLIANCE' => 'Please prepare any additional requirements the agency may request.',
-                'COMPLETED' => 'The agency has finished its part of the referral workflow.',
-                'REJECTED' => 'This referral was not accepted for processing.',
-                default => $referral->relationLoaded('services') && $referral->services->isNotEmpty()
-                    ? 'Requested services: '.$referral->services->pluck('name')->implode(', ')
-                    : 'Your referral is waiting for the first milestone update.',
-            };
-            // Public page — attribute updates to the agency, never to staff names.
-            $milestones = $referral->milestones
-                ->sortBy('created_at')
-                ->values()
-                ->map(fn (Milestone $milestone) => [
-                    'date' => $milestone->created_at->toISOString(),
-                    'title' => $milestone->title,
-                    'description' => $milestone->description ?? '',
-                    'by' => $agencyName,
-                ])
-                ->toArray();
+        $agencyName = $referral->agency?->name ?? 'Unknown agency';
+        $referralStatusTitle = match ($referral->status) {
+            'PROCESSING' => $agencyName.' is now processing your referral',
+            'FOR_COMPLIANCE' => 'Additional documents may be needed for '.$agencyName,
+            'COMPLETED' => 'Your referral with '.$agencyName.' has been completed',
+            'REJECTED' => $agencyName.' was unable to process your referral',
+            default => 'Referral received by '.$agencyName,
+        };
+        $referralStatusDescription = match ($referral->status) {
+            'PROCESSING' => 'The agency is actively reviewing your request.',
+            'FOR_COMPLIANCE' => 'Please prepare any additional requirements the agency may request.',
+            'COMPLETED' => 'The agency has finished its part of the referral workflow.',
+            'REJECTED' => 'This referral was not accepted for processing.',
+            default => $referral->relationLoaded('services') && $referral->services->isNotEmpty()
+                ? 'Requested services: '.$referral->services->pluck('name')->implode(', ')
+                : 'Your referral is waiting for the first milestone update.',
+        };
+        // Client-facing projection: actors are categorical, never staff names.
+        // Capped like the public timeline: a referral open for years must
+        // not grow this payload without bound. The limit keeps the NEWEST
+        // events, so it trims from the descending end.
+        $events = CaseEvent::query()
+            ->where('case_id', $case->id)
+            ->where(fn ($query) => $query
+                ->where('referral_id', $referral->id)
+                ->orWhere(fn ($query) => $query->whereNull('referral_id')->where('type', CaseEvent::TYPE_CASE_REOPENED)))
+            ->orderByDesc('occurred_at')
+            ->orderByDesc('sequence')
+            ->limit(self::TIMELINE_EVENT_LIMIT)
+            ->get();
 
-            return [
-                'trackingId' => $case->tracker_number,
-                'trackedCase' => [
-                    'caseNo' => $case->case_number,
-                    'clientName' => $case->client ? trim("{$case->client->first_name} {$case->client->last_name}") : 'Unknown',
-                    'clientType' => ($case->client?->type ?? 'OFW') === 'OFW' ? 'Overseas Filipino Worker' : 'Next of Kin',
-                    'status' => $this->caseStatusKey($case->status),
-                ],
-                'agencyMilestones' => [
-                    'referralId' => $referral->id,
-                    'agencyName' => $agencyName,
-                    'status' => $referral->status,
-                    'requiredServices' => $referral->relationLoaded('services') && $referral->services->isNotEmpty()
-                        ? $referral->services->pluck('name')->implode(', ')
-                        : ($referral->required_services ?? ''),
-                    'milestoneCount' => $referral->milestones->count(),
-                    'latestUpdate' => $latestMilestone
-                        ? [
-                            'date' => $latestMilestone->created_at->toISOString(),
-                            'title' => $latestMilestone->title,
-                            'description' => $latestMilestone->description ?? '',
-                            'by' => $agencyName,
-                        ]
-                        : [
-                            'date' => $referral->updated_at?->toISOString() ?? $referral->created_at->toISOString(),
-                            'title' => $referralStatusTitle,
-                            'description' => $referralStatusDescription,
-                            'by' => $agencyName,
-                        ],
-                    'milestones' => $milestones,
-                ],
-            ];
-        });
+        // Milestones already copied into an event are dropped so the same
+        // update is not listed twice. Indexing by id (plus a content key
+        // for legacy events without one) beats scanning per milestone.
+        $milestoneEventIds = [];
+        $milestoneEventKeys = [];
+        foreach ($events->where('type', CaseEvent::TYPE_MILESTONE_ADDED) as $event) {
+            $milestoneId = $event->meta['milestone_id'] ?? null;
+            if ($milestoneId !== null) {
+                $milestoneEventIds[$milestoneId] = true;
+
+                continue;
+            }
+            $milestoneEventKeys[$event->title."\0".($event->description ?? '')."\0".$event->occurred_at->toISOString()] = true;
+        }
+        $timeline = $referral->milestones
+            ->reject(fn (Milestone $milestone) => $milestone->client_request_id !== null)
+            ->reject(fn (Milestone $milestone) => isset($milestoneEventIds[$milestone->id])
+                || isset($milestoneEventKeys[$milestone->title."\0".($milestone->description ?? '')."\0".$milestone->created_at->toISOString()]))
+            ->map(fn (Milestone $milestone) => [
+                'date' => $milestone->created_at->toISOString(),
+                'title' => $milestone->title,
+                'description' => $milestone->description ?? '',
+                'by' => $agencyName,
+                'actor' => $milestone->user?->role === 'AGENCY' ? 'Agency' : 'System',
+                'type' => 'milestone_added',
+                'actionUrl' => null,
+            ]);
+        foreach ($events->whereIn('type', [
+            CaseEvent::TYPE_REFERRAL_SENT,
+            CaseEvent::TYPE_REFERRAL_STATUS_CHANGED,
+            CaseEvent::TYPE_MILESTONE_ADDED,
+            CaseEvent::TYPE_CLIENT_REQUEST_ACTIVITY,
+            CaseEvent::TYPE_CASE_REOPENED,
+        ]) as $event) {
+            $meta = $event->meta ?? [];
+            $isRequestEvent = $event->type === CaseEvent::TYPE_CLIENT_REQUEST_ACTIVITY;
+            $actor = match ($event->actor_type) {
+                'agency' => 'Agency',
+                'client' => 'You',
+                default => 'System',
+            };
+            $url = $isRequestEvent && $forOfwPortal
+                ? route('ofw.case.requests.show', ['case' => $case->id, 'referral' => $referral->id, 'request' => $meta['request_id']])
+                : null;
+            $timeline->push([
+                'date' => $event->occurred_at->toISOString(),
+                'title' => $event->title,
+                'description' => $event->description ?? '',
+                'by' => $actor,
+                'actor' => $actor,
+                'type' => match ($isRequestEvent ? ($meta['action'] ?? null) : null) {
+                    'opened' => 'client_request',
+                    'client_responded' => 'client_response',
+                    'completed', 'cancelled', 'reopened' => 'client_request_status',
+                    default => $event->type,
+                },
+                'requestStatus' => $meta['request_status'] ?? null,
+                'actionUrl' => $url,
+                'actionLabel' => $url ? 'View request' : null,
+            ]);
+        }
+        $timeline = $timeline->sortBy('date')->values()->all();
+        $latestEvent = $timeline === [] ? null : $timeline[array_key_last($timeline)];
+
+        return [
+            'trackingId' => $case->tracker_number,
+            'trackedCase' => [
+                'caseNo' => $case->case_number,
+                'clientName' => $case->client ? trim("{$case->client->first_name} {$case->client->last_name}") : 'Unknown',
+                'clientType' => ($case->client?->type ?? 'OFW') === 'OFW' ? 'Overseas Filipino Worker' : 'Next of Kin',
+                'status' => $this->caseStatusKey($case->status),
+            ],
+            'agencyMilestones' => [
+                'referralId' => $referral->id,
+                'agencyName' => $agencyName,
+                'agencyShort' => $referral->agency?->short,
+                'agencyLogoUrl' => $referral->agency?->logo_url,
+                'status' => $referral->status,
+                'requiredServices' => $referral->relationLoaded('services') && $referral->services->isNotEmpty()
+                    ? $referral->services->pluck('name')->implode(', ')
+                    : ($referral->required_services ?? ''),
+                'milestoneCount' => $referral->milestones->count(),
+                'latestUpdate' => $latestEvent
+                    ? [
+                        'date' => $latestEvent['date'],
+                        'title' => $latestEvent['title'],
+                        'description' => $latestEvent['description'],
+                        'by' => $latestEvent['by'],
+                        'actor' => $latestEvent['actor'],
+                    ]
+                    : [
+                        'date' => $referral->updated_at?->toISOString() ?? $referral->created_at->toISOString(),
+                        'title' => $referralStatusTitle,
+                        'description' => $referralStatusDescription,
+                        'by' => $agencyName,
+                    ],
+                'milestones' => $timeline,
+            ],
+        ];
     }
 
     /**
@@ -540,7 +621,12 @@ class TrackingService
         }
         $steps[] = ['label' => "Received by {$agencyName}", 'state' => 'complete'];
 
+        // A refused referral ends here. Without this terminal step the bar
+        // reported "Received by X" as complete, which reads as progress on a
+        // referral the office turned down.
         if ($status === 'REJECTED') {
+            $steps[] = ['label' => 'Unable to assist', 'state' => 'rejected'];
+
             return $steps;
         }
 

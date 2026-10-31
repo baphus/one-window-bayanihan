@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import TrackingShow from '../Show';
 
 const routerMock = vi.hoisted(() => ({ post: vi.fn(), reload: vi.fn() }));
@@ -13,6 +13,7 @@ vi.mock('@inertiajs/react', () => ({
 vi.mock('@/Components/landing/AppHeader', () => ({ default: () => <header /> }));
 vi.mock('@/Components/landing/AppFooter', () => ({ default: () => <footer /> }));
 vi.mock('@/Components/ChatBot', () => ({ default: () => null }));
+vi.mock('@/Layouts/OfwPortalLayout', () => ({ default: ({ children }) => <div data-testid="ofw-layout">{children}</div> }));
 
 globalThis.route = (name, params) => `/${name}/${Array.isArray(params) ? params.join('/') : params ?? ''}`;
 
@@ -36,6 +37,26 @@ const readyPanel = {
 };
 
 describe('Tracking/Show client request panel', () => {
+  beforeEach(() => vi.clearAllMocks());
+  it('uses owner portal navigation and authenticated attachment URLs', () => {
+    render(<TrackingShow ofwRequestContext={{ trackingId: 'OWB-123', caseUrl: '/my-cases/1', backUrl: '/my-cases/1/agencies/2/milestones', agencyShort: 'DMW' }} clientRequestPanel={{
+      ...readyPanel,
+      actions: { reply: '/my-cases/1/agencies/2/requests/3/messages', home: '/my-cases/1/agencies/2/milestones', downloadAttachmentTemplate: '/my-cases/1/agencies/2/requests/3/attachments/__ATTACHMENT__' },
+      activeRequest: { ...readyPanel.activeRequest, messages: [{
+        id: 'owner-message', sender_kind: 'CLIENT_USER', body: 'Submitted', created_at: '2026-01-01T08:00:00Z',
+        attachments: [{ id: 'file-1', file_name: 'passport.pdf' }],
+      }] },
+    }} />);
+
+    expect(screen.getByTestId('ofw-layout')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Close and return to agency referral' })).toHaveAttribute('href', '/my-cases/1/agencies/2/milestones');
+    expect(screen.getByText(/^You ·/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'DMW referral' })).toHaveAttribute('href', '/my-cases/1/agencies/2/milestones');
+    expect(screen.getByRole('link', { name: /passport.pdf/ })).toHaveAttribute('href', '/my-cases/1/agencies/2/requests/3/attachments/file-1');
+    fireEvent.change(screen.getByRole('textbox', { name: 'Your reply' }), { target: { value: 'My response' } });
+    fireEvent.click(screen.getByRole('button', { name: /Send reply/ }));
+    expect(routerMock.post).toHaveBeenCalledWith('/my-cases/1/agencies/2/requests/3/messages', expect.any(FormData), expect.any(Object));
+  });
   it('renders only request-safe details, checklist, reply controls, and document upload', () => {
     render(<TrackingShow clientRequestPanel={readyPanel} trackingId="PRIVATE-CASE" />);
 

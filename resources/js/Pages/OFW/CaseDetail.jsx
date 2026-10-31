@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { Link } from '@inertiajs/react';
 import { CheckCircle2, Copy } from 'lucide-react';
 import OfwPortalLayout from '@/Layouts/OfwPortalLayout';
+import OfwBreadcrumbs from '@/Components/OfwBreadcrumbs';
 import CitizenTimeline from '@/Components/CitizenTimeline';
 import { AgencyCard, DocumentRow, StatusBar } from '@/Components/CitizenStatus';
 import { buildCaseStatusLine } from '@/lib/caseStatusLine';
@@ -299,7 +300,10 @@ export default function CaseDetail({
 
     return (
         <OfwPortalLayout title={trackingId ? `Case — ${trackingId}` : 'Case Details'}>
-            <p className="text-[12px] text-slate-500">Home / My Cases / Case Details</p>
+            <OfwBreadcrumbs items={[
+                { label: 'My Cases', href: safeRoute('ofw.dashboard', undefined, '/my-cases') },
+                { label: trackingId ? `Case ${trackingId}` : 'Case' },
+            ]} />
 
             <h1 className="mt-2 font-headline text-[28px] font-extrabold tracking-tight text-slate-900 sm:text-[32px]">
                 My Case Tracking
@@ -496,8 +500,8 @@ export default function CaseDetail({
                                         <AgencyCard
                                             key={agency.referralId ?? agency.name}
                                             name={agency.name}
+                                            logoUrl={agency.logoUrl}
                                             description={agency.agencyDescription ?? agency.description}
-                                            initials={(agency.name ?? '').slice(0, 4)}
                                             statusLabel={status.label}
                                             statusClass={status.badge}
                                             note={agency.status === 'REJECTED' ? status.note : (agency.latestMilestoneLabel ?? status.note)}

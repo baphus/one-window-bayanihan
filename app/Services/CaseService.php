@@ -588,6 +588,11 @@ class CaseService
             'client.employments',
             'client.nextOfKin',
             'referrals.milestones',
+            // Read by TrackingService::buildTrackingData() for the case page
+            // timeline and agency steps; without these each referral costs
+            // two extra queries on every render.
+            'referrals.services',
+            'referrals.milestones.user',
             'referrals.agency',
             'referrals.attachments.user',
             'user',

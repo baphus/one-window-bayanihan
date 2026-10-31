@@ -8,6 +8,7 @@ use App\Enums\AuditAction;
 use App\Models\AuditLog;
 use App\Services\AuditLogFormatter;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class AuditObserver
@@ -78,16 +79,26 @@ class AuditObserver
         // it builds a global SHA-256 chain across all audit logs for
         // integrity verification.
 
-        // Generate description BEFORE creating (single-save pattern)
+        // Generate description BEFORE creating (single-save pattern). The
+        // whole audit write runs inside a savepoint so a failed INSERT can
+        // never abort the caller's business transaction: the action succeeds
+        // and the loss is logged, instead of the user seeing a 500 after the
+        // model was already saved.
         try {
-            $tempLog = new AuditLog($data);
-            $data['description'] = app(AuditLogFormatter::class)->format($tempLog);
-        } catch (\Throwable $e) {
-            logger()->warning('Audit description generation failed', ['exception' => $e->getMessage()]);
-        }
+            DB::transaction(function () use ($data) {
+                $tempLog = new AuditLog($data);
+                try {
+                    $data['description'] = app(AuditLogFormatter::class)->format($tempLog);
+                } catch (\Throwable $e) {
+                    logger()->warning('Audit description generation failed', ['exception' => $e->getMessage()]);
+                }
 
-        // Single INSERT
-        $log = AuditLog::create($data);
+                AuditLog::create($data);
+            });
+        } catch (\Throwable $e) {
+            logger()->error('Audit log write failed', ['exception' => $e->getMessage()]);
+            report($e);
+        }
     }
 
     /**

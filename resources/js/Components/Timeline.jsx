@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { Link } from '@inertiajs/react';
 import { formatDisplayDateTime } from '@/lib/utils';
 import { formatRelativeTime } from '@/lib/relativeTime';
 
@@ -100,6 +101,42 @@ function toDateTimeAttr(value) {
 const DEFAULT_SPINE_DOT = 'bg-slate-100 border-slate-200 text-slate-500';
 const DEFAULT_SPINE_ICON = 'circle';
 
+/** Human status label for a request row ("CLIENT_RESPONDED" → "client responded"). */
+function requestStatusLabel(status) {
+    return status.replaceAll('_', ' ').toLowerCase();
+}
+
+/** Relative label, tolerant of a bad date and of a custom formatter. */
+function relativeLabel(value, formatter) {
+    if (!value) return '';
+    try {
+        return (formatter ?? formatRelativeTime)(value);
+    } catch {
+        return '';
+    }
+}
+
+/** Absolute label, tolerant of a bad date and of a custom formatter. */
+function absoluteLabel(value, formatter) {
+    if (!value) return '';
+    try {
+        return (formatter ?? formatDisplayDateTime)(value);
+    } catch {
+        return '';
+    }
+}
+
+/** The single "View request" / action link used by both row variants. */
+function TimelineActionLink({ item }) {
+    if (!item.actionUrl) return null;
+
+    return (
+        <Link href={item.actionUrl} className="mt-2 inline-flex rounded-md border border-slate-200 px-3 py-1.5 text-xs font-bold text-primary hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
+            {item.actionLabel || 'View request'}
+        </Link>
+    );
+}
+
 /**
  * Default dot/icon config for spine rows (Material Symbols names).
  * Covers every event type used by the case, referral and milestone surfaces.
@@ -137,6 +174,9 @@ export const LEDGER_EVENT_STYLE = {
     milestone_added: { icon: 'flag', tone: 'text-orange-500' },
     case_closed: { icon: 'verified', tone: 'text-green-600' },
     case_reopened: { icon: 'restart_alt', tone: 'text-purple-500' },
+    client_request: { icon: 'outgoing_mail', tone: 'text-blue-500' },
+    client_response: { icon: 'reply', tone: 'text-cyan-600' },
+    client_request_status: { icon: 'published_with_changes', tone: 'text-indigo-500' },
 };
 
 const DEFAULT_LEDGER_STYLE = { icon: 'flag', tone: 'text-slate-400' };
@@ -188,24 +228,8 @@ function SpineRow({ item, config, showRelative, showAbsolute, formatRelative, fo
         return renderItem({ item, config });
     }
     const dateValue = resolveTimelineDate(item);
-    const safeRelative = (v) => {
-        if (!v) return '';
-        try {
-            return formatRelativeTime(v);
-        } catch {
-            return '';
-        }
-    };
-    const safeAbsolute = (v) => {
-        if (!v) return '';
-        try {
-            return formatDisplayDateTime(v);
-        } catch {
-            return '';
-        }
-    };
-    const relative = showRelative ? (formatRelative ?? safeRelative)(dateValue) : '';
-    const absolute = showAbsolute ? (formatAbsolute ?? safeAbsolute)(dateValue) : '';
+    const relative = showRelative ? relativeLabel(dateValue, formatRelative) : '';
+    const absolute = showAbsolute ? absoluteLabel(dateValue, formatAbsolute) : '';
     const dateTime = toDateTimeAttr(dateValue);
 
     return (
@@ -231,7 +255,9 @@ function SpineRow({ item, config, showRelative, showAbsolute, formatRelative, fo
                 {item.description && (
                     <p className="mt-1 max-w-prose text-xs leading-relaxed text-slate-500">{item.description}</p>
                 )}
-                {item.actor && <p className="mt-0.5 text-[10px] text-slate-400">{item.actor}</p>}
+                {item.actor && <p className="mt-0.5 text-[11px] text-slate-500">{item.actor}</p>}
+                {item.requestStatus && <p className="mt-1 text-xs text-slate-600">Request status: {requestStatusLabel(item.requestStatus)}</p>}
+                <TimelineActionLink item={item} />
             </div>
         </li>
     );
@@ -264,7 +290,8 @@ function LedgerRow({ item, style, renderItem }) {
                                 {item.description}
                             </p>
                         )}
-                        <p className="mt-0.5 text-[11px] text-slate-400">{formatLedgerAge(dateValue)}</p>
+                        <p className="mt-0.5 text-[11px] text-slate-400">{formatLedgerAge(dateValue)}{item.actor ? ` · ${item.actor}` : ''}</p>
+                        <TimelineActionLink item={item} />
                     </div>
                 </div>
             </div>

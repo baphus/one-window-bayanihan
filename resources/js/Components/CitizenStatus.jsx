@@ -6,6 +6,8 @@
  * loaded. Each tone has its own icon, background, border and text colour.
  */
 
+import AgencyLogo from '@/Components/AgencyLogo';
+
 const TONES = {
     positive: {
         wrap: 'border border-emerald-200 bg-emerald-50',
@@ -74,22 +76,19 @@ export function StatusBar({ tone = 'positive', title, detail, children }) {
  * @param {object} props
  * @param {string} props.name
  * @param {string} [props.description]
- * @param {string} [props.initials] Two-to-four letter mark shown in the tile.
  * @param {string} [props.statusLabel]
  * @param {string} [props.note]
  * @param {string} [props.updatedAt]
  * @param {string} [props.href] Link target for the progress action.
  * @param {object} [props.statusClass] Tailwind classes for the status badge.
  */
-export function AgencyCard({ name, description, initials, statusLabel, note, updatedAt, href, statusClass = 'border-slate-200 bg-slate-100 text-slate-600' }) {
+export function AgencyCard({ name, logoUrl, description, statusLabel, note, updatedAt, href, statusClass = 'border-slate-200 bg-slate-100 text-slate-600' }) {
     return (
         <section className="flex flex-col rounded-lg border border-slate-200 bg-white p-4">
             <div className="flex items-start gap-3">
-                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-surface-container text-[10px] font-black uppercase text-primary">
-                    {initials ?? name?.slice(0, 4)}
-                </span>
+                <AgencyLogo name={name} logoUrl={logoUrl} />
                 <div className="min-w-0">
-                    <h3 className="font-headline text-[14px] font-extrabold tracking-tight text-slate-900">{name}</h3>
+                    <h3 className="break-words [overflow-wrap:anywhere] font-headline text-[14px] font-extrabold tracking-tight text-slate-900">{name}</h3>
                     {description ? (
                         <p className="mt-0.5 text-[12px] leading-snug text-slate-500">{description}</p>
                     ) : null}

@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Model;
  *
  * Rows are never updated or deleted; corrections are recorded as new events.
  * Every field must be safe to show to the case's client — actors are stored
- * as actor_type (agency | case_manager | system), never as names or user IDs.
+ * as actor_type (agency | case_manager | client | system), never as names or user IDs.
  */
 class CaseEvent extends Model
 {
@@ -27,6 +27,8 @@ class CaseEvent extends Model
     public const TYPE_CASE_CLOSED = 'case_closed';
 
     public const TYPE_CASE_REOPENED = 'case_reopened';
+
+    public const TYPE_CLIENT_REQUEST_ACTIVITY = 'client_request_activity';
 
     public const UPDATED_AT = null;
 

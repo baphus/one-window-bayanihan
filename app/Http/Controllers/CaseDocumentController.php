@@ -179,8 +179,10 @@ class CaseDocumentController extends Controller
             return;
         }
 
+        // A live referral, not merely any referral: access ends with it.
         $hasActiveReferral = $case->referrals()
             ->where('agcy_id', $user->agcy_id)
+            ->where('is_deleted', false)
             ->whereNotIn('status', ['COMPLETED', 'REJECTED'])
             ->exists();
 
