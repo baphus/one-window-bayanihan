@@ -3,14 +3,36 @@
 namespace App\Services;
 
 use App\Mail\OtpMail;
+use App\Settings\SettingRegistry;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Mail;
 
 class OtpService
 {
-    public const MAX_ATTEMPTS = 5;
+    /**
+     * How long a passcode is valid.
+     *
+     * Reads the otp_expiry_seconds setting. The setting existed before this
+     * method did — it was seeded as '300' and read by nothing, while a constant
+     * hard-coded five minutes. Both now go through here.
+     */
+    public function ttlMinutes(): int
+    {
+        return max(1, intdiv($this->ttlSeconds(), 60));
+    }
 
-    public const TTL_MINUTES = 5;
+    public function ttlSeconds(): int
+    {
+        return (int) SettingRegistry::value('otp_expiry_seconds');
+    }
+
+    /**
+     * How many wrong guesses are accepted before the passcode is discarded.
+     */
+    public function maxAttempts(): int
+    {
+        return SettingRegistry::int('otp_max_attempts');
+    }
 
     public function generate(string $identifier, string $purpose = 'default', ?string $sessionId = null): string
     {
@@ -18,7 +40,7 @@ class OtpService
         $key = $sessionId
             ? "otp:{$purpose}:{$identifier}:{$sessionId}"
             : "otp:{$purpose}:{$identifier}";
-        Cache::put($key, $otp, now()->addMinutes(self::TTL_MINUTES));
+        Cache::put($key, $otp, now()->addSeconds($this->ttlSeconds()));
 
         // Reset failed-attempt counter for fresh OTP
         Cache::forget($sessionId
@@ -61,11 +83,11 @@ class OtpService
         // to match the OTP lifetime.
         $attempts = (int) Cache::increment($attemptsKey);
         if ($attempts === 1) {
-            Cache::put($attemptsKey, 1, now()->addMinutes(self::TTL_MINUTES));
+            Cache::put($attemptsKey, 1, now()->addSeconds($this->ttlSeconds()));
         }
 
-        // Sixth (and later) guesses invalidate the OTP outright.
-        if ($attempts > self::MAX_ATTEMPTS) {
+        // Exceeding the configured limit invalidates the OTP outright.
+        if ($attempts > $this->maxAttempts()) {
             Cache::forget($key);
 
             return false;

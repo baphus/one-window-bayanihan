@@ -6,6 +6,7 @@ use App\Enums\AuditModule;
 use App\Http\Requests\AvatarUploadRequest;
 use App\Http\Requests\ProfileUpdateRequest;
 use App\Models\ReferralClientAccessLink;
+use App\Services\AuditCategory;
 use App\Services\AuditLogger;
 use App\Services\CloudinaryAvatarService;
 use App\Services\OnboardingService;
@@ -190,6 +191,10 @@ class ProfileController extends Controller
             ->byId($userId)
             ->forEntity($user, $user->name)
             ->module(AuditModule::USER)
+            // Previously null: the account deleting itself left a row with no
+            // record of which account it was.
+            ->context(null, ['email' => $user->email, 'role' => $user->role])
+            ->category(AuditCategory::SECURITY)
             ->write();
 
         $request->session()->invalidate();

@@ -3,13 +3,14 @@
 namespace App\Console\Commands;
 
 use App\Services\CaseService;
+use App\Settings\SettingRegistry;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
 class PurgeTrashedCases extends Command
 {
     protected $signature = 'cases:purge-trashed
-                            {--days= : Retention period in days (defaults to config app.trash_retention_days or 90)}';
+                            {--days= : Retention period in days (defaults to the trash_retention_days setting)}';
 
     protected $description = 'Permanently delete soft-deleted cases older than the configured retention period.';
 
@@ -29,7 +30,9 @@ class PurgeTrashedCases extends Command
 
         $days = $rawDays !== null && $rawDays !== ''
             ? (int) $rawDays
-            : (int) config('app.trash_retention_days', 90);
+            // Resolved at run time, not bound at boot: the scheduled purge must
+            // honour a change made from the admin page without a redeploy.
+            : SettingRegistry::int('trash_retention_days');
 
         // Zero is rejected as loudly as a negative value: a 0-day retention
         // flips the cutoff to "now" and would purge every trashed case in one

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\SystemSetting;
+use App\Settings\SettingRegistry;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
@@ -56,5 +57,43 @@ class SystemSettingTest extends TestCase
         SystemSetting::setValue('value_key', 'value_123', 'security', 'Value description');
 
         $this->assertSame('value_123', SystemSetting::getValue('value_key'));
+    }
+
+    /**
+     * The registry is the contract: a setting nobody reads must not exist.
+     * This is the test that would have caught two_factor_required and
+     * otp_expiry_seconds.
+     */
+    public function test_every_declared_setting_names_a_consumer(): void
+    {
+        foreach (SettingRegistry::all() as $key => $setting) {
+            $this->assertNotSame('', trim($setting->consumer), "Setting [{$key}] declares no consumer.");
+        }
+    }
+
+    public function test_every_declared_setting_has_a_description_and_default(): void
+    {
+        foreach (SettingRegistry::all() as $key => $setting) {
+            $this->assertNotSame('', trim($setting->description), "Setting [{$key}] has no description shown to the admin.");
+            $this->assertNotNull($setting->default, "Setting [{$key}] has no default.");
+        }
+    }
+
+    public function test_declared_settings_resolve_to_their_default_when_unset(): void
+    {
+        foreach (SettingRegistry::all() as $key => $setting) {
+            $this->assertSame(
+                $setting->default,
+                SettingRegistry::value($key),
+                "Setting [{$key}] did not resolve to its declared default."
+            );
+        }
+    }
+
+    public function test_registry_keys_are_unique(): void
+    {
+        $keys = array_keys(SettingRegistry::all());
+
+        $this->assertSame($keys, array_values(array_unique($keys)));
     }
 }

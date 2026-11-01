@@ -8,6 +8,7 @@ use App\Models\SurveyForm;
 use App\Models\SurveyInvitation;
 use App\Models\SurveyQuestion;
 use App\Models\SurveyResponse;
+use App\Settings\SettingRegistry;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -53,7 +54,9 @@ class SurveyInvitationService
                 'client_email' => $clientEmail,
                 'service_name' => $serviceName,
                 'token_hash' => hash('sha256', $rawToken),
-                'expires_at' => now()->addDays(30),
+                'expires_at' => now()->addDays(
+                    SettingRegistry::int('survey_invitation_expiry_days')
+                ),
             ]);
         });
 

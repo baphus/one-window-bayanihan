@@ -6,6 +6,7 @@ use App\Enums\AuditModule;
 use App\Models\ReferralClientAccessLink;
 use App\Models\ReferralClientRequest;
 use App\Models\User;
+use App\Settings\SettingRegistry;
 use Illuminate\Support\Facades\DB;
 use LogicException;
 
@@ -18,8 +19,6 @@ use LogicException;
 class ReferralClientAccessService
 {
     private const TOKEN_BYTES = 32;
-
-    private const LINK_LIFETIME_DAYS = 7;
 
     /**
      * @return array{link: ReferralClientAccessLink, raw_token: string, expires_at: \DateTimeInterface}
@@ -35,7 +34,9 @@ class ReferralClientAccessService
             $this->assertIssuable($request);
 
             $now = now();
-            $expiresAt = $now->copy()->addDays(self::LINK_LIFETIME_DAYS);
+            $expiresAt = $now->copy()->addDays(
+                SettingRegistry::int('client_link_lifetime_days')
+            );
             $rawToken = rtrim(strtr(base64_encode(random_bytes(self::TOKEN_BYTES)), '+/', '-_'), '=');
 
             // Lock the request row above, then revoke all currently usable

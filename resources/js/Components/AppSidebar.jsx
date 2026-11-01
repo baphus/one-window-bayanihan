@@ -81,15 +81,22 @@ export const navByRole = {
       { name: 'Users', href: '/admin/users', route: 'admin.users.index', icon: 'manage_accounts' },
     ]},
     { label: 'Administration', items: [
-      { name: 'Audit Logs', href: '/audit-logs', route: 'audit-logs.index', icon: 'history' },
       { name: 'Case Statuses', href: '/admin/case-statuses', route: 'admin.case-statuses.index', icon: 'label' },
       { name: 'Case Categories', href: '/admin/case-categories', route: 'admin.case-categories.index', icon: 'topic' },
       { name: 'Case Issues', href: '/admin/case-issues', route: 'admin.case-issues.index', icon: 'feedback' },
       { name: 'Maintenance Mode', href: '/admin/system/maintenance', route: 'admin.system.maintenance', icon: 'construction' },
     ]},
+    // Logs are a category of their own, not an admin setting: the question
+    // "is the system working, and what did it record?" is answered here.
+    { label: 'Monitoring', items: [
+      { name: 'System Health', href: '/admin/system-health', route: 'admin.system-health.index', icon: 'monitor_heart' },
+      { name: 'Audit Logs', href: '/audit-logs', route: 'audit-logs.index', icon: 'history' },
+      { name: 'Security Log', href: '/admin/security-log', route: 'admin.security-log.index', icon: 'shield' },
+      { name: 'Email Logs', href: '/admin/email-logs', route: 'admin.email-logs.index', icon: 'mail' },
+      { name: 'Failed Jobs', href: '/admin/failed-jobs', route: 'admin.failed-jobs.index', icon: 'report' },
+    ]},
     { label: 'Settings', items: [
       { name: 'System Settings', href: '/admin/system-settings', route: 'admin.system-settings.index', icon: 'settings' },
-      { name: 'Security & Auth', href: '/admin/system/security', route: 'admin.system.security', icon: 'security' },
       { name: 'Help Article Feedback', href: '/admin/helpdesk-feedback', route: 'admin.helpdesk-feedback.index', icon: 'thumbs_up_down' },
     ]},
     { label: 'Resources', items: [

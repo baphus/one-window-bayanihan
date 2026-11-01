@@ -3,20 +3,25 @@
 namespace App\Console\Commands;
 
 use App\Services\AuditArchiveService;
+use App\Settings\SettingRegistry;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
 
 class ArchiveAuditLogs extends Command
 {
     protected $signature = 'audit:archive
-                            {--days= : Hot retention period in days (defaults to config audit.retention_days)}
+                            {--days= : Hot retention period in days (defaults to the audit_retention_days setting)}
                             {--dry-run : List eligible periods without archiving}';
 
     protected $description = 'Archive audit log months older than the hot retention window to immutable bundles';
 
     public function handle(AuditArchiveService $service): int
     {
-        $days = (int) ($this->option('days') ?: config('audit.retention_days'));
+        // Resolved per run: the scheduled job must honour a change made from
+        // the admin page without a redeploy.
+        $days = $this->option('days') !== null && $this->option('days') !== ''
+            ? (int) $this->option('days')
+            : SettingRegistry::int('audit_retention_days');
         $cutoff = CarbonImmutable::now()->subDays($days);
 
         $periods = $service->eligiblePeriods($cutoff);

@@ -10,6 +10,7 @@ use App\Mail\UserInviteMail;
 use App\Models\AuditLog;
 use App\Models\User;
 use App\Models\UserInvite;
+use App\Settings\SettingRegistry;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -85,7 +86,7 @@ class UserService
                 'agcy_id' => $this->resolveAgencyId($data),
                 'token' => null,
                 'token_hash' => hash('sha256', $token),
-                'expires_at' => now()->addDays(7),
+                'expires_at' => now()->addDays($this->inviteExpiryDays()),
                 'created_by' => $actorId,
             ]);
 
@@ -117,7 +118,7 @@ class UserService
             $locked->update([
                 'token' => null,
                 'token_hash' => hash('sha256', $token),
-                'expires_at' => now()->addDays(7),
+                'expires_at' => now()->addDays($this->inviteExpiryDays()),
                 'consumed_at' => null,
                 'cancelled_at' => null,
             ]);
@@ -247,6 +248,14 @@ class UserService
                     ->forEntity($user, $user->name)
                     ->module(AuditModule::USER)
                     ->category(AuditCategory::SECURITY)
+                    // These rows previously carried no values at all, so the
+                    // log said "reset a password" without saying whose account
+                    // was touched or why. Forward-only: earlier rows keep their
+                    // original shape, the hash chain is never rewritten.
+                    ->context(null, [
+                        'email' => $user->email,
+                        'sessions_invalidated' => true,
+                    ])
                     ->write();
             }
 
@@ -257,7 +266,7 @@ class UserService
             // Credential change: every existing login must die, including
             // remember-me cookies. Runs after the transaction commits so the
             // admin's own session is not disturbed mid-write.
-            $this->invalidateSessions($user);
+            $this->invalidateSessions($user, 'admin_password_reset');
         }
 
         if ($emailChangeMail !== null) {
@@ -294,7 +303,7 @@ class UserService
             $user->is_active = false;
             $user->delete();
 
-            $this->invalidateSessions($user);
+            $this->invalidateSessions($user, 'admin_deactivated_account');
 
             AuditLogger::deactivateUser()
                 ->byId(auth()->id())
@@ -364,7 +373,7 @@ class UserService
                     ]);
                 }
 
-                $this->invalidateSessions($locked);
+                $this->invalidateSessions($locked, 'admin_purged_user');
 
                 $locked->forceDelete();
 
@@ -372,6 +381,11 @@ class UserService
                     ->byId(auth()->id())
                     ->forEntity($user, $user->name)
                     ->module(AuditModule::USER)
+                    // Previously null. The purge is irreversible and the row is
+                    // the only remaining record of the account, so it now keeps
+                    // the identifiers that survived the delete.
+                    ->context(null, ['email' => $user->email, 'role' => $user->role])
+                    ->category(AuditCategory::SECURITY)
                     ->write();
             });
         } catch (QueryException $e) {
@@ -525,12 +539,15 @@ class UserService
             $target->save();
 
             // Kill active sessions for the target user to force re-login
-            $this->invalidateSessions($target);
+            $this->invalidateSessions($target, 'admin_mfa_reset');
 
             AuditLogger::resetMfa()
                 ->by($admin)
                 ->forEntity($target, $target->name)
                 ->module(AuditModule::MFA)
+                // Previously null: the row named no account, so a 2FA reset was
+                // indistinguishable from any other MFA action in the log.
+                ->context(null, ['email' => $target->email, 'actor_id' => $admin->id])
                 ->write();
 
             return $target;
@@ -560,7 +577,18 @@ class UserService
      * driver. Anything that must terminate live sessions on every driver
      * needs a session store that can be enumerated per user, not this method.
      */
-    public function invalidateSessions(User $user): void
+    /**
+     * How long a staff invitation stays usable.
+     *
+     * Read at issue time, so changing the setting affects invitations issued
+     * afterwards only — existing rows keep the expiry they were created with.
+     */
+    private function inviteExpiryDays(): int
+    {
+        return SettingRegistry::int('staff_invite_expiry_days');
+    }
+
+    public function invalidateSessions(User $user, string $reason = 'unspecified'): void
     {
         $sessionDriver = config('session.driver');
 
@@ -571,10 +599,24 @@ class UserService
             ]);
         }
 
-        DB::table('sessions')->where('user_id', $user->id)->delete();
+        $deleted = DB::table('sessions')->where('user_id', $user->id)->delete();
 
         $user->setRememberToken(Str::random(60));
         $user->save();
+
+        // Forced termination of someone's sessions is a security action and is
+        // now attributed like one. Before this, deleting a colleague's sessions
+        // left no trace at all, while a manual artisan command nobody runs did.
+        AuditLogger::revokeSessions()
+            ->byId(auth()->id())
+            ->forEntity($user, $user->name)
+            ->module(AuditModule::SESSION)
+            ->context(null, [
+                'reason' => $reason,
+                'old_session_count' => $deleted,
+                'session_driver' => $sessionDriver,
+            ])
+            ->write();
     }
 
     private function resolveAgencyId(array $data): ?string

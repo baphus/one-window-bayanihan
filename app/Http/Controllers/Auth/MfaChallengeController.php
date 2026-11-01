@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\MfaChallengeRequest;
+use App\Models\User;
 use App\Services\MfaPendingState;
 use App\Services\MfaService;
 use Illuminate\Auth\Events\Failed;
@@ -58,7 +59,11 @@ class MfaChallengeController extends Controller
             }
             $attempts = (int) $request->session()->get('mfa_pending_attempts', 0) + 1;
             $request->session()->put('mfa_pending_attempts', $attempts);
-            event(new Failed('web', null, ['mfa' => true]));
+            // Identify the challenged account if the pending state still knows
+            // it, so a failed MFA row is attributable. LogFailedLogin reads this
+            // flag and records an MFA row instead of an anonymous login failure.
+            $challenged = User::find($pending['user_id'] ?? null);
+            event(new Failed('web', $challenged, ['mfa' => true, 'email' => $challenged?->email]));
             if ($attempts >= config('mfa.max_attempts')) {
                 app(MfaPendingState::class)->clear($request);
                 throw ValidationException::withMessages(['code' => 'Too many MFA attempts. Please sign in again.']);
