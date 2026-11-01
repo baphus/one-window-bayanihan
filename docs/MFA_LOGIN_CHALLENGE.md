@@ -5,3 +5,5 @@ There is no `MFA_LOGIN_CHALLENGE_ENABLED` flag in the codebase. The challenge ru
 The challenge page (`resources/js/Pages/Auth/MfaChallenge.jsx`) submits `code` to either `POST /login/mfa/totp` or `POST /login/mfa/recovery`, or `POST /login/mfa/cancel`. Successful requests redirect to the original intended URL (and retain the login `remember` choice) (`app/Http/Controllers/Auth/MfaChallengeController.php:70-84`). Failed requests return normal Laravel validation errors (422 for JSON clients). The show endpoint returns `{expires_in}` for JSON clients and otherwise renders `Auth/MfaChallenge` (`app/Http/Controllers/Auth/MfaChallengeController.php:20-26`).
 
 Recovery codes are only returned by the enrollment and explicit password-confirmed regeneration endpoints. Recovery-code retrieval is not a GET operation.
+
+Production policy includes OFW as well as staff. The admin `two_factor_required` database toggle is inert: it does not bypass enrollment, challenge, or the production disable prohibition. See config/mfa.php and CheckMfaEnrolled for enforcement.

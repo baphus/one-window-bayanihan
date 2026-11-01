@@ -8,7 +8,7 @@ assignees: ''
 ---
 
 ## Environment
-- **Staging URL:** https://bayanihan-staging.onrender.com
+- **Staging URL:** [URL supplied by environment owner]
 - **Test User Role:** [Admin / Case Manager / Agency]
 - **Browser:** [Chrome / Edge / Firefox] + Version
 - **OS:** Windows
@@ -38,4 +38,4 @@ assignees: ''
 
 ---
 
-**Note:** To reset staging data, comment `@bayanihan reset-staging` or wait for daily 2 AM UTC reset.
+**Note:** No staging deploy/reset workflow or reset-comment bot is configured here. Ask the environment owner before a reset; StagingSeeder truncates business data and requires an approved disposable environment.

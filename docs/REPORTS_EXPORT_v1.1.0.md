@@ -57,7 +57,7 @@ Suppression is reported on the cover, the Report Info sheet, and the provenance 
 
 ### Export audit trail
 
-Every export writes `AuditAction::EXPORT` rows against the data-export module at **attempt and again at outcome** (`COMPLETED` or `BLOCKED`), joined by one correlation ID per request. Recorded: actor, role, format, complete filter set, matched volumes, suppression status, IP, user agent, correlation ID. The PDF renders via `output()` *before* the outcome row is logged, so a render failure is never recorded as `COMPLETED`. The audit payload contains no client-identifying data, because the exports do not.
+Each Reports PDF/Excel export writes `AuditAction::EXPORT` rows against the data-export module at **attempt and again at outcome** (`COMPLETED` or `BLOCKED`), joined by one correlation ID per request. Recorded: actor, role, format, complete filter set, matched volumes, suppression status, IP, user agent, correlation ID. The PDF renders via `output()` *before* the outcome row is logged, so a render failure is never recorded as `COMPLETED`. The audit payload contains no client-identifying data, because the exports do not.
 
 ### Pre-flight guards
 
@@ -72,7 +72,7 @@ Deliberately **not** done: raising `memory_limit`/`max_execution_time` at runtim
 
 ## 5. Related Export Surfaces (Not These Routes)
 
-- `GET /cases/export-excel`, `/clients/export-excel`, `/referrals/export-excel`, `/feedbacks/export-excel`, and their `export-count` companions share `DataExportService` (conditional-formatting banding, sampled column widths, streamed download). Column-width/style changes there affect all of them.
+- `GET /cases/export-excel`, `/clients/export-excel`, `/referrals/export-excel`, and their `export-count` companions share `DataExportService` (conditional-formatting banding, sampled column widths, streamed download). Column-width/style changes there affect all of them. Unlike Reports exports, these entity controllers write one audit entry before generation; they do not record a completed outcome.
 - `GET /audit-logs/export` (`AuditLogController@export`) is admin-only (controller-enforced), capped at `AUDIT_EXPORT_MAX_ROWS` (**100,000**) with strict date validation and formula-injection neutralization.
 - `/api/readyz` includes an `image_rendering` check, and the image build asserts GD/FreeType capability plus a real chart render — the regression net for the original PDF outage class. After deploy, confirm `image_rendering: ok` and run one real PDF export.
 

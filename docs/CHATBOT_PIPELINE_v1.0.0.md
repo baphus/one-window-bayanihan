@@ -2,7 +2,7 @@
 
 > **Version:** 1.0.0 | **Updated:** 2026-09-15 | **Source:** `app/Http/Controllers/ChatbotController.php`, `app/Services/Chatbot/` (11 services), `app/Http/Requests/ChatbotMessageRequest.php`, `config/ai-chatbot.php`, `config/ai.php`
 >
-> **Supersedes:** `docs/CHATBOT_AGENT.md` (retained as history). That document describes the same architecture; this record is now the authoritative reference for the request pipeline, the eleven services, the configuration surface, and the verification procedure.
+> **Supersedes:** `docs/CHATBOT_AGENT.md` (retained as history). That document is historical. Current conversation wiring below distinguishes the active model/tool path from supporting legacy classes.
 
 ## 1. Request Path
 
@@ -20,13 +20,15 @@ POST /chatbot/message
 1. **The payload** — `message` (string, ≤ 1,000 chars), optional `history` (≤ 20 `{role: user|bot, text}` entries, each ≤ 1,000 chars), optional `lastContext` (`source_type`, `source_label`, `article_title`). `lastContext` is treated as a *hint*, never as evidence.
 2. **The audience** — `ChatbotAudience::forUser($request->user())` resolves guest vs. authenticated role server-side. The client never declares who it is; role transitions must clear client-side chat state (see §6).
 
-## 2. The Eleven Services
+## 2. Conversation Wiring and Supporting Services
+
+Current `ChatbotConversationService` directly injects `ChatbotKnowledge` and `ChatbotResponse`, handles greetings, builds recent history and an authorized article hint, then prompts `HelpdeskAgent` with `SearchHelpdesk` and `ReadHelpdeskArticle`. A fresh `ChatbotTurn` owns evidence and budgets. The list below includes supporting/legacy classes; their existence does not mean every class participates in this request path.
 
 | # | Service | Responsibility |
 |---|---------|----------------|
 | 1 | `ChatbotAudience` | Server-side audience resolution (guest / role). Entry point for all permission filtering. |
 | 2 | `ChatbotKnowledge` | Filters the cached helpdesk corpus by audience; ranks weighted token/phrase matches. No vector store, no embeddings. |
-| 3 | `ChatbotConversationService` | Turn orchestration: normalize → intent → guide/retrieve → respond → suggestion. Owns the model-step/tool-call budgets and the 45-second deadline. |
+| 3 | `ChatbotConversationService` | Builds model history and tools, invokes the agent, assembles the response and handles provider failures; applies the per-turn deadline. |
 | 4 | `ChatbotIntentService` | Classifies the turn (question, greeting, clarification-seeking, unsupported, helpdesk navigation). Decides tool vs. canned path. |
 | 5 | `ChatbotGuideService` | Quick-help buttons and guided flows. Uses the same tool pipeline as free text — buttons are not a bypass. |
 | 6 | `ChatbotResponse` | Builds the response envelope; rejects unknown/forged evidence IDs; emits canonical source links. Provenance is validated in code. |
@@ -34,20 +36,20 @@ POST /chatbot/message
 | 8 | `ChatbotHelpdeskService` | Helpdesk tool implementations: `SearchHelpdesk` (candidates) and `ReadHelpdeskArticle` (records successfully read content in a per-turn evidence registry). |
 | 9 | `ChatbotRetrievalService` | Retrieval policy: candidate selection, per-turn evidence registry, article-hint revalidation (hints never count as evidence). |
 | 10 | `ChatbotSuggestionService` | Follow-up suggestions attached to `actions`. Suggestions carry no evidence weight. |
-| 11 | `ChatbotTurn` | Per-turn value object: validated input, resolved audience, evidence registry, budgets consumed. Evidence never leaks across turns. |
+| 11 | `ChatbotTurn` | Per-turn evidence registry, deadline and tool/content budgets. Validated input and audience are supplied separately by the conversation service. |
 
 Supporting rule: only content **actually read and selected as support during the turn** may be cited. `SearchHelpdesk` candidates that were never read, client-supplied `lastContext` hints, and suggestion content are not evidence. There is no vector-confidence score anywhere in the output; search rank is not presented as confidence.
 
 ## 3. Retrieval Model: Weighted Token Match Over a Cached Corpus
 
-There is **no vector database, no embedding service, and no SQLite FTS5** — all three were retired (the historical vector migrations remain in the migration history as no-op identities so existing databases keep working; fresh installs need only plain PostgreSQL, and already-migrated databases retain their unused embedding table/extension — no shared extension or business data is dropped, and removing old embedding data is a separate maintenance decision).
+There is **no vector database, embedding service or SQLite FTS5** in the current path. Fresh databases load the PostgreSQL schema baseline and post-squash migrations; retired migration files are not required. Keyword ranking retrieves evidence for the language-model agent, not final answers. Existing database contents must be inspected before any separate cleanup.
 
 How retrieval works:
 
 1. `php artisan chatbot:index` parses helpdesk content and warms the cache. File content hashes invalidate cached parsing, including same-size edits. Directory (agency) records are read directly, never cached.
 2. `ChatbotKnowledge` filters the cached corpus to the current audience, then ranks **weighted token/phrase matches** (title/heading weight exceeds body weight; exact-phrase matches outrank scattered tokens).
 3. `SearchHelpdesk` returns ranked candidates; `ReadHelpdeskArticle` reads the selected sections and registers them as turn evidence.
-4. Public agency facts come from a separate read-only directory tool (`GetAgencyServices`), recorded as directory evidence with a null URL and a directory label — distinct from article evidence.
+4. The current conversation service gives the model agent `SearchHelpdesk` and `ReadHelpdeskArticle`. Do not assume a tool class is enabled in the conversation merely because it exists.
 5. Generation history is capped at the six most recent messages. Article hints are revalidated every turn.
 
 The chatbot cannot access private cases and cannot change application records. It has no write tools.
@@ -91,7 +93,7 @@ The provider key comes from the selected provider's server-side entry in `config
 ## 7. Refresh, Rollback, and Migration Notes
 
 - `php artisan chatbot:index` refreshes parsed helpdesk content. Old command and admin action names remain compatible; none call an embedding service.
-- Rollback to a previous app version on an existing database can reuse the retained embedding infrastructure and previous configuration. A fresh install lacks that infrastructure: disable the chatbot when reverting until a compatible version is restored. Keep application rollback separate from business-data migrations.
+- Keep application rollback separate from business-data migrations. Do not assume retired embedding infrastructure exists in a current database; verify compatibility before reverting the application.
 
 ## 8. Verification and Release
 

@@ -1,8 +1,8 @@
 # One Window Bayanihan — System Description
 
 > **Document:** 01 — System Description (System Analysis and Design series)
-> **Version:** 1.1.0
-> **Date:** 2026-10-11
+> **Version:** 1.2.0
+> **Date:** 2026-11-01
 > **Status:** CURRENT
 > **Audience:** DICT reviewers, capstone panelists, and business stakeholders
 > **Note:** Written for non-technical readers. Infrastructure is described by capability, never by hosting vendor.
@@ -53,7 +53,7 @@ Distressed-OFW case handling traditionally spans several government offices, for
 ## 3. Objectives
 
 1. **Single entry point** — one case file per OFW, regardless of how many agencies must help. **Available**
-2. **Controlled case lifecycle** — drafts, review, publish, close, archive, and removal, with each step allowed only when its conditions are met. **Available**
+2. **Controlled case lifecycle** — a filing waits for review, then becomes open on approval or rejected with a reason; open cases close, archive, and are removed after retention, with each step allowed only when its conditions are met. **Available**
 3. **Predictable inter-agency referral** — the Case Manager sends the referral with the OFW's documents attached, the receiving agency picks the service from its own list, and the referral then follows a fixed path: pending → processing or waiting on the client → completed or rejected, with no skipped steps. **Available**
 4. **Client self-service with an account** — filing requires creating an account and signing in; tracking is public via tracking number plus email code, and also visible in the portal for a signed-in OFW; 7-day private links remain for document requests. **Available**
 5. **Accountability** — every significant action is recorded in an audit trail; audit records are archived into tamper-evident bundles and integrity-checked. **Available**
@@ -66,7 +66,7 @@ Distressed-OFW case handling traditionally spans several government offices, for
 |---|---|---|---|
 | **DMW Case Manager** | DMW Region VII staff handling distressed-OFW cases | Create and own case files, review self-filed intakes, send referrals with the OFW's documents attached, close cases, view reports | Available |
 | **Partner agency staff** | Staff of OWWA, DOLE, TESDA, DSWD, DOH, law centers, LGUs | Pick the service for a referral from their own list of available services, work referred cases, update progress, ask clients for documents, message other agencies, design survey forms | Available |
-| **System administrator** | Operators of the system | Manage users, partner agencies, reference lists (categories, statuses), settings, logs, data export, audit viewing | Available |
+| **System administrator** | Operators of the system | Manage users, partner agencies, reference lists (categories, statuses), settings, maintenance mode; view and export the audit trail; monitor system health, email delivery, failed jobs, and security events | Available |
 | **OFW / next of kin (registered)** | The worker or a family member with a personal account | See their own cases, agency milestones, notifications, and personal profile | Available |
 | **OFW / family member (no account)** | Anyone on the public internet | Read help, contact DMW, answer document requests via a private link, take a survey, use the helpdesk | Available |
 
@@ -83,27 +83,27 @@ Heavy work — sending emails, preparing notifications, generating reports, issu
 | Feature | What it does for the business | Status |
 |---|---|---|
 | Unified case file | One case per OFW no matter how many agencies are involved ("One OFW, One Entry"). | Available |
-| Case lifecycle control | Draft, review, publish, close, archive, and remove cases — each step only when its conditions are met. | Available |
+| Case lifecycle control | File, review and approve or reject, work, close, archive, reopen, trash, and remove cases — each step only when its conditions are met. Cases are created for review rather than saved as drafts. | Available |
 | Inter-agency referral | Route a case to a partner agency; the receiving agency picks the service from its own list, and the referral then follows a fixed status path (pending, processing, waiting on client, completed, rejected). | Available |
 | Public self-filing | OFWs or families open a case online after creating an account and signing in (with verification and two-step where required). | Available |
 | Intake review queue | Case Managers review self-filed requests and either take them up or decline, notifying the filer. | Available |
-| Overdue referral watch | Referrals idle past a set period (7 days by default) appear on an administrator's dashboard for manual follow-up. | Available |
+| Overdue referral watch | Referrals idle past a set period (7 days by default) appear on the overdue-referrals page, visible to Case Managers and Administrators across the office and to agency staff for their own referrals, for manual follow-up and reminders. | Available |
 | Agency-to-agency messaging | A private conversation per case between two partner agencies. | Available |
 | Document request inbox | Agencies ask clients for specific documents or answers through a private link that expires after 7 days. | Available |
 | Public case tracking | Anyone with the tracking number and email access checks progress on the public tracker with an email code; a signed-in OFW also sees it in the portal (tracker number shown on the filing receipt). | Available |
 | Account before filing | A new visitor creates a personal account and signs in before filing a case. | Available |
 | OFW personal portal | Registered OFWs see their own cases, agency milestones, notifications, and profile. | Available |
-| Notifications | In-app notices plus emails at key events (new intake, status change, document request, milestone). | Available |
+| Notifications | In-app notices plus emails at key events (status change, document request, milestone). A new intake is announced to the filer and to Case Managers by email; filing itself creates no in-app intake notice. | Available |
 | Satisfaction survey | When a referral completes, the client is invited (30-day link) to rate that agency's service. | Available |
 | Reports and exports | Operational dashboards plus management exports in PDF and Excel. | Available |
 | Audit trail | Every significant action is recorded; records are archived monthly and integrity-checked; kept one year by default. | Available |
 | Secure document handling | Uploads are checked for malware and file type before storage; if the checker is unavailable, uploads are still accepted (see §13). | Partly available |
 | Sign-in security | Email and password plus a multi-factor code, attempt limits, and recovery options; administrators can reset it. | Available |
-| Email verification codes | Short-lived codes for public filing, tracking, and email changes. | Available |
-| Email delivery tracking | The system records whether emails were actually delivered; staff can resend. | Available |
+| Email verification codes | Short-lived codes for confirming a new citizen registration, tracking and document-request access, and staff email changes. | Available |
+| Email delivery tracking | The system records every outbound message and the delivery events the provider reports; administrators read them on an email-log page with filters and per-message detail. Resending from the app is not offered. | Available |
 | Helpdesk and chat assistant | Help pages plus a chat assistant for common questions; the assistant is switched off by default until enabled. | Partly available |
 | Guided start for new staff | A short post-login checklist; dismissible at any time. | Available |
-| Public contact form | Public enquiries routed to a configured recipient, with abuse protection built in; the bot check is currently off by default. | Available |
+| Public contact form | Public enquiries routed to a configured recipient, with abuse protection built in; the bot check is currently off by default. | Partly available |
 
 ## 7. Technology in brief
 
@@ -114,7 +114,7 @@ The system runs as a single packaged application on a central server, using an o
 - **The browser experience** — everything a user does happens in an ordinary web browser; nothing needs to be installed on the user's device. **Available**
 - **The central server** — verifies identity and role at every step, enforces the rules of each process (who may act, what must be true before a step proceeds), holds the authoritative record, writes the audit trail, and serves all three user experiences. **Available**
 - **Background processing** — sends emails and notifications, generates reports, and prepares survey invitations without slowing down the screens staff and clients are using. **Available**
-- **Scheduled housekeeping** — nightly and weekly routines: permanent removal of trashed cases after the retention window, audit archiving and integrity checks, cleanup of unused files, and log rotation. **Available**
+- **Scheduled housekeeping** — nightly and weekly routines: permanent removal of trashed cases after the retention window, audit archiving and integrity checks, cleanup of unused files, and trimming of old application logs. **Available**
 
 ## 9. Data approach
 
@@ -150,9 +150,9 @@ No credentials, keys, or secrets are described in this document; all are configu
 
 **Overall: implemented and operational-grade.** **Available**
 
-- The full journey works end to end: intake → draft → publish → referral → the agency picks its service → client compliance → completion → survey → closure → archive → removal, each step with audit records and notifications.
+- The full journey works end to end: registration → intake pending review → approval → referral → the agency picks its service → client compliance → completion → survey → closure → archive → removal, each step with audit records and the notifications described in §6.
 - Security is hardened in depth: multi-factor sign-in with attempt limits, private expiring links instead of public file addresses, protections against guessing and abuse on every public form.
-- Operations tooling exists: system readiness check, log viewing, maintenance mode, audit integrity verification, orphan cleanup, and retention removals.
+- Operations tooling exists: a system readiness check plus an administrator monitoring area (system health, email delivery log, failed jobs with retry, security log), maintenance mode, audit integrity verification, orphan cleanup, and retention removals. An in-app viewer of the application log files is not offered.
 
 **Gaps in evidence, not necessarily in the product** — **To be confirmed:** live deployment state, independent penetration-test results, load-test results, and accessibility conformance results.
 
@@ -160,12 +160,12 @@ No credentials, keys, or secrets are described in this document; all are configu
 
 Framed as business risks and questions for the project team:
 
-1. **Helpdesk chat assistant — which story is current?** The assistant is switched off by default, and two different descriptions of how it answers (simple keyword matching vs. AI-assisted) exist in project documentation. Confirm the intended external description before publication. **To be confirmed**
+1. **Helpdesk chat assistant — how it answers.** The assistant uses a language model that answers only from the help articles, ranking them by keyword match; it is switched off by default until enabled. Project documents that still call it "keyword matching" describe its retrieval, not its answering. Confirm the intended external wording before publication. **Available**
 2. **Document scanning fails open.** If the malware checker is unavailable, uploads are still accepted. For a casework system handling personal documents, confirm this is the intended policy, or whether uploads should be blocked instead. **To be confirmed**
 3. **No separate trial environment.** Production releases are manual and gated by typing a confirmation phrase; there is no staging environment for a dry run. Confirm whether one is planned. **To be confirmed**
 4. **Accessibility conformance not yet demonstrated.** Accessibility requirements exist as a document, but no conformance test results are on record — relevant to government accessibility expectations. **To be confirmed**
 5. **No independent security or performance test results on record.** Penetration and load testing have not been evidenced. **To be confirmed**
-6. **Overdue referral reminders are manual.** Idle referrals surface on a dashboard, but someone must send the reminder; the process relies on partner agencies keeping accounts active and responding. **Available** (risk is organizational)
+6. **Overdue referral reminders are manual.** Idle referrals surface on the overdue-referrals page, but someone must send the reminder; the process relies on partner agencies keeping accounts active and responding. **Available** (risk is organizational)
 7. **Database version split.** The version used in local development differs from the version used in automated checks; confirm one target version for production. **To be confirmed**
 8. **Scope of this document.** This is a descriptive baseline for review. It does not replace the detailed architecture, information-model, or security documents; where those are more specific, treat them as authoritative. **Available**
 

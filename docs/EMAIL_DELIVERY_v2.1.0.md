@@ -18,9 +18,10 @@ Before the MVP goes to production the project must have:
 5. **Delivery observability** — provider-side delivery logs, the application's own
    `email_logs` table, and provider delivery events reconciled into it (§7).
 
-This is a hard MVP dependency, not a nice-to-have: login OTP, MFA, account
-lifecycle, referral notifications, and feedback invitations are all email-gated.
-If mail does not deliver, users cannot authenticate.
+This is a hard MVP dependency, not a nice-to-have: registration review, password recovery, account invitations, tracking access,
+referral notifications and feedback invitations depend on email. Staff login uses
+password plus authenticator/recovery codes, not email OTP. Mail failure alone does
+not prevent an already-enrolled user from signing in.
 
 ## 2. Transport selection
 
@@ -225,8 +226,11 @@ replace it. A retried `email.sent` arriving after `email.bounced` therefore
 cannot report a bounced message as sent. Terminal outcomes (bounce, complaint)
 outrank informational ones.
 
-`sent` is **not** a success state and is not styled as one in the admin UI. Only
-`delivered` is confirmed.
+`sent` means provider acceptance, not confirmed delivery. `delivered` confirms
+acceptance by the recipient mail server, not inbox placement or reading. The
+resend routes are retired. Administrators read status, error, and provider
+events on the email-log page (`/admin/email-logs`); operator log files remain
+infrastructure-side.
 
 ### 7.5 Retention
 

@@ -1,5 +1,8 @@
 # System and Service Profile — One Window Bayanihan
 
+> **Evidence boundary (2026-11-01):** Dated findings below preserve assessment snapshots, not live-deployment or compliance assurance. Current corrections: production MFA covers every role; central audit is ADMIN-only with separate scoped staff activity; malware scanning defaults to disabled and fail-open; selected PII is encrypted but client names/email/phone are not. IP-whitelist middleware is removed. Proxy trust needs framework and ingress-hop review, not an assumed exploit. See [current security requirements](../SECURITY_REQUIREMENTS_v2.2.0.md) and [audit access](../AUDIT_STRATEGY_v2.2.0.md). Approval and control-operation evidence remain external.
+
+
 | Field | Value |
 |---|---|
 | Document | System & Service Profile |
@@ -45,8 +48,8 @@ Evidence: `database/migrations/0001_01_01_000000_create_framework_tables.php:16`
 
 | Role | Scope | Enforcement |
 |---|---|---|
-| `ADMIN` (privileged) | Exclusive `/admin/*` and `/admin/system/*`; passes every RLS policy (by policy, not by a DB bypass) | `role:ADMIN` + `ip.whitelist` middleware (`routes/web.php:245`) |
-| `CASE_MANAGER` | Owns cases, clients, documents, scoped audit logs | `role` middleware + in-controller ownership checks |
+| `ADMIN` (privileged) | Exclusive `/admin/*` and `/admin/system/*`; passes every RLS policy (by policy, not by a DB bypass) | Current ADMIN group in routes/web.php; no IP-whitelist middleware |
+| `CASE_MANAGER` | Owns cases, clients, documents, scoped activity | `role` middleware + in-controller ownership checks |
 | `AGENCY` | Scoped to referrals for their `agcy_id` | `role` middleware + `authorizeReferralAccess` |
 | `OFW` (end user) | Own portal `/my-cases/*` (own case milestones, notifications, profile) | `role:OFW` middleware (`routes/web.php:445-452`) |
 
@@ -119,7 +122,7 @@ Extensive OFW PII, regulated under RA 10173:
 - **cases:** `consent_given_at`, `vulnerability_indicator`, `nok_vulnerability_indicator`, `escalation_reason`, `draft_client_data` (JSONB raw PII), tracker number, summary — `:35-64`.
 - **users:** name, email, bcrypt password (rounds 12), contact number, position/department/office, `emergency_contact`, `mfa_secret`, `mfa_recovery_codes` — migration `0001_...:11-41`.
 - **case_documents / referral_attachments:** uploaded ID/contract documents (most sensitive payload) — private object storage.
-- **survey forms / responses / invitations:** ratings + free-text (successor to the retired `feedback` tables, whose schema rows still exist); **email_logs:** recipient email; **sessions:** IP + user agent; **audit_logs:** old/new JSONB (User PII fields excluded via `$auditExclude`).
+- **survey forms / responses / invitations:** ratings + free-text (successor to the retired `feedback` tables, whose tables have been retired); **email_logs:** recipient email; **sessions:** IP + user agent; **audit_logs:** old/new JSONB (User PII fields excluded via `$auditExclude`).
 
 ## 9. Data flows and trust boundaries
 
@@ -127,7 +130,7 @@ Extensive OFW PII, regulated under RA 10173:
 
 **Authenticated boundary:** everything under `auth` + `verified` (`routes/web.php:62`); session-authenticated internal API under `/api/clients*` (`routes/web.php:432-437`).
 
-**Admin boundary:** `/admin/*` requires `role:ADMIN` **+ `ip.whitelist`** (`routes/web.php:245`) — IP-restricted admin console. Note: the allowlist is config-gated and **disabled by default** (`config/auth.php` → `auth.ip_whitelist.enabled = env('AUTH_IP_WHITELIST_ENABLED', false)`).
+**Admin boundary:** Current admin routes require ADMIN, with specific read-only agency-detail exceptions declared separately. No IP-whitelist alias or middleware remains. Central audit routes are ADMIN-only; staff use scoped activity routes.
 
 **Database trust boundary:** Postgres Row-Level Security exists but is **only enforced on 7 tables**. `FORCE ROW LEVEL SECURITY` is set on the referral-client inbox/message tables (`agency_thread_reads`, `referral_messages`, `referral_client_requests`, `referral_client_request_items`, `referral_client_messages`, `referral_client_message_attachments`, `referral_client_access_links`), so the policies bind those tables for every role including the owner. The 11 core PII tables (`cases`, `clients`, `client_addresses`, `client_employments`, `next_of_kin`, `referrals`, `milestones`, `referral_attachments`, `referral_comments`, `case_documents`, `case_notifications`) have RLS *enabled* with admin-bypass / case-manager-owns / agency-scoped-by-referral policies, but **not forced**: the runtime connects as a role that owns these tables, so the policies are bypassed and PII isolation is application-level only (`role:` middleware + controller ownership checks + `agcy_id` query scoping). Context is set per-request by `SetPostgresSession` (parameterized `set_config`, `app/Http/Middleware/SetPostgresSession.php:35-44`); this is what makes the forced tables effective, and it also **requires a direct DB connection (not PgBouncer transaction mode)**. Decision record: `docs/security/rls-posture-decision-v1.0.0.md`.
 

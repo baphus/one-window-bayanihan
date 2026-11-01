@@ -1,5 +1,8 @@
 # ISO Alignment — Executive Summary
 
+> **Evidence boundary (2026-11-01):** Dated findings below preserve assessment snapshots, not live-deployment or compliance assurance. Current corrections: production MFA covers every role; central audit is ADMIN-only with separate scoped staff activity; malware scanning defaults to disabled and fail-open; selected PII is encrypted but client names/email/phone are not. IP-whitelist middleware is removed. Proxy trust needs framework and ingress-hop review, not an assumed exploit. See [current security requirements](../SECURITY_REQUIREMENTS_v2.2.0.md) and [audit access](../AUDIT_STRATEGY_v2.2.0.md). Approval and control-operation evidence remain external.
+
+
 | Field | Value |
 |---|---|
 | Version | v1.0.0 · Date 2026-07-08 |
@@ -38,14 +41,14 @@
 1. **File-upload security pipeline** — ClamAV scan + content-based `finfo` MIME sniffing + extension/size allowlist + UUID filenames + private disk with signed URLs, tested (`StorageService.php`; P-01).
 2. **Object-level authorization in sensitive controllers** — ownership re-checks returning 404-not-403, with cross-tenant IDOR explicitly tested (`AuthorizationGapTest`; P-04).
 3. **Append-only audit table enforced by a database trigger** — real, DB-layer tamper-evidence (migration trigger; P-02), plus recursive sensitive-value redaction (P-03).
-4. **Defense-in-depth request security** — CSRF everywhere (no exceptions), parameterized SQL (no SQLi found), mass-assignment discipline, dompdf hardened, CSV formula-injection neutralized, seven named rate limiters + nginx edge limits (P-07…P-13).
+4. **Defense-in-depth request security** — CSRF everywhere (no exceptions), parameterized SQL (no SQLi found), mass-assignment discipline, dompdf hardened, CSV formula-injection neutralized, 32 named rate limiters + nginx edge limits (P-07…P-13).
 5. **Requirements traceability & backend test suite** — `REQUIREMENTS_TRACEABILITY.md` (354 requirements → implementation → verification) and 129 test files (~984 passing) against a production-parity PostgreSQL CI (P-15).
 
 ## Ten highest-priority gaps
 1. **[Critical] Public self-registration grants the `CASE_MANAGER` staff role** — any internet user can self-verify into staff-level access to OFW PII (TECH-001).
 2. **[High] Deactivated/soft-deleted users can still log in** — access revocation is ineffective (TECH-002).
 3. **[High] MFA is never enforced, even for administrators** (TECH-003).
-4. **[High] `trustProxies('*')` lets X-Forwarded-For spoofing bypass the admin IP allowlist and rate limits** (TECH-005).
+4. **Forwarded-header trust needs deployment verification** (TECH-005). Bootstrap splits the deploy wildcard into an array; review framework parsing and ingress hops. No current application IP whitelist exists; no exploitable bypass is established by configuration alone.
 5. **[High] Audit trail incomplete** — failed logins, logouts, and PII exports are unlogged; the "hash chain" never computes a hash (TECH-006, TECH-007).
 6. **[High] Backup is single-vendor with no offsite copy and no tested restore** (TECH-008).
 7. **[High] No PR-gated CI, and no lint/SAST/dependency/secret scanning** — code deploys before verification (TECH-009).

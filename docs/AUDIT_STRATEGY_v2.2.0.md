@@ -6,6 +6,8 @@
 
 ## Changelog
 
+> **Current access correction (2026-11-01):** Central audit routes are ADMIN-only. CASE_MANAGER/AGENCY have a separate scoped activity viewer. The dated access assertions in this changelog are historical; see the current access section below.
+
 **2.2.1 (2026-10-03)** — verification numbers refreshed and v2.1.0's access-control
 statement corrected (no schema or code change):
 
@@ -62,7 +64,15 @@ Applied recursively by `AuditLog::redact()` from the `saving` hook, over `old_va
 
 The shared `resources/js/lib/audit.jsx` (`ACTION_STYLES`, `CATEGORY_LABELS`, `getActivityType`, `getEntityLabel`, `ChangesTable`, `normalizeAuditLog`) is the only place these render. Reads use `formatted_module || module`; `getActivityType`/`getEntityLabel` accept either a raw module or a label, so the views are robust to either shape. The contract has no camelCase `formatted*` keys — read the snake_case fields above.
 
-## Access control (corrects v2.1.0)
+## Access control (current correction, 2026-11-01)
+
+The central `/audit-logs` viewer, export, and actor-options routes are ADMIN-only. CASE_MANAGER and AGENCY use `/activity` and scoped case/referral activity endpoints, implemented by `ActivityController`. The historical shared-viewer table below no longer describes current routes.
+
+Reports record `ATTEMPTED` after preflight, `BLOCKED` when oversized, and `COMPLETED` or `FAILED` around PDF/Excel generation. Preflight failures before the attempt write and process termination before an outcome write are not covered. Case, client, and referral exports write before generation without separate outcome records. Audit entries do not prove a file was downloaded.
+
+In-app application-log viewers, resend UI, and the admin full-data workbook have been removed. Administrator Monitoring pages now exist for system health, email delivery (`/admin/email-logs`, with provider delivery events), failed jobs (with retry), and a security log drawn from the audit trail; operator log files and mail-delivery webhook ingestion remain separate capabilities.
+
+### Historical access snapshot (superseded)
 
 | Role | Viewer | Export |
 |---|---|---|

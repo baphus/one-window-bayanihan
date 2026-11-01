@@ -1,5 +1,8 @@
 # September 2026 website scanner remediation
 
+> **Historical archive:** Preserve dated observations below as recorded, not current implementation claims. For current behaviour, start with [System Analysis and Design](system-analysis-and-design/README.md) and verify source, routes, schema, and configuration. This record does not establish live deployment or compliance assurance.
+
+
 The September 1 light scan reported three low-risk and two informational findings.
 It did not test SQL injection, XSS, command injection, or other deep scan checks.
 

@@ -2,6 +2,7 @@
 
 > **Source:** SRS v1.2 (May 19, 2026) — Requirements Traceability Matrix gaps
 > **Last Updated:** 2026-05-28
+> **Historical planning snapshot:** requirement totals, completion percentages, estimates and proposed screens below describe the May SRS review, not current implementation status. Verify open work against current code and issues. In particular, the chatbot now uses a language-model agent with keyword-ranked retrieval tools; draft/publish and several admin surfaces have since been retired.
 
 ---
 

@@ -1,70 +1,56 @@
 # System Architecture — High-Level with Services
 
-> **Version:** 9.6.0 | **Updated:** 2026-10-02 | **Audience:** DICT + general reviewers
-> **Note:** earlier drafts v1–v8 were removed; this file is the single current copy.
-> **Scope:** Production. Single container on AWS Lightsail. No Redis.
+> **Version:** 9.6.0 | **Reconciled:** 2026-11-01 | **Audience:** DICT + general reviewers
+> **Scope:** Application capabilities and configurable infrastructure, not a verified inventory of a live deployment.
+> **Sources:** `Dockerfile`, `docker/supervisord.conf`, `docker-compose.yml`, `config/`, `resources/js/app.tsx`, current routes and services. Earlier environment-specific assumptions are superseded by this capability view.
 
 ## Diagram
 
 ```mermaid
 flowchart TB
-  subgraph USERS["People"]
-    P["Browser — public, OFW,\nDMW staff, agency focal users"]
-  end
-
-  subgraph APP["Application — one container"]
-    WEB["Web app dmw7.owbap.app — pages,\nlogin with MFA, cases, referrals, dashboards"]
-    WORK["Background worker — Laravel queue worker\n+ scheduler: sends mail, reminders,\naudit sealing, nightly cleanup"]
-  end
-
-  subgraph DATA["Data — AWS + Cloudflare"]
-    DB[("AWS Lightsail managed PostgreSQL\nrecords, logins, job lists, audit trail")]
-    FILES[("Cloudflare R2 object storage\ncase documents, photos")]
-    ARCH[("Cloudflare R2 — audit archive bucket\nsealed audit bundles, checksum-verified\nold entries pruned only after archiving")]
-  end
-
-  subgraph SERVICES["External services"]
-    MAIL["Resend — sends email,\nreports bounces back"]
-    IMG["Cloudinary CDN — serves profile photos,\nagency logos"]
-    AI["Gemini — AI chatbot answers\ngemini-3.5-flash-lite"]
-    BOT["Cloudflare Turnstile — blocks bots at login"]
-    ERR["Sentry — error tracking and monitoring\napp + browser"]
-  end
-
-  subgraph PLATFORM["Hosting + backups — AWS Singapore (Lightsail)"]
-    HOST["Lightsail container\nweb server + app + worker"]
-    SHIP["CI/CD — GitHub Actions\ntests on PR, manual image build,\nmanual release to production"]
-    BK[("Lightsail database snapshots\npre-deploy snapshot per release\n+ automated DB backups")]
-  end
-
-  P -->|"uses"| WEB
-  WEB <-->|"saves and reads"| DB
-  WEB <-->|"stores files"| FILES
-  WORK -->|"monthly audit sealing"| ARCH
-  WEB <-->|"delegates slow tasks"| WORK
-  WORK <-->|"reads job list"| DB
-  WEB <-->|"sends mail, gets delivery status"| MAIL
-  WEB <-->|"serves photos via CDN"| IMG
-  WEB -->|"asks help questions via Gemini"| AI
-  WEB -->|"checks humans at login\n+ password reset"| BOT
-  WEB -->|"reports errors to"| ERR
-  SHIP -.->|"delivers new version"| HOST
-  SHIP -.->|"takes snapshot before deploy"| BK
-  DB -.->|"backed up to"| BK
-  HOST --- WEB
-  HOST --- WORK
+  PEOPLE["Browser: public visitors, OFWs,<br/>DMW staff and agency staff"]
+  WEB["Web application:<br/>Laravel + Inertia/React<br/>authentication, cases, referrals, reports"]
+  WORK["Queue worker:<br/>email, notifications and staff-requested reminders"]
+  SCHED["Scheduler:<br/>heartbeat, audit archive/verification,<br/>retention and storage cleanup"]
+  DB[("PostgreSQL:<br/>business records, audit trail,<br/>sessions and optional database queue/cache")]
+  REDIS[("Redis:<br/>configurable cache and queue backend")]
+  FILES[("Private file storage:<br/>S3-compatible or configured local disk")]
+  ARCH[("Audit archive disk:<br/>sealed bundles and checksums")]
+  MAIL["Transactional email transport<br/>and signed delivery-event webhook"]
+  AI["Language-model agent:<br/>authorized helpdesk search/read tools"]
+  BOT["Bot-protection verification service"]
+  IMAGE["Optional profile-image service"]
+  ERR["Error tracking and monitoring"]
+  RELEASE["CI checks, manual image build,<br/>manual production release"]
+  PEOPLE --> WEB
+  WEB --> DB
+  WEB --> REDIS
+  WEB --> FILES
+  WEB --> WORK
+  WORK --> DB
+  WORK --> REDIS
+  WORK --> MAIL
+  MAIL -->|"delivery events"| WEB
+  WEB --> AI
+  WEB --> BOT
+  WEB --> IMAGE
+  WEB --> ERR
+  SCHED --> DB
+  SCHED --> FILES
+  SCHED --> ARCH
+  SCHED --> ERR
+  RELEASE -.-> WEB
 ```
 
-## Services used
+## Boundaries and operating choices
 
-- **Lightsail containers (AWS Singapore)** — runs the whole app in one box: web server + application + background worker.
-- **Lightsail managed PostgreSQL (AWS)** — the master record book: people, cases, referrals, logins, job lists, audit trail.
-- **Cloudflare R2 object storage** — case documents and photos. Private, not public. (Config supports any S3-compatible endpoint; production uses R2 via `FILESYSTEM_DISK=r2`.)
-- **Cloudflare R2 — audit archive bucket** — sealed, checksum-verified audit bundles; a monthly scheduled job archives expired entries first, and old entries are pruned only after archiving.
-- **Resend** — sends login codes, notices, reminders; reports bounces and delivery status back via webhook.
-- **Cloudinary CDN** — serves profile photos and agency logos from Cloudinary's CDN (`res.cloudinary.com`); uploads go through the app, browsers load images straight from the CDN.
-- **Gemini** — AI chatbot answers via Gemini (`gemini-3.5-flash-lite`) through the Laravel AI SDK, `AI_CHATBOT_PROVIDER=gemini`, key from `GEMINI_API_KEY`.
-- **Cloudflare Turnstile** — human-vs-robot check at login and password reset (verified against Cloudflare).
-- **Sentry** — error tracking and monitoring for the app and the browser (backend SDK + browser SDK via `initSentry`, scrubbed before send) so the team sees failures fast, including scheduled-job failures.
-- **CI/CD — GitHub Actions (high level)** — pull requests and merges to `main` run lint, audits, builds, and tests; release images are built manually into AWS ECR; production releases are manual (typed confirmation) promoting a tested image tag, with a pre-deploy database snapshot, migrations inside the container, and `/up` + `/api/readyz` health gates before traffic switches over.
-- **Lightsail database snapshots** — pre-deploy snapshot on every release plus automated DB backups, both kept in Lightsail (same region).
+- Application image contains the web runtime, queue worker and scheduler programs. Deployment flags decide which run in each instance; keep one active scheduler across a scaled deployment.
+- PostgreSQL holds business records. Redis is available for cache and queues; database drivers are also supported. Local Compose defaults and deployment overrides need not match. See [Redis Integration](REDIS_INTEGRATION_v2.1.0.md).
+- File uploads through `StorageService` invoke the configured scanner before storage. `MALWARE_SCANNER=null` performs no real scan; scanner unavailability can fail open when `MALWARE_FAIL_OPEN=true`. Do not equate an accepted upload with a successful malware scan.
+- Private downloads use expiring storage URLs, or an application-signed temporary-file route for disks without native temporary URLs. Profile images can use the optional image service instead.
+- Chatbot answers are generated by a language model. Weighted keyword ranking retrieves helpdesk evidence; it is not the answer engine. No vector database is required.
+- PSGC reference data is generated into a frontend data file and parsed server-side; ordinary address selection does not require a live external lookup.
+- Report exports run synchronously during the request, not in the queue. Overdue reminders require a staff action, not a scheduled sender.
+- Release workflow runs migrations inside the container and gates rollout on `/up`. `/api/readyz` is a separate token-protected deep monitoring probe, not the platform liveness probe.
+
+See [Architecture](ARCHITECTURE_v2.2.0.md), [Deployment Guide](DEPLOYMENT_GUIDE_v3.1.0.md), and [CI/CD Guide](CI_CD_GUIDE_v2.1.0.md) for contracts and operational limits.

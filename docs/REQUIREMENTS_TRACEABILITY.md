@@ -2,7 +2,8 @@
 
 > **Source:** SRS v1.2 (May 19, 2026)
 > **Coverage:** All Functional Requirements (FR-*), Security Requirements (NFR-SEC-*), Performance (NFR-PERF-*), Safety (NFR-SAFE-*), Quality (NFR-QUAL-*), Business Rules (BR-*), Legal (LEGAL-*), Database (DB-*), Accessibility (ACC-*), Communications (COM-*, COM-MSG-*, COM-DATA-*, COM-SEC-*, COM-PERF-*, COM-GOV-*), and 16 Non-SRS Implemented Features
-> **Last Updated:** 2026-05-28
+> **Last Updated:** 2026-11-01
+> **Verification scope:** Current lifecycle, role boundaries, MFA, exports, assistant, surveys, and operational corrections below were checked against source. Older test/manual-QA labels identify prior evidence or intended checks; they do not mean those tests were rerun in this documentation audit. Source inspection alone does not certify legal compliance, production configuration, provider guarantees, accessibility, or performance.
 
 ---
 
@@ -13,7 +14,7 @@
 | SRS ID | Requirement | Implementation | Verification | Status |
 |---|---|---|---|---|
 | FR-AUTH-001 | Require authentication for admin users | `auth` and `verified` middleware on all protected route groups | Route list, middleware coverage | ✅ |
-| FR-AUTH-002 | OTP MFA for admin access | TOTP MFA challenge after password login — `MfaChallengeController` (`POST /login/mfa/totp`, `/login/mfa/recovery`, `routes/auth.php:31-37`); `OtpService` (6-digit, 5-min TTL) is used only for email-change verification, public case intake, and tracking OTP, not for login | `AuthenticationTest` (mfa.challenge routes), `MfaControllerTest` | ✅ |
+| FR-AUTH-002 | OTP MFA for admin access | Authenticator TOTP/recovery challenge after password login; all roles including OFW require MFA in production, non-production enforcement configurable. Email OTP handles citizen registration, email changes, and tracking/document-request access, not password login | `routes/auth.php`, `User::isInMfaEnforcedRole()`, `config/mfa.php` | ✅ |
 | FR-AUTH-003 | Tracker + OTP for OFW tracking | `TrackController` — `/track/send-otp`, `/track/verify-otp` | Integration test, manual | ✅ |
 | FR-AUTH-004 | Role-based feature restriction | `users.role` string(50) column checked by `role:` middleware (`app/Http/Middleware/CheckRole.php`) — no RBAC package | Route permissions test | ✅ |
 | FR-AUTH-005 | Lane-based access for agencies | Service layer filtered by `agcy_id` | Feature test | ✅ |
@@ -42,10 +43,10 @@
 
 | SRS ID | Requirement | Implementation | Verification | Status |
 |---|---|---|---|---|
-| FR-INT-001 | Only DMW creates cases | `CaseController` gated by `role:CASE_MANAGER` | Route auth test | ✅ |
-| FR-INT-002 | Generate unique Case Number | Auto-generated in `CaseService::create()` | Schema unique constraint | ✅ |
-| FR-INT-003 | Generate unique Tracker Number | Auto-generated, stored in `cases.tracker_number` | Schema unique constraint | ✅ |
-| FR-INT-004 | Allow draft save | `status` field supports 'DRAFT' | Manual QA | ✅ |
+| FR-INT-001 | Only DMW creates cases | Current scope differs: `CASE_MANAGER,ADMIN,OFW` can file; Case Manager/Administrator review controls opening | `routes/web.php`, `CaseController` | 🟡 Changed scope |
+| FR-INT-002 | Generate unique Case Number | `CaseService::createCase()` delegates numbering to `CaseNumberGenerator` | Source and unique constraint | ✅ |
+| FR-INT-003 | Generate unique Tracker Number | Random `OWBAP-` + ten-character token, stored in `cases.tracker_number` | `CaseNumberGenerator` and unique constraint | ✅ |
+| FR-INT-004 | Allow draft save | No current draft save/edit/delete/publish workflow; all creates start `PENDING_REVIEW` | Routes, `CaseService::createCaseInternal()` | ➖ Not available |
 | FR-INT-005 | Validate mandatory intake fields | Form Request validation rules | Validation test | ✅ |
 | FR-INT-006 | Create Unified Master Case File | Case creation creates all related records | Integration test | ✅ |
 | FR-INT-007 | Record case summaries | `cases.summary` text field | Manual QA | ✅ |
@@ -72,7 +73,7 @@
 
 | SRS ID | Requirement | Implementation | Verification | Status |
 |---|---|---|---|---|
-| FR-REF-001 | DMW creates digital referrals | `ReferralController@store` gated by `role:CASE_MANAGER` | Route test | ✅ |
+| FR-REF-001 | DMW creates digital referrals | `StoreReferralRequest::authorize()` permits Case Manager/Administrator; service validates open case | Request/service source | ✅ |
 | FR-REF-002 | Parallel multi-agency referral | Multiple `referrals` rows per case, each to different `agcy_id` | Integration test | ✅ |
 | FR-REF-003 | Independent referral linked to case | `referrals.case_id` FK, independent status per row | Schema check | ✅ |
 | FR-REF-004 | Initial status = PENDING | `status` default 'PENDING' in migration | Schema check | ✅ |
@@ -95,13 +96,13 @@
 | FR-TRK-002 | Create milestone entries | `Milestone` model, `refr_id` FK | Schema check | ✅ |
 | FR-TRK-003 | Milestones = progress/actions/notes | `title` + `description` fields | Design review | ✅ |
 | FR-TRK-004 | Milestones append-only | No update/delete routes for milestones | `CaseReferralGuardTest` | ✅ |
-| FR-TRK-005 | Only assigned agency creates milestones | `user_id` + lane check | `CaseReferralGuardTest` | ✅ |
+| FR-TRK-005 | Only assigned agency creates milestones | Route also permits Case Manager/Administrator; agency writes remain lane/state checked | Routes and referral service | 🟡 Broader staff capability |
 | FR-TRK-006 | Distinguish case vs referral status | `cases.status` (OPEN/CLOSED) vs `referrals.status` | Schema check | ✅ |
-| FR-TRK-007 | Auto-compute case status | Logic in `CaseService::computeStatus()` | Integration test | ✅ |
+| FR-TRK-007 | Auto-compute case status | No `computeStatus()` method; explicit review/close/reopen/archive actions control case state, with terminal-referral closure checks | `CaseService`, `CaseController` | 🟡 Explicit lifecycle, not automatic closure |
 | FR-TRK-008 | Unified case timeline | Case show page aggregates all referrals + milestones | Manual QA | ✅ |
 | FR-TRK-009 | DMW monitors all referrals | DMW role has cross-lane visibility | Manual QA | ✅ |
 | FR-TRK-010 | Highlight pending/unresolved outcomes | Status badges, color-coded | UI check | ✅ |
-| FR-TRK-011 | Only DMW closes cases | `CaseController@publish`/`toggleStatus` gated by role | `CaseReferralGuardTest` | ✅ |
+| FR-TRK-011 | Only DMW closes cases | `CaseController::toggleStatus()` and lifecycle routes allow Case Manager/Administrator; no publish-draft action | Routes and service guards | ✅ |
 | FR-TRK-012 | Prevent closure unless all terminal | `CaseService::canClose()` checks all referrals | `CaseReferralGuardTest` | ✅ |
 | FR-TRK-013 | Reject unauthorized closure | Role middleware + validation | `CaseReferralGuardTest` | ✅ |
 
@@ -123,13 +124,13 @@
 
 | SRS ID | Requirement | Implementation | Verification | Status |
 |---|---|---|---|---|
-| FR-AI-001 | AI chatbot interface | `ChatbotController@message` route | Route check | 🟡 |
-| FR-AI-002 | Automated FAQ responses | ChatbotService integration (if enabled) | 🔴 Not fully implemented |
-| FR-AI-003 | Procedural guidance | Same as above | 🔴 Not fully implemented |
-| FR-AI-004 | Navigation assistance | Same as above | 🔴 Not fully implemented |
-| FR-AI-005 | No confidential data exposure | AI is restricted to non-sensitive queries | 🔴 Not fully implemented |
-| FR-AI-006 | Fallback for unresolved requests | Default "I cannot answer" response | ✅ |
-| FR-AI-007 | Optional chat logging | Not yet implemented | 🔴 Not Done |
+| FR-AI-001 | AI chatbot interface | `ChatbotController` and `ChatbotConversationService`; disabled by default | Routes, `config/ai-chatbot.php` | 🟡 Configuration required |
+| FR-AI-002 | Automated FAQ responses | Language-model agent with helpdesk search/read tools; retrieval uses weighted token matches | `HelpdeskAgent`, `ChatbotKnowledge` | ✅ Implemented when enabled |
+| FR-AI-003 | Procedural guidance | Retrieved helpdesk content grounds responses | Agent/tools and response assembly | ✅ Implemented when enabled |
+| FR-AI-004 | Navigation assistance | Helpdesk-grounded guidance, not unrestricted application control | Agent/tools | ✅ Implemented when enabled |
+| FR-AI-005 | No confidential data exposure | Audience-filtered helpdesk tools; source checks do not prove zero disclosure from user-supplied text | `ChatbotAudience`, `ChatbotKnowledge`, agent | 🟡 Controls present; not a certification |
+| FR-AI-006 | Fallback for unresolved requests | Disabled/unavailable/provider-failure responses | `ChatbotConversationService::reply()` | ✅ |
+| FR-AI-007 | Optional chat logging | Turn metrics/failure logs exist; no supervisor transcript-review workflow | Conversation service | 🟡 Metrics only |
 
 ### 1.9 Analytics & Reporting (SRS §4.9)
 
@@ -138,7 +139,7 @@
 | FR-ANA-001 | Dashboard KPIs | `DashboardService` — stats, trends, status distribution | Manual QA | ✅ |
 | FR-ANA-002 | Agency performance metrics | `ReportsService` — agency-specific data | Manual QA | ✅ |
 | FR-ANA-003 | Filter by date/agency/service/status | Filter parameters on reports pages | Manual QA | ✅ |
-| FR-ANA-004 | Export PDF/CSV | `ReportsController@exportPdf` for PDF; CSV not yet implemented | `PdfExportTest` (partial) | 🟡 Partial |
+| FR-ANA-004 | Export PDF/CSV | `ReportsController::exportPdf()` and `exportExcel()` provide PDF/Excel; report CSV absent; attempts and outcomes audited | Routes and controller | 🟡 PDF/Excel available, CSV absent |
 | FR-ANA-005 | Restrict PII by permissions | Role-based data filtering | Manual QA | ✅ |
 | FR-ANA-007 | Reject invalid report params | Form Request validation | Test | ✅ |
 
@@ -160,7 +161,7 @@
 | SRS ID | Requirement | Implementation | Verification | Status |
 |---|---|---|---|---|
 | FR-FBK-001 | OFW feedback after closure | `PublicSurveyController` + `survey_invitations` table (Gen 1 `feedback` table dropped `2026_09_16_000002`) | Route check | ✅ |
-| FR-FBK-002 | SERVQUAL evaluation | `survey_forms`/`survey_questions` per-agency questionnaires (Gen 1 `feedback_servqual_responses` + `servqual_configs` dropped `2026_09_16_000002`) | Schema check | ✅ |
+| FR-FBK-002 | SERVQUAL evaluation | Legacy fixed SERVQUAL retired; live `survey_forms`/`survey_questions` support agency-authored forms, not guaranteed fixed SERVQUAL scoring | Current survey routes/models and retirement migration | 🟡 Replaced by survey builder |
 | FR-FBK-003 | Feedback linked to case | `survey_invitations.case_id` FK | Schema check | ✅ |
 | FR-FBK-004 | Feedback available for reporting | `survey.responses.index` route | Route check | ✅ |
 | FR-FBK-005 | Reject invalid submissions | Form Request validation | Validation test | ✅ |
@@ -180,7 +181,7 @@
 | NFR-PERF-004 | Support 144 concurrent users | 144 CCU | Load testing needed | 🔴 Not measured |
 | NFR-PERF-005 | Document load ≤ 3s | ≤ 3s | CDN test needed | 🔴 Not measured |
 | NFR-PERF-006 | Reports ≤ 10s | ≤ 10s | Query profiling | 🔴 Not measured |
-| NFR-PERF-007 | 99% uptime | 99% | SLA from Render/Supabase | 🟡 Provider-dependent |
+| NFR-PERF-007 | 99% uptime | 99% | Deployment SLA and uptime measurements required | 🟡 Deployment-dependent |
 | NFR-PERF-008 | Scalable architecture | Future-proof | Design review | ✅ |
 
 ### 2.2 Safety (SRS §5.2)
@@ -189,7 +190,7 @@
 |---|---|---|---|---|
 | NFR-SAFE-001 | Confirmation for critical actions | UnsavedChangesModal + confirmation dialogs | Manual QA | ✅ |
 | NFR-SAFE-002 | Append-only historical records | Milestones, AuditLogs INSERT-only | Design review | ✅ |
-| NFR-SAFE-003 | Automated backup/recovery | Supabase auto-backups | Provider SLA | ✅ |
+| NFR-SAFE-003 | Automated backup/recovery | Deployment must provide backup/recovery; repository does not prove configured backups or restore results | Operator evidence required | 🟡 Deployment-dependent |
 | NFR-SAFE-004 | Monitor delayed/unresolved cases | OverdueReferralController + dashboard | Manual QA | ✅ |
 | NFR-SAFE-005 | Server-side input validation | Form Request classes | Test | ✅ |
 | NFR-SAFE-006 | Unauthorized access prevention | RBAC + middleware (+ RLS on forced tables only) | Auth test | ✅ |
@@ -204,7 +205,7 @@
 | NFR-QUAL-002 | Workflow alignment with DMW governance | Business rules coded per SRS §5.5 | Review | ✅ |
 | NFR-QUAL-003 | Accurate operational execution | Test coverage across all modules | Test results | ✅ |
 | NFR-QUAL-004 | Performance efficiency targets defined | Targets per NFR-PERF-001–008 | — | 🔴 |
-| NFR-QUAL-005 | Resource utilization within infrastructure limits | Render resource planning | — | 🔴 |
+| NFR-QUAL-005 | Resource utilization within infrastructure limits | Deployment resource planning | — | 🔴 |
 | NFR-QUAL-006 | Transaction response time targets | Load testing needed | — | 🔴 |
 | NFR-QUAL-007 | Coexist and cooperate with partner systems | Standalone architecture, API-ready | Design decision | ✅ |
 | NFR-QUAL-008 | Secure interoperability with external systems | TLS, API keys, auth | Config review | ✅ |
@@ -216,7 +217,7 @@
 | NFR-QUAL-014 | Usability validated with target users | Not formally tested | — | 🔴 |
 | NFR-QUAL-015 | Operational reliability across workflows | ACID transactions | Design review | ✅ |
 | NFR-QUAL-016 | Consistent behavior across modules | Append-only, same patterns | Design review | ✅ |
-| NFR-QUAL-017 | Authentication security | OTP MFA, session management | Security review | ✅ |
+| NFR-QUAL-017 | Authentication security | Password login, authenticator MFA/recovery, session controls; email codes serve separate flows | Source review, not independent security certification | ✅ Implementation |
 | NFR-QUAL-018 | Authorization security | RBAC, lane isolation | Security review | ✅ |
 | NFR-QUAL-019 | Overall security posture | Multi-layer security architecture | Security review | ✅ |
 | NFR-QUAL-020 | Code-level maintainability | Modular MVC architecture | Architecture review | ✅ |
@@ -233,7 +234,7 @@
 
 | ID | Rule | Implementation | Verification | Status |
 |---|---|---|---|---|
-| BR-001 | DMW-only case intake | `role:CASE_MANAGER` on create | Route auth test | ✅ |
+| BR-001 | DMW-only case intake | Staff and OFW filing enabled; Case Manager/Administrator approve or reject pending filings | Routes and review methods | 🟡 Changed scope |
 | BR-002 | Single Master Case File | Auto-generated unique Case/Tracker Number | Schema check | ✅ |
 | BR-003 | Parallel referrals | Multiple referrals per case supported | Integration test | ✅ |
 | BR-004 | Authorized partner routing | Agency registry + FK constraint | Schema check | ✅ |
@@ -241,10 +242,10 @@
 | BR-006 | Mandatory referral comments | Validated in `updateStatus` | `CaseReferralGuardTest` | ✅ |
 | BR-007 | Append-only milestones/audit | No update/delete routes | `CaseReferralGuardTest` | ✅ |
 | BR-008 | DMW-only case closure | Role check + terminal-state validation | `CaseReferralGuardTest` | ✅ |
-| BR-009 | OTP MFA | `OtpService` for all auth | Integration test | ✅ |
+| BR-009 | OTP MFA | Authenticator TOTP/recovery for login MFA; email OTP is separate. All roles require MFA in production; non-production enforcement configurable, default staff | `User::isInMfaEnforcedRole()`, `config/mfa.php` | ✅ |
 | BR-010 | ~~IP whitelist admin backend~~ (removed — admin routes rely on `role:ADMIN` + MFA enforcement) | — | — | ➖ |
 | BR-011 | Privacy-safe public tracking | TrackController hides internal data | Manual QA | ✅ |
-| BR-012 | Duplicate flagging | Name + DOB matching needed | 🔴 Not Done |
+| BR-012 | Duplicate flagging | Staff picker flags existing clients by normalized email only; no name/DOB match or citizen active-case duplicate guard | `ClientSelectController::checkEmail()`, intake/create paths | 🟡 Email-only client check |
 
 ---
 
@@ -275,7 +276,7 @@
 
 | ID | Requirement | Implementation | Status |
 |---|---|---|---|
-| LEGAL-012 | Cloud infrastructure with security, privacy, governance satisfied | Render, Supabase, Supabase Storage | ✅ |
+| LEGAL-012 | Cloud infrastructure with security, privacy, governance satisfied | PostgreSQL, Redis, OCI runtime, S3-compatible storage; deployment governance requires external evidence | 🟡 Deployment-dependent |
 | LEGAL-013 | Formal provider approval as part of deployment governance | Vendor selection documented | 🟡 Partial |
 | LEGAL-014 | Risk assessment + privacy governance review for cloud adoption | PIA required before production | 🔴 |
 | LEGAL-015 | Defined security responsibilities across all infrastructure layers | ARCHITECTURE_v2.2.0.md defines boundaries | ✅ |
@@ -288,7 +289,7 @@
 | LEGAL-017 | Cross-border privacy governance for regulated OFW data | Documented in deployment governance | 🟡 Partial |
 | LEGAL-018 | Organizational approval for third-party infrastructure providers | Vendor selection process | 🟡 Partial |
 | LEGAL-019 | Provider confidentiality and privacy obligations | Vendor DPAs required before production | 🟡 Partial |
-| LEGAL-020 | Vendor production access controlled and justified | Supabase/Render admin access restricted | 🟡 Partial |
+| LEGAL-020 | Vendor production access controlled and justified | Hosting/database administrative access requires organizational evidence | 🟡 Deployment-dependent |
 | LEGAL-021 | Sensitive OFW data not unnecessarily exposed to third-parties | Minimized in OTP/notifications | ✅ |
 | LEGAL-022 | International processing risks evaluated through privacy review | PIA scoping needed | 🔴 |
 
@@ -303,7 +304,7 @@
 
 | ID | Requirement | Implementation | Status |
 |---|---|---|---|
-| LEGAL-025 | Providers used only for legitimate operational purposes | Render, Supabase, Supabase Storage, SMTP | ✅ |
+| LEGAL-025 | Providers used only for legitimate operational purposes | Container runtime, PostgreSQL, S3-compatible storage, SMTP/HTTPS mail | ✅ |
 | LEGAL-026 | Providers not unrestricted controllers of OFW data | Data processing agreements scoping | 🟡 Partial |
 | LEGAL-027 | Provider permissions limited to required functionality | Least-privilege principle applied | ✅ |
 | LEGAL-028 | Provider credentials/secrets securely governed | Environment variables, not in source code | ✅ |
@@ -344,7 +345,7 @@
 
 | ID | Requirement | Implementation | Status |
 |---|---|---|---|
-| DB-006 | No uncontrolled alternate system of record | Supabase as sole system of record | ✅ |
+| DB-006 | No uncontrolled alternate system of record | PostgreSQL as authoritative relational system of record | ✅ |
 | DB-007 | Single-source-of-truth consistency | No alternate systems | ✅ |
 
 ### 5.3 Row-Level Security & Data Isolation (§6.2.3)
@@ -361,10 +362,10 @@
 
 | ID | Requirement | Implementation | Status |
 |---|---|---|---|
-| DB-013 | Provider-managed encryption at rest | Supabase managed encryption | ✅ |
+| DB-013 | Provider-managed encryption at rest | Deployment-managed at-rest encryption; requires operator evidence | 🟡 Unverified deployment |
 | DB-014 | Application-layer encryption for sensitive fields | Passport, address, emergency contact planned | 🟡 |
 | DB-015 | No unnecessary duplication across uncontrolled storage | Single-source design | ✅ |
-| DB-016 | Exports governed by access controls and secure handling | Not yet implemented | 🔴 |
+| DB-016 | Exports governed by access controls and secure handling | Staff role/lane gates, report guards and auditing; downloaded-file handling needs organizational controls | 🟡 Technical controls present |
 
 ### 5.5 Access Control & Privilege Governance (§6.2.5)
 
@@ -373,7 +374,7 @@
 | DB-017 | DB credentials restricted to authorized service accounts | App DB credentials have minimum grants | ✅ |
 | DB-018 | No direct DB credentials for partner agency users | Enforced — all access through app | ✅ |
 | DB-019 | Application runtime uses restricted credentials | App DB user scoped | ✅ |
-| DB-020 | Admin access limited to authorized maintainers | Supabase project-level access | ✅ |
+| DB-020 | Admin access limited to authorized maintainers | Deployment administrative access controls; requires operator evidence | 🟡 Unverified deployment |
 | DB-021 | No default, shared, weak, or uncontrolled credentials | Enforced | ✅ |
 | DB-022 | Secrets not embedded in publicly accessible source code | `.env` only, excluded from VCS | ✅ |
 
@@ -399,10 +400,10 @@
 
 | ID | Requirement | Implementation | Status |
 |---|---|---|---|
-| DB-031 | Managed backups per operational recovery requirements | Supabase auto-backups | ✅ |
-| DB-032 | Backup encryption equivalent to production | Inherits provider encryption | ✅ |
-| DB-033 | Recovery mechanisms for disruption/corruption/failure | Supabase point-in-time recovery | ✅ |
-| DB-034 | Backup access restricted to authorized roles | Supabase project-level access | ✅ |
+| DB-031 | Managed backups per operational recovery requirements | Deployment backup configuration; requires operator evidence | 🟡 Unverified deployment |
+| DB-032 | Backup encryption equivalent to production | Verify configured backup encryption separately | 🟡 Unverified deployment |
+| DB-033 | Recovery mechanisms for disruption/corruption/failure | Configured recovery capability and restore-drill evidence required | 🟡 Unverified deployment |
+| DB-034 | Backup access restricted to authorized roles | Deployment administrative access controls; requires operator evidence | 🟡 Unverified deployment |
 
 ### 5.9 Cloud Database Governance (§6.2.9)
 
@@ -522,12 +523,12 @@
 
 | ID | Requirement | Implementation | Status |
 |---|---|---|---|
-| COM-SEC-001 | HTTPS for all authenticated sessions | Enforced at Render/Cloudflare level | ✅ |
+| COM-SEC-001 | HTTPS for all authenticated sessions | Requires deployment HTTPS enforcement; verify runtime configuration | 🟡 Unverified deployment |
 | COM-SEC-002 | No direct client-to-DB communication | Mediated architecture | ✅ |
 | COM-SEC-003 | DB credentials restricted to authorized roles | App DB credentials only | ✅ |
 | COM-SEC-004 | App-to-DB TLS with strict certificate validation | `DB_CONNECTION=pgsql` with SSL | ✅ |
 | COM-SEC-005 | No insecure transport for sensitive internal comms | All internal comms encrypted | ✅ |
-| COM-SEC-006 | Document/media access requires auth or signed URLs | Supabase Storage signed URLs | ✅ |
+| COM-SEC-006 | Document/media access requires auth or signed URLs | Authorized temporary object-storage or application-signed file URLs | ✅ |
 | COM-SEC-007 | No public exposure of protected OFW documents | Authorization gates on all document routes | ✅ |
 | COM-SEC-008 | External integrations require authenticated encrypted APIs | API keys + HTTPS | ✅ |
 | COM-SEC-009 | Privileged communication failures/suspicious events logged | AuditLog event tracking | ✅ |
@@ -546,7 +547,7 @@
 | ID | Requirement | Implementation | Status |
 |---|---|---|---|
 | COM-GOV-001 | Cross-border comms governed under privacy safeguards | Documented in deployment governance | 🟡 |
-| COM-GOV-002 | Only approved providers with contractual obligations | Render, Supabase, Supabase Storage, SMTP | ✅ |
+| COM-GOV-002 | Only approved providers with contractual obligations | Container runtime, PostgreSQL, S3-compatible storage, SMTP/HTTPS mail | ✅ |
 | COM-GOV-003 | Sensitive data not unnecessarily transmitted to third-parties | Minimized in notifications | ✅ |
 | COM-GOV-004 | External provider access governed by security controls | Vendor access restricted | 🟡 |
 
@@ -557,11 +558,11 @@
 The following features have been implemented to enhance operational efficiency, transparency, and user experience, though they were not explicitly defined in the initial SRS.
 
 ### 1. Helpdesk/Knowledge Base
-**Description**: Full content management system for helpdesk articles with categories, tags, revisions, feedback, and featured articles.
-**Status**: 🔄 Migrated to database models (controllers removed)
-**Key Files**: `app/Models/HelpdeskArticle.php`, `app/Models/HelpdeskCategory.php`, `app/Models/HelpdeskTag.php`, `app/Models/HelpdeskArticleRevision.php`, `app/Models/HelpdeskArticleFeedback.php`
-**Routes**: `GET /helpdesk`, `GET /helpdesk/search`, `GET /helpdesk/{slug}`, `POST /helpdesk/feedback`, `GET /admin/helpdesk/articles`, `POST /admin/helpdesk/articles`, etc.
-**Why Added**: To provide self-service information for OFWs and reduce dependency on case manager inquiries.
+**Description**: Audience-filtered help articles and search, with article feedback and an Administrator feedback view. Current content is file-backed, not a live article-authoring CMS.
+**Status**: ✅ Available
+**Key Files**: `app/Services/HelpdeskArticleService.php`, `app/Services/Chatbot/ChatbotHelpdeskService.php`, `resources/helpdesk/articles.json`
+**Routes**: `/help`, `/help/search`, `/help/{slug}`, `/help/{slug}/feedback`, `/admin/helpdesk-feedback`
+**Why Added**: Self-service information for citizens and staff.
 
 ### 2. Agency Service Self-Management
 **Description**: Allows agencies to manage their own service offerings and descriptions directly.
@@ -578,18 +579,18 @@ The following features have been implemented to enhance operational efficiency, 
 **Why Added**: To prevent data loss when documents are updated and provide a clear audit trail of document changes.
 
 ### 4. Overdue Referral Monitoring
-**Description**: System for identifying referrals that have exceeded expected processing times and sending automated reminders.
+**Description**: Role-scoped overdue lists. Case Managers and Administrators manually request reminder emails/notifications; agency users can view their own overdue lane but cannot send reminders. No scheduled reminder sender exists.
 **Status**: ✅ Implemented
 **Key Files**: `app/Http/Controllers/Admin/OverdueReferralController.php`, `app/Mail/ReferralOverdueMail.php`
 **Routes**: `GET /overdue-referrals`, `POST /overdue-referrals/send-reminders`
 **Why Added**: To ensure no referral is neglected and to improve overall service delivery speed.
 
-### 5. Feedback SERVQUAL Implementation
-**Description**: Sophisticated service quality evaluation using the 5-dimension SERVQUAL model (Tangibles, Reliability, Responsiveness, Assurance, Empathy).
-**Status**: ✅ Implemented
-**Key Files**: `app/Models/FeedbackServqualResponse.php`, `app/Models/ServqualConfig.php`
-**Routes**: Part of the Feedback submission flow
-**Why Added**: To provide more granular and academic-standard quality metrics beyond simple satisfaction ratings.
+### 5. Agency Survey Builder
+**Description**: Agencies author and activate survey forms; eligible referral completion creates client invitations and staff can review responses.
+**Status**: ✅ Implemented; legacy fixed SERVQUAL workflow retired
+**Key Files**: `app/Http/Controllers/SurveyFormController.php`, `app/Http/Controllers/SurveyResponseController.php`, `app/Http/Controllers/PublicSurveyController.php`
+**Routes**: `/survey-forms`, `/surveys`, `/survey/{token}`
+**Scope**: Current questionnaires are agency-authored; do not assume legacy expectation/perception dimension scoring.
 
 ### 6. Custom Case Statuses
 **Description**: Admin-configurable status labels for both cases and referrals to adapt to changing organizational workflows.
@@ -654,12 +655,12 @@ The following features have been implemented to enhance operational efficiency, 
 **Routes**: Part of Client/Case creation
 **Why Added**: To provide context on the OFW's work history which often impacts current case circumstances.
 
-### 15. Keyword-based ChatBot
-**Description**: Automated messaging interface that provides predefined responses based on user keywords.
-**Status**: ✅ Implemented
-**Key Files**: `app/Http/Controllers/ChatbotController.php`, `app/Services/ChatbotService.php`
+### 15. Helpdesk-grounded AI Assistant
+**Description**: Language-model agent with audience-filtered helpdesk search and article-reading tools. Search ranks cached content using weighted keyword matches; answers are not predefined keyword replies.
+**Status**: 🟡 Implemented but disabled by default; provider configuration required
+**Key Files**: `app/Http/Controllers/ChatbotController.php`, `app/Services/Chatbot/ChatbotConversationService.php`, `app/Services/Chatbot/ChatbotKnowledge.php`, `config/ai-chatbot.php`
 **Routes**: `POST /chatbot/message`
-**Why Added**: Provides immediate responses to common queries while the more advanced AI features are being developed.
+**Limit**: Turn metrics are logged; no supervisor transcript-review screen.
 
 ### 16. Rejected Referral Tracking
 **Description**: Specific dashboard indicators for referrals rejected by agencies, requiring immediate attention from case managers.
@@ -672,30 +673,25 @@ The following features have been implemented to enhance operational efficiency, 
 
 ## 9. Coverage Summary
 
-| Category | Total Reqs | Implemented | Partial | Not Done | Coverage |
-|---|---|---|---|---|---|
-| FR-AUTH (Auth) | 12 | 12 | 0 | 0 | 100% |
-| FR-ADM (Admin) | 8 | 8 | 0 | 0 | 100% |
-| FR-INT (Intake) | 12 | 12 | 0 | 0 | 100% |
-| FR-DOC (Documents) | 8 | 8 | 0 | 0 | 100% |
-| FR-REF (Referrals) | 15 | 15 | 0 | 0 | 100% |
-| FR-TRK (Tracking) | 13 | 13 | 0 | 0 | 100% |
-| FR-PORT (Portal) | 9 | 9 | 0 | 0 | 100% |
-| FR-AI (Chatbot) | 7 | 1 | 1 | 5 | 14% |
-| FR-ANA (Analytics) | 7 | 6 | 1 | 0 | 86% |
-| FR-AUD (Audit) | 8 | 8 | 0 | 0 | 100% |
-| FR-FBK (Feedback) | 6 | 6 | 0 | 0 | 100% |
-| NFR-SEC (Security) | 60 | 50 | 5 | 5 | 83% |
-| NFR-PERF (Performance) | 8 | 1 | 0 | 7 | 12% |
-| NFR-SAFE (Safety) | 8 | 8 | 0 | 0 | 100% |
-| NFR-QUAL (Quality) | 26 | 22 | 0 | 4 | 85% |
-| BR (Business Rules) | 13 | 12 | 0 | 1 | 92% |
-| LEGAL (Legal) | 36 | 24 | 4 | 8 | 67% |
-| DB (Database) | 41 | 36 | 3 | 2 | 88% |
-| ACC (Accessibility) | 30 | 27 | 3 | 0 | 90% |
-| COM (Communications) | 27 | 21 | 4 | 2 | 78% |
-| **Non-SRS Extras** | **—** | **16** | **—** | **—** | **—** |
-| **TOTAL (SRS)** | **354** | **299** | **20** | **35** | **84%** |
+The former aggregate percentages are withdrawn: changed scope, retired requirements, conditional features, and inherited verification labels make a single implementation percentage misleading. Use the requirement rows and current-scope reconciliation below; no fresh full compliance/test run was performed.
+
+### Current-scope reconciliation
+
+| Area | Current implementation/evidence |
+|---|---|
+| Case access | `CaseController::authorizeCaseAccess()` permits office-wide Case Manager access; `CaseService::scopeToTrashOwner()` limits their trash and restoration |
+| Review | `createCaseInternal()` starts pending review; approval opens and stamps reviewer/time; rejection sets rejected with reason but currently does not soft-delete |
+| Intake communications | `storeIntake()` queues email to filer and active Case Managers after commit, not an in-app intake notice; approval records a timeline event without separate notification dispatch |
+| Staff lists | Reports/referral lists staff-gated; broad client picker Case Manager/Administrator-only |
+| Messages | `ReferralMessageService::assertCanAccessThread()` protects reads/writes despite missing dedicated route-role middleware |
+| Agency files | Agency attachment mutation routes exist; agency UI lacks mutation controls; removal remains uploader-only |
+| Operations monitoring | Administrator Monitoring group: system health, email logs with delivery events, failed jobs with retry, security log; application-log viewer, resend, and full-workbook routes retired; retained `GenerateSystemReport` has no application dispatch caller |
+| Infrastructure/UI state | `.env.example` uses Redis queue/cache and database sessions; Inertia props/local React state, not TanStack Query |
+| Export auditing | Case/client/referral list exports log before generation without separate outcome; single-case PDF logs after preflight/before delivery; report exports log attempts and outcomes |
+| Citizen accounts | `routes/auth.php` connects live registration and email-code review; not orphan UI |
+| Audit/activity | Full audit-log viewing/export ADMIN-only; separate operational activity uses role/entity scoping |
+
+See [Operational scope](system-analysis-and-design/05-operational-scope-and-functionalities.md) and [Roles and permissions](ROLES_AND_PERMISSIONS_v1.0.0.md) for current boundaries.
 
 ---
 
@@ -705,11 +701,11 @@ The following features have been implemented to enhance operational efficiency, 
 
 | Gap | Category | Impact |
 |---|---|---|
-| AI Chatbot (FR-AI-001–007) | Functional | Core chatbot features not implemented |
+| AI assistant enablement (FR-AI-001–007) | Operational | Implemented agent/tools need provider configuration and enablement; no supervisor transcript review |
 | Duplicate flagging (BR-012) | Business Rule | OFW may be re-registered |
 | Performance measurement (NFR-PERF) | NFR | No load testing done |
 | Privacy Impact Assessment (LEGAL-023) | Legal | Required before production |
-| CSV export (FR-ANA-004 partial) | Functional | Only PDF export implemented |
+| CSV export (FR-ANA-004 partial) | Functional | PDF and Excel reports implemented; report CSV absent |
 
 ### Medium Priority
 

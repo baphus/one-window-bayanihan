@@ -53,7 +53,9 @@ Every statement in the set uses these four labels exactly — no synonyms — so
 
 ## Keeping the set current
 
-The set is refreshed whenever the system changes materially or a new release is prepared, and figures are re-checked before they are updated. Where this set and another project document disagree, the more recently confirmed statement wins, and the difference should be reported so the stale document can be corrected.
+This directory is the main narrative reference for system analysis and design. The implemented code, routes, schema, and executable configuration are the authority for claims about current behaviour; engineering guides under `docs/` provide supporting detail. A desired control or policy is not an implemented feature unless evidence confirms it. Live deployment, compliance approval, and operational effectiveness require evidence from the target environment.
+
+The set is refreshed whenever the system changes materially or a new release is prepared. Cross-check claims against implementation before changing this set or aligning supporting documents. Resolve contradictions here first, then update active guides; preserve dated historical records and identify them as historical. File version numbers and modification dates alone do not establish factual precedence.
 
 ---
 

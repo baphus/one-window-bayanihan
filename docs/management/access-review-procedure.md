@@ -1,5 +1,8 @@
 # Access Review Procedure
 
+> **Governance status (reviewed 2026-11-01):** Roles, targets, schedules, and sign-off requirements describe intended procedure. Repository text alone does not prove approval, assigned personnel, completed reviews/drills, measured service levels, or legal/compliance acceptance. Keep operational evidence separately.
+
+
 **Document ID:** D90-7-ARP  
 **Version:** 1.0  
 **Date:** 2026-07-09  

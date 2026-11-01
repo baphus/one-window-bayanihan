@@ -11,7 +11,7 @@
 | D1 | E2E via `playwright.config.ts`, `npm run test:e2e` | **No `playwright.config.ts`, no `tests/e2e`** — `npx playwright test` / `npm run test:e2e` are **not runnable**. E2E history is the record `docs/E2E_TEST_FINDINGS_v1.0.0.md`, not a suite |
 | D2 | ~103 files / ~465 tests, fixed tree | Tree has grown; new suites: `Feature/Audit/AuditLogQueryTest.php`, `Feature/Cache/CacheLockSmokeTest.php`, `Feature/Client/ClientCaseQueryTest.php`, `Feature/Console/ScheduleOverlapTest.php`, `Feature/Console/ToolkitNamespaceTest.php` (+ mail-transport contract test `DeploymentMailEnvContractTest` referenced by `deploy.yml`) |
 | D3 | Typecheck mentioned only as build step | **`npm run typecheck` (`tsc --noEmit`) is a BLOCKING CI gate** in `lint-and-audit` (not continue-on-error) |
-| D4 | No staging-data coverage | **`StagingSeeder` (6-month deterministic demo dataset)** documented in `docs/STAGING_DATA_v1.0.0.md` — the staging-data story, not a test fixture |
+| D4 | No staging-data coverage | **`StagingSeeder` (6-month Faker-based demo dataset)** documented in `docs/STAGING_DATA_v1.0.0.md` — the staging-data story, not a test fixture |
 | D5 | `SUPABASE_S3_*` overrides noted | Re-affirmed: `phpunit.xml` sets legacy `SUPABASE_S3_*` fakes; canonical `STORAGE_*` names resolve via the same fallback chain. Storage fakes: `Storage::fake('object-storage')` (also `'private'`, `'public'`, `'audit-archives'`) |
 
 ## Overview (re-affirmed)
@@ -83,9 +83,13 @@ No E2E step exists in CI. `E2E_TEST_FINDINGS_v1.0.0.md` is the E2E record.
 
 ## Coverage Expectations (re-affirmed)
 
-Auth/Security High · Case CRUD High · Referral lifecycle High · Reports Medium · Admin CRUD Medium · Chatbot Medium (see `docs/CHATBOT_AGENT.md`) · UI Components Low (manual). New lock/scheduler/mail-contract suites join the High-priority regression set (deploy-path protection).
+Auth/Security High · Case CRUD High · Referral lifecycle High · Reports Medium · Admin CRUD Medium · Chatbot Medium (see `docs/CHATBOT_AGENT.md`) · UI Components: Vitest page/component/shared-behaviour tests plus manual checks. New lock/scheduler/mail-contract suites join the High-priority regression set (deploy-path protection).
 
 ---
+
+## Current coverage boundary (2026-11-01)
+
+There are 57 frontend test files, not near-empty UI coverage. File counts do not establish complete journey coverage. No runnable browser E2E suite or axe accessibility CI job is configured. Accessibility and cross-browser sign-off require recorded checks; historical test results are not fresh execution evidence.
 
 ## Changelog
 

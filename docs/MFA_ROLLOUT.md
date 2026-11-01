@@ -24,3 +24,5 @@ Supported rollback paths:
 3. In-progress pending challenge sessions expire on their own: `EnsureMfaChallenge` clears state older than `mfa.pending_ttl` and redirects to login.
 4. Existing MFA enrollment data for untouched users (`mfa_secret`, `mfa_recovery_codes`, `mfa_enabled_at`) is preserved; re-activation requires only the steps above.
 5. The session-revocation command (`mfa:revoke-enrolled-sessions`) can be used before either path if desired, but is not required for rollback.
+
+An admin MFA reset is recovery, not a production policy exception: the reset user must enroll again. The stored `two_factor_required` setting does not control this policy.

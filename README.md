@@ -10,13 +10,13 @@ Bayanihan One Window coordinates case management across multiple government agen
 
 ### Key Features
 
-- **Case Management** — Intake, drafting, publishing, and lifecycle tracking
+- **Case Management** — Intake review, approval, and case lifecycle tracking
 - **Referral System** — Parallel referrals to multiple agencies with independent status tracking
 - **Public OFW Tracking** — OTP-verified portal for case progress visibility
 - **AI Chatbot** — Interactive helpdesk for OFW inquiries
-- **Reporting & Analytics** — Dashboards, PDF/CSV exports, AI-powered insights
+- **Reporting & Analytics** — Dashboards, PDF and Excel exports
 - **Helpdesk Knowledge Base** — Categorized articles with search and feedback
-- **SERVQUAL Feedback** — Agency service quality measurement
+- **Service Feedback** — Configurable surveys and referral-completion feedback
 - **Audit Trail** — Immutable append-only audit log with hash chain integrity
 
 ## Tech Stack
@@ -28,7 +28,7 @@ Bayanihan One Window coordinates case management across multiple government agen
 | Database | PostgreSQL 17 |
 | File Storage | S3-compatible object storage |
 | Build Tool | Vite 8 |
-| Auth | Custom OTP + TOTP MFA |
+| Auth | Email + password, then TOTP MFA; email OTP for citizen registration and tracking |
 | RBAC | Custom CheckRole middleware (`users.role` column) |
 | Cache / Queue | Redis 7 |
 | Packaging | OCI container image (Docker) — runs on any compliant runtime |
@@ -86,7 +86,7 @@ STORAGE_SECRET_KEY=your-secret-key
 STORAGE_BUCKET=case-files
 STORAGE_REGION=ap-southeast-1
 
-# Cache/Queue/Session (Redis-backed — falls back to database if Redis unavailable)
+# Cache/Queue/Session (database drivers are explicit alternatives, not automatic failover)
 CACHE_STORE=redis
 QUEUE_CONNECTION=redis
 SESSION_DRIVER=database
@@ -169,7 +169,7 @@ Browser → HTTPS → Laravel (Middleware) → Controller → Service → Model 
          ← Inertia.js ← React Component ←
 ```
 
-- **Middleware stack:** Session → Auth → CSRF → Role → IP Whitelist (admin)
+- **Access controls:** Session authentication, CSRF protection, route role checks, MFA enforcement, and resource-level authorization
 - **RBAC:** `CASE_MANAGER`, `AGENCY`, `ADMIN`, `OFW` roles via `users.role` + `CheckRole` middleware
 - **Lane isolation:** Agencies see only their referrals (application + RLS enforcement)
 - **Audit:** Immutable append-only log with SHA-256 hash chain
@@ -192,12 +192,14 @@ See [docs/ARCHITECTURE_v2.2.0.md](docs/ARCHITECTURE_v2.2.0.md) for the full syst
 
 ## Documentation
 
+Start with [System Analysis and Design](docs/system-analysis-and-design/README.md), the main narrative reference. Code, schema, routes, and executable configuration determine current implementation; supporting engineering guides expand the detail. See the [documentation index](docs/README.md) for current and historical records.
+
 | Document | Description |
 |---|---|
 | [Architecture](docs/ARCHITECTURE_v2.2.0.md) | System design, middleware, deployment topology |
 | [Project Rules](docs/PROJECT_RULES_v2.1.0.md) | Business rules, conventions, decisions |
-| [Data Model](docs/DATA_MODEL.md) | Database schema — 31 tables, all columns |
-| [API Contracts](docs/API_CONTRACTS.md) | All ~164 routes with middleware |
+| [Data Model](docs/DATA_MODEL.md) | Database schema, relationships, and columns |
+| [API Contracts](docs/API_CONTRACTS.md) | HTTP routes, middleware, and integration contracts |
 | [Testing Strategy](docs/TESTING_STRATEGY_v2.1.0.md) | Test approach, patterns, coverage |
 | [Security](docs/SECURITY_REQUIREMENTS_v2.2.0.md) | Auth, RBAC, MFA, encryption, rate limiting |
 | [Deployment Guide](docs/DEPLOYMENT_GUIDE_v3.1.0.md) | Platform capability contract, container/orchestrator/VM deployment, scaling, rollback |

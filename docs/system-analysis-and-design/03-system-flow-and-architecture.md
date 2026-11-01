@@ -39,7 +39,7 @@ Every meaningful action is recorded, so the office can always answer "who change
 
 | Role | What they do | What they can see |
 |---|---|---|
-| **DMW case manager** | Reviews incoming requests, opens and closes case files, sends referrals with the OFW's documents attached, follows progress, closes the case | The cases assigned to them and the office's intake queue |
+| **DMW case manager** | Reviews incoming requests, opens and closes case files, sends referrals with the OFW's documents attached, follows progress, closes the case | Office-wide cases and the intake review queue |
 | **Partner agency staff** | Receives referrals, picks the service for the referral from its own list of available services, accepts or declines, records progress, asks the client for documents, delivers the service | Only the referrals addressed to their own agency |
 | **System administrator** | Manages accounts, reference lists (statuses, categories), settings, reports, and the accountability log | Everything, for oversight and support |
 | **OFW or next of kin** (signed-in portal) | Creates an account, signs in, files a request, tracks own case in the portal, replies through a private link, completes a survey | Only their own case |
@@ -95,7 +95,7 @@ What each part does, in plain terms:
 - **Staff web portal** — case managers, agency staff and administrators sign in and work through queues, case files, referrals and reports.
 - **Client pages** — case filing and tracking after creating an account and signing in; private-link replies and surveys by link.
 - **One central database** — every case, referral, message, milestone and history entry lives in one place; there is no second copy of the truth to disagree with the first.
-- **Background worker** — emails, reminders and report building are queued and handled after the screen has already responded, so nobody waits for a message to be sent.
+- **Background worker** — queued emails and staff-requested reminders run separately from the page request. Report exports are generated during the request.
 - **Scheduled housekeeping** — routine upkeep that runs on a timetable (section 9).
 - **Cloud file storage** — uploaded documents are kept as files outside the database and referenced from the case records; screens open them through short-lived links.
 
@@ -129,7 +129,7 @@ sequenceDiagram
     C->>D: Save everything in one all-or-nothing step
     D-->>C: Saved, or nothing saved with the reason
     C-->>P: Confirmation, or the updated page
-    Note over C,B: Emails, reminders and reports are queued for later
+    Note over C,B: Email work is queued; reports run during the request
     B->>B: Sends them after the screen has responded
 ```
 
@@ -140,7 +140,7 @@ Step by step:
 3. **The information is checked.** Required items are present, formats make sense, and a duplicate check warns staff if a very similar request has already been filed. Failures come back as messages beside the fields — nothing is saved yet.
 4. **The whole change is saved at once.** Either everything is recorded or nothing is; there is no half-saved case. This also keeps concurrent work safe: when two staff touch the same referral, changes are ordered so one person's update cannot silently overwrite another's, and things like case numbers are issued so two cases can never share a number.
 5. **The person sees the result immediately** — a confirmation, or the updated page.
-6. **Anything slow is handed to the background worker** — acknowledgement emails, notifications, reminders, report building. If the save did not finish, nothing is sent.
+6. **Related email work is queued after saving** — acknowledgement emails, notifications and staff-requested reminders. Reports run during the request. If the save did not finish, nothing is sent.
 
 ---
 
@@ -156,7 +156,7 @@ flowchart TD
         E -->|"Expired, or too many wrong tries"| F["Check closes - start signing in again"]
         E -->|"Yes"| G["Signed in to this person's own workspace"]
         G --> H{"Role decides what appears"}
-        H --> H1["Case manager:<br/>own cases and intake queue"]
+        H --> H1["Case manager:<br/>office-wide cases and review queue"]
         H --> H2["Agency staff:<br/>own agency's referrals"]
         H --> H3["Administrator:<br/>accounts, lists, oversight"]
         H --> H4["OFW or next of kin:<br/>own case only"]
@@ -164,7 +164,7 @@ flowchart TD
 
     subgraph Appr["Approvals along the way"]
         I["A self-filed request arrives"] --> J{"Case manager reviews"}
-        J -->|"Accepted"| K["Case file opened with a case number;<br/>the person is notified"]
+        J -->|"Accepted"| K["Pending case approved;<br/>the person is notified"]
         J -->|"Declined"| L["The person is notified with the reason"]
         K --> M["Case manager sends the referral<br/>with the OFW's documents"]
         M --> N["Agency picks the service from<br/>its own list of available services"]
@@ -188,7 +188,7 @@ flowchart TD
 
 **Approvals**
 
-- **Intake approval.** A self-filed request first appears as a draft for the case manager: accept it and it becomes a real case with its own case number and the person is notified; decline it and the person is told, with the reason. Nothing reaches a partner agency before acceptance.
+- **Intake approval.** A filing is saved as a case pending review, with its case number and tracking code already allocated. Approval opens it for case work; rejection records the reason and notifies the person. This is not a draft-and-publish workflow. Nothing reaches a partner agency before acceptance.
 - **Sending a referral.** The case manager (or an administrator) creates the referral on the open case, attaches the OFW's available documents, and sends it to the chosen partner agency. No service is chosen at this point.
 - **Referral decision.** The receiving agency picks the service for the referral from its own list of available services, then accepts the referral or declines it with a standard reason (requirements incomplete, outside its mandate, duplicate, client withdrew, no capacity, other). A declined referral returns to the case manager, who may re-refer elsewhere. The case manager and administrator choose the agency, not the service.
 - **Compliance step.** The agency can set a referral to "awaiting requirements" and ask the client for specific documents before continuing.
@@ -200,14 +200,14 @@ flowchart TD
 
 **Files.** Documents are uploaded through the forms the office already uses: case documents, referral attachments, the client's replies on a private link, plus profile pictures and agency logos. The file itself is kept in cloud storage; the records only describe it (original name, type, size, who uploaded it, where it belongs). Screens open files through short-lived links that only work for someone entitled to see them. Type and size limits apply per context. Earlier file copies are kept by the system when a referral attachment is replaced, but agency staff have no screen to replace files or view earlier copies — to be confirmed whether this should ever be offered. Files no longer referenced by anything are cleaned up nightly, and viewing or exporting is itself recorded.
 
-**Emails.** Messages are composed by events and sent by the background worker, always after the related change has safely saved — a save that fails sends nothing. Typical messages: acknowledgement of an online filing, "your case was opened/updated", a referral sent to an agency, a document request with a private link, a feedback survey invitation, a staff invitation, sign-in and password codes, reminders for referrals past their expected turnaround, and replies from the public contact form. Every message is written to a delivery ledger with its outcome (waiting, sent, delivered, failed and why), so staff can see whether something actually arrived rather than assuming it did.
+**Emails.** Messages are composed by events and sent by the background worker, always after the related change has safely saved — a save that fails sends nothing. Typical messages: acknowledgement of an online filing, "your case was opened/updated", a referral sent to an agency, a document request with a private link, a feedback survey invitation, a staff invitation, registration and password-reset messages, reminders for referrals past their expected turnaround, and replies from the public contact form. Every message is written to a delivery ledger with its outcome (waiting, sent, delivered, failed and why), which administrators read on the email-log page along with the provider's delivery events; there is no resend button. Provider acceptance does not prove inbox delivery.
 
 **Notifications.** Two kinds:
 
-- **Inside the portal** — an inbox for staff and for the OFW's own account, raised by events such as a new intake, a status change, a new milestone, or a referral nearing its deadline.
+- **Inside the portal** — an inbox for staff and for the OFW's own account, raised by events such as a new intake, a status change, a new milestone, or a staff-requested overdue reminder.
 - **To the client** — a case timeline on the tracking page and portal that updates as things happen, plus email notifications with a link back to the right place.
 
-Reminders for overdue work are generated automatically, so nothing depends on someone remembering to chase it.
+Overdue reminders are sent only when authorized staff request them from the overdue-referrals page. No scheduled reminder sender is configured.
 
 ---
 
@@ -234,7 +234,7 @@ Validation problems, "access denied", busy service and similar conditions each h
 flowchart TD
     A["1. OFW creates an account, signs in,<br/>and files online, or is helped<br/>at a DMW office"] --> B["2. Case manager reviews the request"]
     B -->|"Declined"| B1["The person is told, with the reason"]
-    B -->|"Accepted"| C["3. One case file is opened:<br/>case number and tracking code issued"]
+    B -->|"Accepted"| C["3. Pending case approved:<br/>existing number and tracking code retained"]
     C --> D["4. Case manager sends the referral<br/>with the OFW's documents"]
     D --> E["5. Agency picks its service,<br/>accepts, and begins work"]
     E --> F{"6. Does the agency need<br/>documents or details?"}
@@ -242,12 +242,12 @@ flowchart TD
     G --> H["7. Agency records progress milestones"]
     F -->|"No"| H
     H --> I["8. Agency marks the referral completed"]
-    I --> J["9. Feedback survey sent to the person"]
+    I --> J["9. Survey invitation, if enabled<br/>and an active form and email exist"]
     J --> K["10. Case manager closes the case"]
     K --> L["The full story appears on the<br/>tracking page and portal"]
 ```
 
-In words: a worker creates an account, signs in, and files a request (or is assisted at the office). A case manager reviews it and either declines it with a reason or accepts it, which opens one case file with a case number for the office and a tracking code shown in the portal. The case manager sends a referral to the chosen partner agency with the documents the OFW has already provided — no service is chosen at that point. The agency receives it, picks the service it will deliver from its own list of available services, accepts, works it, and may ask the client for documents through a private, expiring link — the reply lands back on the same referral and the agency continues. Progress milestones are recorded as work advances. When the agency marks the referral completed, a feedback survey is sent to the person. The case manager then closes the case; the timeline, notifications, reports and the accountability log all reflect the same story, and the public sees it on the tracking page.
+In words: a worker creates an account, signs in, and files a request (or is assisted at the office). A case manager reviews it and either declines it with a reason or accepts it, which opens the existing pending case. Its case number and tracking code were allocated when the filing was saved. The case manager sends a referral to the chosen partner agency with the documents the OFW has already provided — no service is chosen at that point. The agency receives it, picks the service it will deliver from its own list of available services, accepts, works it, and may ask the client for documents through a private, expiring link — the reply lands back on the same referral and the agency continues. Progress milestones are recorded as work advances. When the agency marks the referral completed, a survey invitation is queued if feedback is enabled, an active agency form and client email exist, and no invitation already exists. The case manager then closes the case; the timeline, notifications, reports and the accountability log all reflect the same story, and the public sees it on the tracking page.
 
 ---
 
@@ -280,9 +280,9 @@ In words: a worker creates an account, signs in, and files a request (or is assi
 
 | Term | Meaning in this document |
 |---|---|
-| **Intake** | A request not yet accepted as a case — from the public form or entered by staff |
+| **Intake** | A saved case filing awaiting staff review, entered through the signed-in portal or by staff |
 | **Case file / case** | The single record of one person's assistance, with its own case number and public tracking code |
-| **Publish** | Accepting an intake so it becomes a real case |
+| **Approve** | Opening an existing case that is pending review |
 | **Referral** | Handing a case to a partner agency; the receiving agency then picks the service it will deliver from its own list of available services |
 | **Milestone** | A progress checkpoint an agency commits to and updates during a referral |
 | **Document request** | A specific ask to the client, answered through a private, expiring link — no account needed |

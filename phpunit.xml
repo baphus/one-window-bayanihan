@@ -23,9 +23,17 @@
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>
         <env name="CACHE_STORE" value="array"/>
-        <env name="DB_CONNECTION" value="pgsql"/>
-        <env name="DB_DATABASE" value="bayanihan_test"/>
-        <env name="DB_SSLMODE" value="disable"/>
+        <!-- Database identity is NOT set here. Laravel loads .env.testing because
+             APP_ENV=testing above, and .env.testing owns the test database
+             (bayanihan_testing, which is a different database from the dev one).
+             Env vars declared with force="true" are putenv()'d by PHPUnit before
+             the app boots and win over the dotenv file, so hardcoding DB_* here
+             silently redirected every run away from .env.testing. Connection
+             details now live in one place; override with a shell env var when CI
+             provides one. This is also why .env.testing is gitignored: a fresh
+             clone without it fails loudly here instead of running migrations
+             against a guessable database name. -->
+
         <!-- Test env only: route test-suite logs to the 'testing' channel (NullHandler)
              so the intentional safeUnserialize rejection paths in SecurityHelperTest
              (test doubles: Tests\Unit\SecurityHelperTest allowed-list probes vs

@@ -1,5 +1,8 @@
 # Information Risk Register — One Window Bayanihan
 
+> **Evidence boundary (2026-11-01):** Dated findings below preserve assessment snapshots, not live-deployment or compliance assurance. Current corrections: production MFA covers every role; central audit is ADMIN-only with separate scoped staff activity; malware scanning defaults to disabled and fail-open; selected PII is encrypted but client names/email/phone are not. IP-whitelist middleware is removed. Proxy trust needs framework and ingress-hop review, not an assumed exploit. See [current security requirements](../SECURITY_REQUIREMENTS_v2.2.0.md) and [audit access](../AUDIT_STRATEGY_v2.2.0.md). Approval and control-operation evidence remain external.
+
+
 | Field | Value |
 |---|---|
 | Version | v1.0.0 |
@@ -28,15 +31,15 @@
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | R-01 | OFW client PII (cases, clients, NOK, employment) | Unauthorized staff-level access by outsider | Public registration self-grants `CASE_MANAGER` | Email verification only (self-serviceable) | High | High | **Critical** | TECH-001 | Disable/gate registration; invite-only + admin approval; domain allowlist | Low | Product owner / Lead dev |
 | R-02 | User accounts | Access by offboarded/compromised users | Deactivation/soft-delete not enforced at login | None in login path | Medium | High | **High** | TECH-002 | Enforce `is_active`/`is_deleted` at login + live-session kill | Low | Lead dev |
-| R-03 | Admin console | Account takeover of privileged user | MFA never enforced for ADMIN | Password + email OTP | Medium | High | **High** | TECH-003 | Mandatory MFA enrolment for ADMIN/CASE_MANAGER | Low | Lead dev / ISM |
-| R-04 | Admin console / rate limits | Bypass of IP allowlist; throttle evasion | `trustProxies('*')` honours client XFF | nginx real-IP (private ranges) | Medium | High | **High** | TECH-005 | Trust only the LB CIDR | Low | DevOps |
+| R-03 | Admin console | Account takeover of privileged user | Historical gap; now mandatory for all production roles | Password + TOTP/recovery MFA | Medium | High | **High** | TECH-003 | Mandatory MFA enrolment for ADMIN/CASE_MANAGER | Low | Lead dev / ISM |
+| R-04 | Client-IP logging / rate limits | Incorrect forwarded-header attribution | Proxy wildcard passed as array; ingress trust unverified | Configurable trust and nginx handling; no app IP whitelist | Unverified | High | Requires topology review | TECH-005 | Verify framework trust parsing and each ingress hop | Unverified | DevOps |
 | R-05 | Audit trail | Undetected log tampering | Hash-chain never computes a hash | Append-only DB trigger (compensating) | Low | High | **Medium** | TECH-006 | Implement real hash chaining + verifier | Low | Lead dev |
 | R-06 | Security monitoring | Undetected brute force / credential stuffing; unaccountable PII export | Failed logins, logouts, exports not audited | Successful-login logging only | High | Medium | **High** | TECH-007 | Add auth-failure/logout/export audit events | Low | Lead dev / ISM |
 | R-07 | All data (DB + documents) | Data loss / unrecoverable outage | Single-vendor backup, no offsite, untested restore | Provider daily backup (7-day) | Medium | High | **High** | TECH-008, TECH-019 | Offsite encrypted dumps + tested restore + RPO/RTO | Low–Medium | DevOps / ISM |
 | R-08 | Codebase integrity | Defective/vulnerable release reaching prod | No PR CI, no SAST/dependency/secret scan | Post-merge tests only | Medium | Medium | **Medium** | TECH-009 | PR-gated CI + scanning + branch protection | Low | Lead dev |
 | R-09 | Session/secret material | Credential leak via VCS | `cookies.txt` committed | `.env` gitignored | Low | Medium | **Low** | TECH-004 | Remove + gitignore + history purge + secret-scan gate | Low | DevOps |
 | R-10 | MFA secrets | 2FA defeat via data exposure | TOTP secret/recovery codes plaintext | `$hidden` (serialization only) | Medium | High | **High** | TECH-011 | Encrypt secret; hash recovery codes | Low | Lead dev |
-| R-11 | OFW PII at rest | Bulk PII disclosure on DB/backup leak | No app-layer PII encryption | Postgres RLS + disk security | Medium | High | **High** | TECH-014 | `encrypted` casts on sensitive fields; key mgmt | Medium | Lead dev / ISM |
+| R-11 | OFW PII at rest | Bulk PII disclosure on DB/backup leak | Client names/email/phone lack encryption casts; selected fields encrypted | Postgres RLS + disk security | Medium | High | **High** | TECH-014 | `encrypted` casts on sensitive fields; key mgmt | Medium | Lead dev / ISM |
 | R-12 | Web sessions | Persistent attacker session after reset | No session invalidation on password change | remember_token rotation only | Low | Medium | **Low** | TECH-012 | ✅ Completed: sessions invalidated on password change/reset | Low | Lead dev |
 | R-13 | Web application | Stored/reflected XSS not contained | CSP allows `unsafe-inline`/`unsafe-eval` | React auto-escaping; rehype-sanitize | Low | Medium | **Low** | TECH-013 | ✅ Completed: nonce-based strict CSP deployed via Report-Only | Low (0.5) | Lead dev |
 | R-14 | Availability (login/upload) | Service stall via slow third party | No timeouts/retries on outbound HTTP | php max_execution_time=60 | Medium | Medium | **Medium** | TECH-017 | ✅ Completed: timeouts set on Turnstile (5s) and Cloudinary (30s); chatbot AI accepted as-is | Low (0.5) | Lead dev |

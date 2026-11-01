@@ -145,7 +145,7 @@ PostgreSQL (15-alpine local, newer managed server in CI/production)
 | File storage | S3-compatible object storage (`object-storage` default, `r2` selectable) | `flysystem-aws-s3-v3 3.34.0` | `config/filesystems.php:63-99` |
 | Images | Image CDN SDK | `3.1.3` | optional; falls back to object storage |
 | URL generation | Ziggy | `^2.0` | `composer.json:26` |
-| Client data fetching | TanStack Query | `^5.101.0` | `package.json:38` |
+| Client state | Inertia page props + local React state | No TanStack Query provider | `resources/js/app.tsx`, `package.json` |
 | Image runtime | OCI image `node:22-bookworm` build → `php:8.4.27-fpm` runtime | phpredis `6.1.0` pinned; PHP patch pinned + CI security floor | `Dockerfile:32,50-51,57` |
 | CI | PHP `8.4`, Node `24`, database service container | — | `.github/workflows/ci.yml:38,45` |
 
@@ -226,8 +226,9 @@ see §6 of `ROLES_AND_PERMISSIONS_v1.0.0.md` for where each mechanism applies.
 
 ## 5. Chatbot Pipeline (new in this revision)
 
-No vector database, no full-text index. The pipeline is entirely in-memory over
-the cached parsed helpdesk corpus:
+Answers come from a language-model agent using authorized helpdesk search/read tools.
+Retrieval ranks the cached corpus by weighted token matches; no vector database
+or full-text index is used. Keyword ranking retrieves evidence, not final answers:
 
 ```
 POST /chatbot/message (turnstile.session + throttle:chatbot, routes/web.php:440-442)
@@ -263,5 +264,5 @@ primary with backups → Redis 7 → S3-compatible object storage → optional
 error-tracking ingest → stdout/stderr log collection. Local development is the
 compose stack (nginx `1.27-alpine`, app, `postgres:15-alpine`, `redis:7-alpine`,
 one-shot `migrate` profile). Release safety comes from in-container
-`--isolated` migrations plus `/up` and `/api/readyz` gates — see the changelog
+`--isolated` migrations plus the `/up` rollout gate and separate `/api/readyz` monitoring — see the changelog
 entry above, not a vendor runbook.

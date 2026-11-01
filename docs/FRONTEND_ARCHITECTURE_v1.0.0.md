@@ -1,6 +1,6 @@
 # Frontend Architecture
 
-> **Version:** 1.0.0 | **Updated:** 2026-09-15 | **Status:** Verified against source code
+> **Version:** 1.0.0 | **Updated:** 2026-09-15 | **Corrections:** provider tree and case-state flow reconciled on 2026-11-01; remaining sections retain their earlier source snapshot.
 > **Source:** `resources/js/app.tsx`, `vite.config.js`, `package.json`,
 > `tailwind.config.js`, `resources/js/Components/ToastProvider.jsx`,
 > `resources/js/Hooks/useUnsavedChanges.jsx`,
@@ -15,7 +15,7 @@
 | Build | Vite | `^8.0.0` + `laravel-vite-plugin ^3.1` | `package.json:27,33` |
 | Styling | Tailwind CSS | `^3.2.1` (+ `@tailwindcss/forms`) | `package.json:17,31` |
 | Language | TypeScript | `^5.9.3` (check: `npm run typecheck` → `tsc --noEmit`) | `package.json:12,32` |
-| Async state | TanStack Query | `^5.101.0` | `package.json:38` |
+| Server/client state | Inertia page props + local React state | — | `resources/js/app.tsx` |
 | URL generation | Ziggy (`ziggy-js`) | `^2.6.3`, global `route()` | `package.json:53` |
 | Validation | Zod | `^4.4.3` | `package.json:54` |
 | Charts | Chart.js + react-chartjs-2 | `^4.5.1` / `^5.3.1` | `package.json:40,48` |
@@ -31,19 +31,17 @@ Scripts (`package.json:5-12`): `build` (`vite build`), `dev` (`vite`),
 
 ## 2. App Bootstrap (`resources/js/app.tsx`)
 
-Provider tree, outermost first (`app.tsx:131-134,102-108`):
+Provider tree, outermost first (`resources/js/app.tsx`):
 
 ```
-ErrorBoundary (requestId from pageRequestId(initialPage.props.request_id))
+ErrorBoundary (requestId from validated initialPage.props.request_id)
   └─ AppWithOnboarding → OnboardingProvider (onboardingRequired + onboardingState,
        synced on every Inertia 'success' navigation — app.tsx:71-82)
-       └─ QueryClientProvider
-            └─ ToastProvider (+ FlashMessageWatcher inside ToastProviderInner)
-                 └─ Inertia page component
+       └─ ToastProvider (+ FlashMessageWatcher inside ToastProviderInner)
+            └─ Inertia page component
 ```
 
-Query client defaults (`app.tsx:20-29`): `staleTime` 5 min, `gcTime` 30 min,
-`retry` 1, `refetchOnWindowFocus: false`. Sentry page context (request id +
+No TanStack Query provider is installed in this tree. Sentry page context (request id +
 user id/role tags) is synced on boot and on every navigation
 (`app.tsx:33-45,69,80`). Inertia navigation exceptions are logged to console,
 never swallowed silently (`app.tsx:88-99`). Page resolution tries
@@ -62,11 +60,7 @@ never swallowed silently (`app.tsx:88-99`). Page resolution tries
   Notifications, Clients, Stakeholders, and error pages (`Errors/NotFound`,
   `Errors/Forbidden`, `Errors/TooManyRequests`, `Errors/ServerError` — rendered
   by `bootstrap/app.php:103-188`).
-- **`.jsx` default exports are dominant.** The only production `.tsx` modules
-  are `resources/js/app.tsx`, `resources/js/Components/WelcomeModal.tsx`,
-  and the `resources/js/Onboarding/` pair (`OnboardingProvider.tsx`,
-  `TourManager.tsx`); remaining `.tsx` files are tests (`**/__tests__/`,
-  `Pages/**/​__tests__/`). New pages follow the surrounding `.jsx` convention.
+- **`.jsx` default exports are dominant.** Existing `.tsx` modules also own some areas; follow the surrounding file convention. Tests live alongside components in `__tests__` directories.
 - Alias `@` → `resources/js` must stay absolute for the Vite 8 bundler
   (`vite.config.js:9-15`, mirrored in `tsconfig.json` and `vitest.config.ts`).
 - Dev server binds `127.0.0.1:5173` with explicit HMR host/protocol
@@ -104,9 +98,7 @@ never swallowed silently (`app.tsx:88-99`). Page resolution tries
   `Link`/`router` (`router.get` with `preserveState` for report filters and
   table pagination; `router.visit/post/patch/delete` elsewhere), and URLs are
   built with Ziggy's `route()` throughout.
-- Client-persisted state: `localStorage` draft backup for case creation
-  (`useLocalStorageDraft`, wired into `Pages/Case/Create.jsx:580` via the
-  hook's `onDiscard`/`onSaveDraft` callbacks).
+- Case filing saves a `PENDING_REVIEW` case. No server-side draft/save/publish route exists; local form state is not a persisted case draft.
 
 ## 6. Flash → Toast Contract (`resources/js/Components/ToastProvider.jsx`)
 

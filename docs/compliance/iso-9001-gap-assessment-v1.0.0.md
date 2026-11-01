@@ -1,5 +1,8 @@
 # ISO 9001:2015 Gap Assessment — One Window Bayanihan
 
+> **Evidence boundary (2026-11-01):** Dated findings below preserve assessment snapshots, not live-deployment or compliance assurance. Current corrections: production MFA covers every role; central audit is ADMIN-only with separate scoped staff activity; malware scanning defaults to disabled and fail-open; selected PII is encrypted but client names/email/phone are not. IP-whitelist middleware is removed. Proxy trust needs framework and ingress-hop review, not an assumed exploit. See [current security requirements](../SECURITY_REQUIREMENTS_v2.2.0.md) and [audit access](../AUDIT_STRATEGY_v2.2.0.md). Approval and control-operation evidence remain external.
+
+
 | Field | Value |
 |---|---|
 | Version | v1.0.0 · Date 2026-07-08 |

@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| **Version** | 1.0.0 |
-| **Date** | 2026-10-11 |
+| **Version** | 1.1.0 |
+| **Date** | 2026-11-01 |
 | **Status** | CURRENT |
 | **Audience** | DICT reviewers, capstone panelists, business stakeholders |
 | **Scope** | What the system does and does not do: boundaries, business services, per-role capabilities, inputs and outputs as business documents and messages, business rules, reporting/search/exports, automatic background work, and the availability matrix |
@@ -44,7 +44,7 @@
 
 | Role | Capabilities |
 |---|---|
-| **Case Manager** | Runs the intake queue, creates and maintains case files from draft to closure, keeps client records, creates and chases referrals with the OFW's available documents attached (the agency picks the service, not the office), uploads documents, comments on referrals, reads reports and exports, and reviews the activity history connected to their work |
+| **Case Manager** | Runs the intake queue, creates case files, reviews pending filings, and carries cases through to closure, keeps client records, creates and chases referrals with the OFW's available documents attached (the agency picks the service, not the office), uploads documents, comments on referrals, reads reports and exports, and reviews the activity history connected to their work |
 | **Agency Staff** | Works only the referrals sent to their own organisation: picks the service for the referral from its own list of available services, updates status and milestones, discusses the referral with the other agencies, asks citizens for documents through temporary links, maintains its own service catalogue and survey forms, and reads its own figures and overdue list — with no screen to add or replace files |
 | **Administrator** | Everything a Case Manager can do with cases and clients, plus creating and deactivating accounts, managing partner agencies and reference lists, changing platform settings, reading logs, ending sessions, and exporting the activity history |
 | **OFW citizen** | Creates an account, signs in to their own portal, then files a case request; sees only their own case and notifications, answers document requests, follows the case in the portal, and completes surveys — with no access to any staff screen |
@@ -63,7 +63,7 @@
 | **Out** | In-app notifications and emails for case, referral, milestone, and account events | Sent in the background |
 | **Out** | Spreadsheet (Excel) and PDF documents from case, client, referral, and report screens | Exported on request |
 | **Out** | Activity-history spreadsheet export | Administrator only, with a date range |
-| **Out** | Prepared full-system workbook for the administrator | Promised, but not yet deliverable — see §11 |
+| **Out** | Prepared full-system workbook for the administrator | Not available — the screen and routes are retired; see §11 |
 | **Out** | Health/status message for operators monitoring the service | Protected message |
 | **Boundary** | Nothing is sent out to an external partner system | Partner agencies consume the system through the web application only |
 
@@ -75,12 +75,12 @@
 | S02 | Two-step verification | Second sign-in step with an authenticator code and backup codes |
 | S03 | Accounts and invitations | Create, invite, verify, deactivate, and correct accounts |
 | S04 | Public intake (self-filed cases) | A signed-in citizen files a case request from the portal |
-| S05 | Case handling | One unified case file per OFW, from draft to closure |
+| S05 | Case handling | Client-linked cases from pending review through closure and retention |
 | S06 | Client registry | Master record of the OFW: addresses, employment, next of kin |
 | S07 | Referrals to partner agencies | Send a case to an agency; the agency picks its service and drives it to completion |
 | S08 | Inter-agency messaging and comments | Discussion between agencies on a referral, plus comments |
 | S09 | Citizen document requests | Ask the OFW for specific documents through a temporary link |
-| S10 | Overdue referral follow-up | Surface referrals past their target and push reminders |
+| S10 | Overdue referral follow-up | Surface referrals past their target and send reminders on request |
 | S11 | Agency service directory | Catalogue of services each agency provides |
 | S12 | Feedback surveys | Satisfaction questionnaires sent to citizens after service |
 | S13 | Public case tracking | Follow a case on the public tracker with tracking number + email code, and in the portal when signed in |
@@ -89,8 +89,8 @@
 | S16 | Exports | Spreadsheets and PDFs of cases, clients, referrals, reports, activity |
 | S17 | Activity and audit trail | Tamper-evident history of who did what |
 | S18 | Administration | Agencies, accounts, reference lists, platform settings |
-| S19 | System operations | Log viewing, email delivery log, maintenance, security settings |
-| S20 | Help centre and chatbot | Help articles and a keyword-matched assistant |
+| S19 | System operations | System health, email delivery log, failed jobs, security log, maintenance, security settings |
+| S20 | Help centre and chatbot | Help articles and a language-model assistant that answers only from them, ranking articles by keyword match |
 | S21 | Document storage and delivery | Safe storage of uploaded files and short-lived download links |
 | S22 | Contact form and outbound email | Public enquiries and reliable email delivery with status tracking |
 
@@ -107,8 +107,8 @@
 - **Purpose.** Require a second proof at sign-in for accounts that hold other people's personal data.
 - **Inputs.** A 6-digit code from an authenticator app; or one of the backup recovery codes issued at enrolment.
 - **Outputs.** Confirmation that the account is protected; backup codes the user stores safely; an administrator's ability to reset the setup when a device is lost.
-- **Business rules.** Required for staff accounts in the live system. A citizen may switch it off outside the live system depending on settings — to be confirmed (§11). Changing your password forces a fresh sign-in with the second step.
-- **Availability.** Available (whether it is enforced for citizens in every environment is to be confirmed).
+- **Business rules.** Required for every role, including citizens, in production; disabling it is blocked there. Outside production enforcement is configurable and defaults to staff roles. Changing your password forces a fresh sign-in with required MFA.
+- **Availability.** Available.
 
 ### S03 — Accounts and invitations
 - **Purpose.** Let an administrator create or invite staff accounts, and let citizens create their own.
@@ -119,16 +119,16 @@
 
 ### S04 — Public intake (self-filed cases)
 - **Purpose.** Let a signed-in OFW file a case request from the portal, landing in the Case Manager's review queue.
-- **Inputs.** The intake questionnaire; the signed-in account; a duplicate check on the email address.
-- **Outputs.** A pending case request awaiting review; a client record; a "we received your request" email; an in-app alert to Case Managers.
-- **Business rules.** Filing requires creating an account and signing in first — there is no filing path without an account. A pending request is invisible in the client picker until a Case Manager accepts it. Duplicate detection currently compares email addresses only — a name-plus-date-of-birth check is not yet built (§11).
+- **Inputs.** Summary, optional vulnerability information, consent, and the signed-in account's linked client profile.
+- **Outputs.** A pending-review case; email queued after commit to the filer and active Case Managers; a browser success message, not an in-app intake alert.
+- **Business rules.** Filing requires an account and sign-in. Citizen intake has no active-case duplicate guard. Staff picker existing-client checks compare normalized email only; this is separate from citizen filing and not name/date-of-birth matching.
 - **Availability.** Available.
 
 ### S05 — Case handling
-- **Purpose.** Own the single case file per OFW from draft through closure and archiving.
-- **Inputs.** Case create/edit forms, intake review decisions, document uploads, status changes, closure decisions.
-- **Outputs.** The case file with its history, stakeholders, and documents; emails and notifications when a case is created, published, rejected, or its status changes; exports.
-- **Business rules.** A self-filed draft may be picked up by any Case Manager; a draft already assigned to a named Case Manager belongs to that person alone. Cases move through draft → active → closed → archived, and archiving is reversible for a period before permanent removal (performed automatically).
+- **Purpose.** Maintain case files linked to clients from filing and review through closure, archiving, and retention removal; multiple cases per client are allowed.
+- **Inputs.** Case filing, classification edits, review decisions, document uploads, status and closure actions.
+- **Outputs.** Case history, stakeholders, documents, event-specific notifications, and exports. Approval adds an opened-case timeline event without separate notification dispatch.
+- **Business rules.** Cases start pending review; any Case Manager or Administrator can approve to open or reject with a reason. Rejection currently does not soft-delete. Normal Case Manager access is office-wide; trash and restoration are owner-scoped. There is no draft editor/publish/delete flow. Case-detail edits accept categories and issue/concern. Closed cases may be archived, unarchived to closed, or moved from archive to trash with a reason; retention cleanup later purges trash.
 - **Availability.** Available.
 
 ### S06 — Client registry
@@ -142,8 +142,8 @@
 - **Purpose.** Send a case to a partner agency and drive it through pending → in progress / awaiting compliance → completed or rejected, with the receiving agency choosing the service it will deliver.
 - **Inputs.** Referral create form with the OFW's available documents attached; the receiving agency's choice of service; status changes; requirements; milestones; attachments added by the sending office.
 - **Outputs.** The referral record with its attached documents, the service the agency picked, requirements, milestones, and attachments; notifications to the receiving agency and updates to the case.
-- **Business rules.** The office attaches the OFW's documents and sends the referral; the service is picked by the receiving agency from its own list of available services, never by the Case Manager or Administrator. The same agency cannot receive a duplicate referral while an earlier one is still open. Status changes follow the allowed sequence only. An agency sees only its own referrals. Whether the referral list itself should be staff-only is currently open — see §11.
-- **Availability.** Partly available (records are protected, but the list is currently visible more broadly than intended — owner to confirm).
+- **Business rules.** The office attaches the OFW's documents and sends the referral; the service is picked by the receiving agency from its own list of available services, never by the Case Manager or Administrator. The same agency cannot receive a duplicate referral while an earlier one is still open. Status changes follow the allowed sequence only. An agency sees only its own referrals. The referral list is staff-role gated; individual reads and actions also enforce record/service checks.
+- **Availability.** Available.
 
 ### S08 — Inter-agency messaging and comments
 - **Purpose.** Let agencies discuss a referral with each other, and let staff leave comments with replies on a referral.
@@ -198,21 +198,21 @@
 - **Purpose.** Role-shaped key figures for operational monitoring.
 - **Inputs.** The dashboard (staff) or the citizen portal (OFW); report filters by date, geography, and agency.
 - **Outputs.** Headline counts and trends, refreshed periodically; each user's figures are scoped to what they may see.
-- **Business rules.** Reporting is meant for the three staff roles; a citizen who signs in can currently still reach the reports area — owner to confirm (§11). Figures are cached briefly, so a filter change may take a few seconds to reflect.
-- **Availability.** Partly available (core reporting works; citizen access restriction and spreadsheet export of reports are open items).
+- **Business rules.** Reports and their exports are staff-role gated; agency figures are lane-scoped. Figures are cached briefly per user/filter context.
+- **Availability.** Available, including PDF and Excel report exports; report CSV is absent.
 
 ### S16 — Exports
 - **Purpose.** Let users take data out as spreadsheets and PDFs.
 - **Inputs.** Export requests from referral, case, client, report, and activity screens.
-- **Outputs.** Excel files for referrals, cases, and clients; PDF for a case and for reports; Excel for reports; a spreadsheet of the activity history (administrator only, with an explicit date range); the full-system workbook (see §11).
-- **Business rules.** Very large report exports are politely refused with an explanatory message rather than being generated. Activity-history export is administrator-only. Every export attempt is recorded in the activity history.
-- **Availability.** Partly available (report spreadsheet export and the full-system workbook are missing — see §11).
+- **Outputs.** Excel files for referrals, cases, and clients; PDF for a case and for reports; Excel for reports; a spreadsheet of the activity history (administrator only, with an explicit date range); and nothing else — the full-system workbook is not offered (see §11).
+- **Business rules.** Large report exports are refused with an explanatory message. Full audit-log CSV export is Administrator-only with a bounded date range. Case/client/referral list exports log before generation without a separate outcome; single-case PDF logs after preflight and before delivery. Report exports record attempts and outcomes, not proof of browser receipt.
+- **Availability.** PDF and Excel report exports are available. Report CSV and the retired full-system workbook workflow are not available.
 
 ### S17 — Activity and audit trail
 - **Purpose.** A tamper-evident record of who did what, per area.
 - **Inputs.** Actions recorded automatically as users work.
 - **Outputs.** The activity history with user, action, record, old and new values; role-scoped viewing; the administrator's spreadsheet export; an automatic periodic integrity check.
-- **Business rules.** History is append-only — nobody can edit or delete entries from the screen. Administrators see everything; Case Managers and Agency staff see the parts connected to their own work. Whether Case Managers should see the office-wide history or only their own is to be confirmed (§11).
+- **Business rules.** Full audit-log viewing/export is Administrator-only. Separate operational activity is role-filtered: the Case Manager aggregate feed follows authored cases; the agency feed follows its referrals. Per-case/per-referral activity reads have separate record checks. Normal office-wide case access does not imply an office-wide aggregate activity feed. History is not editable through these screens.
 - **Availability.** Available.
 
 ### S18 — Administration
@@ -224,17 +224,17 @@
 
 ### S19 — System operations
 - **Purpose.** Operator visibility and control.
-- **Inputs.** Requests to view logs and the email delivery log, resend a message, toggle maintenance mode, and adjust security settings.
-- **Outputs.** Log viewing and download; resent emails; maintenance mode on or off.
+- **Inputs.** Requests to view monitoring pages, toggle maintenance mode, and adjust security settings.
+- **Outputs.** Updated maintenance/security settings, and a Monitoring area for administrators: a system health page (database, scheduler heartbeat, mail transport, queue backlog, failed-job count, chart rendering), an email delivery log with per-message detail and provider delivery events, a failed-jobs list with exception detail and retry, and a security log drawn from the audit trail. An application-log file viewer is not offered.
 - **Business rules.** Ending a user's sessions is not a standalone screen: it happens as a side effect of deactivating the account or resetting its password or MFA.
 - **Availability.** Available.
 
 ### S20 — Help centre and chatbot
-- **Purpose.** Static help articles plus a keyword-matched assistant drawn from the same content.
+- **Purpose.** Help articles plus a language-model assistant with helpdesk search/read tools. Retrieval ranks content by weighted keyword matches.
 - **Inputs.** Search terms in the help centre; questions typed into the chat window (protected by a bot check).
 - **Outputs.** Help articles, search results, and a chat reply. Only the most recent few turns are kept in the conversation window.
-- **Business rules.** The assistant matches keywords and intent against a prepared copy of the help content — it is not a general chatbot. Keeping full chat transcripts for supervisor review is not yet built (§11).
-- **Availability.** Partly available (help and chat work; chat history for supervisors is not available).
+- **Business rules.** A language-model provider generates helpdesk-grounded replies using audience-filtered search/read tools; responses are not fixed keyword answers. Turn metrics are logged, but full transcript review for supervisors is not built.
+- **Availability.** Help is available; the assistant is disabled by default and needs provider configuration and enablement.
 
 ### S21 — Document storage and delivery
 - **Purpose.** Keep case and referral documents safe and hand back short-lived download links.
@@ -246,7 +246,7 @@
 ### S22 — Contact form and outbound email
 - **Purpose.** Receive public enquiries and deliver email reliably with status tracking.
 - **Inputs.** Contact-form submissions (protected by a bot check); delivery-status confirmations from the email provider.
-- **Outputs.** A notification email to the office; an email delivery log administrators can review and resend from.
+- **Outputs.** An enquiry email to the office; delivery status and provider events are visible to administrators on the email-log page.
 - **Business rules.** Duplicate delivery confirmations are ignored so no message is counted twice.
 - **Availability.** Available.
 
@@ -261,19 +261,19 @@
 | BR-05 | An agency sees only referrals and clients reachable through its own organisation |
 | BR-06 | Discussion threads between agencies are for agencies only; Case Managers and Administrators do not read them |
 | BR-07 | A self-filed intake must be accepted by a Case Manager before it becomes part of the client register |
-| BR-08 | An unassigned self-filed draft may be picked up by any Case Manager; a draft assigned to a named Case Manager is theirs alone |
-| BR-09 | Duplicate detection on intake currently uses the email address only; a name-plus-date-of-birth rule is not yet built |
-| BR-10 | Two-step verification is mandatory for staff accounts; the requirement for citizen accounts depends on the environment |
+| BR-08 | Any Case Manager/Administrator can review pending cases; normal case access is office-wide, with owner-scoped Case Manager trash/restoration |
+| BR-09 | Staff picker checks existing client email only; citizen intake does not block repeat active cases |
+| BR-10 | MFA is mandatory for every role in production; outside production enforcement is configurable, default staff |
 | BR-11 | Administrators create staff accounts only; citizen accounts are self-registered |
 | BR-12 | At most one survey invitation per case, agency, and referral |
 | BR-13 | Survey invitations are sent automatically when a referral completes, unless feedback is switched off in settings |
 | BR-14 | Report figures are cached briefly per user, so identical questions cost less to answer |
-| BR-15 | Every export attempt — allowed or blocked — is recorded in the activity history |
+| BR-15 | Export auditing varies: list case/client/referral paths log before generation without outcome; report exports log attempt and outcome |
 | BR-16 | Very large report exports are refused with an explanatory message instead of being produced |
 | BR-17 | Activity-history spreadsheet export is administrator-only and requires an explicit date range within the retention window |
 | BR-18 | Unscanned uploads are accepted by default; operators must opt in to blocking them — to be confirmed per environment |
 | BR-19 | Citizens are taken to their own portal, never to the staff dashboard |
-| BR-20 | Referral and report lists are currently scoped only for partner agencies, so other signed-in users may see broader lists than intended — owner to confirm |
+| BR-20 | Reports/referral lists are staff-role gated; broad staff client picker endpoints allow only Case Manager/Administrator |
 
 ## 7. Reporting, search, and exports
 
@@ -303,11 +303,11 @@
 
 ## 8. Automatic background work
 
-All of the following happen on their own schedule; no user has to trigger them, and no technical knowledge is required to rely on them:
+The following background activities run on their stated triggers. Overdue reminders are explicitly a manual exception:
 
 | Automatic activity | Cadence (plain) |
 |---|---|
-| Overdue-referral reminders pushed to the responsible people | On schedule, when a referral passes its target |
+| Overdue-referral reminders (manual exception, not scheduled) | Case Manager or Administrator requests delivery; agency cannot send |
 | Emails sent in the background after the relevant event | Continuous |
 | Survey invitations sent when a referral completes | On completion (can be switched off in settings) |
 | Clean-up of old system logs | Daily |
@@ -325,13 +325,13 @@ A written data-retention and disposal policy document has not been produced yet,
 
 | Business event | Who is informed |
 |---|---|
-| A case is created or published | The citizen and the Case Manager |
+| A citizen intake is submitted or approved | Submission queues filer/reviewer email; approval adds a timeline event without separate notification dispatch |
 | A case's status changes | The citizen and staff on the case |
 | A referral is created or its status changes | The receiving agency and the Case Manager |
-| A referral passes its target time | The responsible agency and Case Manager |
+| Staff request overdue reminders | Responsible agency receives queued email/notices; only Case Manager/Administrator may trigger |
 | A milestone is recorded | The Case Manager |
 | A document request activity occurs | The citizen and the agency |
-| A new self-filed intake arrives | The Case Managers (in-app) |
+| A new self-filed intake arrives | Filer and active Case Managers by queued email; browser success message, no in-app intake notice |
 | An invitation, email change, or verification code is issued | The recipient, by email |
 | A public enquiry is submitted | The office, by email |
 | An operational alert occurs | Administrators (in-app) |
@@ -353,21 +353,21 @@ A written data-retention and disposal policy document has not been produced yet,
 |---|---|---|---|---|
 | Sign-in and sign-out | Email + password sign-in, session ends on sign-out | All roles | Available | Repeated failed attempts are temporarily blocked |
 | Password recovery | Email link to set a new password | All roles | Available | — |
-| Two-step verification | Second sign-in step with authenticator code and backup codes | All roles (mandatory for staff) | Partly available | Whether citizens must enrol outside the live environment is to be confirmed |
+| Two-step verification | Authenticator code and backup codes | All roles | Available | Mandatory for all in production; configurable outside production, default staff |
 | Account invitation | Administrator invites staff; link valid one week | Administrator | Available | No public staff sign-up |
 | Account lifecycle | Create, edit, deactivate, reactivate, verify, reset two-step setup | Administrator | Available | Administrator cannot remove their own account or the last administrator |
 | Citizen self-registration | Citizen creates an account before filing a case | Public / OFW | Available | Confirmed by an email code |
 | Public intake | Signed-in citizen files a case request; goes to the review queue | OFW, Case Manager | Available | Account and sign-in required before filing |
-| Duplicate check on intake | Flags a repeat submission by email address | System | Partly available | Name + date-of-birth check not built |
-| Case handling | Draft, review, publish, status change, archive, close, delete drafts | Case Manager, Administrator | Available | Agency staff may view referred cases only |
+| Existing-client check | Staff picker compares normalized email | Case Manager, Administrator | Partly available | No name/DOB matching or citizen active-case duplicate guard |
+| Case handling | Pending review, approval/rejection, classification, close/reopen, archive/trash/restore | Case Manager, Administrator | Available | No draft lifecycle; office-wide case access, owner-scoped Case Manager trash |
 | Intake review | Accept or reject a self-filed request | Case Manager, Administrator | Available | — |
 | Client registry | Master record: addresses, employment, next of kin | Case Manager, Administrator; Agency staff (own referrals) | Available | Direct deletion of a client record is not offered — to be confirmed |
-| Referrals | Create and send with the OFW's documents; the receiving agency picks the service, then progresses, completes, or rejects it; milestones | Case Manager, Administrator; Agency staff (own referrals — picks the service and works it) | Partly available | Record access is restricted correctly; the list itself is currently visible more broadly — owner to confirm |
+| Referrals | Create and send with the OFW's documents; the receiving agency selects services and accepts, gates, rejects, progresses, or completes; Case Managers and Administrators can also progress and complete; milestones | Case Manager, Administrator; Agency staff (own referrals) | Available | Staff-role list gate plus record/service checks |
 | Referral deletion | Remove a referral | Case Manager, Administrator | Available | — |
 | Inter-agency message thread | Discussion between agencies on a referral | Agency staff | Available | Case Managers and Administrators deliberately excluded |
 | Referral comments | Comments and replies visible to staff | Case Manager, Administrator, Agency staff | Available | — |
 | Citizen document requests | Ask the citizen for documents via temporary link | Agency staff | Available | Links can be revoked; locked once the referral or case is finished |
-| Overdue referral follow-up | List past-target referrals; send reminders | Case Manager, Administrator, Agency staff (own) | Available | Citizens have no access |
+| Overdue referral follow-up | List past-target referrals; send reminders | Case Manager, Administrator; Agency staff view their own only | Available | No scheduled sender; reminders are sent on request. Citizens have no access |
 | Agency service catalogue | Each agency maintains its own list of services and picks from it when a referral arrives | Agency staff | Available | — |
 | Global service list | Shared list of services | Administrator | Available | — |
 | Survey form builder | Create and edit questionnaires | Agency staff | Available | — |
@@ -376,36 +376,36 @@ A written data-retention and disposal policy document has not been produced yet,
 | Public case tracking | Follow own case on the public tracker (tracking number + email code) and in the portal when signed in | OFW | Available | Read-only |
 | Notifications | In-app feed plus matching emails | All roles | Available | Citizens have their own feed |
 | Staff dashboard | Headline figures for operations | Case Manager, Administrator, Agency staff | Available | Citizens are taken to their own portal |
-| Reports | Filtered figures by date, geography, agency | Case Manager, Administrator, Agency staff (own) | Partly available | Citizens can currently still reach this area — owner to confirm |
+| Reports | Filtered figures by date, geography, agency | Case Manager, Administrator, Agency staff (own) | Available | Staff-role gated; agency-scoped |
 | Report export (PDF/Excel) | Download report figures | Case Manager, Administrator, Agency staff (own) | Available | Very large exports are refused with a message |
 | Report export (CSV) | Download report figures as CSV | All roles | Not available | Planned, not built |
 | Case / client / referral exports | Excel lists and case PDF | Case Manager, Administrator; Agency staff (own, where allowed) | Available | — |
-| Activity history | Who did what, append-only | Case Manager, Administrator, Agency staff (own) | Available | Whether Case Managers see only their own or the office-wide history is to be confirmed |
+| Activity history | Role-scoped operational history | Staff | Available | Case Manager aggregate follows authored cases; per-record reads differ. Full audit log is Administrator-only |
 | Activity history export | CSV with an explicit date range | Administrator | Available | — |
-| Full-system workbook | One workbook with all data | Administrator | Not available | File is prepared but never delivered to the administrator |
+| Full-system workbook | Former administrative workbook workflow | Administrator | Not available | Screen/routes retired; retained report job undispatched |
 | Administration: agencies, accounts, reference lists, settings | Maintain master data and platform settings | Administrator | Available | — |
-| System operations | Logs, email delivery log, maintenance, security settings | Administrator | Available | Session eviction via deactivation or credential reset |
+| System operations | System health, email delivery log, failed jobs, security log, maintenance and security settings | Administrator | Available | Monitoring group in the sidebar; no application-log file viewer; account actions can invalidate sessions |
 | Help centre | Searchable help articles | All roles (public too) | Available | — |
-| Chatbot | Answers by matching the help content | All roles (public too) | Partly available | Chat transcripts kept for supervisor review are not built |
+| Chatbot | Language-model agent with keyword-ranked helpdesk search/read tools | All roles (public too) | Partly available | Disabled by default; no supervisor transcript-review workflow |
 | Document storage | Safe upload, type validation, short-lived download links | Case Manager and Administrator (uploading); Agency staff (viewing and downloading files on their own referrals) | Partly available | Malware scanning depends on deployment settings — to be confirmed |
 | Automatic clean-ups and checks | Logs, orphaned files, trashed cases, archive/prune, integrity check | System | Available | — |
 | Contact form | Public enquiry reaching the office | Public | Available | Bot-protected |
-| Email delivery tracking | Delivery status log with resend | Administrator | Available | — |
+| Email delivery tracking | Delivery ledger with provider events and an administrator email-log page | System; Administrator | Available | Page shows status, error, and delivery events; no resend action |
 | Real-time on-screen updates | Live refresh without reloading | All roles | Not available | Planned |
 | Data-retention policy document | Written governance for how long data is kept | Owner | Not available | Automatic clean-ups exist; the policy document does not |
 | Written export-access policy | Documented rule on who may export what | Owner | Not available | Mechanical controls (roles, audit, limits) exist |
 
 ## 11. Limitations and clarifications (plain gaps)
 
-1. **Some lists are currently visible more broadly than intended — owner to confirm.** The referral list, the reports area, and certain client lookups can be reached by signed-in users outside the three staff roles. Individual records remain protected; the *lists* do not. The project's own source material contains two conflicting statements about this (one calls it "available to all roles", another calls it a priority bug), so the intended rule needs an owner decision.
-2. **The full-system workbook is promised but never delivered — to be confirmed.** The administrator is told "you will be notified when the file is ready", the file is prepared in the background, but no notification arrives and there is no way to download it. Either the delivery step is missing or the message is wrong.
+1. **Staff list boundaries are enforced.** Reports and referral lists are staff-role gated; broad client picker lookups are Case Manager/Administrator-only. Some referral discussion and download actions rely on the in-record participating-agency check rather than a separate role gate, and the attachment add/replace/remove actions accept agency staff requests although only staff screens offer them — hardening to review, with no exposure found.
+2. **Full-system workbook workflow retired.** Its former screen/routes are removed. A retained report job has no application dispatch caller; it is not an active delivery workflow.
 3. **Report figures cannot be downloaded as CSV — not available.** PDF and Excel downloads exist; the spreadsheet (CSV) option does not.
 4. **Duplicate case detection by name and date of birth — not available.** Only the email-address check exists today.
 5. **Chat transcripts are not kept for supervisor review — not available.**
 6. **Malware scanning of uploaded documents depends on deployment settings — to be confirmed.** Out of the box, uploads are accepted without an active scanner unless operators opt in to blocking them.
-7. **Two-step verification for citizen accounts depends on the environment — to be confirmed.** It is mandatory for staff in the live system; the citizen rule varies with settings.
+7. **MFA policy is environment-specific but settled.** Every role, including citizens, requires MFA in production; outside production enforcement is configurable and defaults to staff.
 8. **A written data-retention and disposal policy has not been produced — not available**, although the clean-ups themselves run automatically.
 9. **A written policy on who may export data has not been produced — not available**, although roles, limits, and audit records on exports already work.
 10. **Direct deletion of a client record is not offered — to be confirmed** whether that is deliberate (records are archived rather than removed).
 11. **Instant on-screen updates without refreshing — not available.** Screens must be refreshed to show new activity.
-12. **A leftover public sign-up screen exists but is not connected — owner to confirm removal.** Citizens register before filing, so this screen can never be reached; it would not work even if it were.
+12. **Citizen registration is live.** Profile capture and review/email-code routes create citizen accounts before filing; it is not an orphan sign-up screen.

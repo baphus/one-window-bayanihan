@@ -29,16 +29,16 @@ Layer 6: Data Protection (PII encryption, audit logging, RLS — forced on 7 tab
 
 1. **Email + Password** — Standard credential validation (`AuthenticatedSessionController@store`, `POST /login`)
 2. **CAPTCHA** — bot-protection token validated on login POST (`VerifyTurnstile` middleware, `TURNSTILE_*` keys)
-3. **TOTP MFA challenge (only if MFA enabled for the user)** — `MfaChallengeController@totp` (`POST /login/mfa/totp`) validates the authenticator code, or `MfaChallengeController@recovery` (`POST /login/mfa/recovery`) accepts a one-time recovery code. There is no `LoginOtpController`; login has no emailed-OTP step. Email OTP (6-digit, `OtpService`) is used for profile email-change, public intake verification, and the tracking portal — never for login.
+3. **TOTP MFA challenge (only if MFA enabled for the user)** — `MfaChallengeController@totp` (`POST /login/mfa/totp`) validates the authenticator code, or `MfaChallengeController@recovery` (`POST /login/mfa/recovery`) accepts a one-time recovery code. There is no `LoginOtpController`; login has no emailed-OTP step. Email OTP (6-digit, `OtpService`) is used for citizen registration review, profile email-change, and tracking/document-request access — never for login.
 
 ### Rate Limiting on Auth
 
 | Endpoint | Limiter | Limit | Scope |
 |----------|---------|-------|-------|
-| `POST /login` | `login` | 10/minute | Per email (falls back to IP when no email given) |
+| `POST /login` | `login` | 10/minute | Dual counters: 10/min per email + IP; 30/min per IP |
 | `POST /login/mfa/totp` | `totp-challenge` | 3/minute | Per pending-MFA-session + IP (`MfaChallengeController`) |
 | `POST /login/mfa/recovery` | `recovery-code` | 3/minute | Per pending-MFA-session + IP (`MfaChallengeController`) |
-| `POST /profile/email-change/send-otp`, `POST /profile/email-change/verify-otp` | `otp` | 5/minute | Per email + IP |
+| `POST /profile/email-change/send-otp`, `POST /profile/email-change/verify-otp` | `otp` | 5/minute | Authenticated user ID + IP |
 | `POST /forgot-password` | `password-reset-request` | 5/minute | Dual: per email + IP, and per IP |
 | `POST /invite/{token}` | `invite-register` | 10/minute | Per IP |
 | `GET /verify-email/{id}/{hash}`, `POST /email/verification-notification` | `email-verification` | 6/minute | Per authenticated user (falls back to IP) |
@@ -48,8 +48,8 @@ Layer 6: Data Protection (PII encryption, audit logging, RLS — forced on 7 tab
 - **Library:** `pragmarx/google2fa-laravel` (v3.0.1)
 - **QR Code:** `bacon/bacon-qr-code`
 - **Recovery Codes:** 8 one-time-use codes generated on enrollment
-- **Storage:** `mfa_secret` (encrypted), `mfa_recovery_codes` (encrypted JSON) in `users` table
-- **Enforcement:** `CheckMfaEnrolled` middleware can redirect to setup if policy requires
+- **Storage:** `mfa_secret` (encrypted), `mfa_recovery_codes` (JSON array of HMAC-SHA256 hashes) in `users` table
+- **Enforcement:** `CheckMfaEnrolled` requires enrollment for every role, including OFW, in production regardless of enrollment flags. Non-production follows `config/mfa.php`. Production disable returns 403; the stored admin `two_factor_required` toggle does not control enforcement.
 
 ### Session Management
 
@@ -69,7 +69,7 @@ Layer 6: Data Protection (PII encryption, audit logging, RLS — forced on 7 tab
 ### Implementation
 
 - **Mechanism:** Custom `CheckRole` middleware (NOT Spatie laravel-permission)
-- **Storage:** `users.role` column (string: `CASE_MANAGER`, `AGENCY`, `ADMIN`, `OFW`)
+- **Storage:** `users.role` is an unconstrained string column. Account requests validate `UserRole` values; public registration assigns OFW. Strict middleware comparisons reject unknown roles. Direct database writes remain a storage-level validation gap.
 - **Usage:** `Route::middleware('role:CASE_MANAGER,ADMIN')` — comma-separated allowed roles
 
 ### Lane Isolation (Agency)
@@ -112,8 +112,8 @@ authenticated user ID and falls back to IP for guests.
 
 | Limiter | Limit | Keying | Used By / Notes |
 |---------|-------|--------|-----------------|
-| `login` | 10/min | Per email (fallback: IP) | `POST /login`; prevents brute force |
-| `otp` | 5/min | Per email + IP | Profile email-change send/verify; prevents OTP guessing |
+| `login` | 10/min per email + IP; 30/min per IP | Dual counters | `POST /login`; prevents brute force |
+| `otp` | 5/min | Authenticated user ID or pending-registration email, plus IP | Profile email-change send/verify; prevents OTP guessing |
 | `totp-challenge` | 3/min | Per pending-MFA-session + IP | `POST /login/mfa/totp` (`MfaChallengeController`) |
 | `recovery-code` | 3/min | Per pending-MFA-session + IP | `POST /login/mfa/recovery` (`MfaChallengeController`) |
 | `password-reset-request` | 5/min | Dual: per email + IP, and per IP | `POST /forgot-password`; the per-IP leg stops inbox flooding via field rotation |
@@ -140,20 +140,22 @@ authenticated user ID and falls back to IP for guests.
 | `agency-client-access` | 3/hour | Per user + client-request | Agency access issue/reissue, reopen |
 | `agency-client-delivery-recipient` | 5/hour | Per recipient email hash (no cap when recipient unknown) | Per-recipient delivery cap, stacked with the two limiters above |
 
+Additional named limiters in the current provider (32 total): `register` (10/min per email, fallback IP), `email-availability` (10/min email+IP and 30/min IP), `helpdesk-feedback` (10/min IP), `reports-export` (5/min user, fallback IP), and `password-confirm` (5/min user, fallback IP).
+
 ## 5. Data Protection
 
 ### PII Encryption (At-Rest)
 
 | Field | Model | Cast |
 |-------|-------|------|
-| `first_name` | Client | `EncryptedString` |
-| `last_name` | Client | `EncryptedString` |
-| `email` | Client | `EncryptedString` |
-| `contact_number` | Client | `EncryptedString` |
+| `first_name`, `middle_name`, `last_name`, `email`, `contact_number` | Client | No encryption cast (plaintext at application layer) |
 | `date_of_birth` | Client | `EncryptedDate` |
+| `street` | ClientAddress | `EncryptedString` |
+| `employer_name`, `position`, `last_position`, `country`, `last_country` | ClientEmployment | `EncryptedString` |
+| `phone_number`, `email`, `full_address`, `street` | NextOfKin | `EncryptedString` |
 
 - Uses Laravel's `APP_KEY` for encryption
-- Migration `2026_07_09_000001_encrypt_pii_fields.php` converts plaintext → encrypted
+- Current model casts define field-level coverage; not all PII is encrypted. Key custody and safe rotation require a separate operational procedure.
 
 ### Data Masking
 
@@ -215,7 +217,7 @@ application layer only (route `role:` middleware, controller ownership checks,
 - **Append-only:** PostgreSQL trigger prevents UPDATE/DELETE on `audit_logs` (sole exception: the `app.allow_audit_mutations` session flag set by the authorized prune/backfill commands — `2026_07_08_000002_make_audit_logs_trigger_conditional.php`)
 - **Hash chain:** SHA-256 `prev_hash` links each entry to its predecessor
 - **Context:** IP address, user agent, correlation ID on every entry
-- **Observer:** `AuditObserver` on the 26 models in `config/audit.php` `observed_models` for automatic CREATE/UPDATE/DELETE logging
+- **Observer:** `AuditObserver` on the models in `config/audit.php` `observed_models` for automatic CREATE/UPDATE/DELETE logging
 - **Manual:** Login/logout explicitly logged in auth handlers
 
 See [AUDIT_STRATEGY_v2.2.0.md](AUDIT_STRATEGY_v2.2.0.md) for full audit design.
@@ -232,18 +234,20 @@ See [AUDIT_STRATEGY_v2.2.0.md](AUDIT_STRATEGY_v2.2.0.md) for full audit design.
 
 - Correlation ID added to all log entries (`LogContext` middleware)
 - Structured JSON logging in production
-- Log files are operator/infra-side only; the in-app log viewer has been retired
+- Application log files are operator/infra-side only; there is no in-app file viewer. Administrator Monitoring pages cover system health, email delivery, failed jobs, and security events
 
 ## 9. Infrastructure Security
 
 ### HTTPS
 
 - The deployment platform must enforce HTTPS-only ingress with TLS termination (capability C2)
-- `TRUSTED_PROXIES` must list the ingress/load-balancer CIDR ranges of whichever platform is in use — an incorrect value breaks client-IP logging, rate limiting, and IP allowlisting
+- `TRUSTED_PROXIES` must list the ingress/load-balancer CIDR ranges of whichever platform is in use — an incorrect value can undermine client-IP logging and rate limiting; no application IP-allowlist middleware remains
 - Database connections use `DB_SSLMODE=require`; Redis uses TLS wherever the endpoint leaves the private network
 - HSTS headers recommended at the infrastructure/ingress level
 
 ### Trusted Proxies
+
+The deploy workflow supplies `TRUSTED_PROXIES=*`, but bootstrap passes an array from `explode`, not the scalar wildcard branch in the installed Laravel middleware. Symfony filters trusted hops and reverses remaining hops. Confirm effective trust, remote address, and header overwrite/append handling at every ingress hop before asserting spoofability or safety. No application IP-whitelist middleware remains.
 
 ```php
 $middleware->trustProxies(
@@ -263,9 +267,9 @@ $middleware->trustProxies(
 
 | Regulation | Requirement | Implementation |
 |------------|-------------|----------------|
-| RA 10173 (Data Privacy Act) | PII protection | Encrypted at-rest, access logging, consent tracking |
+| RA 10173 (Data Privacy Act) | PII protection | Selected encrypted fields, access controls, audit logging, consent handling; legal compliance requires separate review |
 | RA 11641 (DMW Act) | Authorized inter-agency coordination | RBAC, lane isolation, audit trail |
-| DICT Cloud First Policy | Cloud-hosted, compliant infrastructure | Containerised deployment on a compliant cloud platform with in-region/PH-accessible data services; the specific providers and their assurance evidence are recorded in the supplier register under `docs/compliance/` |
+| DICT Cloud First Policy | Cloud-hosted, compliant infrastructure | Platform assurance, data-location/accessibility review, and supplier evidence are requirements; repository configuration does not establish compliance |
 
 ## 11. Known Gaps / Future Work
 

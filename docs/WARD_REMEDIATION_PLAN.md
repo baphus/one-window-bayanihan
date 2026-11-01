@@ -1,5 +1,7 @@
 # Ward Remediation Plan
 
+> **Status:** Scanner counts and completed checks below record the original remediation exercise, not a fresh scan or proof that a live deployment is secure. Current CI configuration is evidence of a configured gate, not its latest result.
+
 ## Evaluation
 
 Ward v0.4.2 was initialized with 42 rules and ran all four scanners:
@@ -13,7 +15,7 @@ The post-initialization report contained 155 findings. After the targeted change
 
 ## Completed
 
-- Added `api-global` throttling to the three authenticated API-style message/audit-log routes Ward identified.
+- Added `api-global` throttling to the authenticated API-style activity routes Ward identified.
 - Replaced MD5 cache/content fingerprints with SHA-256. These values are not password hashes, but the change removes misleading weak-crypto findings and keeps the intent explicit.
 - Removed the `exec('git log ...')` fallback from `config/sentry.php`. Deployments must provide `SENTRY_RELEASE` explicitly instead of executing a shell command during configuration loading.
 - Replaced failed-job object deserialization with inert property inspection using `allowed_classes=false`; notification extraction never invokes serialized methods.

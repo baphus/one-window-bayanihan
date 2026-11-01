@@ -1,5 +1,8 @@
 # Deployment Costing — Bayanihan One Window
 
+> **Evidence status (2026-11-01):** Deployment identifiers, outages, infrastructure inventory, and prices below are dated records or planning assumptions. They do not establish current live resources, operational approval, provider assurance, or present pricing. Confirm those with the environment owner; repository workflows establish only configured deployment behaviour.
+
+
 **What it costs to keep the system running, per month and per year.**
 
 > **Version:** 2.0.0 | **Updated:** 2026-10-03 | **Supersedes:** `DEPLOYMENT_COSTING_v1.0.0.md` (2026-08-18)

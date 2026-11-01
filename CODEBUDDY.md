@@ -1,5 +1,9 @@
 # CODEBUDDY.md This file provides guidance to CodeBuddy when working with code in this repository.
 
+## Documentation authority
+
+Start with `docs/system-analysis-and-design/README.md` for the main narrative. Code, schema, routes, and executable configuration settle current implementation claims; engineering guides provide detail. Preserve dated historical records rather than treating them as current instructions.
+
 ## Project Overview
 
 Laravel 13 + Inertia/React 18 case-management system for DMW Region VII — a centralized inter-agency case management platform for distressed OFWs. "One OFW, One Entry." Coordinates case management across multiple government agencies (OWWA, DOLE, TESDA, DSWD, DOH, Law Center, LGUs) with parallel referrals, milestone tracking, and immutable audit logging.
@@ -42,14 +46,14 @@ Browser → HTTPS → Laravel middleware stack → Controller → Service → Mo
 - Custom exception rendering: Inertia error pages for 404/403/429/405/503; 500 with Sentry incident ID; JSON 422 for API-path `ValidationException`; Sentry integration via `Integration::handles()`
 
 **Route files:**
-- `routes/web.php` (234 application routes): public pages, authenticated app routes, role-gated groups, session-authenticated `api/*` endpoints (NOT all API routes are in `routes/api.php`), chatbot, file serving
+- `routes/web.php`: public pages, authenticated app routes, role-gated groups, session-authenticated `api/*` endpoints (NOT all API routes are in `routes/api.php`), chatbot, file serving
 - `routes/auth.php`: login (email+password), TOTP MFA challenge, OFW self-registration (Turnstile + OTP), invite registration, password reset, email-change (OTP), throttled guest routes
 - `routes/api.php`: unauthenticated, throttled — `/api/readyz` (deep readiness probe), `/api/csp/report`, `/api/webhooks/resend` (Svix-signed), email availability check
 - `routes/console.php`: scheduler heartbeat (every minute, feeds readiness probe), 8 scheduled commands with `withoutOverlapping()` and Sentry failure reporting
 
 **RBAC model**: `users.role` is a plain `string(50)` column (not an enum). The `role` middleware alias (`app/Http/Middleware/CheckRole.php`) does `in_array($request->user()->role, $roles)`. Four roles: `CASE_MANAGER`, `AGENCY`, `ADMIN`, `OFW`. `app/Enums/UserRole.php` provides `values()`, `staffValues()` (all non-OFW), `isStaff()`, `label()`.
 
-**Auth and MFA flow**: Login is email+password via `AuthenticatedSessionController` → TOTP MFA via `MfaChallengeController`. OTP is used only for email-change verification, public case intake, and citizen tracking-number verification — NOT for login. In production (`APP_ENV=production`), MFA is enforced for ALL staff roles regardless of config flags; MFA cannot be disabled in production (returns 403).
+**Auth and MFA flow**: Login is email+password via `AuthenticatedSessionController` → TOTP MFA via `MfaChallengeController`. Email OTP supports citizen registration review, email changes, and tracking/document-request access — not staff login. In production (`APP_ENV=production`), MFA is enforced for ALL roles, including OFW, regardless of config flags; MFA cannot be disabled in production (returns 403).
 
 ### Backend layering and patterns
 
@@ -57,13 +61,13 @@ Browser → HTTPS → Laravel middleware stack → Controller → Service → Mo
 
 **Key service areas:**
 - Core: `CaseService` (63 KB), `ReferralService` (53 KB), `DashboardService`, `ReportsService`, `TrackingService`, `UserService`
-- Chatbot: `Services/Chatbot/` (11 files) — in-memory weighted token match over cached parsed helpdesk corpus (no vector DB, no SQLite FTS5 — retired)
+- Chatbot: `Services/Chatbot/` — language-model agent with helpdesk search/read tools; retrieval uses weighted token matching over the cached corpus (no vector DB or SQLite FTS5). See `docs/CHATBOT_PIPELINE_v1.0.0.md`.
 - Reports/Export: `Services/Reports/` (PDF via `barryvdh/laravel-dompdf`, Excel via `phpoffice/phpspreadsheet`, charts via `chart.js`)
 - Malware scanning: `Services/Malware/` — `ClamAvScanner` or `NullScanner` (fail-open with logged warning), bound via `MalwareScannerInterface` in `AppServiceProvider`
 - Referral: `Services/Referral/` — `ReferralStatusMachine`, `ReferralNotifier`, `ReferralStatsCache`
 
-**Model traits** (`app/Models/Concerns/`, 4 traits):
-- `UsesUuid` — UUID v4 PKs on 37 of 40 models (`AgencyThreadRead`, `Notification`, `SystemSetting` do not). Sets `incrementing=false`, `keyType=string`.
+**Model traits** (`app/Models/Concerns/`):
+- `UsesUuid` — UUID v4 PKs on business models (`AgencyThreadRead`, `Notification`, `SystemSetting` do not use it). Sets `incrementing=false`, `keyType=string`.
 - `SoftDeleteFlag` — wraps Laravel `SoftDeletes`, adds `is_deleted` boolean + `deleted_by` FK via single-write `runSoftDelete()` override, clears flags on restore.
 - `CascadeSoftDeletes` — cascades soft-delete/restore to child relationships via `$cascadeSoftDeletes` property. Uses a 2-second tolerance window to distinguish cascade-deleted children from independently-deleted ones; handles force-delete cascades.
 - `HasAvatar` — signed temporary URL generation for avatars/logos via `StorageService`.

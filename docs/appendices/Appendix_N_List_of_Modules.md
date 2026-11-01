@@ -1,6 +1,12 @@
 # Appendix N
 ## List of Modules
 
+> **Updated:** 2026-11-01. Current user-facing modules; backend-only capabilities are noted below. A check mark means role eligibility, not unrestricted record access. State, lane, uploader, and ownership checks still apply.
+>
+> New cases start pending review, approval opens them, and rejection records a rejected outcome. No draft edit/publish/delete lifecycle exists. Normal Case Manager case access is office-wide; trash and restoration are owner-scoped. Full audit logs are Administrator-only; staff operational activity is separate. MFA is mandatory for every role in production, including OFW; outside production enforcement is configurable.
+>
+> Agency attachment mutation routes accept `AGENCY`, but agency screens omit upload/replace/remove controls. Chat uses a language-model agent with keyword-ranked helpdesk retrieval tools and is disabled by default. Overdue reminders require a manual Case Manager/Administrator action.
+
 | Programmer | Modules | System | Case Manager | Agency Focal Person | Administrator | OFW |
 | --- | --- | :---: | :---: | :---: | :---: | :---: |
 | [Programmer] | **Authentication** | | | | | |
@@ -23,9 +29,9 @@
 |  | 4. Request and verify an account email change |  | ✓ | ✓ | ✓ | ✓ |
 | **No. of Points** | | | | | | |
 | [Programmer] | **Multi-Factor Authentication** | | | | | |
-|  | 1. Set up authenticator and enable MFA |  | ✓ | ✓ | ✓ |  |
-|  | 2. Verify authenticator or recovery code |  | ✓ | ✓ | ✓ |  |
-|  | 3. Regenerate recovery codes / disable MFA |  | ✓ | ✓ | ✓ |  |
+|  | 1. Set up authenticator and enable MFA |  | ✓ | ✓ | ✓ | ✓ |
+|  | 2. Verify authenticator or recovery code |  | ✓ | ✓ | ✓ | ✓ |
+|  | 3. Regenerate recovery codes; disable only where policy permits outside production |  | ✓ | ✓ | ✓ | ✓ |
 | **No. of Points** | | | | | | |
 | [Programmer] | **Profile** | | | | | |
 |  | 1. View own profile |  | ✓ | ✓ | ✓ | ✓ |
@@ -43,7 +49,7 @@
 | **No. of Points** | | | | | | |
 | [Programmer] | **Public Intake** | | | | | |
 |  | 1. Submit a self-filed assistance request |  |  |  |  | ✓ |
-|  | 2. Check existing client record |  |  |  |  | ✓ |
+|  | 2. Check existing client by email in staff picker |  | ✓ |  | ✓ |  |
 |  | 3. Prefill own client details when signed in |  |  |  |  | ✓ |
 |  | 4. Record intake and send acknowledgement | ✓ |  |  |  |  |
 | **No. of Points** | | | | | | |
@@ -61,24 +67,21 @@
 | [Programmer] | **Client** | | | | | |
 |  | 1. Create client during case entry |  | ✓ |  | ✓ |  |
 |  | 2. View, search and filter client records |  | ✓ | ✓ | ✓ |  |
-|  | 3. Update client details during case drafting |  | ✓ |  | ✓ |  |
+|  | 3. Capture client details through supported profile and filing forms |  | ✓ |  | ✓ |  |
 |  | 4. Upload or remove client profile picture |  | ✓ | ✓ | ✓ |  |
 |  | 5. Export permitted client records to Excel |  | ✓ | ✓ | ✓ |  |
 | **No. of Points** | | | | | | |
 | [Programmer] | **Case** | | | | | |
-|  | 1. Create case / save initial draft |  | ✓ |  | ✓ |  |
+|  | 1. File case pending review |  | ✓ |  | ✓ | ✓ |
 |  | 2. View, search and filter staff case list |  | ✓ |  | ✓ |  |
 |  | 3. View internal case details |  | ✓ | ✓ | ✓ |  |
-|  | 4. Update case fields |  | ✓ |  | ✓ |  |
-|  | 5. View, edit and save own draft |  | ✓ |  | ✓ |  |
-|  | 6. Publish a complete draft |  | ✓ |  | ✓ |  |
-|  | 7. Delete own draft |  | ✓ |  | ✓ |  |
-|  | 8. Export case record or case list |  | ✓ |  | ✓ |  |
+|  | 4. Update case categories and issue/concern |  | ✓ |  | ✓ |  |
+|  | 5. Export case record or case list |  | ✓ |  | ✓ |  |
 | **No. of Points** | | | | | | |
 | [Programmer] | **Intake Review** | | | | | |
 |  | 1. View pending intake queue |  | ✓ |  | ✓ |  |
-|  | 2. Review and correct intake draft |  | ✓ |  | ✓ |  |
-|  | 3. Accept intake by publishing case |  | ✓ |  | ✓ |  |
+|  | 2. Review pending intake and assign classification |  | ✓ |  | ✓ |  |
+|  | 3. Approve pending intake to open |  | ✓ |  | ✓ |  |
 |  | 4. Reject intake with reason |  | ✓ |  | ✓ |  |
 | **No. of Points** | | | | | | |
 | [Programmer] | **Case Status and Archive** | | | | | |
@@ -113,7 +116,7 @@
 |  | 3. Reply to internal referral comment |  | ✓ | ✓ | ✓ |  |
 | **No. of Points** | | | | | | |
 | [Programmer] | **Referral Attachment** | | | | | |
-|  | 1. Upload referral attachment |  | ✓ | ✓ | ✓ |  |
+|  | 1. Upload referral attachment (agency: backend only, no UI control) |  | ✓ | ✓ | ✓ |  |
 |  | 2. View / download referral attachment |  | ✓ | ✓ | ✓ |  |
 |  | 3. Replace attachment and view version history |  | ✓ | ✓ | ✓ |  |
 |  | 4. Soft-delete own uploaded attachment |  | ✓ | ✓ | ✓ |  |
@@ -125,18 +128,19 @@
 | **No. of Points** | | | | | | |
 | [Programmer] | **Client Requests and Secure Inbox** | | | | | |
 |  | 1. Create document / question / information request |  |  | ✓ |  |  |
-|  | 2. View request history and messages |  | ✓ | ✓ | ✓ |  |
+|  | 2. View client request list and messages |  |  | ✓ | ✓ |  |
 |  | 3. Send agency message on own referral |  |  | ✓ |  |  |
 |  | 4. Complete / cancel / reopen eligible request |  |  | ✓ |  |  |
 |  | 5. Issue or reissue secure client access link |  |  | ✓ |  |  |
-|  | 6. Revoke client access link |  | ✓ | ✓ | ✓ |  |
+|  | 6. Revoke client access link |  |  | ✓ | ✓ |  |
 |  | 7. Read and reply to client request |  |  |  |  | ✓ |
 |  | 8. Upload or replace requested document |  |  |  |  | ✓ |
 |  | 9. Download permitted request attachments |  | ✓ | ✓ | ✓ | ✓ |
 | **No. of Points** | | | | | | |
 | [Programmer] | **Activity and Audit Log** | | | | | |
 |  | 1. Automatically record auditable activity | ✓ |  |  |  |  |
-|  | 2. View and filter activity / audit records |  | ✓ | ✓ | ✓ |  |
+|  | 2. View and filter scoped operational activity |  | ✓ | ✓ | ✓ |  |
+|  | 6. View and filter full audit logs |  |  |  | ✓ |  |
 |  | 3. View case-level activity history |  | ✓ |  | ✓ |  |
 |  | 4. View referral-level activity history |  | ✓ | ✓ | ✓ |  |
 |  | 5. Export audit logs with date range |  |  |  | ✓ |  |
@@ -208,19 +212,13 @@
 | [Programmer] | **System Settings and Operations** | | | | | |
 |  | 1. View / update system settings |  |  |  | ✓ |  |
 |  | 2. Reindex AI assistant knowledge |  |  |  | ✓ |  |
-|  | 3. View / download application logs |  |  |  | ✓ |  |
 |  | 4. View / toggle maintenance mode |  |  |  | ✓ |  |
 |  | 5. View / update security settings |  |  |  | ✓ |  |
-|  | 6. View email delivery logs / resend eligible email |  |  |  | ✓ |  |
-| **No. of Points** | | | | | | |
-| [Programmer] | **Administrative Data Export** | | | | | |
-|  | 1. View data export options |  |  |  | ✓ |  |
-|  | 2. Export full administrative workbook |  |  |  | ✓ |  |
 | **No. of Points** | | | | | | |
 | [Programmer] | **Helpdesk and Onboarding** | | | | | |
 |  | 1. Browse / search / read helpdesk articles |  | ✓ | ✓ | ✓ | ✓ |
-|  | 2. View, complete, skip or replay onboarding |  | ✓ | ✓ | ✓ |  |
-|  | 3. Update onboarding steps, guides and checklist |  | ✓ | ✓ | ✓ |  |
+|  | 2. Mark or dismiss getting-started checklist |  | ✓ | ✓ | ✓ |  |
+|  | 3. Skip profile prompt |  | ✓ | ✓ | ✓ |  |
 | **No. of Points** | | | | | | |
 | [Programmer] | **AI Assistant** | | | | | |
 |  | 1. Provide case tracking guidance |  | ✓ | ✓ | ✓ | ✓ |
@@ -228,4 +226,5 @@
 |  | 3. Keep responses within system topics | ✓ |  |  |  |  |
 |  | 4. Limit requests and response length | ✓ |  |  |  |  |
 | **No. of Points** | | | | | | |
-| **Total Number of Modules** | **35** | | | | | |
+
+Current administration includes a Monitoring group (system health, audit logs, security log, email logs, failed jobs with retry). Excluded as retired: application-log viewer/download, resend, full administrative workbook, legacy fixed SERVQUAL, and draft lifecycle actions. Maintained inventory above replaces a volatile module total.

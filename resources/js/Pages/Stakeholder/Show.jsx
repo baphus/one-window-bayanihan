@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link } from '@inertiajs/react';
 import AgencyMapView from '@/Components/AgencyMapView';
-import KpiCard from '@/Components/ui/KpiCard';
 
 /**
  * Stakeholder details — partner office record.
@@ -254,29 +253,24 @@ export default function StakeholderShow({ stakeholder, stats }) {
                         <h2 className="border-b border-slate-100 px-5 py-3.5 text-[15px] font-bold text-slate-900">
                             Referral performance
                         </h2>
-                        <div className="grid grid-cols-1 gap-3 px-5 py-4 sm:grid-cols-3">
-                            <KpiCard label="Total referrals" value={total} icon="sync_alt" />
-                            <KpiCard label="Active" value={active} tone="attention" icon="pending_actions" />
-                            <KpiCard label="Completed" value={completed} tone="positive" icon="task_alt" />
-                        </div>
-
-                            <div className="mt-4">
-                                <div className="flex items-center justify-between gap-3">
-                                    <p className="text-[12px] font-medium text-slate-500">Referrals completed</p>
-                                    <p className="text-[12.5px] font-semibold text-emerald-600">{completionPercent}%</p>
-                                </div>
-                                <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-100">
-                                    <div
-                                        className="h-full rounded-full bg-emerald-500"
-                                        style={{ width: `${completionPercent}%` }}
-                                        role="progressbar"
-                                        aria-valuenow={completionPercent}
-                                        aria-valuemin={0}
-                                        aria-valuemax={100}
-                                        aria-label="Referrals completed"
-                                    />
-                                </div>
+                        <dl className="space-y-3 px-5 py-4">
+                            <div className="flex items-baseline justify-between gap-3">
+                                <dt className="text-[12px] font-medium text-slate-500">Total referrals</dt>
+                                <dd className="text-[13.5px] font-semibold text-slate-900">{total}</dd>
                             </div>
+                            <div className="flex items-baseline justify-between gap-3">
+                                <dt className="text-[12px] font-medium text-slate-500">Active</dt>
+                                <dd className="text-[13.5px] font-semibold text-slate-900">{active}</dd>
+                            </div>
+                            <div className="flex items-baseline justify-between gap-3">
+                                <dt className="text-[12px] font-medium text-slate-500">Completed</dt>
+                                <dd className="text-[13.5px] font-semibold text-slate-900">{completed}</dd>
+                            </div>
+                            <div className="flex items-baseline justify-between gap-3">
+                                <dt className="text-[12px] font-medium text-slate-500">Completion rate</dt>
+                                <dd className="text-[13.5px] font-semibold text-emerald-600">{completionPercent}%</dd>
+                            </div>
+                        </dl>
                     </section>
 
                     <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
