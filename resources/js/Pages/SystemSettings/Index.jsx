@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Head, router, usePage } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import { useToast } from '@/Hooks/useToast';
@@ -74,7 +74,6 @@ export default function SystemSettings({
   errors = {},
 }) {
   const toast = useToast();
-  const { props } = usePage();
 
   // Flatten declared settings into one editable map.
   const initial = useMemo(() => {
