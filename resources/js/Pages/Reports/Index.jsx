@@ -105,7 +105,7 @@ export function ReportsDashboard({
             <h1 className="text-[28px] font-extrabold leading-tight tracking-[-0.02em] text-black dark:text-white">
               Reports
             </h1>
-            <p className="text-sm text-slate-400 font-body mt-0.5">{roleSubtitle}</p>
+            <p className="text-sm text-slate-600 dark:text-slate-300 font-body mt-0.5">{roleSubtitle}</p>
           </div>
           <div className={printMode || hasPendingChanges ? 'hidden' : 'flex items-center gap-3'}>
             <ExportButtons

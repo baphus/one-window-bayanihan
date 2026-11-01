@@ -214,10 +214,11 @@ export default function Register({ initial = {} }) {
             case 1:
                 return (
                     data.type.length > 0
-                    && data.email.trim().length > 0
+                    && schema.shape.email.safeParse(data.email.trim()).success
                     // A registered address cannot proceed past the account step.
                     && emailStatus !== 'taken'
-                    && data.password.length > 0
+                    && schema.shape.password.safeParse(data.password).success
+                    && data.password_confirmation === data.password
                     && data.password_confirmation.length > 0
                 );
             case 2:

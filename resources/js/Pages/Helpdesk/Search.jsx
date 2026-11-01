@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, usePage } from '@inertiajs/react';
+import { Link, router, usePage } from '@inertiajs/react';
 import HelpdeskLayout from '@/Layouts/HelpdeskLayout';
 import ArticleListRow from '@/Components/Helpdesk/ArticleListRow';
 import EmptyState from '@/Components/Helpdesk/EmptyState';
@@ -36,6 +36,12 @@ export default function Search() {
 
   const hasSearched = query.trim().length > 0;
 
+  function submitSearch(event) {
+    event.preventDefault();
+    const value = query.trim();
+    router.get(route('helpdesk.search'), value ? { q: value } : {}, { preserveState: false, preserveScroll: true });
+  }
+
   return (
     <HelpdeskLayout
       title={query ? `Search: ${query}` : 'Search the Help Center'}
@@ -52,7 +58,7 @@ export default function Search() {
       </header>
 
       <div className="mb-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="relative" role="search">
+        <form className="relative" role="search" onSubmit={submitSearch}>
           <span
             className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-primary"
             aria-hidden="true"
@@ -67,7 +73,8 @@ export default function Search() {
             aria-label="Search articles, topics, and keywords"
             className="w-full border border-slate-200 py-3 pl-10 pr-4 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
           />
-        </div>
+          <button type="submit" className="sr-only">Search</button>
+        </form>
       </div>
 
       {hasSearched && (

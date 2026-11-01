@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\AuditModule;
 use App\Enums\UserRole;
+use App\Models\CaseFile;
 use App\Models\Milestone;
 use App\Models\Referral;
 use App\Models\ReferralClientAccessLink;
@@ -509,15 +510,31 @@ class ReferralClientRequestService
     /** Whether client-facing writes (create/reply/transition) are still allowed on this referral. */
     public function isClientFacingWriteAllowed(Referral $referral): bool
     {
-        $referral->loadMissing('caseFile');
-        $case = $referral->caseFile;
+        return $this->isClientFacingWriteAllowedFor($referral, $this->caseFor($referral));
+    }
 
+    /**
+     * Same rule, with the case supplied by the caller so a serialized referral
+     * never gains a loaded `caseFile`.
+     */
+    public function isClientFacingWriteAllowedFor(Referral $referral, ?CaseFile $case): bool
+    {
         return ! (in_array($referral->status, ['COMPLETED', 'REJECTED'], true)
             || $referral->is_deleted
             || ! $case
             || $case->is_deleted
             || $case->closed_at !== null
             || in_array($case->status, ['CLOSED', 'ARCHIVED'], true));
+    }
+
+    /** The referral's case, read without leaving the relation loaded. */
+    private function caseFor(Referral $referral): ?CaseFile
+    {
+        if ($referral->relationLoaded('caseFile')) {
+            return $referral->getRelation('caseFile');
+        }
+
+        return CaseFile::query()->find($referral->case_id);
     }
 
     private function assertOpen(ReferralClientRequest $request): void

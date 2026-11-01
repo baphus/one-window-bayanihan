@@ -18,6 +18,16 @@ import safeRoute from '@/utils/safeRoute';
  * the citizen can see sit at the bottom.
  */
 
+const REQUEST_STATUS = {
+    OPEN: 'Open',
+    IN_PROGRESS: 'In progress',
+    CLIENT_RESPONDED: 'Response received',
+};
+
+function formatRequestStatus(status) {
+    return REQUEST_STATUS[status] ?? String(status ?? 'Unknown').replace(/_/g, ' ');
+}
+
 const REFERRAL_STATUS = {
     PENDING: {
         label: 'Pending',
@@ -232,6 +242,9 @@ export default function CaseDetail({
 
     const { toast, copy } = useCopyToast();
     const { kind, actionAgencies, isClosed } = useCaseState(trackedCase, trackingAgencies);
+    const requestAgencies = trackingAgencies.filter((agency) => agency.openRequest);
+    const actionableRequests = requestAgencies.filter((agency) => agency.openRequest.status === 'OPEN');
+    const requestsNeedAttention = actionableRequests.length > 0;
     const [documentsTab, setDocumentsTab] = useState('requests');
 
     const statusLine = useMemo(
@@ -263,12 +276,22 @@ export default function CaseDetail({
     }, [milestoneTimeline]);
 
     const statusBar = useMemo(() => {
-        if (kind === 'action') {
+        if (requestsNeedAttention) {
             return (
                 <StatusBar
                     tone="action"
                     title="A response is needed for the agency request."
-                    detail="Open the request above to provide the supporting document the agency asked for."
+                    detail="Open the Requests tab below to view the agency request."
+                />
+            );
+        }
+
+        if (kind === 'action') {
+            return (
+                <StatusBar
+                    tone="action"
+                    title="An agency needs additional information."
+                    detail="No linked response request is available. Review agency progress below or contact your case manager."
                 />
             );
         }
@@ -290,7 +313,7 @@ export default function CaseDetail({
                 detail="We will let you know here when a partner office needs something from you."
             />
         );
-    }, [kind]);
+    }, [kind, requestsNeedAttention]);
 
     const recordBadge = kind === 'closed'
         ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
@@ -328,7 +351,7 @@ export default function CaseDetail({
             ) : null}
 
             {/* Status banner */}
-            {kind === 'action' ? (
+            {requestsNeedAttention ? (
                 <div className="mt-5 rounded-lg border border-amber-200 bg-amber-50 px-5 py-4">
                     <div className="flex items-start gap-3">
                         <span
@@ -339,23 +362,21 @@ export default function CaseDetail({
                         </span>
                         <div className="min-w-0 flex-1">
                             <p className="text-[13px] font-bold text-amber-800">
-                                Action Required: Submit a Supporting Document
+                                Action Required: Respond to an Agency Request
                             </p>
                             <p className="mt-0.5 text-[12px] text-amber-700">
-                                {actionAgencies[0]?.name ?? 'A partner office'} requested a supporting
-                                document. No deadline is recorded.
+                                {actionableRequests[0]?.name ?? 'A partner office'} requested action on a case request.
                             </p>
                             <div className="mt-3 flex flex-wrap gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setDocumentsTab('requests')}
+                                <Link
+                                    href={actionableRequests[0].openRequest.url}
                                     className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3.5 py-2 text-[12px] font-bold text-white transition-colors hover:bg-primary-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                                 >
                                     View Request and Respond
-                                </button>
+                                </Link>
                                 <button
                                     type="button"
-                                    onClick={() => setDocumentsTab('documents')}
+                                    onClick={() => setDocumentsTab('requests')}
                                     className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3.5 py-2 text-[12px] font-bold text-primary transition-colors hover:border-slate-300 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                                 >
                                     View All Requests
@@ -363,6 +384,13 @@ export default function CaseDetail({
                             </div>
                         </div>
                     </div>
+                </div>
+            ) : kind === 'action' ? (
+                <div className="mt-5 rounded-lg border border-amber-200 bg-amber-50 px-5 py-4">
+                    <p className="text-[13px] font-bold text-amber-800">Action Required: Agency compliance update</p>
+                    <p className="mt-0.5 text-[12px] text-amber-700">
+                        {actionAgencies[0]?.name ?? 'A partner office'} marked this referral for compliance. No linked response request is available here yet. View agency progress below or contact your case manager.
+                    </p>
                 </div>
             ) : null}
 
@@ -564,38 +592,29 @@ export default function CaseDetail({
                         </div>
 
                         {documentsTab === 'requests' ? (
-                            actionAgencies.length > 0 ? (
+                            requestAgencies.length > 0 ? (
                                 <div className="space-y-3 p-5">
-                                    {actionAgencies.map((agency) => (
-                                        <div
-                                            key={agency.referralId ?? agency.name}
-                                            className="rounded-lg border border-amber-200 bg-amber-50 p-4"
-                                        >
-                                            <div className="flex flex-wrap items-start justify-between gap-2">
-                                                <p className="text-[12px] font-bold text-amber-800">
-                                                    {agency.name}
-                                                    {agency.requestedAt ? ` · ${formatShortDate(agency.requestedAt)}` : ''}
-                                                </p>
-                                                <span className="inline-flex items-center gap-1.5 rounded-md border border-amber-300 bg-amber-100 px-2 py-1 text-[11px] font-semibold text-amber-800">
-                                                    <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                                                    Action Required
-                                                </span>
+                                    {requestAgencies.map((agency) => {
+                                        const request = agency.openRequest;
+                                        const needsAction = request.status === 'OPEN';
+                                        return (
+                                            <div key={request.id} className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+                                                <div className="flex flex-wrap items-start justify-between gap-2">
+                                                    <p className="text-[12px] font-bold text-amber-800">
+                                                        {agency.name}{request.requestedAt ? ` · ${formatShortDate(request.requestedAt)}` : ''}
+                                                    </p>
+                                                    <span className="inline-flex items-center gap-1.5 rounded-md border border-amber-300 bg-amber-100 px-2 py-1 text-[11px] font-semibold text-amber-800">
+                                                        {formatRequestStatus(request.status)}
+                                                    </span>
+                                                </div>
+                                                <p className="mt-2 font-headline text-[14px] font-extrabold tracking-tight text-slate-900">{request.title}</p>
+                                                {request.dueAt ? <p className="mt-1 text-[12px] text-slate-600">Due {formatShortDate(request.dueAt)}</p> : null}
+                                                <Link href={request.url} className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-primary px-3.5 py-2 text-[12px] font-bold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
+                                                    {needsAction ? 'Respond to Request' : 'View Request'}
+                                                </Link>
                                             </div>
-                                            <p className="mt-2 font-headline text-[14px] font-extrabold tracking-tight text-slate-900">
-                                                {agency.requestTitle ?? 'Supporting employment document'}
-                                            </p>
-                                            <p className="mt-1 text-[13px] leading-relaxed text-slate-600">
-                                                Please provide the supporting document requested by the agency.
-                                            </p>
-                                            <p className="mt-1 text-[12px] text-slate-500">No deadline recorded.</p>
-                                            <button
-                                                type="button"
-                                                className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-primary px-3.5 py-2 text-[12px] font-bold text-white transition-colors hover:bg-primary-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-                                            >
-                                                Respond to Request
-                                            </button>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             ) : kind === 'closed' ? (
                                 <div className="px-5 py-8 text-center">

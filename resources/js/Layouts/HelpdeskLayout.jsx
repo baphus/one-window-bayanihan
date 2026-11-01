@@ -260,7 +260,8 @@ export default function HelpdeskLayout({
   useChecklistVisitTracking();
 
   const handleSearch = (q) => {
-    router.visit(safeRoute('helpdesk.search', { q }, '/help/search?q=' + encodeURIComponent(q)));
+    const href = safeRoute('helpdesk.search', { q }, '/help/search?q=' + encodeURIComponent(q));
+    router.visit(href, { preserveState: false });
   };
 
   return (
