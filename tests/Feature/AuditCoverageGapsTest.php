@@ -30,31 +30,35 @@ class AuditCoverageGapsTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_security_settings_update_writes_audit_row_with_key_names_only(): void
+    public function test_settings_update_writes_audit_row_with_the_changed_key(): void
     {
         $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $this->actingAs($admin);
 
-        $this->post(route('admin.system.security.update'), [
-            'two_factor_required' => true,
+        // The separate Security & Auth page (and its two_factor_required
+        // toggle) is gone: MFA enforcement is decided by config/mfa.php and is
+        // unconditional in production. Settings writes are audited by the main
+        // settings endpoint instead, which records old → new per changed key.
+        $this->post(route('admin.system-settings.update'), [
+            'otp_expiry_seconds' => 600,
         ])->assertRedirect();
 
         $this->assertDatabaseHas('audit_logs', [
             'module' => 'system_setting',
-            'action' => AuditAction::UPDATE_SECURITY->value,
+            'action' => AuditAction::UPDATE->value,
             'user_id' => $admin->id,
         ]);
 
         $entry = AuditLog::query()
             ->where('module', 'system_setting')
-            ->where('action', AuditAction::UPDATE_SECURITY->value)
+            ->where('action', AuditAction::UPDATE->value)
+            ->latest('chain_seq')
             ->firstOrFail();
 
-        // Only the changed key NAMES are logged — never the values. The
-        // absence of any value below proves values are excluded.
-        $this->assertSame(['keys' => ['two_factor_required']], $entry->new_value);
-        $this->assertStringNotContainsString('true', $entry->description);
-        $this->assertNull($entry->old_value);
+        // The changed key is named, and its value is recorded so a bad change
+        // is recoverable by hand.
+        $this->assertArrayHasKey('otp_expiry_seconds', (array) $entry->new_value);
+        $this->assertSame(600, (int) $entry->new_value['otp_expiry_seconds']);
     }
 
     /**

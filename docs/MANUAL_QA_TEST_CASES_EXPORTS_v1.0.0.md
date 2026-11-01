@@ -2,8 +2,8 @@
 
 > **Version:** 1.0.0
 > **Date:** 2026-08-11
-> **Scope:** Addendum to `MANUAL_QA_TEST_CASES.md` §12 (Reports & Analytics), covering the rebuilt PDF and Excel exports
-> **Design record:** `REPORTS_EXPORT_DESIGN_v1.0.0.md`
+> **Scope:** Standalone manual checklist for report PDF/Excel exports. The formerly cited parent `MANUAL_QA_TEST_CASES.md` is absent.
+> **Implementation references:** `app/Http/Controllers/ReportsController.php`, `app/Services/Reports/ReportsExportService.php`. The formerly cited `REPORTS_EXPORT_DESIGN_v1.0.0.md` is absent.
 
 ---
 

@@ -1,133 +1,10 @@
 erDiagram
-    users ||--o{ agencies : "assigned to"
-    users ||--o{ users : "deletes"
-    users ||--o{ clients : "owns (OFW)"
-    users ||--o{ cases : "manages (case_manager)"
-    users ||--o{ cases : "reviews"
-    users ||--o{ cases : "deletes"
-    users ||--o{ case_documents : "uploads"
-    users ||--o{ case_documents : "deletes"
-    users ||--o{ audit_logs : "performs"
-    users ||--o{ audit_logs : "deletes"
-    users ||--o{ case_categories : "deletes"
-    users ||--o{ case_issues : "deletes"
-    users ||--o{ case_statuses : "deletes"
-    users ||--o{ client_addresses : "deletes"
-    users ||--o{ client_employments : "deletes"
-    users ||--o{ clients : "deleted_by"
-    users ||--o{ next_of_kin : "deletes"
-    users ||--o{ referrals : "deletes"
-    users ||--o{ referral_messages : "sends"
-    users ||--o{ referral_messages : "deletes"
-    users ||--o{ referral_comments : "writes"
-    users ||--o{ referral_comments : "deletes"
-    users ||--o{ referral_attachments : "uploads"
-    users ||--o{ referral_attachments : "deletes"
-    users ||--o{ referral_client_requests : "creates"
-    users ||--o{ referral_client_requests : "deletes"
-    users ||--o{ referral_client_request_items : "deletes"
-    users ||--o{ referral_client_messages : "sends"
-    users ||--o{ referral_client_messages : "deletes"
-    users ||--o{ referral_client_message_attachments : "deletes"
-    users ||--o{ referral_client_access_links : "issues"
-    users ||--o{ referral_client_access_links : "revokes"
-    users ||--o{ milestones : "creates"
-    users ||--o{ milestones : "deletes"
-    users ||--o{ generated_documents : "generates"
-    users ||--o{ user_invites : "creates"
-    users ||--o{ agency_thread_reads : "reads"
-    users ||--o{ case_notifications : "receives"
-    users ||--o{ email_logs : "sends"
-
-    agencies ||--o{ users : "has"
-    agencies ||--o{ referrals : "receives"
-    agencies ||--o{ services : "offers"
-    agencies ||--o{ survey_forms : "owns"
-    agencies ||--o{ survey_invitations : "targeted"
-    agencies ||--o{ user_invites : "invited_to"
-    agencies ||--o{ agency_thread_reads : "peer in"
-
-    clients ||--o{ users : "linked_to"
-    clients ||--o{ cases : "has"
-    clients ||--o{ client_addresses : "lives_at"
-    clients ||--o{ client_employments : "employed_by"
-    clients ||--o{ next_of_kin : "has_kin"
-    clients ||--o{ clients : "OFW_self_link"
-
-    cases ||--o{ case_categories : "categorized_by (many-to-many)"
-    cases ||--o{ case_issues : "has_issue"
-    cases ||--o{ case_documents : "has_documents"
-    cases ||--o{ case_events : "has_events"
-    cases ||--o{ case_notifications : "has_notifications"
-    cases ||--o{ referrals : "has_referrals"
-    cases ||--o{ survey_invitations : "survey_for"
-    cases ||--o{ generated_documents : "has_documents_generated"
-
-    case_categories ||--o{ case_category : ""
-    case_category }o--|| cases : ""
-    case_category }o--|| case_categories : ""
-
-    referrals ||--o{ referral_services : "requires"
-    referrals ||--o{ referral_messages : "has_messages"
-    referrals ||--o{ referral_comments : "has_comments"
-    referrals ||--o{ referral_attachments : "has_attachments"
-    referrals ||--o{ referral_client_requests : "has_requests"
-    referrals ||--o{ milestones : "has_milestones"
-    referrals ||--o{ survey_invitations : "survey_for"
-    referrals ||--o{ case_events : "has_events"
-    referrals ||--o{ case_documents : "has_documents"
-
-    services ||--o{ referral_services : ""
-    services ||--o{ service_requirements : "has_requirements"
-    services ||--o{ referral_service_requirements : "required_in"
-
-    service_requirements }o--|| services : ""
-
-    survey_forms ||--o{ survey_questions : "contains"
-    survey_forms ||--o{ survey_invitations : ""
-    survey_questions ||--o{ survey_responses : "answered_by"
-    survey_invitations ||--o{ survey_responses : "collected_from"
-
-    referral_client_requests ||--o{ referral_client_request_items : "has_items"
-    referral_client_requests ||--o{ referral_client_messages : "has_messages"
-    referral_client_messages ||--o{ referral_client_message_attachments : "has_attachments"
-    referral_client_requests ||--o{ referral_client_access_links : "has_access_links"
-
-
-    agency_thread_reads }o--|| cases : ""
-    agency_thread_reads }o--|| agencies : ""
-
-    audit_logs }o--|| users : "by"
-    audit_logs }o--|| users : "deleted_by"
-
-    milestones }o--|| referrals : "refr"
-    milestones }o--|| referral_client_requests : "client_request"
-    milestones }o--|| users : "created_by"
-    milestones }o--|| users : "deleted_by"
-
-    next_of_kin }o--|| clients : ""
-    client_addresses }o--|| clients : ""
-    client_employments }o--|| clients : ""
-
-    generated_documents }o--|| users : ""
-    generated_documents }o--|| cases : ""
-
-    user_invites }o--|| agencies : ""
-    user_invites }o--|| users : "created_by"
-
-    system_settings {
-      varchar key PK
-      varchar category
-      text value
-      text description
-      timestamp created_at
-      timestamp updated_at
-    }
-
+    %% Domain/application schema; SQL baseline plus post-squash migrations through 2026-11-01.
+    %% Composite keys and CHECK/index details are documented in schema.dbml and SQL.
     users {
       uuid id PK
       varchar name
-      varchar email UK
+      varchar email
       varchar password
       varchar role
       uuid agcy_id FK
@@ -159,17 +36,16 @@ erDiagram
       uuid client_id FK
       bigint mfa_last_totp_counter
     }
-
     clients {
       uuid id PK
-      varchar first_name
-      varchar last_name
-      varchar middle_name
-      varchar suffix
+      text first_name
+      text last_name
+      text middle_name
+      text suffix
       text date_of_birth
       varchar sex
-      varchar email
-      varchar contact_number
+      text email
+      text contact_number
       varchar avatar_url
       varchar type
       uuid user_id FK
@@ -180,12 +56,11 @@ erDiagram
       timestamp created_at
       timestamp updated_at
     }
-
     agencies {
       uuid id PK
       varchar name
       varchar short
-      varchar slug UK
+      varchar slug
       text description
       varchar contact_info
       text map_link
@@ -201,11 +76,10 @@ erDiagram
       timestamp created_at
       timestamp updated_at
     }
-
     cases {
       uuid id PK
-      varchar case_number UK
-      varchar tracker_number UK
+      varchar case_number
+      varchar tracker_number
       varchar vulnerability_indicator
       varchar nok_vulnerability_indicator
       text summary
@@ -226,13 +100,12 @@ erDiagram
       timestamp created_at
       timestamp updated_at
     }
-
     case_categories {
       uuid id PK
-      varchar name UK
+      varchar name
       text description
       varchar color
-      int sort_order
+      integer sort_order
       boolean is_active
       boolean is_deleted
       timestamp deleted_at
@@ -240,12 +113,11 @@ erDiagram
       timestamp created_at
       timestamp updated_at
     }
-
     case_issues {
       uuid id PK
-      varchar name UK
+      varchar name
       text description
-      int sort_order
+      integer sort_order
       boolean is_active
       boolean is_deleted
       timestamp deleted_at
@@ -253,14 +125,13 @@ erDiagram
       timestamp created_at
       timestamp updated_at
     }
-
     case_statuses {
       uuid id PK
       varchar name
-      varchar slug UK
+      varchar slug
       varchar type
       varchar color
-      int sort_order
+      integer sort_order
       boolean is_system
       boolean is_active
       boolean is_deleted
@@ -269,7 +140,6 @@ erDiagram
       timestamp created_at
       timestamp updated_at
     }
-
     case_category {
       uuid id PK
       uuid case_id FK
@@ -277,8 +147,8 @@ erDiagram
       timestamp created_at
       timestamp updated_at
     }
-
     case_documents {
+      timestamp files_deleted_at
       uuid id PK
       varchar file_name
       text file_path
@@ -294,10 +164,9 @@ erDiagram
       timestamp created_at
       timestamp updated_at
     }
-
     case_events {
       uuid id PK
-      bigint sequence UK
+      bigint sequence
       uuid case_id FK
       uuid referral_id FK
       varchar type
@@ -308,7 +177,6 @@ erDiagram
       timestamp occurred_at
       timestamp created_at
     }
-
     case_notifications {
       uuid id PK
       uuid case_id FK
@@ -322,15 +190,17 @@ erDiagram
       timestamp created_at
       timestamp updated_at
     }
-
     case_number_counters {
-      int period PK
-      int last_number
+      integer period PK
+      integer last_number
       timestamp created_at
       timestamp updated_at
     }
-
     client_addresses {
+      varchar barangay_code
+      varchar city_municipality_code
+      varchar province_code
+      varchar region_code
       uuid id PK
       uuid client_id FK
       varchar region
@@ -344,32 +214,33 @@ erDiagram
       timestamp created_at
       timestamp updated_at
     }
-
     client_employments {
+      date date_of_arrival
+      date end_date
+      date start_date
+      text last_country
+      text country
+      text last_position
       uuid id PK
       uuid client_id FK
       text employer_name
-      text employer_address
-      varchar employer_contact
-      varchar position
-      numeric monthly_income
-      varchar employment_type
-      varchar work_country
-      date contract_start_date
-      date contract_end_date
+      text position
       boolean is_deleted
       timestamp deleted_at
       uuid deleted_by FK
       timestamp created_at
       timestamp updated_at
     }
-
     next_of_kin {
+      varchar barangay_code
+      varchar city_municipality_code
+      varchar province_code
+      varchar region_code
       uuid id PK
       uuid client_id FK
-      varchar first_name
-      varchar last_name
-      varchar middle_name
+      text first_name
+      text last_name
+      text middle_name
       varchar relationship
       boolean is_primary
       text phone_number
@@ -380,14 +251,13 @@ erDiagram
       varchar city_municipality
       varchar barangay
       text street
-      int sort_order
+      integer sort_order
       boolean is_deleted
       timestamp deleted_at
       uuid deleted_by FK
       timestamp created_at
       timestamp updated_at
     }
-
     referrals {
       uuid id PK
       uuid case_id FK
@@ -406,27 +276,24 @@ erDiagram
       timestamp created_at
       timestamp updated_at
     }
-
     referral_services {
       uuid referral_id FK
       uuid service_id FK
       timestamp created_at
       timestamp updated_at
     }
-
     services {
       uuid id PK
       varchar name
       text description
       uuid agcy_id FK
-      int processing_days
+      integer processing_days
       boolean is_deleted
       timestamp deleted_at
       uuid deleted_by FK
       timestamp created_at
       timestamp updated_at
     }
-
     service_requirements {
       uuid id PK
       varchar name
@@ -439,7 +306,6 @@ erDiagram
       timestamp created_at
       timestamp updated_at
     }
-
     referral_service_requirements {
       uuid id PK
       uuid referral_id FK
@@ -447,14 +313,13 @@ erDiagram
       varchar name
       text description
       boolean is_required
-      int sort_order
+      integer sort_order
       boolean is_deleted
       timestamp deleted_at
       uuid deleted_by FK
       timestamp created_at
       timestamp updated_at
     }
-
     referral_messages {
       uuid id PK
       uuid referral_id FK
@@ -466,7 +331,6 @@ erDiagram
       timestamp created_at
       timestamp updated_at
     }
-
     referral_comments {
       uuid id PK
       uuid refr_id FK
@@ -481,8 +345,8 @@ erDiagram
       timestamp created_at
       timestamp updated_at
     }
-
     referral_attachments {
+      timestamp files_deleted_at
       uuid id PK
       uuid referral_id FK
       varchar file_name
@@ -499,7 +363,6 @@ erDiagram
       timestamp created_at
       timestamp updated_at
     }
-
     referral_client_requests {
       uuid id PK
       uuid referral_id FK
@@ -515,19 +378,20 @@ erDiagram
       timestamp created_at
       timestamp updated_at
     }
-
     referral_client_request_items {
+      uuid source_requirement_id FK
+      text description
+      varchar canonical_key
       uuid id PK
       uuid request_id FK
       varchar label
-      int sort_order
+      integer sort_order
       boolean is_deleted
       timestamp deleted_at
       uuid deleted_by FK
       timestamp created_at
       timestamp updated_at
     }
-
     referral_client_messages {
       uuid id PK
       uuid request_id FK
@@ -542,8 +406,12 @@ erDiagram
       timestamp created_at
       timestamp updated_at
     }
-
     referral_client_message_attachments {
+      uuid request_item_id FK
+      varchar review_status
+      varchar visibility
+      varchar sha256
+      timestamp files_deleted_at
       uuid id PK
       uuid message_id FK
       varchar file_name
@@ -556,11 +424,10 @@ erDiagram
       timestamp created_at
       timestamp updated_at
     }
-
     referral_client_access_links {
       uuid id PK
       uuid request_id FK
-      varchar token_hash UK
+      varchar token_hash
       timestamp expires_at
       timestamp revoked_at
       uuid revoked_by FK
@@ -568,11 +435,10 @@ erDiagram
       text recipient_snapshot
       timestamp first_used_at
       timestamp last_used_at
-      int use_count
+      integer use_count
       timestamp created_at
       timestamp updated_at
     }
-
     milestones {
       uuid id PK
       varchar title
@@ -587,14 +453,12 @@ erDiagram
       timestamp created_at
       timestamp updated_at
     }
-
     agency_thread_reads {
       uuid user_id FK
       uuid case_id FK
       uuid peer_agency_id FK
       timestamp last_read_at
     }
-
     audit_logs {
       uuid id PK
       varchar action
@@ -605,9 +469,6 @@ erDiagram
       jsonb new_value
       uuid user_id FK
       timestamp timestamp
-      boolean is_deleted
-      timestamp deleted_at
-      uuid deleted_by FK
       varchar ip_address
       text user_agent
       uuid request_id
@@ -616,10 +477,9 @@ erDiagram
       bigint chain_seq
       varchar entity_label
     }
-
     audit_archives {
       uuid id PK
-      varchar period UK
+      varchar period
       varchar path
       varchar checksum
       bigint row_count
@@ -629,7 +489,6 @@ erDiagram
       timestamp created_at
       timestamp updated_at
     }
-
     audit_chain_checkpoints {
       uuid id PK
       varchar anchor_hash
@@ -637,7 +496,6 @@ erDiagram
       varchar bundle_manifest_path
       timestamp created_at
     }
-
     survey_forms {
       uuid id PK
       uuid agency_id FK
@@ -648,7 +506,6 @@ erDiagram
       timestamp created_at
       timestamp updated_at
     }
-
     survey_questions {
       uuid id PK
       uuid survey_form_id FK
@@ -656,11 +513,10 @@ erDiagram
       text label
       jsonb options
       boolean is_required
-      int order
+      integer order
       timestamp created_at
       timestamp updated_at
     }
-
     survey_invitations {
       uuid id PK
       uuid survey_form_id FK
@@ -677,7 +533,6 @@ erDiagram
       timestamp created_at
       timestamp updated_at
     }
-
     survey_responses {
       uuid id PK
       uuid survey_invitation_id FK
@@ -685,9 +540,7 @@ erDiagram
       text answer
       jsonb selected_options
       timestamp created_at
-      timestamp updated_at
     }
-
     generated_documents {
       uuid id PK
       uuid user_id FK
@@ -702,8 +555,8 @@ erDiagram
       timestamp created_at
       timestamp updated_at
     }
-
     email_logs {
+      timestamp resent_at
       uuid id PK
       varchar to_email
       varchar subject
@@ -717,19 +570,17 @@ erDiagram
       timestamp created_at
       timestamp updated_at
     }
-
     email_events {
       uuid id PK
       uuid email_log_id FK
       varchar provider_message_id
       varchar event_type
       timestamp occurred_at
-      varchar svix_id UK
+      varchar svix_id
       jsonb payload
       timestamp created_at
       timestamp updated_at
     }
-
     notifications {
       uuid id PK
       varchar type
@@ -740,7 +591,6 @@ erDiagram
       timestamp created_at
       timestamp updated_at
     }
-
     user_invites {
       uuid id PK
       varchar email
@@ -755,3 +605,142 @@ erDiagram
       timestamp created_at
       timestamp updated_at
     }
+    system_settings {
+      varchar key PK
+      varchar category
+      text value
+      text description
+      timestamp created_at
+      timestamp updated_at
+    }
+    activity_events {
+      uuid id PK
+      timestamptz occurred_at
+      uuid actor_id FK
+      varchar actor_name
+      varchar actor_role
+      varchar module
+      varchar action
+      text description
+      uuid entity_id
+      uuid audit_log_id FK
+      timestamp created_at
+      timestamp updated_at
+    }
+    referral_client_attachment_agencies {
+      uuid attachment_id FK
+      uuid agency_id FK
+      timestamp created_at
+      timestamp updated_at
+    }
+    referral_client_request_item_services {
+      uuid request_item_id FK
+      uuid service_requirement_id FK
+      timestamp created_at
+      timestamp updated_at
+    }
+    helpdesk_article_feedback {
+      uuid id PK
+      varchar article_slug
+      varchar identity_hash
+      varchar vote
+      timestamp created_at
+      timestamp updated_at
+    }
+    agencies |o--o{ users : "agcy_id"
+    users |o--o{ users : "deleted_by"
+    clients |o--o{ users : "client_id"
+    users |o--o{ clients : "user_id"
+    clients |o--o{ clients : "ofw_client_id"
+    users |o--o{ clients : "deleted_by"
+    users |o--o{ agencies : "deleted_by"
+    users |o--o{ cases : "user_id"
+    clients |o--o{ cases : "client_id"
+    case_categories |o--o{ cases : "category_id"
+    case_issues |o--o{ cases : "case_issue_id"
+    users |o--o{ cases : "reviewed_by"
+    users |o--o{ cases : "deleted_by"
+    users |o--o{ case_categories : "deleted_by"
+    users |o--o{ case_issues : "deleted_by"
+    users |o--o{ case_statuses : "deleted_by"
+    cases ||--o{ case_category : "case_id"
+    case_categories ||--o{ case_category : "case_category_id"
+    cases ||--o{ case_documents : "case_id"
+    referrals |o--o{ case_documents : "referral_id"
+    users ||--o{ case_documents : "user_id"
+    users |o--o{ case_documents : "deleted_by"
+    cases ||--o{ case_events : "case_id"
+    referrals |o--o{ case_events : "referral_id"
+    cases ||--o{ case_notifications : "case_id"
+    clients ||--o{ client_addresses : "client_id"
+    users |o--o{ client_addresses : "deleted_by"
+    clients ||--o{ client_employments : "client_id"
+    users |o--o{ client_employments : "deleted_by"
+    clients ||--o{ next_of_kin : "client_id"
+    users |o--o{ next_of_kin : "deleted_by"
+    cases ||--o{ referrals : "case_id"
+    agencies ||--o{ referrals : "agcy_id"
+    users |o--o{ referrals : "deleted_by"
+    referrals ||--o{ referral_services : "referral_id"
+    services ||--o{ referral_services : "service_id"
+    agencies |o--o{ services : "agcy_id"
+    users |o--o{ services : "deleted_by"
+    services ||--o{ service_requirements : "service_id"
+    users |o--o{ service_requirements : "deleted_by"
+    referrals ||--o{ referral_service_requirements : "referral_id"
+    services ||--o{ referral_service_requirements : "service_id"
+    users |o--o{ referral_service_requirements : "deleted_by"
+    referrals ||--o{ referral_messages : "referral_id"
+    users ||--o{ referral_messages : "sender_user_id"
+    users |o--o{ referral_messages : "deleted_by"
+    referrals ||--o{ referral_comments : "refr_id"
+    referral_comments |o--o{ referral_comments : "parent_id"
+    users ||--o{ referral_comments : "user_id"
+    users |o--o{ referral_comments : "deleted_by"
+    referrals ||--o{ referral_attachments : "referral_id"
+    users |o--o{ referral_attachments : "user_id"
+    referral_attachments |o--o{ referral_attachments : "replaces_id"
+    users |o--o{ referral_attachments : "deleted_by"
+    referrals ||--o{ referral_client_requests : "referral_id"
+    users ||--o{ referral_client_requests : "creator_user_id"
+    users |o--o{ referral_client_requests : "deleted_by"
+    referral_service_requirements |o--o{ referral_client_request_items : "source_requirement_id"
+    referral_client_requests ||--o{ referral_client_request_items : "request_id"
+    users |o--o{ referral_client_request_items : "deleted_by"
+    referral_client_requests ||--o{ referral_client_messages : "request_id"
+    users |o--o{ referral_client_messages : "user_id"
+    referral_client_access_links |o--o{ referral_client_messages : "access_link_id"
+    users |o--o{ referral_client_messages : "deleted_by"
+    referral_client_request_items |o--o{ referral_client_message_attachments : "request_item_id"
+    referral_client_messages ||--o{ referral_client_message_attachments : "message_id"
+    users |o--o{ referral_client_message_attachments : "deleted_by"
+    referral_client_requests ||--o{ referral_client_access_links : "request_id"
+    users |o--o{ referral_client_access_links : "revoked_by"
+    users ||--o{ referral_client_access_links : "issued_by"
+    referrals ||--o{ milestones : "refr_id"
+    users ||--o{ milestones : "user_id"
+    referral_client_requests |o--o{ milestones : "client_request_id"
+    users |o--o{ milestones : "deleted_by"
+    users ||--o{ agency_thread_reads : "user_id"
+    cases ||--o{ agency_thread_reads : "case_id"
+    agencies ||--o{ agency_thread_reads : "peer_agency_id"
+    users |o--o{ audit_logs : "user_id"
+    agencies ||--o{ survey_forms : "agency_id"
+    survey_forms ||--o{ survey_questions : "survey_form_id"
+    survey_forms |o--o{ survey_invitations : "survey_form_id"
+    cases ||--o{ survey_invitations : "case_id"
+    agencies ||--o{ survey_invitations : "agency_id"
+    referrals ||--o{ survey_invitations : "referral_id"
+    survey_invitations ||--o{ survey_responses : "survey_invitation_id"
+    survey_questions |o--o{ survey_responses : "survey_question_id"
+    users ||--o{ generated_documents : "user_id"
+    cases |o--o{ generated_documents : "case_id"
+    email_logs |o--o{ email_events : "email_log_id"
+    agencies |o--o{ user_invites : "agcy_id"
+    users ||--o{ user_invites : "created_by"
+    users |o--o{ activity_events : "actor_id"
+    audit_logs |o--o{ activity_events : "audit_log_id"
+    referral_client_message_attachments ||--o{ referral_client_attachment_agencies : "attachment_id"
+    agencies ||--o{ referral_client_attachment_agencies : "agency_id"
+    referral_client_request_items ||--o{ referral_client_request_item_services : "request_item_id"
+    referral_service_requirements ||--o{ referral_client_request_item_services : "service_requirement_id"

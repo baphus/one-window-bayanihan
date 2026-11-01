@@ -1,5 +1,8 @@
 # Feedback Feature Research — 2026-09-16
 
+> **Historical archive:** Preserve dated observations below as recorded, not current implementation claims. For current behaviour, start with [System Analysis and Design](system-analysis-and-design/README.md) and verify source, routes, schema, and configuration. This record does not establish live deployment or compliance assurance.
+
+
 > **HISTORICAL - archived research artifact retained for provenance; written 2026-09-16.**
 > Not current guidance - the feedback/SERVQUAL feature was retired and its database tables were dropped; no live feature exists.
 > See `docs/README.md` for current documentation.

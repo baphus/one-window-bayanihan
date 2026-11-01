@@ -4,9 +4,12 @@ use App\Http\Controllers\ActivityController;
 use App\Http\Controllers\Admin\AdminCaseCategoryController;
 use App\Http\Controllers\Admin\AdminCaseIssueController;
 use App\Http\Controllers\Admin\AdminCaseStatusController;
+use App\Http\Controllers\Admin\EmailLogController;
+use App\Http\Controllers\Admin\FailedJobController;
 use App\Http\Controllers\Admin\MaintenanceController;
 use App\Http\Controllers\Admin\OverdueReferralController;
-use App\Http\Controllers\Admin\SecuritySettingsController;
+use App\Http\Controllers\Admin\SecurityLogController;
+use App\Http\Controllers\Admin\SystemHealthController;
 use App\Http\Controllers\AdminAgencyController;
 use App\Http\Controllers\AdminServiceController;
 use App\Http\Controllers\AdminUserController;
@@ -306,6 +309,19 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/system-settings', [SystemSettingsController::class, 'update'])->name('system-settings.update');
         Route::post('/system-settings/reindex-chatbot', [SystemSettingsController::class, 'reindexChatbot'])->name('system-settings.reindex-chatbot');
 
+        // Monitoring surfaces. Read-only apart from retrying a failed job; all
+        // inside the role:ADMIN group, so they carry no separate authorisation.
+        Route::get('/system-health', [SystemHealthController::class, 'index'])->name('system-health.index');
+
+        Route::get('/email-logs', [EmailLogController::class, 'index'])->name('email-logs.index');
+        Route::get('/email-logs/{emailLog}', [EmailLogController::class, 'show'])->name('email-logs.show')->whereUuid('emailLog');
+
+        Route::get('/failed-jobs', [FailedJobController::class, 'index'])->name('failed-jobs.index');
+        Route::get('/failed-jobs/{uuid}', [FailedJobController::class, 'show'])->name('failed-jobs.show')->whereUuid('uuid');
+        Route::post('/failed-jobs/{uuid}/retry', [FailedJobController::class, 'retry'])->name('failed-jobs.retry')->whereUuid('uuid');
+
+        Route::get('/security-log', [SecurityLogController::class, 'index'])->name('security-log.index');
+
         Route::get('/case-categories', [AdminCaseCategoryController::class, 'index'])->name('case-categories.index');
         Route::post('/case-categories', [AdminCaseCategoryController::class, 'store'])->name('case-categories.store');
         Route::patch('/case-categories/{caseCategory}', [AdminCaseCategoryController::class, 'update'])->name('case-categories.update');
@@ -326,9 +342,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::prefix('system')->name('system.')->group(function () {
             Route::get('/maintenance', [MaintenanceController::class, 'index'])->name('maintenance');
             Route::post('/maintenance/toggle', [MaintenanceController::class, 'toggle'])->name('maintenance.toggle');
-
-            Route::get('/security', [SecuritySettingsController::class, 'index'])->name('security');
-            Route::post('/security', [SecuritySettingsController::class, 'update'])->name('security.update');
         });
     });
 });

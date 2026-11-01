@@ -1,16 +1,16 @@
 # Data Model
 
-> **Version:** 2.2.0 | **Updated:** 2026-09-15 | **Source:** `database/migrations/` (61 files), `app/Models/*.php` (40 models + 4 concerns), `config/audit.php`, `config/filesystems.php`, `phpunit.xml`
+> **Version:** 2.2.0 | **Source:** `database/schema/pgsql-schema.sql`, post-squash migrations, current models and configuration. Schema reconciliation: 2026-11-01.
 
 ## Overview
 
-- **Database:** PostgreSQL 17 (production) / 15 (local container)
-- **Primary Keys:** UUID v4 via `UsesUuid` on 37 of 40 models — exceptions are `SystemSetting` (natural string key `key`), `AgencyThreadRead` (composite PK), and `Notification`; Laravel framework tables keep their own keys
+- **Database:** PostgreSQL; CI uses version 17, local Compose uses version 15. Verify the deployed server separately.
+- **Primary Keys:** UUID v4 via `UsesUuid` on business models — exceptions are `SystemSetting` (natural string key `key`), `AgencyThreadRead` (composite PK), and `Notification`; Laravel framework tables keep their own keys
 - **Soft Deletes:** Flag-based (`is_deleted`, `deleted_at`, `deleted_by`) — NOT vanilla `SoftDeletes` usage (see Conventions)
 - **Timestamps:** `created_at`, `updated_at` (Laravel standard; append-only tables vary — see notes)
 - **Extensions:** `pg_trgm` (trigram search), `pgcrypto` (UUID generation)
 - **Row-Level Security:** `FORCE`d (enforced for every role, including the table owner) on 7 tables — `agency_thread_reads`, `referral_messages`, `referral_client_requests`, `referral_client_request_items`, `referral_client_messages`, `referral_client_message_attachments`, `referral_client_access_links`. **Enabled but not forced** on the core tables (`cases`, `clients`, `client_addresses`, `client_employments`, `next_of_kin`, `referrals`, `milestones`, `referral_attachments`, `referral_comments`, `case_documents`, `case_notifications`), where the runtime (as table owner) bypasses the policies — those tables are isolated at the application layer only. Decisions and prerequisites: `docs/security/rls-posture-decision-v1.0.0.md`.
-- **Migration convention:** New tables use UUID primary keys (`$table->uuid('id')->primary()`), foreign keys are declared on uuid-typed columns with `foreignUuid()->constrained()`, and **new** migrations must not contain seed data — reference rows belong in `database/seeders/` (see `ReferenceDataSeeder`). Enforced by `tests/Feature/Database/MigrationConventionTest.php`, which grandfather-lists three legacy files whose inserts/backfills must not be moved retroactively; older migrations also carry raw `INSERT` backfills (e.g. `case_category` in `2026_07_17_000001`) that the guard's pattern does not flag.
+- **Migration convention:** inspect the current migration convention test and its explicit exemptions. Historical migration names below are provenance; fresh installs use the SQL baseline plus post-squash migrations.
 - **Test database:** PostgreSQL database `bayanihan_test` (`phpunit.xml`); `DB_SSLMODE=disable` in test config. Queue/cache/session/storage are overridden to sync/array/local, with fake S3-compatible credentials; storage fakes in tests use the `object-storage` disk.
 - **File storage:** S3-compatible object storage (`object-storage` disk, default for uploads; canonical `STORAGE_*` env vars with legacy `SUPABASE_S3_*` fallbacks). A second S3-compatible disk exists for alternate object-storage targets (see `config/filesystems.php`). Audit bundles use the `audit-archives` disk, which inherits the active object-storage credentials unless overridden via `AUDIT_ARCHIVE_*`.
 
@@ -18,22 +18,20 @@
 
 ### UUID Primary Keys
 
-Business tables use UUID v4 primary keys via `App\Models\Concerns\UsesUuid`: the `creating` hook fills an empty key with `(string) Str::uuid()`, `getIncrementing()` returns `false`, and `getKeyType()` returns `'string'`. Route model binding therefore expects string UUIDs. The trait is present on 37 of 40 models; among business tables the exception is `system_settings`, keyed by its natural string `key` (`SystemSetting` declares `$primaryKey = 'key'` and does not use the trait), while `AgencyThreadRead` and `Notification` are the other two trait-less models. Pivot-style tables use composite keys instead (`referral_services` on `(referral_id, service_id)`; `agency_thread_reads` on `(user_id, case_id, peer_agency_id)`).
+Business tables use UUID v4 primary keys via `App\Models\Concerns\UsesUuid`: the `creating` hook fills an empty key with `(string) Str::uuid()`, `getIncrementing()` returns `false`, and `getKeyType()` returns `'string'`. Route model binding therefore expects string UUIDs. The trait is used by business models; among business tables the exception is `system_settings`, keyed by its natural string `key` (`SystemSetting` declares `$primaryKey = 'key'` and does not use the trait), while `AgencyThreadRead` and `Notification` are the other two trait-less models. Pivot-style tables use composite keys instead (`referral_services` on `(referral_id, service_id)`; `agency_thread_reads` on `(user_id, case_id, peer_agency_id)`).
 
 ### Soft Delete (Flag-based)
 
 Business models use `App\Models\Concerns\SoftDeleteFlag`, which wraps Laravel's `SoftDeletes` trait: `delete()` sets `is_deleted = true`, stamps `deleted_at`, and sets `deleted_by` to `auth()->id()` (null in CLI/queue with no auth context) via a quiet save; `restore()` clears `is_deleted` and `deleted_by`. Queries that must exclude deleted rows use the flag (`where('is_deleted', false)` / `scopeNotDeleted()`); `deleted_at` retains its standard `SoftDeletes` semantics underneath.
 
-24 of 40 models use `SoftDeleteFlag`: Agency, AuditLog, CaseCategory, CaseDocument, CaseFile, CaseIssue, CaseStatus, Client, ClientAddress, ClientEmployment, Milestone, NextOfKin, Referral, ReferralAttachment, ReferralClientMessage, ReferralClientMessageAttachment, ReferralClientRequest, ReferralClientRequestItem, ReferralComment, ReferralMessage, ReferralServiceRequirement, Service, ServiceRequirement, User.
-
-The remaining 16 models do **not** use the flag trait — deletion semantics for these are unverified, treat as hard-delete until confirmed: AgencyThreadRead, AuditArchive, AuditChainCheckpoint, CaseEvent, CaseNotification, EmailEvent, EmailLog, GeneratedDocument, Notification, ReferralClientAccessLink, ReferralServiceRequirement's pivot sibling `referral_services` (no model), SurveyForm, SurveyInvitation, SurveyQuestion, SurveyResponse, SystemSetting, UserInvite. (Minor-table hard deletes flagged unverified: AgencyThreadRead, Notification, EmailEvent, GeneratedDocument, SystemSetting, UserInvite.)
+Soft-delete support is model-specific. `AuditLog` is append-only and has no soft-delete columns or trait. Consult each model rather than treating every business table as soft-deletable; timeline, delivery and survey records have separate lifecycle rules.
 
 ### Cascade Soft Deletes
 
-`App\Models\Concerns\CascadeSoftDeletes` cascades soft-delete and restore to named relations (each child must also use `SoftDeleteFlag`); force-delete cascades are handled by the purge command, not the trait.
+`App\Models\Concerns\CascadeSoftDeletes` cascades soft-delete and restore to named relations (each child must also use `SoftDeleteFlag`); the trait also handles force-delete cascades.
 
 - `CaseFile` (`cases` table): cascades `referrals`, `documents`.
-- `Referral`: cascades `comments`, `attachments`.
+- `Referral`: cascades `comments`, `attachments`, `milestones`, `clientRequests` and `serviceRequirements`.
 
 ### Audit Hooks
 
@@ -55,6 +53,15 @@ Reports, dashboard, and referral code leans on PostgreSQL functions — not port
 - Case-number allocation is a single atomic `INSERT ... ON CONFLICT DO UPDATE ... RETURNING` against `case_number_counters` (no advisory lock, no read-modify-write).
 
 ## Table Summary
+
+Current inventory (2026-11-01): `database/schema/pgsql-schema.sql` defines 51 tables including `migrations`. Post-squash migrations add `activity_events`, `referral_client_attachment_agencies`, `referral_client_request_item_services`, and `helpdesk_article_feedback`: 55 tables total, including 9 framework tables and the migration ledger (45 domain/application tables). Fresh installs load the SQL baseline then apply these migrations. Older migration names below are historical provenance, not required files in the current tree.
+
+| Post-squash table | Purpose |
+|---|---|
+| `activity_events` | Purposeful staff activity linked optionally to immutable audit records |
+| `referral_client_attachment_agencies` | Per-attachment agency visibility pivot |
+| `referral_client_request_item_services` | Request-item links to service-requirement snapshots |
+| `helpdesk_article_feedback` | One article vote per hashed identity |
 
 `NEW` = created after the v2.1.0 freeze (2026-07-17). `DROPPED` = removed since v2.1.0.
 
@@ -119,6 +126,18 @@ Dropped before v2.1.0 (noted for migration archaeology, no sections below): `cas
 ---
 
 ## Detailed Schema
+
+The DBML and Mermaid schema files include current post-squash fields and new tables. Key additions since the original tables below:
+
+- `clients`: nullable `type` (`varchar(20)`), `user_id` (unique UUID FK to users), and `ofw_client_id` (UUID self-reference); foreign keys use null-on-delete.
+- `case_documents`, `referral_attachments`, `referral_client_message_attachments`: nullable `files_deleted_at` timestamp records completed storage cleanup.
+- `email_logs`: nullable `resent_at` timestamp remains in storage; this does not imply a current resend UI.
+- `referral_client_request_items`: nullable `source_requirement_id` FK to referral requirements, `description` text, and `canonical_key` (`varchar(255)`), unique with `request_id`.
+- `referral_client_message_attachments`: nullable `request_item_id` FK; `review_status` defaults to `ACCEPTED`, `visibility` defaults to `ALL` (both non-null `varchar(32)`); nullable `sha256` (`varchar(64)`).
+- `referral_client_messages`: sender CHECK allows `AGENCY_USER`, `CLIENT_ACCESS`, and `CLIENT_USER`; agency/owner users require `user_id` without `access_link_id`, while access-link senders require the reverse.
+- `audit_logs.action`: CHECK vocabulary follows `AuditAction::values()` after the 2026-11-01 migration, not only the original CRUD verbs.
+- `client_addresses` and `next_of_kin`: nullable region, province, municipality and barangay code columns (`varchar(20)`) accompany display-name columns.
+- `audit_logs`: stored time is the quoted `timestamp` column; no `is_deleted`, `deleted_at`, or `deleted_by` columns exist in the current baseline.
 
 ### users
 
@@ -292,7 +311,6 @@ Model: `CaseFile` (`$table = 'cases'`). Cascade soft-deletes `referrals`, `docum
 |--------|------|-------------|-------|
 | `id` | uuid | PK | |
 | `case_number` | string | UNIQUE | Allocated from `case_number_counters` (`OWB-{YYYYMM}-{NNNNN}`) |
-| `client_type` | string(20) | NOT NULL | `OFW` or `NEXT_OF_KIN` |
 | `vulnerability_indicator` | string | nullable | |
 | `nok_vulnerability_indicator` | string | nullable | |
 | `tracker_number` | string | UNIQUE | Public tracking code |
@@ -304,16 +322,15 @@ Model: `CaseFile` (`$table = 'cases'`). Cascade soft-deletes `referrals`, `docum
 | `client_id` | uuid | FK → clients.id, nullable | |
 | `category_id` | uuid | FK → case_categories.id, nullable | **Deprecated compatibility mirror** of the deterministic primary category; not the canonical assignment store |
 | `case_issue_id` | uuid | FK → case_issues.id, nullable | |
-| `draft_client_data` | jsonb | nullable | Unpublished draft data |
 | `deletion_reason` | string | nullable | Added `2026_07_24_000001` |
-| `source` | string | nullable | `internal` / `self_filed` (added `2026_07_25_000001`) |
-| `intake_reviewed_by` | uuid | FK → users.id, nullable | Added `2026_07_25_000001` |
+| `reviewed_by` | uuid | FK to users.id, nullable | Reviewer |
+| `reviewed_at` | timestamp | nullable | Review time |
 | `escalated_at` | — | **dropped** `2026_07_08_000002` | |
 | `escalation_reason` | string | nullable | |
 | `is_deleted` / `deleted_at` / `deleted_by` | — | standard | |
 | `created_at` / `updated_at` | timestamp | | |
 
-Relations: `belongsTo` client, user (case manager), reviewer (`intake_reviewed_by`), category (mirror), caseIssue; `belongsToMany` categories via `case_category`; `hasMany` referrals, documents (`case_documents`), caseEvents.
+Relations: `belongsTo` client, user (case manager), reviewer (`reviewed_by`), category (mirror), caseIssue; `belongsToMany` categories via `case_category`; `hasMany` referrals, documents (`case_documents`), caseEvents.
 
 ### case_category
 
@@ -390,7 +407,7 @@ Address levels store resolved display **names** (PSGC codes are converted to nam
 
 ### referrals
 
-Cascade soft-deletes `comments`, `attachments`. (The `type` column was dropped `2026_07_03_000001`; the `requirements` JSON added `2026_07_18_000001` was dropped `2026_07_28_000002` in favor of the tables below.)
+Cascade soft-deletes `comments`, `attachments`, `milestones`, `clientRequests` and `serviceRequirements`. (The `type` column was dropped `2026_07_03_000001`; the `requirements` JSON added `2026_07_18_000001` was dropped `2026_07_28_000002` in favor of the tables below.)
 
 | Column | Type | Constraints | Notes |
 |--------|------|-------------|-------|
@@ -740,9 +757,7 @@ Authoritative allocation source for `cases.case_number` (`OWB-{YYYYMM}-{NNNNN}`,
 | `user_agent` | text | nullable | Browser UA |
 | `request_id` | uuid | nullable | Correlation ID |
 | `prev_hash` | string(64) | nullable | SHA-256 chain link |
-| `timestamp` | timestamp | default: now() | |
-| `is_deleted` | boolean | default: false | |
-| `deleted_at` / `deleted_by` | — | nullable | |
+| `timestamp` | timestamp | default: CURRENT_TIMESTAMP | Stored audit time |
 
 **Indexes:**
 - `(module, entity_id, timestamp DESC)` — entity lookup
@@ -865,66 +880,7 @@ Retired vector-corpus table. No `up()` method in any migration creates it: the o
 
 ## Relationship Diagram
 
-```
-users ─┬── agencies (agcy_id)
-       ├── clients (client_id)
-       ├── cases (user_id + intake_reviewed_by)
-       ├── milestones (user_id)
-       ├── referral_comments (user_id)
-       ├── referral_attachments (user_id)
-       ├── referral_messages (sender_user_id)
-       ├── referral_client_requests (creator_user_id)
-       ├── generated_documents (user_id)
-       ├── user_invites (created_by)
-       └── audit_logs (user_id)
-
-agencies ─┬── users (agcy_id)
-          ├── services (agcy_id)
-          ├── referrals (agcy_id)
-           ├── survey_forms (agency_id)
-           ├── survey_invitations (agency_id)
-           └── agency_thread_reads (peer_agency_id)
-
-services ─┬── service_requirements (service_id)
-          ├── referral_services >── referrals
-          └── referral_service_requirements (service_id)
-
-clients ─┬── users (client_id)
-         ├── cases (client_id)
-         ├── client_addresses (client_id)
-         ├── client_employments (client_id)
-         └── next_of_kin (client_id)
-
-cases ─┬── referrals (case_id)
-       ├── case_category >── case_categories
-       ├── case_documents (case_id)
-       ├── case_notifications (case_id)
-       ├── case_events (case_id)
-       ├── referral_messages via referrals
-       ├── agency_thread_reads (case_id)
-   └── survey_invitations (case_id)
-
-referrals ─┬── milestones (refr_id)
-           ├── referral_attachments (referral_id)
-           ├── referral_comments (refr_id)
-           ├── referral_messages (referral_id)
-           ├── case_documents (referral_id)
-           ├── referral_services >── services
-           ├── referral_service_requirements (referral_id)
-           ├── referral_client_requests (referral_id)
-           └── survey_invitations (referral_id)
-
-referral_client_requests ─┬── items (request_id)
-                          ├── messages (request_id) ── attachments (message_id)
-                          ├── access_links (request_id)
-                          └── milestones (client_request_id)
-
-survey_forms ─┬── survey_questions (survey_form_id)
-              └── survey_invitations (survey_form_id) ── survey_responses
-
-email_logs ──── email_events (email_log_id, nullOnDelete)
-audit_archives / audit_chain_checkpoints ──── audit_logs (by period/prune anchor)
-```
+Use [schema.mmd](schema.mmd) for the current Mermaid entity diagram and [schema.dbml](schema.dbml) for column types, foreign-key targets and documented keys. They cover domain/application tables; PostgreSQL policies, CHECK constraints, triggers and framework tables remain authoritative in the SQL baseline and post-squash migrations.
 
 ## Design Patterns
 

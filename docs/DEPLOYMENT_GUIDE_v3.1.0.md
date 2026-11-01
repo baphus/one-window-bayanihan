@@ -151,12 +151,15 @@ TRUSTED_PROXIES=10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
 TURNSTILE_ENABLED=false
 TURNSTILE_SITE_KEY=
 TURNSTILE_SECRET_KEY=
-MALWARE_SCANNER=null                  # 'clamav' or null (daemon localhost:3310)
+MALWARE_SCANNER=null                  # Disabled default; use clamav with reachable daemon
+MALWARE_FAIL_OPEN=true                # Default; set false where scan failures must block uploads
 SEARCH_INDEXING_ENABLED=false         # opt-in go-live step; false emits X-Robots-Tag: noindex
 CLOUDINARY_URL=
 ```
 
 R2 / Svix / Sentry coverage from v3.0.0 §4 carries forward unchanged. Mail transport-selection rule lives in `docs/EMAIL_DELIVERY_v2.1.0.md` (supersedes v2.0.0).
+
+> **Deployment evidence boundary:** Configuration examples are not proof of active scanning, approved compliance, or live service health. The deploy proxy wildcard is split into an array by bootstrap; verify framework trust parsing and ingress-hop header handling rather than assuming an exploitable forwarded-IP bypass.
 
 ### Annex 4A — queue/cache/session: config default vs .env vs deploy override
 

@@ -6,13 +6,14 @@ use App\Models\AuditArchive;
 use App\Models\AuditChainCheckpoint;
 use App\Models\AuditLog;
 use App\Services\AuditArchiveService;
+use App\Settings\SettingRegistry;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
 class PruneAuditLogs extends Command
 {
     protected $signature = 'audit:prune
-                            {--days= : Retention period in days (defaults to config audit.retention_days)}
+                            {--days= : Retention period in days (defaults to the audit_retention_days setting)}
                             {--dry-run : Preview counts without deleting}
                             {--force : Skip confirmation prompt}';
 
@@ -20,7 +21,15 @@ class PruneAuditLogs extends Command
 
     public function handle(AuditArchiveService $archiveService): int
     {
-        $days = (int) ($this->option('days') ?: config('audit.retention_days'));
+        // Same window as audit:archive, resolved per run.
+        $days = SettingRegistry::daysOption($this->option('days'), 'audit_retention_days');
+
+        if ($days === null) {
+            $this->error('The days option must be a whole number of at least 1.');
+
+            return Command::FAILURE;
+        }
+
         $cutoff = now()->subDays($days);
 
         $expiredTotal = AuditLog::where('timestamp', '<', $cutoff)->count();

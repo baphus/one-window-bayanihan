@@ -338,7 +338,7 @@ class OfwRegistrationController extends Controller
     {
         $keys = $this->registerOtpCacheKeys($email);
 
-        if (! Cache::add($keys['code'], $otp, now()->addMinutes(OtpService::TTL_MINUTES))) {
+        if (! Cache::add($keys['code'], $otp, now()->addMinutes(app(OtpService::class)->ttlMinutes()))) {
             return;
         }
 

@@ -204,57 +204,11 @@ case keep it and state explicitly that SERVQUAL was not used as an instrument.
 
 ---
 
-## 3. Ten Admin Security Settings are inert — no code reads them
-🟠 **Major — the highest-priority item in the audit**
+## 3. Admin MFA toggle is stored but does not control enforcement
 
-### Where
+Review manuscript System-module and Appendix H security-settings claims. `SecuritySettingsService` is absent; the old ten-setting service and IP-whitelist middleware are not current capabilities. `app/Http/Controllers/Admin/SecuritySettingsController.php` reads and stores only `two_factor_required`, displayed by `resources/js/Pages/Admin/Security/Index.jsx`. No enforcement path reads that setting. `config/mfa.php`, `User::isInMfaEnforcedRole()`, and `CheckMfaEnrolled` control MFA; all roles, including OFW, require it in production regardless of this toggle.
 
-**Chapter III › Methodology › Development Phase › Programming Environment › the
-Programmer / Module / Function table** — the `System` module rows **"View System
-Settings"** and **"Update System Settings"**. Duplicated in **Appendix H**.
-
-There is no other location. The claim is spread wherever the settings themselves are
-described, so search the whole document for the setting names rather than trusting one
-spot.
-
-**Find this:** `Password Minimum Length`
-
-### Evidence
-
-The ten keys, defined at `app/Services/SecuritySettingsService.php:13-22`:
-
-`password_min_length` · `password_require_special` · `password_require_numbers` ·
-`password_expiry_days` · `session_lifetime_minutes` · `max_login_attempts` ·
-`lockout_duration_minutes` · `ip_whitelist_enabled` · `ip_whitelist_ips` ·
-`two_factor_required`
-
-They are **written and displayed, never enforced**:
-
-- `SecuritySettingsService` is referenced in only two files — itself and `app/Http/Controllers/Admin/SecuritySettingsController.php`. There is no third consumer anywhere in `app/`, `config/`, `routes/`, or `resources/js/`.
-- That controller performs **no runtime config write** — no `config()`, `Config::set()`, or `put()`. It only persists to the database, so nothing downstream can observe a change unless it reads the row.
-- Three keys (`password_min_length`, `password_require_numbers`, `password_expiry_days`) do appear outside the service, but only in that controller and `resources/js/Pages/Admin/Security/Index.jsx` — the settings screen storing the value and echoing it back into its own form. Nothing in the enforcement path reads them.
-- `app/Http/Requests/Auth/LoginRequest.php:35` validates login as `'password' => ['required', 'string']` — **no strength rule at all** — then only calls `Hash::check()` at `:49`. There is no login-time policy for these settings to configure.
-- Password strength is enforced when a password is **set**, using rules hardcoded per call site and mutually inconsistent: `Password::min(8)->mixedCase()->numbers()->symbols()` in `app/Http/Requests/StoreAdminUserRequest.php:20` and `app/Http/Controllers/AdminUserController.php:169`, but `Password::min(8)->mixedCase()->numbers()` — **no symbols** — in `app/Http/Controllers/IntakeRegistrationController.php:34` and `app/Http/Controllers/TrackRegistrationController.php:39`, and `Rules\Password::defaults()` in the auth controllers. None of them read the settings.
-- `config/session.php:35` reads `SESSION_LIFETIME` from the environment only, and no code writes it at runtime, so `session_lifetime_minutes` cannot take effect.
-- `config/mfa.php` is likewise env-only, so `two_factor_required` and `max_login_attempts` cannot take effect.
-- OTP attempt limits come from `self::MAX_ATTEMPTS` in `app/Services/OtpService.php:11,49`; MFA attempt limits from `config('mfa.max_attempts')` at `app/Http/Controllers/Auth/MfaChallengeController.php:62`. Neither consults the settings.
-- `ip_whitelist_enabled` and `ip_whitelist_ips` appear **only** inside `SecuritySettingsService` itself. `bootstrap/app.php:76` registers the `ip.whitelist` alias to `App\Http\Middleware\IpWhitelist`, but that middleware is not fed by these settings.
-
-### Fix — pick one. Do not do more than one.
-
-1. Implement the settings so the documented behaviour is true, **or**
-2. Remove the claim from the manuscript, **or**
-3. State explicitly that the settings are persisted for future use but not yet enforced by the running application.
-
-Option 3 is the honest minimum. **Leaving the manuscript asserting they work is the
-defect itself.**
-
-> **Verification note:** re-verified directly against the working tree, not carried
-> forward. An earlier draft of this finding listed seven key names that **do not exist
-> in the codebase** — `password_require_uppercase`, `password_require_lowercase`,
-> `password_require_number`, `password_require_symbol`, `password_history_count`,
-> `max_failed_login_attempts`, `account_lockout_minutes`, `session_idle_timeout` — all
-> corrected above. The conclusion is unchanged and now rests on a direct reference scan.
+Describe this single toggle as persisted but inert. Do not claim retired password, session, lockout, or IP-whitelist settings exist or work. Describe current password rules and sessions from their request/configuration sources, not the retired service.
 
 ---
 

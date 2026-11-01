@@ -1,6 +1,8 @@
 # Client Request Inbox Rollout
 
-## Scope
+## Historical rollout scope
+
+> This is the initial rollout record, not the current feature contract. Current code supports client attachments, review and agency visibility, plus signed-in owner replies without an access link. Agency/admin request routes now exclude case managers. General case documents are visible to authorized agencies; referral-linked documents are scoped to the receiving agency. The upload prohibition and smoke checks below describe that earlier release, not current behavior. `StorageService` invokes the configured scanner, but the default null scanner and configurable fail-open mode do not guarantee a real scan. See [API Contracts](API_CONTRACTS.md) and [Data Model](DATA_MODEL.md) for the current surface.
 
 The initial release enables receiving agencies to send client-facing document requests, questions, and information updates. Clients use a seven-day, request-specific access link to view a request and reply from the tracking experience.
 

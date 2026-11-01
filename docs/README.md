@@ -1,8 +1,8 @@
 # One Window Bayanihan â€” Documentation
 
 > **Version:** 2.4.0  
-> **Last Updated:** 2026-10-02  
-> **Source of Truth:** This `docs/` folder is the single authoritative documentation source.
+> **Last Updated:** 2026-11-01
+> **Main narrative reference:** [System Analysis and Design](system-analysis-and-design/README.md). Code, routes, schema, and executable configuration determine current implementation; engineering guides supply supporting detail. Historical records describe their dated context, not current behaviour.
 > **Platform neutrality:** Infrastructure is documented by technology and capability, never by
 > hosting or managed-service vendor. See [DEPLOYMENT_GUIDE_v3.1.0.md](DEPLOYMENT_GUIDE_v3.1.0.md) Â§1
 > for what a deployment target must provide and Â§12 for the only places a provider may be named.
@@ -28,9 +28,25 @@ Companion `.docx` files are noted inline next to their Markdown twin.
 
 **Versioning policy:** a revised document is written as `NAME_vX.Y.Z.md` and superseded versioned
 copies are removed — only the highest version is kept. Unversioned legacy copies were removed 2026-10-08.
-The highest version always wins.
+Use the current guide for each topic, but resolve factual disagreements against implementation evidence, not version numbers alone. Start with the system-analysis-and-design set for the narrative; do not rewrite historical observations as current facts.
 
 ## Documentation Index
+
+### System analysis and design — main narrative reference
+
+Eight numbered documents plus a reading guide. Current implementation claims are checked against code and executable configuration; this set does not certify live deployment or compliance.
+
+| Document | Status | Description |
+|----------|--------|-------------|
+| [Reading guide](system-analysis-and-design/README.md) | CURRENT | Reading order, confidence labels, and evidence precedence |
+| [01 — System description](system-analysis-and-design/01-system-description.md) | CURRENT | Purpose, users, boundaries, and current capabilities |
+| [02 — Business process flow](system-analysis-and-design/02-business-process-flow.md) | CURRENT | Intake, case review, referrals, service delivery, and closure |
+| [03 — System flow and architecture](system-analysis-and-design/03-system-flow-and-architecture.md) | REVIEW REFERENCE | Plain-language system architecture; see in-file review status |
+| [04 — Information model](system-analysis-and-design/04-database-schema-and-data-dictionary.md) | REVIEW REFERENCE | Business information model; see in-file review status |
+| [05 — Operational scope and functionalities](system-analysis-and-design/05-operational-scope-and-functionalities.md) | CURRENT | Implemented functionality, limitations, and gaps |
+| [06 — User roles and access control](system-analysis-and-design/06-user-roles-and-access-control.md) | CURRENT | Role boundaries and sign-in protections |
+| [07 — Connections and exchanges](system-analysis-and-design/07-api-and-integration-reference.md) | CURRENT | Information exchanges and outside integrations |
+| [08 — Strengths, risks, and next steps](system-analysis-and-design/08-technical-findings-and-recommendations.md) | CURRENT | Evidence-based findings and remaining decisions |
 
 ### Getting started & conventions
 
@@ -40,7 +56,7 @@ The highest version always wins.
 | Document | Status | Description |
 |----------|--------|-------------|
 | [UI_PATTERNS.md](UI_PATTERNS.md) | CURRENT | Design system, component library, and layout patterns derived from SRS §A3.1/A6.5 (2026-05-28) |
-| [STAGING_DATA_v1.0.0.md](STAGING_DATA_v1.0.0.md) | CURRENT | Deterministic six-month staging demo dataset — how `StagingSeeder` builds, guards, and verifies it |
+| [STAGING_DATA_v1.0.0.md](STAGING_DATA_v1.0.0.md) | CURRENT | Faker-based staging demo dataset — current seeder guards and execution limits |
 | [agents/domain.md](agents/domain.md) | CURRENT | Agent guidance for deriving domain vocabulary; notes that `CONTEXT.md` and `docs/adr/` are not yet present |
 | [agents/issue-tracker.md](agents/issue-tracker.md) | CURRENT | GitHub Issues workflow for agents via the `gh` CLI |
 | [agents/triage-labels.md](agents/triage-labels.md) | CURRENT | Five-role triage label vocabulary (`needs-triage` … `wontfix`) |
@@ -57,14 +73,14 @@ The highest version always wins.
 
 | Document | Status | Description |
 |----------|--------|-------------|
-| [DATA_MODEL.md](DATA_MODEL.md) (v2.2.0) | CURRENT | Complete database schema â€” 41 domain tables plus framework tables: columns, relationships, indexes, retention notes |
-| [PSGC_ADDRESSES_v1.0.0.md](PSGC_ADDRESSES_v1.0.0.md) (content v1.1.0) | CURRENT | Philippine PSGC address dataset, lookup endpoints, and address name-resolution on write |
+| [DATA_MODEL.md](DATA_MODEL.md) (v2.2.0) | CURRENT | Database schema — SQL baseline plus post-squash additions, columns, relationships, indexes, and retention notes |
+| [PSGC_ADDRESSES_v1.0.0.md](PSGC_ADDRESSES_v1.0.0.md) (content v1.1.0) | CURRENT | Philippine PSGC address data and name-resolution helpers; distinguish helper code from registered routes |
 
 ### API
 
 | Document | Status | Description |
 |----------|--------|-------------|
-| [API_CONTRACTS.md](API_CONTRACTS.md) (v2.1.0) | CURRENT | All HTTP routes with methods, middleware, request/response shapes, and the named-throttle table (234 application + 4 vendor routes) |
+| [API_CONTRACTS.md](API_CONTRACTS.md) (v2.1.0) | CURRENT | All HTTP routes with methods, middleware, request/response shapes, and the named-throttle table (regenerate current inventory with `php artisan route:list --except-vendor --json`) |
 
 ### Security & authentication
 
@@ -72,14 +88,16 @@ The highest version always wins.
 |----------|--------|-------------|
 | [SECURITY_REQUIREMENTS_v2.2.0.md](SECURITY_REQUIREMENTS_v2.2.0.md) | CURRENT | Auth flow, RBAC, MFA, CSP, rate limiting (reconciled to code truth), and encryption requirements |
 | [AUDIT_STRATEGY_v2.2.0.md](AUDIT_STRATEGY_v2.2.0.md) | CURRENT | Audit log design â€” append-only enforcement, hash chain, categories, export self-logging, retention and archive |
-| [ROLES_AND_PERMISSIONS_v1.0.0.md](ROLES_AND_PERMISSIONS_v1.0.0.md) | CURRENT | Role model, `CheckRole`/`IpWhitelist`/MFA gates, and the route matrix â€” verified against source code |
+| [ROLES_AND_PERMISSIONS_v1.0.0.md](ROLES_AND_PERMISSIONS_v1.0.0.md) | CURRENT | Role model, `CheckRole`/MFA gates, resource access, and the route matrix â€” verified against source code |
+| [OBSERVABILITY_LOG_SURFACES_V1.md](OBSERVABILITY_LOG_SURFACES_V1.md) | PROPOSED | Design spec for the administrator Monitoring surfaces (system health, email logs, failed jobs, security log); pages L2–L4 are implemented, remaining items are prerequisites |
+| [security/rls-posture-decision-v1.0.0.md](security/rls-posture-decision-v1.0.0.md) | CURRENT | Database row-level-security posture, enforced tables, and remaining deployment checks |
 | [MFA_LOGIN_CHALLENGE.md](MFA_LOGIN_CHALLENGE.md) | CURRENT | TOTP/recovery MFA challenge flow at `/login/mfa`. Corrected: there is no `MFA_LOGIN_CHALLENGE_ENABLED` flag â€” the challenge runs for any enrolled user whose role passes `User::isInMfaEnforcedRole()` (all roles in production); enrollment is enforced separately via `config/mfa.php` |
 
 ### Testing
 
 | Document | Status | Description |
 |----------|--------|-------------|
-| [TESTING_STRATEGY_v2.1.0.md](TESTING_STRATEGY_v2.1.0.md) | CURRENT | Test approach, focused commands, and coverage expectations (234 PHPUnit test files: 216 Feature / 18 Unit) |
+| [TESTING_STRATEGY_v2.1.0.md](TESTING_STRATEGY_v2.1.0.md) | CURRENT | Test approach, focused commands, coverage limits, and verification expectations |
 | [MANUAL_QA_TEST_CASES_EXPORTS_v1.0.0.md](MANUAL_QA_TEST_CASES_EXPORTS_v1.0.0.md) | CURRENT | Addendum covering the rebuilt report exports â€” limits, small-cell suppression, and the export audit trail |
 
 ### Deployment
@@ -199,7 +217,7 @@ Dated plans, specs, findings, and records kept for provenance only â€” not 
 |------|------|-------------|
 | Case Manager | `CASE_MANAGER` | DMW staff â€” creates cases, sends referrals, manages clients |
 | Agency Focal | `AGENCY` | Partner agency staff â€” processes referrals, adds milestones |
-| Administrator | `ADMIN` | System admin â€” manages users, agencies, settings (IP-whitelisted) |
+| Administrator | `ADMIN` | System admin — manages users, agencies, and settings; no application IP whitelist remains |
 | Overseas Filipino Worker | `OFW` | Portal user â€” views own cases, referrals, and milestones at `/my-cases` (`routes/web.php:445`) |
 
 ## Changelog

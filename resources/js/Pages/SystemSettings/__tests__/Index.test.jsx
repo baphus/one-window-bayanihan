@@ -26,10 +26,10 @@ describe('System settings chatbot knowledge refresh', () => {
   it('posts to the reindex endpoint, reports success, updates timestamp, and locks button while pending', async () => {
     let resolveRequest;
     mocks.post.mockReturnValueOnce(new Promise((resolve) => { resolveRequest = resolve; }));
-    render(<SystemSettings referral_overdue_days={7} chatbot_last_reindexed_at="2026-01-01T00:00:00Z" />);
+    render(<SystemSettings chatbot_last_reindexed_at="2026-01-01T00:00:00Z" />);
 
-    expect(screen.getByText('Last updated: formatted:2026-01-01T00:00:00Z')).toBeInTheDocument();
-    const button = screen.getByRole('button', { name: 'Update Knowledge' });
+    expect(screen.getByText('Last refreshed: formatted:2026-01-01T00:00:00Z')).toBeInTheDocument();
+    const button = screen.getByRole('button', { name: 'Refresh knowledge' });
     fireEvent.click(button);
     expect(button).toBeDisabled();
     expect(await screen.findByRole('button', { name: /refreshing/i })).toBeDisabled();
@@ -37,18 +37,18 @@ describe('System settings chatbot knowledge refresh', () => {
 
     resolveRequest({ data: { success: true, message: 'Knowledge refreshed.', last_reindexed_at: '2026-02-01T00:00:00Z' } });
     await waitFor(() => expect(mocks.success).toHaveBeenCalledWith('Knowledge refreshed.'));
-    expect(screen.getByText('Last updated: formatted:2026-02-01T00:00:00Z')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Update Knowledge' })).toBeEnabled();
+    expect(screen.getByText('Last refreshed: formatted:2026-02-01T00:00:00Z')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Refresh knowledge' })).toBeEnabled();
   });
 
   it('shows the server message on unsuccessful refresh and a fallback on request failure', async () => {
     mocks.post.mockResolvedValueOnce({ data: { success: false, message: 'Index unavailable.' } });
-    render(<SystemSettings referral_overdue_days={7} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Update Knowledge' }));
+    render(<SystemSettings />);
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh knowledge' }));
     await waitFor(() => expect(mocks.error).toHaveBeenCalledWith('Index unavailable.'));
 
     mocks.post.mockRejectedValueOnce(new Error('offline'));
-    fireEvent.click(screen.getByRole('button', { name: 'Update Knowledge' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh knowledge' }));
     await waitFor(() => expect(mocks.error).toHaveBeenCalledWith('Failed to reach the server. Please try again.'));
   });
 });

@@ -12,11 +12,11 @@
 1. [Purpose and how to read this document](#1-purpose-and-how-to-read-this-document)
 2. [How the records connect](#2-how-the-records-connect)
 3. [The records](#3-the-records)
-   - 3.1 [Person profile](#31-person-profile--the-ofw-or-next-of-kin)
+   - 3.1 [Person profile](#31-person-profile-the-ofw-or-next-of-kin)
    - 3.2 [Case file](#32-case-file)
    - 3.3 [Referral to a partner agency](#33-referral-to-a-partner-agency)
    - 3.4 [Milestones and progress updates](#34-milestones-and-progress-updates)
-   - 3.5 [Document requests](#35-document-requests--an-agency-asking-the-client)
+   - 3.5 [Document requests](#35-document-requests-an-agency-asking-the-client)
    - 3.6 [Messages and conversations](#36-messages-and-conversations)
    - 3.7 [Uploaded documents and files](#37-uploaded-documents-and-files)
    - 3.8 [Surveys and feedback](#38-surveys-and-feedback)
@@ -84,13 +84,13 @@ Names in this diagram are business names, not storage names. In short: a **perso
 
 **What it is.** The central record of the whole matter — the "one OFW, one entry" promise. One case file gathers everything about one person's assistance, whichever agencies are involved.
 
-**What it holds.** The office's unique case number, the separate tracking code the public uses, whether the subject is the OFW or their next of kin, a short narrative of the situation, its classification (category and issue type), the assigned case manager, its status (open or closed), key dates such as when it opened, when the person consented to processing and when it closed, where it came from (online self-filing or staff entry), and any escalation, decline or closure reasons recorded along the way.
+**What it holds.** The office's unique case number, the separate tracking code the public uses, whether the subject is the OFW or their next of kin, a short narrative of the situation, its classification (category and issue type), the filer and reviewer, its status (pending review, open, closed, archived or rejected), key dates such as when it opened, when the person consented to processing and when it closed, where it came from (online self-filing or staff entry), and any escalation, decline or closure reasons recorded along the way.
 
-**How it connects.** Belongs to exactly one person profile; handled by one case manager; can hold many referrals, many uploaded files, many timeline entries and notifications; belongs to one or more categories.
+**How it connects.** Belongs to a person profile; records its filer and reviewer; can hold many referrals, uploaded files, timeline entries and notifications. Categories may await staff classification, but approval requires active category assignments.
 
-**Who owns and updates it.** Case managers create, accept (publish), update, close and archive it; administrators can restore an archived case; the system issues the case number so it is never duplicated or reused.
+**Who owns and updates it.** Case managers create, approve, update, close and archive it; administrators can restore an archived case; the system issues the case number so it is never duplicated or reused.
 
-**Lifecycle.** Draft while in intake → accepted and given a case number → open and worked (referrals, updates, documents) → closed when the assistance is finished → archived out of the working list → permanently deleted only after the retention window (section 5). A declined intake never becomes a case: it is recorded with its reason and the person is notified.
+**Lifecycle.** Saved pending review with a case number and tracking code → approved → open and worked (referrals, updates, documents) → closed when the assistance is finished → archived out of the working list → permanently deleted only after the retention window (section 5). A rejected filing remains a recorded case with its rejection reason, and the person is notified. This is not a draft-and-publish workflow.
 
 ### 3.3 Referral to a partner agency
 
@@ -98,7 +98,7 @@ Names in this diagram are business names, not storage names. In short: a **perso
 
 **What it holds.** Which agency it went to and for which services, an internal note for the agency, its status (pending, in progress, awaiting requirements, completed, rejected), the agency's decision and, when declined, the reason chosen from the office's standard list, when it was assigned and when the agency first acted (so turnaround can be measured), and the checklist of required documents **as it stood at the moment of referral** — so later changes to an agency's catalogue cannot silently rewrite a referral already under way.
 
-**How it connects.** Belongs to exactly one case file and exactly one agency; covers one or more services from that agency's catalogue; may carry many milestones, messages, document requests and attachments; receives one feedback survey when completed.
+**How it connects.** Belongs to exactly one case file and exactly one agency; covers one or more services from that agency's catalogue; may carry many milestones, messages, document requests and attachments; may receive a feedback survey invitation when completed.
 
 **Who owns and updates it.** The case manager creates it and attaches the OFW's documents; agency staff update its status and decisions and leave notes; administrators oversee everything.
 
@@ -164,7 +164,7 @@ Names in this diagram are business names, not storage names. In short: a **perso
 
 **How it connects.** An invitation belongs to one referral, one case and one agency; answers belong to the invitation; the invitation goes to the person behind the profile.
 
-**Who owns and updates it.** The agency designs and activates its form; the system issues the invitation automatically when a referral completes; the client answers; the agency and DMW review the results.
+**Who owns and updates it.** The agency designs and activates its form; the system issues the invitation automatically when a referral completes, if feedback is enabled, an active agency form and client email exist, and no invitation already exists; the client answers; the agency and DMW review the results.
 
 **Lifecycle.** Form created and activated → invitation issued (it simply expires if unanswered) → answers submitted once and never edited → kept for quality reporting; answers survive later edits to the questionnaire.
 
@@ -184,7 +184,7 @@ Two views of history are kept:
 
 ### 3.10 Notifications
 
-**What it is.** Messages raised by events — a new intake, a status change, a new milestone, a referral nearing its deadline — delivered inside the portal for staff and portal users, and by email to clients with a link back to the right place.
+**What it is.** Messages raised by events — a new intake, a status change, a new milestone, a staff-requested overdue reminder — delivered inside the portal for staff and portal users, and by email to clients with a link back to the right place.
 
 **What it holds.** What happened (headline and body), when, whether it has been read, and the link to the related case or referral. Client-facing notifications are kept per case so the story stays together.
 
@@ -216,8 +216,8 @@ Two views of history are kept:
 
 ### 3.13 Supporting records
 
-- **Reports and exports** — when staff ask for a case report, a list or a full export, the request is recorded: who asked, what for, its progress (waiting, done, failed), and the resulting file.
-- **Email delivery ledger** — one line for every message the system tried to send: recipient, subject, status, timing, and the outcome reported by the mail provider (delivered, bounced, complained). Kept so staff can see whether a notification actually arrived.
+- **Reports and exports** — current report and entity exports run during the request. Reports record an attempt and an outcome; case, client and referral exports record an action before generation, not proof of a completed download. Older generated-document records remain in storage but do not describe this current path.
+- **Email delivery ledger** — one line for every message the system tried to send: recipient, subject, status, timing, and the outcome reported by the mail provider (delivered, bounced, complained). Read by administrators on the email-log page, with its delivery events; provider acceptance alone does not prove delivery.
 - **Staff invitations** — who was invited, to which role and agency, by whom, when it expires, and whether it was used or cancelled. The invitation itself is emailed once; what is stored cannot be used to open it again.
 - **Case numbering** — a running count per month, so case numbers are unique within the office and never reused.
 
@@ -225,7 +225,7 @@ Two views of history are kept:
 
 ## 4. Data care: who may see what
 
-- **By role.** Case managers see the cases assigned to them; agency staff see only the referrals addressed to their agency; administrators see everything, for oversight and support; an OFW account sees only cases belonging to their own profile; a member of the public with a tracking code sees only that case's status and timeline. These limits are applied consistently across screens, reports and exports — not merely hidden on one page.
+- **By role.** Case managers see office-wide cases; agency staff see only the referrals addressed to their agency; administrators see everything, for oversight and support; an OFW account sees only cases belonging to their own profile; a member of the public with a tracking code sees only that case's status and timeline. These limits are applied consistently across screens, reports and exports — not merely hidden on one page.
 - **By private link.** A document-request link opens only that one request — never the whole case or other requests — and only until it expires or is revoked. A tracking code, confirmed by a one-time code to the email on file, reveals only that case's status.
 - **Between agencies.** Coordination messages between two agencies on a case are visible only to those two agencies — not to case managers, not to administrators.
 - **Inside a referral.** Notes marked internal-only stay inside the referring office; anything written as client-facing may appear on the client's timeline.

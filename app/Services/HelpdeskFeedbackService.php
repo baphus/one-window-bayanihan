@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\HelpdeskArticleFeedback;
+use App\Settings\SettingRegistry;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
@@ -48,7 +49,12 @@ class HelpdeskFeedbackService
 
     private function retentionCutoff(): Carbon
     {
-        return now()->subMonthsNoOverflow(12);
+        // Must match CleanupHelpdeskArticleFeedback, which deletes on the same
+        // window. These disagreed by living as two separate hard-coded 12s;
+        // both now read helpdesk_feedback_retention_days.
+        $days = SettingRegistry::int('helpdesk_feedback_retention_days');
+
+        return now()->subDays($days);
     }
 
     public function summary(HelpdeskArticleService $articles): array

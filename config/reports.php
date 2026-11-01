@@ -89,4 +89,22 @@ return [
         'employmentDistribution',
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Generated report retention
+    |--------------------------------------------------------------------------
+    |
+    | How long generated Excel/PDF files are kept before storage:cleanup-orphans
+    | deletes them. This key previously did not exist, while
+    | CleanupOrphanedFiles read it — so the call silently fell back to the case
+    | trash-retention window and reports were deleted on the wrong schedule.
+    |
+    | The runtime value now comes from the report_retention_days system setting;
+    | this config entry is the documented fallback and the name that setting
+    | replaced. Keep the two in step.
+    |
+    */
+
+    'retention_days' => (int) env('REPORTS_RETENTION_DAYS', 90),
+
 ];

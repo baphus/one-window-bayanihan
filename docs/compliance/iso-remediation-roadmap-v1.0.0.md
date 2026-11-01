@@ -1,5 +1,8 @@
 # ISO Remediation Roadmap — One Window Bayanihan
 
+> **Evidence boundary (2026-11-01):** Dated findings below preserve assessment snapshots, not live-deployment or compliance assurance. Current corrections: production MFA covers every role; central audit is ADMIN-only with separate scoped staff activity; malware scanning defaults to disabled and fail-open; selected PII is encrypted but client names/email/phone are not. IP-whitelist middleware is removed. Proxy trust needs framework and ingress-hop review, not an assumed exploit. See [current security requirements](../SECURITY_REQUIREMENTS_v2.2.0.md) and [audit access](../AUDIT_STRATEGY_v2.2.0.md). Approval and control-operation evidence remain external.
+
+
 | Field | Value |
 |---|---|
 | Version | v1.0.0 · Date 2026-07-08 |
@@ -24,7 +27,7 @@ Sequencing principle: close the **Critical/High technical** items first (fast, h
 | I-2 | Enforce `is_active`/`is_deleted` at login + kill live sessions on deactivate | TECH-002 | 27002 5.18 | High→Low (R-02) | none | Lead dev | S | Deactivated user cannot log in; test | ✅ COMPLETED |
 | I-3 | Remove `cookies.txt` from tracking + `.gitignore` + purge history; add secret-scan gate | TECH-004 | 27002 5.10/8.4 | Low→Low, hygiene | I-9 (CI) | DevOps | S | `git ls-files` clean; scanner in CI | ✅ COMPLETED |
 | I-4 | Restrict `trustProxies` to the LB CIDR | TECH-005 | 27002 8.20 | High→Low (R-04) | E-38 | DevOps | S | Forged XFF ignored; admin allowlist holds | ✅ COMPLETED |
-| I-5 | Confirm production `APP_DEBUG=false`, `debug_otp_enabled=false`, ClamAV enabled | TECH-020, M-15 | 27002 8.5/8.7 | Medium→Low (R-17) | E-39 | DevOps | S | Staging/prod never return `debug_otp` | ✅ COMPLETED |
+| I-5 | Confirm production `APP_DEBUG=false`, `debug_otp_enabled=false`, ClamAV enabled | TECH-020, M-15 | 27002 8.5/8.7 | Medium→Low (R-17) | E-39 | DevOps | S | Staging/prod never return `debug_otp` | Repository safeguards exist; live flags and ClamAV enablement unverified |
 
 ## 30-day improvements (P1)
 | # | Action | Findings | Standards | Risk reduction | Owner | Effort | Validation | Status |

@@ -2,6 +2,7 @@
 
 > **Source:** SRS v1.2 (May 19, 2026) — §3.1 User Interfaces, §6.5 Accessibility
 > **Last Updated:** 2026-05-28
+> **Historical design reference:** patterns below reflect the May SRS, not a current screen inventory. Current case filing uses pending review, not draft/publish; receiving agencies choose referral services. The old helpdesk CMS, guided tours, and full-data workbook UI are retired; administrator Monitoring pages (health, email logs, failed jobs, security log) are newer than this reference. Current screens and routes take precedence.
 
 ---
 

@@ -60,7 +60,10 @@ enum AuditModule: string
 
     // Account security surfaces
     case AUTH = 'auth';
-    case SECURITY = 'security';
+    // NOTE: there is deliberately no SECURITY case. It existed and nothing ever
+    // wrote to it, so filtering on it returned nothing forever. Security events
+    // are recorded under AUTH, MFA, SESSION and USER; the set that defines one
+    // is declared in config/security_events.php.
     case SESSION = 'session';
     case MFA = 'mfa';
 
@@ -158,7 +161,7 @@ enum AuditModule: string
     public function category(): string
     {
         return match ($this) {
-            self::AUTH, self::SECURITY, self::SESSION, self::MFA => AuditCategory::SECURITY,
+            self::AUTH, self::SESSION, self::MFA => AuditCategory::SECURITY,
             self::USER, self::AGENCY, self::SERVICE, self::SERVICE_REQUIREMENT,
             self::CASE_CATEGORY, self::CASE_ISSUE, self::CASE_STATUS,
             self::USER_INVITE,
@@ -171,6 +174,6 @@ enum AuditModule: string
     /** True for account-security surfaces regardless of action. */
     public function isSecurity(): bool
     {
-        return in_array($this, [self::AUTH, self::SECURITY, self::SESSION, self::MFA], true);
+        return in_array($this, [self::AUTH, self::SESSION, self::MFA], true);
     }
 }

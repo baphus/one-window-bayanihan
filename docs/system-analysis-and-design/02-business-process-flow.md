@@ -1,8 +1,8 @@
 # One Window Bayanihan — Business Process Flows
 
 > **Document:** 02 — Business Process Flows (System Analysis and Design series)
-> **Version:** 1.1.0
-> **Date:** 2026-10-11
+> **Version:** 1.2.0
+> **Date:** 2026-11-01
 > **Status:** CURRENT
 > **Audience:** DICT reviewers, capstone panelists, and business stakeholders
 > **Companion:** [01-system-description.md](01-system-description.md) (system description, features, status)
@@ -13,7 +13,7 @@ Each of the seven processes below describes a complete business flow in plain te
 
 Terminology:
 
-- **Case file** — the unified record of one OFW's situation. A case moves through these states: **draft**, **open** (being worked), **closed**, **archived**, and finally removed after a retention period.
+- **Case file** — a filing linked to a client record; a client may have multiple cases. New cases start **pending review**, then become **open** on approval or **rejected** on rejection. Open cases can later be **closed**, **archived**, moved to trash, and removed after retention. No current draft save/edit/delete lifecycle exists.
 - **Intake** — a case the OFW files themselves through the public portal, before a Case Manager reviews it.
 - **Referral** — an open case routed to a partner agency; after it arrives, the agency picks the service it will deliver from its own list of available services. A referral moves through: **pending**, **processing**, **waiting on the client** (compliance needed), **completed**, or **rejected**.
 - **Client request** — an agency's request for documents, answers, or information updates from the client, delivered through a time-limited private link.
@@ -23,18 +23,18 @@ Terminology:
 
 ## Table of contents
 
-1. [Case lifecycle (draft → publish → close → archive → removal)](#1-case-lifecycle-draft--publish--close--archive--removal)
+1. [Case lifecycle (review → approve → close → archive → removal)](#1-case-lifecycle-review-approve-close-archive-removal)
 2. [Self-filing (OFW intake, after signing in)](#2-self-filing-ofw-intake-after-signing-in)
 3. [Referral to partner agencies](#3-referral-to-partner-agencies)
-4. [Document request inbox (agency ↔ client)](#4-document-request-inbox-agency--client)
-5. [Case tracking (public tracker and portal view)](#5-case-tracking-public-tracker-and-portal-view)
+4. [Document request inbox (agency ↔ client)](#4-document-request-inbox-agency-client)
+5. [Case tracking (public tracker and portal view)](#5-case-tracking-public-tracker-and-portal)
 6. [Client satisfaction survey](#6-client-satisfaction-survey)
 7. [OFW personal portal](#7-ofw-personal-portal)
 8. [Rules that apply to every process](#8-rules-that-apply-to-every-process)
 
 ---
 
-## 1. Case lifecycle (draft → publish → close → archive → removal)
+## 1. Case lifecycle (review → approve → close → archive → removal)
 
 ### Purpose
 
@@ -42,24 +42,24 @@ Move a case from creation to its final archived or removed state, while enforcin
 
 ### Who starts it
 
-A DMW Case Manager (or an Administrator) creates a case in the staff portal. Drafts also arrive from public self-filing (see §2).
+A DMW Case Manager or Administrator creates a case in the staff portal. Pending filings also arrive from signed-in citizens (see §2).
 
 ### Who is involved
 
-- **Case Manager** — primary owner; drafts, publishes, and closes cases.
+- **Case Manager** — coordinates office-wide cases; reviews, approves, and closes them.
 - **Administrator** — oversight; can also view and manage cases.
 - **Agency staff** — participate through referrals on open cases; they are not lifecycle decision-makers. **Partially described:** exactly which case screens agency staff can see was confirmed only at the general access level, not exhaustively for every case detail view.
 
 ### What must be true first
 
 - The person is signed in, their account is active, and they have completed the multi-factor check.
-- A Case Manager may only edit or publish their own drafts — except self-filed intakes, which are unassigned until a reviewer publishes them.
+- Case Managers have office-wide normal case access; trash listing and restoration are owner-scoped.
 
 ### Steps in order
 
-1. **Create draft** — the case is saved as a draft with a case number. If two cases happen to draw the same number, the system retries automatically (up to three times) before failing.
-2. **Edit draft** — the draft is updated; the system checks it is still a draft before saving (so two people cannot silently overwrite each other).
-3. **Publish** — a Case Manager or Administrator reviews the draft and decides: publish, reject, or delete (see decisions below).
+1. **Create filing** — the case is saved pending review with generated case and tracker numbers. Number collisions are retried up to three times before failing.
+2. **Review classification** — staff supply required active categories and issue/concern where missing. Case-detail updates accept category and issue/concern; there is no general draft editor or autosave.
+3. **Approve or reject** — any Case Manager or Administrator approves to open, recording reviewer/time without replacing the filer, or rejects with a reason.
 4. **Work the case** — status updates, referrals to agencies (§3), documents, comments; every change is recorded in the audit trail.
 5. **Close** — allowed only when no referral is still unfinished.
 6. **Archive** — allowed only for closed cases that still pass the close check; a closed case can also be reopened.
@@ -70,21 +70,21 @@ A DMW Case Manager (or an Administrator) creates a case in the staff portal. Dra
 
 | Decision | Rule |
 |---|---|
-| Publish a self-filed intake? | Any Case Manager or Administrator may publish; ownership is assigned at the moment of publishing. |
-| Is this a duplicate client? | The system checks for an existing client; the publisher can confirm and proceed if it truly is the same person. |
-| Is the draft complete? | Publishing is blocked until the required information is present. |
+| Approve a pending filing? | Any Case Manager or Administrator may approve; reviewer/time are recorded without replacing the filer. |
+| Is this a duplicate client? | Staff picker checks existing clients by normalized email only; citizen intake has no active-case duplicate guard. |
+| Is classification complete? | Approval validates active categories and requires categories and issue/concern when missing. |
 | Can the case be closed? | Not while any referral is still pending, processing, or waiting on the client. |
 | Can the case be archived? | Only if it is closed and still passes the close check. |
 
 ### Exceptions
 
-- **Reject a self-filed intake** — the draft is removed with a recorded reason, and the filer receives a rejection email.
-- **Delete a draft** — removed with an audit entry in the same step.
-- **Simultaneous edits** — the second person's save is rejected rather than overwriting newer information.
+- **Reject a pending filing** — status becomes rejected with a reason and client notification/email when an email exists. Current rejection does not call soft-delete or set a deletion timestamp.
+- **Draft deletion** — no current action exists; archived-case trash is separate.
+- **Concurrent review** — approval and rejection lock the pending row so both cannot act on the same pending version.
 
 ### Notifications
 
-- Publishing a self-filed intake: the OFW receives an in-app notice and an email confirming their case is now open.
+- Approval records an opened-case timeline event; this path does not separately dispatch confirmation email or an in-app notice.
 - Rejection: the filer receives an email.
 - **Partially described:** staff-side notices on routine case updates exist, but the exact list of which events raise them was not fully enumerated.
 
@@ -94,8 +94,8 @@ The case ends as **open** (being worked), **closed** (resolved, reopenable), **a
 
 ### Business rules
 
-- Only the owner may edit or publish their own drafts (self-filed intakes are unassigned until publish).
-- Publishing is recorded as exactly one audit entry, not a trail of internal steps.
+- Normal case access and review are office-wide; Case Manager trash and restoration are owner-scoped.
+- Approval records its review audit entry and an opened-case timeline event.
 - A case cannot close while any referral is unfinished.
 - Deleting requires a reason; permanent removal happens only after the retention window.
 
@@ -104,13 +104,12 @@ The case ends as **open** (being worked), **closed** (resolved, reopenable), **a
 ```mermaid
 flowchart TD
     subgraph Staff["DMW Case Manager / Administrator"]
-        A["Create draft case"] --> B["Edit draft"]
-        B --> C{"Next step?"}
-        C -->|"Reject self-filed intake"| R["Remove draft with reason"]
-        C -->|"Delete draft"| DD["Delete draft (recorded)"]
-        C -->|"Publish"| P{"Required details present?<br/>Possible duplicate client?"}
-        P -->|"No / not confirmed"| PF["Cannot publish yet"]
-        P -->|"Yes"| PUB["Case becomes open<br/>Owner assigned"]
+        A["File case pending review"] --> B["Review classification"]
+        B --> C{"Review decision?"}
+        C -->|"Reject with reason"| R["Case becomes rejected"]
+        C -->|"Approve"| P{"Required classification valid?"}
+        P -->|"No"| PF["Cannot approve yet"]
+        P -->|"Yes"| PUB["Case becomes open<br/>Reviewer recorded"]
         PUB --> W["Work the case:<br/>referrals, documents, updates"]
         W --> K{"All referrals finished?"}
         K -->|"No"| W
@@ -126,7 +125,7 @@ flowchart TD
     end
     subgraph OFW["OFW who filed the case"]
         R --> MAILR["Receives rejection email"]
-        PUB --> MAILP["Receives confirmation<br/>(in-app + email)"]
+        PUB --> MAILP["Opened event visible<br/>in case timeline"]
     end
 ```
 
@@ -136,7 +135,7 @@ flowchart TD
 
 ### Purpose
 
-Let a signed-in OFW (or a family member with an account) open a case from inside the portal, under verified, rate-limited conditions with duplicate protection. Filing requires an account — there is no filing path without one.
+Let a signed-in OFW (or a family member with an account) file a case from inside the portal, under verified, rate-limited conditions. Multiple cases per client are allowed; no active-case duplicate guard exists. Filing requires an account — there is no filing path without one.
 
 ### Who starts it
 
@@ -145,7 +144,7 @@ A signed-in OFW, from the case-filing page in the portal.
 ### Who is involved
 
 - **OFW** — the filer, already signed in.
-- **Case Manager** — the downstream reviewer who receives the draft into the intake queue (see §1).
+- **Case Manager** — the downstream reviewer who receives the pending filing into the intake queue (see §1).
 
 ### What must be true first
 
@@ -156,34 +155,34 @@ A signed-in OFW, from the case-filing page in the portal.
 
 1. **Create an account** — a new visitor registers and confirms their email before anything else.
 2. **Sign in** — the OFW signs in (with verification and the two-step check where required).
-3. **Duplicate check** — before the form is shown, the system checks whether this person already has an active case.
-4. **Submit** — the filer completes the form and consent, and submits. The system re-checks duplicates at this moment (protecting against two simultaneous submissions), then creates the draft case.
-5. **Receive receipt and track on both paths** — after the case is safely saved, the filer receives an email receipt and an in-app confirmation carrying the **tracker number**, and follows the case on the public tracker with an email code as well as in the portal when signed in; Case Managers are notified that a new intake awaits review.
+3. **Review linked profile** — the form shows the filer's client profile; a linked client is required for this intake path.
+4. **Submit** — supply summary, optional vulnerability information, and consent. Staff classification fields are excluded. The system creates a pending-review case without checking for another active case.
+5. **Receive receipt and track on both paths** — after commit, email is queued to the filer and active Case Managers. The browser returns to the citizen dashboard with a success message, not an in-app intake notification. The tracker number supports public email-code tracking as well as the signed-in portal.
 
 ### Decisions
 
 | Decision | Rule |
 |---|---|
-| Already has an active case? | Blocked before the form is shown, again before submitting, and once more inside the final save — the filer is directed to their portal view instead. |
+| Already has an active case? | Another filing is allowed; there is no active-case duplicate guard. The staff client's email-only picker check is a separate feature. |
 | Not signed in? | Filing is not offered; the visitor is directed to create an account and sign in first. |
 
 ### Exceptions
 
-- Two identical submissions racing each other → one succeeds, the other is told an active case already exists.
+- A missing linked client returns an error asking the filer to complete their profile; invalid summary or missing consent fails validation. Repeat filings are not deduplicated.
 
 ### Notifications
 
-- **Case Managers:** notice of a new intake, which appears in the review queue.
-- **Filer:** email receipt plus an in-app confirmation with the tracker number — both sent only after the case is safely saved.
+- **Case Managers:** queued review email; the pending filing appears in the review queue.
+- **Filer:** queued email after commit and a browser success message. No in-app intake notice is created by submission.
 
 ### End result
 
-A draft, self-filed case sitting in the intake queue, waiting for Case Manager review, linked to the filer's account and visible in their portal.
+A pending-review case in the intake queue, linked to the filer and client and visible in their portal.
 
 ### Business rules
 
 - An account and sign-in are required before filing — filing without an account is not offered.
-- One active case per person — duplicates are blocked at three separate moments.
+- Multiple cases per client are allowed; citizen intake does not enforce active-case deduplication.
 - Consent is captured with the form.
 - The tracker number is given to the filer immediately so they can follow the case on the public tracker with an email code, and in the portal when signed in.
 
@@ -194,24 +193,21 @@ flowchart TD
     subgraph OFW["Signed-in OFW"]
         S["Create an account"] --> L["Sign in<br/>(verification + two-step where required)"]
         L --> O["Open the case-filing page"]
-        O --> DUP{"Active case already exists?"}
-        DUP -->|"Yes"| BLOCK["Message: follow your existing case in the portal"]
-        DUP -->|"No"| FORM["Fill the form and give consent"]
+        O --> FORM["Review profile, fill summary and give consent"]
         FORM --> SUB["Submit"]
         SUB --> TRK["Follow the case on public tracker + portal<br/>(tracker number on the receipt)"]
     end
     subgraph CM["DMW Case Manager"]
-        NQ["New intake appears in the review queue"] --> RV["Review: publish or reject (see §1)"]
+        NQ["New intake appears in the review queue"] --> RV["Review: approve or reject (see §1)"]
     end
     subgraph SYS["System safeguards"]
-        SUB --> LOCK["Re-check duplicates during the final save"]
-        LOCK --> DUP2{"Duplicate?"}
-        DUP2 -->|"Yes"| SAFE["Submission refused with a message"]
-        DUP2 -->|"No"| CRT["Draft case created<br/>(retries automatically on a number clash)"]
+        SUB --> VALID{"Valid input and linked client?"}
+        VALID -->|"No"| SAFE["Validation/profile error"]
+        VALID -->|"Yes"| CRT["Pending-review case created<br/>(retries automatically on a number clash)"]
         CRT --> AUD["Submission recorded in the audit trail"]
     end
     CRT --> NQ
-    CRT --> MAIL["Filer receives email receipt +<br/>confirmation with tracker number"]
+    CRT --> MAIL["Email queued to filer and active Case Managers<br/>Browser success message, not in-app intake notice"]
 ```
 
 ---
@@ -281,7 +277,7 @@ Setting the same status again changes nothing and never re-sends notifications.
 
 - Agency staff receive an in-app notice when a referral arrives.
 - Status changes and new milestones send notices to staff and emails to the client — all sent only after the change is safely saved.
-- Idle referrals raise overdue notices for administrators.
+- Overdue reminders are sent only when a Case Manager or Administrator requests them; no scheduled reminder sender exists.
 
 ### End result
 
@@ -436,14 +432,14 @@ The OFW or a family member, from the public tracking page.
 
 ### What must be true first
 
-- A published case exists with a tracker number.
+- A client-visible case exists with a tracker number; pending-review and archived cases are included, while legacy drafts are excluded.
 - The email entered matches the email on the case.
 
 ### Steps in order
 
 1. **Request a code** — the visitor enters the tracker number and email; a one-time code is sent (rate-limited, with optional bot protection).
-2. **Verify** — entering the correct code unlocks the view; on failure the session is cleared; on success the session is renewed and bound to that tracker number and email.
-3. **View case progress** — the progress timeline is shown (capped at the 200 most recent events, newest first).
+2. **Verify** — entering the correct code unlocks the view. A tracker/email mismatch clears the binding; an invalid code returns an error. Success renews the session and binds it to tracker, email, and verification time for at most 30 minutes.
+3. **View case progress** — the timeline keeps the 200 most recent events and displays them oldest first.
 4. **View agency milestones** — the visitor can open the milestones recorded by each agency on the case.
 5. **Optional account creation** — from this verified session, the visitor can create a personal OFW account linked to their case (existing accounts are signed in instead of duplicated).
 
@@ -453,7 +449,7 @@ The OFW or a family member, from the public tracking page.
 |---|---|
 | Tracker number and email match? | The same generic error is shown whether the number is wrong, unknown, or the email does not match — so nobody can guess valid case numbers. |
 | How much history? | The 200 most recent events; older events are not paginated (a known shortcut). |
-| What is visible? | Only published, current cases — other people's drafts and archived cases never appear. |
+| What is visible? | Client-visible cases, including pending review and archived cases; legacy draft rows are excluded. Access still requires matching email verification. |
 | Create an account? | Optional, from a verified session; an existing account is signed in rather than duplicated. |
 
 ### Exceptions
@@ -473,7 +469,7 @@ A progress view tied to the browser session, which expires with the session; no 
 
 - Generic errors everywhere, to prevent guessing valid case references.
 - History is capped at the 200 most recent events.
-- Self-filed drafts stay visible to their own filer (so they can follow their intake); other drafts and archived cases are hidden.
+- Pending-review and archived cases remain client-visible through authorized access; legacy draft rows are excluded.
 - A verified tracking session can later become a full OFW account.
 
 ### Flowchart
@@ -603,7 +599,7 @@ The OFW, after signing in (with the multi-factor check), arriving at their dashb
 
 ### Steps in order
 
-1. **Dashboard** — lists only this person's cases, grouped into: under review (their own self-filed drafts), in progress (open cases and referrals being worked), and completed.
+1. **Dashboard** — lists only this person's cases, grouped into: under review (their own pending-review filings), in progress (open cases and referrals being worked), and completed.
 2. **Case detail** — opening a case re-checks that it belongs to this person (not just the list).
 3. **Agency milestones** — viewing a referral's milestones applies the same ownership check.
 4. **Notifications** — lists notices tied to their cases and email; they can mark them as read.
@@ -614,7 +610,7 @@ The OFW, after signing in (with the multi-factor check), arriving at their dashb
 | Decision | Rule |
 |---|---|
 | Whose data? | Every view is limited to this person's own file; opening a case re-verifies ownership, not just the list. |
-| What is visible? | Their own self-filed drafts (so they can follow their intake), open and completed cases; other people's drafts and archived cases never appear. |
+| What is visible? | Their own filings still under review, open and completed cases, and archived cases; other people's cases and legacy draft rows never appear. |
 | Notifications | Matched by case membership and, when present, the client email. |
 
 ### Exceptions
@@ -633,7 +629,7 @@ An ongoing self-service view. The OFW changes no case state of their own — onl
 ### Business rules
 
 - Strictly limited to the person's own file, checked again on every detail screen.
-- Self-filed drafts stay visible to their own filer; others' drafts and archived cases are hidden.
+- Pending-review filings and archived cases remain visible to authorized clients; legacy drafts are excluded.
 - No case actions are available to the OFW in this portal — casework stays with DMW and partner agencies.
 
 ### Flowchart
@@ -658,15 +654,15 @@ flowchart TD
 
 ## 8. Rules that apply to every process
 
-1. **Sign-in and multi-factor check** — staff and OFWs sign in with email and password, then confirm a multi-factor code (5-minute window, maximum 5 attempts before the session must restart). One-time email codes are used only for tracking, document-request links, and email changes — not for signing in, and not as a filing path without an account.
+1. **Sign-in and multi-factor check** — email/password login uses authenticator MFA where required/enabled (5-minute pending window, maximum 5 attempts). Production requires MFA for every role, including OFW; outside production enrollment enforcement is configurable and defaults to staff. Email codes serve registration, tracking/document-request access, and email changes, not password login.
 2. **Roles** — Case Manager, Administrator, Agency, and OFW; every screen and action is restricted to the roles allowed to use it.
 3. **Audit trail** — every significant action is recorded as it happens; multi-step transitions are recorded as a single clean entry. The trail is integrity-checked weekly and archived monthly; records are kept one year by default.
-4. **Notifications are dual-channel** — in-app notices plus emails; client-facing emails are sent only after the related change is safely saved, so a failed save never sends a misleading email.
+4. **Notification channels depend on the event** — supported events use in-app notices and/or emails. Intake submission queues email only; approval adds a timeline event without a separate notification dispatch. Client emails are scheduled after commit.
 5. **Rate limits and abuse protection** — every public form and code request is rate-limited; a bot-protection check is available for public forms (currently off by default).
 6. **File handling** — uploads are malware-scanned and type-checked before storage (see the fails-open note in document 01, §13).
 7. **Scheduled housekeeping** — log cleanup, audit archiving and integrity checks, orphan-file cleanup, and trash removal run on a schedule, with failure alerting.
-8. **Statuses are enforced, not left to memory** — referral statuses follow the fixed path in §3; case statuses mix the fixed lifecycle (draft, open, closed, archived) with administrator-configurable categories used in reporting. **Partially described:** the exact mapping between configurable categories and the fixed lifecycle was not fully traced.
+8. **Statuses are enforced, not left to memory** — referral statuses follow §3; case review, closure, archiving, and trash have guarded actions. Configurable status reference rows do not create new lifecycle actions or a draft workflow.
 
 ---
 
-*Prepared 2026-10-11. Companion document: [01-system-description.md](01-system-description.md).*
+*Prepared 2026-11-01. Companion document: [01-system-description.md](01-system-description.md).*

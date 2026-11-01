@@ -1,5 +1,8 @@
 # DB Schema Dead-Table Audit — 2026-09-16
 
+> **Historical archive:** Preserve dated observations below as recorded, not current implementation claims. For current behaviour, start with [System Analysis and Design](system-analysis-and-design/README.md) and verify source, routes, schema, and configuration. This record does not establish live deployment or compliance assurance.
+
+
 > **Source:** live PG schema dump (`database-schema`, 53 app+framework tables), `database/migrations/` (60 files), `app/Models/` (40 models), `app/` grep, `docs/DATA_MODEL.md v2.2.0`, `docs/API_CONTRACTS.md`, `docs/ARCHITECTURE_v2.2.0.md`
 > **Goal:** find dead tables, dead references, drift. No code changed.
 

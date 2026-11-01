@@ -1,5 +1,8 @@
 # AWS Production Deployment & Operations Runbook
 
+> **Evidence status (2026-11-01):** Deployment identifiers, outages, infrastructure inventory, and prices below are dated records or planning assumptions. They do not establish current live resources, operational approval, provider assurance, or present pricing. Confirm those with the environment owner; repository workflows establish only configured deployment behaviour.
+
+
 > **Version:** 1.6.0 | **Updated:** 2026-07-28 | **Supersedes:** `DEPLOYMENT_PRODUCTION_AWS_v1.5.0.md`
 > **Operative document.** v1.4.0 remains the reference for how the environment was
 > verified and the defect log (its §2, §3, §4, §6). v1.5.0 added the operations

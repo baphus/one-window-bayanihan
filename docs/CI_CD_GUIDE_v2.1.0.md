@@ -4,6 +4,8 @@
 > **Source of truth:** `.github/workflows/ci.yml`, `.github/workflows/deploy.yml`, `.github/workflows/deploy-production.yml`, `.github/workflows/build-image.yml`, `composer.json`, `package.json`, `.npmrc`
 > **Delta scope:** v2.0.0 remains the design reference (§0 provider-agnostic principle, §4 trigger contract, §5 environments, §9 troubleshooting shape, §10 standards check). This revision replaces the documented workflow set and job contents with the verified four-file reality. **There is no `deploy-staging.yml`, no `reset-staging-data.yml`, no daily 02:00 UTC staging reset** — any doc referencing them is stale.
 
+> **Proxy caution (2026-11-01):** The deploy payload supplies a wildcard proxy value, but bootstrap splits it into an array. Review installed framework trust parsing, effective remote address, and header handling at every ingress hop before assessing spoofing. No IP-whitelist middleware remains; no live exploit or safe deployment is established here. No axe accessibility CI job exists.
+
 ## 0. What changed in v2.1.0 (delta)
 
 | # | v2.0.0 said | Verified reality (2026-09-15) |

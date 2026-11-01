@@ -1,9 +1,11 @@
 # Bayanihan One Window — Accessibility Requirements
 
 > **Source:** SRS v1.2 (May 19, 2026) — §6.5 Accessibility and User Environment
-> **Last Updated:** 2026-05-28
+> **Last Updated:** 2026-11-01 (evidence-status correction)
 
 ---
+
+> **Evidence status (2026-11-01):** WCAG 2.1 AA is a target, not a verified conformance claim. No axe accessibility CI job exists in .github/workflows/ci.yml. The matrix and checklist describe acceptance criteria requiring recorded validation; framework or Tailwind use alone proves neither contrast nor assistive-technology compatibility. Historical checkmarks have been reset pending evidence.
 
 ## 1. Accessibility Policy
 
@@ -13,50 +15,50 @@ Accessibility is treated as a **mandatory nonfunctional requirement** (not an op
 
 ---
 
-## 2. WCAG 2.1 Compliance Matrix
+## 2. WCAG 2.1 Target Matrix
 
 ### 2.1 Perceivable
 
-| SRS ID | WCAG SC | Requirement | Implementation | Status |
+| SRS ID | WCAG SC | Requirement | Proposed implementation / validation | Status |
 |---|---|---|---|---|
-| ACC-005 | 1.4.3 Contrast (Minimum) | Text contrast ≥ 4.5:1 (normal), ≥ 3:1 (large) | Tailwind config: default color palette meets AA | ✅ |
-| ACC-006 | 1.4.1 Use of Color | Information not conveyed by color alone | Status badges use icons + text labels + color | ✅ |
-| ACC-007 | 1.1.1 Non-text Content | Images/icons have alt text | `<img alt="">` on all images, ARIA labels on icons | ✅ |
-| ACC-008 | 1.4.4 Resize Text | Text resizable to 200% without loss | Responsive layout, relative units (rem) | ✅ |
-| ACC-009 | 1.4.10 Reflow | Content readable at 320px width | Tailwind responsive breakpoints | ✅ |
+| ACC-005 | 1.4.3 Contrast (Minimum) | Text contrast ≥ 4.5:1 (normal), ≥ 3:1 (large) | Measure rendered text and backgrounds; palette choice alone is insufficient | Unverified target |
+| ACC-006 | 1.4.1 Use of Color | Information not conveyed by color alone | Status badges use icons + text labels + color | Unverified target |
+| ACC-007 | 1.1.1 Non-text Content | Images/icons have alt text | `<img alt="">` on all images, ARIA labels on icons | Unverified target |
+| ACC-008 | 1.4.4 Resize Text | Text resizable to 200% without loss | Responsive layout, relative units (rem) | Unverified target |
+| ACC-009 | 1.4.10 Reflow | Content readable at 320px width | Tailwind responsive breakpoints | Unverified target |
 
 ### 2.2 Operable
 
-| SRS ID | WCAG SC | Requirement | Implementation | Status |
+| SRS ID | WCAG SC | Requirement | Proposed implementation / validation | Status |
 |---|---|---|---|---|
-| ACC-010 | 2.1.1 Keyboard | All functions operable via keyboard | TabIndex on all interactive elements | ✅ |
-| ACC-011 | 2.4.7 Focus Visible | Visible focus indicators | `focus:ring-2` Tailwind utilities on all controls | ✅ |
-| ACC-012 | 2.2.1 Timing Adjustable | Time limits have accommodations | Session timeout has warning; OTP allows resend | ✅ |
-| ACC-013 | 3.2.3 Consistent Navigation | Navigation consistent across pages | AppLayout sidebar consistent for all authenticated pages | ✅ |
-| ACC-014 | 2.3.1 Three Flashes | No seizure-inducing flashes | No animated/flashing content in UI | ✅ |
+| ACC-010 | 2.1.1 Keyboard | All functions operable via keyboard | TabIndex on all interactive elements | Unverified target |
+| ACC-011 | 2.4.7 Focus Visible | Visible focus indicators | `focus:ring-2` Tailwind utilities on all controls | Unverified target |
+| ACC-012 | 2.2.1 Timing Adjustable | Time limits have accommodations | Session timeout has warning; OTP allows resend | Unverified target |
+| ACC-013 | 3.2.3 Consistent Navigation | Navigation consistent across pages | AppLayout sidebar consistent for all authenticated pages | Unverified target |
+| ACC-014 | 2.3.1 Three Flashes | No seizure-inducing flashes | No animated/flashing content in UI | Unverified target |
 
 ### 2.3 Understandable
 
-| SRS ID | WCAG SC | Requirement | Implementation | Status |
+| SRS ID | WCAG SC | Requirement | Proposed implementation / validation | Status |
 |---|---|---|---|---|
-| ACC-015 | 3.3.2 Labels or Instructions | Clear labels, instructions | `<label>` elements on all form fields | ✅ |
-| ACC-016 | 3.3.1 Error Identification | Accessible error messages | Inline validation errors below fields | ✅ |
-| ACC-017 | 3.3.3 Error Suggestion | Clear correction guidance | Validation messages describe the fix needed | ✅ |
-| ACC-018 | 3.2.4 Consistent Identification | Consistent behavior | Same UI patterns across all modules | ✅ |
+| ACC-015 | 3.3.2 Labels or Instructions | Clear labels, instructions | `<label>` elements on all form fields | Unverified target |
+| ACC-016 | 3.3.1 Error Identification | Accessible error messages | Inline validation errors below fields | Unverified target |
+| ACC-017 | 3.3.3 Error Suggestion | Clear correction guidance | Validation messages describe the fix needed | Unverified target |
+| ACC-018 | 3.2.4 Consistent Identification | Consistent behavior | Same UI patterns across all modules | Unverified target |
 
 ### 2.4 Robust
 
-| SRS ID | WCAG SC | Requirement | Implementation | Status |
+| SRS ID | WCAG SC | Requirement | Proposed implementation / validation | Status |
 |---|---|---|---|---|
-| ACC-019 | 4.1.1 Parsing | Semantic markup | Semantic HTML5 elements used | ✅ |
-| ACC-020 | 4.1.2 Name, Role, Value | Screen reader compatible | ARIA roles on dynamic components | ✅ |
-| ACC-021 | 4.1.3 Status Messages | Dynamic updates announced | Inertia page updates preserve accessibility | ✅ |
+| ACC-019 | 4.1.1 Parsing | Semantic markup | Semantic HTML5 elements used | Unverified target |
+| ACC-020 | 4.1.2 Name, Role, Value | Screen reader compatible | ARIA roles on dynamic components | Unverified target |
+| ACC-021 | 4.1.3 Status Messages | Dynamic updates announced | Inertia page updates preserve accessibility | Unverified target |
 
 ---
 
 ## 3. Platform Accessibility (§6.5.1)
 
-| SRS ID | Requirement | Implementation |
+| SRS ID | Requirement | Proposed implementation / validation |
 |---|---|---|
 | ACC-001 | Browser-based, no specialized install | Web application — any modern browser |
 | ACC-002 | Cross-platform (desktop + mobile) | Responsive Tailwind CSS |
@@ -67,7 +69,7 @@ Accessibility is treated as a **mandatory nonfunctional requirement** (not an op
 
 ## 4. Accessibility for Vulnerable Public Users (§6.5.3)
 
-| SRS ID | Requirement | Implementation |
+| SRS ID | Requirement | Proposed implementation / validation |
 |---|---|---|
 | ACC-022 | Minimize complexity in public workflows | OTP tracking = 3-step flow: enter number → OTP → view status |
 | ACC-023 | Usable by varying digital literacy | Simple language, clear CTA buttons, visual progress indicators |
@@ -78,7 +80,7 @@ Accessibility is treated as a **mandatory nonfunctional requirement** (not an op
 
 ## 5. Administrative Accessibility (§6.5.4)
 
-| SRS ID | Requirement | Implementation |
+| SRS ID | Requirement | Proposed implementation / validation |
 |---|---|---|
 | ACC-026 | Readable layouts in admin dashboards | Clean typography, generous spacing, consistent grid |
 | ACC-027 | Keyboard-accessible tables, forms, filters | All table rows, form inputs, filter controls tabbable |
@@ -86,59 +88,59 @@ Accessibility is treated as a **mandatory nonfunctional requirement** (not an op
 
 ---
 
-## 6. Implementation Checklist
+## 6. Acceptance Checklist (validation pending)
 
 ### 6.1 HTML/Semantic Structure
 
-- [x] `<nav>` for navigation blocks
-- [x] `<main>` for primary content
-- [x] `<h1>-<h6>` heading hierarchy
-- [x] `<label>` elements for all form inputs
-- [x] `<table>` with `<thead>`, `<th scope="">` for data tables
-- [x] `<button>` or `<a>` for clickable elements (not `<div>`)
+- [ ] `<nav>` for navigation blocks
+- [ ] `<main>` for primary content
+- [ ] `<h1>-<h6>` heading hierarchy
+- [ ] `<label>` elements for all form inputs
+- [ ] `<table>` with `<thead>`, `<th scope="">` for data tables
+- [ ] `<button>` or `<a>` for clickable elements (not `<div>`)
 
 ### 6.2 ARIA Attributes
 
-- [x] `aria-label` on icon-only buttons
-- [x] `aria-current="page"` on active nav items
-- [x] `aria-expanded` on collapsible sections
-- [x] `role="alert"` on validation error messages
-- [x] `role="dialog"` and `aria-modal="true"` on modals
+- [ ] `aria-label` on icon-only buttons
+- [ ] `aria-current="page"` on active nav items
+- [ ] `aria-expanded` on collapsible sections
+- [ ] `role="alert"` on validation error messages
+- [ ] `role="dialog"` and `aria-modal="true"` on modals
 
 ### 6.3 Keyboard Navigation
 
-- [x] All interactive elements reachable via Tab
-- [x] Tab order follows visual order
-- [x] Focus trapped in modals (FocusTrap)
-- [x] Escape key closes modals/dropdowns
-- [x] Enter/Space activates buttons
-- [x] Skip-to-content link for keyboard users
+- [ ] All interactive elements reachable via Tab
+- [ ] Tab order follows visual order
+- [ ] Focus trapped in modals (FocusTrap)
+- [ ] Escape key closes modals/dropdowns
+- [ ] Enter/Space activates buttons
+- [ ] Skip-to-content link for keyboard users
 
 ### 6.4 Visual Design
 
-- [x] Color contrast ≥ 4.5:1 (normal text)
-- [x] Color contrast ≥ 3:1 (large text / UI components)
-- [x] Information not conveyed by color alone
-- [x] Focus indicators visible (2px ring)
-- [x] Text resizable to 200%
-- [x] Responsive down to 320px width
+- [ ] Color contrast ≥ 4.5:1 (normal text)
+- [ ] Color contrast ≥ 3:1 (large text / UI components)
+- [ ] Information not conveyed by color alone
+- [ ] Focus indicators visible (2px ring)
+- [ ] Text resizable to 200%
+- [ ] Responsive down to 320px width
 
 ### 6.5 Forms
 
-- [x] All inputs have associated labels
-- [x] Required fields indicated (asterisk + `aria-required`)
-- [x] Validation errors displayed inline
-- [x] Error summary at top of form
-- [x] Error messages suggest correction
-- [x] Auto-focus on first error field
+- [ ] All inputs have associated labels
+- [ ] Required fields indicated (asterisk + `aria-required`)
+- [ ] Validation errors displayed inline
+- [ ] Error summary at top of form
+- [ ] Error messages suggest correction
+- [ ] Auto-focus on first error field
 
 ### 6.6 Screen Reader Compatibility
 
-- [x] NVDA compatibility (Windows)
-- [x] VoiceOver compatibility (macOS/iOS)
-- [x] TalkBack compatibility (Android)
-- [x] Dynamic content changes announced
-- [x] Loading states communicated
+- [ ] NVDA compatibility (Windows)
+- [ ] VoiceOver compatibility (macOS/iOS)
+- [ ] TalkBack compatibility (Android)
+- [ ] Dynamic content changes announced
+- [ ] Loading states communicated
 
 ---
 
@@ -147,13 +149,13 @@ Accessibility is treated as a **mandatory nonfunctional requirement** (not an op
 | SRS ID | Requirement | Method |
 |---|---|---|
 | ACC-029 | Accessibility validated during dev/test | Automated (axe-core) + Manual (keyboard + screen reader) |
-| ACC-030 | Regressions corrected before release | CI/CD accessibility gate |
+| ACC-030 | Regressions corrected before release | Proposed accessibility gate; not implemented |
 
-### Validation Tools
+### Proposed Validation Tools and Cadence
 
 | Tool | Purpose | Frequency |
 |---|---|---|
-| axe-core (Lighthouse) | Automated audit for WCAG violations | Every PR |
+| axe-core / Lighthouse (proposed) | Automated accessibility checks; not configured in CI | Target: every PR |
 | Keyboard-only testing | Ensure full keyboard operability | Every PR |
 | Screen reader testing (NVDA/VoiceOver) | Verify announcements and navigation | Per major release |
 | Contrast checker | Verify color contrast ratios | During design review |

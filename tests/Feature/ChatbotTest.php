@@ -36,6 +36,31 @@ class ChatbotTest extends TestCase
         $this->assertStringContainsString('OTP', $content);
     }
 
+    /**
+     * Every declared topic must resolve to real content.
+     *
+     * ChatbotGuideService matches guide headings against a hard-coded
+     * topicMap. Renaming a heading silently empties that section — no error,
+     * no log, just a chatbot answering "I don't know". This happened once
+     * already: the guide was rewritten, every heading changed, and all seven
+     * sections parsed to "" while the tests stayed green because they only
+     * checked one topic.
+     */
+    public function test_every_declared_topic_has_content(): void
+    {
+        $service = app(ChatbotGuideService::class);
+
+        foreach (array_keys($service->getAllTopics()) as $topic) {
+            $this->assertNotSame(
+                '',
+                trim($service->getSections([$topic])),
+                "Topic '{$topic}' resolved to empty content. Its heading in "
+                .'resources/guides/ofw-case-tracking.md does not match the '
+                .'topicMap in ChatbotGuideService.'
+            );
+        }
+    }
+
     public function test_guide_service_topic_list_is_formatted(): void
     {
         $service = app(ChatbotGuideService::class);

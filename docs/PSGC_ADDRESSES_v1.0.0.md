@@ -30,5 +30,5 @@ Runs `scripts/sync-philippine-addresses.cjs`, which fetches the full hierarchy f
 ## Stateless Design
 
 - **No address tables.** Reads come from the generated file (parsed/cached in memory per request); nothing is queried from PostgreSQL.
-- **Names are stored, not codes.** `client_addresses` and `next_of_kin` keep region/province/city/barangay as display-name strings. Migrations `2026_06_21_112449_convert_address_codes_to_names` and `2026_07_27_000002_backfill_address_codes_to_names` converted legacy stored codes to names, so historical rows match the current format.
+- **Address writes use display names.** `client_addresses` and `next_of_kin` keep region/province/city/barangay as display-name strings. Nullable companion `*_code` columns also exist in the current SQL baseline; their presence does not make them the canonical write path. Migrations `2026_06_21_112449_convert_address_codes_to_names` and `2026_07_27_000002_backfill_address_codes_to_names` converted legacy stored codes to names, so historical rows match the current format.
 - **Operational consequence:** a stale generated file only affects lookups/display (regenerate with `npm run addresses:sync`); stored addresses remain human-readable without any join.

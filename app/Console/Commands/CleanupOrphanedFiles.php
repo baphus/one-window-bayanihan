@@ -11,6 +11,7 @@ use App\Models\ReferralClientMessage;
 use App\Models\ReferralClientMessageAttachment;
 use App\Models\ReferralClientRequest;
 use App\Services\StorageService;
+use App\Settings\SettingRegistry;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
@@ -87,7 +88,12 @@ class CleanupOrphanedFiles extends Command
         $this->retained = 0;
         $this->hasStampColumn = null;
 
-        $retentionDays = (int) config('app.trash_retention_days', 90);
+        // Same window the purge uses, resolved from the setting rather than
+        // config('app.trash_retention_days'). Leaving this on config meant an
+        // admin who lowered trash retention changed when CASES were deleted
+        // but not when their attachments' bytes were — two windows that were
+        // supposed to be one.
+        $retentionDays = SettingRegistry::int('trash_retention_days');
         $retentionCutoff = now()->subDays($retentionDays);
         // A trashed document row stays restorable for the same window a trashed
         // case does, so its object may only go once that window has passed.
@@ -161,7 +167,11 @@ class CleanupOrphanedFiles extends Command
         // because storage:cleanup-orphans is already the scheduled job for
         // "objects this application owns but no longer serves", and a second
         // command would be a second schedule entry to remember.
-        $documentCutoff = now()->subDays((int) config('reports.retention_days', $retentionDays));
+        // Previously config('reports.retention_days'), a key that did not exist
+        // in config/reports.php — the call silently fell back to the case
+        // trash-retention window, so generated reports were deleted on the
+        // wrong schedule. Resolved per run from the setting.
+        $documentCutoff = now()->subDays(SettingRegistry::int('report_retention_days'));
 
         GeneratedDocument::query()
             ->where('created_at', '<', $documentCutoff)

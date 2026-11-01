@@ -23,7 +23,7 @@ Copy-Item deploy/lightsail/app-deployment.template.json `
 
 | Key | Constraint |
 |---|---|
-| `APP_KEY` | **Never rotate.** `EncryptedString` and `EncryptedDate` casts mean a new key makes existing encrypted columns permanently unreadable. |
+| `APP_KEY` | Do not replace without a tested key-rotation and recovery plan. Selected fields use `EncryptedString` / `EncryptedDate` casts; losing all usable old keys makes their ciphertext unreadable. Client names, email, and contact number are not encrypted by these casts. |
 | `RUN_MIGRATIONS` | `true`. The database is not publicly reachable, so no external runner can migrate it — migrations run in the container at start via `migrate --force --isolated`, before nginx accepts traffic, and a failure refuses the boot so the previous deployment keeps serving. |
 | `RUN_SCHEDULER` | `true` on exactly **one** service. Two schedulers double-run retention and audit archiving. |
 | `STORAGE_USE_PATH_STYLE` | `true` for Cloudflare R2, MinIO, and Supabase S3. `false` for Amazon S3 (virtual-hosted addressing). The application default is `true`. |

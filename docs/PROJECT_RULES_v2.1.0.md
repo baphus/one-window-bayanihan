@@ -1,6 +1,6 @@
 # Project Rules
 
-> **Version:** 2.1.0 | **Updated:** 2026-07-27 | **Verified against:** actual source code
+> **Version:** 2.2.0 | **Updated:** 2026-11-01 | **Verified against:** current source, routes, and configuration (filename retained)
 > **Supersedes:** `PROJECT_RULES.md` (v2.0.0). Architecture decisions fix *technologies*;
 > hosting and managed-service providers are deployment choices, not architecture —
 > see `DEPLOYMENT_GUIDE_v3.1.0.md` §1.
@@ -23,18 +23,18 @@ The system is a centralized inter-agency coordination platform — not a replace
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
-| Backend Framework | Laravel 13, PHP ^8.3 | Application control layer |
+| Backend Framework | Laravel 13, PHP >=8.4.1 <9.0 | Application control layer |
 | Frontend Framework | React 18 | Dynamic UI rendering |
 | Frontend Integration | Inertia.js v2 | SPA without API gateway |
 | Styling | Tailwind CSS 3 | Utility-first, no custom CSS |
 | Database | PostgreSQL 17 | ACID-compliant RDBMS; managed or self-hosted, provider-agnostic |
 | Application Packaging | OCI container image (Docker) | One artefact runs on any compliant runtime |
 | Media Storage | S3-compatible object storage | Secure object storage; any conforming implementation |
-| Auth | Custom OTP + TOTP MFA | Email OTP + RFC 6238 authenticator app |
+| Auth | Email/password + TOTP MFA | Email codes for registration/tracking/email changes; authenticator codes for login MFA |
 | RBAC | Custom `CheckRole` middleware | `users.role` column, NOT Spatie |
 | CAPTCHA | Bot-protection verify API | Login protection (`TURNSTILE_*` keys) |
-| Queue | Database-driven | No Redis dependency |
-| Cache | Database-driven | No Redis dependency |
+| Queue | Redis 7 canonical driver | Configurable queue connections; not database-only |
+| Cache | Redis 7 canonical store | Configurable stores; not database-only |
 | Session | Database-driven | `sessions` table |
 | Build Tool | Vite 8 | Fast HMR, ESM native |
 
@@ -46,7 +46,7 @@ The system is a centralized inter-agency coordination platform — not a replace
 
 | Area | Convention |
 |------|-----------|
-| Primary Keys | UUID v4 via `UsesUuid` trait on all models |
+| Primary Keys | Most domain models use UUIDs via `UsesUuid`; inspect model exceptions rather than assuming all models |
 | Soft Deletes | Flag-based: `is_deleted` + `deleted_at` + `deleted_by` (via `SoftDeleteFlag` trait) |
 | Controllers | Thin — delegate ALL business logic to `app/Services/*` |
 | Validation | Form Request classes in `app/Http/Requests/` |
@@ -69,7 +69,7 @@ The system is a centralized inter-agency coordination platform — not a replace
 | Navigation | `Link` / `router` from Inertia; `route()` helper (Ziggy) for URL generation |
 | Styling | Tailwind utility classes ONLY — no CSS modules, no styled-components |
 | Icons | Material Symbols (primary) + lucide-react (supplementary) |
-| State | Inertia props (primary), React useState (UI), TanStack Query (async/polling) |
+| State | Inertia props and local React state; no TanStack Query layer |
 | Flash Messages | Backend sends `redirect()->with('flash', [...])` → auto-toasted by `FlashMessageWatcher` |
 | Unsaved Changes | `useUnsavedChanges(dirty)` + `UnsavedChangesModal` on form pages |
 | Charts | Chart.js + react-chartjs-2 |
@@ -97,7 +97,7 @@ resources/js/
 ├── Hooks/                  # Custom React hooks
 ├── Layouts/                # AppLayout, HelpdeskLayout, GuestLayout
 ├── Schemas/                # Zod validation schemas
-├── Onboarding/             # Tour system (OnboardingProvider, TourManager)
+├── Onboarding/             # Getting-started checklist/profile prompts (guided tour retired)
 ├── lib/                    # Utility functions (dates, addresses, etc.)
 └── data/                   # Static data (countries, addresses, helpdesk)
 ```
@@ -108,16 +108,17 @@ resources/js/
 
 ### 4.1 Case Lifecycle
 
-1. **Draft** → Case Manager creates case with client data (can auto-save)
-2. **Published** → Case is active, referrals can be created
-3. **Open** → Active case with at least one referral in progress
-4. **Closed** → All referrals completed or manually closed
-5. **Archived** → Soft-removed from active views
+1. **PENDING_REVIEW** → staff or signed-in citizen files a case; no draft editor/autosave lifecycle exists.
+2. **OPEN** → Case Manager or Administrator approves the pending case; reviewer/time are recorded without replacing the original filer's `user_id`.
+3. **REJECTED** → reviewer rejects with a reason. Current `rejectCase()` changes status and notifies the client but does not call soft-delete or set `deleted_at`.
+4. **CLOSED** → staff close an open case only when all referrals are terminal; reopening returns it to open.
+5. **ARCHIVED** → only closed cases can be archived; unarchiving returns them to closed. Archived cases may separately move to trash with a reason, be restored, or be purged after retention.
 
-- Each case has a unique `case_number` (auto-generated) and `tracker_number` (public)
-- Cases belong to one `client` (OFW profile)
-- Cases have one `case_manager` (user_id)
-- Cases can have multiple referrals to different agencies
+- Each case has unique generated `case_number` and random client-facing `tracker_number`.
+- Cases belong to one client; a client can have multiple cases. Citizen intake has no active-case duplicate guard.
+- Normal Case Manager access is office-wide; trash listing and restoration are owner-scoped.
+- Case-detail updates accept category and issue/concern, not a general draft/profile save.
+- Cases can have multiple referrals to different agencies.
 
 ### 4.2 Referral Lifecycle
 
@@ -141,13 +142,12 @@ PENDING → PROCESSING → FOR_COMPLIANCE → COMPLETED
 - After OTP verification, OFW sees case status, referral progress, milestones
 - No authentication required (token-based session)
 
-### 4.4 Feedback (SERVQUAL)
+### 4.4 Feedback surveys
 
-- When referral → COMPLETED, invitation is auto-emailed to client
-- Token-based form (no auth needed)
-- SERVQUAL questionnaire: expectation vs. perception (1-7 scale) per dimension
-- Each agency can configure their own questionnaire
-- One feedback per case+agency+referral (unique constraint)
+- Eligible referral completion triggers an emailed invitation when feedback is enabled, client email exists, and the agency has an active form.
+- Agencies build their own survey forms; clients submit through valid private invitations.
+- One invitation per case+agency+referral; one response per invitation.
+- Legacy fixed SERVQUAL models/tables are retired, not a parallel live workflow.
 
 ### 4.5 Role Rules
 
@@ -159,10 +159,11 @@ PENDING → PROCESSING → FOR_COMPLIANCE → COMPLETED
 | Create referrals | ✅ | ❌ | ✅ |
 | View all referrals | ✅ | ❌ (own agency only) | ✅ |
 | Accept/reject referrals | ❌ | ✅ (own agency) | ❌ |
-| Add milestones | ❌ | ✅ (own referral) | ❌ |
+| Add milestones | ✅ (service/state rules apply) | ✅ (own referral) | ✅ (service/state rules apply) |
 | View all clients | ✅ | ❌ (only clients with own referral) | ✅ |
 | Manage agencies/users | ❌ | ❌ | ✅ |
-| View audit logs | ✅ | ❌ | ✅ |
+| View full audit logs | ❌ | ❌ | ✅ |
+| View operational activity | ✅ (scoped) | ✅ (scoped) | ✅ |
 | Export data | ✅ | ✅ (own data) | ✅ |
 
 ---
@@ -178,8 +179,8 @@ PENDING → PROCESSING → FOR_COMPLIANCE → COMPLETED
 | Hash chain integrity | SHA-256 prev_hash links audit entries |
 | Rate limiting | Per-endpoint limits on auth, OTP, API, reports |
 | CSP | Dynamic Content-Security-Policy with nonces |
-| MFA | Optional TOTP (can be policy-enforced) |
-| IP Whitelist | Admin routes restricted to configured IPs |
+| MFA | Required for all roles, including OFW, in production; outside production enforcement is configurable and defaults to staff |
+| Admin network policy | Former `IpWhitelist` middleware removed; do not promise application IP restrictions |
 | Session security | Database sessions, PostgreSQL RLS context (context set per-request; enforced only on the 7 forced tables) |
 
 ---
@@ -220,9 +221,9 @@ PENDING → PROCESSING → FOR_COMPLIANCE → COMPLETED
 1. **No Spatie package** — RBAC is a simple `CheckRole` middleware reading `users.role`, not the Spatie laravel-permission package
 2. **No SQLite** — All tests require PostgreSQL; PostgreSQL-specific SQL is used everywhere
 3. **No Kernel.php** — Middleware is configured in `bootstrap/app.php` (Laravel 13 style)
-4. **No SoftDeletes trait** — Use `SoftDeleteFlag` trait instead
-5. **UUID route binding** — All model route parameters are UUID strings
-6. **Database for everything** — Queue, cache, and sessions all use the database driver
+4. **Layered soft deletion** — `SoftDeleteFlag` uses Laravel `SoftDeletes` and adds `is_deleted`/`deleted_by`; use the project's trait where that contract applies
+5. **UUID route binding** — Domain routes generally use UUID strings; verify model exceptions
+6. **Redis queue/cache** — Canonical queue and cache use Redis; sessions remain database-backed. Drivers are configurable
 7. **Inertia events** — `router.on('before')` receives `CustomEvent`; read `event.detail.visit`
 8. **Flash deduplication** — Do NOT add seenRef/dedupe state; `FlashMessageWatcher` handles it
 9. **Vite util stub** — `resources/js/vendor-stubs/util-stub.js` is required for Vite 8 builds
@@ -249,11 +250,8 @@ environment values or pipeline settings.
 
 | Version | Date | Change |
 |---|---|---|
+| 2.2.0 | 2026-11-01 | Reconciled lifecycle, review, visibility, MFA, Redis, frontend state, surveys, retired screens, and operational distinctions against current source. Filename retained. |
 | 2.1.0 | 2026-07-27 | Replaced vendor-named rows in §2 Immutable Architecture Decisions with technology-level decisions (PostgreSQL 17, OCI container image, S3-compatible object storage, RFC 6238 TOTP, bot-protection verify API) and dropped the hosting-provider row, which is a deployment choice rather than an architecture decision. Added §9 platform-neutrality rule. |
 | 2.0.0 | 2026-07-11 | Previous revision (`PROJECT_RULES.md`): named hosting, managed-database, storage, and CAPTCHA vendors as immutable architecture. |
 
-> **Known drift (unchanged here):** §2 and §8.6 state that queue, cache, and
-> sessions all use the database driver, while `.env.example` ships
-> `QUEUE_CONNECTION=redis` and `CACHE_STORE=redis` (sessions remain
-> database-backed). Confirm the intended production configuration and reconcile
-> both documents in a follow-up revision — see `REDIS_INTEGRATION_v2.1.0.md`.
+> **Current operational distinctions:** intake submission queues receipt/review email, not an in-app notice; approval records a timeline event without a separate notification dispatch. Overdue reminders are manually requested, not scheduled. Reports and referral lists are staff-gated; broad client picker endpoints are Case Manager/Administrator-only. Agency message service checks enforce participation even without dedicated route-role middleware. Agency attachment mutation routes accept `AGENCY`, but no agency upload/replace/remove UI is exposed. Application-log and resend screens and the full-workbook workflow are retired; administrator Monitoring pages cover system health, email logs, failed jobs, and the security log. The retained report job has no application dispatch caller. Chat uses a language-model agent with keyword-ranked helpdesk search/read tools and is disabled by default. Report PDF/Excel exports exist; report CSV does not. List case/client/referral exports log before generation without a separate outcome; report exports record attempt and outcome.
