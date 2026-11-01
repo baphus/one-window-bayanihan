@@ -184,6 +184,22 @@ class SettingsTakeEffectTest extends TestCase
         $this->assertSame(1, EmailLog::count(), 'The second run must use the new retention value.');
     }
 
+    /**
+     * A typo in a cron line must abort, not silently prune on a window nobody
+     * chose. `(int) '10abc'` is 10, so a bare `< 1` guard lets it through.
+     */
+    #[Test]
+    public function a_malformed_days_option_is_rejected_by_retention_commands(): void
+    {
+        foreach (['10abc', 'abc', '-5', '0'] as $bad) {
+            $this->artisan("emails:prune --days={$bad}")->assertExitCode(1);
+        }
+
+        $this->assertNull(SettingRegistry::daysOption('10abc', 'email_log_retention_days'));
+        $this->assertNull(SettingRegistry::daysOption('-5', 'email_log_retention_days'));
+        $this->assertSame(10, SettingRegistry::daysOption('10', 'email_log_retention_days'));
+    }
+
     #[Test]
     public function the_otp_attempt_limit_is_enforced_from_the_setting(): void
     {

@@ -19,9 +19,14 @@ class ArchiveAuditLogs extends Command
     {
         // Resolved per run: the scheduled job must honour a change made from
         // the admin page without a redeploy.
-        $days = $this->option('days') !== null && $this->option('days') !== ''
-            ? (int) $this->option('days')
-            : SettingRegistry::int('audit_retention_days');
+        $days = SettingRegistry::daysOption($this->option('days'), 'audit_retention_days');
+
+        if ($days === null) {
+            $this->error('The days option must be a whole number of at least 1.');
+
+            return Command::FAILURE;
+        }
+
         $cutoff = CarbonImmutable::now()->subDays($days);
 
         $periods = $service->eligiblePeriods($cutoff);

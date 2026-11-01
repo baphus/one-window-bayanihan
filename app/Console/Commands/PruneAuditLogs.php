@@ -22,9 +22,14 @@ class PruneAuditLogs extends Command
     public function handle(AuditArchiveService $archiveService): int
     {
         // Same window as audit:archive, resolved per run.
-        $days = $this->option('days') !== null && $this->option('days') !== ''
-            ? (int) $this->option('days')
-            : SettingRegistry::int('audit_retention_days');
+        $days = SettingRegistry::daysOption($this->option('days'), 'audit_retention_days');
+
+        if ($days === null) {
+            $this->error('The days option must be a whole number of at least 1.');
+
+            return Command::FAILURE;
+        }
+
         $cutoff = now()->subDays($days);
 
         $expiredTotal = AuditLog::where('timestamp', '<', $cutoff)->count();

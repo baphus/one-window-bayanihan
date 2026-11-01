@@ -245,6 +245,32 @@ final class SettingRegistry
     }
 
     /**
+     * Resolve a `--days` command option against a setting.
+     *
+     * Three retention commands take the same option, and each had grown its
+     * own slightly different guard. The subtle one: `(int) '10abc'` is 10 and
+     * casts silently, so a typo in a cron line would prune on a window nobody
+     * chose. Anything that is not a whole number is rejected instead.
+     *
+     * @param  mixed  $option  The raw option value from the command.
+     * @return int|null The requested days, or null when the caller must abort.
+     */
+    public static function daysOption(mixed $option, string $key): ?int
+    {
+        if ($option === null || $option === '') {
+            return self::int($key);
+        }
+
+        if (! ctype_digit((string) $option)) {
+            return null;
+        }
+
+        $days = (int) $option;
+
+        return $days >= 1 ? $days : null;
+    }
+
+    /**
      * Where a value currently comes from, for the page's provenance hint.
      *
      * "environment" means no row has been saved since the value was seeded, so

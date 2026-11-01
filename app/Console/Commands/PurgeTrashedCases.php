@@ -20,26 +20,18 @@ class PurgeTrashedCases extends Command
 
         // A rejected value must abort before anything is computed: a negative
         // or garbage option would otherwise be cast to a 0-day retention (or
-        // flip the cutoff into the future) and purge every trashed case. Same
-        // guard style as emails:prune — error message plus a failing exit code.
-        if ($rawDays !== null && $rawDays !== '' && ! ctype_digit((string) $rawDays)) {
-            $this->error('The days option must be a whole number of at least 1.');
-
-            return Command::FAILURE;
-        }
-
-        $days = $rawDays !== null && $rawDays !== ''
-            ? (int) $rawDays
-            // Resolved at run time, not bound at boot: the scheduled purge must
-            // honour a change made from the admin page without a redeploy.
-            : SettingRegistry::int('trash_retention_days');
+        // flip the cutoff into the future) and purge every trashed case.
+        // SettingRegistry::daysOption rejects anything that is not a whole
+        // number, so '10abc' cannot silently become 10.
+        $days = SettingRegistry::daysOption($rawDays, 'trash_retention_days');
 
         // Zero is rejected as loudly as a negative value: a 0-day retention
         // flips the cutoff to "now" and would purge every trashed case in one
         // run, which no trash policy intends. The guard also covers the
-        // config-derived default so a misconfigured APP_TRASH_RETENTION_DAYS
-        // cannot silently turn the scheduled run into a mass purge.
-        if ($days < 1) {
+        // setting-derived default so a misconfigured value cannot silently
+        // turn the scheduled run into a mass purge. This command keeps its own
+        // wording because a mass purge is the worst outcome in the system.
+        if ($days === null || $days < 1) {
             $this->error('The days option must be at least 1; a retention period below 1 day would purge every trashed case.');
 
             return Command::FAILURE;
