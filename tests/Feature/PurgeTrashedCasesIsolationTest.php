@@ -253,7 +253,7 @@ class PurgeTrashedCasesIsolationTest extends TestCase
     private function trashedCase(CaseService $service, User $user, bool $backdate = true): CaseFile
     {
         $case = CaseFile::factory()->create(['status' => 'ARCHIVED', 'user_id' => $user->id]);
-        $service->deleteArchivedCase($case, 'Archived case awaiting the retention purge', $user->id);
+        $service->deleteArchivedCase($case, 'Archived case awaiting the retention purge', $user);
 
         if ($backdate) {
             CaseFile::withTrashed()->where('id', $case->id)->update(['deleted_at' => now()->subDays(100)]);

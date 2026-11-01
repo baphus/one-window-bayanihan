@@ -75,4 +75,21 @@ class ClientProfileServiceTest extends TestCase
         $this->assertEquals('Second Street', $client->addresses()->first()->street);
         $this->assertEquals('National Capital Region', $client->addresses()->first()->region);
     }
+
+    public function test_sync_employment_drops_placeholder_occupations(): void
+    {
+        $client = Client::factory()->create();
+
+        $this->service->syncEmployment($client, [
+            'employer_name' => 'Test',
+            'position' => 'None',
+            'last_position' => 'N/A',
+            'last_country' => 'United States',
+        ]);
+
+        $employment = $client->employments()->first();
+        $this->assertNull($employment->position);
+        $this->assertNull($employment->last_position);
+        $this->assertEquals('United States', $employment->last_country);
+    }
 }

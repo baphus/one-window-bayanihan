@@ -44,34 +44,14 @@ class MfaService
     }
 
     /**
-     * Verify a plaintext code against stored hashed codes.
+     * Consume a recovery code atomically.
+     *
+     * This is the only recovery-code verification path: it takes a row lock,
+     * re-reads the stored hashes, and removes the matched code inside the same
+     * transaction win. Unlocked verify/remove helpers used to sit beside it —
+     * they looked like the obvious thing to call and would have accepted a
+     * replayable code, so they are gone rather than merely unused.
      */
-    public function verifyRecoveryCode(string $code, array $storedHashes): bool
-    {
-        $hash = $this->hashRecoveryCode($code);
-
-        foreach ($storedHashes as $storedHash) {
-            if (hash_equals((string) $storedHash, $hash)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * Remove a used recovery code (by its plaintext) from stored hashed codes.
-     */
-    public function removeUsedCode(string $code, array $storedHashes): array
-    {
-        $hash = $this->hashRecoveryCode($code);
-
-        return array_values(array_filter(
-            $storedHashes,
-            fn ($h) => $h !== $hash
-        ));
-    }
-
     public function consumeRecoveryCode(User $user, string $code): bool
     {
         return DB::transaction(function () use ($user, $code): bool {

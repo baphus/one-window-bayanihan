@@ -132,11 +132,51 @@ class CaseManagerWorkflowAuditTest extends TestCase
     }
 
     /**
-     * delete-archived route uses `{case}` implicit model binding (find by
-     * UUID without withTrashed), so a trashed case yields 404 before the
-     * controller's auth check runs. This is a secondary bug (broken path to
-     * trashed-case deletion) — the primary authorization finding (any CM
-     * can trash any ARCHIVED case) still stands once the binding is fixed.
+     * delete-archived is the destructive half of the trash pair, so it shares
+     * restore's ownership scope: a CASE_MANAGER may trash only a case they own
+     * and ADMIN keeps global access. This test used to pin the opposite — that
+     * any CM could trash any ARCHIVED case once route binding stopped
+     * interfering — and now pins the guard that closed it.
+     */
+    public function test_case_manager_cannot_delete_another_managers_archived_case(): void
+    {
+        $otherCM = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $case = CaseFile::factory()->create([
+            'user_id' => $otherCM->id,
+            'status' => 'ARCHIVED',
+        ]);
+
+        $this->actingAs($this->cmUser)
+            ->delete("/cases/{$case->id}/delete-archived", [
+                'deletion_reason' => 'another manager trying to delete this case',
+            ])
+            ->assertStatus(403);
+
+        $this->assertDatabaseHas('cases', ['id' => $case->id, 'is_deleted' => false]);
+    }
+
+    public function test_admin_can_delete_another_managers_archived_case(): void
+    {
+        $otherCM = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $case = CaseFile::factory()->create([
+            'user_id' => $otherCM->id,
+            'status' => 'ARCHIVED',
+        ]);
+
+        $this->actingAs($admin)
+            ->delete("/cases/{$case->id}/delete-archived", [
+                'deletion_reason' => 'admin removing a duplicate record',
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('cases', ['id' => $case->id, 'is_deleted' => true]);
+    }
+
+    /**
+     * Route binding resolves `{case}` without withTrashed, so an already-trashed
+     * case yields 404 before the controller runs. That is correct: only
+     * ARCHIVED (live) cases are deletable.
      */
     public function test_trashed_case_route_binding_blocks_delete_archived(): void
     {
@@ -147,14 +187,11 @@ class CaseManagerWorkflowAuditTest extends TestCase
         ]);
         $case->delete(); // soft-delete → trashed
 
-        $response = $this->actingAs($this->cmUser)
+        $this->actingAs($this->cmUser)
             ->delete("/cases/{$case->id}/delete-archived", [
                 'deletion_reason' => 'test deletion reason',
-            ]);
-        // 404 from implicit model binding (CaseFile::find does not resolve
-        // trashed rows). After fixing the binding, this should reach the
-        // controller and succeed for any CM.
-        $response->assertStatus(404);
+            ])
+            ->assertStatus(404);
     }
 
     public function test_cm_can_see_all_referrals(): void

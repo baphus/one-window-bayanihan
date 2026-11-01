@@ -121,7 +121,17 @@ class ReferralClientRequestService
         return $this->loadRequest($request);
     }
 
-    /** Add a message from an authorized agency user. */
+    /**
+     * Add a message from an authorized agency user.
+     *
+     * Deliberately writes no case event: routine replies stay in the request
+     * thread, and only lifecycle activity (opened/completed/cancelled/reopened)
+     * reaches the client-facing referral timeline. That split is pinned by
+     * ServiceLifecycleTest::test_replies_are_not_mirrored_but_status_changes_are_recorded_as_activity.
+     * The client is told about a reply by the in-app notification the controller
+     * creates (ReferralClientRequestController::notifyClientOfAgencyReply), not
+     * by an entry on the timeline.
+     */
     public function sendAgencyMessage(ReferralClientRequest $request, User $actor, string $body): ReferralClientMessage
     {
         $this->assertCanManageRequest($request, $actor);

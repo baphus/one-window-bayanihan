@@ -116,8 +116,8 @@ class CaseMetrics
         $cases = $this->caseQuery($userId, $role, $agencyId, $dateScope);
         $this->applyGeoFilter($cases, $province, $city, 'cases');
 
-        // Closures are bucketed by close month â€” falling back to last update
-        // for legacy CLOSED rows without a close timestamp â€” not by filing
+        // Closures are bucketed by close month, falling back to last update
+        // for legacy CLOSED rows without a close timestamp, not by filing
         // month, so the series pairs with casesOverTime as filings vs closures.
         $result = $cases
             ->select(

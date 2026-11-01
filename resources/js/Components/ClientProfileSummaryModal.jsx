@@ -13,6 +13,13 @@ function formatDate(value) {
     }
 }
 
+/** A stored placeholder is missing data, not the text "None" on screen. */
+function valueOrNa(value) {
+    const text = String(value ?? '').trim();
+
+    return ['', 'none', 'n/a', 'na', 'null', '-'].includes(text.toLowerCase()) ? 'N/A' : text;
+}
+
 export default function ClientProfileSummaryModal({
     show,
     onClose,
@@ -91,9 +98,9 @@ export default function ClientProfileSummaryModal({
                     </h3>
                     {employment ? (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <MetaTile label="Last Country" value={employment.last_country || 'N/A'} />
-                            <MetaTile label="Last Occupation" value={employment.last_position || 'N/A'} />
-                            <MetaTile label="Employer Name" value={employment.employer_name || 'N/A'} />
+                            <MetaTile label="Last Country" value={valueOrNa(employment.last_country)} />
+                            <MetaTile label="Last Occupation" value={valueOrNa(employment.last_position || employment.position)} />
+                            <MetaTile label="Employer Name" value={valueOrNa(employment.employer_name)} />
                             <MetaTile label="Date of Arrival" value={formatDate(employment.date_of_arrival)} />
                         </div>
                     ) : (

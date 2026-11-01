@@ -639,7 +639,7 @@ class CaseController extends Controller
         $this->caseService->deleteArchivedCase(
             $case,
             $request->input('deletion_reason'),
-            $request->user()->id,
+            $request->user(),
         );
 
         return redirect()

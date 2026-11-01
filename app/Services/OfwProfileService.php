@@ -343,12 +343,23 @@ class OfwProfileService
         return true;
     }
 
+    /**
+     * Free-text values an OFW types into a picker. SearchableSelect offers a
+     * "Use '…'" pseudo-option for anything not in the list, so saving with an
+     * empty box submits that placeholder verbatim: "None" then reads back as a
+     * real job title on the profile, the case view and every staff screen.
+     * A picker's empty label is the absence of a value, never one.
+     */
+    private const EMPTY_PLACEHOLDERS = ['none', 'n/a', 'na', 'null', '-'];
+
     private function normalize(mixed $value): ?string
     {
         if ($value === null || $value === '') {
             return null;
         }
 
-        return trim((string) $value);
+        $value = trim((string) $value);
+
+        return in_array(strtolower($value), self::EMPTY_PLACEHOLDERS, true) ? null : $value;
     }
 }

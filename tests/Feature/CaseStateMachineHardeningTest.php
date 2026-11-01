@@ -172,7 +172,7 @@ class CaseStateMachineHardeningTest extends TestCase
     {
         $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $case = CaseFile::factory()->create(['status' => 'ARCHIVED', 'user_id' => $admin->id]);
-        $this->service->deleteArchivedCase($case, 'Duplicate filing — removed for purge test', $admin->id);
+        $this->service->deleteArchivedCase($case, 'Duplicate filing — removed for purge test', $admin);
         $caseId = $case->id;
 
         // The purge command force-deletes the row out from under a caller that
@@ -259,7 +259,7 @@ class CaseStateMachineHardeningTest extends TestCase
     private function trashCase(User $owner): CaseFile
     {
         $case = CaseFile::factory()->create(['status' => 'ARCHIVED', 'user_id' => $owner->id]);
-        $this->service->deleteArchivedCase($case, 'Archived duplicate — moved to trash', $owner->id);
+        $this->service->deleteArchivedCase($case, 'Archived duplicate — moved to trash', $owner);
 
         return $case;
     }

@@ -12,6 +12,14 @@ use App\Models\NextOfKin;
  */
 class ClientProfileService
 {
+    /**
+     * A picker's empty label ("None", "N/A") is the absence of a value, not a
+     * job title. SearchableSelect's "Use '…'" option saves whatever the box
+     * shows, so an untouched picker could store the literal word and every
+     * screen would then report "None" as the occupation.
+     */
+    private const EMPTY_PLACEHOLDERS = ['none', 'n/a', 'na', 'null', '-'];
+
     public function __construct(
         private readonly PhilippineAddressService $addressService,
     ) {}
@@ -68,12 +76,12 @@ class ClientProfileService
 
         $empData = [
             'employer_name' => $employmentData['employer_name'] ?? null,
-            'position' => $employmentData['position'] ?? null,
+            'position' => $this->nullableText($employmentData['position'] ?? null),
             'country' => $employmentData['country'] ?? null,
             'start_date' => $employmentData['start_date'] ?? null,
             'end_date' => ! empty($employmentData['is_present']) ? null : ($employmentData['end_date'] ?? null),
             'last_country' => $employmentData['last_country'] ?? null,
-            'last_position' => $employmentData['last_position'] ?? null,
+            'last_position' => $this->nullableText($employmentData['last_position'] ?? null),
             'date_of_arrival' => $employmentData['date_of_arrival'] ?? null,
         ];
 
@@ -188,5 +196,20 @@ class ClientProfileService
         }
 
         return $address;
+    }
+
+    /**
+     * A picker's empty label ("None", "N/A") is the absence of a value, not a
+     * job title. Mirrors OfwProfileService::normalize().
+     */
+    private function nullableText(mixed $value): ?string
+    {
+        $value = trim((string) ($value ?? ''));
+
+        if ($value === '' || in_array(strtolower($value), self::EMPTY_PLACEHOLDERS, true)) {
+            return null;
+        }
+
+        return $value;
     }
 }

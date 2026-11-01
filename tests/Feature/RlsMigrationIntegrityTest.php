@@ -419,11 +419,19 @@ class RlsMigrationIntegrityTest extends TestCase
 
         $content = File::get($path);
 
-        // Must use set_config with bound parameters (not raw string interpolation)
+        // Must use set_config with bound parameters (not raw string interpolation).
+        // The four variables are written in one statement, so the assertion is on
+        // the bound placeholder form rather than a single set_config arity.
         $this->assertStringContainsString(
-            'set_config(?, ?, ?)',
+            'set_config(?, ?, false)',
             $content,
             'SetPostgresSession must use set_config with parameterized bindings'
+        );
+
+        $this->assertStringNotContainsString(
+            "SET SESSION app.current_user_id = '",
+            $content,
+            'SetPostgresSession must not set RLS context with raw SET SESSION'
         );
 
         $this->assertStringContainsString(

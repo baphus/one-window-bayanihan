@@ -39,7 +39,7 @@ class DeleteArchivedCaseTest extends TestCase
 
         $this->actingAs($user);
         $service = app(CaseService::class);
-        $service->deleteArchivedCase($case, 'Duplicate record — resolved elsewhere', $user->id);
+        $service->deleteArchivedCase($case, 'Duplicate record — resolved elsewhere', $user);
 
         // Case is soft-deleted
         $this->assertSoftDeleted('cases', ['id' => $case->id]);
@@ -72,7 +72,7 @@ class DeleteArchivedCaseTest extends TestCase
 
         $this->actingAs($user);
         $service = app(CaseService::class);
-        $service->deleteArchivedCase($case, 'Test deletion reason text', $user->id);
+        $service->deleteArchivedCase($case, 'Test deletion reason text', $user);
 
         $log = AuditLog::where('entity_id', $case->id)
             ->where('action', AuditAction::DELETE->value)
@@ -94,7 +94,7 @@ class DeleteArchivedCaseTest extends TestCase
 
         $this->expectException(HttpException::class);
 
-        app(CaseService::class)->deleteArchivedCase($case, 'Trying to delete an open case should fail', $user->id);
+        app(CaseService::class)->deleteArchivedCase($case, 'Trying to delete an open case should fail', $user);
     }
 
     public function test_delete_requires_reason_min_10_chars(): void
@@ -152,7 +152,7 @@ class DeleteArchivedCaseTest extends TestCase
 
         $this->actingAs($user);
         $service = app(CaseService::class);
-        $service->deleteArchivedCase($case, 'Deleting for restore test', $user->id);
+        $service->deleteArchivedCase($case, 'Deleting for restore test', $user);
 
         // Verify deleted
         $this->assertTrue($case->fresh()->trashed());
@@ -185,7 +185,7 @@ class DeleteArchivedCaseTest extends TestCase
 
         $this->actingAs($user);
         $service = app(CaseService::class);
-        $service->deleteArchivedCase($case, 'Delete before restore test', $user->id);
+        $service->deleteArchivedCase($case, 'Delete before restore test', $user);
         $service->restoreTrashedCase($case->id, $user);
 
         $this->assertDatabaseHas('audit_logs', [
@@ -208,7 +208,7 @@ class DeleteArchivedCaseTest extends TestCase
 
         $this->actingAs($user);
         $service = app(CaseService::class);
-        $service->deleteArchivedCase($deletedCase, 'Deleted for getTrashed test', $user->id);
+        $service->deleteArchivedCase($deletedCase, 'Deleted for getTrashed test', $user);
 
         $trashed = $service->getTrashedCases([], $user);
 
@@ -226,10 +226,10 @@ class DeleteArchivedCaseTest extends TestCase
 
         $this->actingAs($cm1);
         $service = app(CaseService::class);
-        $service->deleteArchivedCase($case1, 'CM1 deleting own case', $cm1->id);
+        $service->deleteArchivedCase($case1, 'CM1 deleting own case', $cm1);
 
         $this->actingAs($cm2);
-        $service->deleteArchivedCase($case2, 'CM2 deleting own case', $cm2->id);
+        $service->deleteArchivedCase($case2, 'CM2 deleting own case', $cm2);
 
         // CM1 should only see their case
         $trashed = $service->getTrashedCases([], $cm1);
@@ -247,8 +247,8 @@ class DeleteArchivedCaseTest extends TestCase
 
         $this->actingAs($admin);
         $service = app(CaseService::class);
-        $service->deleteArchivedCase($case1, 'Admin deleting CM case', $admin->id);
-        $service->deleteArchivedCase($case2, 'Admin deleting own case', $admin->id);
+        $service->deleteArchivedCase($case1, 'Admin deleting CM case', $admin);
+        $service->deleteArchivedCase($case2, 'Admin deleting own case', $admin);
 
         $trashed = $service->getTrashedCases([], $admin);
         $this->assertEquals(2, $trashed->total());
@@ -265,7 +265,7 @@ class DeleteArchivedCaseTest extends TestCase
 
         $this->actingAs($user);
         $service = app(CaseService::class);
-        $service->deleteArchivedCase($case, 'Deleting for purge test', $user->id);
+        $service->deleteArchivedCase($case, 'Deleting for purge test', $user);
 
         // Backdate the deleted_at to be older than retention period
         CaseFile::withTrashed()->where('id', $case->id)->update([
@@ -287,7 +287,7 @@ class DeleteArchivedCaseTest extends TestCase
 
         $this->actingAs($user);
         $service = app(CaseService::class);
-        $service->deleteArchivedCase($case, 'Recently deleted case', $user->id);
+        $service->deleteArchivedCase($case, 'Recently deleted case', $user);
 
         // Recent: deleted just now (within retention)
         $this->artisan('cases:purge-trashed', ['--days' => 90])
@@ -305,7 +305,7 @@ class DeleteArchivedCaseTest extends TestCase
 
         $this->actingAs($user);
         $service = app(CaseService::class);
-        $service->deleteArchivedCase($case, 'Purge custom days test', $user->id);
+        $service->deleteArchivedCase($case, 'Purge custom days test', $user);
 
         // Backdate to 50 days ago
         CaseFile::withTrashed()->where('id', $case->id)->update([
@@ -346,7 +346,7 @@ class DeleteArchivedCaseTest extends TestCase
         $case = CaseFile::factory()->create(['status' => 'ARCHIVED', 'user_id' => $user->id]);
 
         $this->actingAs($user);
-        app(CaseService::class)->deleteArchivedCase($case, 'Deleting for endpoint restore test', $user->id);
+        app(CaseService::class)->deleteArchivedCase($case, 'Deleting for endpoint restore test', $user);
 
         $response = $this->actingAs($user)->post(route('cases.restore', $case));
 

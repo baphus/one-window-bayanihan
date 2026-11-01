@@ -86,14 +86,17 @@ class ReferralService
      * Object-storage uploads happen BEFORE the database transaction: storage
      * writes cannot be rolled back, so holding row locks during upload only
      * lengthens lock hold time without adding atomicity. The referral row and
-     * its case-document rows are committed together in one transaction. On a
-     * failed upload, already-stored files are deleted from object storage; a
-     * hard crash between upload and commit may leave orphan objects.
+     * its case-document rows are committed together in one transaction. Any
+     * failure after an upload — a SafeException, a case-number collision that
+     * exhausted the retries, any query error — deletes the already-stored
+     * objects before rethrowing, so a failed submit leaves nothing behind in
+     * the bucket. A process killed between upload and commit can still orphan
+     * an object; that residual is what `storage:cleanup-orphans` is for.
      *
      * @param  array<string, mixed>  $data  Validated referral attributes.
      * @param  array<int, UploadedFile>|UploadedFile|null  $files  Uploaded documents.
      *
-     * @throws SafeException
+     * @throws \Throwable
      */
     public function createReferralWithDocuments(array $data, string $userId, array|UploadedFile|null $files, StorageService $storage): Referral
     {
@@ -134,8 +137,11 @@ class ReferralService
 
                 return $referral;
             });
-        } catch (SafeException $e) {
-            // Remove stored objects; no DB rows were committed.
+        } catch (\Throwable $e) {
+            // Remove stored objects; no DB rows were committed. Widened from
+            // SafeException: a QueryException or RuntimeException after a
+            // successful upload used to escape with the objects still in the
+            // bucket and nothing left pointing at them.
             foreach ($storedPaths as $path) {
                 $storage->delete($path);
             }
@@ -192,46 +198,75 @@ class ReferralService
             'caseFile.category',
             'caseFile.caseIssue',
             'agency',
-            'milestones' => fn ($q) => $q->latest(),
+            // Only the newest milestone is ever read: Referral::
+            // getLatestUpdateAttribute() takes first(), which this accessor
+            // appends for the "Latest Update" column. Eager-loading the whole
+            // history hydrated every milestone of every row on the page.
+            'milestones' => fn ($q) => $q->latest()->limit(1),
         ];
         $relations[] = 'caseFile.categories';
+
+        // Sort keys map to an ORDER BY expression plus the joins that
+        // expression needs. Joins replace the correlated scalar subqueries
+        // that were evaluated once per row; they always carry select('referrals.*')
+        // so the hydrated columns stay exactly what the un-joined query produced.
+        // Every later column reference is qualified with `referrals.` because a
+        // sort that joins `cases`/`clients` shares names (status, created_at, id).
         $sortMap = [
-            'case_number' => '(SELECT case_number FROM cases WHERE cases.id = referrals.case_id)',
-            'client' => "(SELECT CONCAT_WS(' ', clients.first_name, clients.last_name) FROM clients WHERE clients.id = (SELECT client_id FROM cases WHERE cases.id = referrals.case_id))",
-            'case_issue' => '(SELECT name FROM case_issues WHERE case_issues.id = (SELECT case_issue_id FROM cases WHERE cases.id = referrals.case_id))',
-            'agency' => '(SELECT name FROM agencies WHERE agencies.id = referrals.agcy_id)',
-            'status' => 'status',
+            'case_number' => ['expression' => 'cases.case_number', 'joins' => ['cases']],
+            'client' => ['expression' => "CONCAT_WS(' ', clients.first_name, clients.last_name)", 'joins' => ['cases', 'clients']],
+            'case_issue' => ['expression' => 'case_issues.name', 'joins' => ['cases', 'case_issues']],
+            'agency' => ['expression' => 'agencies.name', 'joins' => ['agencies']],
+            'status' => ['expression' => 'referrals.status', 'joins' => []],
+            'created_at' => ['expression' => 'referrals.created_at', 'joins' => []],
         ];
         $sort = $filters['sort'] ?? 'created_at';
-        $sortExpression = $sortMap[$sort] ?? 'created_at';
+        $sortSpec = $sortMap[$sort] ?? $sortMap['created_at'];
         $direction = strtolower($filters['direction'] ?? 'desc');
         $direction = in_array($direction, ['asc', 'desc'], true) ? $direction : 'desc';
-        $query = Referral::with($relations)
-            ->orderByRaw($sortExpression.' '.$direction)
+
+        $query = Referral::with($relations)->select('referrals.*');
+
+        $requiredJoins = $sortSpec['joins'];
+        if (in_array('cases', $requiredJoins, true)) {
+            $query->leftJoin('cases', 'cases.id', '=', 'referrals.case_id');
+        }
+        if (in_array('clients', $requiredJoins, true)) {
+            $query->leftJoin('clients', 'clients.id', '=', 'cases.client_id');
+        }
+        if (in_array('case_issues', $requiredJoins, true)) {
+            $query->leftJoin('case_issues', 'case_issues.id', '=', 'cases.case_issue_id');
+        }
+        if (in_array('agencies', $requiredJoins, true)) {
+            $query->leftJoin('agencies', 'agencies.id', '=', 'referrals.agcy_id');
+        }
+
+        $query
+            ->orderByRaw($sortSpec['expression'].' '.$direction)
             // A unique, deterministic tie-breaker prevents rows moving between pages.
-            ->orderBy('id', $direction);
+            ->orderBy('referrals.id', $direction);
 
         if ($userRole === UserRole::AGENCY->value) {
             if (! $userAgencyId) {
                 $query->whereRaw('1 = 0');
             } else {
-                $query->where('agcy_id', $userAgencyId);
+                $query->where('referrals.agcy_id', $userAgencyId);
             }
         }
         // ADMIN and CASE_MANAGER: no scoping — see all referrals.
 
         $statuses = MultiSelectFilter::ids($filters['status'] ?? null);
         if ($statuses !== []) {
-            $query->whereIn('status', $statuses);
+            $query->whereIn('referrals.status', $statuses);
         }
 
         if (! empty($filters['case_id'])) {
-            $query->where('case_id', $filters['case_id']);
+            $query->where('referrals.case_id', $filters['case_id']);
         }
 
         $agencyIds = MultiSelectFilter::ids($filters['agcy_id'] ?? null);
         if ($agencyIds !== []) {
-            $query->whereIn('agcy_id', $agencyIds);
+            $query->whereIn('referrals.agcy_id', $agencyIds);
         }
 
         $categoryIds = $filters['category_ids'] ?? [];
@@ -255,24 +290,24 @@ class ReferralService
         }
 
         if (! empty($filters['age_min_days']) && is_numeric($filters['age_min_days'])) {
-            $query->where('created_at', '<=', now()->subDays((int) $filters['age_min_days'])->endOfDay());
+            $query->where('referrals.created_at', '<=', now()->subDays((int) $filters['age_min_days'])->endOfDay());
         }
 
         if (! empty($filters['age_max_days']) && is_numeric($filters['age_max_days'])) {
-            $query->where('created_at', '>=', now()->subDays((int) $filters['age_max_days'])->startOfDay());
+            $query->where('referrals.created_at', '>=', now()->subDays((int) $filters['age_max_days'])->startOfDay());
         }
 
         if (! empty($filters['date_from'])) {
-            $query->whereDate('created_at', '>=', $filters['date_from']);
+            $query->whereDate('referrals.created_at', '>=', $filters['date_from']);
         }
         if (! empty($filters['date_to'])) {
-            $query->whereDate('created_at', '<=', $filters['date_to']);
+            $query->whereDate('referrals.created_at', '<=', $filters['date_to']);
         }
 
         if (! empty($filters['search'])) {
             $search = $filters['search'];
             $query->where(function ($q) use ($search) {
-                $q->where('id', 'ilike', "%{$search}%")
+                $q->where('referrals.id', 'ilike', "%{$search}%")
                     ->orWhereHas('services', fn ($sq) => $sq->where('name', 'ilike', "%{$search}%"))
                     ->orWhereHas('caseFile', function ($q) use ($search) {
                         $q->where('case_number', 'ilike', "%{$search}%");
@@ -908,12 +943,21 @@ class ReferralService
                 ->orderByRaw('EXTRACT(EPOCH FROM (NOW() - COALESCE(latest_milestones.max_created_at, GREATEST(referrals.updated_at, referrals.created_at)))) DESC');
         }
 
-        // Stats and pagination intentionally derive from the same scoped and
-        // filtered query. Stats must not be limited to the current page, so
-        // they run as one conditional-aggregate query instead of hydrating
-        // every matching row into memory. select() (not selectRaw) resets the
-        // referrals.* column list the sort branch above added.
-        $statsRow = (clone $query)->toBase()->reorder()->select([
+        // Stats and pagination share the same scoping and filters, but NOT the
+        // sort branch's joins. Cloning $query meant the stats COUNT(*) ran over
+        // whatever tables the chosen sort happened to join (cases + clients for
+        // client_name), so a referral whose case row was soft-deleted would be
+        // counted only under some sorts — the KPI and the table below it
+        // disagreeing on the same page. This rebuilds the base and re-applies
+        // only the filters.
+        $statsBase = $this->overdueReferralsQuery($userRole, $userId, $userAgencyId, $overdueDays);
+        if ($statusFilter !== 'all') {
+            $statsBase->where('status', strtoupper($statusFilter));
+        }
+
+        // Stats must not be limited to the current page, so they run as one
+        // conditional-aggregate query instead of hydrating every matching row.
+        $statsRow = $statsBase->toBase()->select([
             DB::raw('COUNT(*) AS total'),
             DB::raw("COUNT(*) FILTER (WHERE referrals.status = 'PENDING') AS pending_count"),
             DB::raw("COUNT(*) FILTER (WHERE referrals.status = 'PROCESSING') AS processing_count"),

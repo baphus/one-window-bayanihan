@@ -189,19 +189,6 @@ class NotificationService
     }
 
     /**
-     * Mark all review-pending notifications for a given case as read.
-     * Called when a case manager approves or rejects a filing.
-     *
-     * ponytail: no-op — the intake-era NewIntakeSubmission class no longer
-     * exists, and review notifications ship via CaseNotification. Remove when
-     * callers stop invoking it.
-     */
-    public function markIntakeNotificationsAsRead(CaseFile $case): void
-    {
-        // No-op.
-    }
-
-    /**
      * Get paginated notifications for a given notifiable entity.
      *
      * @param  mixed  $notifiable  User model or client email string
