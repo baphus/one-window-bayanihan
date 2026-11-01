@@ -141,6 +141,60 @@ class OfwProfileTest extends TestCase
         $this->assertEquals('Saudi Arabia', $response->json('props.client.employment.country'));
     }
 
+    /**
+     * SearchableSelect offers a "Use '…'" option for freeform text. Saving with
+     * a picker that reads "None" used to store the literal word as the job
+     * title, which then showed everywhere the occupation is read.
+     */
+    #[Test]
+    public function test_placeholder_position_is_saved_as_empty_not_as_a_job_title(): void
+    {
+        $client = Client::factory()->create();
+        $user = $this->ofwUserFor($client);
+
+        $this->actingAs($user)->put('/my-cases/profile', [
+            'employment' => [
+                'employer_name' => 'Test',
+                'position' => 'None',
+                'last_position' => '  none  ',
+                'last_country' => 'United States',
+            ],
+        ])->assertRedirect(route('ofw.profile.edit'));
+
+        $employment = ClientEmployment::where('client_id', $client->id)->first();
+        $this->assertNull($employment->position);
+        $this->assertNull($employment->last_position);
+        $this->assertSame('United States', $employment->last_country);
+
+        // The placeholder must not reappear on the view that reads it back.
+        $response = $this->actingAs($user)
+            ->withHeader('X-Inertia', 'true')
+            ->get('/my-cases/profile');
+
+        $response->assertOk();
+        $this->assertNull($response->json('props.client.employment.position'));
+        $this->assertNull($response->json('props.client.employment.last_position'));
+    }
+
+    #[Test]
+    public function test_a_real_position_that_merely_starts_with_none_is_kept(): void
+    {
+        $client = Client::factory()->create();
+        $user = $this->ofwUserFor($client);
+
+        $this->actingAs($user)->put('/my-cases/profile', [
+            'employment' => [
+                'employer_name' => 'Test',
+                'position' => 'None Such Operator',
+                'last_position' => 'Nun',
+            ],
+        ])->assertRedirect(route('ofw.profile.edit'));
+
+        $employment = ClientEmployment::where('client_id', $client->id)->first();
+        $this->assertSame('None Such Operator', $employment->position);
+        $this->assertSame('Nun', $employment->last_position);
+    }
+
     #[Test]
     public function test_ofw_can_replace_next_of_kin(): void
     {

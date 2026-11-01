@@ -1009,46 +1009,52 @@ class CaseService
 
         $clientEmail = $this->resolveClientNotificationEmail($case) ?? '';
 
+        [$statusLabel, $statusMessage] = $this->ofwCaseStatusCopy($case, $newStatus);
+
         $this->notificationService->notifyAll(
             $case,
             $notifyUsers,
             $clientEmail,
             new CaseStatusUpdated($case, $oldStatus, $newStatus, $updatedBy),
             'case_status_updated',
-            "Your case is now {$this->ofwCaseStatusLabel($newStatus)}",
-            $this->ofwCaseStatusMessage($case, $newStatus),
+            "Your case is now {$statusLabel}",
+            $statusMessage,
             ['old_status' => $oldStatus, 'new_status' => $newStatus],
             route('cases.show', $case->id),
         );
     }
 
     /**
-     * Client-facing label for a case status. Plain language only —
-     * internal status codes never reach the client.
+     * Client-facing label and body for a case status change.
+     *
+     * One match, both halves: the label and the sentence always describe the
+     * same status. They were two matches over the same four arms, so adding a
+     * status meant editing both and it was easy to add it to one only.
+     * Plain language only, internal status codes never reach the client.
+     *
+     * @return array{0: string, 1: string} [label, message]
      */
-    private function ofwCaseStatusLabel(string $status): string
-    {
-        return match (strtoupper($status)) {
-            'OPEN' => 'in progress',
-            'CLOSED' => 'resolved',
-            'ARCHIVED' => 'archived',
-            default => 'updated',
-        };
-    }
-
-    /**
-     * Client-facing body for a case status change. Plain language only —
-     * internal status codes never reach the client.
-     */
-    private function ofwCaseStatusMessage(CaseFile $case, string $status): string
+    private function ofwCaseStatusCopy(CaseFile $case, string $status): array
     {
         $caseNumber = $case->case_number ?? '';
 
         return match (strtoupper($status)) {
-            'OPEN' => "Your case {$caseNumber} is now in progress. Your case manager is coordinating the help you need.",
-            'CLOSED' => "Your case {$caseNumber} has been resolved. Thank you for trusting the Bayanihan team.",
-            'ARCHIVED' => "Your case {$caseNumber} has been filed for safekeeping. Contact us if you need help again.",
-            default => "There is an update on your case {$caseNumber}. Open your case to read the details.",
+            'OPEN' => [
+                'in progress',
+                "Your case {$caseNumber} is now in progress. Your case manager is coordinating the help you need.",
+            ],
+            'CLOSED' => [
+                'resolved',
+                "Your case {$caseNumber} has been resolved. Thank you for trusting the Bayanihan team.",
+            ],
+            'ARCHIVED' => [
+                'archived',
+                "Your case {$caseNumber} has been filed for safekeeping. Contact us if you need help again.",
+            ],
+            default => [
+                'updated',
+                "There is an update on your case {$caseNumber}. Open your case to read the details.",
+            ],
         };
     }
 
@@ -1260,11 +1266,25 @@ class CaseService
      * via the CascadeSoftDeletes trait on the model. The deletion reason is
      * stored on the case row and in the audit log.
      *
-     * @throws HttpResponseException 422 if not ARCHIVED
+     * Deletion is the destructive half of the trash pair, so it uses the same
+     * ownership scope as restore: a CASE_MANAGER may trash only a case they
+     * own, ADMIN keeps global access. The actor is taken as a User (not a bare
+     * id) because the check is the only thing standing between one manager's
+     * closed case and another manager's mistake.
+     *
+     * @throws HttpResponseException 422 if not ARCHIVED, 403 if not the owner's
      */
-    public function deleteArchivedCase(CaseFile $case, string $reason, string $userId): void
+    public function deleteArchivedCase(CaseFile $case, string $reason, User $actor): void
     {
         abort_unless($case->status === 'ARCHIVED', 422, 'Only archived cases can be deleted.');
+
+        abort_unless(
+            $actor->isAdmin() || $case->user_id === $actor->id,
+            403,
+            'You may only delete a case you own.',
+        );
+
+        $userId = $actor->id;
 
         DB::transaction(function () use ($case, $reason, $userId) {
             // Store reason directly on the row before soft-delete so it
@@ -1455,34 +1475,34 @@ class CaseService
             ->where('deleted_at', '<', $cutoff)
             ->chunkById(self::PURGE_CHUNK_SIZE, function ($cases) use (&$purgedCount, &$purgedFileCount, &$skippedCaseIds, $retentionDays, $cutoff) {
                 foreach ($cases as $case) {
-                    // Read the paths before the transaction: once forceDelete() runs,
-                    // CascadeSoftDeletes and the ON DELETE CASCADE constraints remove
-                    // the rows that hold them. A purge that is later rolled back must
-                    // not have already emptied the bucket.
-                    $filePaths = $this->purgeableFilePaths($case);
+                    // Read the ids and paths before the transaction: once
+                    // forceDelete() runs, CascadeSoftDeletes and the ON DELETE
+                    // CASCADE constraints remove the rows that hold them. A purge
+                    // that is later rolled back must not have already emptied the
+                    // bucket. The ids are collected once and reused for both the
+                    // file paths and the activity-event cleanup, which previously
+                    // ran the same four queries twice per case.
+                    $ids = $this->purgeableEntityIds($case);
+                    $filePaths = $this->purgeableFilePaths($case, $ids);
 
                     try {
-                        DB::transaction(function () use ($case) {
+                        DB::transaction(function () use ($case, $ids) {
                             // case_events has no soft-delete flag and its FK is RESTRICT, so it cannot go through
                             // $cascadeSoftDeletes (CaseEvent is append-only; its deleting hook throws).
                             // Limit: event rows go without per-row audit.
                             DB::table('case_events')->where('case_id', $case->id)->delete();
 
-                            $referralIds = Referral::withTrashed()->where('case_id', $case->id)->pluck('id');
-                            $activityEntityIds = $referralIds->prepend($case->id);
-                            $activityEntityIds = $activityEntityIds
-                                ->merge(Milestone::withTrashed()->whereIn('refr_id', $referralIds)->pluck('id'))
-                                ->merge(ReferralAttachment::withTrashed()->whereIn('referral_id', $referralIds)->pluck('id'))
-                                ->merge(ReferralComment::withTrashed()->whereIn('refr_id', $referralIds)->pluck('id'));
-                            $requestIds = ReferralClientRequest::withTrashed()->whereIn('referral_id', $referralIds)->pluck('id');
-                            $activityEntityIds = $activityEntityIds
-                                ->merge($requestIds)
-                                ->merge(ReferralClientRequestItem::withTrashed()->whereIn('request_id', $requestIds)->pluck('id'))
-                                ->merge(ReferralClientAccessLink::whereIn('request_id', $requestIds)->pluck('id'));
-                            $messageIds = ReferralClientMessage::withTrashed()->whereIn('request_id', $requestIds)->pluck('id');
-                            $activityEntityIds = $activityEntityIds
-                                ->merge($messageIds)
-                                ->merge(ReferralClientMessageAttachment::withTrashed()->whereIn('message_id', $messageIds)->pluck('id'));
+                            $activityEntityIds = collect([$case->id])
+                                ->merge($ids['referralIds'])
+                                ->merge($ids['milestoneIds'])
+                                ->merge($ids['attachmentIds'])
+                                ->merge($ids['commentIds'])
+                                ->merge($ids['requestIds'])
+                                ->merge($ids['requestItemIds'])
+                                ->merge($ids['accessLinkIds'])
+                                ->merge($ids['messageIds'])
+                                ->merge($ids['messageAttachmentIds']);
+
                             DB::table('activity_events')->whereIn('entity_id', $activityEntityIds->unique())->delete();
 
                             // CascadeSoftDeletes handles child force-deletes when forceDelete() is called.
@@ -1554,18 +1574,17 @@ class CaseService
      * arriving through a public tracking link); it is included because the
      * rows cascade away with the referral just like the first two.
      *
+     * @param  array{referralIds: Collection, requestIds: Collection, messageIds: Collection}  $ids
      * @return list<string>
      */
-    private function purgeableFilePaths(CaseFile $case): array
+    private function purgeableFilePaths(CaseFile $case, array $ids): array
     {
         $paths = CaseDocument::withTrashed()
             ->where('case_id', $case->id)
             ->pluck('file_path')
             ->all();
 
-        $referralIds = Referral::withTrashed()
-            ->where('case_id', $case->id)
-            ->pluck('id');
+        $referralIds = $ids['referralIds'];
 
         if ($referralIds->isEmpty()) {
             return $this->uniquePaths($paths);
@@ -1576,14 +1595,10 @@ class CaseService
             ->pluck('file_path')
             ->all());
 
-        $requestIds = ReferralClientRequest::withTrashed()
-            ->whereIn('referral_id', $referralIds)
-            ->pluck('id');
+        $requestIds = $ids['requestIds'];
 
         if ($requestIds->isNotEmpty()) {
-            $messageIds = ReferralClientMessage::withTrashed()
-                ->whereIn('request_id', $requestIds)
-                ->pluck('id');
+            $messageIds = $ids['messageIds'];
 
             if ($messageIds->isNotEmpty()) {
                 $paths = array_merge($paths, ReferralClientMessageAttachment::withTrashed()
@@ -1594,6 +1609,38 @@ class CaseService
         }
 
         return $this->uniquePaths($paths);
+    }
+
+    /**
+     * Every entity id a force-purged case takes with it, read once.
+     *
+     * The purge needs these ids twice: to find the stored files (documents,
+     * referral attachments, client-message attachments) and to sweep
+     * activity_events, whose rows are not reached by any cascade. Both used to
+     * walk the referral -> request -> message chain themselves, running the same
+     * queries twice per case inside a chunked batch. All reads use withTrashed()
+     * because a cascade may already have trashed a child before the case reached
+     * its retention date.
+     *
+     * @return array<string, Collection<int, string>>
+     */
+    private function purgeableEntityIds(CaseFile $case): array
+    {
+        $referralIds = Referral::withTrashed()->where('case_id', $case->id)->pluck('id');
+        $requestIds = ReferralClientRequest::withTrashed()->whereIn('referral_id', $referralIds)->pluck('id');
+        $messageIds = ReferralClientMessage::withTrashed()->whereIn('request_id', $requestIds)->pluck('id');
+
+        return [
+            'referralIds' => $referralIds,
+            'milestoneIds' => Milestone::withTrashed()->whereIn('refr_id', $referralIds)->pluck('id'),
+            'attachmentIds' => ReferralAttachment::withTrashed()->whereIn('referral_id', $referralIds)->pluck('id'),
+            'commentIds' => ReferralComment::withTrashed()->whereIn('refr_id', $referralIds)->pluck('id'),
+            'requestIds' => $requestIds,
+            'requestItemIds' => ReferralClientRequestItem::withTrashed()->whereIn('request_id', $requestIds)->pluck('id'),
+            'accessLinkIds' => ReferralClientAccessLink::whereIn('request_id', $requestIds)->pluck('id'),
+            'messageIds' => $messageIds,
+            'messageAttachmentIds' => ReferralClientMessageAttachment::withTrashed()->whereIn('message_id', $messageIds)->pluck('id'),
+        ];
     }
 
     /**

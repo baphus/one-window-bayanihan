@@ -158,7 +158,7 @@ class PurgeOrphanFileHandlingTest extends TestCase
         $service = app(CaseService::class);
 
         $case = CaseFile::factory()->create(['status' => 'ARCHIVED', 'user_id' => $this->admin->id]);
-        $service->deleteArchivedCase($case, 'Archived case awaiting the retention purge', $this->admin->id);
+        $service->deleteArchivedCase($case, 'Archived case awaiting the retention purge', $this->admin);
         CaseFile::withTrashed()->where('id', $case->id)->update(['deleted_at' => now()->subDays(self::RETENTION_DAYS + 10)]);
 
         CaseDocument::create([

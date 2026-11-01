@@ -36,11 +36,16 @@ class ClientMetrics
 
     public function getAgeGroupDistribution(?string $userId = null, ?string $role = null, ?string $fromDate = null, ?string $toDate = null, string $dateScope = 'case_created_at', ?string $province = null, ?string $city = null, ?string $agencyId = null): array
     {
-        $groups = ['0-17', '18-25', '26-40', '41-60', '60+'];
+        // Labels must match the comparisons below: the last bucket is 61+, not
+        // 60+. The previous '60+' label counted only ages above 60, so a
+        // 60-year-old was reported under the '41-60' bin while the chart header
+        // said the final row started at 60 — and the "Senior Citizen"
+        // vulnerability marker counts from 60, so the two disagreed.
+        $groups = ['0-17', '18-25', '26-40', '41-60', '61+'];
         $colors = ['#818cf8', '#6366f1', '#4f46e5', '#4338ca', '#3730a3'];
 
         // Use Eloquent to decrypt date_of_birth (encrypted via EncryptedDate cast),
-        // then calculate age groups in PHP â€” avoids PostgreSQL age() on text column.
+        // then calculate age groups in PHP, avoiding PostgreSQL age() on text column.
         $clients = Client::whereIn('id', $this->filteredClientIds($userId, $role, $fromDate, $toDate, $province, $city, $agencyId))
             ->whereNotNull('date_of_birth')
             ->get(['id', 'date_of_birth']);
@@ -61,7 +66,7 @@ class ClientMetrics
             } elseif ($age <= 60) {
                 $counts['41-60']++;
             } else {
-                $counts['60+']++;
+                $counts['61+']++;
             }
         }
 

@@ -56,8 +56,10 @@ class ReportsService
             return $empty;
         }
 
-        // Build cache key from all parameters that affect the output
-        $cacheKey = 'reports:payload:'.hash('sha256', implode('|', [
+        // Build cache key from all parameters that affect the output, prefixed
+        // with the invalidation generation: ReportsCache::invalidateAll() bumps
+        // it so every payload computed before a data change is orphaned at once.
+        $cacheKey = 'reports:payload:'.ReportsCache::version().':'.hash('sha256', implode('|', [
             $userId ?? '', $role ?? '', $agencyId ?? '',
             $fromDate ?? '', $toDate ?? '', $dateScope,
             $province ?? '', $city ?? '',
@@ -224,7 +226,7 @@ class ReportsService
                 'agencyScorecard' => [], 'categoryDistribution' => [],
                 'caseStatusDistribution' => ['labels' => ['OPEN', 'CLOSED', 'ARCHIVED'], 'data' => [0, 0, 0], 'colors' => []],
                 'genderDistribution' => ['labels' => ['Male', 'Female', 'Unknown'], 'data' => [0, 0, 0], 'colors' => []],
-                'ageGroupDistribution' => ['labels' => ['0-17', '18-25', '26-40', '41-60', '60+'], 'data' => [0, 0, 0, 0, 0], 'colors' => []],
+                'ageGroupDistribution' => ['labels' => ['0-17', '18-25', '26-40', '41-60', '61+'], 'data' => [0, 0, 0, 0, 0], 'colors' => []],
                 'clientTypeDistribution' => ['labels' => [], 'data' => [], 'colors' => []],
                 'geographicMapData' => ['provinces' => []],
                 'caseSourceDistribution' => ['labels' => ['Internal', 'Self-filed'], 'data' => [0, 0], 'colors' => []],

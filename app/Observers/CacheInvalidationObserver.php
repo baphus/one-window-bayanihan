@@ -2,6 +2,7 @@
 
 namespace App\Observers;
 
+use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\Agency;
 use App\Models\CaseCategory;
 use App\Models\CaseFile;
@@ -40,7 +41,9 @@ class CacheInvalidationObserver
 
         // If a user's agency assignment changed, invalidate their cached agency
         if ($model instanceof User && $model->wasChanged('agcy_id')) {
-            Cache::forget("user:{$model->id}:agency");
+            // The key is spelled in one place only; a hand-written copy here
+            // would drift from the helper the rest of the code would call.
+            HandleInertiaRequests::invalidateUserAgency($model->id);
         }
 
         // If a user's role changed, invalidate user lists

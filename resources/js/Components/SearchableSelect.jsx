@@ -14,6 +14,15 @@ function significantTokens(text) {
         .filter((t) => t && !PLACE_NOISE_WORDS.has(t));
 }
 
+// A picker's empty label is not a value. Typing "None" (or leaving the box
+// showing it) and pressing "Use 'None'" used to store the word itself as an
+// occupation, which then read back as a real job title on every screen.
+const EMPTY_PLACEHOLDERS = new Set(['', 'none', 'n/a', 'na', 'null', '-']);
+
+function isPlaceholder(text) {
+    return EMPTY_PLACEHOLDERS.has(String(text ?? '').trim().toLowerCase());
+}
+
 /**
  * True when the option label matches the query. Falls back from a plain
  * substring test to a token-subset test so "Cebu City" finds "City of Cebu"
@@ -64,6 +73,7 @@ export default function SearchableSelect({ value, onChange, options = [], placeh
 
     // When allowCustom is active and there's typed text with no exact match,
     // we offer a "Use '<query>'" option appended to the end of the filtered list.
+    // Placeholder text ("None") never becomes a value: choosing it clears the field.
     const showCustomOption = allowCustom && query.trim() && !hasExactMatch;
     const totalItems = filtered.length + (showCustomOption ? 1 : 0);
 
@@ -86,7 +96,8 @@ export default function SearchableSelect({ value, onChange, options = [], placeh
     }, [highlightedIndex, open]);
 
     function handleSelect(optionValue) {
-        onChange(optionValue);
+        // Choosing "Use 'None'" means "no value", not a job called None.
+        onChange(isPlaceholder(optionValue) ? '' : optionValue);
         setQuery('');
         setOpen(false);
         setHighlightedIndex(-1);
@@ -148,10 +159,12 @@ export default function SearchableSelect({ value, onChange, options = [], placeh
         }
     }
 
-    // Display: when open show the query; otherwise show the selected label or raw value.
+    // Display: when open show the query; otherwise show the selected label.
+    // A freeform value shows as typed, but a placeholder that already reached
+    // the record reads as empty rather than as a job called "None".
     const displayValue = open
         ? query
-        : (selectedOption?.label ?? (allowCustom && value ? value : ''));
+        : (selectedOption?.label ?? (allowCustom && value && !isPlaceholder(value) ? value : ''));
 
     return (
         <div ref={wrapperRef} className="relative">
@@ -217,7 +230,13 @@ export default function SearchableSelect({ value, onChange, options = [], placeh
                                     : 'text-slate-500 hover:bg-slate-50'
                             }`}
                         >
-                            Use &ldquo;{query.trim()}&rdquo;
+                            {isPlaceholder(query) ? (
+                                <>
+                                    Clear<span className="sr-only"> this field</span>
+                                </>
+                            ) : (
+                                <>Use &ldquo;{query.trim()}&rdquo;</>
+                            )}
                         </li>
                     )}
                 </ul>

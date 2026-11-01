@@ -50,10 +50,17 @@ export default function Intake({ profile: profileProp, client, vulnerabilityOpti
               .filter(Boolean)
               .join(', ')
         : '';
+    // Records written before the placeholder guard existed can hold "None" as
+    // a job title; treat it as missing so intake never reads "None at Test".
+    const displayText = (value) => {
+        const text = String(value ?? '').trim();
+
+        return ['', 'none', 'n/a', 'na', 'null', '-'].includes(text.toLowerCase()) ? '' : text;
+    };
     const employment = profile?.employment
         ? [
-              [profile.employment.position, profile.employment.employer_name].filter(Boolean).join(' at '),
-              profile.employment.country,
+              [displayText(profile.employment.position), displayText(profile.employment.employer_name)].filter(Boolean).join(' at '),
+              displayText(profile.employment.country),
           ].filter(Boolean).join(' · ')
         : '';
 

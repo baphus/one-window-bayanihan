@@ -53,7 +53,7 @@ class CascadeSoftDeletesTest extends TestCase
 
         // Now the case itself goes to trash; only the live referral is cascaded.
         $this->actingAs($admin);
-        app(CaseService::class)->deleteArchivedCase($case, 'Duplicate record — resolved elsewhere', $admin->id);
+        app(CaseService::class)->deleteArchivedCase($case, 'Duplicate record — resolved elsewhere', $admin);
 
         $this->assertTrue($cascadeReferral->fresh()->trashed());
         $this->assertTrue($independentReferral->fresh()->trashed());
@@ -97,7 +97,7 @@ class CascadeSoftDeletesTest extends TestCase
         $independentStamp = CaseDocument::onlyTrashed()->findOrFail($independentDocument->id)->deleted_at;
 
         $this->actingAs($admin);
-        app(CaseService::class)->deleteArchivedCase($case, 'Document retention sweep on the case', $admin->id);
+        app(CaseService::class)->deleteArchivedCase($case, 'Document retention sweep on the case', $admin);
         app(CaseService::class)->restoreTrashedCase($case->id, $admin);
 
         $this->assertFalse($cascadeDocument->fresh()->trashed());
@@ -174,7 +174,7 @@ class CascadeSoftDeletesTest extends TestCase
         $independentStamp = CaseDocument::onlyTrashed()->findOrFail($independentDocument->id)->deleted_at;
 
         $this->actingAs($admin);
-        app(CaseService::class)->deleteArchivedCase($case, 'Case retention sweep', $admin->id);
+        app(CaseService::class)->deleteArchivedCase($case, 'Case retention sweep', $admin);
 
         // Live children carry the cascade stamp.
         $this->assertTrue($referral->fresh()->trashed());
@@ -209,7 +209,7 @@ class CascadeSoftDeletesTest extends TestCase
         $this->actingAs($admin);
         $service = app(CaseService::class);
 
-        $service->deleteArchivedCase($case, 'Archived duplicate — purged', $admin->id);
+        $service->deleteArchivedCase($case, 'Archived duplicate — purged', $admin);
 
         $case = $case->fresh();
         $this->assertTrue($case->trashed());

@@ -29,27 +29,31 @@ class SetPostgresSession
             // Ensure UTF-8 client encoding (Windows PDO driver may default to WIN1252)
             DB::statement('SET SESSION client_encoding TO UTF8');
             // Always (re)set every RLS variable, even for guests: the settings
-            // below are session-scoped and Laravel reuses persistent connections
+            // are session-scoped and Laravel reuses persistent connections
             // across requests, so a guest must overwrite — never inherit — the
             // previous request's values. Empty string matches no policy (fail-closed).
-            // Use set_config with bound parameters to prevent SQL injection.
-            // set_config accepts parameterized bindings (unlike raw SET SESSION).
-            // Third arg (is_local) = false means session-scoped (survives the
-            // statement's own implicit transaction); true would be discarded
-            // the instant this statement finishes.
+            // set_config takes bound parameters (unlike raw SET SESSION), so the
+            // values cannot inject; is_local = false keeps them session-scoped
+            // (true would be discarded the instant the statement finishes).
+            //
+            // One statement for all four: four separate set_config() SELECTs
+            // cost four round trips on every web request, for a control enforced
+            // only on the seven FORCEd inbox/thread tables
+            // (docs/security/rls-posture-decision-v1.0.0.md).
             $user = $request->user();
-            $this->setConfig('app.current_user_id', $user ? (string) $user->id : '');
-            $this->setConfig('app.user_role', $user ? (string) $user->role : '');
-            $this->setConfig('app.client_request_id', $this->capabilityRequestId($request) ?? '');
-            $this->setConfig('app.client_link_id', $this->capabilitySessionValue($request, 'link_id') ?? '');
+
+            DB::statement(
+                'SELECT set_config(?, ?, false), set_config(?, ?, false), set_config(?, ?, false), set_config(?, ?, false)',
+                [
+                    'app.current_user_id', $user ? (string) $user->id : '',
+                    'app.user_role', $user ? (string) $user->role : '',
+                    'app.client_request_id', $this->capabilityRequestId($request) ?? '',
+                    'app.client_link_id', $this->capabilitySessionValue($request, 'link_id') ?? '',
+                ]
+            );
         }
 
         return $next($request);
-    }
-
-    private function setConfig(string $name, string $value): void
-    {
-        DB::statement('SELECT set_config(?, ?, ?)', [$name, $value, false]);
     }
 
     private function capabilityRequestId(Request $request): ?string

@@ -348,7 +348,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
 Route::middleware(['auth', 'role:ADMIN,CASE_MANAGER,AGENCY'])->group(function () {
     Route::get('/overdue-referrals', [OverdueReferralController::class, 'index'])->name('overdue-referrals.index');
-    Route::post('/overdue-referrals/send-reminders', [OverdueReferralController::class, 'sendReminders'])->name('overdue-referrals.send-reminders');
+    // Sending reminders queues one mail per agency handler across up to 500
+    // referrals, and an empty selection means "every overdue referral on
+    // screen". Without a limiter an impatient double-click mailed the whole
+    // batch twice; api-mutations exists for exactly this kind of bulk write.
+    Route::post('/overdue-referrals/send-reminders', [OverdueReferralController::class, 'sendReminders'])
+        ->name('overdue-referrals.send-reminders')
+        ->middleware('throttle:api-mutations');
 });
 
 Route::get('/partners', function () {

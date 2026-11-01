@@ -81,7 +81,7 @@ class ReferralClientRequestController extends Controller
         $delivery = $this->issueForClient($clientRequest, $request->user());
         $this->notifyCaseManager($clientRequest, 'created', $request->user());
 
-        return redirect()->route('referrals.show', $referral)->with('client_access_delivery', $delivery);
+        return $this->flashDelivery(redirect()->route('referrals.show', $referral), $delivery);
     }
 
     /**
@@ -220,8 +220,9 @@ class ReferralClientRequestController extends Controller
     public function sendMessage(StoreReferralClientMessageRequest $request, ReferralClientRequest $clientRequest): RedirectResponse
     {
         $message = $this->requestService->sendAgencyMessage($clientRequest, $request->user(), $request->validated('body'));
-        $clientRequest->loadMissing('referral');
+        $clientRequest->loadMissing('referral.caseFile.client');
         $this->notifyCaseManager($clientRequest, 'agency_message', $request->user());
+        $this->notifyClientOfAgencyReply($clientRequest);
 
         return redirect()->back()->with('success', 'Message sent.');
     }
@@ -248,7 +249,7 @@ class ReferralClientRequestController extends Controller
         $delivery = $this->issueForClient($clientRequest, $request->user());
         $this->notifyCaseManager($clientRequest, 'reopened', $request->user());
 
-        return redirect()->back()->with('client_access_delivery', $delivery);
+        return $this->flashDelivery(redirect()->back(), $delivery);
     }
 
     public function issue(Request $request, ReferralClientRequest $clientRequest): RedirectResponse
@@ -256,7 +257,7 @@ class ReferralClientRequestController extends Controller
         $this->requestService->assertCanManage($clientRequest, $request->user());
         $delivery = $this->issueForClient($clientRequest, $request->user());
 
-        return redirect()->back()->with('client_access_delivery', $delivery);
+        return $this->flashDelivery(redirect()->back(), $delivery);
     }
 
     public function reissue(Request $request, ReferralClientRequest $clientRequest): RedirectResponse
@@ -264,7 +265,7 @@ class ReferralClientRequestController extends Controller
         $this->requestService->assertCanManage($clientRequest, $request->user());
         $delivery = $this->issueForClient($clientRequest, $request->user(), true);
 
-        return redirect()->back()->with('client_access_delivery', $delivery);
+        return $this->flashDelivery(redirect()->back(), $delivery);
     }
 
     public function revoke(Request $request, ReferralClientAccessLink $accessLink): RedirectResponse
@@ -556,6 +557,23 @@ class ReferralClientRequestController extends Controller
         return ['status' => 'queued', 'message' => 'Request saved and access email queued.'];
     }
 
+    /**
+     * Surface the delivery outcome on the redirect the staff member is taken to.
+     *
+     * issueForClient() reported 'no_email' when the client has no address on
+     * file, but the whole payload was flashed under a session key no page reads,
+     * so the agency that pressed the button was told nothing — precisely in the
+     * case where the request will never reach the client. The message goes onto
+     * the flash channels ToastProvider already displays: a warning when nothing
+     * was delivered, a success otherwise.
+     */
+    private function flashDelivery(RedirectResponse $response, array $delivery): RedirectResponse
+    {
+        return $delivery['status'] === 'queued'
+            ? $response->with('success', $delivery['message'])
+            : $response->with('warning', $delivery['message']);
+    }
+
     private function recordDelivery(ReferralClientRequest $clientRequest, ?string $clientEmail, string $status): void
     {
         $clientRequest->loadMissing('referral.agency', 'referral.caseFile');
@@ -652,6 +670,43 @@ class ReferralClientRequestController extends Controller
         // agency/admin only), so they are not notified: the old notification
         // carried the request title to a role that cannot open it.
         $this->notifyAgency($clientRequest, 'client_reply', 'Client');
+    }
+
+    /**
+     * Tell the OFW that the agency answered on their request.
+     *
+     * The reply itself is visible in the request thread, and it deliberately
+     * does not join the client-facing timeline (routine replies stay in the
+     * thread; see ReferralClientRequestService::sendAgencyMessage). Nothing told
+     * the client a reply had arrived, though — so a request the agency had
+     * answered looked exactly like one it had ignored until the client happened
+     * to reopen the page. This is that signal.
+     *
+     * The message body is plain text with no attachment gate (attachments have
+     * their own review/visibility rules), so only a missing client email
+     * suppresses the notice.
+     */
+    private function notifyClientOfAgencyReply(ReferralClientRequest $clientRequest): void
+    {
+        $email = $clientRequest->referral?->caseFile?->client?->email;
+        if (! $email) {
+            return;
+        }
+
+        $agencyName = $clientRequest->referral?->agency?->name ?? 'the agency';
+
+        CaseNotification::create([
+            'case_id' => $clientRequest->referral?->case_id,
+            'client_email' => $email,
+            'type' => 'client_request_reply',
+            'title' => "{$agencyName} replied to your request",
+            'message' => "There is a new message on '{$clientRequest->title}'. Open your request to read it.",
+            'data' => [
+                'request_id' => $clientRequest->id,
+                'referral_id' => $clientRequest->referral_id,
+            ],
+            'related_url' => null,
+        ]);
     }
 
     private function agencyPayload(ReferralClientRequest $clientRequest): array
