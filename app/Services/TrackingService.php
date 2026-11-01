@@ -7,6 +7,7 @@ use App\Models\CaseFile;
 use App\Models\CaseNotification;
 use App\Models\Milestone;
 use App\Models\Referral;
+use App\Models\ReferralClientRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 
@@ -46,6 +47,7 @@ class TrackingService
     public function __construct(
         private readonly OtpService $otpService,
         private readonly PhilippineAddressService $addressResolver,
+        private readonly ReferralClientRequestService $clientRequestService,
     ) {}
 
     public function findCaseByTracker(string $trackerNumber): ?CaseFile
@@ -135,6 +137,23 @@ class TrackingService
         }
         $case->loadMissing(['referrals.agency', 'referrals.services', 'referrals.milestones.user']);
 
+        // Queried by referral, not eager-loaded: $case is serialized as its own
+        // page prop, so attaching the relation would ship request rows inside it.
+        $openRequestsByReferral = $forOfwPortal
+            ? ReferralClientRequest::query()
+                ->whereIn('referral_id', $case->referrals->pluck('id'))
+                ->where('is_deleted', false)
+                ->whereIn('status', [
+                    ReferralClientRequest::STATUS_OPEN,
+                    ReferralClientRequest::STATUS_IN_PROGRESS,
+                    ReferralClientRequest::STATUS_CLIENT_RESPONDED,
+                ])
+                ->orderByDesc('created_at')
+                ->get()
+                ->unique('referral_id')
+                ->keyBy('referral_id')
+            : collect();
+
         // Client payloads are built only for the OFW and their tracking
         // session. Staff pages pass false and receive just the timeline.
         $client = false;
@@ -220,9 +239,8 @@ class TrackingService
         // `note`/`notes` key added to either builder leaks internal text to
         // an anonymous or citizen-owned client. Staff read notes from the
         // referral record on Referral/Show, never from a tracking payload.
-        $agencyCards = $referrals->map(function ($ref) use ($case, $forOfwPortal) {
+        $agencyCards = $referrals->map(function ($ref) use ($case, $forOfwPortal, $openRequestsByReferral) {
             $latestMilestone = $ref->milestones->sortByDesc('created_at')->first();
-            $hasCompliance = $ref->status === 'FOR_COMPLIANCE';
 
             return [
                 'referralId' => $ref->id,
@@ -239,7 +257,9 @@ class TrackingService
                         'referral' => $ref->id,
                     ]),
                 'services' => $ref->services->pluck('name')->toArray(),
-            ];
+            ] + ($forOfwPortal
+                ? ['openRequest' => $this->openRequestPayload($case, $ref, $openRequestsByReferral->get($ref->id))]
+                : []);
         })->toArray();
 
         // Overall completion percentage. Rejection is an outcome, not progress —
@@ -370,6 +390,34 @@ class TrackingService
         }
 
         return null;
+    }
+
+    /**
+     * The actionable request for one referral, or null.
+     *
+     * @return array{id: string, title: string, type: string, status: string, dueAt: string|null, requestedAt: string|null, url: string}|null
+     */
+    private function openRequestPayload(CaseFile $case, Referral $referral, ?ReferralClientRequest $openRequest): ?array
+    {
+        // Gated by the reply endpoint's own rule so the card cannot offer a
+        // reply that would be refused (closed case, or a referral that ended).
+        if (! $openRequest || ! $this->clientRequestService->isClientFacingWriteAllowedFor($referral, $case)) {
+            return null;
+        }
+
+        return [
+            'id' => $openRequest->id,
+            'title' => $openRequest->title,
+            'type' => $openRequest->type,
+            'status' => $openRequest->status,
+            'dueAt' => $openRequest->due_at?->toIso8601String(),
+            'requestedAt' => $openRequest->created_at?->toIso8601String(),
+            'url' => route('ofw.case.requests.show', [
+                'case' => $case->id,
+                'referral' => $referral->id,
+                'request' => $openRequest->id,
+            ]),
+        ];
     }
 
     private function categoryPresentation(CaseFile $case): array

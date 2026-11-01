@@ -110,6 +110,23 @@ describe('Register', () => {
         expect(continueBtn).not.toBeDisabled();
     });
 
+    it('keeps Continue disabled for invalid email or mismatched passwords', () => {
+        const { container } = render(<Register />);
+        const email = container.querySelector('input[type="email"]');
+        const password = screen.getByTestId('pw-Password');
+        const confirmation = screen.getByTestId('pw-Confirm Password');
+        const continueButton = screen.getByRole('button', { name: 'Continue' });
+
+        fireEvent.change(email, { target: { value: 'not-an-email' } });
+        fireEvent.change(password, { target: { value: 'Str0ng!Passphrase' } });
+        fireEvent.change(confirmation, { target: { value: 'different-pass' } });
+        expect(continueButton).toBeDisabled();
+
+        fireEvent.change(email, { target: { value: 'valid@example.com' } });
+        fireEvent.change(confirmation, { target: { value: 'Str0ng!Passphrase' } });
+        expect(continueButton).not.toBeDisabled();
+    });
+
     it('advances to Personal Details after completing the account step, and Back returns', () => {
         const { container } = render(<Register />);
 

@@ -321,6 +321,8 @@ export default function AppSidebar() {
 
                 const sharedAttrs = {
                   className: linkClass,
+                  'aria-label': collapsed ? item.name : undefined,
+                  title: collapsed ? item.name : undefined,
                   'aria-current': active ? 'page' : undefined,
                   ...(item.name === 'Help Center' ? { 'data-tour': 'sidebar-help' } : {}),
                   ...(collapsed ? {

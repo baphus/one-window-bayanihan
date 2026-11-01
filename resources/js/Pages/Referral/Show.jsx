@@ -272,7 +272,7 @@ function ClientRequestCard({ request, permissions, isOversight, onMutate, embedd
                     {messages.length > 0 ? (
                         <div className="space-y-3.5">
                             {messages.map((message) => {
-                                const isOwn = message.sender_kind !== 'CLIENT_ACCESS';
+                                const isOwn = message.sender_kind === 'AGENCY_USER';
                                 const senderName = isOwn ? 'Agency' : 'Client';
                                 return (
                                     <article key={message.id} className={`flex items-end gap-2 ${isOwn ? 'flex-row-reverse' : ''}`}>
@@ -506,10 +506,15 @@ function ServiceCard({ service, referral, isAgency, serviceRequirements }) {
     const [newRequirementName, setNewRequirementName] = useState('');
     const [editingId, setEditingId] = useState(null);
     const [editName, setEditName] = useState('');
+    const [requirementError, setRequirementError] = useState('');
     const canModify = isAgency && referral.status !== 'COMPLETED';
 
     function handleAddRequirement() {
-        if (!newRequirementName.trim()) return;
+        if (!newRequirementName.trim()) {
+            setRequirementError('Enter a requirement name before adding.');
+            return;
+        }
+        setRequirementError('');
         router.post(route('referrals.services.requirements.add', [referral.id, service.id]), {
             name: newRequirementName.trim(),
         }, {
@@ -519,7 +524,11 @@ function ServiceCard({ service, referral, isAgency, serviceRequirements }) {
     }
 
     function handleUpdateRequirement(requirementId) {
-        if (!editName.trim()) return;
+        if (!editName.trim()) {
+            setRequirementError('Enter a requirement name before saving.');
+            return;
+        }
+        setRequirementError('');
         router.patch(route('referrals.services.requirements.update', [referral.id, service.id, requirementId]), {
             name: editName.trim(),
         }, {
@@ -571,6 +580,7 @@ function ServiceCard({ service, referral, isAgency, serviceRequirements }) {
 
             {isExpanded && (
                 <div className="border-t border-slate-200 px-3 py-2">
+                    {requirementError && <p role="alert" className="mb-2 text-[11px] text-red-700">{requirementError}</p>}
                     {serviceRequirements.length > 0 ? (
                         <div className="space-y-1.5">
                             {serviceRequirements.map((req) => (
@@ -580,13 +590,14 @@ function ServiceCard({ service, referral, isAgency, serviceRequirements }) {
                                             <input
                                                 type="text"
                                                 value={editName}
-                                                onChange={(e) => setEditName(e.target.value)}
-                                                onKeyDown={(e) => { if (e.key === 'Enter') handleUpdateRequirement(req.id); if (e.key === 'Escape') { setEditingId(null); setEditName(''); } }}
+                                                aria-label="Requirement name"
+                                                onChange={(e) => { setEditName(e.target.value); if (e.target.value.trim()) setRequirementError(''); }}
+                                                onKeyDown={(e) => { if (e.key === 'Enter') handleUpdateRequirement(req.id); if (e.key === 'Escape') { setEditingId(null); setEditName(''); setRequirementError(''); } }}
                                                 className="flex-1 rounded border border-slate-300 px-2 py-0.5 text-[11px] text-slate-700 outline-none focus:border-blue-500"
                                                 autoFocus
                                             />
                                             <button type="button" onClick={() => handleUpdateRequirement(req.id)} className="text-[11px] text-blue-600 hover:underline">Save</button>
-                                            <button type="button" onClick={() => { setEditingId(null); setEditName(''); }} className="text-[11px] text-slate-400 hover:underline">Cancel</button>
+                                            <button type="button" onClick={() => { setEditingId(null); setEditName(''); setRequirementError(''); }} className="text-[11px] text-slate-400 hover:underline">Cancel</button>
                                         </div>
                                     ) : (
                                         <>
@@ -620,14 +631,14 @@ function ServiceCard({ service, referral, isAgency, serviceRequirements }) {
                                     <input
                                         type="text"
                                         value={newRequirementName}
-                                        onChange={(e) => setNewRequirementName(e.target.value)}
-                                        onKeyDown={(e) => { if (e.key === 'Enter') handleAddRequirement(); if (e.key === 'Escape') { setIsAdding(false); setNewRequirementName(''); } }}
+                                        onChange={(e) => { setNewRequirementName(e.target.value); if (e.target.value.trim()) setRequirementError(''); }}
+                                        onKeyDown={(e) => { if (e.key === 'Enter') handleAddRequirement(); if (e.key === 'Escape') { setIsAdding(false); setNewRequirementName(''); setRequirementError(''); } }}
                                         placeholder="Requirement name..."
                                         className="flex-1 rounded border border-slate-300 px-2 py-0.5 text-[11px] text-slate-700 outline-none focus:border-blue-500"
                                         autoFocus
                                     />
                                     <button type="button" onClick={handleAddRequirement} className="text-[11px] text-blue-600 hover:underline">Add</button>
-                                    <button type="button" onClick={() => { setIsAdding(false); setNewRequirementName(''); }} className="text-[11px] text-slate-400 hover:underline">Cancel</button>
+                                    <button type="button" onClick={() => { setIsAdding(false); setNewRequirementName(''); setRequirementError(''); }} className="text-[11px] text-slate-400 hover:underline">Cancel</button>
                                 </div>
                             ) : (
                                 <button

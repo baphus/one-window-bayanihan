@@ -152,6 +152,19 @@ describe('Referral/Show client request permissions', () => {
     expect(screen.getByRole('button', { name: /Preview contract\.pdf/ })).toBeInTheDocument();
   });
 
+  it('labels CLIENT_ACCESS and CLIENT_USER messages as Client, and agency messages as Agency', () => {
+    state.role = 'AGENCY';
+    const messages = [
+      { id: 'access', sender_kind: 'CLIENT_ACCESS', body: 'Access client message', created_at: '2026-01-01T00:00:00Z', attachments: [] },
+      { id: 'user', sender_kind: 'CLIENT_USER', body: 'Signed-in OFW message', created_at: '2026-01-02T00:00:00Z', attachments: [] },
+      { id: 'agency', sender_kind: 'AGENCY_USER', body: 'Agency response', created_at: '2026-01-03T00:00:00Z', attachments: [] },
+    ];
+    render(<ReferralShow referral={referral} clientRequestHistory={[{ ...requestHistory[0], messages }]} clientRequestPermissions={{ canCreate: true, canReply: true, canTransition: true, canRevokeAccess: true }} timeline={[]} />);
+
+    expect(screen.getAllByText('Client · Jan 1, 2026')).toHaveLength(2);
+    expect(screen.getByText('Agency · Jan 1, 2026')).toBeInTheDocument();
+  });
+
   it('opens a lightbox with the full image and download link when the thumbnail is clicked', () => {
     state.role = 'AGENCY';
     render(
@@ -216,6 +229,23 @@ describe('Referral/Show client request permissions', () => {
     expect(screen.getAllByText('Valid ID').length).toBeGreaterThan(0);
     expect(screen.getByText('Payslip')).toBeInTheDocument();
     expect(screen.getAllByRole('checkbox')).toHaveLength(3);
+  });
+
+  it('shows feedback instead of silently ignoring blank service requirement add and edit', () => {
+    state.role = 'AGENCY';
+    render(<ReferralShow referral={{ ...referral, services: [{ id: 'service-1', name: 'Financial Aid' }], service_requirements: [{ id: 'req-1', name: 'Valid ID', service_id: 'service-1' }] }} clientRequestHistory={[]} clientRequestPermissions={{ canCreate: true, canReply: true, canTransition: true, canRevokeAccess: true }} timeline={[]} />);
+    fireEvent.click(screen.getByRole('button', { name: /Financial Aid/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Add requirement/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add', exact: true }));
+    expect(screen.getByRole('alert')).toHaveTextContent('Enter a requirement name before adding.');
+    expect(routerSpy.post).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    fireEvent.click(screen.getByRole('button', { name: /edit/i }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Requirement name' }), { target: { value: '   ' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('Enter a requirement name before saving.');
+    expect(routerSpy.patch).not.toHaveBeenCalled();
   });
 
   it('shows selected-agency visibility controls for reviewed client documents', () => {
