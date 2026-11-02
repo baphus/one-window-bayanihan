@@ -2,13 +2,37 @@
 
 namespace Tests;
 
+use App\Models\User;
 use App\Services\CloudinaryAvatarService;
+use App\Services\MfaPendingState;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Str;
 
 abstract class TestCase extends BaseTestCase
 {
+    /** Explicit session fixture for HTTP tests exercising an authenticated, enrolled user. */
+    protected function actingAsWithMfa(User $user): static
+    {
+        if ($user->mfa_enabled_at === null) {
+            $user->forceFill([
+                'mfa_secret' => 'JBSWY3DPEHPK3PXP',
+                'mfa_recovery_codes' => [],
+                'mfa_enabled_at' => now(),
+            ])->saveQuietly();
+        }
+
+        $this->actingAs($user);
+        $this->withSession([
+            MfaPendingState::MARKER_KEY => [
+                'user_id' => (string) $user->getKey(),
+                'credential_fingerprint' => hash('sha256', (string) $user->password),
+            ],
+        ]);
+
+        return $this;
+    }
+
     protected function setUp(): void
     {
         parent::setUp();

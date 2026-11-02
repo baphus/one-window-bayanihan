@@ -19,7 +19,10 @@ class AgencyDeletionGuardTest extends TestCase
     {
         parent::setUp();
 
-        $this->admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $this->admin = User::factory()->mfaEnabled()->create([
+            'role' => UserRole::ADMIN->value,
+            'mfa_secret' => 'JBSWY3DPEHPK3PXP',
+        ]);
     }
 
     #[Test]
@@ -32,7 +35,7 @@ class AgencyDeletionGuardTest extends TestCase
             'is_default' => true,
         ]);
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->delete(route('admin.agencies.destroy', $dmw->id));
 
         $response->assertStatus(422);
@@ -55,7 +58,7 @@ class AgencyDeletionGuardTest extends TestCase
             'is_default' => false,
         ]);
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->delete(route('admin.agencies.destroy', $agency->id));
 
         $response->assertStatus(302);
@@ -79,7 +82,7 @@ class AgencyDeletionGuardTest extends TestCase
             'is_default' => false,
         ]);
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->patch(route('admin.agencies.update', $dmw->id), [
                 'name' => 'DMW',
                 'short' => 'DMW',
@@ -99,7 +102,7 @@ class AgencyDeletionGuardTest extends TestCase
             'is_default' => true,
         ]);
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->patch(route('admin.agencies.update', $dmw->id), [
                 'name' => 'Renamed Agency',
                 'short' => 'DMW',

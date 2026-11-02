@@ -3,12 +3,14 @@
 namespace Tests\Feature;
 
 use App\Enums\UserRole;
+use App\Http\Middleware\EnsureMfaSession;
 use App\Http\Middleware\VerifyTurnstile;
 use App\Models\CaseCategory;
 use App\Models\CaseFile;
 use App\Models\CaseIssue;
 use App\Models\Client;
 use App\Models\User;
+use App\Services\MfaPendingState;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Routing\Middleware\ThrottleRequests;
@@ -45,9 +47,19 @@ class DateOfEmploymentValidationTest extends TestCase
             VerifyTurnstile::class,
             PreventRequestForgery::class,
             ThrottleRequests::class,
+            EnsureMfaSession::class,
         ]);
 
-        $this->user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $this->user = User::factory()->mfaEnabled()->create([
+            'role' => UserRole::CASE_MANAGER->value,
+            'mfa_secret' => 'JBSWY3DPEHPK3PXP',
+        ]);
+        $this->withSession([
+            MfaPendingState::MARKER_KEY => [
+                'user_id' => (string) $this->user->id,
+                'credential_fingerprint' => hash('sha256', (string) $this->user->password),
+            ],
+        ]);
         $this->category = CaseCategory::factory()->create(['is_active' => true]);
         $this->caseIssue = CaseIssue::create([
             'name' => 'Unpaid wages',

@@ -28,12 +28,15 @@ class UserInviteTest extends TestCase
         Mail::fake();
 
         $this->agency = Agency::factory()->create();
-        $this->admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $this->admin = User::factory()->mfaEnabled()->create([
+            'role' => UserRole::ADMIN->value,
+            'mfa_secret' => 'JBSWY3DPEHPK3PXP',
+        ]);
     }
 
     public function test_admin_can_send_invite(): void
     {
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->post(route('admin.users.invite'), [
                 'email' => 'newuser@example.com',
                 'role' => UserRole::CASE_MANAGER->value,
@@ -57,7 +60,7 @@ class UserInviteTest extends TestCase
 
     public function test_invite_token_is_stored_hashed_only(): void
     {
-        $this->actingAs($this->admin)
+        $this->actingAsWithMfa($this->admin)
             ->post(route('admin.users.invite'), [
                 'email' => 'hashed@example.com',
                 'role' => UserRole::CASE_MANAGER->value,
@@ -78,7 +81,7 @@ class UserInviteTest extends TestCase
     {
         User::factory()->create(['email' => 'existing@example.com']);
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->post(route('admin.users.invite'), [
                 'email' => 'existing@example.com',
                 'role' => UserRole::CASE_MANAGER->value,
@@ -102,7 +105,7 @@ class UserInviteTest extends TestCase
             'created_by' => $this->admin->id,
         ]);
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->post(route('admin.users.invite'), [
                 'email' => 'pending@example.com',
                 'role' => UserRole::CASE_MANAGER->value,
@@ -126,7 +129,7 @@ class UserInviteTest extends TestCase
 
         $originalHash = $invite->token_hash;
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->post(route('admin.users.invites.resend', $invite->id));
 
         $response->assertRedirect();
@@ -142,11 +145,11 @@ class UserInviteTest extends TestCase
 
     public function test_invite_management_routes_reject_non_uuid_ids(): void
     {
-        $this->actingAs($this->admin)
+        $this->actingAsWithMfa($this->admin)
             ->post('/admin/users/invites/not-a-uuid/resend')
             ->assertNotFound();
 
-        $this->actingAs($this->admin)
+        $this->actingAsWithMfa($this->admin)
             ->delete('/admin/users/invites/not-a-uuid')
             ->assertNotFound();
     }
@@ -163,7 +166,7 @@ class UserInviteTest extends TestCase
             'consumed_at' => now(),
         ]);
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->post(route('admin.users.invites.resend', $invite->id));
 
         $response->assertRedirect();
@@ -181,7 +184,7 @@ class UserInviteTest extends TestCase
             'created_by' => $this->admin->id,
         ]);
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->delete(route('admin.users.invites.cancel', $invite->id));
 
         $response->assertRedirect();
@@ -203,7 +206,7 @@ class UserInviteTest extends TestCase
             'consumed_at' => now(),
         ]);
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->delete(route('admin.users.invites.cancel', $invite->id));
 
         $response->assertRedirect();
@@ -415,7 +418,7 @@ class UserInviteTest extends TestCase
     {
         $caseManager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
-        $response = $this->actingAs($caseManager)
+        $response = $this->actingAsWithMfa($caseManager)
             ->post(route('admin.users.invite'), [
                 'email' => 'newuser@example.com',
                 'role' => UserRole::CASE_MANAGER->value,

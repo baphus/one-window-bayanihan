@@ -49,7 +49,9 @@ Layer 6: Data Protection (PII encryption, audit logging, RLS — forced on 7 tab
 - **QR Code:** `bacon/bacon-qr-code`
 - **Recovery Codes:** 8 one-time-use codes generated on enrollment
 - **Storage:** `mfa_secret` (encrypted), `mfa_recovery_codes` (JSON array of HMAC-SHA256 hashes) in `users` table
-- **Enforcement:** `CheckMfaEnrolled` requires enrollment for every role, including OFW, in production regardless of enrollment flags. Non-production follows `config/mfa.php`. Production disable returns 403; the stored admin `two_factor_required` toggle does not control enforcement.
+- **Enforcement:** Persisted role defaults and per-user inherit/required/optional overrides control enrollment identically in every environment. All roles initially require MFA; administrators always require it. Enrolled accounts always complete challenges and need valid MFA sessions, even when enrollment is optional. Policy changes apply on the next protected request without grace; relaxing policy preserves credentials.
+- **Administrator controls:** Policy edits and resets require a reason and MFA proof within five minutes. Administrators cannot reset their own enrollment. Audit records capture policy changes and recovery attribution; effective requirement changes and credential removal notify affected users. Legacy enrollment environment switches and `two_factor_required` are not controls.
+- **Removal and recovery:** Optional users may disable MFA with password plus current TOTP/recovery proof, revoking other sessions. Required users cannot disable. Recovery-code regeneration requires password and fresh MFA confirmation. Another freshly verified administrator or restricted operator recovery can reset enrollment, revoke sessions, and force reenrollment. See [MFA_ROLLOUT.md](MFA_ROLLOUT.md) for operator safeguards.
 
 ### Session Management
 

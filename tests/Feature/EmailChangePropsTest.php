@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Http\Middleware\EnsureMfaSession;
 use App\Http\Middleware\SetPostgresSession;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -41,14 +42,15 @@ class EmailChangePropsTest extends TestCase
 
         // SetPostgresSession uses parameterized SET SESSION statements that
         // PostgreSQL rejects through PDO prepared statements.
-        $this->withoutMiddleware(SetPostgresSession::class);
+        $this->withoutMiddleware([SetPostgresSession::class, EnsureMfaSession::class]);
 
         Mail::fake();
 
-        $this->user = User::factory()->create([
+        $this->user = User::factory()->mfaEnabled()->create([
             'email' => 'old@example.com',
             'password' => Hash::make('password'),
             'mfa_secret' => 'JBSWY3DPEHPK3PXP',
+            'mfa_recovery_codes' => [],
             'mfa_enabled_at' => now(),
             'notifications_config' => self::PREFS,
         ]);

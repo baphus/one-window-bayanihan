@@ -89,8 +89,8 @@ Separate `/activity` reads use `ActivityScope` and `ActivityVisibility`: the Cas
 | Mechanism | Contract |
 |---|---|
 | Authenticator MFA and recovery codes | Email/password login followed by MFA where enabled/required; pending challenge default 300 seconds, maximum 5 attempts, replay window 120 seconds |
-| Production MFA | `User::isInMfaEnforcedRole()` requires MFA for every non-empty role, including `OFW`; enrollment flags cannot bypass production enforcement; `MfaController::disable()` blocks disabling in production |
-| Non-production MFA | `config/mfa.php` controls enrollment enforcement; default roles come from `UserRole::staffValues()`; citizen enrollment is supported but not in the default enforced set |
+| MFA policy (all environments) | All role defaults start required. Administrators control non-admin role defaults and per-user inherit/required/optional overrides; administrator accounts always require MFA. Explicit overrides survive role changes. |
+| Enrollment versus challenge | Optional policy preserves credentials and still challenges enrolled users. Optional users may disable with password plus current MFA proof; required users cannot disable. Policy edits and administrator resets require fresh five-minute MFA confirmation and a reason. |
 | Email codes | Citizen registration review, email changes, tracking/document-request access; five-minute, single-use verification through `OtpService`, not the password-login second factor |
 
 Administrators may reset a user's MFA under the protected user-administration action. Recovery codes provide a self-service fallback. Account/credential changes can invalidate sessions; deactivated users are refused on subsequent requests.

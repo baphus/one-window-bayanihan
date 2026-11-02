@@ -2,10 +2,13 @@ import Select from '@/Components/Select';
 import { useForm, router, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 import InputError from '@/Components/InputError';
+import MfaConfirmDialog from '@/Components/MfaConfirmDialog';
+import useMfaStatus from '@/Hooks/useMfaStatus';
 
-export default function UserFormModal({ user, agencies, onClose, onBypass, selectedAgencyId, initialMode = 'invite' }) {
+export default function UserFormModal({ user, agencies, onClose, onBypass, selectedAgencyId, initialMode = 'invite', mfaPolicy }) {
   const isEdit = !!user;
   const isNewUserViaSelectedAgency = !!selectedAgencyId && !user?.id;
+  const policy = mfaPolicy ?? user?.mfaPolicy ?? null;
 
   const [mode, setMode] = useState(isEdit ? 'invite' : initialMode);
   const isCreateMode = !isEdit && !isNewUserViaSelectedAgency && mode === 'create';
@@ -17,7 +20,7 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
     { value: roles.ADMIN, label: 'System Admin', description: 'Full system access and configuration' },
   ];
 
-  const { data, setData, post, patch, processing, errors, clearErrors, setError } = useForm({
+  const { data, setData, post, patch, processing, errors, clearErrors, setError, transform } = useForm({
     name: user?.name ?? '',
     email: user?.email ?? '',
     password: '',
@@ -30,20 +33,69 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
     office_location: user?.office_location ?? '',
     bio: user?.bio ?? '',
     is_active: user?.is_active ?? true,
+    mfa_requirement_override: policy?.override ?? 'inherit',
+    mfa_change_reason: '',
   });
 
+  const [mfaConfirmOpen, setMfaConfirmOpen] = useState(false);
+  const [forceMfaProof, setForceMfaProof] = useState(false);
+  const [mfaProofError, setMfaProofError] = useState('');
+  const { status: mfaStatus } = useMfaStatus();
+
   const selectedRole = roleOptions.find((r) => r.value === data.role);
+  const policyChanged = isEdit && !!policy && data.mfa_requirement_override !== policy.override;
+  const effectiveMfa = data.role === roles.ADMIN
+    ? 'required'
+    : data.mfa_requirement_override === 'inherit'
+      ? policy?.role_default ?? null
+      : data.mfa_requirement_override;
+  const policyLabel = (value) => (
+    value === 'required' ? 'Required'
+      : value === 'optional' ? 'Optional'
+        : value === 'inherit' ? 'Inherit role default'
+          : null
+  );
+
+  const stripMfaFields = (payload) => {
+    const { mfa_requirement_override, mfa_change_reason, ...rest } = payload;
+    return rest;
+  };
+
+  const saveEdit = (proof = {}) => {
+    onBypass?.();
+    const submitData = policyChanged
+      ? { ...data, mfa_requirement_override: data.mfa_requirement_override, mfa_change_reason: data.mfa_change_reason.trim(), ...proof }
+      : stripMfaFields(data);
+    transform(() => submitData);
+    patch(route('admin.users.update', user.id), {
+      onSuccess: () => {
+        onClose?.();
+        router.reload({ only: ['users'] });
+      },
+      onError: (errs) => {
+        transform(stripMfaFields);
+        if (errs.mfa_confirmation) {
+          setForceMfaProof(true);
+          setMfaProofError(errs.mfa_confirmation?.[0] ?? errs.mfa_confirmation);
+          setMfaConfirmOpen(true);
+        }
+      },
+    });
+  };
 
   function handleSubmit(e) {
     e.preventDefault();
-    onBypass?.();
     clearErrors();
 
     if (!isEdit) {
+      onBypass?.();
+
       if (data.role === roles.AGENCY && !data.agcy_id) {
         setError('agcy_id', 'Agency is required for Agency Focal users.');
         return;
       }
+
+      transform(stripMfaFields);
 
       if (isCreateMode) {
         post(route('admin.users.store'), {
@@ -59,17 +111,26 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
           },
         });
       }
-    } else {
-      patch(route('admin.users.update', user.id), {
-        onSuccess: () => {
-          onClose?.();
-          router.reload({ only: ['users'] });
-        },
-      });
+      return;
     }
+
+    if (policyChanged && !data.mfa_change_reason.trim()) {
+      setError('mfa_change_reason', 'A reason is required when changing the MFA requirement.');
+      return;
+    }
+
+    if (policyChanged) {
+      setForceMfaProof(false);
+      setMfaProofError('');
+      setMfaConfirmOpen(true);
+      return;
+    }
+
+    saveEdit();
   }
 
   return (
+    <>
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
       <div className="bg-surface-bright rounded-xl shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto owb-modal-animate" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
@@ -196,6 +257,12 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
               </div>
             )}
 
+            {!isEdit && (
+              <p className="text-xs text-slate-500 mt-1">
+                New accounts inherit the MFA requirement of their role. Individual overrides can be set after the account exists.
+              </p>
+            )}
+
             {!isEdit && !isCreateMode && (
               <p className="text-xs text-slate-500 mt-1">
                 An invitation email will be sent to this address. The user will set their own name, password, and profile details.
@@ -282,6 +349,72 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
               </div>
             )}
           </fieldset>
+
+          {/* Section: MFA requirement (edit only) */}
+          {isEdit && (
+            <fieldset className="space-y-4">
+              <legend className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">MFA Requirement</legend>
+
+              {policy ? (
+                <>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                      <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Role default</p>
+                      <p className="mt-1 text-sm font-semibold text-slate-900">{policyLabel(policy.role_default) ?? '—'}</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Effective requirement</p>
+                      <p className={`mt-1 text-sm font-semibold ${effectiveMfa === 'required' ? 'text-amber-700' : 'text-slate-900'}`}>
+                        {policyLabel(effectiveMfa) ?? '—'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700">User override</label>
+                    <Select
+                      value={data.mfa_requirement_override}
+                      onChange={(e) => {
+                        setData('mfa_requirement_override', e.target.value);
+                        clearErrors('mfa_requirement_override', 'mfa_change_reason');
+                      }}
+                      className="mt-1 w-full py-2 text-sm"
+                    >
+                      <option value="inherit">Inherit role default</option>
+                      <option value="required">Required</option>
+                      <option value="optional">Optional</option>
+                    </Select>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Administrator accounts are always required, even when an override says optional.
+                      Optional never deletes existing authenticator or recovery codes.
+                    </p>
+                    <InputError message={errors.mfa_requirement_override} className="mt-1" />
+                  </div>
+
+                  {policyChanged && (
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700">
+                        Reason for MFA policy change <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={data.mfa_change_reason}
+                        onChange={(e) => setData('mfa_change_reason', e.target.value)}
+                        className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-primary focus:ring-primary text-sm"
+                        placeholder="e.g. Requested by the division head"
+                        maxLength={500}
+                      />
+                      <InputError message={errors.mfa_change_reason} className="mt-1" />
+                    </div>
+                  )}
+                </>
+              ) : (
+                <p className="text-xs text-slate-500">
+                  MFA policy details are unavailable. Reload the page before changing this user’s requirement.
+                </p>
+              )}
+            </fieldset>
+          )}
 
           {/* Section: Profile Details (edit only) */}
           {isEdit && (
@@ -379,5 +512,31 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
         </form>
       </div>
     </div>
+
+    <MfaConfirmDialog
+      open={mfaConfirmOpen}
+      title="Confirm MFA policy change"
+      description={`Changing ${user?.name ?? 'this user'}’s MFA requirement needs your own MFA confirmation.`}
+      confirmLabel="Save policy"
+      confirmedUntil={forceMfaProof ? null : mfaStatus?.confirmed_until}
+      forceProof={forceMfaProof}
+      proofOnly
+      reasonRequired
+      reason={data.mfa_change_reason}
+      error={mfaProofError}
+      onCancel={() => {
+        setMfaConfirmOpen(false);
+        setForceMfaProof(false);
+        setMfaProofError('');
+      }}
+      onConfirmed={({ proof, reason }) => {
+        setData('mfa_change_reason', reason);
+        setMfaConfirmOpen(false);
+        setForceMfaProof(false);
+        setMfaProofError('');
+        saveEdit({ ...(proof || {}), mfa_change_reason: reason });
+      }}
+    />
+    </>
   );
 }

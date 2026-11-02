@@ -32,8 +32,11 @@ class AuditCoverageGapsTest extends TestCase
 
     public function test_settings_update_writes_audit_row_with_the_changed_key(): void
     {
-        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
-        $this->actingAs($admin);
+        $admin = User::factory()->mfaEnabled()->create([
+            'role' => UserRole::ADMIN->value,
+            'mfa_secret' => 'JBSWY3DPEHPK3PXP',
+        ]);
+        $this->actingAsWithMfa($admin);
 
         // The separate Security & Auth page (and its two_factor_required
         // toggle) is gone: MFA enforcement is decided by config/mfa.php and is
@@ -73,9 +76,12 @@ class AuditCoverageGapsTest extends TestCase
      */
     public function test_user_deactivation_writes_audit_row(): void
     {
-        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
-        $target = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-        $this->actingAs($admin);
+        $admin = User::factory()->mfaEnabled()->create([
+            'role' => UserRole::ADMIN->value,
+            'mfa_secret' => 'JBSWY3DPEHPK3PXP',
+        ]);
+        $target = User::factory()->mfaEnabled()->create(['role' => UserRole::CASE_MANAGER->value, 'mfa_secret' => 'JBSWY3DPEHPK3PXP']);
+        $this->actingAsWithMfa($admin);
 
         DB::table('sessions')->insert([
             'id' => 'deactivation-session',
@@ -98,9 +104,12 @@ class AuditCoverageGapsTest extends TestCase
 
     public function test_password_change_writes_audit_row(): void
     {
-        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
-        $target = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-        $this->actingAs($admin);
+        $admin = User::factory()->mfaEnabled()->create([
+            'role' => UserRole::ADMIN->value,
+            'mfa_secret' => 'JBSWY3DPEHPK3PXP',
+        ]);
+        $target = User::factory()->mfaEnabled()->create(['role' => UserRole::CASE_MANAGER->value, 'mfa_secret' => 'JBSWY3DPEHPK3PXP']);
+        $this->actingAsWithMfa($admin);
 
         DB::table('sessions')->insert([
             'id' => 'password-change-session',
@@ -113,7 +122,7 @@ class AuditCoverageGapsTest extends TestCase
 
         // Setting somebody else's password is a full account takeover, so
         // users.update demands the acting admin re-enter their OWN password.
-        $this->actingAs($admin)
+        $this->actingAsWithMfa($admin)
             ->patch(route('admin.users.update', $target->id), [
                 'name' => $target->name,
                 'email' => $target->email,
@@ -138,8 +147,11 @@ class AuditCoverageGapsTest extends TestCase
 
     public function test_maintenance_enable_writes_audit_row(): void
     {
-        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
-        $this->actingAs($admin);
+        $admin = User::factory()->mfaEnabled()->create([
+            'role' => UserRole::ADMIN->value,
+            'mfa_secret' => 'JBSWY3DPEHPK3PXP',
+        ]);
+        $this->actingAsWithMfa($admin);
         $this->ensureMaintenanceModeOff();
 
         try {
@@ -157,8 +169,11 @@ class AuditCoverageGapsTest extends TestCase
 
     public function test_maintenance_disable_writes_audit_row(): void
     {
-        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
-        $this->actingAs($admin);
+        $admin = User::factory()->mfaEnabled()->create([
+            'role' => UserRole::ADMIN->value,
+            'mfa_secret' => 'JBSWY3DPEHPK3PXP',
+        ]);
+        $this->actingAsWithMfa($admin);
         $this->ensureMaintenanceModeOff();
 
         try {

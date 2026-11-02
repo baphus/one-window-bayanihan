@@ -34,9 +34,9 @@ class ActivityEndpointTest extends TestCase
         ]);
     }
 
-    private function rows(string $uri, User $user): array
+    protected function rows(string $uri, User $user): array
     {
-        return $this->actingAs($user)->get($uri)->assertOk()->json('data');
+        return $this->actingAsWithMfa($user)->get($uri)->assertOk()->json('data');
     }
 
     public function test_agency_can_read_activity_for_case_with_active_referral(): void
@@ -78,7 +78,7 @@ class ActivityEndpointTest extends TestCase
         $case = CaseFile::factory()->create();
         Referral::factory()->processing()->create(['case_id' => $case->id, 'agcy_id' => $ownerAgency->id]);
 
-        $this->actingAs($user)->get(route('api.cases.activity', $case->id))->assertForbidden();
+        $this->actingAsWithMfa($user)->get(route('api.cases.activity', $case->id))->assertForbidden();
     }
 
     public function test_only_owning_agency_can_read_referral_activity(): void
@@ -89,8 +89,8 @@ class ActivityEndpointTest extends TestCase
         $foreign = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $foreignAgency->id]);
         $referral = Referral::factory()->create(['agcy_id' => $ownerAgency->id]);
 
-        $this->actingAs($owner)->get(route('api.referrals.activity', $referral->id))->assertOk();
-        $this->actingAs($foreign)->get(route('api.referrals.activity', $referral->id))->assertForbidden();
+        $this->actingAsWithMfa($owner)->get(route('api.referrals.activity', $referral->id))->assertOk();
+        $this->actingAsWithMfa($foreign)->get(route('api.referrals.activity', $referral->id))->assertForbidden();
     }
 
     public function test_activity_response_has_no_raw_audit_payload_keys(): void

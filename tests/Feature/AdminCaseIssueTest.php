@@ -25,7 +25,7 @@ class AdminCaseIssueTest extends TestCase
         CaseIssue::create(['name' => 'Fraud', 'sort_order' => 1, 'is_active' => true]);
         CaseIssue::create(['name' => 'Overpayment', 'sort_order' => 2, 'is_active' => true]);
 
-        $response = $this->actingAs($this->admin)->get(route('admin.case-issues.index'));
+        $response = $this->actingAsWithMfa($this->admin)->get(route('admin.case-issues.index'));
 
         $response->assertInertia(fn ($page) => $page
             ->component('Admin/CaseIssue/Index')
@@ -35,7 +35,7 @@ class AdminCaseIssueTest extends TestCase
 
     public function test_admin_can_create_issue(): void
     {
-        $response = $this->actingAs($this->admin)->post(route('admin.case-issues.store'), [
+        $response = $this->actingAsWithMfa($this->admin)->post(route('admin.case-issues.store'), [
             'name' => 'Contract Violation',
             'sort_order' => 3,
         ]);
@@ -51,7 +51,7 @@ class AdminCaseIssueTest extends TestCase
     {
         $issue = CaseIssue::create(['name' => 'Old Issue', 'is_active' => true]);
 
-        $response = $this->actingAs($this->admin)->patch(route('admin.case-issues.update', $issue->id), [
+        $response = $this->actingAsWithMfa($this->admin)->patch(route('admin.case-issues.update', $issue->id), [
             'name' => 'Updated Issue',
             'is_active' => true,
             'sort_order' => 5,
@@ -68,7 +68,7 @@ class AdminCaseIssueTest extends TestCase
     {
         $issue = CaseIssue::create(['name' => 'Temp Issue', 'is_active' => true]);
 
-        $response = $this->actingAs($this->admin)->delete(route('admin.case-issues.destroy', $issue->id));
+        $response = $this->actingAsWithMfa($this->admin)->delete(route('admin.case-issues.destroy', $issue->id));
 
         $response->assertRedirect();
         $this->assertDatabaseHas('case_issues', [
@@ -80,9 +80,12 @@ class AdminCaseIssueTest extends TestCase
 
     public function test_non_admin_cannot_create_issue(): void
     {
-        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $user = User::factory()->mfaEnabled()->create([
+            'role' => UserRole::CASE_MANAGER->value,
+            'mfa_secret' => 'JBSWY3DPEHPK3PXP',
+        ]);
 
-        $response = $this->actingAs($user)->post(route('admin.case-issues.store'), [
+        $response = $this->actingAsWithMfa($user)->post(route('admin.case-issues.store'), [
             'name' => 'Hacked',
         ]);
 
@@ -91,7 +94,7 @@ class AdminCaseIssueTest extends TestCase
 
     public function test_validation_requires_name(): void
     {
-        $response = $this->actingAs($this->admin)->post(route('admin.case-issues.store'), [
+        $response = $this->actingAsWithMfa($this->admin)->post(route('admin.case-issues.store'), [
             'name' => '',
         ]);
 

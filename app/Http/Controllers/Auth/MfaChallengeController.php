@@ -77,6 +77,7 @@ class MfaChallengeController extends Controller
         Auth::guard('web')->login($user, $remember);
         $request->session()->regenerate();
         app(MfaPendingState::class)->markAuthenticated($request, $user);
+        app(MfaPendingState::class)->confirm($request, $user);
         app(MfaPendingState::class)->clear($request);
 
         // Flash recovery codes remaining count for post-login banner

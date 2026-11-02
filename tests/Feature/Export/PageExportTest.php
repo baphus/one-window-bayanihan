@@ -37,7 +37,7 @@ class PageExportTest extends TestCase
     {
         $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
-        $response = $this->actingAs($user)->get(route('cases.export-excel'));
+        $response = $this->actingAsWithMfa($user)->get(route('cases.export-excel'));
 
         $response->assertStatus(200);
         $response->assertHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -62,7 +62,7 @@ class PageExportTest extends TestCase
     {
         $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
-        $response = $this->actingAs($user)->get(route('clients.export-excel'));
+        $response = $this->actingAsWithMfa($user)->get(route('clients.export-excel'));
 
         $response->assertStatus(200);
         $response->assertHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -87,7 +87,7 @@ class PageExportTest extends TestCase
     {
         $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
-        $response = $this->actingAs($user)->get(route('referrals.export-excel'));
+        $response = $this->actingAsWithMfa($user)->get(route('referrals.export-excel'));
 
         $response->assertStatus(200);
         $response->assertHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');

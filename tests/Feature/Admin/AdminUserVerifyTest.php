@@ -17,14 +17,17 @@ class AdminUserVerifyTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $this->admin = User::factory()->mfaEnabled()->create([
+            'role' => UserRole::ADMIN->value,
+            'mfa_secret' => 'JBSWY3DPEHPK3PXP',
+        ]);
     }
 
     public function test_admin_can_verify_unverified_user(): void
     {
         $target = User::factory()->unverified()->create();
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->patch(route('admin.users.verify', $target->id));
 
         $response->assertRedirect();
@@ -35,7 +38,7 @@ class AdminUserVerifyTest extends TestCase
     {
         $target = User::factory()->create(); // email_verified_at defaults to now()
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->patch(route('admin.users.verify', $target->id));
 
         $response->assertRedirect();
@@ -47,7 +50,7 @@ class AdminUserVerifyTest extends TestCase
         $cm = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $target = User::factory()->unverified()->create();
 
-        $response = $this->actingAs($cm)
+        $response = $this->actingAsWithMfa($cm)
             ->patch(route('admin.users.verify', $target->id));
 
         $response->assertForbidden();
@@ -58,7 +61,7 @@ class AdminUserVerifyTest extends TestCase
         $agency = User::factory()->create(['role' => UserRole::AGENCY->value]);
         $target = User::factory()->unverified()->create();
 
-        $response = $this->actingAs($agency)
+        $response = $this->actingAsWithMfa($agency)
             ->patch(route('admin.users.verify', $target->id));
 
         $response->assertForbidden();
@@ -77,7 +80,7 @@ class AdminUserVerifyTest extends TestCase
     {
         $fakeId = '00000000-0000-0000-0000-000000000000';
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->patch(route('admin.users.verify', $fakeId));
 
         $response->assertNotFound();
@@ -87,7 +90,7 @@ class AdminUserVerifyTest extends TestCase
     {
         $target = User::factory()->unverified()->create(['is_active' => false]);
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->patch(route('admin.users.verify', $target->id));
 
         $response->assertSessionHas('error');
@@ -98,7 +101,7 @@ class AdminUserVerifyTest extends TestCase
     {
         $target = User::factory()->create(['is_deleted' => true]);
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->patch(route('admin.users.verify', $target->id));
 
         $response->assertSessionHas('error');
@@ -122,21 +125,21 @@ class AdminUserVerifyTest extends TestCase
         $this->app->instance(OtpService::class, $otp);
 
         // Step 1: Send OTP
-        $this->actingAs($this->admin)
+        $this->actingAsWithMfa($this->admin)
             ->post(route('admin.users.email-change.send-otp', $target->id), [
                 'admin_password' => 'P@ssw0rd!',
                 'new_email' => $newEmail,
             ]);
 
         // Step 2: Verify OTP (stores verified flag in session, does NOT save email yet)
-        $this->actingAs($this->admin)
+        $this->actingAsWithMfa($this->admin)
             ->withSession(['pending_admin_email_change_'.$target->id => $newEmail])
             ->post(route('admin.users.email-change.verify-otp', $target->id), [
                 'otp' => '123456',
             ]);
 
         // Step 3: Submit update — should save the email now since it's verified
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->withSession(['verified_new_email_admin_'.$target->id => $newEmail])
             ->patch(route('admin.users.update', $target->id), [
                 'name' => $target->name,
@@ -157,7 +160,7 @@ class AdminUserVerifyTest extends TestCase
         $target = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $verified = 'verified-'.$target->email;
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->withSession(['verified_new_email_admin_'.$target->id => $verified])
             ->patch(route('admin.users.update', $target->id), [
                 'name' => $target->name,
@@ -179,7 +182,7 @@ class AdminUserVerifyTest extends TestCase
         $originalEmail = $target->email;
         $newEmail = 'admin-changed-'.$target->email;
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->patch(route('admin.users.update', $target->id), [
                 'name' => $target->name,
                 'email' => $newEmail,
@@ -197,7 +200,7 @@ class AdminUserVerifyTest extends TestCase
         $originalEmail = $target->email;
         $newEmail = 'admin-changed-'.$target->email;
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->withSession(['verified_new_email_admin_'.$target->id => 'somebody-else@example.com'])
             ->patch(route('admin.users.update', $target->id), [
                 'name' => $target->name,

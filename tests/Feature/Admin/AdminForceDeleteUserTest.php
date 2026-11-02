@@ -7,6 +7,7 @@ use App\Http\Middleware\CheckUserActive;
 use App\Models\AuditLog;
 use App\Models\CaseFile;
 use App\Models\User;
+use App\Services\MfaPendingState;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -39,7 +40,20 @@ class AdminForceDeleteUserTest extends TestCase
     {
         parent::setUp();
 
-        $this->admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $this->admin = User::factory()->mfaEnabled()->create([
+            'role' => UserRole::ADMIN->value,
+            'mfa_secret' => 'JBSWY3DPEHPK3PXP',
+        ]);
+    }
+
+    private function withMfaMarker(User $user): void
+    {
+        $this->withSession([
+            MfaPendingState::MARKER_KEY => [
+                'user_id' => (string) $user->id,
+                'credential_fingerprint' => hash('sha256', (string) $user->password),
+            ],
+        ]);
     }
 
     /**
@@ -99,7 +113,7 @@ class AdminForceDeleteUserTest extends TestCase
         $first = $this->auditEntryFor($target, 'Reviewed intake');
         $second = $this->auditEntryFor($target, 'Closed case');
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->delete(route('admin.users.destroy', $target->id));
 
         $this->assertFalse($response->isServerError(), 'The purge must never surface a 500.');
@@ -132,7 +146,7 @@ class AdminForceDeleteUserTest extends TestCase
         $this->auditEntryFor($target, 'Reviewed intake');
         $trailing = $this->auditEntryFor($this->admin, 'Admin activity afterwards');
 
-        $this->actingAs($this->admin)
+        $this->actingAsWithMfa($this->admin)
             ->delete(route('admin.users.destroy', $target->id))
             ->assertSessionHasErrors('user');
 
@@ -152,7 +166,7 @@ class AdminForceDeleteUserTest extends TestCase
         // thing left to block the DELETE is an ordinary ownership reference.
         CaseFile::factory()->create(['user_id' => $target->id]);
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->delete(route('admin.users.destroy', $target->id));
 
         $this->assertFalse($response->isServerError(), 'A blocked FK must never surface a 500.');
@@ -172,7 +186,7 @@ class AdminForceDeleteUserTest extends TestCase
         $target = $this->purgedUser();
         $sessionId = $this->sessionRowFor($target);
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->delete(route('admin.users.destroy', $target->id));
 
         $response->assertRedirect(route('admin.users.index'));
@@ -190,10 +204,14 @@ class AdminForceDeleteUserTest extends TestCase
 
     public function test_non_admin_cannot_purge_a_user(): void
     {
-        $caseManager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $caseManager = User::factory()->mfaEnabled()->create([
+            'role' => UserRole::CASE_MANAGER->value,
+            'mfa_secret' => 'JBSWY3DPEHPK3PXP',
+        ]);
+        $this->withMfaMarker($caseManager);
         $target = $this->purgedUser();
 
-        $this->actingAs($caseManager)
+        $this->actingAsWithMfa($caseManager)
             ->delete(route('admin.users.destroy', $target->id))
             ->assertForbidden();
 
@@ -213,9 +231,10 @@ class AdminForceDeleteUserTest extends TestCase
             'role' => UserRole::ADMIN->value,
             'is_active' => true,
         ]);
-        $inactiveAdmin = User::factory()->create([
+        $inactiveAdmin = User::factory()->mfaEnabled()->create([
             'role' => UserRole::ADMIN->value,
             'is_active' => false,
+            'mfa_secret' => 'JBSWY3DPEHPK3PXP',
         ]);
 
         // setUp() creates an active admin; step it down so the target really is
@@ -224,6 +243,12 @@ class AdminForceDeleteUserTest extends TestCase
 
         $response = $this->withoutMiddleware([CheckUserActive::class])
             ->actingAs($inactiveAdmin)
+            ->withSession([
+                MfaPendingState::MARKER_KEY => [
+                    'user_id' => (string) $inactiveAdmin->id,
+                    'credential_fingerprint' => hash('sha256', (string) $inactiveAdmin->password),
+                ],
+            ])
             ->delete(route('admin.users.destroy', $lastActiveAdmin->id));
 
         $response->assertRedirect(route('admin.users.index'));
@@ -245,7 +270,7 @@ class AdminForceDeleteUserTest extends TestCase
             'is_deleted' => true,
         ]);
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->delete(route('admin.users.destroy', $inactiveAdmin->id));
 
         $response->assertRedirect(route('admin.users.index'));

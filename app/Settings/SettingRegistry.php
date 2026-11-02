@@ -86,6 +86,32 @@ final class SettingRegistry
             ),
 
             // --- Security -------------------------------------------------
+            // Role defaults are the single enrolment policy source. The
+            // administrator role has no key: it is always required.
+            Setting::bool(
+                key: 'mfa_role_case_manager_required',
+                group: SettingGroup::SECURITY,
+                default: true,
+                consumer: 'MfaPolicyService::roleDefault',
+                description: 'Require MFA for Case Manager accounts by default. Optional still challenges accounts that are already enrolled, and never deletes their credentials.',
+            ),
+
+            Setting::bool(
+                key: 'mfa_role_agency_required',
+                group: SettingGroup::SECURITY,
+                default: true,
+                consumer: 'MfaPolicyService::roleDefault',
+                description: 'Require MFA for Agency Focal accounts by default. Optional still challenges accounts that are already enrolled, and never deletes their credentials.',
+            ),
+
+            Setting::bool(
+                key: 'mfa_role_ofw_required',
+                group: SettingGroup::SECURITY,
+                default: true,
+                consumer: 'MfaPolicyService::roleDefault',
+                description: 'Require MFA for Citizen (OFW and next of kin) accounts by default. Optional still challenges accounts that are already enrolled, and never deletes their credentials.',
+            ),
+
             Setting::int(
                 key: 'otp_expiry_seconds',
                 group: SettingGroup::SECURITY,

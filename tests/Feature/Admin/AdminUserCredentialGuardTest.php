@@ -27,7 +27,10 @@ class AdminUserCredentialGuardTest extends TestCase
     {
         parent::setUp();
         // Factory default password is 'P@ssw0rd!'.
-        $this->admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $this->admin = User::factory()->mfaEnabled()->create([
+            'role' => UserRole::ADMIN->value,
+            'mfa_secret' => 'JBSWY3DPEHPK3PXP',
+        ]);
     }
 
     /**
@@ -48,7 +51,7 @@ class AdminUserCredentialGuardTest extends TestCase
         $target = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $original = $target->email;
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->patch(route('admin.users.update', $target->id), $this->payload($target, [
                 'email' => 'unverified-change@example.com',
             ]));
@@ -64,7 +67,7 @@ class AdminUserCredentialGuardTest extends TestCase
         $newEmail = 'verified-change@example.com';
         $key = 'verified_new_email_admin_'.$target->id;
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->withSession([$key => $newEmail])
             ->patch(route('admin.users.update', $target->id), $this->payload($target, [
                 'email' => $newEmail,
@@ -85,7 +88,7 @@ class AdminUserCredentialGuardTest extends TestCase
         $target = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $original = $target->email;
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->withSession(['verified_new_email_admin_'.$target->id => 'proved-address@example.com'])
             ->patch(route('admin.users.update', $target->id), $this->payload($target, [
                 'email' => 'attacker-address@example.com',
@@ -100,7 +103,7 @@ class AdminUserCredentialGuardTest extends TestCase
     {
         $target = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->patch(route('admin.users.update', $target->id), $this->payload($target, [
                 'name' => 'Renamed Without Otp',
                 'position' => 'Focal Person',
@@ -117,7 +120,7 @@ class AdminUserCredentialGuardTest extends TestCase
         $target = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $originalHash = $target->password;
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->patch(route('admin.users.update', $target->id), $this->payload($target, [
                 'password' => 'N3w-P@ss!word',
             ]));
@@ -132,7 +135,7 @@ class AdminUserCredentialGuardTest extends TestCase
     {
         $target = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->patch(route('admin.users.update', $target->id), $this->payload($target, [
                 'password' => 'N3w-P@ss!word',
                 'current_password' => 'not-the-admin-password',
@@ -147,7 +150,7 @@ class AdminUserCredentialGuardTest extends TestCase
     {
         $target = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->patch(route('admin.users.update', $target->id), $this->payload($target, [
                 'password' => 'N3w-P@ss!word',
                 'current_password' => 'P@ssw0rd!',
@@ -163,7 +166,7 @@ class AdminUserCredentialGuardTest extends TestCase
     {
         $otherAdmin = User::factory()->create(['role' => UserRole::ADMIN->value]);
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->patch(route('admin.users.update', $otherAdmin->id), $this->payload($otherAdmin, [
                 'password' => 'N3w-P@ss!word',
                 'current_password' => 'guessing-wrongly',
@@ -183,7 +186,7 @@ class AdminUserCredentialGuardTest extends TestCase
         $target = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         for ($i = 0; $i < 5; $i++) {
-            $this->actingAs($this->admin)
+            $this->actingAsWithMfa($this->admin)
                 ->patch(route('admin.users.update', $target->id), $this->payload($target, [
                     'password' => 'N3w-P@ss!word',
                     'current_password' => 'wrong-guess-'.$i,
@@ -191,7 +194,7 @@ class AdminUserCredentialGuardTest extends TestCase
                 ->assertSessionHasErrors(['current_password']);
         }
 
-        $this->actingAs($this->admin)
+        $this->actingAsWithMfa($this->admin)
             ->patch(route('admin.users.update', $target->id), $this->payload($target, [
                 'password' => 'N3w-P@ss!word',
                 'current_password' => 'wrong-guess-6',
@@ -209,7 +212,7 @@ class AdminUserCredentialGuardTest extends TestCase
         $target = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         for ($i = 0; $i < 12; $i++) {
-            $this->actingAs($this->admin)
+            $this->actingAsWithMfa($this->admin)
                 ->patch(route('admin.users.update', $target->id), $this->payload($target, [
                     'name' => 'Renamed '.$i,
                 ]))
@@ -222,10 +225,13 @@ class AdminUserCredentialGuardTest extends TestCase
     #[Test]
     public function a_case_manager_cannot_reach_the_credential_branches(): void
     {
-        $caseManager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $caseManager = User::factory()->mfaEnabled()->create([
+            'role' => UserRole::CASE_MANAGER->value,
+            'mfa_secret' => 'JBSWY3DPEHPK3PXP',
+        ]);
         $target = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
-        $this->actingAs($caseManager)
+        $this->actingAsWithMfa($caseManager)
             ->patch(route('admin.users.update', $target->id), $this->payload($target, [
                 'password' => 'N3w-P@ss!word',
                 'current_password' => 'P@ssw0rd!',

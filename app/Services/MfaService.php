@@ -123,6 +123,42 @@ class MfaService
         });
     }
 
+    public function verifyCurrentTotp(User $user, string $code): bool
+    {
+        if (! $user->mfa_secret) {
+            return false;
+        }
+
+        try {
+            return app('pragmarx.google2fa')->verifyKey($user->mfa_secret, $code);
+        } catch (Throwable) {
+            return false;
+        }
+    }
+
+    public function consumeTotp(User $user, string $code): bool
+    {
+        return DB::transaction(function () use ($user, $code): bool {
+            $locked = User::whereKey($user->getKey())->lockForUpdate()->first();
+            if (! $locked || $locked->mfa_enabled_at === null) {
+                return false;
+            }
+
+            $lastUsed = (int) ($locked->mfa_last_totp_counter ?? 0);
+            $counter = null;
+            if (! $this->verifyTotp($locked, $code, $lastUsed, $counter)) {
+                return false;
+            }
+
+            if ($counter !== null && $counter > $lastUsed) {
+                $locked->mfa_last_totp_counter = $counter;
+                $locked->save();
+            }
+
+            return true;
+        });
+    }
+
     public function challengeStillValid(string $userId, string $fingerprint): bool
     {
         $user = User::find($userId);

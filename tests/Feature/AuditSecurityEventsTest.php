@@ -6,10 +6,12 @@ use App\Enums\AuditModule;
 use App\Enums\UserRole;
 use App\Http\Middleware\TurnstileMiddleware;
 use App\Models\AuditLog;
+use App\Models\SystemSetting;
 use App\Models\User;
 use App\Services\AuditLogger;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use PragmaRX\Google2FA\Google2FA;
 use Tests\TestCase;
 
 class AuditSecurityEventsTest extends TestCase
@@ -53,15 +55,19 @@ class AuditSecurityEventsTest extends TestCase
     public function test_mfa_disable_is_logged_as_security_event(): void
     {
         $user = User::factory()->create([
+            'role' => UserRole::CASE_MANAGER->value,
             'password' => Hash::make('CorrectHorse1!'),
-            'mfa_secret' => 'SECRETSECRET',
+            'mfa_secret' => 'JBSWY3DPEHPK3PXP',
+            'mfa_recovery_codes' => [],
             'mfa_enabled_at' => now(),
         ]);
 
         AuditLog::truncate();
 
-        $this->actingAs($user)->postJson('/profile/mfa/disable', [
+        SystemSetting::setValue('mfa_role_case_manager_required', false);
+        $this->actingAsWithMfa($user)->postJson('/profile/mfa/disable', [
             'password' => 'CorrectHorse1!',
+            'otp' => app(Google2FA::class)->getCurrentOtp($user->mfa_secret),
         ]);
 
         $entry = AuditLog::where('module', 'mfa')
@@ -76,7 +82,7 @@ class AuditSecurityEventsTest extends TestCase
     public function test_security_audit_logger_redacts_secret_material(): void
     {
         $user = User::factory()->create();
-        $this->actingAs($user);
+        $this->actingAsWithMfa($user);
 
         AuditLog::create([
             'action' => 'UPDATE',
@@ -94,9 +100,9 @@ class AuditSecurityEventsTest extends TestCase
 
     public function test_session_termination_is_logged(): void
     {
-        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $admin = User::factory()->mfaEnabled()->create(['role' => UserRole::ADMIN->value, 'mfa_secret' => 'JBSWY3DPEHPK3PXP']);
         $target = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-        $this->actingAs($admin);
+        $this->actingAsWithMfa($admin);
 
         // Written through the same path the application uses. The previous
         // version of this test called SecurityAuditLogger, a class with no

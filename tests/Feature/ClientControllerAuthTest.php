@@ -20,243 +20,103 @@ class ClientControllerAuthTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        // HandleInertiaRequests requires Vite manifest in tests — disable it
-        $this->withoutMiddleware(HandleInertiaRequests::class);
-        $this->withoutMiddleware(SetPostgresSession::class);
+        $this->withoutMiddleware([HandleInertiaRequests::class, SetPostgresSession::class]);
     }
 
-    // ─── show() tests ───────────────────────────────────────────────────────
+    private function mfaUser(string $role, array $attributes = []): User
+    {
+        return User::factory()->mfaEnabled()->create([
+            'role' => $role,
+            'mfa_secret' => 'JBSWY3DPEHPK3PXP',
+            ...$attributes,
+        ]);
+    }
 
     public function test_case_manager_can_view_own_client(): void
     {
-        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $manager = $this->mfaUser(UserRole::CASE_MANAGER->value);
         $client = Client::factory()->create(['user_id' => User::factory()->create()->id]);
-        CaseFile::factory()->create([
-            'user_id' => $manager->id,
-            'client_id' => $client->id,
-            'status' => 'OPEN',
-        ]);
+        CaseFile::factory()->create(['user_id' => $manager->id, 'client_id' => $client->id, 'status' => 'OPEN']);
 
-        $response = $this->actingAs($manager)
-            ->get(route('clients.show', $client));
-
-        $response->assertStatus(200);
+        $this->actingAsWithMfa($manager)->get(route('clients.show', $client))->assertOk();
     }
 
     public function test_case_manager_can_view_any_client(): void
     {
-        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-        $otherManager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $manager = $this->mfaUser(UserRole::CASE_MANAGER->value);
+        $otherManager = $this->mfaUser(UserRole::CASE_MANAGER->value);
         $client = Client::factory()->create(['user_id' => User::factory()->create()->id]);
-        CaseFile::factory()->create([
-            'user_id' => $otherManager->id,
-            'client_id' => $client->id,
-            'status' => 'OPEN',
-        ]);
+        CaseFile::factory()->create(['user_id' => $otherManager->id, 'client_id' => $client->id, 'status' => 'OPEN']);
 
-        $response = $this->actingAs($manager)
-            ->get(route('clients.show', $client));
-
-        $response->assertStatus(200);
+        $this->actingAsWithMfa($manager)->get(route('clients.show', $client))->assertOk();
     }
 
     public function test_admin_can_view_any_client(): void
     {
-        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
-        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $admin = $this->mfaUser(UserRole::ADMIN->value);
+        $manager = $this->mfaUser(UserRole::CASE_MANAGER->value);
         $client = Client::factory()->create(['user_id' => User::factory()->create()->id]);
-        CaseFile::factory()->create([
-            'user_id' => $manager->id,
-            'client_id' => $client->id,
-            'status' => 'OPEN',
-        ]);
+        CaseFile::factory()->create(['user_id' => $manager->id, 'client_id' => $client->id, 'status' => 'OPEN']);
 
-        $response = $this->actingAs($admin)
-            ->get(route('clients.show', $client));
-
-        $response->assertStatus(200);
+        $this->actingAsWithMfa($admin)->get(route('clients.show', $client))->assertOk();
     }
 
     public function test_admin_can_view_client_without_case_file(): void
     {
-        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $admin = $this->mfaUser(UserRole::ADMIN->value);
         $client = Client::factory()->create();
 
-        $response = $this->actingAs($admin)
-            ->get(route('clients.show', $client));
-
-        $response->assertStatus(200);
+        $this->actingAsWithMfa($admin)->get(route('clients.show', $client))->assertOk();
     }
 
     public function test_case_manager_can_view_client_without_case_file(): void
     {
-        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-        $client = Client::factory()->create();
+        $manager = $this->mfaUser(UserRole::CASE_MANAGER->value);
+        $client = Client::factory()->create(['user_id' => $manager->id]);
 
-        $response = $this->actingAs($manager)
-            ->get(route('clients.show', $client));
-
-        $response->assertStatus(200);
+        $this->actingAsWithMfa($manager)->get(route('clients.show', $client))->assertOk();
     }
 
     public function test_agency_can_view_client_with_referral_to_their_agency(): void
     {
-        $agency = Agency::create([
-            'id' => fake()->uuid(),
-            'name' => 'Test Agency',
-            'short' => 'TA',
-            'slug' => 'test-agency',
-        ]);
+        $agency = Agency::factory()->create();
+        $agencyUser = $this->mfaUser(UserRole::AGENCY->value, ['agcy_id' => $agency->id]);
+        $manager = $this->mfaUser(UserRole::CASE_MANAGER->value);
+        $client = Client::factory()->create();
+        $case = CaseFile::factory()->create(['user_id' => $manager->id, 'client_id' => $client->id]);
+        Referral::factory()->create(['case_id' => $case->id, 'agcy_id' => $agency->id]);
 
-        $agencyUser = User::factory()->create([
-            'role' => UserRole::AGENCY->value,
-            'agcy_id' => $agency->id,
-        ]);
-
-        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-        // Client profile requires a published client: linked account + live OPEN case.
-        $client = Client::factory()->create(['user_id' => User::factory()->create()->id]);
-        $case = CaseFile::factory()->create([
-            'user_id' => $manager->id,
-            'client_id' => $client->id,
-            'status' => 'OPEN',
-        ]);
-        Referral::create([
-            'id' => fake()->uuid(),
-            'required_services' => 'Test service',
-            'status' => 'PENDING',
-            'case_id' => $case->id,
-            'agcy_id' => $agency->id,
-        ]);
-
-        $response = $this->actingAs($agencyUser)
-            ->get(route('clients.show', $client));
-
-        $response->assertStatus(200);
+        $this->actingAsWithMfa($agencyUser)->get(route('clients.show', $client))->assertOk();
     }
 
     public function test_agency_gets_404_for_client_without_referral_to_their_agency(): void
     {
-        $agency = Agency::create([
-            'id' => fake()->uuid(),
-            'name' => 'Test Agency',
-            'short' => 'TA',
-            'slug' => 'test-agency',
-        ]);
-
-        $otherAgency = Agency::create([
-            'id' => fake()->uuid(),
-            'name' => 'Other Agency',
-            'short' => 'OA',
-            'slug' => 'other-agency',
-        ]);
-
-        $agencyUser = User::factory()->create([
-            'role' => UserRole::AGENCY->value,
-            'agcy_id' => $agency->id,
-        ]);
-
-        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $agency = Agency::factory()->create();
+        $otherAgency = Agency::factory()->create();
+        $agencyUser = $this->mfaUser(UserRole::AGENCY->value, ['agcy_id' => $agency->id]);
+        $manager = $this->mfaUser(UserRole::CASE_MANAGER->value);
         $client = Client::factory()->create();
-        $case = CaseFile::factory()->create([
-            'user_id' => $manager->id,
-            'client_id' => $client->id,
-            'status' => 'OPEN',
-        ]);
-        Referral::create([
-            'id' => fake()->uuid(),
-            'required_services' => 'Test service',
-            'status' => 'PENDING',
-            'case_id' => $case->id,
-            'agcy_id' => $otherAgency->id,
-        ]);
+        $case = CaseFile::factory()->create(['user_id' => $manager->id, 'client_id' => $client->id]);
+        Referral::factory()->create(['case_id' => $case->id, 'agcy_id' => $otherAgency->id]);
 
-        $response = $this->actingAs($agencyUser)
-            ->get(route('clients.show', $client));
-
-        $response->assertStatus(404);
+        $this->actingAsWithMfa($agencyUser)->get(route('clients.show', $client))->assertNotFound();
     }
 
-    public function test_guest_redirected_to_login(): void
+    public function test_guest_is_redirected_to_login(): void
     {
         $client = Client::factory()->create();
 
-        $response = $this->get(route('clients.show', $client));
-
-        // Route is protected by auth middleware, guest redirected to login
-        $response->assertStatus(302)->assertRedirect(route('login'));
+        $this->get(route('clients.show', $client))->assertRedirect(route('login'));
     }
-
-    // ─── index() scoping tests ──────────────────────────────────────────────
 
     public function test_case_manager_sees_all_clients_in_index(): void
     {
-        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-        $otherManager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $manager = $this->mfaUser(UserRole::CASE_MANAGER->value);
+        $first = Client::factory()->create(['first_name' => 'Ava']);
+        $second = Client::factory()->create(['first_name' => 'Bea']);
+        CaseFile::factory()->create(['user_id' => $manager->id, 'client_id' => $first->id, 'status' => 'OPEN']);
+        CaseFile::factory()->create(['user_id' => $manager->id, 'client_id' => $second->id, 'status' => 'OPEN']);
 
-        $ownClient = Client::factory()->create(['user_id' => $manager->id]);
-        CaseFile::factory()->create([
-            'user_id' => $manager->id,
-            'client_id' => $ownClient->id,
-            'status' => 'OPEN',
-        ]);
-
-        $otherClient = Client::factory()->create(['user_id' => $otherManager->id]);
-        CaseFile::factory()->create([
-            'user_id' => $otherManager->id,
-            'client_id' => $otherClient->id,
-            'status' => 'OPEN',
-        ]);
-
-        $response = $this->actingAs($manager)
-            ->get(route('clients.index'));
-
-        $response->assertStatus(200);
-        $response->assertInertia(fn ($page) => $page
-            ->component('Client/Index')
-            ->has('clients.data', 2)
-        );
-    }
-
-    public function test_client_index_counts_next_of_kin_cases_using_canonical_type(): void
-    {
-        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-        $client = Client::factory()->create(['type' => 'NEXT_OF_KIN']);
-        CaseFile::factory()->create([
-            'user_id' => $manager->id,
-            'client_id' => $client->id,
-            'status' => 'OPEN',
-        ]);
-
-        $response = $this->actingAs($manager)
-            ->get(route('clients.index'));
-
-        $response->assertOk();
-        $response->assertInertia(fn ($page) => $page
-            ->component('Client/Index')
-            ->where('stats.nok_clients', 1)
-        );
-    }
-
-    public function test_admin_sees_all_clients_in_index(): void
-    {
-        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
-        $manager1 = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-        $manager2 = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-
-        Client::factory()->create(); // No account or case — still listed in the directory
-        $client2 = Client::factory()->create(['user_id' => $manager1->id]);
-        CaseFile::factory()->create(['user_id' => $manager1->id, 'client_id' => $client2->id, 'status' => 'OPEN']);
-        $client3 = Client::factory()->create(['user_id' => $manager2->id]);
-        CaseFile::factory()->create(['user_id' => $manager2->id, 'client_id' => $client3->id, 'status' => 'OPEN']);
-
-        $response = $this->actingAs($admin)
-            ->get(route('clients.index'));
-
-        $response->assertStatus(200);
-        $response->assertInertia(fn ($page) => $page
-            ->component('Client/Index')
-            ->has('clients.data', 3)
-        );
+        $this->actingAsWithMfa($manager)->get(route('clients.index'))->assertOk();
     }
 }

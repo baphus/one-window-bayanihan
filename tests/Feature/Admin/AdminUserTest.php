@@ -5,12 +5,14 @@ namespace Tests\Feature\Admin;
 use App\Enums\UserRole;
 use App\Http\Middleware\CheckMfaEnrolled;
 use App\Http\Middleware\CheckUserActive;
+use App\Http\Middleware\EnsureMfaSession;
 use App\Mail\EmailChangedNotification;
 use App\Mail\UserInviteMail;
 use App\Models\Agency;
 use App\Models\Client;
 use App\Models\User;
 use App\Models\UserInvite;
+use App\Services\MfaPendingState;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -28,12 +30,15 @@ class AdminUserTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $this->admin = User::factory()->mfaEnabled()->create([
+            'role' => UserRole::ADMIN->value,
+            'mfa_secret' => 'JBSWY3DPEHPK3PXP',
+        ]);
     }
 
     public function test_admin_can_create_user_and_audit_is_logged(): void
     {
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->post(route('admin.users.store'), [
                 'name' => 'New Case Manager',
                 'email' => 'new-cm@example.com',
@@ -58,7 +63,7 @@ class AdminUserTest extends TestCase
 
     public function test_admin_user_store_requires_fields(): void
     {
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->post(route('admin.users.store'), []);
 
         $response->assertSessionHasErrors(['name', 'email', 'password', 'role']);
@@ -67,9 +72,9 @@ class AdminUserTest extends TestCase
 
     public function test_case_manager_cannot_create_user(): void
     {
-        $cm = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $cm = User::factory()->mfaEnabled()->create(['role' => UserRole::CASE_MANAGER->value]);
 
-        $response = $this->actingAs($cm)
+        $response = $this->actingAsWithMfa($cm)
             ->post(route('admin.users.store'), [
                 'name' => 'Nope',
                 'email' => 'nope@example.com',
@@ -94,7 +99,7 @@ class AdminUserTest extends TestCase
             'agcy_id' => $agency->id,
         ];
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->post(route('admin.users.store'), $payload);
 
         $response->assertRedirect();
@@ -119,7 +124,7 @@ class AdminUserTest extends TestCase
         $agency = Agency::factory()->create();
         User::factory()->create(['email' => 'taken@example.com']);
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->post(route('admin.users.store'), [
                 'name' => 'Dupe User',
                 'email' => 'taken@example.com',
@@ -135,7 +140,7 @@ class AdminUserTest extends TestCase
     {
         $agency = Agency::factory()->create();
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->post(route('admin.users.store'), [
                 'name' => 'Bad Role',
                 'email' => 'badrole@example.com',
@@ -150,7 +155,7 @@ class AdminUserTest extends TestCase
     public function test_direct_create_rejects_weak_password(): void
     {
         $agency = Agency::factory()->create();
-        $this->actingAs($this->admin);
+        $this->actingAsWithMfa($this->admin);
 
         // Too short
         $response = $this->post(route('admin.users.store'), [
@@ -196,8 +201,8 @@ class AdminUserTest extends TestCase
     public function test_non_admin_cannot_create_user(): void
     {
         $agency = Agency::factory()->create();
-        $caseManager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-        $agencyUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id]);
+        $caseManager = User::factory()->mfaEnabled()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $agencyUser = User::factory()->mfaEnabled()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id]);
 
         $payload = [
             'name' => 'Should Not Create',
@@ -207,11 +212,11 @@ class AdminUserTest extends TestCase
             'agcy_id' => $agency->id,
         ];
 
-        $response = $this->actingAs($caseManager)
+        $response = $this->actingAsWithMfa($caseManager)
             ->post(route('admin.users.store'), $payload);
         $response->assertForbidden();
 
-        $response = $this->actingAs($agencyUser)
+        $response = $this->actingAsWithMfa($agencyUser)
             ->post(route('admin.users.store'), $payload);
         $response->assertForbidden();
     }
@@ -221,7 +226,7 @@ class AdminUserTest extends TestCase
         $agency = Agency::factory()->create();
         $password = 'Str0ng!Pass';
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->post(route('admin.users.store'), [
                 'name' => 'Login Ready',
                 'email' => 'login.ready@example.com',
@@ -242,7 +247,7 @@ class AdminUserTest extends TestCase
     {
         Mail::fake();
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->post(route('admin.users.invite'), [
                 'email' => 'invited@example.com',
                 'role' => UserRole::AGENCY->value,
@@ -272,7 +277,7 @@ class AdminUserTest extends TestCase
             'created_by' => $this->admin->id,
         ]);
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->post(route('admin.users.invite'), [
                 'email' => 'dup@example.com',
                 'role' => UserRole::CASE_MANAGER->value,
@@ -295,7 +300,7 @@ class AdminUserTest extends TestCase
         ]);
         $oldToken = $invite->token_hash;
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->post(route('admin.users.invites.resend', $invite->id));
 
         $response->assertRedirect();
@@ -313,7 +318,7 @@ class AdminUserTest extends TestCase
             'created_by' => $this->admin->id,
         ]);
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->delete(route('admin.users.invites.cancel', $invite->id));
 
         $response->assertRedirect();
@@ -324,7 +329,7 @@ class AdminUserTest extends TestCase
     {
         $target = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->patch(route('admin.users.update', $target->id), [
                 'name' => 'Updated Name',
                 'email' => $target->email,
@@ -346,7 +351,7 @@ class AdminUserTest extends TestCase
         $oldEmail = $target->email;
         $newEmail = 'changed-'.$oldEmail;
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->withSession(['verified_new_email_admin_'.$target->id => $newEmail])
             ->patch(route('admin.users.update', $target->id), [
                 'name' => $target->name,
@@ -383,7 +388,7 @@ class AdminUserTest extends TestCase
             'last_activity' => time(),
         ]);
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->delete(route('admin.users.destroy', $target->id));
 
         $response->assertRedirect(route('admin.users.index'));
@@ -401,7 +406,7 @@ class AdminUserTest extends TestCase
     {
         $target = User::factory()->create(['role' => UserRole::CASE_MANAGER->value, 'is_active' => false]);
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->delete(route('admin.users.destroy', $target->id));
 
         $response->assertRedirect(route('admin.users.index'));
@@ -410,7 +415,7 @@ class AdminUserTest extends TestCase
 
     public function test_admin_cannot_delete_own_account(): void
     {
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->delete(route('admin.users.destroy', $this->admin->id));
 
         $response->assertSessionHas('error');
@@ -421,7 +426,7 @@ class AdminUserTest extends TestCase
     {
         $fakeId = '00000000-0000-0000-0000-000000000000';
 
-        $response = $this->actingAs($this->admin)->delete(route('admin.users.destroy', $fakeId));
+        $response = $this->actingAsWithMfa($this->admin)->delete(route('admin.users.destroy', $fakeId));
 
         $response->assertNotFound();
     }
@@ -439,7 +444,7 @@ class AdminUserTest extends TestCase
         $ofw = $this->createCitizen('OFW', 'Oscar Worker');
         $nok = $this->createCitizen('NEXT_OF_KIN', 'Nora Kin');
 
-        $response = $this->actingAs($this->admin)->get(route('admin.users.index'));
+        $response = $this->actingAsWithMfa($this->admin)->get(route('admin.users.index'));
 
         $response->assertOk();
         $response->assertInertia(fn ($page) => $page
@@ -459,7 +464,7 @@ class AdminUserTest extends TestCase
         $ofw = $this->createCitizen('OFW', 'Oscar Worker');
         $nok = $this->createCitizen('NEXT_OF_KIN', 'Nora Kin');
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->get(route('admin.users.index', ['client_type' => 'NEXT_OF_KIN']));
 
         $response->assertOk();
@@ -475,7 +480,7 @@ class AdminUserTest extends TestCase
         // must not pad either tile.
         User::factory()->create(['role' => UserRole::OFW->value, 'client_id' => null]);
 
-        $response = $this->actingAs($this->admin)->get(route('admin.users.index'));
+        $response = $this->actingAsWithMfa($this->admin)->get(route('admin.users.index'));
 
         $response->assertInertia(fn ($page) => $page
             ->where('stats.citizen_ofw', 0)
@@ -511,7 +516,7 @@ class AdminUserTest extends TestCase
             'is_deleted' => true,
         ]);
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->patch(route('admin.users.reactivate', $target->id));
 
         $response->assertRedirect(route('admin.users.index'));
@@ -542,10 +547,18 @@ class AdminUserTest extends TestCase
             'payload' => 'test',
             'last_activity' => time(),
         ]);
+        $this->withoutMiddleware(EnsureMfaSession::class);
+        $this->actingAsWithMfa($this->admin)->withSession([
+            MfaPendingState::MARKER_KEY => [
+                'user_id' => $this->admin->id,
+                'credential_fingerprint' => hash('sha256', (string) $this->admin->password),
+            ],
+        ]);
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->post(route('admin.users.reset-mfa', $target->id), [
-                'password' => 'P@ssw0rd!',
+                'reason' => 'Lost authenticator',
+                'recovery_code' => 'ABCD-EFGH-IJKL',
             ]);
 
         $response->assertRedirect();
@@ -574,7 +587,7 @@ class AdminUserTest extends TestCase
             'last_activity' => time(),
         ]);
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->patch(route('admin.users.update', $target->id), [
                 'name' => $target->name,
                 'email' => $target->email,
@@ -608,7 +621,7 @@ class AdminUserTest extends TestCase
             'last_activity' => time(),
         ]);
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->patch(route('admin.users.update', $target->id), [
                 'name' => 'Renamed Only',
                 'email' => $target->email,
@@ -628,12 +641,12 @@ class AdminUserTest extends TestCase
     {
         $target = User::factory()->mfaEnabled()->create(['role' => UserRole::CASE_MANAGER->value]);
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->post(route('admin.users.reset-mfa', $target->id), [
-                'password' => 'Wrong-Password-1!',
+                'reason' => 'Lost authenticator',
             ]);
 
-        $response->assertSessionHasErrors(['password']);
+        $response->assertSessionHasErrors(['mfa_confirmation']);
         $this->assertNotNull($target->fresh()->mfa_enabled_at);
     }
 
@@ -648,7 +661,7 @@ class AdminUserTest extends TestCase
             'is_deleted' => true,
         ]);
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->post(route('admin.users.invite'), [
                 'email' => 'deactivated@example.com',
                 'role' => UserRole::CASE_MANAGER->value,
@@ -675,7 +688,7 @@ class AdminUserTest extends TestCase
         ]);
         $target->delete();
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->post(route('admin.users.invite'), [
                 'email' => 'trashed@example.com',
                 'role' => UserRole::CASE_MANAGER->value,
@@ -704,13 +717,13 @@ class AdminUserTest extends TestCase
         // The destroy route purges an already-deactivated account, which is the
         // documented way out of the message above and the only thing that
         // actually frees the address.
-        $this->actingAs($this->admin)
+        $this->actingAsWithMfa($this->admin)
             ->delete(route('admin.users.destroy', $target->id))
             ->assertRedirect(route('admin.users.index'));
 
         $this->assertDatabaseMissing('users', ['id' => $target->id]);
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->post(route('admin.users.invite'), [
                 'email' => 'purged@example.com',
                 'role' => UserRole::CASE_MANAGER->value,
@@ -732,7 +745,7 @@ class AdminUserTest extends TestCase
             'role' => UserRole::CASE_MANAGER->value,
         ]);
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->post(route('admin.users.invite'), [
                 'email' => 'active-colleague@example.com',
                 'role' => UserRole::CASE_MANAGER->value,
@@ -750,7 +763,7 @@ class AdminUserTest extends TestCase
 
     public function test_getting_invite_redirects_to_the_users_page(): void
     {
-        $this->withoutMiddleware([CheckUserActive::class, CheckMfaEnrolled::class])
+        $this->withoutMiddleware([CheckUserActive::class, CheckMfaEnrolled::class, EnsureMfaSession::class])
             ->actingAs($this->admin)
             ->get('/admin/users/invite')
             ->assertRedirect(route('admin.users.index'));
@@ -758,7 +771,7 @@ class AdminUserTest extends TestCase
 
     public function test_admin_invite_requires_valid_email(): void
     {
-        $response = $this->actingAs($this->admin)->post('/admin/users/invite', [
+        $response = $this->actingAsWithMfa($this->admin)->post('/admin/users/invite', [
             'email' => 'not-an-email',
             'role' => UserRole::CASE_MANAGER->value,
         ]);
@@ -768,7 +781,7 @@ class AdminUserTest extends TestCase
 
     public function test_admin_invite_requires_role(): void
     {
-        $response = $this->actingAs($this->admin)->post('/admin/users/invite', [
+        $response = $this->actingAsWithMfa($this->admin)->post('/admin/users/invite', [
             'email' => 'test@example.com',
         ]);
 
@@ -842,7 +855,7 @@ class AdminUserTest extends TestCase
     {
         $targetUser = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
-        $response = $this->actingAs($this->admin)->patch("/admin/users/{$targetUser->id}", [
+        $response = $this->actingAsWithMfa($this->admin)->patch("/admin/users/{$targetUser->id}", [
             'name' => $targetUser->name,
             'email' => $targetUser->email,
             'role' => UserRole::CASE_MANAGER->value,

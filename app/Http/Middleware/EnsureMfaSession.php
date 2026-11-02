@@ -16,19 +16,19 @@ class EnsureMfaSession
 
         $user = $request->user();
 
-        if (! $user || ! $user->isInMfaEnforcedRole()) {
+        // Unenrolled accounts are CheckMfaEnrolled's concern. Once enrolled,
+        // the role no longer matters: every enrolled account needs a marker.
+        if (! $user || $user->mfa_enabled_at === null) {
             return $next($request);
         }
 
-        // Skip exempt routes — users must be able to manage MFA settings
-        // and access auth routes even without a valid MFA session marker.
-        foreach (MfaPendingState::EXEMPT_ROUTES as $pattern) {
+        foreach (MfaPendingState::MARKER_EXEMPT_ROUTES as $pattern) {
             if ($request->routeIs($pattern)) {
                 return $next($request);
             }
         }
 
-        if ($user->mfa_enabled_at !== null && ! $pendingState->hasValidMarker($request, $user)) {
+        if (! $pendingState->hasValidMarker($request, $user)) {
             Auth::guard('web')->logout();
             $pendingState->clear($request);
             $request->session()->invalidate();

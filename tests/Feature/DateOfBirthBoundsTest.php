@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\UserRole;
+use App\Http\Middleware\EnsureMfaSession;
 use App\Http\Middleware\VerifyTurnstile;
 use App\Models\CaseCategory;
 use App\Models\CaseFile;
@@ -40,6 +41,7 @@ class DateOfBirthBoundsTest extends TestCase
             VerifyTurnstile::class,
             PreventRequestForgery::class,
             ThrottleRequests::class,
+            EnsureMfaSession::class,
         ]);
 
         $this->filer = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
@@ -54,7 +56,7 @@ class DateOfBirthBoundsTest extends TestCase
     #[Test]
     public function filing_accepts_an_applicant_who_is_exactly_15(): void
     {
-        $response = $this->actingAs($this->filer)
+        $response = $this->actingAsWithMfa($this->filer)
             ->postJson(route('cases.store'), $this->validFilingData(now()->subYears(15)->toDateString()));
 
         $response->assertRedirect();
@@ -64,7 +66,7 @@ class DateOfBirthBoundsTest extends TestCase
     #[Test]
     public function filing_accepts_an_applicant_who_is_exactly_100(): void
     {
-        $response = $this->actingAs($this->filer)
+        $response = $this->actingAsWithMfa($this->filer)
             ->postJson(route('cases.store'), $this->validFilingData(now()->subYears(100)->toDateString()));
 
         $response->assertRedirect();
@@ -74,7 +76,7 @@ class DateOfBirthBoundsTest extends TestCase
     #[Test]
     public function filing_rejects_an_applicant_younger_than_15(): void
     {
-        $this->actingAs($this->filer)
+        $this->actingAsWithMfa($this->filer)
             ->postJson(route('cases.store'), $this->validFilingData(now()->subYears(14)->toDateString()))
             ->assertStatus(422)
             ->assertJsonValidationErrors('client.date_of_birth');
@@ -83,7 +85,7 @@ class DateOfBirthBoundsTest extends TestCase
     #[Test]
     public function filing_rejects_an_applicant_older_than_100(): void
     {
-        $this->actingAs($this->filer)
+        $this->actingAsWithMfa($this->filer)
             ->postJson(route('cases.store'), $this->validFilingData(now()->subYears(101)->toDateString()))
             ->assertStatus(422)
             ->assertJsonValidationErrors('client.date_of_birth');
@@ -92,7 +94,7 @@ class DateOfBirthBoundsTest extends TestCase
     #[Test]
     public function filing_rejects_a_future_date_of_birth(): void
     {
-        $this->actingAs($this->filer)
+        $this->actingAsWithMfa($this->filer)
             ->postJson(route('cases.store'), $this->validFilingData(now()->addDay()->toDateString()))
             ->assertStatus(422)
             ->assertJsonValidationErrors('client.date_of_birth');
