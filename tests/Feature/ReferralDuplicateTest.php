@@ -41,7 +41,7 @@ class ReferralDuplicateTest extends TestCase
     public function can_create_referrals_to_different_agencies(): void
     {
         // First referral to Agency A
-        $response1 = $this->actingAs($this->caseManager)->post(route('referrals.store'), [
+        $response1 = $this->actingAsWithMfa($this->caseManager)->post(route('referrals.store'), [
             'case_id' => $this->case->id,
             'agcy_id' => $this->agencyA->id,
             'notes' => 'First referral to Agency A',
@@ -50,7 +50,7 @@ class ReferralDuplicateTest extends TestCase
         $this->assertEquals(1, Referral::where('case_id', $this->case->id)->count());
 
         // Second referral to Agency B (different agency)
-        $response2 = $this->actingAs($this->caseManager)->post(route('referrals.store'), [
+        $response2 = $this->actingAsWithMfa($this->caseManager)->post(route('referrals.store'), [
             'case_id' => $this->case->id,
             'agcy_id' => $this->agencyB->id,
             'notes' => 'Second referral to Agency B',
@@ -63,7 +63,7 @@ class ReferralDuplicateTest extends TestCase
     public function cannot_create_duplicate_referral_to_same_agency(): void
     {
         // Create first referral to Agency A
-        $this->actingAs($this->caseManager)->post(route('referrals.store'), [
+        $this->actingAsWithMfa($this->caseManager)->post(route('referrals.store'), [
             'case_id' => $this->case->id,
             'agcy_id' => $this->agencyA->id,
             'notes' => 'First referral',
@@ -71,7 +71,7 @@ class ReferralDuplicateTest extends TestCase
         $this->assertEquals(1, Referral::where('case_id', $this->case->id)->count());
 
         // Try to create another referral to the SAME agency — should fail validation
-        $response2 = $this->actingAs($this->caseManager)->post(route('referrals.store'), [
+        $response2 = $this->actingAsWithMfa($this->caseManager)->post(route('referrals.store'), [
             'case_id' => $this->case->id,
             'agcy_id' => $this->agencyA->id,
             'notes' => 'Duplicate referral attempt',
@@ -92,7 +92,7 @@ class ReferralDuplicateTest extends TestCase
             'status' => 'REJECTED',
         ]);
 
-        $response = $this->actingAs($this->caseManager)->post(route('referrals.store'), [
+        $response = $this->actingAsWithMfa($this->caseManager)->post(route('referrals.store'), [
             'case_id' => $this->case->id,
             'agcy_id' => $this->agencyA->id,
             'notes' => 'Re-referral after rejection',
@@ -111,7 +111,7 @@ class ReferralDuplicateTest extends TestCase
             'status' => 'COMPLETED',
         ]);
 
-        $response = $this->actingAs($this->caseManager)->post(route('referrals.store'), [
+        $response = $this->actingAsWithMfa($this->caseManager)->post(route('referrals.store'), [
             'case_id' => $this->case->id,
             'agcy_id' => $this->agencyA->id,
             'notes' => 'Re-referral after completion',
@@ -130,7 +130,7 @@ class ReferralDuplicateTest extends TestCase
             'status' => 'PROCESSING',
         ]);
 
-        $response = $this->actingAs($this->caseManager)->post(route('referrals.store'), [
+        $response = $this->actingAsWithMfa($this->caseManager)->post(route('referrals.store'), [
             'case_id' => $this->case->id,
             'agcy_id' => $this->agencyA->id,
             'notes' => 'Duplicate while active',

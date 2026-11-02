@@ -32,7 +32,7 @@ class CrossAgencyDocumentIsolationTest extends ReferralClientInboxTestCase
         ]);
         $otherCase = CaseFile::factory()->create();
 
-        $this->actingAs($context['otherAgencyUser'])
+        $this->actingAsWithMfa($context['otherAgencyUser'])
             ->getJson(route('cases.documents.show', [$otherCase->id, $document->id]))
             ->assertForbidden();
     }

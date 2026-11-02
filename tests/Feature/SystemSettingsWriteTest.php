@@ -36,7 +36,7 @@ class SystemSettingsWriteTest extends TestCase
         SystemSetting::setValue('referral_overdue_days', 30, 'referral', 'Seeded description');
 
         foreach ([null, ''] as $emptyValue) {
-            $response = $this->actingAs($this->admin)
+            $response = $this->actingAsWithMfa($this->admin)
                 ->post('/admin/system-settings', ['referral_overdue_days' => $emptyValue]);
 
             $response->assertRedirect();
@@ -55,7 +55,7 @@ class SystemSettingsWriteTest extends TestCase
     #[Test]
     public function clearing_a_setting_never_writes_zero(): void
     {
-        $this->actingAs($this->admin)
+        $this->actingAsWithMfa($this->admin)
             ->post('/admin/system-settings', ['referral_overdue_days' => null])
             ->assertRedirect();
 
@@ -70,7 +70,7 @@ class SystemSettingsWriteTest extends TestCase
     #[Test]
     public function a_valid_value_is_stored(): void
     {
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->post('/admin/system-settings', ['referral_overdue_days' => 14]);
 
         $response->assertRedirect();
@@ -85,7 +85,7 @@ class SystemSettingsWriteTest extends TestCase
         SystemSetting::setValue('referral_overdue_days', 30);
 
         foreach ([0, -1, '0'] as $rejected) {
-            $response = $this->actingAs($this->admin)
+            $response = $this->actingAsWithMfa($this->admin)
                 ->post('/admin/system-settings', ['referral_overdue_days' => $rejected]);
 
             $response->assertSessionHasErrors('referral_overdue_days');
@@ -101,7 +101,7 @@ class SystemSettingsWriteTest extends TestCase
     #[Test]
     public function retention_changes_are_rejected_without_confirmation(): void
     {
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->post('/admin/system-settings', ['trash_retention_days' => 30]);
 
         $response->assertSessionHasErrors('confirmed');
@@ -111,7 +111,7 @@ class SystemSettingsWriteTest extends TestCase
     #[Test]
     public function retention_changes_are_saved_with_confirmation(): void
     {
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->post('/admin/system-settings', [
                 'trash_retention_days' => 30,
                 'confirmed' => true,
@@ -131,7 +131,7 @@ class SystemSettingsWriteTest extends TestCase
     {
         SystemSetting::setValue('otp_expiry_seconds', 300);
 
-        $this->actingAs($this->admin)
+        $this->actingAsWithMfa($this->admin)
             ->post('/admin/system-settings', ['otp_expiry_seconds' => 600])
             ->assertRedirect();
 
@@ -155,7 +155,7 @@ class SystemSettingsWriteTest extends TestCase
         SystemSetting::setValue('opacity_marker', 'x');
         SystemSetting::setValue('referral_overdue_days', 14);
 
-        $this->actingAs($this->admin)
+        $this->actingAsWithMfa($this->admin)
             ->post('/admin/system-settings', ['referral_overdue_days' => 14])
             ->assertRedirect();
 
@@ -175,7 +175,7 @@ class SystemSettingsWriteTest extends TestCase
             'description' => 'Days before an active referral counts as overdue',
         ]);
 
-        $this->actingAs($this->admin)
+        $this->actingAsWithMfa($this->admin)
             ->post('/admin/system-settings', ['referral_overdue_days' => 21])
             ->assertRedirect();
 
@@ -201,7 +201,7 @@ class SystemSettingsWriteTest extends TestCase
 
         $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
 
-        $response = $this->actingAs($admin)->get(route('admin.email-logs.index'));
+        $response = $this->actingAsWithMfa($admin)->get(route('admin.email-logs.index'));
 
         $this->assertSame(
             (int) SettingRegistry::value('email_log_retention_days'),
@@ -220,7 +220,7 @@ class SystemSettingsWriteTest extends TestCase
 
         Log::spy();
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->post('/admin/system-settings/reindex-chatbot');
 
         $response->assertStatus(500);
@@ -237,7 +237,7 @@ class SystemSettingsWriteTest extends TestCase
     {
         Artisan::shouldReceive('call')->once()->with('chatbot:index')->andReturn(1);
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->post('/admin/system-settings/reindex-chatbot');
 
         $response->assertStatus(500);

@@ -69,7 +69,7 @@ class ReportsAndClientContractTest extends TestCase
         $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $version = app(HandleInertiaRequests::class)->version(Request::create(route('reports.index'), 'GET'));
 
-        $response = $this->actingAs($user)
+        $response = $this->actingAsWithMfa($user)
             ->withHeaders([
                 'X-Inertia' => 'true',
                 'X-Inertia-Version' => $version ?? '',
@@ -149,7 +149,7 @@ class ReportsAndClientContractTest extends TestCase
         $this->withoutMiddleware(HandleInertiaRequests::class);
         $this->withoutMiddleware(SetPostgresSession::class);
 
-        $response = $this->actingAs($user)->get(route('clients.index', $params));
+        $response = $this->actingAsWithMfa($user)->get(route('clients.index', $params));
 
         $response->assertOk();
 
@@ -238,7 +238,7 @@ class ReportsAndClientContractTest extends TestCase
     {
         $version = app(HandleInertiaRequests::class)->version(Request::create(route('reports.index'), 'GET'));
 
-        $response = $this->actingAs($user)
+        $response = $this->actingAsWithMfa($user)
             ->withHeaders([
                 'X-Inertia' => 'true',
                 'X-Inertia-Version' => $version ?? '',

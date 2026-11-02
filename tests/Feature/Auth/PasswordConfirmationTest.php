@@ -16,7 +16,7 @@ class PasswordConfirmationTest extends TestCase
         $user = User::factory()->mfaEnabled()->create();
         $this->withoutMiddleware(EnsureMfaSession::class);
 
-        $response = $this->actingAs($user)->get('/confirm-password');
+        $response = $this->actingAsWithMfa($user)->get('/confirm-password');
 
         $response->assertStatus(200);
     }
@@ -26,7 +26,7 @@ class PasswordConfirmationTest extends TestCase
         $user = User::factory()->mfaEnabled()->create();
         $this->withoutMiddleware(EnsureMfaSession::class);
 
-        $response = $this->actingAs($user)->post('/confirm-password', [
+        $response = $this->actingAsWithMfa($user)->post('/confirm-password', [
             'password' => 'P@ssw0rd!',
         ]);
 
@@ -39,7 +39,7 @@ class PasswordConfirmationTest extends TestCase
         $user = User::factory()->mfaEnabled()->create();
         $this->withoutMiddleware(EnsureMfaSession::class);
 
-        $response = $this->actingAs($user)->post('/confirm-password', [
+        $response = $this->actingAsWithMfa($user)->post('/confirm-password', [
             'password' => 'wrong-password',
         ]);
 

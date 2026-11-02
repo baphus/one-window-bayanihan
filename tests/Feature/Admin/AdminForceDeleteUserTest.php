@@ -242,7 +242,7 @@ class AdminForceDeleteUserTest extends TestCase
         $this->admin->forceFill(['is_active' => false])->saveQuietly();
 
         $response = $this->withoutMiddleware([CheckUserActive::class])
-            ->actingAs($inactiveAdmin)
+            ->actingAsWithMfa($inactiveAdmin)
             ->withSession([
                 MfaPendingState::MARKER_KEY => [
                     'user_id' => (string) $inactiveAdmin->id,

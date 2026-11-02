@@ -32,7 +32,7 @@ class PurgeTrashedCasesIsolationTest extends TestCase
         $user = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $service = app(CaseService::class);
 
-        $this->actingAs($user);
+        $this->actingAsWithMfa($user);
 
         $purgeable = $this->trashedCase($service, $user);
         Referral::factory()->create(['case_id' => $purgeable->id, 'status' => 'COMPLETED']);
@@ -57,7 +57,7 @@ class PurgeTrashedCasesIsolationTest extends TestCase
         $user = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $service = app(CaseService::class);
 
-        $this->actingAs($user);
+        $this->actingAsWithMfa($user);
 
         $blocked = $this->trashedCase($service, $user);
         $purgeable = $this->trashedCase($service, $user);
@@ -94,7 +94,7 @@ class PurgeTrashedCasesIsolationTest extends TestCase
         $user = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $service = app(CaseService::class);
 
-        $this->actingAs($user);
+        $this->actingAsWithMfa($user);
 
         $blocked = $this->trashedCase($service, $user);
         $purgeable = $this->trashedCase($service, $user);
@@ -126,7 +126,7 @@ class PurgeTrashedCasesIsolationTest extends TestCase
         $user = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $service = app(CaseService::class);
 
-        $this->actingAs($user);
+        $this->actingAsWithMfa($user);
 
         $blocked = $this->trashedCase($service, $user);
         $purgeable = $this->trashedCase($service, $user);
@@ -154,7 +154,7 @@ class PurgeTrashedCasesIsolationTest extends TestCase
         $user = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $service = app(CaseService::class);
 
-        $this->actingAs($user);
+        $this->actingAsWithMfa($user);
 
         $case = $this->trashedCase($service, $user);
         DB::table('case_events')->insert([
@@ -182,7 +182,7 @@ class PurgeTrashedCasesIsolationTest extends TestCase
         $user = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $service = app(CaseService::class);
 
-        $this->actingAs($user);
+        $this->actingAsWithMfa($user);
 
         // 205 cases: one full 200-row page plus a partial page.
         $backlog = 205;
@@ -215,7 +215,7 @@ class PurgeTrashedCasesIsolationTest extends TestCase
         $user = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $service = app(CaseService::class);
 
-        $this->actingAs($user);
+        $this->actingAsWithMfa($user);
 
         for ($i = 0; $i < 205; $i++) {
             $case = CaseFile::factory()->create(['status' => 'ARCHIVED', 'user_id' => $user->id]);

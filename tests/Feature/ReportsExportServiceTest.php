@@ -62,7 +62,7 @@ class ReportsExportServiceTest extends TestCase
     {
         $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
-        $response = $this->actingAs($user)->get(route('reports.export-excel', [
+        $response = $this->actingAsWithMfa($user)->get(route('reports.export-excel', [
             'from' => 'not-a-date',
             'to' => '2026-12-31',
         ]));
@@ -76,7 +76,7 @@ class ReportsExportServiceTest extends TestCase
     {
         $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
-        $response = $this->actingAs($user)->get(route('reports.export-excel', [
+        $response = $this->actingAsWithMfa($user)->get(route('reports.export-excel', [
             'from' => '2026-01-01',
             'to' => '2026-12-31',
         ]));
@@ -364,7 +364,7 @@ class ReportsExportServiceTest extends TestCase
     {
         $this->makeCaseWithReferral($this->manager);
 
-        $response = $this->actingAs($this->manager)->get(route('reports.export-pdf'));
+        $response = $this->actingAsWithMfa($this->manager)->get(route('reports.export-pdf'));
 
         $response->assertOk();
         $response->assertHeader('Content-Type', 'application/pdf');

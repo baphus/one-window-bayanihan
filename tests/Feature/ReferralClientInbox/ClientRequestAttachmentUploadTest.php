@@ -150,7 +150,7 @@ class ClientRequestAttachmentUploadTest extends ReferralClientInboxTestCase
         $storage->expects($this->once())->method('temporaryUrl')->willReturn('https://storage.test/client-request.pdf');
         $this->app->instance(StorageService::class, $storage);
 
-        $this->actingAs($context['agencyUser'])
+        $this->actingAsWithMfa($context['agencyUser'])
             ->get(route('referrals.client-requests.attachments.download', [$context['referral']->id, $attachment->id]))
             ->assertRedirect('https://storage.test/client-request.pdf');
     }
@@ -171,7 +171,7 @@ class ClientRequestAttachmentUploadTest extends ReferralClientInboxTestCase
 
         $attachment = ReferralClientMessageAttachment::first();
 
-        $this->actingAs($context['otherAgencyUser'])
+        $this->actingAsWithMfa($context['otherAgencyUser'])
             ->get(route('referrals.client-requests.attachments.download', [$context['referral']->id, $attachment->id]))
             ->assertForbidden();
     }
@@ -190,7 +190,7 @@ class ClientRequestAttachmentUploadTest extends ReferralClientInboxTestCase
             'attachments' => [$file],
         ])->assertRedirect(route('track.request.index'));
 
-        $this->actingAs($context['agencyUser'])
+        $this->actingAsWithMfa($context['agencyUser'])
             ->getJson(route('referrals.client-requests.index', $context['referral']))
             ->assertOk()
             ->assertJsonPath('data.0.messages.0.attachments.0.file_name', 'passport.pdf');

@@ -85,7 +85,7 @@ class CasePagePayloadScopeTest extends TestCase
     #[Test]
     public function agency_case_page_carries_only_its_own_timeline_entries(): void
     {
-        $response = $this->actingAs($this->agencyUser($this->ownAgency))
+        $response = $this->actingAsWithMfa($this->agencyUser($this->ownAgency))
             ->withHeaders([
                 'X-Inertia' => 'true',
                 'X-Inertia-Version' => app(HandleInertiaRequests::class)->version(request()),
@@ -102,7 +102,7 @@ class CasePagePayloadScopeTest extends TestCase
     #[Test]
     public function agency_case_page_never_receives_the_client_record_or_notifications(): void
     {
-        $response = $this->actingAs($this->agencyUser($this->ownAgency))
+        $response = $this->actingAsWithMfa($this->agencyUser($this->ownAgency))
             ->withHeaders([
                 'X-Inertia' => 'true',
                 'X-Inertia-Version' => app(HandleInertiaRequests::class)->version(request()),
@@ -120,7 +120,7 @@ class CasePagePayloadScopeTest extends TestCase
     {
         $unrelated = Agency::factory()->create();
 
-        $this->actingAs($this->agencyUser($unrelated))
+        $this->actingAsWithMfa($this->agencyUser($unrelated))
             ->get(route('cases.show', $this->case))
             ->assertForbidden();
     }
@@ -159,7 +159,7 @@ class CasePagePayloadScopeTest extends TestCase
             ]);
         }
 
-        $response = $this->actingAs($this->agencyUser($this->ownAgency))
+        $response = $this->actingAsWithMfa($this->agencyUser($this->ownAgency))
             ->withHeaders([
                 'X-Inertia' => 'true',
                 'X-Inertia-Version' => app(HandleInertiaRequests::class)->version(request()),

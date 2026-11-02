@@ -52,7 +52,7 @@ class OverdueReferralsAccessTest extends TestCase
     {
         $cm = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
-        $response = $this->actingAs($cm)->get(route('overdue-referrals.index'));
+        $response = $this->actingAsWithMfa($cm)->get(route('overdue-referrals.index'));
 
         $response->assertOk();
     }
@@ -62,7 +62,7 @@ class OverdueReferralsAccessTest extends TestCase
     {
         $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
 
-        $response = $this->actingAs($admin)->get(route('overdue-referrals.index'));
+        $response = $this->actingAsWithMfa($admin)->get(route('overdue-referrals.index'));
 
         $response->assertOk();
     }
@@ -72,7 +72,7 @@ class OverdueReferralsAccessTest extends TestCase
     {
         $agencyUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => Agency::factory()]);
 
-        $response = $this->actingAs($agencyUser)->get(route('overdue-referrals.index'));
+        $response = $this->actingAsWithMfa($agencyUser)->get(route('overdue-referrals.index'));
 
         $response->assertOk();
     }
@@ -82,7 +82,7 @@ class OverdueReferralsAccessTest extends TestCase
     {
         $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
 
-        $response = $this->actingAs($admin)->get(route('overdue-referrals.index'));
+        $response = $this->actingAsWithMfa($admin)->get(route('overdue-referrals.index'));
 
         $response
             ->assertOk()
@@ -106,7 +106,7 @@ class OverdueReferralsAccessTest extends TestCase
         $this->createReferralWithAge(['agcy_id' => $agency1->id], daysAgo: 12);
         $this->createReferralWithAge(['agcy_id' => $agency2->id], daysAgo: 12);
 
-        $response = $this->actingAs($admin)->get(route('overdue-referrals.index'));
+        $response = $this->actingAsWithMfa($admin)->get(route('overdue-referrals.index'));
 
         $response
             ->assertOk()
@@ -127,7 +127,7 @@ class OverdueReferralsAccessTest extends TestCase
         $ownReferral = $this->createReferralWithAge(['case_id' => $cmCase->id], daysAgo: 12);
         $this->createReferralWithAge(['case_id' => $otherCase->id], daysAgo: 12);
 
-        $response = $this->actingAs($cm)->get(route('overdue-referrals.index'));
+        $response = $this->actingAsWithMfa($cm)->get(route('overdue-referrals.index'));
 
         $response
             ->assertOk()
@@ -150,7 +150,7 @@ class OverdueReferralsAccessTest extends TestCase
         $ownReferral = $this->createReferralWithAge(['agcy_id' => $agency->id], daysAgo: 12);
         $this->createReferralWithAge(['agcy_id' => $otherAgency->id], daysAgo: 12);
 
-        $response = $this->actingAs($agencyUser)->get(route('overdue-referrals.index'));
+        $response = $this->actingAsWithMfa($agencyUser)->get(route('overdue-referrals.index'));
 
         $response
             ->assertOk()
@@ -184,7 +184,7 @@ class OverdueReferralsAccessTest extends TestCase
             'created_at' => now()->subDays(2), // recent activity — not overdue
         ]);
 
-        $response = $this->actingAs($admin)->get(route('overdue-referrals.index'));
+        $response = $this->actingAsWithMfa($admin)->get(route('overdue-referrals.index'));
 
         $response
             ->assertOk()
@@ -208,10 +208,10 @@ class OverdueReferralsAccessTest extends TestCase
         $own = $this->createReferralWithAge(['case_id' => $ownCase->id, 'agcy_id' => $agency->id], 12);
         $other = $this->createReferralWithAge(['case_id' => $otherCase->id, 'agcy_id' => $agency->id], 12);
 
-        $this->actingAs($cm)->post(route('overdue-referrals.send-reminders'), ['referral_ids' => [$other->id]])->assertRedirect();
+        $this->actingAsWithMfa($cm)->post(route('overdue-referrals.send-reminders'), ['referral_ids' => [$other->id]])->assertRedirect();
         Mail::assertQueued(ReferralOverdueMail::class, 0);
 
-        $this->actingAs($cm)->post(route('overdue-referrals.send-reminders'), ['referral_ids' => [$own->id]])->assertRedirect();
+        $this->actingAsWithMfa($cm)->post(route('overdue-referrals.send-reminders'), ['referral_ids' => [$own->id]])->assertRedirect();
         Mail::assertQueued(ReferralOverdueMail::class, 1);
         Mail::assertQueued(ReferralOverdueMail::class, fn (ReferralOverdueMail $mail) => $mail->referral->is($own));
     }
@@ -234,7 +234,7 @@ class OverdueReferralsAccessTest extends TestCase
         ]);
         $other = $this->createReferralWithAge(['case_id' => $otherCase->id, 'agcy_id' => $agency->id], 12);
 
-        $this->actingAs($cm)->post(route('overdue-referrals.send-reminders'), ['referral_ids' => []])->assertRedirect();
+        $this->actingAsWithMfa($cm)->post(route('overdue-referrals.send-reminders'), ['referral_ids' => []])->assertRedirect();
 
         Mail::assertQueued(ReferralOverdueMail::class, 1);
         Mail::assertQueued(ReferralOverdueMail::class, fn (ReferralOverdueMail $mail) => $mail->referral->id !== $other->id);
@@ -252,7 +252,7 @@ class OverdueReferralsAccessTest extends TestCase
             $this->createReferralWithAge(['case_id' => $caseFile->id, 'agcy_id' => $agency->id], 12);
         }
 
-        $this->actingAs($admin)->get(route('overdue-referrals.index'))
+        $this->actingAsWithMfa($admin)->get(route('overdue-referrals.index'))
             ->assertInertia(fn (Assert $page) => $page
                 ->where('stats.total', 16)
                 ->has('referrals.data', 15)
@@ -271,7 +271,7 @@ class OverdueReferralsAccessTest extends TestCase
         $this->createReferralWithAge(['case_id' => $caseFile->id, 'agcy_id' => $agency->id, 'status' => 'PENDING'], 12);
         $processing = $this->createReferralWithAge(['case_id' => $caseFile->id, 'agcy_id' => $agency->id, 'status' => 'PROCESSING'], 12);
 
-        $this->actingAs($admin)->post(route('overdue-referrals.send-reminders'), [
+        $this->actingAsWithMfa($admin)->post(route('overdue-referrals.send-reminders'), [
             'status_filter' => 'pending',
         ])->assertRedirect();
 
@@ -286,7 +286,7 @@ class OverdueReferralsAccessTest extends TestCase
         $agency = Agency::factory()->create();
         $agencyUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id]);
 
-        $this->actingAs($agencyUser)
+        $this->actingAsWithMfa($agencyUser)
             ->post(route('overdue-referrals.send-reminders'))
             ->assertForbidden();
 
@@ -299,7 +299,7 @@ class OverdueReferralsAccessTest extends TestCase
         Mail::fake();
         $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
 
-        $this->actingAs($admin)
+        $this->actingAsWithMfa($admin)
             ->post(route('overdue-referrals.send-reminders'), ['referral_ids' => ['not-a-uuid']])
             ->assertSessionHasErrors('referral_ids.0');
 

@@ -255,7 +255,7 @@ class ReportsAgencyScopingTest extends TestCase
 
         // An agency account with no agency has no report scope to read, so the
         // controller refuses the page outright rather than rendering zeros.
-        $this->actingAs($agencyless)->get(route('reports.index'))
+        $this->actingAsWithMfa($agencyless)->get(route('reports.index'))
             ->assertForbidden();
     }
 }

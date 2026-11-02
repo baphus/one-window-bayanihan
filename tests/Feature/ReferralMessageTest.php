@@ -48,7 +48,7 @@ class ReferralMessageTest extends TestCase
     {
         $f = $this->threadFixtures();
 
-        $response = $this->actingAs($f['yUser'])
+        $response = $this->actingAsWithMfa($f['yUser'])
             ->postJson(route('referrals.messages.store', $f['referralX']), [
                 'body' => 'We received the referral and are processing it.',
             ]);
@@ -69,11 +69,11 @@ class ReferralMessageTest extends TestCase
         $f = $this->threadFixtures();
 
         // Y messages X via X's card; X replies via Y's card.
-        $this->actingAs($f['yUser'])->postJson(route('referrals.messages.store', $f['referralX']), ['body' => 'First update.']);
-        $this->actingAs($f['xUser'])->postJson(route('referrals.messages.store', $f['referralY']), ['body' => 'Second update.']);
+        $this->actingAsWithMfa($f['yUser'])->postJson(route('referrals.messages.store', $f['referralX']), ['body' => 'First update.']);
+        $this->actingAsWithMfa($f['xUser'])->postJson(route('referrals.messages.store', $f['referralY']), ['body' => 'Second update.']);
 
         // Y listing via X's card sees both messages (oldest first).
-        $this->actingAs($f['yUser'])
+        $this->actingAsWithMfa($f['yUser'])
             ->getJson(route('api.referrals.messages.index', $f['referralX']))
             ->assertOk()
             ->assertJsonCount(2, 'data')
@@ -81,7 +81,7 @@ class ReferralMessageTest extends TestCase
             ->assertJsonPath('data.1.body', 'Second update.');
 
         // X listing via Y's card sees the same merged thread.
-        $this->actingAs($f['xUser'])
+        $this->actingAsWithMfa($f['xUser'])
             ->getJson(route('api.referrals.messages.index', $f['referralY']))
             ->assertOk()
             ->assertJsonCount(2, 'data');
@@ -91,15 +91,15 @@ class ReferralMessageTest extends TestCase
     {
         $f = $this->threadFixtures();
 
-        $this->actingAs($f['owner'])
+        $this->actingAsWithMfa($f['owner'])
             ->getJson(route('api.referrals.messages.index', $f['referralX']))
             ->assertForbidden();
 
-        $this->actingAs($f['owner'])
+        $this->actingAsWithMfa($f['owner'])
             ->postJson(route('referrals.messages.store', $f['referralX']), ['body' => 'Should be denied.'])
             ->assertForbidden();
 
-        $this->actingAs($f['owner'])
+        $this->actingAsWithMfa($f['owner'])
             ->postJson(route('referrals.messages.read', $f['referralX']))
             ->assertForbidden();
 
@@ -122,11 +122,11 @@ class ReferralMessageTest extends TestCase
         $f = $this->threadFixtures();
         $this->withMfaMarker($f['admin']);
 
-        $this->actingAs($f['admin'])
+        $this->actingAsWithMfa($f['admin'])
             ->getJson(route('api.referrals.messages.index', $f['referralX']))
             ->assertForbidden();
 
-        $this->actingAs($f['admin'])
+        $this->actingAsWithMfa($f['admin'])
             ->postJson(route('referrals.messages.store', $f['referralX']), ['body' => 'Should be denied.'])
             ->assertForbidden();
     }
@@ -139,11 +139,11 @@ class ReferralMessageTest extends TestCase
         $outUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $outAgency->id, 'is_active' => true]);
         Referral::factory()->create(['case_id' => $otherCase->id, 'agcy_id' => $outAgency->id]);
 
-        $this->actingAs($outUser)
+        $this->actingAsWithMfa($outUser)
             ->getJson(route('api.referrals.messages.index', $f['referralX']))
             ->assertForbidden();
 
-        $this->actingAs($outUser)
+        $this->actingAsWithMfa($outUser)
             ->postJson(route('referrals.messages.store', $f['referralX']), ['body' => 'Not allowed.'])
             ->assertForbidden();
 
@@ -154,11 +154,11 @@ class ReferralMessageTest extends TestCase
     {
         $f = $this->threadFixtures();
 
-        $this->actingAs($f['xUser'])
+        $this->actingAsWithMfa($f['xUser'])
             ->getJson(route('api.referrals.messages.index', $f['referralX']))
             ->assertForbidden();
 
-        $this->actingAs($f['xUser'])
+        $this->actingAsWithMfa($f['xUser'])
             ->postJson(route('referrals.messages.store', $f['referralX']), ['body' => 'Self-thread.'])
             ->assertForbidden();
     }
@@ -168,11 +168,11 @@ class ReferralMessageTest extends TestCase
         $f = $this->threadFixtures();
 
         // Z messages X on X's card.
-        $this->actingAs($f['zUser'])
+        $this->actingAsWithMfa($f['zUser'])
             ->postJson(route('referrals.messages.store', $f['referralX']), ['body' => 'Confidential Z to X.']);
 
         // Y listing X's card sees no messages — the Z<->X message stays private.
-        $this->actingAs($f['yUser'])
+        $this->actingAsWithMfa($f['yUser'])
             ->getJson(route('api.referrals.messages.index', $f['referralX']))
             ->assertOk()
             ->assertJsonCount(0, 'data');
@@ -183,14 +183,14 @@ class ReferralMessageTest extends TestCase
         $f = $this->threadFixtures();
 
         // Z posts to Y's card (pair Z<->Y); X posts to Y's card (pair X<->Y).
-        $this->actingAs($f['zUser'])
+        $this->actingAsWithMfa($f['zUser'])
             ->postJson(route('referrals.messages.store', $f['referralY']), ['body' => 'From Z.']);
-        $this->actingAs($f['xUser'])
+        $this->actingAsWithMfa($f['xUser'])
             ->postJson(route('referrals.messages.store', $f['referralY']), ['body' => 'From X.']);
 
         // Y opens their own agency's referral page: the related list is X's card
         // and Z's card. Each card badges only its own pair's unread messages.
-        $this->actingAs($f['yUser'])
+        $this->actingAsWithMfa($f['yUser'])
             ->get(route('referrals.show', $f['referralY']))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
@@ -202,12 +202,12 @@ class ReferralMessageTest extends TestCase
                 ->where('relatedReferrals.1.unread_count', 1));
 
         // Reading the X card clears only the X<->Y pair; the Z<->Y pair stays unread.
-        $this->actingAs($f['yUser'])
+        $this->actingAsWithMfa($f['yUser'])
             ->postJson(route('referrals.messages.read', $f['referralX']))
             ->assertOk()
             ->assertJsonPath('unread_count', 0);
 
-        $this->actingAs($f['yUser'])
+        $this->actingAsWithMfa($f['yUser'])
             ->get(route('referrals.show', $f['referralY']))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
@@ -221,7 +221,7 @@ class ReferralMessageTest extends TestCase
     {
         $f = $this->threadFixtures();
 
-        $this->actingAs($f['yUser'])
+        $this->actingAsWithMfa($f['yUser'])
             ->postJson(route('referrals.messages.store', $f['referralX']), ['body' => ''])
             ->assertStatus(422)
             ->assertJsonValidationErrors('body');
@@ -233,7 +233,7 @@ class ReferralMessageTest extends TestCase
     {
         $f = $this->threadFixtures();
 
-        $this->actingAs($f['yUser'])
+        $this->actingAsWithMfa($f['yUser'])
             ->get(route('api.referrals.messages.index', $f['referralX']))
             ->assertRedirect(route('referrals.show', $f['referralX']));
     }
@@ -242,12 +242,12 @@ class ReferralMessageTest extends TestCase
     {
         $f = $this->threadFixtures();
 
-        $this->actingAs($f['zUser'])
+        $this->actingAsWithMfa($f['zUser'])
             ->postJson(route('referrals.messages.store', $f['referralY']), ['body' => 'For the record.']);
 
         // For the case manager every related card has can_message=false and no unread
         // counts leak across the case.
-        $this->actingAs($f['owner'])
+        $this->actingAsWithMfa($f['owner'])
             ->get(route('referrals.show', $f['referralX']))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
@@ -257,7 +257,7 @@ class ReferralMessageTest extends TestCase
                 ->where('relatedReferrals.1.unread_count', 0));
 
         // An agency working on the case sees the affordance and its own pair's count.
-        $this->actingAs($f['yUser'])
+        $this->actingAsWithMfa($f['yUser'])
             ->get(route('referrals.show', $f['referralY']))
             ->assertOk()
             ->assertInertia(fn ($page) => $page

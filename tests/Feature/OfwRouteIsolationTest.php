@@ -22,7 +22,7 @@ class OfwRouteIsolationTest extends TestCase
             'client_id' => $client->id,
         ]);
 
-        $response = $this->actingAs($ofwUser)
+        $response = $this->actingAsWithMfa($ofwUser)
             ->get('/dashboard');
 
         // DashboardController redirects OFW users to /my-cases
@@ -38,7 +38,7 @@ class OfwRouteIsolationTest extends TestCase
             'client_id' => $client->id,
         ]);
 
-        $response = $this->actingAs($ofwUser)
+        $response = $this->actingAsWithMfa($ofwUser)
             ->get('/cases');
 
         $response->assertStatus(403);
@@ -49,7 +49,7 @@ class OfwRouteIsolationTest extends TestCase
     {
         $cm = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
-        $response = $this->actingAs($cm)
+        $response = $this->actingAsWithMfa($cm)
             ->get('/my-cases');
 
         $response->assertStatus(403);

@@ -27,7 +27,7 @@ class ClientEmailCheckTest extends TestCase
 
     private function checkEmail(string $email): TestResponse
     {
-        return $this->actingAs($this->user)->getJson(
+        return $this->actingAsWithMfa($this->user)->getJson(
             route('api.clients.email-check', ['email' => $email]),
         );
     }

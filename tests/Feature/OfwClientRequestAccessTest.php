@@ -30,7 +30,7 @@ class OfwClientRequestAccessTest extends TestCase
     {
         [$user, $case, $referral, $request] = $this->context();
 
-        $response = $this->actingAs($user)->withHeader('X-Inertia', 'true')->get(route('ofw.case.requests.show', [
+        $response = $this->actingAsWithMfa($user)->withHeader('X-Inertia', 'true')->get(route('ofw.case.requests.show', [
             'case' => $case,
             'referral' => $referral,
             'request' => $request,
@@ -53,7 +53,7 @@ class OfwClientRequestAccessTest extends TestCase
     {
         [$user, $case, $referral, $request] = $this->context();
 
-        $this->actingAs($user)->post(route('ofw.case.requests.messages.store', [
+        $this->actingAsWithMfa($user)->post(route('ofw.case.requests.messages.store', [
             'case' => $case,
             'referral' => $referral,
             'request' => $request,
@@ -82,7 +82,7 @@ class OfwClientRequestAccessTest extends TestCase
         [, $case, $referral, $request] = $this->context();
         $otherUser = User::factory()->create(['role' => UserRole::OFW->value, 'client_id' => Client::factory()->create()->id]);
 
-        $this->actingAs($otherUser)->post(route('ofw.case.requests.messages.store', [
+        $this->actingAsWithMfa($otherUser)->post(route('ofw.case.requests.messages.store', [
             'case' => $case,
             'referral' => $referral,
             'request' => $request,
@@ -97,7 +97,7 @@ class OfwClientRequestAccessTest extends TestCase
         [, $case, $referral, $request] = $this->context();
         $otherUser = User::factory()->create(['role' => UserRole::OFW->value, 'client_id' => Client::factory()->create()->id]);
 
-        $this->actingAs($otherUser)->get(route('ofw.case.requests.show', [
+        $this->actingAsWithMfa($otherUser)->get(route('ofw.case.requests.show', [
             'case' => $case,
             'referral' => $referral,
             'request' => $request,
@@ -111,14 +111,14 @@ class OfwClientRequestAccessTest extends TestCase
         $otherCase = CaseFile::factory()->open()->create(['client_id' => $user->client_id]);
         $otherReferral = Referral::factory()->create(['case_id' => $otherCase->id]);
 
-        $this->actingAs($user)->get(route('ofw.case.requests.show', [
+        $this->actingAsWithMfa($user)->get(route('ofw.case.requests.show', [
             'case' => $case,
             'referral' => $otherReferral,
             'request' => $request,
         ]))->assertNotFound();
 
         $otherRequest = ReferralClientRequest::factory()->create(['referral_id' => $otherReferral->id]);
-        $this->actingAs($user)->get(route('ofw.case.requests.show', [
+        $this->actingAsWithMfa($user)->get(route('ofw.case.requests.show', [
             'case' => $case,
             'referral' => $referral,
             'request' => $otherRequest,
@@ -135,7 +135,7 @@ class OfwClientRequestAccessTest extends TestCase
     {
         [$user, $case, $referral, $request] = $this->context(['status' => ReferralClientRequest::STATUS_COMPLETED]);
 
-        $this->actingAs($user)->post(route('ofw.case.requests.messages.store', [
+        $this->actingAsWithMfa($user)->post(route('ofw.case.requests.messages.store', [
             'case' => $case,
             'referral' => $referral,
             'request' => $request,
@@ -166,7 +166,7 @@ class OfwClientRequestAccessTest extends TestCase
             'visibility' => 'HIDDEN',
         ]);
 
-        $this->actingAs($user)->get(route('ofw.case.requests.attachments.download', [
+        $this->actingAsWithMfa($user)->get(route('ofw.case.requests.attachments.download', [
             'case' => $case,
             'referral' => $referral,
             'request' => $otherRequest,
@@ -193,7 +193,7 @@ class OfwClientRequestAccessTest extends TestCase
             'visibility' => 'HIDDEN',
         ]);
 
-        $this->actingAs($user)->get(route('ofw.case.requests.attachments.download', [
+        $this->actingAsWithMfa($user)->get(route('ofw.case.requests.attachments.download', [
             'case' => $case,
             'referral' => $referral,
             'request' => $request,

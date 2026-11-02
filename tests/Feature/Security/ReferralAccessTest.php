@@ -34,7 +34,7 @@ class ReferralAccessTest extends TestCase
             'agcy_id' => Agency::factory()->create()->id,
         ]);
 
-        $response = $this->actingAs($manager)->get("/referrals/{$referral->id}");
+        $response = $this->actingAsWithMfa($manager)->get("/referrals/{$referral->id}");
 
         $response->assertOk();
     }
@@ -54,7 +54,7 @@ class ReferralAccessTest extends TestCase
             'agcy_id' => Agency::factory()->create()->id,
         ]);
 
-        $response = $this->actingAs($intruder)->get("/referrals/{$referral->id}");
+        $response = $this->actingAsWithMfa($intruder)->get("/referrals/{$referral->id}");
 
         $response->assertOk();
     }
@@ -73,7 +73,7 @@ class ReferralAccessTest extends TestCase
             'agcy_id' => Agency::factory()->create()->id,
         ]);
 
-        $response = $this->actingAs($admin)->get("/referrals/{$referral->id}");
+        $response = $this->actingAsWithMfa($admin)->get("/referrals/{$referral->id}");
 
         $response->assertOk();
     }

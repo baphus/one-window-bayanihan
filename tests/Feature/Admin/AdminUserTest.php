@@ -764,7 +764,7 @@ class AdminUserTest extends TestCase
     public function test_getting_invite_redirects_to_the_users_page(): void
     {
         $this->withoutMiddleware([CheckUserActive::class, CheckMfaEnrolled::class, EnsureMfaSession::class])
-            ->actingAs($this->admin)
+            ->actingAsWithMfa($this->admin)
             ->get('/admin/users/invite')
             ->assertRedirect(route('admin.users.index'));
     }

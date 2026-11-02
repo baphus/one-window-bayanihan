@@ -41,7 +41,7 @@ class MfaPolicyLifecycleTest extends TestCase
                 'credential_fingerprint' => hash('sha256', (string) $user->password),
             ],
         ]);
-        $this->actingAs($user);
+        $this->actingAsWithMfa($user);
     }
 
     private function recoveryCode(): string
@@ -75,7 +75,7 @@ class MfaPolicyLifecycleTest extends TestCase
         $code = app(Google2FA::class)->getCurrentOtp($secret);
 
         $this->withMfaMarker($user);
-        $this->actingAs($user)->postJson(route('profile.mfa.confirm'), ['otp' => $code])
+        $this->actingAsWithMfa($user)->postJson(route('profile.mfa.confirm'), ['otp' => $code])
             ->assertOk()
             ->assertJsonPath('confirmed', true)
             ->assertJsonStructure(['confirmed_until']);
@@ -93,7 +93,7 @@ class MfaPolicyLifecycleTest extends TestCase
     {
         $key = 'mfa_role_ofw_required';
         $this->withMfaMarker($this->admin);
-        $this->actingAs($this->admin)->post(route('admin.system-settings.update'), [$key => false])
+        $this->actingAsWithMfa($this->admin)->post(route('admin.system-settings.update'), [$key => false])
             ->assertSessionHasErrors('mfa_change_reason');
         $this->assertSame(true, SystemSetting::getValue($key, true));
 
@@ -119,7 +119,7 @@ class MfaPolicyLifecycleTest extends TestCase
         $payload = ['name' => $target->name, 'email' => $target->email, 'role' => UserRole::CASE_MANAGER->value, 'mfa_requirement_override' => 'optional'];
 
         $this->withMfaMarker($this->admin);
-        $this->actingAs($this->admin)->patch(route('admin.users.update', $target->id), $payload)
+        $this->actingAsWithMfa($this->admin)->patch(route('admin.users.update', $target->id), $payload)
             ->assertSessionHasErrors('mfa_change_reason');
         $this->assertNull($target->fresh()->mfa_requirement_override);
 
@@ -148,7 +148,7 @@ class MfaPolicyLifecycleTest extends TestCase
             'mfa_enabled_at' => now(),
         ]);
         $this->withMfaMarker($this->admin);
-        $this->actingAs($this->admin)->post(route('admin.users.reset-mfa', $target->id), ['reason' => 'Lost factor'])
+        $this->actingAsWithMfa($this->admin)->post(route('admin.users.reset-mfa', $target->id), ['reason' => 'Lost factor'])
             ->assertSessionHasErrors('mfa_confirmation');
         $this->assertNotNull($target->fresh()->mfa_enabled_at);
 

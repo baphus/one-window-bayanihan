@@ -110,7 +110,7 @@ class OfwRegistrationTest extends TestCase
     public function test_authenticated_user_cannot_access_registration(): void
     {
         $user = User::factory()->create(['role' => UserRole::OFW->value]);
-        $this->actingAs($user);
+        $this->actingAsWithMfa($user);
 
         $response = $this->get(route('register'));
         $response->assertRedirect();
@@ -119,7 +119,7 @@ class OfwRegistrationTest extends TestCase
     public function test_ofw_cannot_access_registration_review_step(): void
     {
         $user = User::factory()->create(['role' => UserRole::OFW->value]);
-        $this->actingAs($user);
+        $this->actingAsWithMfa($user);
 
         $response = $this->get(route('register.review'));
         $response->assertRedirect();

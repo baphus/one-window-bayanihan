@@ -137,7 +137,7 @@ class ClientCaseQueryTest extends TestCase
     {
         [$admin] = $this->seedDirectory();
 
-        $this->actingAs($admin)
+        $this->actingAsWithMfa($admin)
             ->get(route('clients.index'))
             ->assertOk();
     }
@@ -169,7 +169,7 @@ class ClientCaseQueryTest extends TestCase
             'status' => 'OPEN',
         ]);
 
-        $response = $this->actingAs($admin)->get(route('clients.index'));
+        $response = $this->actingAsWithMfa($admin)->get(route('clients.index'));
         $response->assertOk();
 
         // Client/Index.jsx reads row.case_file.client_type for the type and

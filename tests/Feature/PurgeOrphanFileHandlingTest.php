@@ -53,7 +53,7 @@ class PurgeOrphanFileHandlingTest extends TestCase
         $this->app->forgetInstance(StorageService::class);
 
         $this->admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
-        $this->actingAs($this->admin);
+        $this->actingAsWithMfa($this->admin);
     }
 
     public function test_purging_a_trashed_case_deletes_the_objects_behind_it(): void
@@ -142,10 +142,10 @@ class PurgeOrphanFileHandlingTest extends TestCase
 
         // An authenticated non-admin is refused too — there is no role that
         // unlocks an unsigned path, because the signature is the capability.
-        $this->actingAs(User::factory()->create(['role' => UserRole::CASE_MANAGER->value]));
+        $this->actingAsWithMfa(User::factory()->create(['role' => UserRole::CASE_MANAGER->value]));
         $this->get($url)->assertForbidden();
 
-        $this->actingAs($this->admin);
+        $this->actingAsWithMfa($this->admin);
         $this->get($url)->assertForbidden();
     }
 

@@ -53,7 +53,7 @@ class SecurityAuditContextTest extends TestCase
         $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $target = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
-        $this->actingAs($admin);
+        $this->actingAsWithMfa($admin);
 
         app(UserService::class)->invalidateSessions($target, 'admin_password_reset');
 
@@ -76,7 +76,7 @@ class SecurityAuditContextTest extends TestCase
             'mfa_enabled_at' => now(),
         ]);
 
-        $this->actingAs($admin);
+        $this->actingAsWithMfa($admin);
 
         app(UserService::class)->resetMfa($target, $admin);
 

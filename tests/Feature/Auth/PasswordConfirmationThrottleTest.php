@@ -33,8 +33,10 @@ class PasswordConfirmationThrottleTest extends TestCase
     #[Test]
     public function it_rate_limits_password_confirmation_attempts_to_five_per_minute(): void
     {
+        // Disable is available only to optional accounts; wrong passwords fail before MFA proof verification.
         SystemSetting::setValue('mfa_role_case_manager_required', false);
         $user = User::factory()->mfaEnabled()->create([
+            'role' => 'CASE_MANAGER',
             'password' => Hash::make('real-password'),
         ]);
 
@@ -63,14 +65,16 @@ class PasswordConfirmationThrottleTest extends TestCase
     #[Test]
     public function it_keeps_separate_buckets_per_user(): void
     {
+        // Disable is available only to optional accounts; wrong passwords fail before MFA proof verification.
         SystemSetting::setValue('mfa_role_case_manager_required', false);
-        $lockedOut = User::factory()->mfaEnabled()->create(['password' => Hash::make('real-password')]);
-        $other = User::factory()->mfaEnabled()->create(['password' => Hash::make('real-password')]);
+        $lockedOut = User::factory()->mfaEnabled()->create(['role' => 'CASE_MANAGER', 'password' => Hash::make('real-password')]);
+        $other = User::factory()->mfaEnabled()->create(['role' => 'CASE_MANAGER', 'password' => Hash::make('real-password')]);
 
         for ($i = 0; $i < 5; $i++) {
             $this->actingAsWithMfa($lockedOut)
                 ->postJson(route('profile.mfa.disable'), ['password' => 'wrong-password-'.$i, 'otp' => '000000'])
-                ->assertStatus(422);
+                ->assertStatus(422)
+                ->assertJsonValidationErrors(['password']);
         }
 
         $this->actingAsWithMfa($lockedOut)
@@ -79,7 +83,8 @@ class PasswordConfirmationThrottleTest extends TestCase
 
         $this->actingAsWithMfa($other)
             ->postJson(route('profile.mfa.disable'), ['password' => 'wrong-password', 'otp' => '000000'])
-            ->assertStatus(422);
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['password']);
     }
 
     /**
@@ -126,7 +131,7 @@ class PasswordConfirmationThrottleTest extends TestCase
     #[Test]
     public function it_rate_limits_password_update_attempts_to_five_per_minute(): void
     {
-        $user = User::factory()->mfaEnabled()->create(['password' => Hash::make('real-password')]);
+        $user = User::factory()->mfaEnabled()->create(['role' => 'CASE_MANAGER', 'password' => Hash::make('real-password')]);
 
         for ($i = 0; $i < 5; $i++) {
             $this->actingAsWithMfa($user)

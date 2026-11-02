@@ -22,7 +22,7 @@ class EmailVerificationTest extends TestCase
             'credential_fingerprint' => hash('sha256', (string) $user->password),
         ]]);
 
-        $response = $this->actingAs($user)->get('/verify-email');
+        $response = $this->actingAsWithMfa($user)->get('/verify-email');
 
         $response->assertStatus(200);
     }
@@ -43,7 +43,7 @@ class EmailVerificationTest extends TestCase
             ['id' => $user->id, 'hash' => sha1($user->email)]
         );
 
-        $response = $this->actingAs($user)->get($verificationUrl);
+        $response = $this->actingAsWithMfa($user)->get($verificationUrl);
 
         Event::assertDispatched(Verified::class);
         $this->assertTrue($user->fresh()->hasVerifiedEmail());
@@ -64,7 +64,7 @@ class EmailVerificationTest extends TestCase
             ['id' => $user->id, 'hash' => sha1('wrong-email')]
         );
 
-        $this->actingAs($user)->get($verificationUrl);
+        $this->actingAsWithMfa($user)->get($verificationUrl);
 
         $this->assertFalse($user->fresh()->hasVerifiedEmail());
     }

@@ -54,7 +54,7 @@ class ReferralMilestoneTest extends TestCase
             'agcy_id' => $this->agency->id,
         ]);
 
-        $response = $this->actingAs($agencyUser)->post(
+        $response = $this->actingAsWithMfa($agencyUser)->post(
             route('referrals.milestones.store', $this->referral),
             [
                 'title' => 'Initial Assessment Completed',
@@ -81,7 +81,7 @@ class ReferralMilestoneTest extends TestCase
             'agcy_id' => $this->agency->id,
         ]);
 
-        $response = $this->actingAs($agencyUser)->post(
+        $response = $this->actingAsWithMfa($agencyUser)->post(
             route('referrals.milestones.store', $this->referral),
             [
                 'title' => '',
@@ -102,7 +102,7 @@ class ReferralMilestoneTest extends TestCase
             'agcy_id' => $this->agency->id,
         ]);
 
-        $response = $this->actingAs($agencyUser)->post(
+        $response = $this->actingAsWithMfa($agencyUser)->post(
             route('referrals.milestones.store', $this->referral),
             [
                 'title' => 'Milestone Without Description',
@@ -127,7 +127,7 @@ class ReferralMilestoneTest extends TestCase
             'agcy_id' => $this->agency->id,
         ]);
 
-        $response = $this->actingAs($agencyUser)->post(
+        $response = $this->actingAsWithMfa($agencyUser)->post(
             route('referrals.milestones.store', $this->referral),
             [
                 'title' => 'Document Collection',
@@ -160,7 +160,7 @@ class ReferralMilestoneTest extends TestCase
             'agcy_id' => $this->agency->id,
         ]);
 
-        $response = $this->actingAs($agencyUser)->post(
+        $response = $this->actingAsWithMfa($agencyUser)->post(
             route('referrals.milestones.store', $this->referral),
             [
                 'title' => 'Progress Update',
@@ -185,7 +185,7 @@ class ReferralMilestoneTest extends TestCase
             'agcy_id' => $this->agency->id,
         ]);
 
-        $response = $this->actingAs($agencyUser)->post(
+        $response = $this->actingAsWithMfa($agencyUser)->post(
             route('referrals.milestones.store', $this->referral),
             [
                 'title' => 'Should Be Blocked',
@@ -211,7 +211,7 @@ class ReferralMilestoneTest extends TestCase
             'agcy_id' => $this->agency->id,
         ]);
 
-        $response = $this->actingAs($agencyUser)->post(
+        $response = $this->actingAsWithMfa($agencyUser)->post(
             route('referrals.milestones.store', $this->referral),
             [
                 'title' => 'Accepted Milestone',

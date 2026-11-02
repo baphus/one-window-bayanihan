@@ -29,7 +29,7 @@ class AuditCategoryTest extends TestCase
     public function test_business_entity_change_by_a_user_is_stamped_data(): void
     {
         $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-        $this->actingAs($user);
+        $this->actingAsWithMfa($user);
 
         $entry = AuditLog::create([
             'action' => 'UPDATE',

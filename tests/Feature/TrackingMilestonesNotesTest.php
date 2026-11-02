@@ -190,7 +190,7 @@ class TrackingMilestonesNotesTest extends TestCase
             'client_id' => $client->id,
         ]);
 
-        $response = $this->actingAs($ofwUser)->get(route('ofw.case.milestones', [
+        $response = $this->actingAsWithMfa($ofwUser)->get(route('ofw.case.milestones', [
             'case' => $case->id,
             'referral' => $referral->id,
         ]));
@@ -234,7 +234,7 @@ class TrackingMilestonesNotesTest extends TestCase
         // client payload. Removal from the tracking payload must not reach it.
         $this->assertSame(self::INTERNAL_NOTE, $referral->fresh()->notes);
 
-        $this->actingAs($owner)
+        $this->actingAsWithMfa($owner)
             ->get(route('referrals.show', $referral))
             ->assertOk()
             ->assertInertia(fn (Page $page) => $page

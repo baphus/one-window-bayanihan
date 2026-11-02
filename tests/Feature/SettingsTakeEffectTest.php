@@ -223,7 +223,7 @@ class SettingsTakeEffectTest extends TestCase
         SystemSetting::setValue('staff_invite_expiry_days', 3);
 
         $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
-        $this->actingAs($admin);
+        $this->actingAsWithMfa($admin);
 
         app(UserService::class)->inviteUser([
             'name' => 'New Person',

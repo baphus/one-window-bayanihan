@@ -35,7 +35,7 @@ class AuthorizationGapTest extends TestCase
         // so the fixture matches production behavior without weakening the gate.
         $case->categories()->attach(CaseCategory::factory()->create()->id);
 
-        $response = $this->actingAs($manager)->post(route('cases.review-approve', $case));
+        $response = $this->actingAsWithMfa($manager)->post(route('cases.review-approve', $case));
 
         // Successful approve redirects to review-pending
         $response->assertRedirect();
@@ -49,7 +49,7 @@ class AuthorizationGapTest extends TestCase
         $filer = User::factory()->create(['role' => UserRole::OFW->value]);
         $case = CaseFile::factory()->pendingReview()->create(['user_id' => $filer->id]);
 
-        $response = $this->actingAs($agencyUser)->post(route('cases.review-approve', $case));
+        $response = $this->actingAsWithMfa($agencyUser)->post(route('cases.review-approve', $case));
 
         $response->assertStatus(403);
     }
@@ -68,7 +68,7 @@ class AuthorizationGapTest extends TestCase
             'agcy_id' => $agency->id,
         ]);
 
-        $response = $this->actingAs($agencyUser)->post(route('cases.review-approve', $case));
+        $response = $this->actingAsWithMfa($agencyUser)->post(route('cases.review-approve', $case));
 
         // Route is gated by role:CASE_MANAGER,ADMIN middleware
         $response->assertStatus(403);
@@ -88,7 +88,7 @@ class AuthorizationGapTest extends TestCase
             'agcy_id' => $agency->id,
         ]);
 
-        $response = $this->actingAs($user)
+        $response = $this->actingAsWithMfa($user)
             ->getJson("/referrals/{$referral->id}/attachments/00000000-0000-0000-0000-000000000000/versions");
 
         // No versions exist, but access is granted — should return empty array or 200
@@ -106,7 +106,7 @@ class AuthorizationGapTest extends TestCase
             'agcy_id' => $agencyB->id,
         ]);
 
-        $response = $this->actingAs($user)
+        $response = $this->actingAsWithMfa($user)
             ->getJson("/referrals/{$referral->id}/attachments/00000000-0000-0000-0000-000000000000/versions");
 
         $response->assertStatus(403);
@@ -122,7 +122,7 @@ class AuthorizationGapTest extends TestCase
             'agcy_id' => $agency->id,
         ]);
 
-        $response = $this->actingAs($manager)
+        $response = $this->actingAsWithMfa($manager)
             ->getJson("/referrals/{$referral->id}/attachments/00000000-0000-0000-0000-000000000000/versions");
 
         $response->assertStatus(200);
@@ -139,7 +139,7 @@ class AuthorizationGapTest extends TestCase
             'agcy_id' => $agency->id,
         ]);
 
-        $response = $this->actingAs($managerA)
+        $response = $this->actingAsWithMfa($managerA)
             ->getJson("/referrals/{$referral->id}/attachments/00000000-0000-0000-0000-000000000000/versions");
 
         $response->assertStatus(200);
@@ -159,7 +159,7 @@ class AuthorizationGapTest extends TestCase
             'user_id' => $manager->id,
         ]);
 
-        $response = $this->actingAs($manager)->post(
+        $response = $this->actingAsWithMfa($manager)->post(
             route('referrals.comments.reply', [$referral->id, $comment->id]),
             ['content' => 'Attempted reply'],
         );
@@ -185,7 +185,7 @@ class AuthorizationGapTest extends TestCase
             'version_group_id' => (string) Str::uuid(),
         ]);
 
-        $response = $this->actingAs($manager)->post(
+        $response = $this->actingAsWithMfa($manager)->post(
             route('referrals.attachments.replace', [$referral->id, $attachment->id]),
         );
 
@@ -214,7 +214,7 @@ class AuthorizationGapTest extends TestCase
             'version_group_id' => $groupId,
         ]);
 
-        $response = $this->actingAs($manager)->getJson(
+        $response = $this->actingAsWithMfa($manager)->getJson(
             route('referrals.attachments.versions', [$referral->id, $groupId]),
         );
 
@@ -229,7 +229,7 @@ class AuthorizationGapTest extends TestCase
     {
         $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
 
-        $response = $this->actingAs($admin)->post('/case-issues/quick', [
+        $response = $this->actingAsWithMfa($admin)->post('/case-issues/quick', [
             'name' => 'Test Issue '.fake()->unique()->word(),
         ]);
 
@@ -240,7 +240,7 @@ class AuthorizationGapTest extends TestCase
     {
         $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
-        $response = $this->actingAs($manager)->post('/case-issues/quick', [
+        $response = $this->actingAsWithMfa($manager)->post('/case-issues/quick', [
             'name' => 'Test Issue '.fake()->unique()->word(),
         ]);
 
@@ -252,7 +252,7 @@ class AuthorizationGapTest extends TestCase
         $agency = Agency::factory()->create();
         $agencyUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id]);
 
-        $response = $this->actingAs($agencyUser)->post('/case-issues/quick', [
+        $response = $this->actingAsWithMfa($agencyUser)->post('/case-issues/quick', [
             'name' => 'Test Issue '.fake()->unique()->word(),
         ]);
 
@@ -277,7 +277,7 @@ class AuthorizationGapTest extends TestCase
             'timestamp' => now(),
         ]);
 
-        $response = $this->actingAs($admin)->get('/audit-logs');
+        $response = $this->actingAsWithMfa($admin)->get('/audit-logs');
 
         $response->assertStatus(200);
     }
@@ -301,7 +301,7 @@ class AuthorizationGapTest extends TestCase
             'timestamp' => now(),
         ]);
 
-        $data = $this->actingAs($manager)
+        $data = $this->actingAsWithMfa($manager)
             ->withHeader('X-Inertia', 'true')
             ->get('/activity')
             ->json('props.events.data');
@@ -318,7 +318,7 @@ class AuthorizationGapTest extends TestCase
         $agency = Agency::factory()->create();
         $agencyUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id]);
 
-        $response = $this->actingAs($agencyUser)->get("/stakeholders/{$agency->id}");
+        $response = $this->actingAsWithMfa($agencyUser)->get("/stakeholders/{$agency->id}");
 
         // Route is gated by role:CASE_MANAGER,ADMIN middleware
         $response->assertStatus(403);
@@ -330,7 +330,7 @@ class AuthorizationGapTest extends TestCase
         $otherAgency = Agency::factory()->create();
         $agencyUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $ownAgency->id]);
 
-        $response = $this->actingAs($agencyUser)->get("/stakeholders/{$otherAgency->id}");
+        $response = $this->actingAsWithMfa($agencyUser)->get("/stakeholders/{$otherAgency->id}");
 
         // Route is gated by role:CASE_MANAGER,ADMIN middleware
         $response->assertStatus(403);
@@ -341,7 +341,7 @@ class AuthorizationGapTest extends TestCase
         $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $agency = Agency::factory()->create();
 
-        $response = $this->actingAs($admin)->get("/stakeholders/{$agency->id}");
+        $response = $this->actingAsWithMfa($admin)->get("/stakeholders/{$agency->id}");
 
         $response->assertStatus(200);
     }
@@ -351,7 +351,7 @@ class AuthorizationGapTest extends TestCase
         $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $agency = Agency::factory()->create();
 
-        $response = $this->actingAs($manager)->get("/stakeholders/{$agency->id}");
+        $response = $this->actingAsWithMfa($manager)->get("/stakeholders/{$agency->id}");
 
         $response->assertStatus(200);
     }
@@ -382,7 +382,7 @@ class AuthorizationGapTest extends TestCase
             'user_id' => $agencyUser->id,
         ]);
 
-        $response = $this->actingAs($agencyUser)->get("/cases/{$case->id}");
+        $response = $this->actingAsWithMfa($agencyUser)->get("/cases/{$case->id}");
 
         $response->assertStatus(403);
     }
@@ -419,7 +419,7 @@ class AuthorizationGapTest extends TestCase
             'agcy_id' => $agency->id,
         ]);
 
-        $response = $this->actingAs($agencyUser)->get("/cases/{$case->id}");
+        $response = $this->actingAsWithMfa($agencyUser)->get("/cases/{$case->id}");
 
         $response->assertStatus(200);
     }
@@ -436,7 +436,7 @@ class AuthorizationGapTest extends TestCase
             'user_id' => $manager->id,
         ]);
 
-        $response = $this->actingAs($manager)->get("/cases/{$case->id}");
+        $response = $this->actingAsWithMfa($manager)->get("/cases/{$case->id}");
 
         $response->assertStatus(200);
     }
@@ -455,7 +455,7 @@ class AuthorizationGapTest extends TestCase
             'user_id' => $manager->id,
         ]);
 
-        $response = $this->actingAs($admin)->get("/cases/{$case->id}");
+        $response = $this->actingAsWithMfa($admin)->get("/cases/{$case->id}");
 
         $response->assertStatus(200);
     }

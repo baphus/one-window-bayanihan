@@ -21,7 +21,7 @@ class QueueNotificationsExportsTest extends TestCase
     {
         $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
-        $response = $this->actingAs($user)->get(route('cases.export-excel'));
+        $response = $this->actingAsWithMfa($user)->get(route('cases.export-excel'));
 
         $response->assertOk();
         $response->assertHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -33,7 +33,7 @@ class QueueNotificationsExportsTest extends TestCase
     {
         $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
-        $response = $this->actingAs($user)->get(route('clients.export-excel'));
+        $response = $this->actingAsWithMfa($user)->get(route('clients.export-excel'));
 
         $response->assertOk();
         $response->assertHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -45,7 +45,7 @@ class QueueNotificationsExportsTest extends TestCase
     {
         $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
-        $response = $this->actingAs($user)->get(route('referrals.export-excel'));
+        $response = $this->actingAsWithMfa($user)->get(route('referrals.export-excel'));
 
         $response->assertOk();
         $response->assertHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -57,7 +57,7 @@ class QueueNotificationsExportsTest extends TestCase
     {
         $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
-        $response = $this->actingAs($user)->get(route('reports.export-pdf', [
+        $response = $this->actingAsWithMfa($user)->get(route('reports.export-pdf', [
             'from' => '2026-01-01',
             'to' => '2026-12-31',
         ]));
@@ -72,7 +72,7 @@ class QueueNotificationsExportsTest extends TestCase
     {
         $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
-        $response = $this->actingAs($user)->get(route('reports.export-excel', [
+        $response = $this->actingAsWithMfa($user)->get(route('reports.export-excel', [
             'from' => '2026-01-01',
             'to' => '2026-12-31',
         ]));

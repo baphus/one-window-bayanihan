@@ -19,14 +19,14 @@ class OfwReferralAccessTest extends TestCase
     public function ofw_cannot_access_referral_index(): void
     {
         $ofw = User::factory()->create(['role' => UserRole::OFW->value]);
-        $this->actingAs($ofw)->get('/referrals')->assertForbidden();
+        $this->actingAsWithMfa($ofw)->get('/referrals')->assertForbidden();
     }
 
     #[Test]
     public function ofw_cannot_access_referral_create(): void
     {
         $ofw = User::factory()->create(['role' => UserRole::OFW->value]);
-        $this->actingAs($ofw)->get('/referrals/create')->assertForbidden();
+        $this->actingAsWithMfa($ofw)->get('/referrals/create')->assertForbidden();
     }
 
     #[Test]
@@ -42,14 +42,14 @@ class OfwReferralAccessTest extends TestCase
             'agcy_id' => Agency::factory()->create()->id,
         ]);
 
-        $this->actingAs($ofw)->get("/referrals/{$referral->id}")->assertForbidden();
+        $this->actingAsWithMfa($ofw)->get("/referrals/{$referral->id}")->assertForbidden();
     }
 
     #[Test]
     public function agency_without_agency_id_cannot_access_reports(): void
     {
         $agencyUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => null]);
-        $this->actingAs($agencyUser)->get('/reports')->assertForbidden();
+        $this->actingAsWithMfa($agencyUser)->get('/reports')->assertForbidden();
     }
 
     #[Test]
@@ -57,6 +57,6 @@ class OfwReferralAccessTest extends TestCase
     {
         $agency = Agency::factory()->create();
         $agencyUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id]);
-        $this->actingAs($agencyUser)->get('/reports')->assertOk();
+        $this->actingAsWithMfa($agencyUser)->get('/reports')->assertOk();
     }
 }
