@@ -742,9 +742,9 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
             <div className="space-y-4 px-5 pb-5">
               {/* Avatar */}
               {client ? (
-                client.avatar_url ? (
+                (client.user?.avatar_url || client.avatar_url) ? (
                   <img
-                    src={client.avatar_url}
+                    src={client.user?.avatar_url || client.avatar_url}
                     alt=""
                     className="h-[88px] w-[88px] shrink-0 rounded-2xl border border-slate-200 object-cover"
                     onError={(e) => { e.target.style.display = 'none'; }}

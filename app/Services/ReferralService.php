@@ -360,6 +360,7 @@ class ReferralService
                 ->latest(),
         ];
         $relations[] = 'caseFile.categories';
+        $relations[] = 'caseFile.client.user:id,avatar_url';
 
         return Referral::with($relations)->findOrFail($id);
     }

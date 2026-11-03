@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { FlashMessageWatcher } from '@/Components/ToastProvider';
 import OfwNotificationBell from '@/Components/OfwNotificationBell';
+
 import safeRoute from '@/utils/safeRoute';
 import { clearAllDraftBackups } from '@/Hooks/useLocalStorageDraft';
 
@@ -111,6 +112,7 @@ export default function OfwPortalLayout({ children, title }) {
     const { auth } = props;
     const unreadCount = props.notifications?.unread_count ?? 0;
     const [drawerOpen, setDrawerOpen] = useState(false);
+    const [failedAvatarUrl, setFailedAvatarUrl] = useState(null);
 
     /**
      * The account name for the header.
@@ -188,8 +190,15 @@ export default function OfwPortalLayout({ children, title }) {
                         <div className="flex shrink-0 items-center gap-3">
                             <OfwNotificationBell />
 
-                            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary text-[12px] font-bold text-white">
-                                {accountName ? accountName.trim().charAt(0).toUpperCase() : 'O'}
+                            <span className="grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-full bg-primary text-[12px] font-bold text-white">
+                                {auth?.user?.avatar_url && failedAvatarUrl !== auth.user.avatar_url ? (
+                                    <img
+                                        src={auth.user.avatar_url}
+                                        alt={accountName ? `${accountName} profile photo` : 'Profile photo'}
+                                        className="h-full w-full object-cover"
+                                        onError={() => setFailedAvatarUrl(auth.user.avatar_url)}
+                                    />
+                                ) : accountName ? accountName.trim().charAt(0).toUpperCase() : 'O'}
                             </span>
 
                             <div className="hidden min-w-0 flex-col sm:flex">
