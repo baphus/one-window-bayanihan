@@ -7,6 +7,7 @@ use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\Agency;
 use App\Models\CaseEvent;
 use App\Models\CaseFile;
+use App\Models\Client;
 use App\Models\Referral;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -40,8 +41,11 @@ class CasePagePayloadScopeTest extends TestCase
         $this->foreignAgency = Agency::factory()->create();
         $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
+        $clientUser = User::factory()->create(['avatar_url' => 'https://images.example.test/ofw.jpg']);
+        $client = Client::factory()->create(['user_id' => $clientUser->id]);
         $this->case = CaseFile::factory()->open()->create([
             'user_id' => $manager->id,
+            'client_id' => $client->id,
             'summary' => 'Confidential narrative',
         ]);
 
@@ -113,6 +117,20 @@ class CasePagePayloadScopeTest extends TestCase
             ->assertJsonMissingPath('props.caseOverview')
             ->assertJsonMissingPath('props.caseNotifications')
             ->assertJsonMissingPath('props.trackingAgencies');
+    }
+
+    #[Test]
+    public function case_details_exposes_only_linked_user_avatar_fields(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $response = $this->actingAsWithMfa($admin)->get(route('cases.show', $this->case));
+
+        $response->assertOk()->assertInertia(fn ($page) => $page
+            ->where('case.client.user.id', $this->case->client->user->id)
+            ->where('case.client.user.avatar_url', 'https://images.example.test/ofw.jpg')
+            ->missing('case.client.user.email')
+            ->missing('case.client.user.password')
+        );
     }
 
     #[Test]

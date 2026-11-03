@@ -587,6 +587,7 @@ class CaseService
             'client.addresses',
             'client.employments',
             'client.nextOfKin',
+            'client.user:id,avatar_url',
             'referrals.milestones',
             // Read by TrackingService::buildTrackingData() for the case page
             // timeline and agency steps; without these each referral costs

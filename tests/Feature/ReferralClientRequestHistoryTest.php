@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\CaseFile;
+use App\Models\Client;
 use App\Models\Referral;
 use App\Models\ReferralClientAccessLink;
 use App\Models\ReferralClientMessage;
@@ -22,7 +23,9 @@ class ReferralClientRequestHistoryTest extends TestCase
         $agency = Agency::factory()->create();
         $agencyUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id, 'is_active' => true]);
         $owner = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-        $case = CaseFile::factory()->create(['user_id' => $owner->id]);
+        $clientUser = User::factory()->create(['avatar_url' => 'https://images.example.test/ofw.jpg']);
+        $client = Client::factory()->create(['user_id' => $clientUser->id]);
+        $case = CaseFile::factory()->create(['user_id' => $owner->id, 'client_id' => $client->id]);
         $referral = Referral::factory()->create(['case_id' => $case->id, 'agcy_id' => $agency->id]);
         $clientRequest = ReferralClientRequest::factory()->create([
             'referral_id' => $referral->id,
@@ -46,6 +49,10 @@ class ReferralClientRequestHistoryTest extends TestCase
         $this->actingAsWithMfa($agencyUser)
             ->get(route('referrals.show', $referral))
             ->assertInertia(fn ($page) => $page
+                ->where('referral.case_file.client.user.id', $clientUser->id)
+                ->where('referral.case_file.client.user.avatar_url', 'https://images.example.test/ofw.jpg')
+                ->missing('referral.case_file.client.user.email')
+                ->missing('referral.case_file.client.user.password')
                 ->where('clientRequestPermissions', [
                     'canCreate' => true,
                     'canReply' => true,

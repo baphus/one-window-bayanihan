@@ -1327,9 +1327,9 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                         <CardHeader title="Client Information" />
                         <div className="space-y-4 px-5 pb-5">
                             {client ? (
-                                client.avatar_url ? (
+                                (client.user?.avatar_url || client.avatar_url) ? (
                                     <img
-                                        src={client.avatar_url}
+                                        src={client.user?.avatar_url || client.avatar_url}
                                         alt=""
                                         className="h-[72px] w-[72px] shrink-0 rounded-2xl border border-slate-200 object-cover"
                                         onError={(e) => { e.target.style.display = 'none'; }}
