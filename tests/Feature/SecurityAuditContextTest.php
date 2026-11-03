@@ -78,7 +78,7 @@ class SecurityAuditContextTest extends TestCase
 
         $this->actingAsWithMfa($admin);
 
-        app(UserService::class)->resetMfa($target, $admin);
+        app(UserService::class)->resetMfa($target, $admin, 'Lost authenticator');
 
         $row = AuditLog::where('module', AuditModule::MFA->value)
             ->where('action', 'RESET_MFA')
@@ -87,8 +87,9 @@ class SecurityAuditContextTest extends TestCase
 
         $this->assertNotNull($row);
         $this->assertNotNull($row->new_value, 'An admin 2FA reset must say which account it touched.');
-        $this->assertSame('target@example.com', $row->new_value['email']);
+        $this->assertSame($target->getKey(), $row->entity_id);
         $this->assertSame($admin->id, $row->new_value['actor_id']);
+        $this->assertSame('Lost authenticator', $row->new_value['reason']);
     }
 
     /**
