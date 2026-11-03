@@ -53,18 +53,43 @@ describe('Tracking/Show client request panel', () => {
     expect(screen.getByText(/^You ·/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'DMW referral' })).toHaveAttribute('href', '/my-cases/1/agencies/2/milestones');
     expect(screen.getByRole('link', { name: /passport.pdf/ })).toHaveAttribute('href', '/my-cases/1/agencies/2/requests/3/attachments/file-1');
+    expect(screen.getByRole('link', { name: /passport.pdf/ })).toBeInTheDocument();
+    expect(screen.queryByText('Submitted')).toBeInTheDocument();
     fireEvent.change(screen.getByRole('textbox', { name: 'Your reply' }), { target: { value: 'My response' } });
     fireEvent.click(screen.getByRole('button', { name: /Send reply/ }));
-    expect(routerMock.post).toHaveBeenCalledWith('/my-cases/1/agencies/2/requests/3/messages', expect.any(FormData), expect.any(Object));
+    expect(routerMock.post).toHaveBeenCalledWith('/my-cases/1/agencies/2/requests/3/messages', { body: 'My response' }, expect.any(Object));
   });
-  it('renders only request-safe details, checklist, reply controls, and document upload', () => {
+  it('omits missing requested date, hides instructions banner, and gives each checklist item its own upload', () => {
+    const panel = { ...readyPanel, activeRequest: { ...readyPanel.activeRequest, created_at: null, due_at: '2026-05-20', checklist: [{ id: 'item-1', label: 'Passport copy' }, { id: 'item-2', label: 'Work contract' }] } };
+    render(<TrackingShow clientRequestPanel={panel} />);
+
+    expect(screen.queryByText(/Requested null/)).not.toBeInTheDocument();
+    expect(screen.queryByText('Please provide the requested document.')).not.toBeInTheDocument();
+    expect(screen.getByText(/Due /)).toBeInTheDocument();
+    expect(screen.queryByText(/No deadline is recorded/)).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Upload Passport copy')).toBeInTheDocument();
+    expect(screen.getByLabelText('Upload Work contract')).toBeInTheDocument();
+
+    const file = new File(['%PDF-1.4 test'], 'passport.pdf', { type: 'application/pdf' });
+    fireEvent.change(screen.getByLabelText('Upload Passport copy'), { target: { files: [file] } });
+    expect(routerMock.post).toHaveBeenCalledTimes(1);
+    expect(routerMock.post).toHaveBeenCalledWith('/track/request/messages', expect.any(FormData), expect.any(Object));
+    const [url, formData] = routerMock.post.mock.calls[0];
+    expect(url).toBe('/track/request/messages');
+    expect(formData.get('attachments[]')).toBe(file);
+    expect(formData.get('request_item_ids[]')).toBe('item-1');
+    expect(formData.get('body')).toBeNull();
+  });
+
+  it('renders only request-safe details and hides instructions from the request view', () => {
     render(<TrackingShow clientRequestPanel={readyPanel} trackingId="PRIVATE-CASE" />);
 
     expect(screen.getByRole('heading', { name: 'Submit passport copy' })).toBeInTheDocument();
     expect(screen.getByText('Passport copy')).toBeInTheDocument();
+    expect(screen.queryByText('Please provide the requested document.')).not.toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: 'Your reply' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Send reply/ })).toBeInTheDocument();
-    expect(screen.getByLabelText(/Attach documents/)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Attach documents/)).not.toBeInTheDocument();
     expect(document.querySelector('input[type="file"]')).not.toBeNull();
     expect(screen.queryByText('PRIVATE-CASE')).not.toBeInTheDocument();
     expect(screen.queryByText('Case summary')).not.toBeInTheDocument();
@@ -106,28 +131,16 @@ describe('Tracking/Show client request panel', () => {
     expect(link.getAttribute('href')).toContain('track.request.attachments.download');
   });
 
-  it('attaches selected documents to the reply', () => {
+  it('sends text replies without general attachments', () => {
     render(<TrackingShow clientRequestPanel={readyPanel} trackingId="PRIVATE-CASE" />);
-
-    const fileInput = screen.getByLabelText(/Attach documents/);
-    const file = new File(['%PDF-1.4 test'], 'passport.pdf', { type: 'application/pdf' });
-    fireEvent.change(fileInput, { target: { files: [file] } });
-
-    expect(screen.getByText('passport.pdf')).toBeInTheDocument();
-
+    fireEvent.change(screen.getByRole('textbox', { name: 'Your reply' }), { target: { value: 'Here is my response' } });
     fireEvent.click(screen.getByRole('button', { name: /Send reply/ }));
 
-    expect(routerMock.post).toHaveBeenCalledTimes(1);
-    expect(routerMock.post).toHaveBeenCalledWith(
-      '/track/request/messages',
-      expect.any(FormData),
-      expect.any(Object),
-    );
-    const formData = routerMock.post.mock.calls[0][1];
-    expect(formData.get('attachments[]')).toBe(file);
+    expect(routerMock.post).toHaveBeenCalledWith('/track/request/messages', { body: 'Here is my response' }, expect.any(Object));
+    expect(screen.queryByLabelText(/Attach documents/)).not.toBeInTheDocument();
   });
 
-  it('clearly marks a completed request and hides the reply form', () => {
+  it('hides the completed-request banner and reply form', () => {
     render(<TrackingShow clientRequestPanel={{
       ...readyPanel,
       activeRequest: {

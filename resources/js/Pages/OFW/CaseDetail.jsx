@@ -236,6 +236,7 @@ export default function CaseDetail({
     trackingAgencies = [],
     rejectedCount = 0,
     documents = [],
+    requestDocuments = [],
 }) {
     const totalAgencies = trackingAgencies.length;
     const completedAgencies = trackingAgencies.filter((a) => a.status === 'COMPLETED').length;
@@ -243,6 +244,7 @@ export default function CaseDetail({
     const { toast, copy } = useCopyToast();
     const { kind, actionAgencies, isClosed } = useCaseState(trackedCase, trackingAgencies);
     const requestAgencies = trackingAgencies.filter((agency) => agency.openRequest);
+    const submittedDocuments = [...documents, ...requestDocuments];
     const actionableRequests = requestAgencies.filter((agency) => agency.openRequest.status === 'OPEN');
     const requestsNeedAttention = actionableRequests.length > 0;
     const [documentsTab, setDocumentsTab] = useState('requests');
@@ -641,18 +643,20 @@ export default function CaseDetail({
                             <div className="px-5 py-5">
                                 <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
                                     My submitted documents
-                                    {documents.length > 0 ? ` · ${documents.length}` : ''}
+                                    {submittedDocuments.length > 0 ? ` · ${submittedDocuments.length}` : ''}
                                 </p>
-                                {documents.length > 0 ? (
+                                {submittedDocuments.length > 0 ? (
                                     <div className="mt-2 divide-y divide-slate-100">
-                                        {documents.map((doc) => (
-                                            <DocumentRow
-                                                key={doc.id ?? doc.name}
+                                        {submittedDocuments.map((doc) => {
+                                            const row = <DocumentRow
                                                 name={doc.name ?? doc.original_name}
                                                 meta={doc.meta}
                                                 statusLabel={doc.statusLabel ?? 'Received'}
-                                            />
-                                        ))}
+                                            />;
+                                            return doc.download_url
+                                                ? <a key={doc.id ?? doc.name} href={doc.download_url} className="block">{row}</a>
+                                                : <div key={doc.id ?? doc.name}>{row}</div>;
+                                        })}
                                     </div>
                                 ) : (
                                     <div className="mt-3 flex items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3.5">

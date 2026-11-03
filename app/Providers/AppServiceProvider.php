@@ -362,7 +362,7 @@ class AppServiceProvider extends ServiceProvider
             $referral = $request->route('referral');
             $referralId = is_object($referral) ? $referral->getKey() : $referral;
 
-            return Limit::perHour(5)->by(($request->user()?->id ?: 'guest').'|'.$referralId);
+            return Limit::perHour(30)->by(($request->user()?->id ?: 'guest').'|'.$referralId);
         });
 
         RateLimiter::for('agency-client-access', function (Request $request) {
@@ -378,11 +378,11 @@ class AppServiceProvider extends ServiceProvider
             // Was: Limit::none() when the client has no email on file. That
             // silently removed this whole limit class for exactly the client
             // records most likely to be re-requested repeatedly, leaving only
-            // the other two throttles on those routes. Key on the request id
+            // the other two throttles on those routes. Use user + IP
             // so the brake still exists when there is no recipient address.
             return filled($email)
-                ? Limit::perHour(5)->by('recipient|'.hash('sha256', strtolower(trim($email))))
-                : Limit::perHour(5)->by('recipient|'.$request->user()?->id.'|'.$request->ip());
+                ? Limit::perHour(20)->by('recipient|'.hash('sha256', strtolower(trim($email))))
+                : Limit::perHour(20)->by('recipient|'.$request->user()?->id.'|'.$request->ip());
         });
 
         RateLimiter::for('track-request-exchange', function (Request $request) {

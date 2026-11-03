@@ -119,7 +119,7 @@ class ReferralClientRequestController extends Controller
             $case,
             $referral,
             $clientRequest,
-            with: ['items', 'referral.agency', 'messages' => fn ($query) => $query->where('is_deleted', false)->where('kind', 'MESSAGE')->orderBy('created_at'), 'messages.user', 'messages.attachments'],
+            with: ['items.attachments.message', 'referral.agency', 'messages' => fn ($query) => $query->where('is_deleted', false)->where('kind', 'MESSAGE')->orderBy('created_at'), 'messages.user', 'messages.attachments.requestItem'],
         );
 
         $agencyShort = $clientRequestModel->referral?->agency?->short;
@@ -143,7 +143,26 @@ class ReferralClientRequestController extends Controller
                     'created_at' => $clientRequestModel->created_at?->toIso8601String(),
                     'status' => $clientRequestModel->status,
                     'agency_name' => $clientRequestModel->referral?->agency?->name ?? 'the agency',
-                    'checklist' => $clientRequestModel->items->where('is_deleted', false)->map(fn ($item) => ['id' => $item->id, 'label' => $item->label, 'sort_order' => $item->sort_order])->values(),
+                    'checklist' => $clientRequestModel->items->where('is_deleted', false)->map(function ($item) use ($clientRequestModel, $ownedCase, $referralModel) {
+                        $attachment = $item->attachments()
+                            ->whereNull('deleted_at')
+                            ->where('is_deleted', false)
+                            ->whereNull('deleted_at')
+                            ->whereHas('message', fn ($query) => $query->where('is_deleted', false)->where('sender_kind', '!=', ReferralClientMessage::SENDER_AGENCY_USER))
+                            ->latest('created_at')
+                            ->first();
+
+                        return [
+                            'id' => $item->id,
+                            'label' => $item->label,
+                            'sort_order' => $item->sort_order,
+                            'attachment' => $attachment ? [
+                                'id' => $attachment->id,
+                                'file_name' => $attachment->file_name,
+                                'download_url' => route('ofw.case.requests.attachments.download', ['case' => $ownedCase, 'referral' => $referralModel, 'request' => $clientRequestModel, 'attachment' => $attachment]),
+                            ] : null,
+                        ];
+                    })->values(),
                     'messages' => $clientRequestModel->messages->map(fn ($message) => $this->ownerMessagePayload($message))->values(),
                 ],
                 'actions' => [
@@ -732,7 +751,7 @@ class ReferralClientRequestController extends Controller
             'sender_kind' => $message->sender_kind,
             'created_at' => $message->created_at?->toIso8601String(),
             'attachments' => $message->attachments
-                ?->filter(fn ($attachment) => ! $attachment->is_deleted
+                ?->filter(fn ($attachment) => ! $attachment->is_deleted && ! $attachment->trashed()
                     && ($message->sender_kind !== ReferralClientMessage::SENDER_AGENCY_USER
                         || ($attachment->review_status === 'ACCEPTED' && $attachment->visibility === 'ALL')))
                 ->values()
@@ -741,7 +760,7 @@ class ReferralClientRequestController extends Controller
                     'file_name' => $attachment->file_name,
                     'file_type' => $attachment->file_type,
                     'size' => $attachment->size,
-                    'request_item_id' => $attachment->request_item_id,
+                    'request_item_id' => $attachment->requestItem?->id ?? $attachment->request_item_id,
                     'created_at' => $attachment->created_at?->toIso8601String(),
                 ])
                 ->values(),
@@ -763,7 +782,7 @@ class ReferralClientRequestController extends Controller
                     'file_name' => $attachment->file_name,
                     'file_type' => $attachment->file_type,
                     'size' => $attachment->size,
-                    'request_item_id' => $attachment->request_item_id,
+                    'request_item_id' => $attachment->request_item_id ?? $attachment->requestItem?->id,
                     'review_status' => $attachment->review_status,
                     'visibility' => $attachment->visibility,
                     'created_at' => $attachment->created_at?->toIso8601String(),

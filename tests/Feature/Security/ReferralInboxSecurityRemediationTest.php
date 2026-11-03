@@ -104,6 +104,57 @@ class ReferralInboxSecurityRemediationTest extends TestCase
         $this->assertNotNull(app('router')->getRoutes()->getByName('referrals.client-requests.access.reissue'));
     }
 
+    public function test_agency_client_limiters_keep_approved_windows_and_key_scopes(): void
+    {
+        [$agencyUser, $referral] = $this->requestContext();
+        $request = Request::create('/');
+        $request->setUserResolver(fn () => $agencyUser);
+        $request->setRouteResolver(fn () => new class($referral)
+        {
+            public function __construct(private Referral $referral) {}
+
+            public function parameter(string $key): mixed
+            {
+                return $key === 'referral' ? $this->referral : null;
+            }
+        });
+
+        $create = RateLimiter::limiter('agency-client-request-create')($request);
+        $access = RateLimiter::limiter('agency-client-access');
+        $recipientLimiter = RateLimiter::limiter('agency-client-delivery-recipient');
+        $this->assertSame(30, $create->maxAttempts);
+        $this->assertSame(3600, $create->decaySeconds);
+        $this->assertSame($agencyUser->id.'|'.$referral->id, $create->key);
+
+        $clientRequest = ReferralClientRequest::factory()->create(['referral_id' => $referral->id]);
+        $request->setRouteResolver(fn () => new class($clientRequest)
+        {
+            public function __construct(private ReferralClientRequest $clientRequest) {}
+
+            public function parameter(string $key): mixed
+            {
+                return $key === 'clientRequest' ? $this->clientRequest : null;
+            }
+        });
+        $accessLimit = $access($request);
+        $this->assertSame(3, $accessLimit->maxAttempts);
+        $this->assertSame(3600, $accessLimit->decaySeconds);
+        $this->assertSame($agencyUser->id.'|'.$clientRequest->id, $accessLimit->key);
+
+        $client = $clientRequest->referral->caseFile->client;
+        $client->update(['email' => 'Client@example.test']);
+        $recipient = $recipientLimiter($request);
+        $this->assertSame(20, $recipient->maxAttempts);
+        $this->assertSame(3600, $recipient->decaySeconds);
+        $this->assertSame('recipient|'.hash('sha256', 'client@example.test'), $recipient->key);
+
+        $client->update(['email' => null]);
+        $recipient = $recipientLimiter($request);
+        $this->assertSame(20, $recipient->maxAttempts);
+        $this->assertSame(3600, $recipient->decaySeconds);
+        $this->assertSame('recipient|'.$agencyUser->id.'|'.$request->ip(), $recipient->key);
+    }
+
     public function test_referral_client_tables_are_forced_rls_with_no_client_policy(): void
     {
         $tables = [

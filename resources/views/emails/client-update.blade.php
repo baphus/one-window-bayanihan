@@ -18,11 +18,13 @@
 <x-mail::timeline :events="$case->caseEvents" />
 @endif
 
+@if($case->status !== 'REJECTED')
 <p style="font-size: 14px; font-weight: 600; color: #18181b; margin: 32px 0 8px 0;">Next Steps</p>
 
 <p style="font-size: 15px; line-height: 1.7; color: #3f3f46; margin: 0 0 28px 0;">
     No action is required on your part at this time. You will receive another notification when there is further progress.
 </p>
+@endif
 
 <x-mail::action-card url="{{ route('track.index', ['tracker_number' => $case->tracker_number]) }}" label="Track Your Case" />
 

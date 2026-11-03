@@ -819,7 +819,17 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
 
           <section data-tour="case-documents" className="rounded-xl border border-[#dce3eb] bg-white shadow-[0_1px_3px_rgba(23,35,51,0.04)]">
             <CardHeader
-              title="Documents"
+              title={
+                <>
+                  Documents
+                  <span className="group relative inline-flex align-middle">
+                    <span tabIndex={0} aria-label="Documents info" aria-describedby="document-visibility-info" className="material-symbols-outlined ml-1 cursor-help text-[16px] text-slate-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-700">info</span>
+                    <span id="document-visibility-info" role="tooltip" className="pointer-events-none absolute left-1/2 top-full z-20 mt-2 hidden w-64 -translate-x-1/2 rounded-md bg-slate-900 px-3 py-2 text-left text-[11px] font-normal leading-4 text-white shadow-lg group-hover:block group-focus-within:block">
+                      Everything uploaded to this section will be viewable to all referred agencies.
+                    </span>
+                  </span>
+                </>
+              }
               meta={`${(caseFile.documents || []).length} documents`}
               actions={canManageCaseDocuments && (
                 <FileUpload
@@ -833,12 +843,6 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
               )}
             />
             <div className="space-y-4 px-5 pb-5">
-              <div className="flex items-start gap-2 rounded-md border border-blue-100 bg-blue-50 px-3 py-2">
-                <span className="material-symbols-outlined text-[16px] text-blue-600 mt-0.5">info</span>
-                <p className="text-[11px] leading-5 text-blue-800">
-                  Everything uploaded to this section will be viewable to all referred agencies.
-                </p>
-              </div>
 
               {caseFile.documents?.length > 0 ? (
                 <div className="space-y-2">
