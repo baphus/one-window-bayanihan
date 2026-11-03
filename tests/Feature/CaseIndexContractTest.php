@@ -92,13 +92,13 @@ class CaseIndexContractTest extends TestCase
     {
         ['admin' => $admin, 'c1' => $c1, 'c2' => $c2, 'c3' => $c3] = $this->seedCases();
 
-        $ofw = $this->actingAs($admin)->get(route('cases.index', ['client_type' => 'OFW']));
+        $ofw = $this->actingAsWithMfa($admin)->get(route('cases.index', ['client_type' => 'OFW']));
         $ofw->assertOk();
 
         $ids = collect($this->props($ofw)['cases']['data'])->pluck('id')->all();
         $this->assertEqualsCanonicalizing([$c1->id, $c3->id], $ids);
 
-        $nok = $this->actingAs($admin)->get(route('cases.index', ['client_type' => 'NEXT_OF_KIN']));
+        $nok = $this->actingAsWithMfa($admin)->get(route('cases.index', ['client_type' => 'NEXT_OF_KIN']));
         $nok->assertOk();
 
         $this->assertSame([$c2->id], collect($this->props($nok)['cases']['data'])->pluck('id')->all());
@@ -110,7 +110,7 @@ class CaseIndexContractTest extends TestCase
 
         // The chip, the select and the export dialog all read the echoed prop,
         // so a filter that is applied but not echoed silently resets on reload.
-        $this->actingAs($admin)
+        $this->actingAsWithMfa($admin)
             ->get(route('cases.index', ['client_type' => 'OFW', 'status' => 'OPEN']))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
@@ -123,7 +123,7 @@ class CaseIndexContractTest extends TestCase
     {
         ['admin' => $admin] = $this->seedCases();
 
-        $this->actingAs($admin)
+        $this->actingAsWithMfa($admin)
             ->get(route('cases.index', ['client_type' => 'PERSONAL']))
             ->assertStatus(302)
             ->assertSessionHasErrors('client_type');
@@ -137,7 +137,7 @@ class CaseIndexContractTest extends TestCase
     {
         ['admin' => $admin] = $this->seedCases();
 
-        $this->actingAs($admin)
+        $this->actingAsWithMfa($admin)
             ->get(route('cases.index'))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
@@ -182,7 +182,7 @@ class CaseIndexContractTest extends TestCase
 
         $this->assertArrayNotHasKey('age', CaseService::SORT_KEYS);
 
-        $this->actingAs($admin)
+        $this->actingAsWithMfa($admin)
             ->get(route('cases.index', ['sort' => 'age']))
             ->assertStatus(302)
             ->assertSessionHasErrors('sort');
@@ -229,7 +229,7 @@ class CaseIndexContractTest extends TestCase
      */
     private function assertSortsFirst(User $admin, string $sort, string $direction, string $expectedFirstId): void
     {
-        $response = $this->actingAs($admin)->get(route('cases.index', [
+        $response = $this->actingAsWithMfa($admin)->get(route('cases.index', [
             'sort' => $sort,
             'direction' => $direction,
         ]));

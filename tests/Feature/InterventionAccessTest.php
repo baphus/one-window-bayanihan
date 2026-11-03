@@ -52,7 +52,7 @@ class InterventionAccessTest extends TestCase
     #[Test]
     public function cm_can_add_milestone_to_own_referral(): void
     {
-        $response = $this->actingAs($this->caseManager)->post(
+        $response = $this->actingAsWithMfa($this->caseManager)->post(
             route('referrals.milestones.store', $this->referral),
             [
                 'title' => 'CM Milestone',
@@ -74,7 +74,7 @@ class InterventionAccessTest extends TestCase
     #[Test]
     public function cm_can_update_status_on_own_referral(): void
     {
-        $response = $this->actingAs($this->caseManager)->patch(
+        $response = $this->actingAsWithMfa($this->caseManager)->patch(
             route('referrals.update-status', $this->referral),
             [
                 'status' => 'COMPLETED',
@@ -99,7 +99,7 @@ class InterventionAccessTest extends TestCase
             'is_active' => true,
         ]);
 
-        $response = $this->actingAs($agencyUser)->post(
+        $response = $this->actingAsWithMfa($agencyUser)->post(
             route('referrals.milestones.store', $this->referral),
             [
                 'title' => 'Agency Milestone',
@@ -127,7 +127,7 @@ class InterventionAccessTest extends TestCase
             'is_active' => true,
         ]);
 
-        $response = $this->actingAs($agencyUser)->patch(
+        $response = $this->actingAsWithMfa($agencyUser)->patch(
             route('referrals.update-status', $this->referral),
             [
                 'status' => 'COMPLETED',
@@ -146,7 +146,7 @@ class InterventionAccessTest extends TestCase
     #[Test]
     public function case_manager_cannot_accept_referral(): void
     {
-        $response = $this->actingAs($this->caseManager)->patch(
+        $response = $this->actingAsWithMfa($this->caseManager)->patch(
             route('referrals.update-status', $this->referral),
             [
                 'status' => 'PROCESSING',
@@ -166,7 +166,7 @@ class InterventionAccessTest extends TestCase
     #[Test]
     public function invalid_status_transition_is_rejected(): void
     {
-        $response = $this->actingAs($this->caseManager)->patch(
+        $response = $this->actingAsWithMfa($this->caseManager)->patch(
             route('referrals.update-status', $this->referral),
             [
                 'status' => 'REJECTED',
@@ -193,7 +193,7 @@ class InterventionAccessTest extends TestCase
             'is_active' => true,
         ]);
 
-        $response = $this->actingAs($agencyUser)->patch(
+        $response = $this->actingAsWithMfa($agencyUser)->patch(
             route('referrals.update-status', $this->referral),
             [
                 'status' => 'REJECTED',
@@ -220,7 +220,7 @@ class InterventionAccessTest extends TestCase
             'is_active' => true,
         ]);
 
-        $response = $this->actingAs($agencyUser)->patch(
+        $response = $this->actingAsWithMfa($agencyUser)->patch(
             route('referrals.update-status', $this->referral),
             [
                 'status' => 'REJECTED',
@@ -251,7 +251,7 @@ class InterventionAccessTest extends TestCase
             'agcy_id' => $this->dmw->id,
         ]);
 
-        $response = $this->actingAs($this->caseManager)->patch(
+        $response = $this->actingAsWithMfa($this->caseManager)->patch(
             route('referrals.update-status', $pending),
             [
                 'status' => 'FOR_COMPLIANCE',
@@ -284,7 +284,7 @@ class InterventionAccessTest extends TestCase
             'agcy_id' => $this->dmw->id,
         ]);
 
-        $response = $this->actingAs($agencyUser)->patch(
+        $response = $this->actingAsWithMfa($agencyUser)->patch(
             route('referrals.update-status', $pending),
             [
                 'status' => 'FOR_COMPLIANCE',

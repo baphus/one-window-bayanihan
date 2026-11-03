@@ -105,14 +105,14 @@ class ReferralLowFindingsTest extends TestCase
 
         // The live row count with zero-valued age filters must match the
         // unfiltered count: a bare array_filter would have dropped both inputs.
-        $this->actingAs($caseManager)
+        $this->actingAsWithMfa($caseManager)
             ->get(route('referrals.export-count', ['age_min_days' => 0, 'age_max_days' => 0]))
             ->assertOk()
             ->assertJsonPath('count', 2);
 
         // The download with the same zero-valued filters still streams a
         // workbook containing every row.
-        $response = $this->actingAs($caseManager)
+        $response = $this->actingAsWithMfa($caseManager)
             ->get(route('referrals.export-excel', ['age_min_days' => 0, 'age_max_days' => 0]));
 
         $response->assertOk();

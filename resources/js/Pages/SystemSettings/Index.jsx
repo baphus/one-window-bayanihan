@@ -1,11 +1,14 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { Head, router } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
+import useMfaStatus from '@/Hooks/useMfaStatus';
 import { useToast } from '@/Hooks/useToast';
 import ConfirmDialog from '@/Components/ui/ConfirmDialog';
+import MfaConfirmDialog from '@/Components/MfaConfirmDialog';
 import { formatDisplayDateTime } from '@/lib/utils';
 
+const isMfaSetting = (setting) => /^mfa_role_(case_manager|agency|ofw)_required$/.test(setting?.key ?? '');
 function settingInputValue(setting) {
   return setting.type === 'bool' ? Boolean(setting.value) : String(setting.value ?? '');
 }
@@ -18,6 +21,7 @@ function toPayload(setting, value) {
 
 function SettingField({ setting, value, onChange }) {
   const isBool = setting.type === 'bool';
+  const mfa = isMfaSetting(setting);
 
   return (
     <div className="py-4 border-b border-slate-100 last:border-0 last:pb-0 first:pt-0">
@@ -47,7 +51,9 @@ function SettingField({ setting, value, onChange }) {
                 onChange={(e) => onChange(e.target.checked)}
                 className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
               />
-              <span className="text-sm text-slate-600">{value ? 'On' : 'Off'}</span>
+              <span className="text-sm text-slate-600">
+                {mfa ? (value ? 'Required' : 'Optional') : (value ? 'On' : 'Off')}
+              </span>
             </label>
           ) : (
             <input
@@ -69,11 +75,12 @@ function SettingField({ setting, value, onChange }) {
 export default function SystemSettings({
   groups = [],
   readOnly = [],
-  mfa,
   chatbot_last_reindexed_at,
   errors = {},
 }) {
   const toast = useToast();
+  const { status: mfaStatus } = useMfaStatus();
+  const pendingReasonRef = useRef('');
 
   // Flatten declared settings into one editable map.
   const initial = useMemo(() => {
@@ -90,6 +97,9 @@ export default function SystemSettings({
   const [pendingConfirm, setPendingConfirm] = useState(null);
   const [reindexing, setReindexing] = useState(false);
   const [lastReindexedAt, setLastReindexedAt] = useState(chatbot_last_reindexed_at);
+  const [mfaConfirmOpen, setMfaConfirmOpen] = useState(false);
+  const [forceMfaProof, setForceMfaProof] = useState(false);
+  const [mfaProofError, setMfaProofError] = useState('');
 
   const changedKeys = useMemo(
     () => Object.keys(values).filter((key) => values[key] !== initial[key]),
@@ -98,6 +108,16 @@ export default function SystemSettings({
 
   const hasDirty = changedKeys.length > 0;
   const { UnsavedModal, bypassNext } = useUnsavedChanges(hasDirty);
+
+  const settingByKey = useMemo(
+    () => Object.fromEntries(groups.flatMap((group) => group.settings).map((setting) => [setting.key, setting])),
+    [groups],
+  );
+
+  const mfaChangedKeys = useMemo(
+    () => changedKeys.filter((key) => isMfaSetting(settingByKey[key] ?? { key })),
+    [changedKeys, settingByKey],
+  );
 
   // Keys that require a confirmation step before they can be saved.
   const confirmKeys = useMemo(() => {
@@ -110,28 +130,55 @@ export default function SystemSettings({
     return keys;
   }, [groups]);
 
-  const submit = (confirmed) => {
-    const payload = { confirmed: Boolean(confirmed) };
+  const otherConfirmKeys = changedKeys.filter((key) => confirmKeys.has(key) && !mfaChangedKeys.includes(key));
+
+  const submit = (confirmed, reason = '', proof = {}) => {
+    const payload = { confirmed: Boolean(confirmed), ...proof };
+    if (mfaChangedKeys.length > 0) payload.mfa_change_reason = reason;
+    if (pendingReasonRef.current && !reason) payload.mfa_change_reason = pendingReasonRef.current;
     changedKeys.forEach((key) => {
-      const setting = groups.flatMap((g) => g.settings).find((s) => s.key === key);
-      payload[key] = toPayload(setting, values[key]);
+      payload[key] = toPayload(settingByKey[key], values[key]);
     });
 
     bypassNext();
     router.post(route('admin.system-settings.update'), payload, {
       preserveScroll: true,
-      onSuccess: () => setPendingConfirm(null),
-      onError: () => setPendingConfirm(null),
+      onSuccess: () => {
+        setPendingConfirm(null);
+        pendingReasonRef.current = '';
+      },
+      onError: (errs) => {
+        setPendingConfirm(null);
+        if (errs?.mfa_confirmation) {
+          setForceMfaProof(true);
+          setMfaProofError(errs.mfa_confirmation?.[0] ?? errs.mfa_confirmation);
+          setMfaConfirmOpen(true);
+        }
+      },
     });
   };
 
   const handleSave = () => {
     if (!hasDirty) return;
-    if (changedKeys.some((key) => confirmKeys.has(key))) {
-      setPendingConfirm(changedKeys.filter((key) => confirmKeys.has(key)));
+    if (mfaChangedKeys.length > 0) {
+      setForceMfaProof(false);
+      setMfaProofError('');
+      setMfaConfirmOpen(true);
+      return;
+    }
+    if (otherConfirmKeys.length > 0) {
+      setPendingConfirm(otherConfirmKeys);
       return;
     }
     submit(false);
+  };
+
+  const handleMfaConfirmed = ({ reason, proof }) => {
+    pendingReasonRef.current = reason;
+    setMfaConfirmOpen(false);
+    setForceMfaProof(false);
+    setMfaProofError('');
+    submit(otherConfirmKeys.length > 0, reason, proof || {});
   };
 
   const handleReindex = async () => {
@@ -179,6 +226,12 @@ export default function SystemSettings({
             {group.description && (
               <p className="mt-1 text-sm text-slate-500">{group.description}</p>
             )}
+            {group.settings.some(isMfaSetting) && (
+              <p className="mt-2 rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-900">
+                Optional enrollment still challenges anyone who is already enrolled, and never deletes
+                existing authenticator or recovery codes. Administrator accounts are always required.
+              </p>
+            )}
 
             <div className="mt-4">
               {group.settings.map((setting) => (
@@ -195,7 +248,7 @@ export default function SystemSettings({
 
         {/* Values the deployment controls. Named rather than hidden so nobody
             hunts for a field that will never exist. */}
-        {(readOnly.length > 0 || mfa) && (
+        {(readOnly.length > 0) && (
           <section className="rounded-lg border border-slate-200 bg-slate-50 p-6" aria-labelledby="group-readonly">
             <h2 id="group-readonly" className="text-base font-semibold text-slate-900">Fixed by the deployment</h2>
             <p className="mt-1 text-sm text-slate-500">
@@ -211,15 +264,6 @@ export default function SystemSettings({
                   <dd className="font-medium text-slate-900">{item.value || 'Not set'}</dd>
                 </div>
               ))}
-
-              {mfa && (
-                <div className="flex flex-wrap justify-between gap-2">
-                  <dt className="text-slate-600">
-                    {mfa.note} {mfa.env && <code className="text-xs text-slate-400">{mfa.env}</code>}
-                  </dt>
-                  <dd className="font-medium text-slate-900">{mfa.enforced ? 'Required' : 'Optional'}</dd>
-                </div>
-              )}
             </dl>
           </section>
         )}
@@ -267,8 +311,29 @@ export default function SystemSettings({
         confirmLabel="Change anyway"
         cancelLabel="Cancel"
         tone="danger"
-        onConfirm={() => submit(true)}
+        onConfirm={() => submit(true, pendingReasonRef.current, {})}
         onCancel={() => setPendingConfirm(null)}
+      />
+
+      <MfaConfirmDialog
+        open={mfaConfirmOpen}
+        title="Confirm MFA policy change"
+        description="MFA policy changes need a reason and your own fresh MFA confirmation."
+        confirmLabel="Save policy"
+        reasonRequired
+        initialReason={pendingReasonRef.current}
+        confirmedUntil={forceMfaProof ? null : mfaStatus?.confirmed_until}
+        forceProof={forceMfaProof}
+        error={mfaProofError}
+        onCancel={() => {
+          setMfaConfirmOpen(false);
+          setForceMfaProof(false);
+          setMfaProofError('');
+        }}
+        onConfirmed={({ reason, proof }) => {
+          pendingReasonRef.current = reason;
+          handleMfaConfirmed({ reason, proof });
+        }}
       />
 
       {UnsavedModal}

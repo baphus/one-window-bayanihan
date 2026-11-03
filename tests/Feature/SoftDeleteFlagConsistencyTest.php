@@ -35,7 +35,7 @@ class SoftDeleteFlagConsistencyTest extends TestCase
     {
         $agency = Agency::factory()->create();
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->delete(route('admin.agencies.destroy', $agency->id));
 
         $response->assertRedirect(route('admin.agencies.index'));
@@ -66,7 +66,7 @@ class SoftDeleteFlagConsistencyTest extends TestCase
             'is_system' => false,
         ]);
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->delete(route('admin.case-statuses.destroy', $status->id));
 
         $response->assertRedirect(route('admin.case-statuses.index'));
@@ -86,7 +86,7 @@ class SoftDeleteFlagConsistencyTest extends TestCase
     {
         $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->delete(route('admin.users.destroy', $user->id));
 
         $response->assertRedirect(route('admin.users.index'));
@@ -102,7 +102,7 @@ class SoftDeleteFlagConsistencyTest extends TestCase
         $this->assertFalse($trashed->is_active);
         $this->assertSame($this->admin->id, $trashed->deleted_by);
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->patch(route('admin.users.reactivate', $user->id));
 
         $response->assertRedirect(route('admin.users.index'));
@@ -125,7 +125,7 @@ class SoftDeleteFlagConsistencyTest extends TestCase
     {
         $agency = Agency::factory()->create();
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->patch(route('admin.agencies.update', $agency->id), [
                 'name' => 'Logo Test Agency',
                 'short' => 'LOGO',
@@ -141,7 +141,7 @@ class SoftDeleteFlagConsistencyTest extends TestCase
     {
         $agency = Agency::factory()->create();
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->patch(route('admin.agencies.update', $agency->id), [
                 'name' => 'Logo Test Agency',
                 'short' => 'LOGO',
@@ -161,7 +161,7 @@ class SoftDeleteFlagConsistencyTest extends TestCase
         $referral = Referral::factory()->pending()->create(['agcy_id' => $agency->id]);
         $referral->services()->attach($service->id);
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->delete(route('admin.services.destroy', $service->id));
 
         $response->assertRedirect(route('admin.services.index'));
@@ -190,7 +190,7 @@ class SoftDeleteFlagConsistencyTest extends TestCase
             'agcy_id' => $agency->id,
         ]);
 
-        $response = $this->actingAs($agencyUser)
+        $response = $this->actingAsWithMfa($agencyUser)
             ->delete(route('agency.services.destroy', $service->id));
 
         $response->assertSessionHasErrors(['service']);
@@ -209,7 +209,7 @@ class SoftDeleteFlagConsistencyTest extends TestCase
             $factory->create(['agcy_id' => $agency->id])->services()->attach($service->id);
         }
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->delete(route('admin.services.destroy', $service->id));
 
         $response->assertRedirect(route('admin.services.index'));
@@ -234,7 +234,7 @@ class SoftDeleteFlagConsistencyTest extends TestCase
             'agcy_id' => $agency->id,
         ]);
 
-        $response = $this->actingAs($agencyUser)
+        $response = $this->actingAsWithMfa($agencyUser)
             ->delete(route('agency.services.destroy', $service->id));
 
         $response->assertRedirect(route('agency.services.index'));

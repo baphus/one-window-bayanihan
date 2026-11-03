@@ -395,7 +395,7 @@ class DashboardContractTest extends TestCase
             'email_verified_at' => now(),
         ]);
 
-        $this->actingAs($manager)
+        $this->actingAsWithMfa($manager)
             ->get(route('dashboard'))
             ->assertOk()
             ->assertInertia(fn ($page) => $page->component('Dashboard'));
@@ -407,7 +407,7 @@ class DashboardContractTest extends TestCase
             'email_verified_at' => now(),
         ]);
 
-        $this->actingAs($agencyUser)
+        $this->actingAsWithMfa($agencyUser)
             ->get(route('dashboard'))
             ->assertOk()
             ->assertInertia(fn ($page) => $page->component('Dashboard')

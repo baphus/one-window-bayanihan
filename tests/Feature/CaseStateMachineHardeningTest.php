@@ -202,7 +202,7 @@ class CaseStateMachineHardeningTest extends TestCase
         $intruder = $this->createCaseManager();
         $case = $this->trashCase($owner);
 
-        $response = $this->actingAs($intruder)->post(route('cases.restore', $case));
+        $response = $this->actingAsWithMfa($intruder)->post(route('cases.restore', $case));
 
         $response->assertNotFound();
         $this->assertTrue($case->fresh()->trashed());
@@ -218,7 +218,7 @@ class CaseStateMachineHardeningTest extends TestCase
         $owner = $this->createCaseManager();
         $case = $this->trashCase($owner);
 
-        $response = $this->actingAs($owner)->post(route('cases.restore', $case));
+        $response = $this->actingAsWithMfa($owner)->post(route('cases.restore', $case));
 
         $response->assertRedirect(route('cases.trash'));
         $response->assertSessionHas('success');
@@ -234,7 +234,7 @@ class CaseStateMachineHardeningTest extends TestCase
         $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $case = $this->trashCase($owner);
 
-        $response = $this->actingAs($admin)->post(route('cases.restore', $case));
+        $response = $this->actingAsWithMfa($admin)->post(route('cases.restore', $case));
 
         $response->assertRedirect(route('cases.trash'));
         $response->assertSessionHas('success');

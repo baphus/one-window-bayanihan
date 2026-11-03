@@ -45,14 +45,14 @@ class CascadeSoftDeletesTest extends TestCase
         // Three weeks before the case was trashed, a case manager removed one
         // referral on its own — its own deletion intent, its own deleted_by.
         Carbon::setTestNow(Carbon::now()->subWeeks(3));
-        $this->actingAs($caseManager);
+        $this->actingAsWithMfa($caseManager);
         app(ReferralService::class)->deleteReferral($independentReferral);
         Carbon::setTestNow();
 
         $independentStamp = Referral::onlyTrashed()->findOrFail($independentReferral->id)->deleted_at;
 
         // Now the case itself goes to trash; only the live referral is cascaded.
-        $this->actingAs($admin);
+        $this->actingAsWithMfa($admin);
         app(CaseService::class)->deleteArchivedCase($case, 'Duplicate record — resolved elsewhere', $admin);
 
         $this->assertTrue($cascadeReferral->fresh()->trashed());
@@ -90,13 +90,13 @@ class CascadeSoftDeletesTest extends TestCase
 
         // Same three columns CaseDocumentController::destroy() writes.
         Carbon::setTestNow(Carbon::now()->subWeeks(3));
-        $this->actingAs($caseManager);
+        $this->actingAsWithMfa($caseManager);
         $independentDocument->delete();
         Carbon::setTestNow();
 
         $independentStamp = CaseDocument::onlyTrashed()->findOrFail($independentDocument->id)->deleted_at;
 
-        $this->actingAs($admin);
+        $this->actingAsWithMfa($admin);
         app(CaseService::class)->deleteArchivedCase($case, 'Document retention sweep on the case', $admin);
         app(CaseService::class)->restoreTrashedCase($case->id, $admin);
 
@@ -167,13 +167,13 @@ class CascadeSoftDeletesTest extends TestCase
         // The document was deleted on its own a week before the case went to
         // trash, by a different user.
         Carbon::setTestNow(Carbon::now()->subWeek());
-        $this->actingAs($caseManager);
+        $this->actingAsWithMfa($caseManager);
         $independentDocument->delete();
         Carbon::setTestNow();
 
         $independentStamp = CaseDocument::onlyTrashed()->findOrFail($independentDocument->id)->deleted_at;
 
-        $this->actingAs($admin);
+        $this->actingAsWithMfa($admin);
         app(CaseService::class)->deleteArchivedCase($case, 'Case retention sweep', $admin);
 
         // Live children carry the cascade stamp.
@@ -206,7 +206,7 @@ class CascadeSoftDeletesTest extends TestCase
         $comment = $this->comment($referral, $admin);
         $document = CaseDocument::factory()->create(['case_id' => $case->id]);
 
-        $this->actingAs($admin);
+        $this->actingAsWithMfa($admin);
         $service = app(CaseService::class);
 
         $service->deleteArchivedCase($case, 'Archived duplicate — purged', $admin);

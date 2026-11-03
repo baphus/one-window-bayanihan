@@ -36,9 +36,9 @@ class HelpdeskArticleFeedbackTest extends TestCase
 
     public function test_account_votes_update_and_invalid_input_is_rejected(): void
     {
-        $user = User::factory()->create(['role' => 'ADMIN']);
+        $user = User::factory()->mfaEnabled()->create(['role' => 'ADMIN', 'mfa_secret' => 'JBSWY3DPEHPK3PXP']);
         $url = '/help/using-public-tracking-portal/feedback';
-        $this->actingAs($user)->postJson($url, ['vote' => 'yes'])->assertOk();
+        $this->actingAsWithMfa($user)->postJson($url, ['vote' => 'yes'])->assertOk();
         $this->postJson($url, ['vote' => 'no'])->assertOk();
         $this->assertDatabaseCount('helpdesk_article_feedback', 1);
         $this->assertDatabaseHas('helpdesk_article_feedback', ['identity_hash' => hash('sha256', 'user:'.$user->id), 'vote' => 'no']);
@@ -72,9 +72,9 @@ class HelpdeskArticleFeedbackTest extends TestCase
     {
         $this->get('/admin/helpdesk-feedback')->assertRedirect();
         foreach (['OFW', 'CASE_MANAGER', 'AGENCY'] as $role) {
-            $this->actingAs(User::factory()->create(['role' => $role]))->get('/admin/helpdesk-feedback')->assertForbidden();
+            $this->actingAsWithMfa(User::factory()->mfaEnabled()->create(['role' => $role, 'mfa_secret' => 'JBSWY3DPEHPK3PXP']))->get('/admin/helpdesk-feedback')->assertForbidden();
         }
-        $this->actingAs(User::factory()->create(['role' => 'ADMIN']))->get('/admin/helpdesk-feedback')
+        $this->actingAsWithMfa(User::factory()->mfaEnabled()->create(['role' => 'ADMIN', 'mfa_secret' => 'JBSWY3DPEHPK3PXP']))->get('/admin/helpdesk-feedback')
             ->assertOk()->assertInertia(fn ($page) => $page->component('Admin/HelpdeskFeedback/Index')
             ->has('articles')->where('articles.0.total', 0)->where('articles.0.percent', null));
     }

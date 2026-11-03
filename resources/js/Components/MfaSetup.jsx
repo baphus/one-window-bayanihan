@@ -1,15 +1,19 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { CardSection } from '@/Components/ui/CardSection';
 import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
 import DangerButton from '@/Components/DangerButton';
 import InputLabel from '@/Components/InputLabel';
 import InputError from '@/Components/InputError';
+import MfaConfirmDialog from '@/Components/MfaConfirmDialog';
+import useMfaStatus from '@/Hooks/useMfaStatus';
 import { useToast } from '@/Hooks/useToast';
 import TextInput from '@/Components/TextInput';
 
-export default function MfaSetup({ mfaEnabled }) {
+export default function MfaSetup({ mfaEnabled, mfaRequired = true }) {
     const [enabled, setEnabled] = useState(mfaEnabled);
+    const { status, isFresh, refresh } = useMfaStatus();
+    const required = status?.required ?? mfaRequired;
     const [step, setStep] = useState('idle'); // idle | show_qr | verifying | enabled | recovery
     const [secret, setSecret] = useState('');
     const [qrUrl, setQrUrl] = useState('');
@@ -25,8 +29,36 @@ export default function MfaSetup({ mfaEnabled }) {
     const [confirmPassword, setConfirmPassword] = useState('');
     const [confirmError, setConfirmError] = useState('');
 
+    // Fresh-MFA gate. The shared confirmation opens the five-minute window;
+    // the password dialog below still runs against the configured endpoint.
+    const [mfaAction, setMfaAction] = useState(null); // null | 'disable' | 'regenerate'
+    const [forceMfaProof, setForceMfaProof] = useState(false);
+    const [proofData, setProofData] = useState({});
+
+    useEffect(() => {
+        if (status) setEnabled(Boolean(status.enabled));
+    }, [status]);
+
     function csrfToken() {
         return document.querySelector('meta[name="csrf-token"]')?.content || '';
+    }
+
+    function askForPassword(action) {
+        setConfirmAction(action);
+        setConfirmPassword('');
+        setConfirmError('');
+    }
+
+    function beginMfaAction(action) {
+        if (required) return;
+        // Disable requires a one-time factor alongside the password even when
+        // a fresh window exists; regeneration only needs the fresh window.
+        if (action === 'regenerate' && isFresh && !forceMfaProof) {
+            askForPassword(action);
+            return;
+        }
+        setForceMfaProof(action === 'disable');
+        setMfaAction(action);
     }
 
     function handleEnable() {
@@ -72,8 +104,8 @@ export default function MfaSetup({ mfaEnabled }) {
         .then(r => r.json().then(data => ({ ok: r.ok, data })))
         .then(({ ok, data }) => {
             if (!ok) {
-                setError(data.message || 'Invalid code. Please try again.');
-                toast.error(data.message || 'Invalid code. Please try again.');
+                setError(data.message || data.errors?.otp?.[0] || 'Invalid code. Please try again.');
+                toast.error(data.message || data.errors?.otp?.[0] || 'Invalid code. Please try again.');
                 return;
             }
             setEnabled(true);
@@ -86,14 +118,18 @@ export default function MfaSetup({ mfaEnabled }) {
     }
 
     function handleDisable() {
-        setConfirmAction('disable');
-        setConfirmPassword('');
-        setConfirmError('');
+        beginMfaAction('disable');
     }
 
     function confirmDisable() {
         if (!confirmPassword) {
             setConfirmError('Please enter your password.');
+            return;
+        }
+        if (!proofData.otp && !proofData.recovery_code) {
+            setConfirmAction(null);
+            setMfaAction('disable');
+            setForceMfaProof(true);
             return;
         }
         setLoading(true);
@@ -107,11 +143,15 @@ export default function MfaSetup({ mfaEnabled }) {
                 'Content-Type': 'application/json',
                 'X-CSRF-TOKEN': csrfToken(),
             },
-            body: JSON.stringify({ password: confirmPassword }),
+            body: JSON.stringify({ password: confirmPassword, otp: proofData.otp, recovery_code: proofData.recovery_code }),
         })
-        .then(r => {
+        .then(async (r) => {
+            const data = await r.json().catch(() => ({}));
             if (!r.ok) {
-                return r.json().then(data => { throw new Error(data.message || 'Incorrect password.'); });
+                const error = new Error(data.errors?.password?.[0] || data.errors?.mfa_policy?.[0] || data.message || 'Incorrect password.');
+                error.mfaStale = Boolean(data.errors?.mfa_confirmation);
+                error.mfaPolicy = Boolean(data.errors?.mfa_policy);
+                throw error;
             }
             setEnabled(false);
             setStep('idle');
@@ -122,24 +162,40 @@ export default function MfaSetup({ mfaEnabled }) {
             setShowRecovery(false);
             setConfirmAction(null);
             setConfirmPassword('');
+            refresh();
             toast.success('Two-factor authentication disabled.');
         })
         .catch((e) => {
+            if (e.mfaStale) {
+                setConfirmAction(null);
+                setForceMfaProof(true);
+                setMfaAction('disable');
+            } else if (e.mfaPolicy) {
+                setConfirmAction(null);
+                setConfirmError(e.message);
+                setEnabled(true);
+                refresh();
+            }
             setConfirmError(e.message || 'An error occurred. Please try again.');
+            setConfirmPassword('');
             toast.error(e.message || 'An error occurred. Please try again.');
         })
         .finally(() => setLoading(false));
     }
 
     function handleRegenerateCodes() {
-        setConfirmAction('regenerate');
-        setConfirmPassword('');
-        setConfirmError('');
+        beginMfaAction('regenerate');
     }
 
     function confirmRegenerate() {
         if (!confirmPassword) {
             setConfirmError('Please enter your password.');
+            return;
+        }
+        if (!isFresh && !proofData.otp && !proofData.recovery_code) {
+            setConfirmAction(null);
+            setMfaAction('regenerate');
+            setForceMfaProof(true);
             return;
         }
         setLoading(true);
@@ -155,20 +211,27 @@ export default function MfaSetup({ mfaEnabled }) {
             },
             body: JSON.stringify({ password: confirmPassword }),
         })
-        .then(r => {
+        .then(async (r) => {
+            const data = await r.json().catch(() => ({}));
             if (!r.ok) {
-                return r.json().then(data => { throw new Error(data.message || 'Incorrect password.'); });
+                const error = new Error(data.errors?.password?.[0] || data.errors?.mfa_policy?.[0] || data.message || 'Incorrect password.');
+                error.mfaStale = Boolean(data.errors?.mfa_confirmation);
+                error.mfaPolicy = Boolean(data.errors?.mfa_policy);
+                throw error;
             }
-            return r.json();
-        })
-        .then(data => {
             setRecoveryCodes(data.recovery_codes || []);
             setConfirmAction(null);
             setConfirmPassword('');
             toast.success('Recovery codes regenerated. Save them in a safe place.');
         })
         .catch((e) => {
+            if (e.mfaStale) {
+                setConfirmAction(null);
+                setForceMfaProof(true);
+                setMfaAction('regenerate');
+            }
             setConfirmError(e.message || 'Failed to regenerate codes.');
+            setConfirmPassword('');
             toast.error(e.message || 'Failed to regenerate codes.');
         })
         .finally(() => setLoading(false));
@@ -178,6 +241,20 @@ export default function MfaSetup({ mfaEnabled }) {
         setConfirmAction(null);
         setConfirmPassword('');
         setConfirmError('');
+    }
+
+    function handleMfaConfirmed({ proof }) {
+        const action = mfaAction;
+        setMfaAction(null);
+        setForceMfaProof(false);
+        setProofData(action === 'disable' ? proof : {});
+        if (action === 'disable') {
+            setConfirmPassword('');
+            setConfirmError('');
+            setConfirmAction('disable');
+        } else {
+            askForPassword(action);
+        }
     }
 
     function handleCopyCodes() {
@@ -205,6 +282,11 @@ export default function MfaSetup({ mfaEnabled }) {
                         <p className="text-[13px] text-slate-600 mb-3">
                             Add an extra layer of security to your account using an authenticator app
                             like Google Authenticator, Microsoft Authenticator, or Authy.
+                        </p>
+                        <p className={`mb-3 text-[12px] font-medium ${required ? 'text-amber-700' : 'text-slate-500'}`}>
+                            {required
+                                ? 'Your role requires MFA. Enroll now to keep access to protected areas.'
+                                : 'MFA is optional for your role. You can remove it later from this page.'}
                         </p>
                         <PrimaryButton onClick={handleEnable} disabled={loading}>
                             {loading ? 'Generating...' : 'Enable Two-Factor Authentication'}
@@ -285,21 +367,28 @@ export default function MfaSetup({ mfaEnabled }) {
 
                 {enabled && step !== 'recovery' && !showRecovery && (
                     <div>
-                        <div className="flex items-center gap-2 mb-3">
+                        <div className="flex flex-wrap items-center gap-2 mb-3">
                             <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-[11px] font-bold text-green-800">
                                 <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
                                     <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                                 </svg>
                                 Enabled
                             </span>
+                            <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-bold ${required ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600'}`}>
+                                {required ? 'Required by policy' : 'Optional'}
+                            </span>
                         </div>
                         <p className="text-[13px] text-slate-600 mb-3">
-                            Your account is protected with two-factor authentication.
+                            {required
+                                ? 'Your role requires MFA. It cannot be disabled here. If you lose access to your authenticator and recovery codes, contact an administrator.'
+                                : 'Your account is protected with two-factor authentication. You can disable it if you no longer want it.'}
                         </p>
                         <div className="flex flex-wrap items-center gap-2">
-                            <DangerButton onClick={handleDisable} disabled={loading}>
-                                {loading ? 'Disabling...' : 'Disable MFA'}
-                            </DangerButton>
+                            {!required && (
+                                <DangerButton onClick={handleDisable} disabled={loading}>
+                                    {loading ? 'Disabling...' : 'Disable MFA'}
+                                </DangerButton>
+                            )}
                         </div>
                     </div>
                 )}
@@ -308,7 +397,7 @@ export default function MfaSetup({ mfaEnabled }) {
 
         {/* Password confirmation dialog for Disable / Regenerate */}
         {confirmAction && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" onClick={() => setConfirmAction(null)}>
+            <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/50 p-4" onClick={cancelConfirm}>
                 <div className="w-full max-w-md rounded-lg owb-modal-animate bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
                     <div className="flex flex-col items-center px-6 py-5 text-center">
                         <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${confirmAction === 'disable' ? 'bg-red-50' : 'bg-blue-50'}`}>
@@ -363,6 +452,22 @@ export default function MfaSetup({ mfaEnabled }) {
                 </div>
             </div>
         )}
+
+        <MfaConfirmDialog
+            open={!!mfaAction}
+            title={mfaAction === 'disable' ? 'Confirm MFA removal' : 'Confirm recovery-code regeneration'}
+            description={
+                mfaAction === 'disable'
+                    ? 'Disabling MFA removes your authenticator and recovery codes. Confirm with a current code first.'
+                    : 'Regenerating recovery codes invalidates the old ones. Confirm with a current code first.'
+            }
+            confirmLabel="Continue"
+            confirmedUntil={status?.confirmed_until}
+            forceProof={forceMfaProof}
+            collectOnly={mfaAction === 'disable'}
+            onCancel={() => setMfaAction(null)}
+            onConfirmed={handleMfaConfirmed}
+        />
         </>
     );
 }

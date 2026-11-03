@@ -34,7 +34,7 @@ class IntakeSelfCategorizationTest extends TestCase
         $category = CaseCategory::factory()->create(['is_active' => true]);
         $ofw = $this->ofwWithClient();
 
-        $response = $this->actingAs($ofw)->post(route('ofw.intake.store'), [
+        $response = $this->actingAsWithMfa($ofw)->post(route('ofw.intake.store'), [
             'summary' => 'Please help me.',
             'vulnerability_indicator' => 'None',
             'consent' => true,
@@ -54,7 +54,7 @@ class IntakeSelfCategorizationTest extends TestCase
     {
         $ofw = $this->ofwWithClient();
 
-        $response = $this->actingAs($ofw)->post(route('ofw.intake.store'), [
+        $response = $this->actingAsWithMfa($ofw)->post(route('ofw.intake.store'), [
             'summary' => 'Please help me.',
             'vulnerability_indicator' => 'None',
             'consent' => true,

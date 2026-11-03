@@ -91,7 +91,7 @@ Eight numbered documents plus a reading guide. Current implementation claims are
 | [ROLES_AND_PERMISSIONS_v1.0.0.md](ROLES_AND_PERMISSIONS_v1.0.0.md) | CURRENT | Role model, `CheckRole`/MFA gates, resource access, and the route matrix â€” verified against source code |
 | [OBSERVABILITY_LOG_SURFACES_V1.md](OBSERVABILITY_LOG_SURFACES_V1.md) | PROPOSED | Design spec for the administrator Monitoring surfaces (system health, email logs, failed jobs, security log); pages L2–L4 are implemented, remaining items are prerequisites |
 | [security/rls-posture-decision-v1.0.0.md](security/rls-posture-decision-v1.0.0.md) | CURRENT | Database row-level-security posture, enforced tables, and remaining deployment checks |
-| [MFA_LOGIN_CHALLENGE.md](MFA_LOGIN_CHALLENGE.md) | CURRENT | TOTP/recovery MFA challenge flow at `/login/mfa`. Corrected: there is no `MFA_LOGIN_CHALLENGE_ENABLED` flag â€” the challenge runs for any enrolled user whose role passes `User::isInMfaEnforcedRole()` (all roles in production); enrollment is enforced separately via `config/mfa.php` |
+| [MFA_LOGIN_CHALLENGE.md](MFA_LOGIN_CHALLENGE.md) | CURRENT | TOTP/recovery challenge for every enrolled account, independent of enrollment policy; fresh MFA confirmation and protected session requirements |
 
 ### Testing
 
@@ -186,7 +186,7 @@ Dated plans, specs, findings, and records kept for provenance only â€” not 
 | [DB_SCHEMA_DEAD_TABLE_AUDIT_2026-09-16.md](DB_SCHEMA_DEAD_TABLE_AUDIT_2026-09-16.md) | HISTORICAL-ARCHIVE | Point-in-time dead-table audit of the live schema (no code changed) |
 | [SCANNER_REMEDIATION_2026-09.md](SCANNER_REMEDIATION_2026-09.md) | HISTORICAL-ARCHIVE | Record of remediations for the 2026-09-01 external website scanner report |
 | [E2E_TEST_FINDINGS_v1.0.0.md](E2E_TEST_FINDINGS_v1.0.0.md) | HISTORICAL-ARCHIVE | Archived findings from the single 2026-07-27 staging E2E run; counts are not current |
-| [MFA_ROLLOUT.md](MFA_ROLLOUT.md) | CURRENT | MFA enrollment enforcement and challenge tuning. Corrected: there is no `MFA_LOGIN_CHALLENGE_ENABLED` flag to activate; deployments configure `MFA_ENROLLMENT_ENFORCEMENT_ENABLED` and `MFA_ENROLLMENT_ENFORCED_ROLES` in `config/mfa.php` |
+| [MFA_ROLLOUT.md](MFA_ROLLOUT.md) | CURRENT | Administrator-controlled role defaults and per-user overrides, deployment checks, secure disable/reset, and restricted last-administrator recovery |
 
 ## Tech Stack (Verified)
 

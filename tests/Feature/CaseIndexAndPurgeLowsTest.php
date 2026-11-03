@@ -41,7 +41,7 @@ class CaseIndexAndPurgeLowsTest extends TestCase
         $this->withoutMiddleware(HandleInertiaRequests::class);
         $this->withoutMiddleware(SetPostgresSession::class);
 
-        $response = $this->actingAs($user)->get(route('clients.index', $params));
+        $response = $this->actingAsWithMfa($user)->get(route('clients.index', $params));
 
         $response->assertOk();
 
@@ -80,7 +80,7 @@ class CaseIndexAndPurgeLowsTest extends TestCase
         $this->withoutMiddleware(HandleInertiaRequests::class);
         $this->withoutMiddleware(SetPostgresSession::class);
 
-        $response = $this->actingAs($manager)->get(route('cases.create'));
+        $response = $this->actingAsWithMfa($manager)->get(route('cases.create'));
 
         $response->assertOk();
         $props = $response->viewData('page')['props'];
@@ -96,7 +96,7 @@ class CaseIndexAndPurgeLowsTest extends TestCase
         $farOfw = User::factory()->create(['role' => UserRole::OFW->value]);
         $client = Client::factory()->create(['user_id' => $farOfw->id]);
 
-        $response = $this->actingAs($manager)->get(route('cases.create', ['client_id' => $client->id]));
+        $response = $this->actingAsWithMfa($manager)->get(route('cases.create', ['client_id' => $client->id]));
 
         $response->assertOk();
         $props = $response->viewData('page')['props'];
@@ -111,7 +111,7 @@ class CaseIndexAndPurgeLowsTest extends TestCase
         $this->withoutMiddleware(HandleInertiaRequests::class);
         $this->withoutMiddleware(SetPostgresSession::class);
 
-        $response = $this->actingAs($ofw)->get(route('ofw.intake'));
+        $response = $this->actingAsWithMfa($ofw)->get(route('ofw.intake'));
 
         $response->assertOk();
         $props = $response->viewData('page')['props'];
@@ -193,7 +193,7 @@ class CaseIndexAndPurgeLowsTest extends TestCase
 
         // postJson: a quick-add is an XHR call; without the JSON accept, a
         // 422 comes back as a redirect instead of a JSON error payload.
-        $response = $this->actingAs($manager)->postJson(route('case-issues.quick'), ['name' => 'Lost Work Permit']);
+        $response = $this->actingAsWithMfa($manager)->postJson(route('case-issues.quick'), ['name' => 'Lost Work Permit']);
 
         $response->assertOk();
         $this->assertSame('Lost Work Permit', $response->json('name'));
@@ -201,7 +201,7 @@ class CaseIndexAndPurgeLowsTest extends TestCase
 
         // Second call while the row exists: the unique rule fires with the
         // same UX, no duplicate row.
-        $response = $this->actingAs($manager)->postJson(route('case-issues.quick'), ['name' => 'Lost Work Permit']);
+        $response = $this->actingAsWithMfa($manager)->postJson(route('case-issues.quick'), ['name' => 'Lost Work Permit']);
 
         $response->assertStatus(422);
         $this->assertNotNull($response->json('errors.name.0'));
@@ -234,7 +234,7 @@ class CaseIndexAndPurgeLowsTest extends TestCase
 
         $manager = User::factory()->create(['role' => UserRole::ADMIN->value]);
 
-        $response = $this->actingAs($manager)->postJson(route('case-issues.quick'), ['name' => 'Raced Issue']);
+        $response = $this->actingAsWithMfa($manager)->postJson(route('case-issues.quick'), ['name' => 'Raced Issue']);
 
         $response->assertStatus(422);
         $this->assertNotNull($response->json('errors.name.0'));

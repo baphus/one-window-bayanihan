@@ -38,7 +38,7 @@ class CaseDetailsEditScopeTest extends TestCase
         $category = CaseCategory::create(['name' => 'Legal Assistance', 'is_active' => true]);
         $case = $this->makeCase();
 
-        $response = $this->actingAs($this->cm)
+        $response = $this->actingAsWithMfa($this->cm)
             ->patch("/cases/{$case->id}", [
                 'case_issue_id' => $issue->id,
                 'category_ids' => [$category->id],
@@ -62,7 +62,7 @@ class CaseDetailsEditScopeTest extends TestCase
             'nok_vulnerability_indicator' => 'Senior Citizen',
         ]);
 
-        $response = $this->actingAs($this->cm)
+        $response = $this->actingAsWithMfa($this->cm)
             ->patch("/cases/{$case->id}", [
                 'status' => 'CLOSED',
                 'summary' => 'Rewritten narrative.',
@@ -88,7 +88,7 @@ class CaseDetailsEditScopeTest extends TestCase
         $category = CaseCategory::create(['name' => 'Housing Support', 'is_active' => true]);
         $case = $this->makeCase(['case_issue_id' => $issue->id]);
 
-        $response = $this->actingAs($this->cm)
+        $response = $this->actingAsWithMfa($this->cm)
             ->patch("/cases/{$case->id}", [
                 'case_issue_id' => null,
                 'category_ids' => [$category->id],
@@ -103,7 +103,7 @@ class CaseDetailsEditScopeTest extends TestCase
         $inactive = CaseCategory::create(['name' => 'Retired Category', 'is_active' => false]);
         $case = $this->makeCase();
 
-        $response = $this->actingAs($this->cm)
+        $response = $this->actingAsWithMfa($this->cm)
             ->patch("/cases/{$case->id}", ['category_ids' => [$inactive->id]]);
 
         $response->assertSessionHasErrors('category_ids.0');
@@ -117,14 +117,14 @@ class CaseDetailsEditScopeTest extends TestCase
 
         // The modal creates the issue through this endpoint, then submits the
         // returned id as case_issue_id.
-        $created = $this->actingAs($this->cm)
+        $created = $this->actingAsWithMfa($this->cm)
             ->postJson(route('case-issues.quick'), ['name' => 'Lost Passport']);
 
         $created->assertStatus(200);
         $issueId = $created->json('id');
         $this->assertNotEmpty($issueId);
 
-        $response = $this->actingAs($this->cm)
+        $response = $this->actingAsWithMfa($this->cm)
             ->patch("/cases/{$case->id}", [
                 'case_issue_id' => $issueId,
                 'category_ids' => [$category->id],

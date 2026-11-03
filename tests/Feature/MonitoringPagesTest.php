@@ -25,7 +25,7 @@ class MonitoringPagesTest extends TestCase
         foreach ([UserRole::CASE_MANAGER, UserRole::AGENCY, UserRole::OFW] as $role) {
             $user = User::factory()->create(['role' => $role->value]);
 
-            $this->actingAs($user)
+            $this->actingAsWithMfa($user)
                 ->get(route('admin.system-health.index'))
                 ->assertForbidden();
         }
@@ -37,7 +37,7 @@ class MonitoringPagesTest extends TestCase
 
         $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
 
-        $response = $this->actingAs($admin)->get(route('admin.system-health.index'));
+        $response = $this->actingAsWithMfa($admin)->get(route('admin.system-health.index'));
 
         $response->assertOk();
 
@@ -61,7 +61,7 @@ class MonitoringPagesTest extends TestCase
 
         $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
 
-        $response = $this->actingAs($admin)->get(route('admin.system-health.index'));
+        $response = $this->actingAsWithMfa($admin)->get(route('admin.system-health.index'));
 
         $scheduler = collect($response->viewData('page')['props']['checks'])
             ->firstWhere('key', 'scheduler');
@@ -74,9 +74,9 @@ class MonitoringPagesTest extends TestCase
     {
         $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
-        $this->actingAs($user)->get(route('admin.email-logs.index'))->assertForbidden();
-        $this->actingAs($user)->get(route('admin.security-log.index'))->assertForbidden();
-        $this->actingAs($user)->get(route('admin.failed-jobs.index'))->assertForbidden();
+        $this->actingAsWithMfa($user)->get(route('admin.email-logs.index'))->assertForbidden();
+        $this->actingAsWithMfa($user)->get(route('admin.security-log.index'))->assertForbidden();
+        $this->actingAsWithMfa($user)->get(route('admin.failed-jobs.index'))->assertForbidden();
     }
 
     public function test_email_log_page_filters_by_status(): void
@@ -99,7 +99,7 @@ class MonitoringPagesTest extends TestCase
             'error_message' => 'resend: 550 mailbox unavailable',
         ]);
 
-        $response = $this->actingAs($admin)
+        $response = $this->actingAsWithMfa($admin)
             ->get(route('admin.email-logs.index', ['status' => 'failed']));
 
         $response->assertOk();
@@ -128,7 +128,7 @@ class MonitoringPagesTest extends TestCase
             ]);
         }
 
-        $response = $this->actingAs($admin)
+        $response = $this->actingAsWithMfa($admin)
             ->get(route('admin.email-logs.index', ['search' => 'maria']));
 
         $rows = collect($response->viewData('page')['props']['logs']['data']);
@@ -163,7 +163,7 @@ class MonitoringPagesTest extends TestCase
         $insert('user', 'ADMIN_RESET_PASSWORD', 'security');
         $insert('case', 'UPDATE');
 
-        $response = $this->actingAs($admin)->get(route('admin.security-log.index'));
+        $response = $this->actingAsWithMfa($admin)->get(route('admin.security-log.index'));
 
         $response->assertOk();
 

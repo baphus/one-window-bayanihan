@@ -39,7 +39,7 @@ class CaseApprovalDisplayTest extends TestCase
         $approved = $this->makeCase($reviewer);
         $notApproved = $this->makeCase();
 
-        $response = $this->actingAs($admin)->get(route('cases.index'));
+        $response = $this->actingAsWithMfa($admin)->get(route('cases.index'));
 
         $response->assertOk();
         $rows = collect($response->viewData('page')['props']['cases']['data'])->keyBy('id');
@@ -80,7 +80,7 @@ class CaseApprovalDisplayTest extends TestCase
             ]);
         }
 
-        $this->actingAs($admin)
+        $this->actingAsWithMfa($admin)
             ->get(route('cases.show', $case->id))
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page

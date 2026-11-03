@@ -51,7 +51,7 @@ class CategoryFilterDeletionHardeningTest extends TestCase
                     $query['category_id'] = $case['scalar'];
                 }
 
-                $response = $this->actingAs($admin)->get(route($routeName, $query));
+                $response = $this->actingAsWithMfa($admin)->get(route($routeName, $query));
 
                 $response->assertStatus(302)->assertSessionHasErrors($case['error']);
             }
@@ -81,11 +81,11 @@ class CategoryFilterDeletionHardeningTest extends TestCase
             ['category_id' => $first->id, 'count' => 1],
             ['category_ids' => [$first->id, $second->id], 'count' => 2],
         ] as $filter) {
-            $this->actingAs($admin)->get(route('cases.index', $filter))
+            $this->actingAsWithMfa($admin)->get(route('cases.index', $filter))
                 ->assertInertia(fn ($page) => $page->has('cases.data', $filter['count']));
-            $this->actingAs($admin)->get(route('clients.index', $filter))
+            $this->actingAsWithMfa($admin)->get(route('clients.index', $filter))
                 ->assertInertia(fn ($page) => $page->has('clients.data', $filter['count']));
-            $this->actingAs($admin)->get(route('referrals.index', $filter))
+            $this->actingAsWithMfa($admin)->get(route('referrals.index', $filter))
                 ->assertInertia(fn ($page) => $page->has('referrals.data', $filter['count']));
         }
     }
@@ -97,7 +97,7 @@ class CategoryFilterDeletionHardeningTest extends TestCase
         $case = CaseFile::factory()->create(['category_id' => $category->id]);
         $case->categories()->attach($category->id);
 
-        $response = $this->actingAs($admin)->delete(route('admin.case-categories.destroy', $category));
+        $response = $this->actingAsWithMfa($admin)->delete(route('admin.case-categories.destroy', $category));
 
         $response->assertRedirect()->assertSessionHas('error');
         $this->assertDatabaseHas('case_categories', [
@@ -111,7 +111,7 @@ class CategoryFilterDeletionHardeningTest extends TestCase
         $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $category = CaseCategory::factory()->create(['is_active' => true]);
 
-        $response = $this->actingAs($admin)->delete(route('admin.case-categories.destroy', $category));
+        $response = $this->actingAsWithMfa($admin)->delete(route('admin.case-categories.destroy', $category));
 
         $response->assertRedirect()->assertSessionHas('success');
         $this->assertDatabaseHas('case_categories', [

@@ -212,7 +212,7 @@ class DashboardServiceTest extends TestCase
             'agcy_id' => $agency->id,
         ]);
 
-        $this->actingAs($caseManager);
+        $this->actingAsWithMfa($caseManager);
 
         $cases = app(CaseService::class)->getCases([
             'status' => 'OPEN',

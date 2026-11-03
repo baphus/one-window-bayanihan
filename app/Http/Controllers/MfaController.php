@@ -3,9 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Enums\AuditModule;
+use App\Notifications\MfaStatusChangedNotification;
 use App\Services\AuditLogger;
 use App\Services\MfaPendingState;
+use App\Services\MfaPolicyService;
 use App\Services\MfaService;
+use App\Services\UserService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -14,13 +17,47 @@ use PragmaRX\Google2FALaravel\Google2FA;
 
 class MfaController extends Controller
 {
-    public function status(Request $request): JsonResponse
+    public function status(Request $request, MfaPendingState $pendingState, MfaPolicyService $policy): JsonResponse
     {
         $user = $request->user();
 
         return response()->json([
             'enabled' => $user->mfa_enabled_at !== null,
             'enabled_at' => $user->mfa_enabled_at?->toIso8601String(),
+            'required' => $policy->requiresEnrollment($user),
+            'confirmed_until' => $pendingState->confirmedUntil($request, $user),
+        ]);
+    }
+
+    public function confirm(Request $request, MfaPendingState $pendingState, MfaService $mfa): JsonResponse
+    {
+        $validated = $request->validate([
+            'otp' => ['required_without:recovery_code', 'nullable', 'string', 'size:6'],
+            'recovery_code' => ['required_without:otp', 'nullable', 'string', 'max:64'],
+        ]);
+        $user = $request->user();
+
+        if ($user->mfa_enabled_at === null) {
+            throw ValidationException::withMessages(['mfa_confirmation' => 'MFA must be enabled before confirming.']);
+        }
+
+        $valid = isset($validated['recovery_code'])
+            ? $mfa->consumeRecoveryCode($user, $validated['recovery_code'])
+            : $mfa->consumeTotp($user, $validated['otp']);
+
+        if (! $valid) {
+            $field = isset($validated['recovery_code']) ? 'recovery_code' : 'otp';
+            throw ValidationException::withMessages([
+                'mfa_confirmation' => 'MFA confirmation failed. Please try again.',
+                $field => 'The code is invalid or has already been used.',
+            ]);
+        }
+
+        $pendingState->confirm($request, $user);
+
+        return response()->json([
+            'confirmed' => true,
+            'confirmed_until' => $pendingState->confirmedUntil($request, $user),
         ]);
     }
 
@@ -87,10 +124,12 @@ class MfaController extends Controller
         $user->mfa_secret = $secret;
         $user->mfa_recovery_codes = $mfaService->hashRecoveryCodes($codes);
         $user->mfa_enabled_at = now();
+        $user->mfa_last_totp_counter = null;
         $user->save();
 
         $pendingState->clear($request);
         $pendingState->markAuthenticated($request, $user);
+        $pendingState->confirm($request, $user);
 
         AuditLogger::enableMfa()
             ->by($user)
@@ -104,47 +143,57 @@ class MfaController extends Controller
         ]);
     }
 
-    public function disable(Request $request): JsonResponse
+    public function disable(Request $request, MfaPendingState $pendingState, MfaService $mfa, MfaPolicyService $policy): JsonResponse
     {
-        if (function_exists('app')) {
-            try {
-                if (app()->isProduction()) {
-                    return response()->json(['message' => 'Two-factor authentication cannot be disabled in production.'], 403);
-                }
-            } catch (\Throwable $e) {
-                // Fall through to normal behaviour when app context is unavailable.
-            }
+        $validated = $request->validate([
+            'password' => ['required', 'string'],
+            'otp' => ['required_without:recovery_code', 'nullable', 'string', 'size:6'],
+            'recovery_code' => ['required_without:otp', 'nullable', 'string', 'max:64'],
+        ]);
+        $user = $request->user();
+
+        if ($policy->requiresEnrollment($user)) {
+            throw ValidationException::withMessages(['mfa_policy' => 'MFA is required for your account and cannot be disabled.']);
         }
 
-        $request->validate([
-            'password' => ['required', 'string'],
-        ]);
+        if (! Hash::check($validated['password'], $user->password)) {
+            throw ValidationException::withMessages(['password' => 'The password is incorrect.']);
+        }
 
-        if (! Hash::check($request->password, $request->user()->password)) {
+        $valid = isset($validated['recovery_code'])
+            ? $mfa->consumeRecoveryCode($user, $validated['recovery_code'])
+            : $mfa->consumeTotp($user, $validated['otp']);
+
+        if (! $valid) {
             throw ValidationException::withMessages([
-                'password' => 'The password is incorrect.',
+                'mfa_confirmation' => 'MFA confirmation failed. Please try again.',
+                isset($validated['recovery_code']) ? 'recovery_code' : 'otp' => 'The code is invalid or has already been used.',
             ]);
         }
-
-        $user = $request->user();
 
         $user->mfa_secret = null;
         $user->mfa_recovery_codes = null;
         $user->mfa_enabled_at = null;
+        $user->mfa_last_totp_counter = null;
         $user->save();
+
+        app(UserService::class)->invalidateSessions($user, 'self_mfa_disabled', $request->session()->getId());
+        $pendingState->clear($request);
+        $pendingState->confirm($request, $user);
 
         AuditLogger::disableMfa()
             ->by($user)
             ->forEntity($user, $user->name)
             ->module(AuditModule::MFA)
+            ->context(['enabled' => true], ['enabled' => false])
             ->write();
 
-        return response()->json([
-            'message' => 'Two-factor authentication has been disabled.',
-        ]);
+        $user->notify(new MfaStatusChangedNotification('disabled', false));
+
+        return response()->json(['message' => 'Two-factor authentication has been disabled.']);
     }
 
-    public function regenerateRecoveryCodes(Request $request): JsonResponse
+    public function regenerateRecoveryCodes(Request $request, MfaPendingState $pendingState): JsonResponse
     {
         $user = $request->user();
 
@@ -156,7 +205,10 @@ class MfaController extends Controller
             return response()->json(['message' => 'Password confirmation is required.'], 403);
         }
 
-        $mfaService = app(MfaService::class);
+        if (! $pendingState->ensureConfirmed($request, $user, $mfaService = app(MfaService::class))) {
+            throw ValidationException::withMessages(['mfa_confirmation' => 'Fresh MFA confirmation is required.']);
+        }
+
         $codes = $mfaService->generateRecoveryCodes();
         $user->mfa_recovery_codes = $mfaService->hashRecoveryCodes($codes);
         $user->save();

@@ -25,7 +25,7 @@ class CaseCategoryAdminTest extends TestCase
         CaseCategory::factory()->create(['name' => 'Legal', 'sort_order' => 1, 'is_active' => true]);
         CaseCategory::factory()->create(['name' => 'Financial', 'sort_order' => 2, 'is_active' => true]);
 
-        $response = $this->actingAs($this->admin)->get(route('admin.case-categories.index'));
+        $response = $this->actingAsWithMfa($this->admin)->get(route('admin.case-categories.index'));
 
         $response->assertInertia(fn ($page) => $page
             ->component('Admin/CaseCategory/Index')
@@ -35,7 +35,7 @@ class CaseCategoryAdminTest extends TestCase
 
     public function test_admin_can_create_category(): void
     {
-        $response = $this->actingAs($this->admin)->post(route('admin.case-categories.store'), [
+        $response = $this->actingAsWithMfa($this->admin)->post(route('admin.case-categories.store'), [
             'name' => 'Medical',
             'description' => 'Medical-related cases',
             'color' => '#ff0000',
@@ -53,7 +53,7 @@ class CaseCategoryAdminTest extends TestCase
     {
         $category = CaseCategory::factory()->create(['name' => 'Old Name', 'color' => '#000000']);
 
-        $response = $this->actingAs($this->admin)->patch(route('admin.case-categories.update', $category->id), [
+        $response = $this->actingAsWithMfa($this->admin)->patch(route('admin.case-categories.update', $category->id), [
             'name' => 'New Name',
             'color' => '#ffffff',
             'is_active' => true,
@@ -72,7 +72,7 @@ class CaseCategoryAdminTest extends TestCase
     {
         $category = CaseCategory::factory()->create(['is_active' => true]);
 
-        $response = $this->actingAs($this->admin)->delete(route('admin.case-categories.destroy', $category->id));
+        $response = $this->actingAsWithMfa($this->admin)->delete(route('admin.case-categories.destroy', $category->id));
 
         $response->assertRedirect();
         $this->assertDatabaseHas('case_categories', [
@@ -85,7 +85,7 @@ class CaseCategoryAdminTest extends TestCase
     {
         $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
-        $response = $this->actingAs($user)->post(route('admin.case-categories.store'), [
+        $response = $this->actingAsWithMfa($user)->post(route('admin.case-categories.store'), [
             'name' => 'Hacked',
         ]);
 
@@ -94,7 +94,7 @@ class CaseCategoryAdminTest extends TestCase
 
     public function test_validation_requires_name(): void
     {
-        $response = $this->actingAs($this->admin)->post(route('admin.case-categories.store'), [
+        $response = $this->actingAsWithMfa($this->admin)->post(route('admin.case-categories.store'), [
             'name' => '',
         ]);
 

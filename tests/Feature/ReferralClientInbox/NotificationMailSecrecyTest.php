@@ -16,7 +16,7 @@ class NotificationMailSecrecyTest extends ReferralClientInboxTestCase
         $context = $this->context();
         Mail::fake();
 
-        $this->actingAs($context['agencyUser'])
+        $this->actingAsWithMfa($context['agencyUser'])
             ->post(route('referrals.client-requests.access.reissue', $context['clientRequest']))
             ->assertRedirect();
 

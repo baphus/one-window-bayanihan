@@ -5,17 +5,14 @@ namespace Tests\Feature;
 use App\Enums\UserRole;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\User;
+use App\Services\MfaPolicyService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Tests\TestCase;
 
 /**
- * The role strings live in four places: users.role (with a database CHECK
- * constraint), the route middleware, config/mfa.enrollment_enforced_roles and
- * UserRole. A new role or a typo in any one of them fails silently — in_array()
- * and match() both fall through to "no" rather than throwing.
- *
- * These tests are the tripwire.
+ * The role strings live in the users.role database constraint, route middleware,
+ * persisted MFA policy keys and UserRole. These tests pin their relationships.
  */
 class UserRoleConsistencyTest extends TestCase
 {
@@ -72,10 +69,11 @@ class UserRoleConsistencyTest extends TestCase
 
     public function test_mfa_enforced_roles_are_real_enum_cases(): void
     {
-        $roles = config('mfa.enrollment_enforced_roles');
+        $roles = array_keys(MfaPolicyService::ROLE_DEFAULT_KEYS);
 
         $this->assertNotEmpty($roles);
         $this->assertSame([], array_diff($roles, UserRole::values()));
+        $this->assertSame('required', app(MfaPolicyService::class)->roleDefault(UserRole::ADMIN->value));
     }
 
     public function test_each_role_round_trips_through_the_model(): void

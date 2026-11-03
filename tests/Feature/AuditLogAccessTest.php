@@ -22,18 +22,24 @@ class AuditLogAccessTest extends TestCase
     public function test_non_admin_roles_cannot_access_audit_log_routes(): void
     {
         foreach ([UserRole::CASE_MANAGER, UserRole::AGENCY, UserRole::OFW] as $role) {
-            $user = User::factory()->create(['role' => $role->value]);
+            $user = User::factory()->mfaEnabled()->create([
+                'role' => $role->value,
+                'mfa_secret' => 'JBSWY3DPEHPK3PXP',
+            ]);
 
             foreach (['/audit-logs', '/audit-logs/export', '/audit-logs/actors'] as $uri) {
-                $this->assertNotSame(200, $this->actingAs($user)->get($uri)->status());
+                $this->assertNotSame(200, $this->actingAsWithMfa($user)->get($uri)->status());
             }
         }
     }
 
     public function test_admin_can_access_audit_logs(): void
     {
-        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $admin = User::factory()->mfaEnabled()->create([
+            'role' => UserRole::ADMIN->value,
+            'mfa_secret' => 'JBSWY3DPEHPK3PXP',
+        ]);
 
-        $this->actingAs($admin)->get('/audit-logs')->assertOk();
+        $this->actingAsWithMfa($admin)->get('/audit-logs')->assertOk();
     }
 }

@@ -37,7 +37,7 @@ class DeleteArchivedCaseTest extends TestCase
         ]);
         $document = CaseDocument::factory()->create(['case_id' => $case->id]);
 
-        $this->actingAs($user);
+        $this->actingAsWithMfa($user);
         $service = app(CaseService::class);
         $service->deleteArchivedCase($case, 'Duplicate record — resolved elsewhere', $user);
 
@@ -70,7 +70,7 @@ class DeleteArchivedCaseTest extends TestCase
         $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $case = CaseFile::factory()->create(['status' => 'ARCHIVED', 'user_id' => $user->id]);
 
-        $this->actingAs($user);
+        $this->actingAsWithMfa($user);
         $service = app(CaseService::class);
         $service->deleteArchivedCase($case, 'Test deletion reason text', $user);
 
@@ -90,7 +90,7 @@ class DeleteArchivedCaseTest extends TestCase
         $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $case = CaseFile::factory()->create(['status' => 'OPEN', 'user_id' => $user->id]);
 
-        $this->actingAs($user);
+        $this->actingAsWithMfa($user);
 
         $this->expectException(HttpException::class);
 
@@ -102,7 +102,7 @@ class DeleteArchivedCaseTest extends TestCase
         $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $case = CaseFile::factory()->create(['status' => 'ARCHIVED', 'user_id' => $user->id]);
 
-        $response = $this->actingAs($user)
+        $response = $this->actingAsWithMfa($user)
             ->from(route('cases.show', $case))
             ->delete(route('cases.delete-archived', $case), [
                 'deletion_reason' => 'short',
@@ -116,7 +116,7 @@ class DeleteArchivedCaseTest extends TestCase
         $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $case = CaseFile::factory()->create(['status' => 'ARCHIVED', 'user_id' => $user->id]);
 
-        $response = $this->actingAs($user)
+        $response = $this->actingAsWithMfa($user)
             ->from(route('cases.show', $case))
             ->delete(route('cases.delete-archived', $case), []);
 
@@ -130,7 +130,7 @@ class DeleteArchivedCaseTest extends TestCase
         $cm = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $case = CaseFile::factory()->create(['status' => 'ARCHIVED', 'user_id' => $cm->id]);
 
-        $response = $this->actingAs($agencyUser)
+        $response = $this->actingAsWithMfa($agencyUser)
             ->delete(route('cases.delete-archived', $case), [
                 'deletion_reason' => 'Agency trying to delete — should be denied',
             ]);
@@ -150,7 +150,7 @@ class DeleteArchivedCaseTest extends TestCase
         $referral = Referral::factory()->create(['case_id' => $case->id, 'status' => 'COMPLETED']);
         $document = CaseDocument::factory()->create(['case_id' => $case->id]);
 
-        $this->actingAs($user);
+        $this->actingAsWithMfa($user);
         $service = app(CaseService::class);
         $service->deleteArchivedCase($case, 'Deleting for restore test', $user);
 
@@ -183,7 +183,7 @@ class DeleteArchivedCaseTest extends TestCase
         $user = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $case = CaseFile::factory()->create(['status' => 'ARCHIVED', 'user_id' => $user->id]);
 
-        $this->actingAs($user);
+        $this->actingAsWithMfa($user);
         $service = app(CaseService::class);
         $service->deleteArchivedCase($case, 'Delete before restore test', $user);
         $service->restoreTrashedCase($case->id, $user);
@@ -206,7 +206,7 @@ class DeleteArchivedCaseTest extends TestCase
         $activeCase = CaseFile::factory()->create(['status' => 'ARCHIVED', 'user_id' => $user->id]);
         $deletedCase = CaseFile::factory()->create(['status' => 'ARCHIVED', 'user_id' => $user->id]);
 
-        $this->actingAs($user);
+        $this->actingAsWithMfa($user);
         $service = app(CaseService::class);
         $service->deleteArchivedCase($deletedCase, 'Deleted for getTrashed test', $user);
 
@@ -224,11 +224,11 @@ class DeleteArchivedCaseTest extends TestCase
         $case1 = CaseFile::factory()->create(['status' => 'ARCHIVED', 'user_id' => $cm1->id]);
         $case2 = CaseFile::factory()->create(['status' => 'ARCHIVED', 'user_id' => $cm2->id]);
 
-        $this->actingAs($cm1);
+        $this->actingAsWithMfa($cm1);
         $service = app(CaseService::class);
         $service->deleteArchivedCase($case1, 'CM1 deleting own case', $cm1);
 
-        $this->actingAs($cm2);
+        $this->actingAsWithMfa($cm2);
         $service->deleteArchivedCase($case2, 'CM2 deleting own case', $cm2);
 
         // CM1 should only see their case
@@ -245,7 +245,7 @@ class DeleteArchivedCaseTest extends TestCase
         $case1 = CaseFile::factory()->create(['status' => 'ARCHIVED', 'user_id' => $cm->id]);
         $case2 = CaseFile::factory()->create(['status' => 'ARCHIVED', 'user_id' => $admin->id]);
 
-        $this->actingAs($admin);
+        $this->actingAsWithMfa($admin);
         $service = app(CaseService::class);
         $service->deleteArchivedCase($case1, 'Admin deleting CM case', $admin);
         $service->deleteArchivedCase($case2, 'Admin deleting own case', $admin);
@@ -263,7 +263,7 @@ class DeleteArchivedCaseTest extends TestCase
         $user = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $case = CaseFile::factory()->create(['status' => 'ARCHIVED', 'user_id' => $user->id]);
 
-        $this->actingAs($user);
+        $this->actingAsWithMfa($user);
         $service = app(CaseService::class);
         $service->deleteArchivedCase($case, 'Deleting for purge test', $user);
 
@@ -285,7 +285,7 @@ class DeleteArchivedCaseTest extends TestCase
         $user = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $case = CaseFile::factory()->create(['status' => 'ARCHIVED', 'user_id' => $user->id]);
 
-        $this->actingAs($user);
+        $this->actingAsWithMfa($user);
         $service = app(CaseService::class);
         $service->deleteArchivedCase($case, 'Recently deleted case', $user);
 
@@ -303,7 +303,7 @@ class DeleteArchivedCaseTest extends TestCase
         $user = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $case = CaseFile::factory()->create(['status' => 'ARCHIVED', 'user_id' => $user->id]);
 
-        $this->actingAs($user);
+        $this->actingAsWithMfa($user);
         $service = app(CaseService::class);
         $service->deleteArchivedCase($case, 'Purge custom days test', $user);
 
@@ -331,7 +331,7 @@ class DeleteArchivedCaseTest extends TestCase
     {
         $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
-        $response = $this->actingAs($user)->get(route('cases.trash'));
+        $response = $this->actingAsWithMfa($user)->get(route('cases.trash'));
 
         $response->assertOk()
             ->assertInertia(fn ($page) => $page
@@ -345,10 +345,10 @@ class DeleteArchivedCaseTest extends TestCase
         $user = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $case = CaseFile::factory()->create(['status' => 'ARCHIVED', 'user_id' => $user->id]);
 
-        $this->actingAs($user);
+        $this->actingAsWithMfa($user);
         app(CaseService::class)->deleteArchivedCase($case, 'Deleting for endpoint restore test', $user);
 
-        $response = $this->actingAs($user)->post(route('cases.restore', $case));
+        $response = $this->actingAsWithMfa($user)->post(route('cases.restore', $case));
 
         $response->assertRedirect(route('cases.trash'));
         $response->assertSessionHas('success');
@@ -363,7 +363,7 @@ class DeleteArchivedCaseTest extends TestCase
         $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $case = CaseFile::factory()->create(['status' => 'ARCHIVED', 'user_id' => $user->id]);
 
-        $response = $this->actingAs($user)
+        $response = $this->actingAsWithMfa($user)
             ->delete(route('cases.delete-archived', $case), [
                 'deletion_reason' => 'This is a valid deletion reason for the test',
             ]);

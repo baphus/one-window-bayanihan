@@ -11,6 +11,7 @@ use App\Models\ClientEmployment;
 use App\Models\NextOfKin;
 use App\Models\User;
 use App\Notifications\CaseUpdated;
+use App\Services\MfaPendingState;
 use App\Services\OfwProfileService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -32,10 +33,19 @@ class OfwProfileTest extends TestCase
 
     private function ofwUserFor(Client $client): User
     {
-        return User::factory()->create([
+        $user = User::factory()->mfaEnabled()->create([
             'role' => UserRole::OFW->value,
             'client_id' => $client->id,
+            'mfa_secret' => 'JBSWY3DPEHPK3PXP',
         ]);
+        $this->withSession([
+            MfaPendingState::MARKER_KEY => [
+                'user_id' => (string) $user->id,
+                'credential_fingerprint' => hash('sha256', (string) $user->password),
+            ],
+        ]);
+
+        return $user;
     }
 
     #[Test]
@@ -52,7 +62,7 @@ class OfwProfileTest extends TestCase
         $nok = NextOfKin::create(['client_id' => $client->id, 'first_name' => 'Juan', 'last_name' => 'Soriano', 'is_primary' => true, 'sort_order' => 0]);
         $user = $this->ofwUserFor($client);
 
-        $response = $this->actingAs($user)
+        $response = $this->actingAsWithMfa($user)
             ->withHeader('X-Inertia', 'true')
             ->get('/my-cases/profile');
 
@@ -70,7 +80,7 @@ class OfwProfileTest extends TestCase
     {
         $user = User::factory()->create(['role' => UserRole::OFW->value]);
 
-        $response = $this->actingAs($user)
+        $response = $this->actingAsWithMfa($user)
             ->withHeader('X-Inertia', 'true')
             ->get('/my-cases/profile');
 
@@ -84,7 +94,7 @@ class OfwProfileTest extends TestCase
         $client = Client::factory()->create(['contact_number' => '09171234567']);
         $user = $this->ofwUserFor($client);
 
-        $this->actingAs($user)->put('/my-cases/profile', [
+        $this->actingAsWithMfa($user)->put('/my-cases/profile', [
             'contact_number' => '09182222222',
         ])->assertRedirect(route('ofw.profile.edit'));
 
@@ -99,7 +109,7 @@ class OfwProfileTest extends TestCase
         ClientAddress::create(['client_id' => $client->id, 'region' => 'VII', 'city_municipality' => 'Old City']);
         $user = $this->ofwUserFor($client);
 
-        $this->actingAs($user)->put('/my-cases/profile', [
+        $this->actingAsWithMfa($user)->put('/my-cases/profile', [
             'address' => ['region' => 'NCR', 'province' => 'Metro Manila', 'city_municipality' => 'Manila', 'barangay' => 'Ermita', 'street' => 'Roxas Blvd'],
         ])->assertRedirect(route('ofw.profile.edit'));
 
@@ -115,7 +125,7 @@ class OfwProfileTest extends TestCase
         $client = Client::factory()->create();
         $user = $this->ofwUserFor($client);
 
-        $this->actingAs($user)->put('/my-cases/profile', [
+        $this->actingAsWithMfa($user)->put('/my-cases/profile', [
             'employment' => [
                 'employer_name' => 'ACME Ltd',
                 'position' => 'Domestic Worker',
@@ -134,7 +144,7 @@ class OfwProfileTest extends TestCase
         $this->assertEquals('2025-02-01', $employment->date_of_arrival->toDateString());
 
         // The saved country must come back on the edit page, not just in the DB.
-        $response = $this->actingAs($user)
+        $response = $this->actingAsWithMfa($user)
             ->withHeader('X-Inertia', 'true')
             ->get('/my-cases/profile');
 
@@ -152,7 +162,7 @@ class OfwProfileTest extends TestCase
         $client = Client::factory()->create();
         $user = $this->ofwUserFor($client);
 
-        $this->actingAs($user)->put('/my-cases/profile', [
+        $this->actingAsWithMfa($user)->put('/my-cases/profile', [
             'employment' => [
                 'employer_name' => 'Test',
                 'position' => 'None',
@@ -167,7 +177,7 @@ class OfwProfileTest extends TestCase
         $this->assertSame('United States', $employment->last_country);
 
         // The placeholder must not reappear on the view that reads it back.
-        $response = $this->actingAs($user)
+        $response = $this->actingAsWithMfa($user)
             ->withHeader('X-Inertia', 'true')
             ->get('/my-cases/profile');
 
@@ -182,7 +192,7 @@ class OfwProfileTest extends TestCase
         $client = Client::factory()->create();
         $user = $this->ofwUserFor($client);
 
-        $this->actingAs($user)->put('/my-cases/profile', [
+        $this->actingAsWithMfa($user)->put('/my-cases/profile', [
             'employment' => [
                 'employer_name' => 'Test',
                 'position' => 'None Such Operator',
@@ -202,7 +212,7 @@ class OfwProfileTest extends TestCase
         NextOfKin::create(['client_id' => $client->id, 'first_name' => 'Old', 'last_name' => 'Kin', 'is_primary' => true, 'sort_order' => 0]);
         $user = $this->ofwUserFor($client);
 
-        $this->actingAs($user)->put('/my-cases/profile', [
+        $this->actingAsWithMfa($user)->put('/my-cases/profile', [
             'next_of_kin' => [
                 ['first_name' => 'Juan', 'last_name' => 'Soriano', 'relationship' => 'Spouse', 'phone_number' => '09170000000', 'email' => 'juan@example.com'],
                 ['first_name' => 'Ana', 'last_name' => 'Soriano', 'relationship' => 'Sibling'],
@@ -224,7 +234,7 @@ class OfwProfileTest extends TestCase
         NextOfKin::create(['client_id' => $client->id, 'first_name' => 'Old', 'last_name' => 'Kin', 'is_primary' => true]);
         $user = $this->ofwUserFor($client);
 
-        $this->actingAs($user)->put('/my-cases/profile', [
+        $this->actingAsWithMfa($user)->put('/my-cases/profile', [
             'next_of_kin' => [],
         ])->assertRedirect(route('ofw.profile.edit'));
 
@@ -285,7 +295,7 @@ class OfwProfileTest extends TestCase
         $client = Client::factory()->create();
         $user = $this->ofwUserFor($client);
 
-        $this->actingAs($user)->put('/my-cases/profile', [
+        $this->actingAsWithMfa($user)->put('/my-cases/profile', [
             'current_password' => 'P@ssw0rd!',
             'password' => 'NewPassword123!',
             'password_confirmation' => 'NewPassword123!',
@@ -310,7 +320,7 @@ class OfwProfileTest extends TestCase
             'last_activity' => time(),
         ]);
 
-        $this->actingAs($user)->put('/my-cases/profile', [
+        $this->actingAsWithMfa($user)->put('/my-cases/profile', [
             'current_password' => 'P@ssw0rd!',
             'password' => 'NewPassword123!',
             'password_confirmation' => 'NewPassword123!',
@@ -340,7 +350,7 @@ class OfwProfileTest extends TestCase
             'last_activity' => time(),
         ]);
 
-        $this->actingAs($user)->put('/my-cases/profile', [
+        $this->actingAsWithMfa($user)->put('/my-cases/profile', [
             'contact_number' => '09182222222',
         ])->assertRedirect(route('ofw.profile.edit'));
 
@@ -356,7 +366,7 @@ class OfwProfileTest extends TestCase
         $client = Client::factory()->create();
         $user = $this->ofwUserFor($client);
 
-        $this->actingAs($user)->put('/my-cases/profile', [
+        $this->actingAsWithMfa($user)->put('/my-cases/profile', [
             'password' => 'NewPassword123!',
             'password_confirmation' => 'NewPassword123!',
         ])->assertSessionHasErrors('current_password');
@@ -368,7 +378,7 @@ class OfwProfileTest extends TestCase
         $client = Client::factory()->create();
         $user = $this->ofwUserFor($client);
 
-        $this->actingAs($user)->put('/my-cases/profile', [
+        $this->actingAsWithMfa($user)->put('/my-cases/profile', [
             'current_password' => '',
             'password' => '',
             'password_confirmation' => '',
@@ -386,7 +396,7 @@ class OfwProfileTest extends TestCase
         ClientAddress::create(['client_id' => $client->id, 'city_municipality' => 'Old City']);
         $user = $this->ofwUserFor($client);
 
-        $this->actingAs($user)->put('/my-cases/profile', [
+        $this->actingAsWithMfa($user)->put('/my-cases/profile', [
             'address' => ['city_municipality' => 'New City'],
         ])->assertRedirect(route('ofw.profile.edit'));
 
@@ -409,7 +419,7 @@ class OfwProfileTest extends TestCase
         ]);
         $user = $this->ofwUserFor($client);
 
-        $this->actingAs($user)->put('/my-cases/profile', [
+        $this->actingAsWithMfa($user)->put('/my-cases/profile', [
             'contact_number' => '09182222222',
         ])->assertRedirect(route('ofw.profile.edit'));
 

@@ -43,7 +43,7 @@ class ReferralClientRequestHistoryTest extends TestCase
             'size' => 204800,
         ]);
 
-        $this->actingAs($agencyUser)
+        $this->actingAsWithMfa($agencyUser)
             ->get(route('referrals.show', $referral))
             ->assertInertia(fn ($page) => $page
                 ->where('clientRequestPermissions', [
@@ -63,7 +63,7 @@ class ReferralClientRequestHistoryTest extends TestCase
                 ->where('clientRequestHistory.0.messages.0.attachments.0.size', 204800)
                 ->missing('clientRequestHistory.0.messages.0.attachments.0.file_path'));
 
-        $this->actingAs($owner)
+        $this->actingAsWithMfa($owner)
             ->get(route('referrals.show', $referral))
             ->assertInertia(fn ($page) => $page->where('clientRequestPermissions', [
                 'canCreate' => false,
@@ -81,7 +81,7 @@ class ReferralClientRequestHistoryTest extends TestCase
         $case = CaseFile::factory()->closed()->create(['user_id' => $owner->id]);
         $referral = Referral::factory()->create(['case_id' => $case->id, 'agcy_id' => $agency->id]);
 
-        $this->actingAs($agencyUser)
+        $this->actingAsWithMfa($agencyUser)
             ->get(route('referrals.show', $referral))
             ->assertInertia(fn ($page) => $page->where('clientRequestPermissions', [
                 'canCreate' => false,
@@ -99,7 +99,7 @@ class ReferralClientRequestHistoryTest extends TestCase
         $case = CaseFile::factory()->create(['user_id' => $owner->id]);
         $referral = Referral::factory()->completed()->create(['case_id' => $case->id, 'agcy_id' => $agency->id]);
 
-        $this->actingAs($agencyUser)
+        $this->actingAsWithMfa($agencyUser)
             ->get(route('referrals.show', $referral))
             ->assertInertia(fn ($page) => $page->where('clientRequestPermissions', [
                 'canCreate' => false,
@@ -117,7 +117,7 @@ class ReferralClientRequestHistoryTest extends TestCase
         $case = CaseFile::factory()->closed()->create(['user_id' => $owner->id]);
         $referral = Referral::factory()->create(['case_id' => $case->id, 'agcy_id' => $agency->id]);
 
-        $this->actingAs($agencyUser)
+        $this->actingAsWithMfa($agencyUser)
             ->post(route('referrals.client-requests.store', $referral), [
                 'type' => 'DOCUMENT_REQUEST',
                 'title' => 'Please submit your valid ID',
@@ -137,11 +137,11 @@ class ReferralClientRequestHistoryTest extends TestCase
         $case = CaseFile::factory()->create();
         $referral = Referral::factory()->create(['case_id' => $case->id, 'agcy_id' => $agency->id]);
 
-        $this->actingAs($agencyUser)
+        $this->actingAsWithMfa($agencyUser)
             ->get(route('referrals.client-requests.index', $referral))
             ->assertRedirect(route('referrals.show', $referral));
 
-        $this->actingAs($agencyUser)
+        $this->actingAsWithMfa($agencyUser)
             ->getJson(route('referrals.client-requests.index', $referral))
             ->assertOk()
             ->assertJson(['data' => []]);

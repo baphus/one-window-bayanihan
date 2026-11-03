@@ -2,8 +2,9 @@ import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 import StatusBadge from '@/Components/ui/StatusBadge';
-import ConfirmDialog from '@/Components/ui/ConfirmDialog';
 import UserFormModal from '@/Components/Admin/UserFormModal';
+import MfaConfirmDialog from '@/Components/MfaConfirmDialog';
+import useMfaStatus from '@/Hooks/useMfaStatus';
 import { CardHeader, InfoField } from '@/Components/ui/CardSection';
 
 function StatusPill({ label, enabled }) {
@@ -21,8 +22,11 @@ function StatusPill({ label, enabled }) {
 }
 
 export default function AdminUserShow({ user, agencies = [] }) {
-  const [confirmResetMfa, setConfirmResetMfa] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
+  const [resetMfaOpen, setResetMfaOpen] = useState(false);
+  const [forceResetProof, setForceResetProof] = useState(false);
+  const [resetMfaError, setResetMfaError] = useState('');
+  const { status: mfaStatus } = useMfaStatus();
   const roleLabels = {
     CASE_MANAGER: 'Case Manager',
     AGENCY: 'Agency Focal',
@@ -40,6 +44,13 @@ export default function AdminUserShow({ user, agencies = [] }) {
   const agency = user.agency ?? null;
   const emergency = user.emergency_contact ?? {};
   const { auth } = usePage().props;
+  const mfaPolicy = user.mfaPolicy ?? null;
+  const policyLabel = (value) => (
+    value === 'required' ? 'Required'
+      : value === 'optional' ? 'Optional'
+        : value === 'inherit' ? 'Inherit role default'
+          : null
+  );
 
   const cardSectionClass = 'rounded-xl border border-[#dce3eb] bg-white p-5 shadow-[0_1px_3px_rgba(23,35,51,0.04)]';
 
@@ -268,7 +279,11 @@ export default function AdminUserShow({ user, agencies = [] }) {
                 {user.mfa_enabled_at && auth && user.id !== auth.user.id && (
                   <button
                     type="button"
-                    onClick={() => setConfirmResetMfa(true)}
+                    onClick={() => {
+                      setForceResetProof(false);
+                      setResetMfaError('');
+                      setResetMfaOpen(true);
+                    }}
                     className="text-[10px] font-bold text-red-600 hover:text-red-800 underline transition-colors"
                   >
                     Reset MFA
@@ -276,6 +291,27 @@ export default function AdminUserShow({ user, agencies = [] }) {
                 )}
               </div>
             </div>
+            {mfaPolicy && (
+              <>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">MFA Role Default</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-900">{policyLabel(mfaPolicy.role_default) ?? '\u2014'}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">MFA User Override</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-900">{policyLabel(mfaPolicy.override) ?? '\u2014'}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">MFA Effective</p>
+                  <div className="mt-1 flex items-center gap-2">
+                    <StatusPill label={policyLabel(mfaPolicy.effective) ?? '\u2014'} enabled={mfaPolicy.effective === 'required'} />
+                    {user.role === 'ADMIN' && (
+                      <span className="text-[10px] text-slate-400">Administrators are always required.</span>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Email Verified</p>
                 <div className="mt-1">
@@ -316,20 +352,37 @@ export default function AdminUserShow({ user, agencies = [] }) {
         />
       )}
 
-      <ConfirmDialog
-        open={confirmResetMfa}
-        title="Reset MFA"
-        message="This will disable two-factor authentication for this user and invalidate any existing recovery codes. Continue?"
-        confirmLabel="Reset"
-        tone="danger"
-        onConfirm={() => {
-          setConfirmResetMfa(false);
-          const password = window.prompt('Enter your password to confirm MFA reset:');
-          if (password) {
-            router.post(route('admin.users.reset-mfa', user.id), { password }, { preserveScroll: true });
-          }
+      <MfaConfirmDialog
+        open={resetMfaOpen}
+        title="Reset this user’s MFA"
+        description="This clears the user’s authenticator and recovery codes and revokes their sessions. Enter a reason and confirm with your own MFA."
+        confirmLabel="Reset MFA"
+        reasonRequired
+        confirmedUntil={forceResetProof ? null : mfaStatus?.confirmed_until}
+        forceProof={forceResetProof}
+        error={resetMfaError}
+        onCancel={() => {
+          setResetMfaOpen(false);
+          setForceResetProof(false);
+          setResetMfaError('');
         }}
-        onCancel={() => setConfirmResetMfa(false)}
+        onConfirmed={({ reason, proof }) => {
+          if (!reason || user.id === auth?.user?.id) return;
+          setResetMfaOpen(false);
+          setForceResetProof(false);
+          setResetMfaError('');
+          router.post(route('admin.users.reset-mfa', user.id), { reason, ...(proof || {}) }, {
+            preserveScroll: true,
+            onError: (errors) => {
+              if (errors.mfa_confirmation) {
+                setForceResetProof(true);
+                setResetMfaError(errors.mfa_confirmation?.[0] ?? errors.mfa_confirmation);
+                setResetMfaOpen(true);
+              }
+              if (errors.reason?.[0]) setResetMfaError(errors.reason[0]);
+            },
+          });
+        }}
       />
     </AppLayout>
   );

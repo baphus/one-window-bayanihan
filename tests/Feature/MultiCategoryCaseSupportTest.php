@@ -102,7 +102,7 @@ class MultiCategoryCaseSupportTest extends TestCase
             ['id' => (string) Str::uuid(), 'case_id' => $other->id, 'case_category_id' => $unrelated->id, 'created_at' => $now, 'updated_at' => $now],
         ]);
 
-        $this->actingAs($admin);
+        $this->actingAsWithMfa($admin);
         $results = app(CaseService::class)->getCases(['category_ids' => [$target->id]], 'created_at', 'asc');
 
         $this->assertSame([$matching->id], $results->getCollection()->pluck('id')->all());
@@ -169,7 +169,7 @@ class MultiCategoryCaseSupportTest extends TestCase
         $case = CaseFile::factory()->create(['status' => 'OPEN', 'category_id' => null]);
         $this->linkCategories($case, [$category->id]);
 
-        $response = $this->actingAs($admin)->delete(route('admin.case-categories.destroy', $category->id));
+        $response = $this->actingAsWithMfa($admin)->delete(route('admin.case-categories.destroy', $category->id));
 
         $response->assertRedirect();
         $response->assertSessionHas('error');
@@ -183,7 +183,7 @@ class MultiCategoryCaseSupportTest extends TestCase
         $case = CaseFile::factory()->create(['status' => 'OPEN', 'category_id' => null, 'is_deleted' => true]);
         $this->linkCategories($case, [$category->id]);
 
-        $response = $this->actingAs($admin)->get(route('admin.case-categories.index'));
+        $response = $this->actingAsWithMfa($admin)->get(route('admin.case-categories.index'));
 
         $response->assertInertia(fn ($page) => $page
             ->where('categories.0.id', $category->id)
@@ -231,7 +231,7 @@ class MultiCategoryCaseSupportTest extends TestCase
         $this->linkCategories($secondaryCase, [$secondary->id]);
         CaseFile::factory()->create(['client_id' => $unrelatedClient->id, 'category_id' => $unrelated->id, 'status' => 'OPEN']);
 
-        $response = $this->actingAs($admin)->get(route('clients.index', [
+        $response = $this->actingAsWithMfa($admin)->get(route('clients.index', [
             'category_ids' => [$target->id, $secondary->id],
             'per_page' => 100,
         ]));

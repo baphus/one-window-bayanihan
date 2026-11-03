@@ -39,7 +39,7 @@ class MaintenanceTest extends TestCase
             public function disable(): void {}
         });
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->withHeader('X-Inertia', 'true')
             ->get(route('admin.system.maintenance'));
 
@@ -55,7 +55,7 @@ class MaintenanceTest extends TestCase
         $mock->expects($this->once())->method('enable')->with('bypass123', 60);
         $this->app->instance(MaintenanceService::class, $mock);
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->withHeader('X-Inertia', 'true')
             ->post(route('admin.system.maintenance.toggle'), [
                 'secret' => 'bypass123',
@@ -70,7 +70,7 @@ class MaintenanceTest extends TestCase
         $mock->expects($this->once())->method('disable');
         $this->app->instance(MaintenanceService::class, $mock);
 
-        $response = $this->actingAs($this->admin)->post(route('admin.system.maintenance.toggle'));
+        $response = $this->actingAsWithMfa($this->admin)->post(route('admin.system.maintenance.toggle'));
 
         $response->assertRedirect();
         $response->assertSessionHas('success', 'Maintenance mode disabled.');

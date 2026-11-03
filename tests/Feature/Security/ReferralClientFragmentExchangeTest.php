@@ -37,7 +37,7 @@ class ReferralClientFragmentExchangeTest extends TestCase
         [$agencyUser, $clientRequest] = $this->requestContext();
         Mail::fake();
 
-        $this->actingAs($agencyUser)
+        $this->actingAsWithMfa($agencyUser)
             ->post(route('referrals.client-requests.access.reissue', $clientRequest))
             ->assertRedirect();
 
@@ -89,7 +89,7 @@ class ReferralClientFragmentExchangeTest extends TestCase
 
         for ($attempt = 1; $attempt <= 3; $attempt++) {
             $user = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id, 'is_active' => true]);
-            $this->actingAs($user)->post(route('referrals.client-requests.store', $referral), [
+            $this->actingAsWithMfa($user)->post(route('referrals.client-requests.store', $referral), [
                 'type' => ReferralClientRequest::TYPE_QUESTION,
                 'title' => 'Question '.$attempt,
                 'instructions' => 'Please respond.',
@@ -98,13 +98,13 @@ class ReferralClientFragmentExchangeTest extends TestCase
 
         for ($attempt = 1; $attempt <= 2; $attempt++) {
             $user = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id, 'is_active' => true]);
-            $this->actingAs($user)
+            $this->actingAsWithMfa($user)
                 ->post(route('referrals.client-requests.access.reissue', $clientRequest))
                 ->assertRedirect();
         }
 
         $sixthUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id, 'is_active' => true]);
-        $this->actingAs($sixthUser)
+        $this->actingAsWithMfa($sixthUser)
             ->post(route('referrals.client-requests.store', $referral), [
                 'type' => ReferralClientRequest::TYPE_QUESTION,
                 'title' => 'Question six',

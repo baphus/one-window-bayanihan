@@ -29,7 +29,7 @@ class OfwIntakeReviewNotificationTest extends TestCase
             ->where('id', '!=', $ofw->id)
             ->pluck('email');
 
-        $response = $this->actingAs($ofw)->post(route('ofw.intake.store'), [
+        $response = $this->actingAsWithMfa($ofw)->post(route('ofw.intake.store'), [
             'summary' => 'Please help me.',
             'vulnerability_indicator' => 'None',
             'consent' => true,
@@ -65,7 +65,7 @@ class OfwIntakeReviewNotificationTest extends TestCase
         $client = Client::factory()->create();
         $ofw = User::factory()->create(['role' => UserRole::OFW->value, 'client_id' => $client->id]);
 
-        $response = $this->actingAs($ofw)->post(route('ofw.intake.store'), [
+        $response = $this->actingAsWithMfa($ofw)->post(route('ofw.intake.store'), [
             'summary' => '',
             'vulnerability_indicator' => 'None',
             'consent' => true,
@@ -81,7 +81,7 @@ class OfwIntakeReviewNotificationTest extends TestCase
         $client = Client::factory()->create();
         $ofw = User::factory()->create(['role' => UserRole::OFW->value, 'client_id' => $client->id]);
 
-        $response = $this->actingAs($ofw)->post(route('ofw.intake.store'), [
+        $response = $this->actingAsWithMfa($ofw)->post(route('ofw.intake.store'), [
             'summary' => 'Please help me.',
             'vulnerability_indicator' => '',
             'consent' => true,
@@ -99,7 +99,7 @@ class OfwIntakeReviewNotificationTest extends TestCase
         Mail::fake();
         $ofw = User::factory()->create(['role' => UserRole::OFW->value, 'client_id' => null]);
 
-        $response = $this->actingAs($ofw)->post(route('ofw.intake.store'), [
+        $response = $this->actingAsWithMfa($ofw)->post(route('ofw.intake.store'), [
             'summary' => 'Please help me.',
             'vulnerability_indicator' => 'None',
             'consent' => true,

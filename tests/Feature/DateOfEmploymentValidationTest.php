@@ -3,12 +3,14 @@
 namespace Tests\Feature;
 
 use App\Enums\UserRole;
+use App\Http\Middleware\EnsureMfaSession;
 use App\Http\Middleware\VerifyTurnstile;
 use App\Models\CaseCategory;
 use App\Models\CaseFile;
 use App\Models\CaseIssue;
 use App\Models\Client;
 use App\Models\User;
+use App\Services\MfaPendingState;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Routing\Middleware\ThrottleRequests;
@@ -45,9 +47,19 @@ class DateOfEmploymentValidationTest extends TestCase
             VerifyTurnstile::class,
             PreventRequestForgery::class,
             ThrottleRequests::class,
+            EnsureMfaSession::class,
         ]);
 
-        $this->user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $this->user = User::factory()->mfaEnabled()->create([
+            'role' => UserRole::CASE_MANAGER->value,
+            'mfa_secret' => 'JBSWY3DPEHPK3PXP',
+        ]);
+        $this->withSession([
+            MfaPendingState::MARKER_KEY => [
+                'user_id' => (string) $this->user->id,
+                'credential_fingerprint' => hash('sha256', (string) $this->user->password),
+            ],
+        ]);
         $this->category = CaseCategory::factory()->create(['is_active' => true]);
         $this->caseIssue = CaseIssue::create([
             'name' => 'Unpaid wages',
@@ -67,7 +79,7 @@ class DateOfEmploymentValidationTest extends TestCase
         $dob = $this->dateOfBirth();
         $start = now()->parse($dob)->subDay()->toDateString();
 
-        $this->actingAs($this->user)
+        $this->actingAsWithMfa($this->user)
             ->postJson(route('cases.store'), $this->validPublishData($start, $this->dayAfter($start)))
             ->assertStatus(422)
             ->assertJsonValidationErrors('employment.start_date');
@@ -79,7 +91,7 @@ class DateOfEmploymentValidationTest extends TestCase
         $dob = $this->dateOfBirth();
         $start = now()->parse($dob)->addYears(14)->toDateString();
 
-        $this->actingAs($this->user)
+        $this->actingAsWithMfa($this->user)
             ->postJson(route('cases.store'), $this->validPublishData($start, $start))
             ->assertStatus(422)
             ->assertJsonValidationErrors('employment.start_date');
@@ -90,7 +102,7 @@ class DateOfEmploymentValidationTest extends TestCase
     {
         $start = now()->parse($this->dateOfBirth())->addYears(15)->toDateString();
 
-        $response = $this->actingAs($this->user)->post(route('cases.store'), $this->validPublishData($start, $start));
+        $response = $this->actingAsWithMfa($this->user)->post(route('cases.store'), $this->validPublishData($start, $start));
 
         $case = CaseFile::where('status', CaseFile::STATUS_PENDING_REVIEW)->firstOrFail();
         $response->assertRedirect(route('cases.show', $case));
@@ -105,7 +117,7 @@ class DateOfEmploymentValidationTest extends TestCase
             'client' => ['date_of_birth' => $dob],
         ]);
 
-        $this->actingAs($this->user)
+        $this->actingAsWithMfa($this->user)
             ->postJson(route('cases.store'), $data)
             ->assertStatus(422)
             ->assertJsonValidationErrors('employment.start_date');
@@ -120,7 +132,7 @@ class DateOfEmploymentValidationTest extends TestCase
             'client' => ['date_of_birth' => $dob],
         ]);
 
-        $response = $this->actingAs($this->user)->post(route('cases.store'), $data);
+        $response = $this->actingAsWithMfa($this->user)->post(route('cases.store'), $data);
 
         $case = CaseFile::where('status', CaseFile::STATUS_PENDING_REVIEW)->firstOrFail();
         $response->assertRedirect(route('cases.show', $case));
@@ -131,7 +143,7 @@ class DateOfEmploymentValidationTest extends TestCase
     {
         $today = now()->toDateString();
 
-        $response = $this->actingAs($this->user)->post(route('cases.store'), $this->validPublishData($today, $today));
+        $response = $this->actingAsWithMfa($this->user)->post(route('cases.store'), $this->validPublishData($today, $today));
 
         $case = CaseFile::where('status', CaseFile::STATUS_PENDING_REVIEW)->firstOrFail();
         $response->assertRedirect(route('cases.show', $case));
@@ -142,7 +154,7 @@ class DateOfEmploymentValidationTest extends TestCase
     {
         $start = now()->addDay()->toDateString();
 
-        $this->actingAs($this->user)
+        $this->actingAsWithMfa($this->user)
             ->postJson(route('cases.store'), $this->validPublishData($start, $start))
             ->assertStatus(422)
             ->assertJsonValidationErrors('employment.start_date');
@@ -153,7 +165,7 @@ class DateOfEmploymentValidationTest extends TestCase
     {
         $start = '2020-01-01';
 
-        $this->actingAs($this->user)
+        $this->actingAsWithMfa($this->user)
             ->postJson(route('cases.store'), $this->validPublishData($start, '2019-12-31'))
             ->assertStatus(422)
             ->assertJsonValidationErrors('employment.end_date');
@@ -162,7 +174,7 @@ class DateOfEmploymentValidationTest extends TestCase
     #[Test]
     public function publish_accepts_end_today(): void
     {
-        $response = $this->actingAs($this->user)
+        $response = $this->actingAsWithMfa($this->user)
             ->post(route('cases.store'), $this->validPublishData('2020-01-01', now()->toDateString()));
 
         $case = CaseFile::where('status', CaseFile::STATUS_PENDING_REVIEW)->firstOrFail();
@@ -172,7 +184,7 @@ class DateOfEmploymentValidationTest extends TestCase
     #[Test]
     public function publish_rejects_future_end(): void
     {
-        $this->actingAs($this->user)
+        $this->actingAsWithMfa($this->user)
             ->postJson(route('cases.store'), $this->validPublishData('2020-01-01', now()->addDay()->toDateString()))
             ->assertStatus(422)
             ->assertJsonValidationErrors('employment.end_date');
@@ -185,7 +197,7 @@ class DateOfEmploymentValidationTest extends TestCase
             'employment' => ['is_present' => true, 'end_date' => null],
         ]);
 
-        $response = $this->actingAs($this->user)->post(route('cases.store'), $data);
+        $response = $this->actingAsWithMfa($this->user)->post(route('cases.store'), $data);
 
         $case = CaseFile::where('status', CaseFile::STATUS_PENDING_REVIEW)->firstOrFail();
         $response->assertRedirect(route('cases.show', $case));

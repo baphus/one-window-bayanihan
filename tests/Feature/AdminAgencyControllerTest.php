@@ -21,11 +21,11 @@ class AdminAgencyControllerTest extends TestCase
 
     public function test_admin_can_delete_agency(): void
     {
-        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $admin = User::factory()->mfaEnabled()->create(['role' => UserRole::ADMIN->value, 'mfa_secret' => 'JBSWY3DPEHPK3PXP']);
 
         $agency = Agency::factory()->create(['is_active' => true, 'is_deleted' => false]);
 
-        $response = $this->actingAs($admin)->delete(route('admin.agencies.destroy', $agency->id));
+        $response = $this->actingAsWithMfa($admin)->delete(route('admin.agencies.destroy', $agency->id));
 
         $response->assertRedirect(route('admin.agencies.index'));
 
@@ -38,21 +38,21 @@ class AdminAgencyControllerTest extends TestCase
 
     public function test_admin_cannot_delete_nonexistent_agency(): void
     {
-        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $admin = User::factory()->mfaEnabled()->create(['role' => UserRole::ADMIN->value, 'mfa_secret' => 'JBSWY3DPEHPK3PXP']);
 
         $fakeId = '00000000-0000-0000-0000-000000000000';
 
-        $response = $this->actingAs($admin)->delete(route('admin.agencies.destroy', $fakeId));
+        $response = $this->actingAsWithMfa($admin)->delete(route('admin.agencies.destroy', $fakeId));
 
         $response->assertNotFound();
     }
 
     public function test_admin_can_upload_logo_when_creating_agency(): void
     {
-        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $admin = User::factory()->mfaEnabled()->create(['role' => UserRole::ADMIN->value, 'mfa_secret' => 'JBSWY3DPEHPK3PXP']);
         $file = UploadedFile::fake()->image('logo.jpg', 128, 128);
 
-        $response = $this->actingAs($admin)->post(route('admin.agencies.store'), [
+        $response = $this->actingAsWithMfa($admin)->post(route('admin.agencies.store'), [
             'name' => 'Test Agency',
             'short' => 'Test',
             'logo_url' => $file,
@@ -68,10 +68,10 @@ class AdminAgencyControllerTest extends TestCase
 
     public function test_logo_upload_rejects_non_image_file(): void
     {
-        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $admin = User::factory()->mfaEnabled()->create(['role' => UserRole::ADMIN->value, 'mfa_secret' => 'JBSWY3DPEHPK3PXP']);
         $file = UploadedFile::fake()->create('logo.txt', 100);
 
-        $response = $this->actingAs($admin)->post(route('admin.agencies.store'), [
+        $response = $this->actingAsWithMfa($admin)->post(route('admin.agencies.store'), [
             'name' => 'Test Agency',
             'short' => 'Test',
             'logo_url' => $file,
@@ -82,10 +82,10 @@ class AdminAgencyControllerTest extends TestCase
 
     public function test_logo_upload_rejects_oversized_file(): void
     {
-        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $admin = User::factory()->mfaEnabled()->create(['role' => UserRole::ADMIN->value, 'mfa_secret' => 'JBSWY3DPEHPK3PXP']);
         $file = UploadedFile::fake()->create('logo.jpg', 3000);
 
-        $response = $this->actingAs($admin)->post(route('admin.agencies.store'), [
+        $response = $this->actingAsWithMfa($admin)->post(route('admin.agencies.store'), [
             'name' => 'Test Agency',
             'short' => 'Test',
             'logo_url' => $file,
@@ -96,9 +96,9 @@ class AdminAgencyControllerTest extends TestCase
 
     public function test_latitude_and_longitude_are_stored_when_creating_agency(): void
     {
-        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $admin = User::factory()->mfaEnabled()->create(['role' => UserRole::ADMIN->value, 'mfa_secret' => 'JBSWY3DPEHPK3PXP']);
 
-        $response = $this->actingAs($admin)->post(route('admin.agencies.store'), [
+        $response = $this->actingAsWithMfa($admin)->post(route('admin.agencies.store'), [
             'name' => 'Test Agency',
             'short' => 'Test',
             'latitude' => 10.3157,
@@ -116,9 +116,9 @@ class AdminAgencyControllerTest extends TestCase
 
     public function test_structured_contact_fields_are_combined_into_contact_info(): void
     {
-        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $admin = User::factory()->mfaEnabled()->create(['role' => UserRole::ADMIN->value, 'mfa_secret' => 'JBSWY3DPEHPK3PXP']);
 
-        $response = $this->actingAs($admin)->post(route('admin.agencies.store'), [
+        $response = $this->actingAsWithMfa($admin)->post(route('admin.agencies.store'), [
             'name' => 'Test Agency',
             'short' => 'Test',
             'contact_address' => '123 Main Street',
@@ -137,9 +137,9 @@ class AdminAgencyControllerTest extends TestCase
 
     public function test_structured_contact_fields_allow_exact_column_limit(): void
     {
-        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $admin = User::factory()->mfaEnabled()->create(['role' => UserRole::ADMIN->value, 'mfa_secret' => 'JBSWY3DPEHPK3PXP']);
 
-        $response = $this->actingAs($admin)->post(route('admin.agencies.store'), [
+        $response = $this->actingAsWithMfa($admin)->post(route('admin.agencies.store'), [
             'name' => 'Test Agency',
             'short' => 'Test',
             'contact_address' => str_repeat('A', 246),
@@ -151,9 +151,9 @@ class AdminAgencyControllerTest extends TestCase
 
     public function test_structured_contact_fields_reject_combined_values_over_column_limit(): void
     {
-        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $admin = User::factory()->mfaEnabled()->create(['role' => UserRole::ADMIN->value, 'mfa_secret' => 'JBSWY3DPEHPK3PXP']);
 
-        $response = $this->actingAs($admin)->post(route('admin.agencies.store'), [
+        $response = $this->actingAsWithMfa($admin)->post(route('admin.agencies.store'), [
             'name' => 'Test Agency',
             'short' => 'Test',
             'contact_address' => str_repeat('A', 247),
@@ -164,10 +164,10 @@ class AdminAgencyControllerTest extends TestCase
 
     public function test_duplicate_short_names_receive_unique_slugs(): void
     {
-        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $admin = User::factory()->mfaEnabled()->create(['role' => UserRole::ADMIN->value, 'mfa_secret' => 'JBSWY3DPEHPK3PXP']);
         Agency::factory()->create(['short' => 'Test', 'slug' => 'test']);
 
-        $response = $this->actingAs($admin)->post(route('admin.agencies.store'), [
+        $response = $this->actingAsWithMfa($admin)->post(route('admin.agencies.store'), [
             'name' => 'Another Test Agency',
             'short' => 'Test',
         ]);
@@ -181,9 +181,9 @@ class AdminAgencyControllerTest extends TestCase
 
     public function test_map_link_is_auto_generated_from_latitude_and_longitude(): void
     {
-        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $admin = User::factory()->mfaEnabled()->create(['role' => UserRole::ADMIN->value, 'mfa_secret' => 'JBSWY3DPEHPK3PXP']);
 
-        $response = $this->actingAs($admin)->post(route('admin.agencies.store'), [
+        $response = $this->actingAsWithMfa($admin)->post(route('admin.agencies.store'), [
             'name' => 'Test Agency',
             'short' => 'Test',
             'latitude' => 10.3157,
@@ -200,9 +200,9 @@ class AdminAgencyControllerTest extends TestCase
 
     public function test_map_link_parses_google_maps_place_url_and_gets_lat_lng(): void
     {
-        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $admin = User::factory()->mfaEnabled()->create(['role' => UserRole::ADMIN->value, 'mfa_secret' => 'JBSWY3DPEHPK3PXP']);
 
-        $response = $this->actingAs($admin)->post(route('admin.agencies.store'), [
+        $response = $this->actingAsWithMfa($admin)->post(route('admin.agencies.store'), [
             'name' => 'Test Agency',
             'short' => 'Test',
             'map_link' => 'https://www.google.com/maps/place/OWWA/@10.3157,123.8854,15z',
@@ -221,7 +221,7 @@ class AdminAgencyControllerTest extends TestCase
 
     public function test_map_link_accepts_explicit_google_maps_regional_hosts(): void
     {
-        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $admin = User::factory()->mfaEnabled()->create(['role' => UserRole::ADMIN->value, 'mfa_secret' => 'JBSWY3DPEHPK3PXP']);
 
         foreach ([
             'https://google.com/maps?q=cebu',
@@ -231,7 +231,7 @@ class AdminAgencyControllerTest extends TestCase
             'https://www.google.com.ph/maps?q=cebu',
             'https://maps.google.com.ph/maps?q=cebu',
         ] as $index => $mapLink) {
-            $this->actingAs($admin)->post(route('admin.agencies.store'), [
+            $this->actingAsWithMfa($admin)->post(route('admin.agencies.store'), [
                 'name' => 'Regional Maps '.$index,
                 'short' => 'Regional '.$index,
                 'map_link' => $mapLink,
@@ -241,21 +241,21 @@ class AdminAgencyControllerTest extends TestCase
 
     public function test_map_link_accepts_goo_gl_only_with_maps_path(): void
     {
-        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $admin = User::factory()->mfaEnabled()->create(['role' => UserRole::ADMIN->value, 'mfa_secret' => 'JBSWY3DPEHPK3PXP']);
 
-        $this->actingAs($admin)->post(route('admin.agencies.store'), [
+        $this->actingAsWithMfa($admin)->post(route('admin.agencies.store'), [
             'name' => 'Short Maps',
             'short' => 'Short Maps',
             'map_link' => 'https://goo.gl/maps/abc123',
         ])->assertRedirect(route('admin.agencies.index'));
 
-        $this->actingAs($admin)->post(route('admin.agencies.store'), [
+        $this->actingAsWithMfa($admin)->post(route('admin.agencies.store'), [
             'name' => 'App Short Maps',
             'short' => 'App Short Maps',
             'map_link' => 'https://maps.app.goo.gl/abc123',
         ])->assertRedirect(route('admin.agencies.index'));
 
-        $this->actingAs($admin)->post(route('admin.agencies.store'), [
+        $this->actingAsWithMfa($admin)->post(route('admin.agencies.store'), [
             'name' => 'App Short Maps Nested',
             'short' => 'App Short Maps Nested',
             'map_link' => 'https://maps.app.goo.gl/place/abc123',
@@ -264,14 +264,14 @@ class AdminAgencyControllerTest extends TestCase
 
     public function test_map_link_rejects_non_google_maps_urls(): void
     {
-        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $admin = User::factory()->mfaEnabled()->create(['role' => UserRole::ADMIN->value, 'mfa_secret' => 'JBSWY3DPEHPK3PXP']);
 
         foreach ([
             'https://example.com/maps/place/OWWA',
             'https://google.com.evil.example/maps/place/OWWA',
             'https://goo.gl/abc123',
         ] as $mapLink) {
-            $response = $this->actingAs($admin)->post(route('admin.agencies.store'), [
+            $response = $this->actingAsWithMfa($admin)->post(route('admin.agencies.store'), [
                 'name' => 'Test Agency',
                 'short' => 'Test',
                 'map_link' => $mapLink,
@@ -283,9 +283,9 @@ class AdminAgencyControllerTest extends TestCase
 
     public function test_map_link_parses_google_maps_query_url_with_coords(): void
     {
-        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $admin = User::factory()->mfaEnabled()->create(['role' => UserRole::ADMIN->value, 'mfa_secret' => 'JBSWY3DPEHPK3PXP']);
 
-        $response = $this->actingAs($admin)->post(route('admin.agencies.store'), [
+        $response = $this->actingAsWithMfa($admin)->post(route('admin.agencies.store'), [
             'name' => 'Test Agency',
             'short' => 'Test',
             'map_link' => 'https://www.google.com/maps?q=10.3157,123.8854',
@@ -302,9 +302,9 @@ class AdminAgencyControllerTest extends TestCase
 
     public function test_map_link_overwrites_direct_lat_lng_when_both_provided(): void
     {
-        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $admin = User::factory()->mfaEnabled()->create(['role' => UserRole::ADMIN->value, 'mfa_secret' => 'JBSWY3DPEHPK3PXP']);
 
-        $response = $this->actingAs($admin)->post(route('admin.agencies.store'), [
+        $response = $this->actingAsWithMfa($admin)->post(route('admin.agencies.store'), [
             'name' => 'Test Agency',
             'short' => 'Test',
             'latitude' => 10.1000,
@@ -323,9 +323,9 @@ class AdminAgencyControllerTest extends TestCase
 
     public function test_map_link_preserves_goo_gl_url_without_parsing(): void
     {
-        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $admin = User::factory()->mfaEnabled()->create(['role' => UserRole::ADMIN->value, 'mfa_secret' => 'JBSWY3DPEHPK3PXP']);
 
-        $response = $this->actingAs($admin)->post(route('admin.agencies.store'), [
+        $response = $this->actingAsWithMfa($admin)->post(route('admin.agencies.store'), [
             'name' => 'Test Agency',
             'short' => 'Test',
             'map_link' => 'https://maps.app.goo.gl/abc123',
@@ -342,9 +342,9 @@ class AdminAgencyControllerTest extends TestCase
 
     public function test_map_link_remains_null_when_lat_lng_not_provided(): void
     {
-        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $admin = User::factory()->mfaEnabled()->create(['role' => UserRole::ADMIN->value, 'mfa_secret' => 'JBSWY3DPEHPK3PXP']);
 
-        $response = $this->actingAs($admin)->post(route('admin.agencies.store'), [
+        $response = $this->actingAsWithMfa($admin)->post(route('admin.agencies.store'), [
             'name' => 'Test Agency',
             'short' => 'Test',
         ]);
@@ -358,12 +358,12 @@ class AdminAgencyControllerTest extends TestCase
 
     public function test_existing_logo_unchanged_when_updating_without_logo_file(): void
     {
-        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $admin = User::factory()->mfaEnabled()->create(['role' => UserRole::ADMIN->value, 'mfa_secret' => 'JBSWY3DPEHPK3PXP']);
         $agency = Agency::factory()->create([
             'logo_url' => 'logos/old-logo.jpg',
         ]);
 
-        $response = $this->actingAs($admin)->patch(route('admin.agencies.update', $agency->id), [
+        $response = $this->actingAsWithMfa($admin)->patch(route('admin.agencies.update', $agency->id), [
             'name' => 'Updated Agency',
             'short' => 'Updated',
         ]);

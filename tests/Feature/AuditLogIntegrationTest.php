@@ -20,7 +20,10 @@ class AuditLogIntegrationTest extends TestCase
         parent::setUp();
 
         $this->withoutMiddleware(HandleInertiaRequests::class);
-        $this->user = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $this->user = User::factory()->mfaEnabled()->create([
+            'role' => UserRole::ADMIN->value,
+            'mfa_secret' => 'JBSWY3DPEHPK3PXP',
+        ]);
     }
 
     public function test_backfill_command_populates_descriptions(): void
@@ -76,7 +79,7 @@ class AuditLogIntegrationTest extends TestCase
             'timestamp' => now()->subHours(2),
         ]);
 
-        $response = $this->actingAs($this->user)
+        $response = $this->actingAsWithMfa($this->user)
             ->withHeader('X-Inertia', 'true')
             ->get('/audit-logs');
 
@@ -102,7 +105,7 @@ class AuditLogIntegrationTest extends TestCase
         $this->assertArrayHasKey('last_page', $props['logs']);
         $this->assertArrayHasKey('total', $props['logs']);
 
-        $filtered = $this->actingAs($this->user)
+        $filtered = $this->actingAsWithMfa($this->user)
             ->withHeader('X-Inertia', 'true')
             ->get('/audit-logs?action=CREATE&module=case_files&user_id='.$this->user->id.'&per_page=15');
 
@@ -119,7 +122,7 @@ class AuditLogIntegrationTest extends TestCase
         // Lazy props require Inertia partial reload headers.
         // Note: withHeader() persists across requests in Laravel tests,
         // so partial-reload requests must come after all non-partial assertions.
-        $lazyResponse = $this->actingAs($this->user)
+        $lazyResponse = $this->actingAsWithMfa($this->user)
             ->withHeader('X-Inertia', 'true')
             ->withHeader('X-Inertia-Partial-Data', 'availableActions,availableModules,availableModulesLabels')
             ->withHeader('X-Inertia-Partial-Component', 'AuditLog/Index')
@@ -185,7 +188,7 @@ class AuditLogIntegrationTest extends TestCase
             'timestamp' => now()->subHour(),
         ]);
 
-        $response = $this->actingAs($this->user)
+        $response = $this->actingAsWithMfa($this->user)
             ->withHeader('X-Inertia', 'true')
             ->get('/audit-logs');
 
@@ -221,7 +224,7 @@ class AuditLogIntegrationTest extends TestCase
         ]);
 
         // Filter by old module name — should return both old and new
-        $response = $this->actingAs($this->user)
+        $response = $this->actingAsWithMfa($this->user)
             ->withHeader('X-Inertia', 'true')
             ->get('/audit-logs?module=case_files');
 
@@ -233,7 +236,7 @@ class AuditLogIntegrationTest extends TestCase
         $this->assertCount(2, $props['logs']['data']);
 
         // Filter by new module name — should also return both
-        $response2 = $this->actingAs($this->user)
+        $response2 = $this->actingAsWithMfa($this->user)
             ->withHeader('X-Inertia', 'true')
             ->get('/audit-logs?module=case');
 

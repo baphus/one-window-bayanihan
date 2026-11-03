@@ -116,7 +116,7 @@ class CloudinaryFailureHandlingTest extends TestCase
         $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $client = $this->makePublishedClient('https://res.cloudinary.com/test-cloud/image/upload/v1750000000/client-profile-pictures/client-old.jpg');
 
-        $response = $this->actingAs($admin)->post(route('clients.avatar.store', $client->id), [
+        $response = $this->actingAsWithMfa($admin)->post(route('clients.avatar.store', $client->id), [
             'profile_picture' => UploadedFile::fake()->image('avatar.jpg', 160, 160),
         ]);
 
@@ -141,7 +141,7 @@ class CloudinaryFailureHandlingTest extends TestCase
 
         $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
 
-        $response = $this->actingAs($admin)->delete(route('clients.avatar.destroy', $client->id));
+        $response = $this->actingAsWithMfa($admin)->delete(route('clients.avatar.destroy', $client->id));
 
         $response->assertStatus(302);
         $response->assertRedirect(route('clients.show', $client->id));
@@ -158,7 +158,7 @@ class CloudinaryFailureHandlingTest extends TestCase
 
         $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
 
-        $response = $this->actingAs($admin)->post(route('clients.avatar.store', $client->id), [
+        $response = $this->actingAsWithMfa($admin)->post(route('clients.avatar.store', $client->id), [
             'profile_picture' => UploadedFile::fake()->image('avatar.jpg', 160, 160),
         ]);
 

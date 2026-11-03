@@ -34,7 +34,7 @@ class OtpThrottleIdentityTest extends TestCase
         $user = User::factory()->create(['password' => Hash::make('password')]);
 
         for ($i = 0; $i < 5; $i++) {
-            $this->actingAs($user)
+            $this->actingAsWithMfa($user)
                 ->from(route('profile.edit'))
                 ->post(route('profile.email-change.send-otp'), [
                     'password' => 'wrong-password-'.$i,
@@ -43,7 +43,7 @@ class OtpThrottleIdentityTest extends TestCase
                 ->assertStatus(302);
         }
 
-        $this->actingAs($user)
+        $this->actingAsWithMfa($user)
             ->from(route('profile.edit'))
             ->post(route('profile.email-change.send-otp'), [
                 'password' => 'wrong-password-5',
@@ -63,7 +63,7 @@ class OtpThrottleIdentityTest extends TestCase
         $other = User::factory()->create(['password' => Hash::make('password')]);
 
         for ($i = 0; $i < 5; $i++) {
-            $this->actingAs($lockedOut)
+            $this->actingAsWithMfa($lockedOut)
                 ->from(route('profile.edit'))
                 ->post(route('profile.email-change.send-otp'), [
                     'password' => 'wrong-password-'.$i,
@@ -72,7 +72,7 @@ class OtpThrottleIdentityTest extends TestCase
                 ->assertStatus(302);
         }
 
-        $this->actingAs($lockedOut)
+        $this->actingAsWithMfa($lockedOut)
             ->from(route('profile.edit'))
             ->post(route('profile.email-change.send-otp'), [
                 'password' => 'wrong-password-5',
@@ -80,7 +80,7 @@ class OtpThrottleIdentityTest extends TestCase
             ])
             ->assertStatus(429);
 
-        $this->actingAs($other)
+        $this->actingAsWithMfa($other)
             ->from(route('profile.edit'))
             ->post(route('profile.email-change.send-otp'), [
                 'password' => 'wrong-password',
@@ -141,7 +141,7 @@ class OtpThrottleIdentityTest extends TestCase
             ->post(route('register.review.send-otp'), [])
             ->assertStatus(302);
 
-        $this->actingAs($user)
+        $this->actingAsWithMfa($user)
             ->from(route('profile.edit'))
             ->post(route('profile.email-change.send-otp'), [
                 'password' => 'wrong-password',

@@ -1,28 +1,35 @@
-# MFA challenge activation
+# Administrator-controlled MFA rollout
 
-There is no `MFA_LOGIN_CHALLENGE_ENABLED` flag in the codebase, so there is no flag to turn on. The challenge runs for any user with `mfa_enabled_at` set whose role passes `User::isInMfaEnforcedRole()` (`app/Http/Requests/Auth/LoginRequest.php:76`); in production that helper returns true for every role (`app/Models/User.php:118-131`). What a deployment configures is *enrollment* enforcement and challenge tuning, both in `config/mfa.php`.
+## Policy
 
-1. Deploy the backend and confirm enrollment enforcement: `MFA_ENROLLMENT_ENFORCEMENT_ENABLED=true` and `MFA_ENROLLMENT_ENFORCED_ROLES=ADMIN,CASE_MANAGER,AGENCY` (`.env.example`). Non-production honours both keys; `APP_ENV=production` ignores them and enforces every role (`app/Http/Middleware/CheckMfaEnrolled.php`).
-2. Confirm the production cache is shared and available for TOTP replay claims: replay detection is `Cache::add(..., mfa.replay_ttl)` and fails closed when the cache is unavailable (`app/Services/MfaService.php:162`).
-3. Run `php artisan mfa:revoke-enrolled-sessions --force`. The command reports and deletes only database sessions whose `user_id` belongs to a currently enrolled user; without `--force` it requires interactive confirmation (`app/Console/Commands/RevokeMfaEnrolledSessions.php:10,16`).
-4. No configuration flip is needed afterwards. A non-enrolled user in an enforced role is redirected to the profile MFA setup on their next non-excluded request (`app/Http/Middleware/CheckMfaEnrolled.php`).
-5. Smoke-test an enrolled user with TOTP and with a recovery code, and a non-enrolled user with password-only login (expect the MFA setup prompt rather than a completed login).
+MFA enrollment policy is identical in every environment. All roles initially require enrollment. Administrators may change role defaults for case managers, agencies, and OFWs, or set a per-user `inherit`, `required`, or `optional` override. Administrator accounts always require MFA. Overrides survive role changes; the administrator requirement takes precedence while that role applies.
 
-No schema migration is required.
+Role defaults use `mfa_role_case_manager_required`, `mfa_role_agency_required`, and `mfa_role_ofw_required` in system settings. The old enrollment environment switches and legacy `two_factor_required` setting are not policy controls.
 
-## Rollback
+Optional means enrollment is optional, not that enrolled MFA is bypassed. Relaxing policy preserves credentials. Newly required unenrolled users must enroll on their next protected request, without a grace period. Valid MFA-authenticated sessions continue. Unenrolled required users retain only necessary enrollment, email-verification, recovery, and logout access.
 
-The login challenge is not config-switchable:
+## Deployment checks
 
-- `EnsureMfaChallenge` reads only the `mfa_pending` session state and `mfa.pending_ttl`; there is no flag for it to check (`app/Http/Middleware/EnsureMfaChallenge.php`).
-- In production `MfaController::disable` returns 403, so a user cannot drop the second factor themselves (`app/Http/Controllers/MfaController.php:102-108`).
+1. Apply application migrations, including the additive per-user policy migration. Preserve existing MFA secrets and recovery credentials.
+2. Verify all initial role defaults are required and administrator policy cannot be relaxed. Review any deliberate exceptions through administrator controls.
+3. Test required-user enrollment, enrolled optional-user login challenges, and an optional unenrolled account. Verify role and user policy changes apply to existing sessions on the next request.
+4. Test TOTP and single-use recovery codes, five-minute administrator confirmation, expired-confirmation rejection, and reset/session revocation.
+5. Confirm audit records and user notifications arrive without exposing credentials or recovery codes.
 
-Supported rollback paths:
+Do not use enrollment environment flags as a rollback or development bypass. Restoring an older application version requires a deliberate security and migration compatibility review; resetting credentials is recovery, not policy rollback.
 
-1. Per user: `POST /users/{user}/reset-mfa` (admin, password-confirmed) clears `mfa_secret`, `mfa_recovery_codes`, and `mfa_enabled_at` and deletes the target's sessions inside a transaction, then writes a security audit row (`app/Http/Controllers/AdminUserController.php`, `UserService::resetMfa`).
-2. Non-production only: set `MFA_ENROLLMENT_ENFORCEMENT_ENABLED=false` to skip the enrollment redirect, or narrow `MFA_ENROLLMENT_ENFORCED_ROLES`. Both keys are ignored when `APP_ENV=production`.
-3. In-progress pending challenge sessions expire on their own: `EnsureMfaChallenge` clears state older than `mfa.pending_ttl` and redirects to login.
-4. Existing MFA enrollment data for untouched users (`mfa_secret`, `mfa_recovery_codes`, `mfa_enabled_at`) is preserved; re-activation requires only the steps above.
-5. The session-revocation command (`mfa:revoke-enrolled-sessions`) can be used before either path if desired, but is not required for rollback.
+## Administrator actions
 
-An admin MFA reset is recovery, not a production policy exception: the reset user must enroll again. The stored `two_factor_required` setting does not control this policy.
+Policy changes and resets require a reason and MFA confirmation within five minutes. Login MFA or dedicated confirmation opens this window; ordinary activity does not extend it. Policy edits are audited even when the effective requirement stays unchanged. Effective requirement changes, resets, and credential removal notify affected users through existing notification channels.
+
+An administrator cannot reset their own MFA. Another freshly verified administrator can reset it, revoking target sessions and requiring reenrollment. Optional users may disable their own MFA with their password and current TOTP or recovery proof; other sessions are revoked. Required users cannot disable. Recovery-code regeneration retains password confirmation and requires fresh MFA confirmation.
+
+## Last-administrator recovery
+
+Use recovery codes or another verified administrator first. If neither is available, an authorized server operator can recover one active existing administrator:
+
+```bash
+php artisan mfa:recover-admin --target="administrator@example.test" --operator="operator identity" --reason="Lost authenticator and recovery codes" --confirm=RECOVER
+```
+
+The target may be an email address or UUID. This is a privileged server-side action: verify the account owner's identity before running it. It clears enrollment, revokes sessions, audits operator attribution and reason, and notifies the target. It does not grant a permanent MFA exemption. The administrator must sign in and reenroll before protected access. Never put passwords, TOTP secrets, or recovery codes in command arguments or logs.

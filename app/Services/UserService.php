@@ -10,6 +10,7 @@ use App\Mail\UserInviteMail;
 use App\Models\AuditLog;
 use App\Models\User;
 use App\Models\UserInvite;
+use App\Notifications\MfaStatusChangedNotification;
 use App\Settings\SettingRegistry;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
@@ -530,25 +531,29 @@ class UserService
         return $user;
     }
 
-    public function resetMfa(User $target, User $admin): User
+    public function resetMfa(User $target, ?User $admin, string $reason, ?string $operator = null): User
     {
-        return DB::transaction(function () use ($target, $admin) {
+        return DB::transaction(function () use ($target, $admin, $reason, $operator) {
+            $before = ['enabled' => $target->mfa_enabled_at !== null, 'recovery_codes_present' => is_array($target->mfa_recovery_codes)];
             $target->mfa_secret = null;
             $target->mfa_recovery_codes = null;
             $target->mfa_enabled_at = null;
+            $target->mfa_last_totp_counter = null;
+            $target->mfa_requirement_override = null;
             $target->save();
 
-            // Kill active sessions for the target user to force re-login
-            $this->invalidateSessions($target, 'admin_mfa_reset');
+            $this->invalidateSessions($target, $operator === null ? 'admin_mfa_reset' : 'operator_admin_mfa_recovery');
 
             AuditLogger::resetMfa()
                 ->by($admin)
                 ->forEntity($target, $target->name)
                 ->module(AuditModule::MFA)
-                // Previously null: the row named no account, so a 2FA reset was
-                // indistinguishable from any other MFA action in the log.
-                ->context(null, ['email' => $target->email, 'actor_id' => $admin->id])
+                ->context($before, ['enabled' => false, 'recovery_codes_present' => false, 'actor_id' => $admin?->id, 'operator' => $operator, 'reason' => $reason])
                 ->write();
+
+            if ($before['enabled']) {
+                $target->notify(new MfaStatusChangedNotification('reset', true));
+            }
 
             return $target;
         });
@@ -588,7 +593,7 @@ class UserService
         return SettingRegistry::int('staff_invite_expiry_days');
     }
 
-    public function invalidateSessions(User $user, string $reason = 'unspecified'): void
+    public function invalidateSessions(User $user, string $reason = 'unspecified', ?string $exceptSessionId = null): void
     {
         $sessionDriver = config('session.driver');
 
@@ -599,7 +604,11 @@ class UserService
             ]);
         }
 
-        $deleted = DB::table('sessions')->where('user_id', $user->id)->delete();
+        $sessions = DB::table('sessions')->where('user_id', $user->id);
+        if ($exceptSessionId !== null && $sessionDriver === 'database') {
+            $sessions->where('id', '<>', $exceptSessionId);
+        }
+        $deleted = $sessions->delete();
 
         $user->setRememberToken(Str::random(60));
         $user->save();

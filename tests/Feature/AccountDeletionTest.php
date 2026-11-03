@@ -28,7 +28,7 @@ class AccountDeletionTest extends TestCase
         ]);
         $link = $this->linkIssuedBy($client);
 
-        $this->actingAs($client)
+        $this->actingAsWithMfa($client)
             ->delete(route('profile.destroy'), ['password' => 'P@ssw0rd!'])
             ->assertRedirect('/');
 
@@ -58,7 +58,7 @@ class AccountDeletionTest extends TestCase
             'kind' => ReferralClientMessage::KIND_MESSAGE,
         ]);
 
-        $this->actingAs($client)
+        $this->actingAsWithMfa($client)
             ->delete(route('profile.destroy'), ['password' => 'P@ssw0rd!'])
             ->assertRedirect('/');
 

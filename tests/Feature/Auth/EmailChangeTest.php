@@ -44,7 +44,7 @@ class EmailChangeTest extends TestCase
     public function test_init_returns_email_change_step(): void
     {
         $response = $this
-            ->actingAs($this->user)
+            ->actingAsWithMfa($this->user)
             ->get(route('profile.email-change.init'));
 
         $response->assertInertia(fn (Assert $page) => $page
@@ -65,7 +65,7 @@ class EmailChangeTest extends TestCase
     public function test_send_otp_requires_password_and_email(): void
     {
         $response = $this
-            ->actingAs($this->user)
+            ->actingAsWithMfa($this->user)
             ->from(route('profile.edit'))
             ->post(route('profile.email-change.send-otp'), []);
 
@@ -76,7 +76,7 @@ class EmailChangeTest extends TestCase
     public function test_send_otp_rejects_wrong_password(): void
     {
         $response = $this
-            ->actingAs($this->user)
+            ->actingAsWithMfa($this->user)
             ->from(route('profile.edit'))
             ->post(route('profile.email-change.send-otp'), [
                 'password' => 'wrong-password',
@@ -99,7 +99,7 @@ class EmailChangeTest extends TestCase
 
     public function test_verify_otp_changes_email_and_logs_audit(): void
     {
-        $this->actingAs($this->user);
+        $this->actingAsWithMfa($this->user);
 
         $otp = $this->createMock(OtpService::class);
         $otp->expects($this->once())->method('verify')->willReturn(true);
@@ -128,7 +128,7 @@ class EmailChangeTest extends TestCase
 
     public function test_verify_otp_fails_with_invalid_otp(): void
     {
-        $this->actingAs($this->user);
+        $this->actingAsWithMfa($this->user);
 
         $otp = $this->createMock(OtpService::class);
         $otp->expects($this->once())->method('verify')->willReturn(false);

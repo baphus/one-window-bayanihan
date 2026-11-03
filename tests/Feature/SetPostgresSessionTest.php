@@ -19,7 +19,7 @@ class SetPostgresSessionTest extends TestCase
         ]);
 
         // Make a request through the global middleware (any authenticated route)
-        $this->actingAs($user)->get('/dashboard');
+        $this->actingAsWithMfa($user)->get('/dashboard');
 
         // Verify the middleware set session variables
         $currentUserId = DB::scalar("SELECT current_setting('app.current_user_id', TRUE)");

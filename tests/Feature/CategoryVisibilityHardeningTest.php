@@ -35,23 +35,23 @@ class CategoryVisibilityHardeningTest extends TestCase
         $case = CaseFile::factory()->create(['client_id' => $client->id]);
         Referral::factory()->create(['case_id' => $case->id, 'agcy_id' => $agency->id]);
 
-        $clientPage = $this->actingAs($user)->get(route('clients.index'));
+        $clientPage = $this->actingAsWithMfa($user)->get(route('clients.index'));
         $clientPage->assertStatus(200)
             ->assertInertia(fn ($page) => $page
                 ->has('clients.data', 0)
                 ->where('stats.total_clients', 0)
                 ->where('stats.total_referrals', 0));
 
-        $this->actingAs($user)->getJson(route('clients.export-count'))
+        $this->actingAsWithMfa($user)->getJson(route('clients.export-count'))
             ->assertOk()->assertJson(['count' => 0]);
 
-        $referralPage = $this->actingAs($user)->get(route('referrals.index'));
+        $referralPage = $this->actingAsWithMfa($user)->get(route('referrals.index'));
         $referralPage->assertStatus(200)
             ->assertInertia(fn ($page) => $page
                 ->has('referrals.data', 0)
                 ->where('stats.total_referrals', 0));
 
-        $this->actingAs($user)->getJson(route('referrals.export-count'))
+        $this->actingAsWithMfa($user)->getJson(route('referrals.export-count'))
             ->assertOk()->assertJson(['count' => 0]);
 
         $exports = new DataExportQueries;
@@ -99,7 +99,7 @@ class CategoryVisibilityHardeningTest extends TestCase
         $foreignCaseLog = $this->audit($viewer, 'case', $foreignNewestCase->id, 'Foreign case audit');
         $foreignReferralLog = $this->audit($viewer, 'referral', $foreignReferral->id, 'Foreign referral audit');
 
-        $response = $this->actingAs($viewer)
+        $response = $this->actingAsWithMfa($viewer)
             ->get(route('clients.show', $client));
 
         $response->assertStatus(200)
@@ -140,24 +140,24 @@ class CategoryVisibilityHardeningTest extends TestCase
         ]);
 
         // CASE_MANAGER sees all referrals (full access, same as ADMIN)
-        $managerResponse = $this->actingAs($manager)->get(route('referrals.index'));
+        $managerResponse = $this->actingAsWithMfa($manager)->get(route('referrals.index'));
         $managerResponse->assertInertia(fn ($page) => $page
             ->has('referrals.data', 2)
             ->where('stats.total_referrals', 2));
 
-        $this->actingAs($manager)->getJson(route('referrals.export-count'))
+        $this->actingAsWithMfa($manager)->getJson(route('referrals.export-count'))
             ->assertOk()->assertJson(['count' => 2]);
 
         $managerExports = new DataExportQueries;
         $this->assertCount(2, $managerExports->getReferralsExport($manager));
         $this->assertSame(2, $managerExports->countReferralsExport($manager));
 
-        $otherResponse = $this->actingAs($otherManager)->get(route('referrals.index'));
+        $otherResponse = $this->actingAsWithMfa($otherManager)->get(route('referrals.index'));
         $otherResponse->assertInertia(fn ($page) => $page
             ->has('referrals.data', 2)
             ->where('stats.total_referrals', 2));
 
-        $this->actingAs($otherManager)->getJson(route('referrals.export-count'))
+        $this->actingAsWithMfa($otherManager)->getJson(route('referrals.export-count'))
             ->assertOk()->assertJson(['count' => 2]);
 
         $this->assertCount(2, $managerExports->getReferralsExport($otherManager));
@@ -179,13 +179,13 @@ class CategoryVisibilityHardeningTest extends TestCase
             'agcy_id' => $otherAgency->id,
         ]);
 
-        $response = $this->actingAs($user)->get(route('referrals.index'));
+        $response = $this->actingAsWithMfa($user)->get(route('referrals.index'));
         $response->assertInertia(fn ($page) => $page
             ->has('referrals.data', 1)
             ->where('referrals.data.0.id', $visibleReferral->id)
             ->where('stats.total_referrals', 1));
 
-        $this->actingAs($user)->getJson(route('referrals.export-count'))
+        $this->actingAsWithMfa($user)->getJson(route('referrals.export-count'))
             ->assertOk()->assertJson(['count' => 1]);
 
         $exports = new DataExportQueries;

@@ -31,13 +31,16 @@ class SecuritySettingsTest extends TestCase
 
         $this->withoutMiddleware(HandleInertiaRequests::class);
 
-        $this->admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $this->admin = User::factory()->mfaEnabled()->create([
+            'role' => UserRole::ADMIN->value,
+            'mfa_secret' => 'JBSWY3DPEHPK3PXP',
+        ]);
     }
 
     #[Test]
     public function the_separate_security_page_no_longer_exists(): void
     {
-        $this->actingAs($this->admin)
+        $this->actingAsWithMfa($this->admin)
             ->get('/admin/system/security')
             ->assertNotFound();
     }
@@ -45,7 +48,7 @@ class SecuritySettingsTest extends TestCase
     #[Test]
     public function the_settings_page_reports_mfa_status_read_only(): void
     {
-        $response = $this->actingAs($this->admin)->get('/admin/system-settings');
+        $response = $this->actingAsWithMfa($this->admin)->get('/admin/system-settings');
 
         $response->assertOk();
 
@@ -63,7 +66,7 @@ class SecuritySettingsTest extends TestCase
     #[Test]
     public function two_factor_required_cannot_be_written_as_a_setting(): void
     {
-        $this->actingAs($this->admin)->post('/admin/system-settings', [
+        $this->actingAsWithMfa($this->admin)->post('/admin/system-settings', [
             'two_factor_required' => true,
         ]);
 

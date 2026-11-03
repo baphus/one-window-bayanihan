@@ -33,7 +33,7 @@ class CaseServiceScopeTest extends TestCase
         CaseFile::factory(3)->create(['user_id' => $manager1->id, 'status' => 'OPEN']);
         CaseFile::factory(2)->create(['user_id' => $manager2->id, 'status' => 'OPEN']);
 
-        $this->actingAs($admin);
+        $this->actingAsWithMfa($admin);
         $cases = $this->service->getCases();
 
         $this->assertCount(5, $cases);
@@ -47,7 +47,7 @@ class CaseServiceScopeTest extends TestCase
         CaseFile::factory(3)->create(['user_id' => $manager1->id, 'status' => 'OPEN']);
         CaseFile::factory(2)->create(['user_id' => $manager2->id, 'status' => 'OPEN']);
 
-        $this->actingAs($manager1);
+        $this->actingAsWithMfa($manager1);
         $cases = $this->service->getCases();
 
         $this->assertCount(5, $cases);
@@ -61,7 +61,7 @@ class CaseServiceScopeTest extends TestCase
         $case1 = CaseFile::factory()->create(['user_id' => $manager1->id, 'status' => 'OPEN']);
         $case2 = CaseFile::factory()->create(['user_id' => $manager2->id, 'status' => 'OPEN']);
 
-        $this->actingAs($manager1);
+        $this->actingAsWithMfa($manager1);
         $cases = $this->service->getCases();
 
         $this->assertCount(2, $cases);
@@ -122,7 +122,7 @@ class CaseServiceScopeTest extends TestCase
             'status' => 'OPEN',
         ]);
 
-        $this->actingAs($agencyUser);
+        $this->actingAsWithMfa($agencyUser);
         $cases = $this->service->getCases();
 
         $this->assertCount(1, $cases);
@@ -139,7 +139,7 @@ class CaseServiceScopeTest extends TestCase
         $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         CaseFile::factory(3)->create(['user_id' => $manager->id, 'status' => 'OPEN']);
 
-        $this->actingAs($agencyUser);
+        $this->actingAsWithMfa($agencyUser);
         $cases = $this->service->getCases();
 
         $this->assertCount(0, $cases);
@@ -153,7 +153,7 @@ class CaseServiceScopeTest extends TestCase
         CaseFile::factory(2)->create(['user_id' => $manager1->id, 'status' => 'OPEN']);
         CaseFile::factory(3)->create(['user_id' => $manager2->id, 'status' => 'OPEN']);
 
-        $this->actingAs($manager1);
+        $this->actingAsWithMfa($manager1);
         // CASE_MANAGER sees all cases but can filter by user_id to narrow down
         $cases = $this->service->getCases(['user_id' => $manager2->id]);
 
@@ -171,7 +171,7 @@ class CaseServiceScopeTest extends TestCase
         // A case awaiting review belongs to the review queue, not the case list.
         CaseFile::factory(2)->create(['user_id' => $manager->id, 'status' => 'PENDING_REVIEW']);
 
-        $this->actingAs($manager);
+        $this->actingAsWithMfa($manager);
         $cases = $this->service->getCases();
 
         $this->assertCount(3, $cases);
@@ -189,7 +189,7 @@ class CaseServiceScopeTest extends TestCase
         CaseFile::factory(2)->create(['user_id' => $manager1->id, 'status' => 'OPEN']);
         CaseFile::factory(3)->create(['user_id' => $manager2->id, 'status' => 'OPEN']);
 
-        $this->actingAs($admin);
+        $this->actingAsWithMfa($admin);
         $cases = $this->service->getCases(['user_id' => $manager1->id]);
 
         $this->assertCount(2, $cases);
@@ -213,7 +213,7 @@ class CaseServiceScopeTest extends TestCase
             'client_id' => $nokClient->id,
         ]);
 
-        $this->actingAs($manager);
+        $this->actingAsWithMfa($manager);
         $cases = $this->service->getCases();
 
         $this->assertCount(2, $cases);
@@ -255,7 +255,7 @@ class CaseServiceScopeTest extends TestCase
         $this->assertSame('OFW', $ofwCase->toArray()['client_type']);
         $this->assertSame('NEXT_OF_KIN', $nokCase->toArray()['client_type']);
 
-        $this->actingAs($manager);
+        $this->actingAsWithMfa($manager);
         $cases = $this->service->getCases();
 
         $byNumber = $cases->keyBy('case_number');

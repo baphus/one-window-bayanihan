@@ -13,56 +13,56 @@ class ClientRequestVisibilityAuthorizationTest extends ReferralClientInboxTestCa
     {
         $context = $this->attachmentContext();
 
-        $this->actingAs($context['agencyUser'])->patch(route('referrals.client-requests.attachments.review', $context['attachment']), [
+        $this->actingAsWithMfa($context['agencyUser'])->patch(route('referrals.client-requests.attachments.review', $context['attachment']), [
             'review_status' => 'REJECTED', 'visibility' => 'ALL',
         ])->assertRedirect();
 
         $this->assertSame('REJECTED', $context['attachment']->fresh()->review_status);
-        $this->actingAs($context['otherAgencyUser'])->get(route('referrals.client-requests.attachments.download', [$context['referral']->id, $context['attachment']->id]))->assertForbidden();
+        $this->actingAsWithMfa($context['otherAgencyUser'])->get(route('referrals.client-requests.attachments.download', [$context['referral']->id, $context['attachment']->id]))->assertForbidden();
 
-        $this->actingAs($context['agencyUser'])->patch(route('referrals.client-requests.attachments.review', $context['attachment']), [
+        $this->actingAsWithMfa($context['agencyUser'])->patch(route('referrals.client-requests.attachments.review', $context['attachment']), [
             'review_status' => 'ACCEPTED', 'visibility' => 'HIDDEN',
         ])->assertRedirect();
 
-        $this->actingAs($context['otherAgencyUser'])->get(route('referrals.client-requests.attachments.download', [$context['referral']->id, $context['attachment']->id]))->assertForbidden();
+        $this->actingAsWithMfa($context['otherAgencyUser'])->get(route('referrals.client-requests.attachments.download', [$context['referral']->id, $context['attachment']->id]))->assertForbidden();
     }
 
     public function test_all_visibility_allows_active_referred_agency(): void
     {
         $context = $this->attachmentContext();
-        $this->actingAs($context['agencyUser'])->patch(route('referrals.client-requests.attachments.review', $context['attachment']), [
+        $this->actingAsWithMfa($context['agencyUser'])->patch(route('referrals.client-requests.attachments.review', $context['attachment']), [
             'review_status' => 'ACCEPTED', 'visibility' => 'ALL',
         ])->assertRedirect();
 
-        $this->actingAs($context['otherAgencyUser'])->get(route('referrals.client-requests.attachments.download', [$context['referral']->id, $context['attachment']->id]))->assertRedirect();
+        $this->actingAsWithMfa($context['otherAgencyUser'])->get(route('referrals.client-requests.attachments.download', [$context['referral']->id, $context['attachment']->id]))->assertRedirect();
     }
 
     public function test_selected_visibility_allows_only_selected_agency(): void
     {
         $context = $this->attachmentContext();
-        $this->actingAs($context['agencyUser'])->patch(route('referrals.client-requests.attachments.review', $context['attachment']), [
+        $this->actingAsWithMfa($context['agencyUser'])->patch(route('referrals.client-requests.attachments.review', $context['attachment']), [
             'review_status' => 'ACCEPTED', 'visibility' => 'SELECTED', 'agency_ids' => [$context['otherAgency']->id],
         ])->assertRedirect();
 
-        $this->actingAs($context['otherAgencyUser'])->get(route('referrals.client-requests.attachments.download', [$context['referral']->id, $context['attachment']->id]))->assertRedirect();
+        $this->actingAsWithMfa($context['otherAgencyUser'])->get(route('referrals.client-requests.attachments.download', [$context['referral']->id, $context['attachment']->id]))->assertRedirect();
 
         $unselectedAgencyUser = $context['otherAgencyUser']->replicate();
         $unselectedAgencyUser->id = (string) str()->uuid();
         $unselectedAgencyUser->email = 'unselected@example.test';
         $unselectedAgencyUser->agcy_id = $context['thirdAgency']->id;
         $unselectedAgencyUser->save();
-        $this->actingAs($unselectedAgencyUser)->get(route('referrals.client-requests.attachments.download', [$context['referral']->id, $context['attachment']->id]))->assertForbidden();
+        $this->actingAsWithMfa($unselectedAgencyUser)->get(route('referrals.client-requests.attachments.download', [$context['referral']->id, $context['attachment']->id]))->assertForbidden();
     }
 
     public function test_inactive_referral_denies_other_agency_even_when_selected(): void
     {
         $context = $this->attachmentContext();
         $context['otherReferral']->update(['status' => 'COMPLETED']);
-        $this->actingAs($context['agencyUser'])->patch(route('referrals.client-requests.attachments.review', $context['attachment']), [
+        $this->actingAsWithMfa($context['agencyUser'])->patch(route('referrals.client-requests.attachments.review', $context['attachment']), [
             'review_status' => 'ACCEPTED', 'visibility' => 'SELECTED', 'agency_ids' => [$context['otherAgency']->id],
         ])->assertRedirect();
 
-        $this->actingAs($context['otherAgencyUser'])->get(route('referrals.client-requests.attachments.download', [$context['referral']->id, $context['attachment']->id]))->assertForbidden();
+        $this->actingAsWithMfa($context['otherAgencyUser'])->get(route('referrals.client-requests.attachments.download', [$context['referral']->id, $context['attachment']->id]))->assertForbidden();
     }
 
     private function attachmentContext(): array

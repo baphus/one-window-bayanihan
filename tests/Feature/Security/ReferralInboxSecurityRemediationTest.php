@@ -89,12 +89,12 @@ class ReferralInboxSecurityRemediationTest extends TestCase
         Mail::fake();
 
         for ($attempt = 1; $attempt <= 3; $attempt++) {
-            $this->actingAs($agencyUser)
+            $this->actingAsWithMfa($agencyUser)
                 ->post(route('referrals.client-requests.access.reissue', $clientRequest))
                 ->assertRedirect();
         }
 
-        $this->actingAs($agencyUser)
+        $this->actingAsWithMfa($agencyUser)
             ->post(route('referrals.client-requests.access.reissue', $clientRequest))
             ->assertStatus(429);
 

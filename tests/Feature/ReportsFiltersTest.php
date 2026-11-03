@@ -21,7 +21,7 @@ class ReportsFiltersTest extends TestCase
     {
         $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
-        $response = $this->actingAs($user)->get(route('reports.index', [
+        $response = $this->actingAsWithMfa($user)->get(route('reports.index', [
             'from' => '2026-99-99',
             'to' => '2026-12-31',
         ]));
@@ -34,7 +34,7 @@ class ReportsFiltersTest extends TestCase
     {
         $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
-        $this->actingAs($user)->get(route('reports.index', [
+        $this->actingAsWithMfa($user)->get(route('reports.index', [
             'from' => '2026-01-01', 'to' => '2026-99-99',
         ]))->assertRedirect()->assertSessionHas('error');
     }
@@ -47,7 +47,7 @@ class ReportsFiltersTest extends TestCase
             ['from' => '2026-02-01', 'to' => '2026-01-01'],
             ['from' => '2020-01-01', 'to' => '2023-01-02'],
         ] as $filters) {
-            $this->actingAs($user)->get(route('reports.index', $filters))
+            $this->actingAsWithMfa($user)->get(route('reports.index', $filters))
                 ->assertRedirect()->assertSessionHas('error');
         }
     }
@@ -56,11 +56,11 @@ class ReportsFiltersTest extends TestCase
     {
         $user = User::factory()->create(['role' => UserRole::ADMIN->value]);
 
-        $this->actingAs($user)->get(route('reports.index', [
+        $this->actingAsWithMfa($user)->get(route('reports.index', [
             'date_scope' => 'created_by_attacker',
         ]))->assertRedirect()->assertSessionHas('error');
 
-        $this->actingAs($user)->get(route('reports.index', [
+        $this->actingAsWithMfa($user)->get(route('reports.index', [
             'agency_id' => 'not-a-uuid',
         ]))->assertRedirect()->assertSessionHas('error');
     }
@@ -71,7 +71,7 @@ class ReportsFiltersTest extends TestCase
         $inertiaRequest = Request::create(route('reports.index'), 'GET');
         $version = app(HandleInertiaRequests::class)->version($inertiaRequest);
 
-        $response = $this->actingAs($user)
+        $response = $this->actingAsWithMfa($user)
             ->withHeaders([
                 'X-Inertia' => 'true',
                 'X-Inertia-Version' => $version ?? '',
@@ -94,7 +94,7 @@ class ReportsFiltersTest extends TestCase
         foreach ([UserRole::ADMIN, UserRole::AGENCY] as $role) {
             $user = User::factory()->create(['role' => $role->value, 'agcy_id' => $role === UserRole::AGENCY ? $agency->id : null]);
 
-            $this->actingAs($user)->get(route('reports.index', ['from' => '2026-06-01', 'to' => '2026-06-30']))
+            $this->actingAsWithMfa($user)->get(route('reports.index', ['from' => '2026-06-01', 'to' => '2026-06-30']))
                 ->assertInertia(fn (AssertableInertia $page) => $page
                     ->component('Reports/Index')
                     ->where('casesOverTime.labels', ['2026-06'])
@@ -116,7 +116,7 @@ class ReportsFiltersTest extends TestCase
             'clientRequestTypeDistribution',
         ]);
 
-        $response = $this->actingAs($user)
+        $response = $this->actingAsWithMfa($user)
             ->withHeaders([
                 'X-Inertia' => 'true',
                 'X-Inertia-Version' => $version ?? '',

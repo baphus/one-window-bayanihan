@@ -33,7 +33,7 @@ class ReferralDeleteTest extends TestCase
         $referral = $this->makeReferral();
         $milestone = Milestone::factory()->create(['refr_id' => $referral->id]);
 
-        $response = $this->actingAs($user)->delete("/referrals/{$referral->id}");
+        $response = $this->actingAsWithMfa($user)->delete("/referrals/{$referral->id}");
 
         $response->assertStatus(302);
         $response->assertSessionHas('success');
@@ -48,7 +48,7 @@ class ReferralDeleteTest extends TestCase
         $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $referral = $this->makeReferral();
 
-        $response = $this->actingAs($admin)->delete("/referrals/{$referral->id}");
+        $response = $this->actingAsWithMfa($admin)->delete("/referrals/{$referral->id}");
 
         $response->assertStatus(302);
         $this->assertSoftDeleted('referrals', ['id' => $referral->id]);
@@ -59,7 +59,7 @@ class ReferralDeleteTest extends TestCase
         $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $referral = $this->makeReferral('COMPLETED');
 
-        $response = $this->actingAs($user)->delete("/referrals/{$referral->id}");
+        $response = $this->actingAsWithMfa($user)->delete("/referrals/{$referral->id}");
 
         $response->assertStatus(302);
         $response->assertSessionHas('error');
@@ -72,7 +72,7 @@ class ReferralDeleteTest extends TestCase
         $user = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id]);
         $referral = $this->makeReferral();
 
-        $response = $this->actingAs($user)->delete("/referrals/{$referral->id}");
+        $response = $this->actingAsWithMfa($user)->delete("/referrals/{$referral->id}");
 
         $response->assertStatus(403);
         $this->assertDatabaseHas('referrals', ['id' => $referral->id, 'deleted_at' => null]);
@@ -83,7 +83,7 @@ class ReferralDeleteTest extends TestCase
         $user = User::factory()->create(['role' => UserRole::OFW->value]);
         $referral = $this->makeReferral();
 
-        $response = $this->actingAs($user)->delete("/referrals/{$referral->id}");
+        $response = $this->actingAsWithMfa($user)->delete("/referrals/{$referral->id}");
 
         $response->assertStatus(403);
         $this->assertDatabaseHas('referrals', ['id' => $referral->id, 'deleted_at' => null]);

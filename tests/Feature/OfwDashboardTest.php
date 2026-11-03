@@ -39,7 +39,7 @@ class OfwDashboardTest extends TestCase
             'client_id' => $client->id,
         ]);
 
-        $response = $this->actingAs($ofwUser)
+        $response = $this->actingAsWithMfa($ofwUser)
             ->withHeader('X-Inertia', 'true')
             ->get('/my-cases');
 
@@ -65,7 +65,7 @@ class OfwDashboardTest extends TestCase
             'client_id' => $otherClient->id,
         ]);
 
-        $response = $this->actingAs($ofwUser)
+        $response = $this->actingAsWithMfa($ofwUser)
             ->get("/my-cases/{$otherCase->id}");
 
         $response->assertStatus(403);
@@ -87,7 +87,7 @@ class OfwDashboardTest extends TestCase
             'client_id' => $client->id,
         ]);
 
-        $response = $this->actingAs($ofwUser)
+        $response = $this->actingAsWithMfa($ofwUser)
             ->withHeader('X-Inertia', 'true')
             ->get('/my-cases');
 
@@ -110,7 +110,7 @@ class OfwDashboardTest extends TestCase
             'client_id' => $client->id,
         ]);
 
-        $response = $this->actingAs($ofwUser)
+        $response = $this->actingAsWithMfa($ofwUser)
             ->get("/my-cases/{$draft->id}");
 
         $response->assertStatus(404);
@@ -142,7 +142,7 @@ class OfwDashboardTest extends TestCase
         $otherClient = Client::factory()->create();
         CaseFile::factory()->open()->create(['client_id' => $otherClient->id]);
 
-        $response = $this->actingAs($ofwUser)
+        $response = $this->actingAsWithMfa($ofwUser)
             ->withHeader('X-Inertia', 'true')
             ->get('/my-cases');
 
@@ -174,7 +174,7 @@ class OfwDashboardTest extends TestCase
 
         CaseFile::factory()->draft()->create(['client_id' => $client->id]);
 
-        $response = $this->actingAs($ofwUser)
+        $response = $this->actingAsWithMfa($ofwUser)
             ->withHeader('X-Inertia', 'true')
             ->get('/my-cases');
 
@@ -201,7 +201,7 @@ class OfwDashboardTest extends TestCase
         // dashboard group resolves it — the same round-trip the SPA performs.
         // HandleInertiaRequests is disabled in setUp, so no version check and no
         // X-Inertia-Version header are needed here.
-        $response = $this->actingAs($manager)
+        $response = $this->actingAsWithMfa($manager)
             ->withHeaders([
                 'X-Inertia' => 'true',
                 'X-Inertia-Partial-Component' => 'Dashboard',

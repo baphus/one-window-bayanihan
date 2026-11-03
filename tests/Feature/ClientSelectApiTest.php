@@ -44,7 +44,7 @@ class ClientSelectApiTest extends TestCase
         $this->makePublishedClient();
         $this->makePublishedClient();
 
-        $response = $this->actingAs($user)->getJson('/api/clients');
+        $response = $this->actingAsWithMfa($user)->getJson('/api/clients');
 
         $response->assertOk()
             ->assertJsonStructure(['data'])
@@ -57,7 +57,7 @@ class ClientSelectApiTest extends TestCase
         $juan = $this->makePublishedClient(['first_name' => 'Juan', 'last_name' => 'Dela Cruz']);
         $this->makePublishedClient(['first_name' => 'Maria', 'last_name' => 'Santos']);
 
-        $response = $this->actingAs($user)->getJson('/api/clients?q=juan');
+        $response = $this->actingAsWithMfa($user)->getJson('/api/clients?q=juan');
 
         $response->assertOk()
             ->assertJsonCount(1, 'data')
@@ -70,7 +70,7 @@ class ClientSelectApiTest extends TestCase
         $this->makePublishedClient(['first_name' => 'Juan', 'last_name' => 'Dela Cruz']);
         $maria = $this->makePublishedClient(['first_name' => 'Maria', 'last_name' => 'Santos']);
 
-        $response = $this->actingAs($user)->getJson('/api/clients?q=cruz');
+        $response = $this->actingAsWithMfa($user)->getJson('/api/clients?q=cruz');
 
         $response->assertOk()
             ->assertJsonCount(1, 'data')
@@ -83,7 +83,7 @@ class ClientSelectApiTest extends TestCase
         Client::factory()->create(['first_name' => 'Juan', 'last_name' => 'Dela Cruz', 'is_deleted' => false]);
         $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
-        $response = $this->actingAs($user)->getJson('/api/clients?q=xxxxx');
+        $response = $this->actingAsWithMfa($user)->getJson('/api/clients?q=xxxxx');
 
         $response->assertOk()
             ->assertJsonCount(0, 'data');
@@ -95,7 +95,7 @@ class ClientSelectApiTest extends TestCase
         $this->makePublishedClient(['first_name' => 'Maria']);
         $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
-        $response = $this->actingAs($user)->getJson('/api/clients');
+        $response = $this->actingAsWithMfa($user)->getJson('/api/clients');
 
         $response->assertOk()
             ->assertJsonCount(1, 'data')
@@ -112,7 +112,7 @@ class ClientSelectApiTest extends TestCase
 
         $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
-        $response = $this->actingAs($user)->getJson('/api/clients');
+        $response = $this->actingAsWithMfa($user)->getJson('/api/clients');
 
         $response->assertOk()
             ->assertJsonStructure([
@@ -137,7 +137,7 @@ class ClientSelectApiTest extends TestCase
         $client = $this->makePublishedClient();
         $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
-        $response = $this->actingAs($user)->getJson("/api/clients/{$client->id}");
+        $response = $this->actingAsWithMfa($user)->getJson("/api/clients/{$client->id}");
 
         $response->assertOk()
             ->assertJsonStructure([
@@ -164,7 +164,7 @@ class ClientSelectApiTest extends TestCase
     {
         $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
-        $response = $this->actingAs($user)->getJson('/api/clients/nonexistent-id');
+        $response = $this->actingAsWithMfa($user)->getJson('/api/clients/nonexistent-id');
 
         $response->assertNotFound();
     }
@@ -197,7 +197,7 @@ class ClientSelectApiTest extends TestCase
 
         $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
-        $response = $this->actingAs($user)->getJson("/api/clients/{$client->id}");
+        $response = $this->actingAsWithMfa($user)->getJson("/api/clients/{$client->id}");
 
         $response->assertOk()
             // Stored region names resolve to PSGC codes; region_name keeps the
@@ -232,7 +232,7 @@ class ClientSelectApiTest extends TestCase
             'created_at' => now()->addSecond(),
         ]);
 
-        $response = $this->actingAs($user)->getJson("/api/clients/{$client->id}");
+        $response = $this->actingAsWithMfa($user)->getJson("/api/clients/{$client->id}");
 
         $response->assertOk()
             ->assertJsonPath('data.case_file.case_number', $caseFile->case_number);
@@ -245,7 +245,7 @@ class ClientSelectApiTest extends TestCase
         }
         $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
-        $response = $this->actingAs($user)->getJson('/api/clients');
+        $response = $this->actingAsWithMfa($user)->getJson('/api/clients');
 
         $response->assertOk()
             ->assertJsonCount(20, 'data');
@@ -264,7 +264,7 @@ class ClientSelectApiTest extends TestCase
 
         $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
-        $response = $this->actingAs($user)->getJson('/api/clients');
+        $response = $this->actingAsWithMfa($user)->getJson('/api/clients');
 
         $response->assertOk();
         $data = $response->json('data');

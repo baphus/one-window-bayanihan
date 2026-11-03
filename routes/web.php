@@ -91,6 +91,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('/profile/avatar', [ProfileController::class, 'destroyAvatar'])->name('profile.avatar.destroy');
 
     Route::get('/profile/mfa/status', [MfaController::class, 'status'])->name('profile.mfa.status');
+    Route::post('/profile/mfa/confirm', [MfaController::class, 'confirm'])->name('profile.mfa.confirm')->middleware('throttle:totp-challenge');
     Route::post('/profile/mfa/generate', [MfaController::class, 'generateSecret'])->name('profile.mfa.generate');
     Route::post('/profile/mfa/verify', [MfaController::class, 'verifyAndEnable'])->name('profile.mfa.verify');
     Route::post('/profile/mfa/disable', [MfaController::class, 'disable'])->name('profile.mfa.disable')->middleware('throttle:password-confirm');

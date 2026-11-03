@@ -26,7 +26,10 @@ class AuditLogControllerTest extends TestCase
         parent::setUp();
         $this->withoutMiddleware(HandleInertiaRequests::class);
         $this->withoutMiddleware(SetPostgresSession::class);
-        $this->user = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $this->user = User::factory()->mfaEnabled()->create([
+            'role' => UserRole::ADMIN->value,
+            'mfa_secret' => 'JBSWY3DPEHPK3PXP',
+        ]);
     }
 
     #[Test]
@@ -41,7 +44,7 @@ class AuditLogControllerTest extends TestCase
             ]);
         }
 
-        $response = $this->actingAs($this->user)
+        $response = $this->actingAsWithMfa($this->user)
             ->withHeader('X-Inertia', 'true')
             ->get('/audit-logs?per_page=15');
 
@@ -70,7 +73,7 @@ class AuditLogControllerTest extends TestCase
             'request_id' => (string) Str::uuid(),
         ]);
 
-        $response = $this->actingAs($this->user)
+        $response = $this->actingAsWithMfa($this->user)
             ->withHeader('X-Inertia', 'true')
             ->get('/audit-logs');
 
@@ -120,7 +123,7 @@ class AuditLogControllerTest extends TestCase
             route('api.cases.activity', $case->id),
             route('api.referrals.activity', $referral->id),
         ] as $url) {
-            $response = $this->actingAs($this->user)->get($url);
+            $response = $this->actingAsWithMfa($this->user)->get($url);
 
             $response->assertOk();
             $entry = collect($response->json('data'))->firstWhere('description', $log->description);
@@ -153,7 +156,7 @@ class AuditLogControllerTest extends TestCase
             ]);
         }
 
-        $first = $this->actingAs($this->user)
+        $first = $this->actingAsWithMfa($this->user)
             ->withHeader('X-Inertia', 'true')
             ->get('/audit-logs?action=UPDATE&per_page=15');
 
@@ -168,7 +171,7 @@ class AuditLogControllerTest extends TestCase
         $this->assertStringContainsString('action=UPDATE', $payload['next_page_url']);
         $this->assertStringContainsString('per_page=15', $payload['next_page_url']);
 
-        $second = $this->actingAs($this->user)
+        $second = $this->actingAsWithMfa($this->user)
             ->withHeader('X-Inertia', 'true')
             ->get($payload['next_page_url']);
 
@@ -180,7 +183,7 @@ class AuditLogControllerTest extends TestCase
         $this->assertStringContainsString('per_page=15', $secondPayload['prev_page_url']);
         $this->assertNotSame($payload['data'][0]['id'], $second->json('props.logs.data.0.id'));
 
-        $previous = $this->actingAs($this->user)
+        $previous = $this->actingAsWithMfa($this->user)
             ->withHeader('X-Inertia', 'true')
             ->get($secondPayload['prev_page_url']);
         $this->assertSame($payload['data'][0]['id'], $previous->json('props.logs.data.0.id'));
@@ -202,7 +205,7 @@ class AuditLogControllerTest extends TestCase
             'timestamp' => now(),
         ]);
 
-        $response = $this->actingAs($this->user)
+        $response = $this->actingAsWithMfa($this->user)
             ->withHeader('X-Inertia', 'true')
             ->get('/audit-logs?action=CREATE');
 
@@ -231,7 +234,7 @@ class AuditLogControllerTest extends TestCase
             'timestamp' => '2026-05-20 10:00:00',
         ]);
 
-        $response = $this->actingAs($this->user)
+        $response = $this->actingAsWithMfa($this->user)
             ->withHeader('X-Inertia', 'true')
             ->get('/audit-logs?date_from=2026-05-15&date_to=2026-05-25');
 
@@ -246,7 +249,7 @@ class AuditLogControllerTest extends TestCase
         AuditLog::create(['user_id' => $this->user->id, 'action' => 'UPDATE', 'module' => 'clients', 'timestamp' => now()->subMinute()]);
         AuditLog::create(['user_id' => $otherUser->id, 'action' => 'UPDATE', 'module' => 'clients', 'timestamp' => now()]);
 
-        $response = $this->actingAs($this->user)
+        $response = $this->actingAsWithMfa($this->user)
             ->withHeader('X-Inertia', 'true')
             ->get('/audit-logs?user_id='.$this->user->id);
 
@@ -270,7 +273,7 @@ class AuditLogControllerTest extends TestCase
             'timestamp' => now()->subMinute(),
         ]);
 
-        $response = $this->actingAs($this->user)
+        $response = $this->actingAsWithMfa($this->user)
             ->withHeader('X-Inertia', 'true')
             ->withHeader('X-Inertia-Partial-Data', 'availableActions,availableModules')
             ->withHeader('X-Inertia-Partial-Component', 'AuditLog/Index')
@@ -298,7 +301,7 @@ class AuditLogControllerTest extends TestCase
             'timestamp' => now()->subMinute(),
         ]);
 
-        $response = $this->actingAs($this->user)
+        $response = $this->actingAsWithMfa($this->user)
             ->withHeader('X-Inertia', 'true')
             ->withHeader('X-Inertia-Partial-Data', 'availableActions,availableModules')
             ->withHeader('X-Inertia-Partial-Component', 'AuditLog/Index')
@@ -331,14 +334,14 @@ class AuditLogControllerTest extends TestCase
             'timestamp' => now()->subMinute(),
         ]);
 
-        $response = $this->actingAs($this->user)
+        $response = $this->actingAsWithMfa($this->user)
             ->withHeader('X-Inertia', 'true')
             ->get('/audit-logs?module=case_files');
 
         $response->assertStatus(200);
         $this->assertCount(2, $response->json('props.logs.data'));
 
-        $response2 = $this->actingAs($this->user)
+        $response2 = $this->actingAsWithMfa($this->user)
             ->withHeader('X-Inertia', 'true')
             ->get('/audit-logs?module=case');
 
@@ -355,7 +358,10 @@ class AuditLogControllerTest extends TestCase
 
         // Use an admin actor to bypass the CASE_MANAGER entity_id scope filter in the controller
         // while the audit_log records reference $this->user->id as the performer
-        $actor = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $actor = User::factory()->mfaEnabled()->create([
+            'role' => UserRole::ADMIN->value,
+            'mfa_secret' => 'JBSWY3DPEHPK3PXP',
+        ]);
 
         DB::table('audit_logs')->insert([
             [
@@ -376,7 +382,7 @@ class AuditLogControllerTest extends TestCase
             ],
         ]);
 
-        $response = $this->actingAs($actor)
+        $response = $this->actingAsWithMfa($actor)
             ->withHeader('X-Inertia', 'true')
             ->get('/audit-logs?search=clients');
 
@@ -406,7 +412,7 @@ class AuditLogControllerTest extends TestCase
             'timestamp' => now(),
         ]);
 
-        $response = $this->actingAs($this->user)
+        $response = $this->actingAsWithMfa($this->user)
             ->withHeader('X-Inertia', 'true')
             ->get('/audit-logs?search=Villanueva');
 
@@ -439,7 +445,7 @@ class AuditLogControllerTest extends TestCase
         ]);
 
         // Matching a distinctive part of the resolved case number.
-        $response = $this->actingAs($this->user)
+        $response = $this->actingAsWithMfa($this->user)
             ->withHeader('X-Inertia', 'true')
             ->get('/audit-logs?search=01234');
 
@@ -469,7 +475,7 @@ class AuditLogControllerTest extends TestCase
         ]);
 
         // Matching the first 8 chars of the raw entity UUID (the short ID label).
-        $response = $this->actingAs($this->user)
+        $response = $this->actingAsWithMfa($this->user)
             ->withHeader('X-Inertia', 'true')
             ->get('/audit-logs?search='.substr($referralId, 0, 8));
 

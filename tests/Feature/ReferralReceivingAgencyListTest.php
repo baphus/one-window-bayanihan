@@ -27,12 +27,12 @@ class ReferralReceivingAgencyListTest extends TestCase
 
         Referral::factory()->count(16)->rejected()->create(['agcy_id' => $agency->id]);
 
-        $pageTwo = $this->actingAs($user)->withHeader('X-Inertia', 'true')
+        $pageTwo = $this->actingAsWithMfa($user)->withHeader('X-Inertia', 'true')
             ->get(route('referrals.index', ['page' => 2]));
         $pageTwo->assertOk();
         $this->assertSame(2, $pageTwo->json('props.referrals.current_page'));
 
-        $filtered = $this->actingAs($user)->withHeader('X-Inertia', 'true')
+        $filtered = $this->actingAsWithMfa($user)->withHeader('X-Inertia', 'true')
             ->get(route('referrals.index', ['status' => 'REJECTED']));
         $filtered->assertOk();
         $this->assertSame(1, $filtered->json('props.referrals.current_page'));
@@ -58,7 +58,7 @@ class ReferralReceivingAgencyListTest extends TestCase
             'required_services' => 'Other agency rejected service',
         ]);
 
-        $response = $this->actingAs($user)->withHeader('X-Inertia', 'true')
+        $response = $this->actingAsWithMfa($user)->withHeader('X-Inertia', 'true')
             ->get(route('referrals.index', ['status' => 'REJECTED']));
 
         $response->assertOk();
@@ -77,7 +77,7 @@ class ReferralReceivingAgencyListTest extends TestCase
         Referral::factory()->count(11)->rejected()->create(['agcy_id' => $agency->id]);
         Referral::factory()->rejected()->create(['agcy_id' => Agency::factory()->create()->id]);
 
-        $pageTwo = $this->actingAs($user)->withHeader('X-Inertia', 'true')
+        $pageTwo = $this->actingAsWithMfa($user)->withHeader('X-Inertia', 'true')
             ->get(route('referrals.index', [
                 'sort' => 'status',
                 'direction' => 'asc',
@@ -95,7 +95,7 @@ class ReferralReceivingAgencyListTest extends TestCase
         $this->assertSame('PENDING', $pageTwo->json('props.referrals.data.0.status'));
         $this->assertSame('REJECTED', $pageTwo->json('props.referrals.data.1.status'));
 
-        $largerPage = $this->actingAs($user)->withHeader('X-Inertia', 'true')
+        $largerPage = $this->actingAsWithMfa($user)->withHeader('X-Inertia', 'true')
             ->get(route('referrals.index', ['per_page' => 25]));
 
         $largerPage->assertOk();

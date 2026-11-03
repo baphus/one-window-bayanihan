@@ -48,7 +48,7 @@ class AgencyActivityLogScopeTest extends TestCase
         AuditLog::truncate();
         $this->log('case', $case->id, 'SOME CASE');
 
-        $data = $this->actingAs($orphan)
+        $data = $this->actingAsWithMfa($orphan)
             ->withHeader('X-Inertia', 'true')
             ->get('/activity')
             ->json('props.events.data');
@@ -65,19 +65,19 @@ class AgencyActivityLogScopeTest extends TestCase
 
         $this->assertSame(
             'Activity',
-            $this->actingAs($focal)
+            $this->actingAsWithMfa($focal)
                 ->withHeader('X-Inertia', 'true')
                 ->get('/activity')
                 ->json('props.viewTitle'),
         );
         $this->assertSame(
             'Activity',
-            $this->actingAs($caseManager)
+            $this->actingAsWithMfa($caseManager)
                 ->withHeader('X-Inertia', 'true')
                 ->get('/activity')
                 ->json('props.viewTitle'),
         );
-        $this->actingAs($admin)
+        $this->actingAsWithMfa($admin)
             ->withHeader('X-Inertia', 'true')
             ->get('/audit-logs')
             ->assertOk();

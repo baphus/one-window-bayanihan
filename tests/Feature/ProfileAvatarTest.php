@@ -32,7 +32,7 @@ class ProfileAvatarTest extends TestCase
     {
         $staff = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
-        $response = $this->actingAs($staff)->post(route('profile.avatar.store'), [
+        $response = $this->actingAsWithMfa($staff)->post(route('profile.avatar.store'), [
             'profile_picture' => UploadedFile::fake()->image('me.jpg', 160, 160),
         ]);
 
@@ -52,7 +52,7 @@ class ProfileAvatarTest extends TestCase
             'avatar_url' => self::OLD_AVATAR,
         ]);
 
-        $response = $this->actingAs($staff)->delete(route('profile.avatar.destroy'));
+        $response = $this->actingAsWithMfa($staff)->delete(route('profile.avatar.destroy'));
 
         $response->assertRedirect(route('profile.edit'));
         $response->assertSessionHas('success', 'Profile picture removed.');
@@ -65,7 +65,7 @@ class ProfileAvatarTest extends TestCase
     {
         $staff = User::factory()->create(['role' => UserRole::ADMIN->value]);
 
-        $response = $this->actingAs($staff)->post(route('profile.avatar.store'), [
+        $response = $this->actingAsWithMfa($staff)->post(route('profile.avatar.store'), [
             // A .jpg name over plain-text content must be refused.
             'profile_picture' => UploadedFile::fake()->createWithContent('fake.jpg', 'not an image'),
         ]);
@@ -79,7 +79,7 @@ class ProfileAvatarTest extends TestCase
     {
         $staff = User::factory()->create(['role' => UserRole::ADMIN->value]);
 
-        $response = $this->actingAs($staff)->post(route('profile.avatar.store'), []);
+        $response = $this->actingAsWithMfa($staff)->post(route('profile.avatar.store'), []);
 
         $response->assertRedirect(route('profile.edit'));
         $response->assertSessionHasErrors('profile_picture');
@@ -96,7 +96,7 @@ class ProfileAvatarTest extends TestCase
             'avatar_url' => self::OLD_AVATAR,
         ]);
 
-        $response = $this->actingAs($staff)->post(route('profile.avatar.store'), [
+        $response = $this->actingAsWithMfa($staff)->post(route('profile.avatar.store'), [
             'profile_picture' => UploadedFile::fake()->image('me.jpg', 160, 160),
         ]);
 
@@ -115,7 +115,7 @@ class ProfileAvatarTest extends TestCase
     {
         $ofw = $this->makeOfw();
 
-        $upload = $this->actingAs($ofw)->post(route('ofw.profile.avatar.store'), [
+        $upload = $this->actingAsWithMfa($ofw)->post(route('ofw.profile.avatar.store'), [
             'profile_picture' => UploadedFile::fake()->image('me.jpg', 160, 160),
         ]);
 
@@ -125,7 +125,7 @@ class ProfileAvatarTest extends TestCase
         $ofw->refresh();
         $this->assertNotNull($ofw->getRawOriginal('avatar_url'));
 
-        $remove = $this->actingAs($ofw)->delete(route('ofw.profile.avatar.destroy'));
+        $remove = $this->actingAsWithMfa($ofw)->delete(route('ofw.profile.avatar.destroy'));
 
         $remove->assertRedirect(route('ofw.profile.edit'));
         $remove->assertSessionHas('success', 'Profile picture removed.');
@@ -141,7 +141,7 @@ class ProfileAvatarTest extends TestCase
         $ofw->client->forceFill(['avatar_url' => $clientAvatar])->saveQuietly();
         $ofw->forceFill(['avatar_url' => self::OLD_AVATAR])->saveQuietly();
 
-        $response = $this->actingAs($ofw)->get(route('ofw.profile.edit'));
+        $response = $this->actingAsWithMfa($ofw)->get(route('ofw.profile.edit'));
 
         $response->assertOk();
         $page = $response->viewData('page');

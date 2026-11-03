@@ -31,7 +31,7 @@ class AdminServiceControllerTest extends TestCase
             'processing_days' => 7,
         ]);
 
-        $response = $this->actingAs($admin)->delete(route('admin.services.destroy', $service->id));
+        $response = $this->actingAsWithMfa($admin)->delete(route('admin.services.destroy', $service->id));
 
         $response->assertRedirect(route('admin.services.index'));
 
@@ -44,7 +44,7 @@ class AdminServiceControllerTest extends TestCase
 
         $fakeId = '00000000-0000-0000-0000-000000000000';
 
-        $response = $this->actingAs($admin)->delete(route('admin.services.destroy', $fakeId));
+        $response = $this->actingAsWithMfa($admin)->delete(route('admin.services.destroy', $fakeId));
 
         $response->assertNotFound();
     }

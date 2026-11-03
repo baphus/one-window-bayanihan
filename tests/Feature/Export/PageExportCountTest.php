@@ -60,7 +60,7 @@ class PageExportCountTest extends TestCase
         Referral::factory()->create(['case_id' => $case->id, 'agcy_id' => $agency->id, 'status' => 'PENDING']);
         Referral::factory()->create(['case_id' => $case->id, 'agcy_id' => $agency->id, 'status' => 'PROCESSING']);
 
-        $response = $this->actingAs($user)->getJson(route('referrals.export-count', ['status' => 'PENDING']));
+        $response = $this->actingAsWithMfa($user)->getJson(route('referrals.export-count', ['status' => 'PENDING']));
 
         $response->assertOk()->assertJson(['count' => 1]);
     }
@@ -82,7 +82,7 @@ class PageExportCountTest extends TestCase
             'created_at' => now()->subDays(10),
         ]);
 
-        $response = $this->actingAs($user)->getJson(route('referrals.export-count', [
+        $response = $this->actingAsWithMfa($user)->getJson(route('referrals.export-count', [
             'date_from' => now()->subDays(30)->toDateString(),
             'date_to' => now()->toDateString(),
         ]));
@@ -100,7 +100,7 @@ class PageExportCountTest extends TestCase
         Referral::factory()->create(['case_id' => $case->id, 'agcy_id' => $ownAgency->id]);
         Referral::factory()->create(['case_id' => $case->id, 'agcy_id' => $otherAgency->id]);
 
-        $response = $this->actingAs($user)->getJson(route('referrals.export-count'));
+        $response = $this->actingAsWithMfa($user)->getJson(route('referrals.export-count'));
 
         $response->assertOk()->assertJson(['count' => 1]);
     }
@@ -116,7 +116,7 @@ class PageExportCountTest extends TestCase
         CaseFile::factory()->create(['status' => 'OPEN']);
         CaseFile::factory()->create(['status' => 'CLOSED']);
 
-        $response = $this->actingAs($user)->getJson(route('cases.export-count', ['status' => 'OPEN']));
+        $response = $this->actingAsWithMfa($user)->getJson(route('cases.export-count', ['status' => 'OPEN']));
 
         $response->assertOk()->assertJson(['count' => 1]);
     }
@@ -130,7 +130,7 @@ class PageExportCountTest extends TestCase
         CaseFile::factory()->create(['client_id' => $ofwClient->id]);
         CaseFile::factory()->create(['client_id' => $nokClient->id]);
 
-        $response = $this->actingAs($user)->getJson(route('cases.export-count', [
+        $response = $this->actingAsWithMfa($user)->getJson(route('cases.export-count', [
             'client_type' => CaseFile::CLIENT_TYPE_NEXT_OF_KIN,
         ]));
 
@@ -153,7 +153,7 @@ class PageExportCountTest extends TestCase
         CaseFile::factory()->create(['client_id' => $maria->id]);
         CaseFile::factory()->create(['client_id' => $juan->id]);
 
-        $response = $this->actingAs($user)->getJson(route('clients.export-count', ['search' => 'Maria']));
+        $response = $this->actingAsWithMfa($user)->getJson(route('clients.export-count', ['search' => 'Maria']));
 
         $response->assertOk()->assertJson(['count' => 1]);
     }
@@ -167,7 +167,7 @@ class PageExportCountTest extends TestCase
         Client::factory()->create(['sex' => 'FEMALE']);
         CaseFile::factory()->create(['client_id' => $male->id]);
 
-        $response = $this->actingAs($user)->getJson(route('clients.export-count', ['sex' => 'MALE']));
+        $response = $this->actingAsWithMfa($user)->getJson(route('clients.export-count', ['sex' => 'MALE']));
 
         $response->assertOk()->assertJson(['count' => 1]);
     }
@@ -187,7 +187,7 @@ class PageExportCountTest extends TestCase
             'client_id' => $nextOfKin->id,
         ]);
 
-        $response = $this->actingAs($user)->getJson(route('clients.export-count', [
+        $response = $this->actingAsWithMfa($user)->getJson(route('clients.export-count', [
             'client_type' => CaseFile::CLIENT_TYPE_NEXT_OF_KIN,
         ]));
 

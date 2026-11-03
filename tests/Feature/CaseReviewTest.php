@@ -54,7 +54,7 @@ class CaseReviewTest extends TestCase
 
         $cm = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
-        $response = $this->actingAs($cm)->postJson(route('cases.review-approve', $case));
+        $response = $this->actingAsWithMfa($cm)->postJson(route('cases.review-approve', $case));
         $response->assertRedirect();
 
         $case->refresh();
@@ -76,7 +76,7 @@ class CaseReviewTest extends TestCase
 
         $cm = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
-        $this->actingAs($cm)->postJson(route('cases.review-approve', $case));
+        $this->actingAsWithMfa($cm)->postJson(route('cases.review-approve', $case));
 
         // Approve path records a client-facing event + audit entry for the filer.
         $this->assertDatabaseHas('case_events', [
@@ -102,7 +102,7 @@ class CaseReviewTest extends TestCase
 
         $cm = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
-        $response = $this->actingAs($cm)->postJson(route('cases.review-reject', $case), [
+        $response = $this->actingAsWithMfa($cm)->postJson(route('cases.review-reject', $case), [
             'reason' => 'Incomplete employment history.',
         ]);
         $response->assertRedirect();
@@ -135,7 +135,7 @@ class CaseReviewTest extends TestCase
 
         $ofw = User::factory()->create(['role' => UserRole::OFW->value]);
 
-        $response = $this->actingAs($ofw)->postJson(route('cases.review-approve', $case));
+        $response = $this->actingAsWithMfa($ofw)->postJson(route('cases.review-approve', $case));
         $response->assertStatus(403);
     }
 
@@ -149,7 +149,7 @@ class CaseReviewTest extends TestCase
 
         $ofw = User::factory()->create(['role' => UserRole::OFW->value]);
 
-        $response = $this->actingAs($ofw)->postJson(route('cases.review-reject', $case), [
+        $response = $this->actingAsWithMfa($ofw)->postJson(route('cases.review-reject', $case), [
             'reason' => 'Wrong.',
         ]);
         $response->assertStatus(403);

@@ -59,7 +59,7 @@ class ReportAndReferralRoleGuardTest extends TestCase
     {
         $ofw = User::factory()->create(['role' => UserRole::OFW->value]);
 
-        $this->actingAs($ofw)
+        $this->actingAsWithMfa($ofw)
             ->{$method}(route($routeName))
             ->assertStatus(403);
     }
@@ -74,7 +74,7 @@ class ReportAndReferralRoleGuardTest extends TestCase
                 'agcy_id' => $role === UserRole::AGENCY->value ? Agency::factory()->create()->id : null,
             ]);
 
-            $this->actingAs($user)
+            $this->actingAsWithMfa($user)
                 ->{$method}(route($routeName))
                 ->assertStatus(200);
         }
@@ -94,7 +94,7 @@ class ReportAndReferralRoleGuardTest extends TestCase
         ]);
 
         foreach (['reports.index', 'reports.export-pdf', 'reports.export-excel'] as $routeName) {
-            $response = $this->actingAs($agencyUser)->get(route($routeName));
+            $response = $this->actingAsWithMfa($agencyUser)->get(route($routeName));
 
             $this->assertSame(
                 403,

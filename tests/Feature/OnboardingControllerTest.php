@@ -28,7 +28,7 @@ class OnboardingControllerTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $this->actingAs($user)
+        $this->actingAsWithMfa($user)
             ->postJson(route('onboarding.checklist.mark'), ['item' => 'UPPER CASE!!'])
             ->assertStatus(422);
     }
@@ -37,11 +37,11 @@ class OnboardingControllerTest extends TestCase
     {
         $user = User::factory()->create(['checklist_progress' => null]);
 
-        $this->actingAs($user)
+        $this->actingAsWithMfa($user)
             ->postJson(route('onboarding.checklist.mark'), ['item' => 'create-first-case'])
             ->assertStatus(200);
 
-        $this->actingAs($user)
+        $this->actingAsWithMfa($user)
             ->postJson(route('onboarding.checklist.dismiss'))
             ->assertStatus(200);
 

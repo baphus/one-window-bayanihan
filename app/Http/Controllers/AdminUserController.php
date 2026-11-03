@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\AuditModule;
 use App\Enums\UserRole;
 use App\Helpers\CacheHelper;
 use App\Http\Controllers\Concerns\ResolvesPerPage;
@@ -12,13 +13,17 @@ use App\Models\Agency;
 use App\Models\Client;
 use App\Models\User;
 use App\Models\UserInvite;
+use App\Notifications\MfaStatusChangedNotification;
+use App\Services\AuditLogger;
+use App\Services\MfaPendingState;
+use App\Services\MfaPolicyService;
+use App\Services\MfaService;
 use App\Services\OtpService;
 use App\Services\UserService;
 use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
@@ -108,6 +113,11 @@ class AdminUserController extends Controller
             ->orderBy('created_at', 'desc')
             ->get();
 
+        $policy = app(MfaPolicyService::class);
+        $users->getCollection()->each(function (User $user) use ($policy): void {
+            $user->setAttribute('mfaPolicy', $this->mfaPolicyPayload($user, $policy));
+        });
+
         return Inertia::render('Admin/User/Index', [
             'users' => $users,
             'filters' => $filters,
@@ -147,8 +157,12 @@ class AdminUserController extends Controller
         // accounts (role OFW covers both OFWs and next of kin).
         $user = User::with(['agency', 'client.ofwClient'])->withTrashed()->findOrFail($id);
 
+        $policy = app(MfaPolicyService::class);
+        $user->setAttribute('mfaPolicy', $this->mfaPolicyPayload($user, $policy));
+
         return Inertia::render('Admin/User/Show', [
             'user' => $user,
+            'mfaPolicy' => $this->mfaPolicyPayload($user, $policy),
             'agencies' => Agency::where('is_active', true)
                 ->orderBy('name')
                 ->get(['id', 'name', 'short']),
@@ -225,6 +239,28 @@ class AdminUserController extends Controller
         $validated = $request->validated();
 
         $updateData = $validated;
+        $policy = app(MfaPolicyService::class);
+        $oldOverride = $policy->override($user);
+        $oldEffective = $policy->effective($user);
+        $overrideChanged = array_key_exists('mfa_requirement_override', $validated)
+            && ($validated['mfa_requirement_override'] === 'inherit' ? null : $validated['mfa_requirement_override']) !== $oldOverride;
+
+        if ($overrideChanged) {
+            if (blank($validated['mfa_change_reason'] ?? null)) {
+                throw ValidationException::withMessages(['mfa_change_reason' => 'A reason is required when changing MFA policy.']);
+            }
+
+            $override = $validated['mfa_requirement_override'] === 'inherit'
+                ? null
+                : $validated['mfa_requirement_override'];
+            if (! app(MfaPendingState::class)->confirmedUntil($request, $request->user())
+                && ! app(MfaPendingState::class)->ensureConfirmed($request, $request->user(), app(MfaService::class))) {
+                throw ValidationException::withMessages(['mfa_confirmation' => 'Fresh MFA confirmation is required.']);
+            }
+
+            $updateData['mfa_requirement_override'] = $override;
+        }
+        unset($updateData['mfa_change_reason']);
 
         $emailChanged = $this->users->willChangeEmail($user, $validated);
         $passwordChanged = $request->filled('password');
@@ -274,6 +310,26 @@ class AdminUserController extends Controller
         if (isset($outcome['error'])) {
             return redirect()->route('admin.users.index')
                 ->with('error', $outcome['error']);
+        }
+
+        $freshTarget = $user->fresh();
+        $newEffective = $policy->effective($freshTarget);
+
+        if ($overrideChanged) {
+            AuditLogger::updateSecurity()
+                ->by($request->user())
+                ->forEntity($freshTarget, $freshTarget->name)
+                ->module(AuditModule::MFA)
+                ->context(
+                    ['override' => $oldOverride ?? 'inherit', 'effective' => $oldEffective],
+                    ['override' => $freshTarget->mfa_requirement_override ?? 'inherit', 'effective' => $newEffective, 'reason' => $validated['mfa_change_reason']],
+                )
+                ->description('Changed user MFA policy. Reason: '.$validated['mfa_change_reason'])
+                ->write();
+        }
+
+        if ($oldEffective !== $newEffective) {
+            $freshTarget->notify(new MfaStatusChangedNotification('policy', $newEffective === MfaPolicyService::REQUIRED));
         }
 
         if ($emailChanged) {
@@ -523,20 +579,31 @@ class AdminUserController extends Controller
 
     public function resetMfa(Request $request, User $user): RedirectResponse
     {
-        $request->validate([
-            'password' => ['required', 'string'],
+        $validated = $request->validate([
+            'reason' => ['required', 'string', 'max:500'],
+            'otp' => ['nullable', 'string', 'size:6'],
+            'recovery_code' => ['nullable', 'string', 'max:64'],
         ]);
 
-        if (! Hash::check($request->password, $request->user()->password)) {
-            throw ValidationException::withMessages([
-                'password' => 'The password is incorrect.',
-            ]);
+        if ((string) $request->user()->getKey() === (string) $user->getKey()) {
+            throw ValidationException::withMessages(['mfa_reset' => 'Administrators cannot reset their own MFA.']);
         }
 
-        $admin = $request->user();
+        if (! app(MfaPendingState::class)->ensureConfirmed($request, $request->user(), app(MfaService::class))) {
+            throw ValidationException::withMessages(['mfa_confirmation' => 'Fresh MFA confirmation is required.']);
+        }
 
-        $this->users->resetMfa($user, $admin);
+        $this->users->resetMfa($user, $request->user(), $validated['reason']);
 
         return back()->with('success', 'MFA has been reset for this user.');
+    }
+
+    private function mfaPolicyPayload(User $user, MfaPolicyService $policy): array
+    {
+        return [
+            'role_default' => $policy->roleDefault((string) $user->role),
+            'override' => $policy->override($user) ?? MfaPolicyService::INHERIT,
+            'effective' => $policy->effective($user),
+        ];
     }
 }

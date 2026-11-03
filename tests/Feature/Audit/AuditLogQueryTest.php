@@ -137,7 +137,7 @@ class AuditLogQueryTest extends TestCase
     /** Actor names seen by an audit viewer on an Inertia GET. */
     private function auditActors(User $viewer, string $query): array
     {
-        $response = $this->actingAs($viewer)
+        $response = $this->actingAsWithMfa($viewer)
             ->withHeader('X-Inertia', 'true')
             ->get('/audit-logs?'.$query);
 
@@ -196,7 +196,7 @@ class AuditLogQueryTest extends TestCase
         ]);
 
         $ids = array_column(
-            $this->actingAs($admin)
+            $this->actingAsWithMfa($admin)
                 ->withHeader('X-Inertia', 'true')
                 ->get('/audit-logs?action=UPDATE&has_changes=1')
                 ->assertOk()
@@ -210,7 +210,7 @@ class AuditLogQueryTest extends TestCase
 
         // Without the flag every UPDATE row stays visible.
         $unfiltered = array_column(
-            $this->actingAs($admin)
+            $this->actingAsWithMfa($admin)
                 ->withHeader('X-Inertia', 'true')
                 ->get('/audit-logs?action=UPDATE')
                 ->assertOk()
@@ -239,7 +239,7 @@ class AuditLogQueryTest extends TestCase
         $this->createStatusChangeLog($admin, $referral->id, 1);
         $this->createStatusChangeLog($deactivated, $referral->id, 2);
 
-        $byId = collect($this->actingAs($admin)->get('/audit-logs/actors')->assertOk()->json())
+        $byId = collect($this->actingAsWithMfa($admin)->get('/audit-logs/actors')->assertOk()->json())
             ->keyBy('id');
 
         $this->assertSame(['id', 'name', 'email', 'deactivated'], array_keys($byId[$admin->id]));
@@ -248,13 +248,13 @@ class AuditLogQueryTest extends TestCase
         $this->assertSame('dave@example.test', $byId[$deactivated->id]['email']);
 
         // Search narrows by name or email, case-insensitively.
-        $found = $this->actingAs($admin)->get('/audit-logs/actors?search=ADA')->assertOk()->json();
+        $found = $this->actingAsWithMfa($admin)->get('/audit-logs/actors?search=ADA')->assertOk()->json();
         $this->assertSame([$admin->id], array_column($found, 'id'));
 
-        $none = $this->actingAs($admin)->get('/audit-logs/actors?search=nobody-here')->assertOk()->json();
+        $none = $this->actingAsWithMfa($admin)->get('/audit-logs/actors?search=nobody-here')->assertOk()->json();
         $this->assertSame([], $none);
 
         // Route admits CASE_MANAGER; the controller rejects them.
-        $this->actingAs($caseManager)->get('/audit-logs/actors')->assertStatus(403);
+        $this->actingAsWithMfa($caseManager)->get('/audit-logs/actors')->assertStatus(403);
     }
 }

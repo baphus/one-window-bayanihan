@@ -51,7 +51,7 @@ const TIMEZONES = [
     'America/New_York', 'America/Los_Angeles', 'Europe/London', 'UTC',
 ];
 
-export default function Edit({ mustVerifyEmail, status, mfaEnabled, defaultAgency, notificationPrefs }) {
+export default function Edit({ mustVerifyEmail, status, mfaEnabled, mfaRequired, defaultAgency, notificationPrefs }) {
     const user = usePage().props.auth.user;
     const { email_change_step, email_change_hint } = usePage().props;
 
@@ -446,7 +446,7 @@ export default function Edit({ mustVerifyEmail, status, mfaEnabled, defaultAgenc
                         title="Two-factor authentication"
                         description="Add a second step when signing in."
                     >
-                        <MfaSetup mfaEnabled={mfaEnabled} />
+                        <MfaSetup mfaEnabled={mfaEnabled} mfaRequired={mfaRequired} />
                     </ProfileSection>
 
                     <ProfileSection

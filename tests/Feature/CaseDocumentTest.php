@@ -55,7 +55,7 @@ class CaseDocumentTest extends TestCase
     {
         $this->createDocument();
 
-        $response = $this->actingAs($this->caseManager)
+        $response = $this->actingAsWithMfa($this->caseManager)
             ->getJson(route('cases.documents.index', $this->case->id));
 
         $response->assertOk()
@@ -71,7 +71,7 @@ class CaseDocumentTest extends TestCase
             'agcy_id' => null,
         ]);
 
-        $response = $this->actingAs($unauthorized)
+        $response = $this->actingAsWithMfa($unauthorized)
             ->getJson(route('cases.documents.index', $this->case->id));
 
         $response->assertForbidden();
@@ -83,7 +83,7 @@ class CaseDocumentTest extends TestCase
 
         $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
 
-        $response = $this->actingAs($admin)
+        $response = $this->actingAsWithMfa($admin)
             ->getJson(route('cases.documents.index', $this->case->id));
 
         $response->assertOk()
@@ -96,12 +96,12 @@ class CaseDocumentTest extends TestCase
 
         $otherManager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
-        $this->actingAs($otherManager)
+        $this->actingAsWithMfa($otherManager)
             ->getJson(route('cases.documents.index', $this->case->id))
             ->assertOk()
             ->assertJsonCount(1);
 
-        $this->actingAs($otherManager)
+        $this->actingAsWithMfa($otherManager)
             ->getJson(route('cases.documents.show', [$this->case->id, $document->id]))
             ->assertOk();
 
@@ -109,7 +109,7 @@ class CaseDocumentTest extends TestCase
         $storage->expects($this->once())->method('temporaryUrl')->willReturn('https://storage.test/document.pdf');
         $this->app->instance(StorageService::class, $storage);
 
-        $this->actingAs($otherManager)
+        $this->actingAsWithMfa($otherManager)
             ->get(route('cases.documents.download', [$this->case->id, $document->id]))
             ->assertRedirect('https://storage.test/document.pdf');
     }
@@ -118,7 +118,7 @@ class CaseDocumentTest extends TestCase
     {
         $doc = $this->createDocument();
 
-        $response = $this->actingAs($this->caseManager)
+        $response = $this->actingAsWithMfa($this->caseManager)
             ->deleteJson(route('cases.documents.destroy', [$this->case->id, $doc->id]));
 
         $response->assertOk()
@@ -136,7 +136,7 @@ class CaseDocumentTest extends TestCase
 
         $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
 
-        $response = $this->actingAs($admin)
+        $response = $this->actingAsWithMfa($admin)
             ->deleteJson(route('cases.documents.destroy', [$this->case->id, $doc->id]));
 
         $response->assertOk()
@@ -153,7 +153,7 @@ class CaseDocumentTest extends TestCase
         $doc = $this->createDocument();
         $doc->update(['is_deleted' => true, 'deleted_at' => now(), 'deleted_by' => $this->caseManager->id]);
 
-        $response = $this->actingAs($this->caseManager)
+        $response = $this->actingAsWithMfa($this->caseManager)
             ->getJson(route('cases.documents.index', $this->case->id));
 
         $response->assertOk()
@@ -181,7 +181,7 @@ class CaseDocumentTest extends TestCase
 
         $referral->delete();
 
-        $response = $this->actingAs($this->caseManager)
+        $response = $this->actingAsWithMfa($this->caseManager)
             ->getJson(route('cases.documents.index', $this->case->id));
 
         $response->assertOk()
@@ -214,7 +214,7 @@ class CaseDocumentTest extends TestCase
             'agcy_id' => $agency->id,
         ]);
 
-        $response = $this->actingAs($agencyUser)
+        $response = $this->actingAsWithMfa($agencyUser)
             ->getJson(route('cases.documents.index', $this->case->id));
 
         $response->assertOk()
@@ -245,7 +245,7 @@ class CaseDocumentTest extends TestCase
 
         $file = UploadedFile::fake()->create('doc.pdf', 100);
 
-        $response = $this->actingAs($agencyUser)
+        $response = $this->actingAsWithMfa($agencyUser)
             ->postJson(route('cases.documents.store', $this->case->id), [
                 'file' => $file,
             ]);
@@ -277,7 +277,7 @@ class CaseDocumentTest extends TestCase
             'agcy_id' => $agency->id,
         ]);
 
-        $response = $this->actingAs($agencyUser)
+        $response = $this->actingAsWithMfa($agencyUser)
             ->deleteJson(route('cases.documents.destroy', [$this->case->id, $doc->id]));
 
         $response->assertForbidden();
@@ -312,7 +312,7 @@ class CaseDocumentTest extends TestCase
             'agcy_id' => $agency->id,
         ]);
 
-        $response = $this->actingAs($agencyUser)
+        $response = $this->actingAsWithMfa($agencyUser)
             ->getJson(route('cases.documents.index', $this->case->id));
 
         $response->assertForbidden();
@@ -334,11 +334,11 @@ class CaseDocumentTest extends TestCase
         $document->update(['referral_id' => $referral->id]);
         $agencyUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $otherAgency->id]);
 
-        $this->actingAs($agencyUser)->getJson(route('cases.documents.index', $this->case->id))
+        $this->actingAsWithMfa($agencyUser)->getJson(route('cases.documents.index', $this->case->id))
             ->assertOk()->assertJsonCount(0);
-        $this->actingAs($agencyUser)->getJson(route('cases.documents.show', [$this->case->id, $document->id]))
+        $this->actingAsWithMfa($agencyUser)->getJson(route('cases.documents.show', [$this->case->id, $document->id]))
             ->assertForbidden();
-        $this->actingAs($agencyUser)->get(route('cases.documents.download', [$this->case->id, $document->id]))
+        $this->actingAsWithMfa($agencyUser)->get(route('cases.documents.download', [$this->case->id, $document->id]))
             ->assertForbidden();
     }
 
@@ -367,7 +367,7 @@ class CaseDocumentTest extends TestCase
         $agencyUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $ownAgency->id]);
 
         // Index returns general case files + own-referral docs, never the other agency's.
-        $response = $this->actingAs($agencyUser)->getJson(route('cases.documents.index', $this->case->id));
+        $response = $this->actingAsWithMfa($agencyUser)->getJson(route('cases.documents.index', $this->case->id));
         $response->assertOk()->assertJsonCount(2);
         $listedIds = collect($response->json())->pluck('id');
         $this->assertContains($generalDoc->id, $listedIds);
@@ -379,15 +379,15 @@ class CaseDocumentTest extends TestCase
         $storage->expects($this->exactly(2))->method('temporaryUrl')->willReturn('https://storage.test/document.pdf');
         $this->app->instance(StorageService::class, $storage);
 
-        $this->actingAs($agencyUser)
+        $this->actingAsWithMfa($agencyUser)
             ->get(route('cases.documents.download', [$this->case->id, $generalDoc->id]))
             ->assertRedirect('https://storage.test/document.pdf');
-        $this->actingAs($agencyUser)
+        $this->actingAsWithMfa($agencyUser)
             ->get(route('cases.documents.download', [$this->case->id, $ownReferralDoc->id]))
             ->assertRedirect('https://storage.test/document.pdf');
 
         // Another referral's document is refused on the direct download route.
-        $this->actingAs($agencyUser)
+        $this->actingAsWithMfa($agencyUser)
             ->get(route('cases.documents.download', [$this->case->id, $otherReferralDoc->id]))
             ->assertForbidden();
     }
@@ -422,7 +422,7 @@ class CaseDocumentTest extends TestCase
 
         $agencyUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $ownAgency->id]);
 
-        $this->actingAs($agencyUser)
+        $this->actingAsWithMfa($agencyUser)
             ->get(route('cases.show', $this->case->id))
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
@@ -459,7 +459,7 @@ class CaseDocumentTest extends TestCase
 
         $file = UploadedFile::fake()->create('document.pdf', 2048);
 
-        $response = $this->actingAs($this->caseManager)
+        $response = $this->actingAsWithMfa($this->caseManager)
             ->postJson(route('cases.documents.store', $this->case->id), [
                 'file' => $file,
                 'category' => 'Medical',
@@ -473,14 +473,14 @@ class CaseDocumentTest extends TestCase
         ]);
 
         // Filter by category
-        $response = $this->actingAs($this->caseManager)
+        $response = $this->actingAsWithMfa($this->caseManager)
             ->getJson(route('cases.documents.index', $this->case->id).'?category=Medical');
 
         $response->assertOk();
         $this->assertCount(1, $response->json());
 
         // Filter by non-matching category returns empty
-        $response = $this->actingAs($this->caseManager)
+        $response = $this->actingAsWithMfa($this->caseManager)
             ->getJson(route('cases.documents.index', $this->case->id).'?category=Financial');
 
         $response->assertOk();
@@ -508,7 +508,7 @@ class CaseDocumentTest extends TestCase
 
         $file = UploadedFile::fake()->create('document.pdf', 2048);
 
-        $response = $this->actingAs($this->caseManager)
+        $response = $this->actingAsWithMfa($this->caseManager)
             ->postJson(route('cases.documents.store', $this->case->id), [
                 'file' => $file,
             ]);
@@ -529,7 +529,7 @@ class CaseDocumentTest extends TestCase
     {
         $file = UploadedFile::fake()->create('malicious.exe', 100);
 
-        $response = $this->actingAs($this->caseManager)
+        $response = $this->actingAsWithMfa($this->caseManager)
             ->postJson(route('cases.documents.store', $this->case->id), [
                 'file' => $file,
             ]);
@@ -546,7 +546,7 @@ class CaseDocumentTest extends TestCase
 
         $file = UploadedFile::fake()->create('doc.pdf', 100);
 
-        $response = $this->actingAs($unauthorized)
+        $response = $this->actingAsWithMfa($unauthorized)
             ->postJson(route('cases.documents.store', $this->case->id), [
                 'file' => $file,
             ]);

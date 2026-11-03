@@ -35,7 +35,7 @@ class ForgotEmailTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $response = $this->actingAs($user)->get('/forgot-email');
+        $response = $this->actingAsWithMfa($user)->get('/forgot-email');
 
         $response->assertRedirect('/dashboard');
     }

@@ -38,7 +38,7 @@ class OfwCaseDetailTest extends TestCase
             'client_id' => $client->id,
         ]);
 
-        $response = $this->actingAs($ofwUser)
+        $response = $this->actingAsWithMfa($ofwUser)
             ->withHeader('X-Inertia', 'true')
             ->get("/my-cases/{$case->id}");
 
@@ -60,7 +60,7 @@ class OfwCaseDetailTest extends TestCase
         ]);
         $referral = Referral::factory()->create(['case_id' => $case->id]);
 
-        $response = $this->actingAs($ofwUser)
+        $response = $this->actingAsWithMfa($ofwUser)
             ->withHeader('X-Inertia', 'true')
             ->get("/my-cases/{$case->id}");
 
@@ -93,7 +93,7 @@ class OfwCaseDetailTest extends TestCase
             'status' => ReferralClientRequest::STATUS_OPEN,
         ]);
 
-        $response = $this->actingAs($ofwUser)
+        $response = $this->actingAsWithMfa($ofwUser)
             ->withHeader('X-Inertia', 'true')
             ->get("/my-cases/{$case->id}");
 
@@ -139,7 +139,7 @@ class OfwCaseDetailTest extends TestCase
             'status' => ReferralClientRequest::STATUS_CANCELLED,
         ]);
 
-        $response = $this->actingAs($ofwUser)
+        $response = $this->actingAsWithMfa($ofwUser)
             ->withHeader('X-Inertia', 'true')
             ->get("/my-cases/{$case->id}");
 
@@ -168,7 +168,7 @@ class OfwCaseDetailTest extends TestCase
             'title' => 'Foreign request',
         ]);
 
-        $response = $this->actingAs($ofwUser)
+        $response = $this->actingAsWithMfa($ofwUser)
             ->withHeader('X-Inertia', 'true')
             ->get("/my-cases/{$case->id}");
 
@@ -259,7 +259,7 @@ class OfwCaseDetailTest extends TestCase
 
             $arrange($case, $referral);
 
-            $response = $this->actingAs($ofwUser)
+            $response = $this->actingAsWithMfa($ofwUser)
                 ->withHeader('X-Inertia', 'true')
                 ->get("/my-cases/{$case->id}");
 
@@ -289,7 +289,7 @@ class OfwCaseDetailTest extends TestCase
             'status' => ReferralClientRequest::STATUS_OPEN,
         ]);
 
-        $response = $this->actingAs($ofwUser)
+        $response = $this->actingAsWithMfa($ofwUser)
             ->withHeader('X-Inertia', 'true')
             ->get("/my-cases/{$case->id}");
 
@@ -361,7 +361,7 @@ class OfwCaseDetailTest extends TestCase
         ]);
         $referral = Referral::factory()->create(['case_id' => $case->id]);
 
-        $response = $this->actingAs($ofwUser)
+        $response = $this->actingAsWithMfa($ofwUser)
             ->withHeader('X-Inertia', 'true')
             ->get("/my-cases/{$case->id}/agencies/{$referral->id}/milestones");
 
@@ -384,7 +384,7 @@ class OfwCaseDetailTest extends TestCase
             'client_id' => Client::factory()->create()->id,
         ]);
 
-        $this->actingAs($ofwUser)
+        $this->actingAsWithMfa($ofwUser)
             ->withHeader('X-Inertia', 'true')
             ->get("/my-cases/{$case->id}/agencies/{$referral->id}/milestones")
             ->assertForbidden();
@@ -407,7 +407,7 @@ class OfwCaseDetailTest extends TestCase
         ]);
         $referral = Referral::factory()->create(['case_id' => $otherCase->id]);
 
-        $this->actingAs($ofwUser)
+        $this->actingAsWithMfa($ofwUser)
             ->withHeader('X-Inertia', 'true')
             ->get("/my-cases/{$case->id}/agencies/{$referral->id}/milestones")
             ->assertNotFound();

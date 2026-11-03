@@ -69,8 +69,9 @@ class NextOfKinFilingTest extends TestCase
      */
     private function buildNokWithLinkedOfw(): array
     {
-        $filerUser = User::factory()->create([
+        $filerUser = User::factory()->mfaEnabled()->create([
             'role' => UserRole::OFW->value,
+            'mfa_secret' => 'JBSWY3DPEHPK3PXP',
         ]);
         $filerClient = Client::factory()->create([
             'type' => 'NEXT_OF_KIN',
@@ -96,7 +97,10 @@ class NextOfKinFilingTest extends TestCase
      */
     private function buildOfwSelfFiler(): User
     {
-        $user = User::factory()->create(['role' => UserRole::OFW->value]);
+        $user = User::factory()->mfaEnabled()->create([
+            'role' => UserRole::OFW->value,
+            'mfa_secret' => 'JBSWY3DPEHPK3PXP',
+        ]);
         $client = Client::factory()->create([
             'type' => 'OFW',
             'user_id' => $user->id,
@@ -117,7 +121,7 @@ class NextOfKinFilingTest extends TestCase
         $category = CaseCategory::factory()->create();
         $caseIssue = CaseIssue::create(['name' => 'Unpaid wages', 'is_active' => true]);
 
-        $response = $this->actingAs($filer)->postJson(route('cases.store'), $this->basicFilingPayload([
+        $response = $this->actingAsWithMfa($filer)->postJson(route('cases.store'), $this->basicFilingPayload([
             'category_ids' => [$category->id],
             'case_issue_id' => $caseIssue->id,
             'selected_client_id' => $linkedOfw->id,
@@ -145,7 +149,7 @@ class NextOfKinFilingTest extends TestCase
         $category = CaseCategory::factory()->create();
         $caseIssue = CaseIssue::create(['name' => 'Unpaid wages', 'is_active' => true]);
 
-        $response = $this->actingAs($filer)->postJson(route('cases.store'), $this->basicFilingPayload([
+        $response = $this->actingAsWithMfa($filer)->postJson(route('cases.store'), $this->basicFilingPayload([
             'category_ids' => [$category->id],
             'case_issue_id' => $caseIssue->id,
             'new_ofw' => [
@@ -189,7 +193,7 @@ class NextOfKinFilingTest extends TestCase
         $category = CaseCategory::factory()->create();
         $caseIssue = CaseIssue::create(['name' => 'Unpaid wages', 'is_active' => true]);
 
-        $response = $this->actingAs($ofw)->postJson(route('cases.store'), $this->basicFilingPayload([
+        $response = $this->actingAsWithMfa($ofw)->postJson(route('cases.store'), $this->basicFilingPayload([
             'category_ids' => [$category->id],
             'case_issue_id' => $caseIssue->id,
             'selected_client_id' => $otherOfw->id, // stray payload

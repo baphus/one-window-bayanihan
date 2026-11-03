@@ -54,7 +54,7 @@ class ClientProfilePictureTest extends TestCase
     {
         $file = UploadedFile::fake()->image('photo.jpg', 300, 300);
 
-        $response = $this->actingAs($this->user)
+        $response = $this->actingAsWithMfa($this->user)
             ->post(route('clients.avatar.store', $this->client), [
                 'profile_picture' => $file,
             ]);
@@ -69,7 +69,7 @@ class ClientProfilePictureTest extends TestCase
     {
         $file = UploadedFile::fake()->create('document.pdf', 100);
 
-        $response = $this->actingAs($this->user)
+        $response = $this->actingAsWithMfa($this->user)
             ->post(route('clients.avatar.store', $this->client), [
                 'profile_picture' => $file,
             ]);
@@ -81,7 +81,7 @@ class ClientProfilePictureTest extends TestCase
     {
         $file = UploadedFile::fake()->image('photo.bmp', 100, 100);
 
-        $response = $this->actingAs($this->user)
+        $response = $this->actingAsWithMfa($this->user)
             ->post(route('clients.avatar.store', $this->client), [
                 'profile_picture' => $file,
             ]);
@@ -93,7 +93,7 @@ class ClientProfilePictureTest extends TestCase
     {
         $file = UploadedFile::fake()->image('photo.jpg', 1000, 1000)->size(6000);
 
-        $response = $this->actingAs($this->user)
+        $response = $this->actingAsWithMfa($this->user)
             ->post(route('clients.avatar.store', $this->client), [
                 'profile_picture' => $file,
             ]);
@@ -104,7 +104,7 @@ class ClientProfilePictureTest extends TestCase
     public function test_upload_replaces_existing_picture(): void
     {
         $firstFile = UploadedFile::fake()->image('first.jpg', 100, 100);
-        $this->actingAs($this->user)
+        $this->actingAsWithMfa($this->user)
             ->post(route('clients.avatar.store', $this->client), [
                 'profile_picture' => $firstFile,
             ]);
@@ -112,7 +112,7 @@ class ClientProfilePictureTest extends TestCase
         $firstPath = $this->client->fresh()->avatar_url;
 
         $secondFile = UploadedFile::fake()->image('second.jpg', 100, 100);
-        $this->actingAs($this->user)
+        $this->actingAsWithMfa($this->user)
             ->post(route('clients.avatar.store', $this->client), [
                 'profile_picture' => $secondFile,
             ]);
@@ -135,7 +135,7 @@ class ClientProfilePictureTest extends TestCase
     {
         $this->client->update(['avatar_url' => 'profile-pictures/test.jpg']);
 
-        $response = $this->actingAs($this->user)
+        $response = $this->actingAsWithMfa($this->user)
             ->delete(route('clients.avatar.destroy', $this->client));
 
         $response->assertSessionHas('success');

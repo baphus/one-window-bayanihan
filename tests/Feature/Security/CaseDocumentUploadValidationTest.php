@@ -19,7 +19,7 @@ class CaseDocumentUploadValidationTest extends TestCase
         $user = User::factory()->create();
         $caseFile = CaseFile::factory()->create(['user_id' => $user->id]);
 
-        $this->actingAs($user);
+        $this->actingAsWithMfa($user);
 
         $storage = $this->createMock(StorageService::class);
         $storage->method('validate')->willReturn([]);
@@ -49,7 +49,7 @@ class CaseDocumentUploadValidationTest extends TestCase
         $user = User::factory()->create();
         $caseFile = CaseFile::factory()->create(['user_id' => $user->id]);
 
-        $this->actingAs($user);
+        $this->actingAsWithMfa($user);
 
         $file = UploadedFile::fake()->create('virus.exe', 100, 'application/x-msdownload');
 

@@ -15,7 +15,7 @@ class SoftDeleteFlagTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $this->actingAs($user);
+        $this->actingAsWithMfa($user);
 
         DB::enableQueryLog();
         $user->delete();

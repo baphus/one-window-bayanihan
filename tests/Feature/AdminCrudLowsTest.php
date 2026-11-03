@@ -39,7 +39,7 @@ class AdminCrudLowsTest extends TestCase
         ]);
 
         $response = $this->withoutMiddleware([CheckUserActive::class])
-            ->actingAs($inactiveAdmin)
+            ->actingAsWithMfa($inactiveAdmin)
             ->delete(route('admin.users.destroy', $lastActiveAdmin->id));
 
         $response->assertRedirect(route('admin.users.index'))
@@ -62,7 +62,7 @@ class AdminCrudLowsTest extends TestCase
             'is_active' => true,
         ]);
 
-        $response = $this->actingAs($actingAdmin)
+        $response = $this->actingAsWithMfa($actingAdmin)
             ->delete(route('admin.users.destroy', $otherActiveAdmin->id));
 
         $response->assertRedirect(route('admin.users.index'))
@@ -85,7 +85,7 @@ class AdminCrudLowsTest extends TestCase
             'is_active' => false,
         ]);
 
-        $response = $this->actingAs($lastActiveAdmin)
+        $response = $this->actingAsWithMfa($lastActiveAdmin)
             ->patch(route('admin.users.update', $lastActiveAdmin->id), [
                 'name' => $lastActiveAdmin->name,
                 'email' => $lastActiveAdmin->email,
@@ -112,7 +112,7 @@ class AdminCrudLowsTest extends TestCase
             'is_active' => false,
         ]);
 
-        $response = $this->actingAs($lastActiveAdmin)
+        $response = $this->actingAsWithMfa($lastActiveAdmin)
             ->patch(route('admin.users.update', $lastActiveAdmin->id), [
                 'name' => $lastActiveAdmin->name,
                 'email' => $lastActiveAdmin->email,
@@ -140,7 +140,7 @@ class AdminCrudLowsTest extends TestCase
             'is_active' => true,
         ]);
 
-        $response = $this->actingAs($actingAdmin)
+        $response = $this->actingAsWithMfa($actingAdmin)
             ->patch(route('admin.users.update', $target->id), [
                 'name' => $target->name,
                 'email' => $target->email,
@@ -160,7 +160,7 @@ class AdminCrudLowsTest extends TestCase
         $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $agency = Agency::factory()->create(['is_active' => true]);
 
-        $response = $this->actingAs($admin)->post(route('admin.services.store'), [
+        $response = $this->actingAsWithMfa($admin)->post(route('admin.services.store'), [
             'name' => 'Passport Assistance',
             'description' => 'Facilitates passport processing.',
             'agcy_id' => $agency->id,
@@ -212,7 +212,7 @@ class AdminCrudLowsTest extends TestCase
         $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         Agency::factory()->create(['is_active' => true]);
 
-        $this->actingAs($admin)->get(route('admin.agencies.index'))
+        $this->actingAsWithMfa($admin)->get(route('admin.agencies.index'))
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Admin/Agency/Index')

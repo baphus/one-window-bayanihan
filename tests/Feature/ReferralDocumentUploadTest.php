@@ -56,7 +56,7 @@ class ReferralDocumentUploadTest extends TestCase
 
         $file = UploadedFile::fake()->createWithContent('malware.exe', 'malicious content', 'application/x-msdownload');
 
-        $response = $this->from('/some-page')->actingAs($admin)->post(
+        $response = $this->from('/some-page')->actingAsWithMfa($admin)->post(
             route('referrals.attachments.store', $this->referral),
             ['file' => $file],
         );
@@ -73,7 +73,7 @@ class ReferralDocumentUploadTest extends TestCase
 
         $file = UploadedFile::fake()->createWithContent('document.pdf', '%PDF-1.4 test document', 'application/pdf');
 
-        $response = $this->actingAs($admin)->post(
+        $response = $this->actingAsWithMfa($admin)->post(
             route('referrals.attachments.store', $this->referral),
             ['file' => $file],
         );
@@ -93,7 +93,7 @@ class ReferralDocumentUploadTest extends TestCase
 
         $file = UploadedFile::fake()->createWithContent('shell.php', '<?php echo "hello"; ?>', 'application/x-php');
 
-        $response = $this->from('/some-page')->actingAs($admin)->post(
+        $response = $this->from('/some-page')->actingAsWithMfa($admin)->post(
             route('referrals.store'),
             [
                 'case_id' => $this->case->id,
@@ -114,7 +114,7 @@ class ReferralDocumentUploadTest extends TestCase
 
         $file = UploadedFile::fake()->createWithContent('document.pdf', '%PDF-1.4 test document', 'application/pdf');
 
-        $response = $this->actingAs($admin)->post(
+        $response = $this->actingAsWithMfa($admin)->post(
             route('referrals.store'),
             [
                 'case_id' => $this->case->id,
@@ -154,7 +154,7 @@ class ReferralDocumentUploadTest extends TestCase
 
         $file = UploadedFile::fake()->createWithContent('document.pdf', '%PDF-1.4 test document', 'application/pdf');
 
-        $response = $this->from('/referrals/create')->actingAs($admin)->post(
+        $response = $this->from('/referrals/create')->actingAsWithMfa($admin)->post(
             route('referrals.store'),
             [
                 'case_id' => $case->id,

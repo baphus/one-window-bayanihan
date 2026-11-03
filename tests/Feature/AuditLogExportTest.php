@@ -23,7 +23,10 @@ class AuditLogExportTest extends TestCase
         $this->withoutMiddleware(HandleInertiaRequests::class);
         $this->withoutMiddleware(SetPostgresSession::class);
 
-        $this->admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $this->admin = User::factory()->mfaEnabled()->create([
+            'role' => UserRole::ADMIN->value,
+            'mfa_secret' => 'JBSWY3DPEHPK3PXP',
+        ]);
         AuditLog::truncate();
     }
 
@@ -44,23 +47,29 @@ class AuditLogExportTest extends TestCase
 
     public function test_case_manager_cannot_export(): void
     {
-        $caseManager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $caseManager = User::factory()->mfaEnabled()->create([
+            'role' => UserRole::CASE_MANAGER->value,
+            'mfa_secret' => 'JBSWY3DPEHPK3PXP',
+        ]);
 
-        $this->actingAs($caseManager)
+        $this->actingAsWithMfa($caseManager)
             ->get('/audit-logs/export?date_from='.now()->subDays(7)->toDateString().'&date_to='.now()->toDateString())
             ->assertStatus(403);
     }
 
     public function test_agency_cannot_export(): void
     {
-        $agencyUser = User::factory()->create(['role' => UserRole::AGENCY->value]);
+        $agencyUser = User::factory()->mfaEnabled()->create([
+            'role' => UserRole::AGENCY->value,
+            'mfa_secret' => 'JBSWY3DPEHPK3PXP',
+        ]);
 
-        $this->actingAs($agencyUser)->get('/audit-logs/export')->assertStatus(403);
+        $this->actingAsWithMfa($agencyUser)->get('/audit-logs/export')->assertStatus(403);
     }
 
     public function test_missing_date_range_is_rejected_and_self_logged(): void
     {
-        $this->actingAs($this->admin)
+        $this->actingAsWithMfa($this->admin)
             ->get('/audit-logs/export')
             ->assertStatus(422);
 
@@ -73,7 +82,7 @@ class AuditLogExportTest extends TestCase
     {
         $from = now()->subDays((int) config('audit.retention_days') + 30)->toDateString();
 
-        $this->actingAs($this->admin)
+        $this->actingAsWithMfa($this->admin)
             ->get('/audit-logs/export?date_from='.$from.'&date_to='.now()->toDateString())
             ->assertStatus(422);
 
@@ -88,7 +97,7 @@ class AuditLogExportTest extends TestCase
         config(['audit.export.max_rows' => 2]);
         $this->seedLogs(3);
 
-        $this->actingAs($this->admin)
+        $this->actingAsWithMfa($this->admin)
             ->get('/audit-logs/export?date_from='.now()->subDays(7)->toDateString().'&date_to='.now()->toDateString())
             ->assertStatus(422);
 
@@ -101,7 +110,7 @@ class AuditLogExportTest extends TestCase
     {
         $this->seedLogs(3);
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->get('/audit-logs/export?date_from='.now()->subDays(7)->toDateString().'&date_to='.now()->toDateString());
 
         $response->assertStatus(200);
@@ -132,7 +141,7 @@ class AuditLogExportTest extends TestCase
             'timestamp' => now()->subHours(3),
         ]);
 
-        $response = $this->actingAs($this->admin)
+        $response = $this->actingAsWithMfa($this->admin)
             ->get('/audit-logs/export?module=referral&date_from='.now()->subDays(7)->toDateString().'&date_to='.now()->toDateString());
 
         $csv = $response->streamedContent();
@@ -159,7 +168,7 @@ class AuditLogExportTest extends TestCase
             'user_agent' => 'Sensitive Export Test Agent',
         ]);
 
-        $csv = $this->actingAs($this->admin)
+        $csv = $this->actingAsWithMfa($this->admin)
             ->get('/audit-logs/export?date_from='.now()->subDays(7)->toDateString().'&date_to='.now()->toDateString())
             ->streamedContent();
 
@@ -172,7 +181,7 @@ class AuditLogExportTest extends TestCase
 
     public function test_export_escapes_whitespace_prefixed_spreadsheet_formulas(): void
     {
-        $this->actingAs($this->admin);
+        $this->actingAsWithMfa($this->admin);
         $this->admin->name = "\t=1+1";
         $this->admin->save();
 
@@ -203,7 +212,7 @@ class AuditLogExportTest extends TestCase
             'timestamp' => now(),
         ]);
 
-        $default = $this->actingAs($this->admin)
+        $default = $this->actingAsWithMfa($this->admin)
             ->withHeader('X-Inertia', 'true')
             ->get('/audit-logs')
             ->json('props.logs.data');
@@ -213,7 +222,7 @@ class AuditLogExportTest extends TestCase
         $this->assertSame('referral', $default[0]['module']);
         $this->assertArrayNotHasKey('description', $default[0]);
 
-        $withSystem = $this->actingAs($this->admin)
+        $withSystem = $this->actingAsWithMfa($this->admin)
             ->withHeader('X-Inertia', 'true')
             ->get('/audit-logs?category=security,data,admin,system')
             ->json('props.logs.data');
@@ -233,7 +242,7 @@ class AuditLogExportTest extends TestCase
             ]);
         }
 
-        $data = $this->actingAs($this->admin)
+        $data = $this->actingAsWithMfa($this->admin)
             ->withHeader('X-Inertia', 'true')
             ->get('/audit-logs?module=case')
             ->json('props.logs.data');

@@ -5,13 +5,19 @@ namespace App\Http\Controllers;
 use App\Enums\AuditAction;
 use App\Enums\AuditModule;
 use App\Models\SystemSetting;
+use App\Models\User;
+use App\Notifications\MfaStatusChangedNotification;
 use App\Services\AuditLogger;
+use App\Services\MfaPendingState;
+use App\Services\MfaPolicyService;
+use App\Services\MfaService;
 use App\Settings\SettingGroup;
 use App\Settings\SettingRegistry;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
 /**
@@ -53,6 +59,28 @@ class SystemSettingsController extends Controller
     public function update(Request $request)
     {
         $validated = $request->validate(SettingRegistry::validationRules());
+        $policyKeys = array_values(MfaPolicyService::ROLE_DEFAULT_KEYS);
+        $changedPolicyKeys = array_values(array_filter($policyKeys, function (string $key) use ($validated): bool {
+            return array_key_exists($key, $validated)
+                && $validated[$key] !== null
+                && (bool) $validated[$key] !== (bool) SettingRegistry::value($key);
+        }));
+        $reason = null;
+
+        if ($changedPolicyKeys !== []) {
+            $validated['mfa_change_reason'] = $request->validate([
+                'mfa_change_reason' => ['required', 'string', 'max:500'],
+                'otp' => ['nullable', 'string', 'size:6'],
+                'recovery_code' => ['nullable', 'string', 'max:64'],
+            ])['mfa_change_reason'];
+            $reason = $validated['mfa_change_reason'];
+        }
+
+        if ($changedPolicyKeys !== [] && ! app(MfaPendingState::class)->confirmedUntil($request, $request->user())) {
+            if (! $this->confirmProof($request)) {
+                throw ValidationException::withMessages(['mfa_confirmation' => 'Fresh MFA confirmation is required.']);
+            }
+        }
 
         $changed = [];
         $rejected = [];
@@ -98,6 +126,31 @@ class SystemSettingsController extends Controller
             SystemSetting::setValue($key, $value);
 
             $changed[$key] = ['old' => $setting->cast($previous), 'new' => $value];
+
+            if (in_array($key, $changedPolicyKeys, true)) {
+                $role = array_search($key, MfaPolicyService::ROLE_DEFAULT_KEYS, true);
+                $oldPolicy = (bool) $previous;
+                $newPolicy = (bool) $value;
+                $effectiveUsers = User::query()
+                    ->where('role', $role)
+                    ->whereNull('mfa_requirement_override')
+                    ->get();
+
+                AuditLogger::updateSecurity()
+                    ->by($request->user())
+                    ->entity(null, $role)
+                    ->module(AuditModule::MFA)
+                    ->context(
+                        ['role_default' => $oldPolicy ? 'required' : 'optional'],
+                        ['role_default' => $newPolicy ? 'required' : 'optional', 'reason' => $reason],
+                    )
+                    ->description('Changed MFA role default for '.$role.': '.($oldPolicy ? 'required' : 'optional').' to '.($newPolicy ? 'required' : 'optional').'. Reason: '.$reason)
+                    ->write();
+
+                foreach ($effectiveUsers as $affected) {
+                    $affected->notify(new MfaStatusChangedNotification('policy', $newPolicy));
+                }
+            }
         }
 
         if ($changed !== []) {
@@ -115,6 +168,15 @@ class SystemSettingsController extends Controller
         }
 
         return back()->with('success', $changed === [] ? 'No changes.' : 'Settings updated successfully.');
+    }
+
+    private function confirmProof(Request $request): bool
+    {
+        if (! $request->filled('otp') && ! $request->filled('recovery_code')) {
+            return false;
+        }
+
+        return app(MfaPendingState::class)->ensureConfirmed($request, $request->user(), app(MfaService::class));
     }
 
     /**

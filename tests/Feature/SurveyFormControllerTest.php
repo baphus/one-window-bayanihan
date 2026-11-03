@@ -18,9 +18,9 @@ class SurveyFormControllerTest extends TestCase
 
     public function test_non_agency_and_unassigned_agency_users_are_forbidden(): void
     {
-        $this->actingAs(User::factory()->create(['role' => UserRole::CASE_MANAGER->value]))
+        $this->actingAsWithMfa(User::factory()->create(['role' => UserRole::CASE_MANAGER->value]))
             ->get(route('survey.forms.index'))->assertForbidden();
-        $this->actingAs(User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => null]))
+        $this->actingAsWithMfa(User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => null]))
             ->get(route('survey.forms.index'))->assertForbidden();
     }
 
@@ -30,21 +30,21 @@ class SurveyFormControllerTest extends TestCase
         SurveyForm::create(['agency_id' => $agency->id, 'title' => 'Mine']);
         SurveyForm::create(['agency_id' => Agency::factory()->create()->id, 'title' => 'Other']);
 
-        $this->actingAs($user)->get(route('survey.forms.index'))
+        $this->actingAsWithMfa($user)->get(route('survey.forms.index'))
             ->assertOk()->assertInertia(fn ($page) => $page->has('forms', 1));
     }
 
     public function test_store_validation_has_no_side_effects(): void
     {
         [$user] = $this->agencyUser();
-        $this->actingAs($user)->post(route('survey.forms.store'), [])->assertInvalid(['title', 'questions']);
+        $this->actingAsWithMfa($user)->post(route('survey.forms.store'), [])->assertInvalid(['title', 'questions']);
         $this->assertSame(0, SurveyForm::count());
     }
 
     public function test_create_persists_questions_options_and_order(): void
     {
         [$user, $agency] = $this->agencyUser();
-        $this->actingAs($user)->post(route('survey.forms.store'), $this->formPayload())->assertRedirect();
+        $this->actingAsWithMfa($user)->post(route('survey.forms.store'), $this->formPayload())->assertRedirect();
         $form = SurveyForm::where('agency_id', $agency->id)->firstOrFail();
         $this->assertSame(['Second', 'First'], $form->questions()->orderBy('order')->pluck('label')->all());
         $this->assertSame(['Yes', 'No'], $form->questions()->where('label', 'Second')->first()->options);
@@ -65,7 +65,7 @@ class SurveyFormControllerTest extends TestCase
             ],
         ];
 
-        $response = $this->actingAs($user)
+        $response = $this->actingAsWithMfa($user)
             ->withHeader('X-Inertia', 'true')
             ->post(route('survey.forms.store'), $payload);
 
@@ -79,7 +79,7 @@ class SurveyFormControllerTest extends TestCase
         $this->assertSame(['Yes', 'No'], $form->questions()->where('type', 'radio')->first()->options);
         $this->assertFalse($form->questions()->where('type', 'checkbox')->first()->is_required);
 
-        $this->actingAs($user)
+        $this->actingAsWithMfa($user)
             ->withHeaders([
                 'X-Inertia' => 'true',
                 'X-Inertia-Version' => app(HandleInertiaRequests::class)->version(request()),
@@ -97,7 +97,7 @@ class SurveyFormControllerTest extends TestCase
         [$user, $agency] = $this->agencyUser();
         $form = SurveyForm::create(['agency_id' => $agency->id, 'title' => 'Old']);
         $form->questions()->create(['type' => 'text', 'label' => 'Old question', 'order' => 0]);
-        $this->actingAs($user)->patch(route('survey.forms.update', $form), [
+        $this->actingAsWithMfa($user)->patch(route('survey.forms.update', $form), [
             'title' => 'New', 'description' => 'Updated', 'questions' => [[
                 'type' => 'radio', 'label' => 'New question', 'options' => ['A', 'B'], 'order' => 3,
             ]],
@@ -110,7 +110,7 @@ class SurveyFormControllerTest extends TestCase
     {
         [$user, $agency] = $this->agencyUser();
         $form = SurveyForm::create(['agency_id' => $agency->id, 'title' => 'Delete me']);
-        $this->actingAs($user)->delete(route('survey.forms.destroy', $form))->assertRedirect();
+        $this->actingAsWithMfa($user)->delete(route('survey.forms.destroy', $form))->assertRedirect();
         $this->assertDatabaseMissing('survey_forms', ['id' => $form->id]);
     }
 
@@ -119,10 +119,10 @@ class SurveyFormControllerTest extends TestCase
         [$user] = $this->agencyUser();
         $form = SurveyForm::create(['agency_id' => Agency::factory()->create()->id, 'title' => 'Other']);
 
-        $this->actingAs($user)->get(route('survey.forms.edit', $form))->assertForbidden();
-        $this->actingAs($user)->patch(route('survey.forms.update', $form), ['title' => 'changed'])->assertForbidden();
-        $this->actingAs($user)->delete(route('survey.forms.destroy', $form))->assertForbidden();
-        $this->actingAs($user)->patch(route('survey.forms.activate', $form))->assertForbidden();
+        $this->actingAsWithMfa($user)->get(route('survey.forms.edit', $form))->assertForbidden();
+        $this->actingAsWithMfa($user)->patch(route('survey.forms.update', $form), ['title' => 'changed'])->assertForbidden();
+        $this->actingAsWithMfa($user)->delete(route('survey.forms.destroy', $form))->assertForbidden();
+        $this->actingAsWithMfa($user)->patch(route('survey.forms.activate', $form))->assertForbidden();
         $this->assertSame('Other', $form->fresh()->title);
     }
 
@@ -132,7 +132,7 @@ class SurveyFormControllerTest extends TestCase
         $old = SurveyForm::create(['agency_id' => $agency->id, 'title' => 'Old', 'is_active' => true]);
         $new = SurveyForm::create(['agency_id' => $agency->id, 'title' => 'New']);
 
-        $this->actingAs($user)->patch(route('survey.forms.activate', $new))->assertRedirect();
+        $this->actingAsWithMfa($user)->patch(route('survey.forms.activate', $new))->assertRedirect();
         $this->assertSame(1, SurveyForm::where('agency_id', $agency->id)->where('is_active', true)->count());
         $this->assertFalse($old->fresh()->is_active);
         $this->assertTrue($new->fresh()->is_active);
@@ -145,8 +145,8 @@ class SurveyFormControllerTest extends TestCase
         $referral = Referral::factory()->create(['agcy_id' => $agency->id]);
         SurveyInvitation::create($this->invitationAttributes($form, $agency, $referral));
 
-        $this->actingAs($user)->patch(route('survey.forms.update', $form), ['title' => 'Changed'])->assertStatus(409);
-        $this->actingAs($user)->delete(route('survey.forms.destroy', $form))->assertStatus(409);
+        $this->actingAsWithMfa($user)->patch(route('survey.forms.update', $form), ['title' => 'Changed'])->assertStatus(409);
+        $this->actingAsWithMfa($user)->delete(route('survey.forms.destroy', $form))->assertStatus(409);
         $this->assertSame('Locked', $form->fresh()->title);
     }
 
@@ -156,15 +156,15 @@ class SurveyFormControllerTest extends TestCase
         $form = SurveyForm::create(['agency_id' => $agency->id, 'title' => 'Locked']);
         $referral = Referral::factory()->create(['agcy_id' => $agency->id]);
         SurveyInvitation::create($this->invitationAttributes($form, $agency, $referral));
-        $this->actingAs($user)->get(route('survey.forms.edit', $form))->assertStatus(409);
-        $this->actingAs($user)->patch(route('survey.forms.activate', $form))->assertRedirect();
+        $this->actingAsWithMfa($user)->get(route('survey.forms.edit', $form))->assertStatus(409);
+        $this->actingAsWithMfa($user)->patch(route('survey.forms.activate', $form))->assertRedirect();
     }
 
     public function test_list_question_missing_type_is_rejected_without_writes(): void
     {
         [$user, $agency] = $this->agencyUser();
         $form = SurveyForm::create(['agency_id' => $agency->id, 'title' => 'Original']);
-        $this->actingAs($user)->patch(route('survey.forms.update', $form), [
+        $this->actingAsWithMfa($user)->patch(route('survey.forms.update', $form), [
             'title' => 'Changed', 'questions' => [['label' => 'Missing type']],
         ])->assertInvalid(['questions.0.type']);
         $this->assertUnchanged($form, 'Original', 0);
@@ -174,7 +174,7 @@ class SurveyFormControllerTest extends TestCase
     {
         [$user, $agency] = $this->agencyUser();
         $form = SurveyForm::create(['agency_id' => $agency->id, 'title' => 'Original']);
-        $this->actingAs($user)->patch(route('survey.forms.update', $form), [
+        $this->actingAsWithMfa($user)->patch(route('survey.forms.update', $form), [
             'title' => 'Changed', 'questions' => [[
                 'type' => 'radio', 'label' => 'Choices', 'options' => ['first' => 'Yes'],
             ]],
@@ -186,7 +186,7 @@ class SurveyFormControllerTest extends TestCase
     {
         [$user, $agency] = $this->agencyUser();
         $form = SurveyForm::create(['agency_id' => $agency->id, 'title' => 'Original']);
-        $this->actingAs($user)->patch(route('survey.forms.update', $form), [
+        $this->actingAsWithMfa($user)->patch(route('survey.forms.update', $form), [
             'title' => 'Changed', 'questions' => [[
                 'type' => 'checkbox', 'label' => 'Choices', 'options' => ['Yes', 'Yes'],
             ]],
@@ -202,7 +202,7 @@ class SurveyFormControllerTest extends TestCase
     public function test_missing_agency_mutation_is_forbidden(): void
     {
         $user = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => null]);
-        $this->actingAs($user)->post(route('survey.forms.store'), [])->assertForbidden();
+        $this->actingAsWithMfa($user)->post(route('survey.forms.store'), [])->assertForbidden();
     }
 
     private function agencyUser(): array

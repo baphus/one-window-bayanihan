@@ -27,7 +27,7 @@ class ReferralCommentVisibilityTest extends TestCase
     {
         [$user, $referral] = $this->makeAgencyUserWithReferral();
 
-        $response = $this->actingAs($user)->post(route('referrals.comments.store', $referral->id), [
+        $response = $this->actingAsWithMfa($user)->post(route('referrals.comments.store', $referral->id), [
             'content' => 'A note meant for the client',
             'visibility' => 'CLIENT_VISIBLE',
         ]);
@@ -47,7 +47,7 @@ class ReferralCommentVisibilityTest extends TestCase
             'user_id' => $user->id,
         ]);
 
-        $response = $this->actingAs($user)->post(
+        $response = $this->actingAsWithMfa($user)->post(
             route('referrals.comments.reply', [$referral->id, $comment->id]),
             ['content' => 'A reply meant for the client', 'visibility' => 'CLIENT_VISIBLE'],
         );
@@ -61,7 +61,7 @@ class ReferralCommentVisibilityTest extends TestCase
         [$user, $referral] = $this->makeAgencyUserWithReferral();
 
         foreach (['INTERNAL', 'AGY_ONLY'] as $visibility) {
-            $response = $this->actingAs($user)->post(route('referrals.comments.store', $referral->id), [
+            $response = $this->actingAsWithMfa($user)->post(route('referrals.comments.store', $referral->id), [
                 'content' => "A $visibility note",
                 'visibility' => $visibility,
             ]);

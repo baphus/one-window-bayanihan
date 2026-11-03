@@ -24,7 +24,7 @@ class ProfileEditTest extends TestCase
             'agcy_id' => Agency::where('slug', 'dmw')->first()->id,
         ]);
 
-        $response = $this->actingAs($user)
+        $response = $this->actingAsWithMfa($user)
             ->get(route('profile.edit'))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
@@ -41,7 +41,7 @@ class ProfileEditTest extends TestCase
             'agcy_id' => Agency::where('slug', 'dmw')->first()->id,
         ]);
 
-        $this->actingAs($user)
+        $this->actingAsWithMfa($user)
             ->patch(route('profile.update'), [
                 'name' => 'Updated Name',
                 'email' => $user->email,
@@ -87,7 +87,7 @@ class ProfileEditTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $this->actingAs($user)
+        $this->actingAsWithMfa($user)
             ->patch(route('profile.update'), [
                 'name' => '',
                 'email' => 'not-an-email',

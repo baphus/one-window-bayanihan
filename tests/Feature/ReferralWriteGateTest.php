@@ -48,7 +48,7 @@ class ReferralWriteGateTest extends TestCase
     {
         // Refused with the product's own message rather than a bare 403: the
         // page already hides the control and shows the same sentence.
-        $this->actingAs($this->agencyUser)
+        $this->actingAsWithMfa($this->agencyUser)
             ->post(route('referrals.milestones.store', $this->referral), ['title' => 'Too early'])
             ->assertRedirect()
             ->assertSessionHas('error');
@@ -61,7 +61,7 @@ class ReferralWriteGateTest extends TestCase
     {
         $this->referral->update(['status' => 'PROCESSING']);
 
-        $this->actingAs($this->agencyUser)
+        $this->actingAsWithMfa($this->agencyUser)
             ->post(route('referrals.milestones.store', $this->referral), ['title' => 'Accepted update'])
             ->assertRedirect();
 
@@ -73,7 +73,7 @@ class ReferralWriteGateTest extends TestCase
     {
         $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
-        $this->actingAs($manager)
+        $this->actingAsWithMfa($manager)
             ->post(route('referrals.milestones.store', $this->referral), ['title' => 'Manager note'])
             ->assertRedirect();
 
@@ -85,11 +85,11 @@ class ReferralWriteGateTest extends TestCase
     {
         $ofw = User::factory()->create(['role' => UserRole::OFW->value]);
 
-        $this->actingAs($ofw)
+        $this->actingAsWithMfa($ofw)
             ->post(route('referrals.milestones.store', $this->referral), ['title' => 'Not allowed'])
             ->assertForbidden();
 
-        $this->actingAs($ofw)
+        $this->actingAsWithMfa($ofw)
             ->patch(route('referrals.update-status', $this->referral), ['status' => 'COMPLETED'])
             ->assertForbidden();
     }
@@ -110,7 +110,7 @@ class ReferralWriteGateTest extends TestCase
             'agcy_id' => $this->agency->id,
         ]);
 
-        $this->actingAs($this->agencyUser)
+        $this->actingAsWithMfa($this->agencyUser)
             ->post(route('referrals.services.add', $this->referral), ['service_id' => $service->id])
             ->assertRedirect();
 
@@ -120,7 +120,7 @@ class ReferralWriteGateTest extends TestCase
         ]);
 
         // And removing it again is not gated either.
-        $this->actingAs($this->agencyUser)
+        $this->actingAsWithMfa($this->agencyUser)
             ->delete(route('referrals.services.remove', [$this->referral, $service]))
             ->assertRedirect();
 
@@ -140,7 +140,7 @@ class ReferralWriteGateTest extends TestCase
     {
         $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
-        $this->actingAs($manager)
+        $this->actingAsWithMfa($manager)
             ->delete(route('referrals.services.remove', [$this->referral, '00000000-0000-0000-0000-000000000000']))
             ->assertRedirect()
             ->assertSessionHas('error');

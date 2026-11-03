@@ -24,43 +24,46 @@ class CaseManagerWorkflowAuditTest extends TestCase
     {
         parent::setUp();
 
-        $this->cmUser = User::factory()->create([
+        $this->cmUser = User::factory()->mfaEnabled()->create([
             'name' => 'Test Case Manager',
             'email' => 'cm.audit@test.local',
             'role' => UserRole::CASE_MANAGER->value,
             'password' => bcrypt('password'),
+            'mfa_secret' => 'JBSWY3DPEHPK3PXP',
         ]);
 
-        $this->adminUser = User::factory()->create([
+        $this->adminUser = User::factory()->mfaEnabled()->create([
             'name' => 'Test Admin',
             'email' => 'admin.audit@test.local',
             'role' => UserRole::ADMIN->value,
             'password' => bcrypt('password'),
+            'mfa_secret' => 'JBSWY3DPEHPK3PXP',
         ]);
 
-        $this->ofwUser = User::factory()->create([
+        $this->ofwUser = User::factory()->mfaEnabled()->create([
             'name' => 'Test OFW',
             'email' => 'ofw.audit@test.local',
             'role' => UserRole::OFW->value,
             'password' => bcrypt('password'),
+            'mfa_secret' => 'JBSWY3DPEHPK3PXP',
         ]);
     }
 
     public function test_cm_can_access_cases_index(): void
     {
-        $response = $this->actingAs($this->cmUser)->get('/cases');
+        $response = $this->actingAsWithMfa($this->cmUser)->get('/cases');
         $response->assertStatus(200);
     }
 
     public function test_cm_can_access_cases_create(): void
     {
-        $response = $this->actingAs($this->cmUser)->get('/cases/create');
+        $response = $this->actingAsWithMfa($this->cmUser)->get('/cases/create');
         $response->assertStatus(200);
     }
 
     public function test_cm_can_access_review_pending(): void
     {
-        $response = $this->actingAs($this->cmUser)->get('/cases/review-pending');
+        $response = $this->actingAsWithMfa($this->cmUser)->get('/cases/review-pending');
         $response->assertStatus(200);
     }
 
@@ -69,19 +72,19 @@ class CaseManagerWorkflowAuditTest extends TestCase
         $case = CaseFile::factory()->create(['user_id' => $this->cmUser->id]);
         Referral::factory()->create(['case_id' => $case->id]);
 
-        $response = $this->actingAs($this->cmUser)->get('/referrals');
+        $response = $this->actingAsWithMfa($this->cmUser)->get('/referrals');
         $response->assertStatus(200);
     }
 
     public function test_cm_cannot_access_admin_users(): void
     {
-        $response = $this->actingAs($this->cmUser)->get('/admin/users');
+        $response = $this->actingAsWithMfa($this->cmUser)->get('/admin/users');
         $response->assertStatus(403);
     }
 
     public function test_cm_cannot_access_admin_agencies(): void
     {
-        $response = $this->actingAs($this->cmUser)->get('/admin/agencies');
+        $response = $this->actingAsWithMfa($this->cmUser)->get('/admin/agencies');
         $response->assertStatus(403);
     }
 
@@ -96,7 +99,7 @@ class CaseManagerWorkflowAuditTest extends TestCase
         $otherCM = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $case = CaseFile::factory()->create(['user_id' => $otherCM->id]);
 
-        $response = $this->actingAs($this->cmUser)
+        $response = $this->actingAsWithMfa($this->cmUser)
             ->get("/cases/{$case->id}");
         $response->assertStatus(200);
     }
@@ -111,7 +114,7 @@ class CaseManagerWorkflowAuditTest extends TestCase
 
         $category = CaseCategory::create(['name' => 'Legal Assistance', 'is_active' => true]);
 
-        $response = $this->actingAs($this->cmUser)
+        $response = $this->actingAsWithMfa($this->cmUser)
             ->patch("/cases/{$case->id}", ['category_ids' => [$category->id]]);
         $response->assertStatus(302);
 
@@ -126,7 +129,7 @@ class CaseManagerWorkflowAuditTest extends TestCase
             'status' => 'OPEN',
         ]);
 
-        $response = $this->actingAs($this->cmUser)
+        $response = $this->actingAsWithMfa($this->cmUser)
             ->post("/cases/{$case->id}/toggle-status");
         $response->assertStatus(302);
     }
@@ -146,7 +149,7 @@ class CaseManagerWorkflowAuditTest extends TestCase
             'status' => 'ARCHIVED',
         ]);
 
-        $this->actingAs($this->cmUser)
+        $this->actingAsWithMfa($this->cmUser)
             ->delete("/cases/{$case->id}/delete-archived", [
                 'deletion_reason' => 'another manager trying to delete this case',
             ])
@@ -158,13 +161,16 @@ class CaseManagerWorkflowAuditTest extends TestCase
     public function test_admin_can_delete_another_managers_archived_case(): void
     {
         $otherCM = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $admin = User::factory()->mfaEnabled()->create([
+            'role' => UserRole::ADMIN->value,
+            'mfa_secret' => 'JBSWY3DPEHPK3PXP',
+        ]);
         $case = CaseFile::factory()->create([
             'user_id' => $otherCM->id,
             'status' => 'ARCHIVED',
         ]);
 
-        $this->actingAs($admin)
+        $this->actingAsWithMfa($admin)
             ->delete("/cases/{$case->id}/delete-archived", [
                 'deletion_reason' => 'admin removing a duplicate record',
             ])
@@ -187,7 +193,7 @@ class CaseManagerWorkflowAuditTest extends TestCase
         ]);
         $case->delete(); // soft-delete → trashed
 
-        $this->actingAs($this->cmUser)
+        $this->actingAsWithMfa($this->cmUser)
             ->delete("/cases/{$case->id}/delete-archived", [
                 'deletion_reason' => 'test deletion reason',
             ])
@@ -203,7 +209,7 @@ class CaseManagerWorkflowAuditTest extends TestCase
         Referral::factory()->create(['case_id' => $caseA->id]);
         Referral::factory()->create(['case_id' => $caseB->id]);
 
-        $response = $this->actingAs($this->cmUser)->get('/referrals');
+        $response = $this->actingAsWithMfa($this->cmUser)->get('/referrals');
         $response->assertStatus(200);
     }
 
@@ -213,13 +219,13 @@ class CaseManagerWorkflowAuditTest extends TestCase
      */
     public function test_ofw_is_denied_the_referrals_index(): void
     {
-        $response = $this->actingAs($this->ofwUser)->get('/referrals');
+        $response = $this->actingAsWithMfa($this->ofwUser)->get('/referrals');
         $response->assertStatus(403);
     }
 
     public function test_ofw_is_denied_the_referrals_create_form(): void
     {
-        $response = $this->actingAs($this->ofwUser)->get('/referrals/create');
+        $response = $this->actingAsWithMfa($this->ofwUser)->get('/referrals/create');
         $response->assertStatus(403);
     }
 }

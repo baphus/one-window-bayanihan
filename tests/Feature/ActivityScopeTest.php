@@ -37,7 +37,7 @@ class ActivityScopeTest extends TestCase
 
     private function activityDescriptions(User $user): array
     {
-        return collect($this->actingAs($user)
+        return collect($this->actingAsWithMfa($user)
             ->withHeader('X-Inertia', 'true')
             ->get('/activity')
             ->assertOk()

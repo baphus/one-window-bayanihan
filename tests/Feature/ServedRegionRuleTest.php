@@ -101,7 +101,7 @@ class ServedRegionRuleTest extends TestCase
         $category = CaseCategory::factory()->create(['is_active' => true]);
         $caseIssue = CaseIssue::create(['name' => 'Unpaid wages', 'is_active' => true]);
 
-        $this->actingAs($user)
+        $this->actingAsWithMfa($user)
             ->postJson(route('cases.store'), $this->validFilingData('NCR', $client->id, $category->id, $caseIssue->id))
             ->assertStatus(422)
             ->assertJsonValidationErrors('address.region');
@@ -115,7 +115,7 @@ class ServedRegionRuleTest extends TestCase
         $category = CaseCategory::factory()->create(['is_active' => true]);
         $caseIssue = CaseIssue::create(['name' => 'Unpaid wages', 'is_active' => true]);
 
-        $response = $this->actingAs($user)
+        $response = $this->actingAsWithMfa($user)
             ->postJson(route('cases.store'), $this->validFilingData('0700000000', $client->id, $category->id, $caseIssue->id));
 
         $response->assertRedirect();
@@ -130,7 +130,7 @@ class ServedRegionRuleTest extends TestCase
         $category = CaseCategory::factory()->create(['is_active' => true]);
         $caseIssue = CaseIssue::create(['name' => 'Unpaid wages', 'is_active' => true]);
 
-        $this->actingAs($user)
+        $this->actingAsWithMfa($user)
             ->postJson(route('cases.store'), $this->validFilingData('0700000000', $client->id, $category->id, $caseIssue->id, [
                 'first_name' => 'Maria',
                 'last_name' => 'Dela Cruz',

@@ -44,7 +44,7 @@ class LogContextTest extends TestCase
             ));
         Log::swap($logger);
 
-        $this->actingAs($user)->get('/dashboard');
+        $this->actingAsWithMfa($user)->get('/dashboard');
     }
 
     public function test_returns_successful_response(): void

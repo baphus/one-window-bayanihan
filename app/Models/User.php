@@ -6,6 +6,7 @@ use App\Enums\UserRole;
 use App\Models\Concerns\HasAvatar;
 use App\Models\Concerns\SoftDeleteFlag;
 use App\Models\Concerns\UsesUuid;
+use App\Services\MfaPolicyService;
 use Database\Factories\UserFactory;
 use Illuminate\Auth\MustVerifyEmail as MustVerifyEmailTrait;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
@@ -55,6 +56,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'timezone',
         'mfa_enabled_at',
         'mfa_last_totp_counter',
+        'mfa_requirement_override',
         'onboarding_completed_at',
         'onboarding_step',
         'seen_page_guides',
@@ -120,17 +122,7 @@ class User extends Authenticatable implements MustVerifyEmail
 
     public function isInMfaEnforcedRole(): bool
     {
-        if (function_exists('app')) {
-            try {
-                if (app()->isProduction()) {
-                    return $this->role !== null && $this->role !== '';
-                }
-            } catch (\Throwable $e) {
-                // Fall through to config-driven behaviour when context is unavailable.
-            }
-        }
-
-        return in_array($this->role, config('mfa.enrollment_enforced_roles', []), true);
+        return app(MfaPolicyService::class)->requiresEnrollment($this);
     }
 
     /**

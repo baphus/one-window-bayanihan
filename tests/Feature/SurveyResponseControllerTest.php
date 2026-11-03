@@ -28,7 +28,7 @@ class SurveyResponseControllerTest extends TestCase
         $this->makeInvitation(Agency::factory()->create(), true);
         $user = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id]);
 
-        $this->actingAs($user)->get(route('survey.responses.index', ['agency_id' => 'not-a-uuid']))
+        $this->actingAsWithMfa($user)->get(route('survey.responses.index', ['agency_id' => 'not-a-uuid']))
             ->assertInertia(fn (Assert $page) => $this->assertIndex($page, [$submitted->id], 2, 1, 50));
     }
 
@@ -39,11 +39,11 @@ class SurveyResponseControllerTest extends TestCase
         $ownUnsubmitted = $this->makeInvitation(Agency::factory()->create(), false, $manager);
         $other = $this->makeInvitation(Agency::factory()->create(), true, User::factory()->create(['role' => UserRole::CASE_MANAGER->value]));
 
-        $this->actingAs($manager)->get(route('survey.responses.index'))
+        $this->actingAsWithMfa($manager)->get(route('survey.responses.index'))
             ->assertInertia(fn (Assert $page) => $this->assertIndex($page, [$other->id, $mine->id], 3, 2, 66.7));
-        $this->actingAs($manager)->get(route('survey.responses.show', $mine))
+        $this->actingAsWithMfa($manager)->get(route('survey.responses.show', $mine))
             ->assertInertia(fn (Assert $page) => $this->assertDetail($page));
-        $this->actingAs($manager)->get(route('survey.responses.show', $other))
+        $this->actingAsWithMfa($manager)->get(route('survey.responses.show', $other))
             ->assertInertia(fn (Assert $page) => $this->assertDetail($page));
         $this->assertNotSame($mine->id, $ownUnsubmitted->id);
     }
@@ -56,20 +56,20 @@ class SurveyResponseControllerTest extends TestCase
         $secondSubmitted = $this->makeInvitation(Agency::factory()->create(), true);
         $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
 
-        $this->actingAs($admin)->get(route('survey.responses.index'))
+        $this->actingAsWithMfa($admin)->get(route('survey.responses.index'))
             ->assertInertia(fn (Assert $page) => $this->assertIndex($page, [$secondSubmitted->id, $firstSubmitted->id], 3, 2, 66.7));
-        $this->actingAs($admin)->get(route('survey.responses.index', ['agency_id' => $firstAgency->id]))
+        $this->actingAsWithMfa($admin)->get(route('survey.responses.index', ['agency_id' => $firstAgency->id]))
             ->assertInertia(fn (Assert $page) => $this->assertIndex($page, [$firstSubmitted->id], 2, 1, 50));
-        $this->actingAs($admin)->get(route('survey.responses.show', [$firstSubmitted, 'agency_id' => $firstAgency->id]))
+        $this->actingAsWithMfa($admin)->get(route('survey.responses.show', [$firstSubmitted, 'agency_id' => $firstAgency->id]))
             ->assertInertia(fn (Assert $page) => $this->assertDetail($page));
-        $this->actingAs($admin)->get(route('survey.responses.show', [$secondSubmitted, 'agency_id' => $firstAgency->id]))->assertForbidden();
+        $this->actingAsWithMfa($admin)->get(route('survey.responses.show', [$secondSubmitted, 'agency_id' => $firstAgency->id]))->assertForbidden();
     }
 
     public function test_admin_rejects_malformed_or_nonexistent_agency_filters(): void
     {
         $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         foreach (['not-a-uuid', '00000000-0000-0000-0000-000000000000'] as $agencyId) {
-            $this->actingAs($admin)->get(route('survey.responses.index', ['agency_id' => $agencyId]))
+            $this->actingAsWithMfa($admin)->get(route('survey.responses.index', ['agency_id' => $agencyId]))
                 ->assertSessionHasErrors('agency_id');
         }
     }
@@ -82,12 +82,12 @@ class SurveyResponseControllerTest extends TestCase
         }
 
         foreach ([0, -1, 'abc', 101] as $perPage) {
-            $this->actingAs($admin)->get(route('survey.responses.index', ['per_page' => $perPage]))
+            $this->actingAsWithMfa($admin)->get(route('survey.responses.index', ['per_page' => $perPage]))
                 ->assertInertia(fn (Assert $page) => $page->where('filters.per_page', 15)->where('invitations.per_page', 15));
         }
-        $this->actingAs($admin)->get(route('survey.responses.index', ['per_page' => 1]))
+        $this->actingAsWithMfa($admin)->get(route('survey.responses.index', ['per_page' => 1]))
             ->assertInertia(fn (Assert $page) => $page->where('filters.per_page', 1)->where('invitations.per_page', 1)->has('invitations.data', 1));
-        $this->actingAs($admin)->get(route('survey.responses.index', ['per_page' => 100]))
+        $this->actingAsWithMfa($admin)->get(route('survey.responses.index', ['per_page' => 100]))
             ->assertInertia(fn (Assert $page) => $page->where('filters.per_page', 100)->where('invitations.per_page', 100)->has('invitations.data', 16));
     }
 
@@ -100,11 +100,11 @@ class SurveyResponseControllerTest extends TestCase
         $user = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id]);
 
         $this->get(route('survey.responses.index'))->assertRedirect();
-        $this->actingAs($user)->get(route('survey.responses.show', $unsubmitted))->assertForbidden();
-        $this->actingAs($user)->get(route('survey.responses.show', $other))->assertForbidden();
-        $this->actingAs($user)->get(route('survey.responses.show', $submitted))
+        $this->actingAsWithMfa($user)->get(route('survey.responses.show', $unsubmitted))->assertForbidden();
+        $this->actingAsWithMfa($user)->get(route('survey.responses.show', $other))->assertForbidden();
+        $this->actingAsWithMfa($user)->get(route('survey.responses.show', $submitted))
             ->assertInertia(fn (Assert $page) => $this->assertDetail($page));
-        $this->actingAs(User::factory()->create(['role' => 'OTHER']))
+        $this->actingAsWithMfa(User::factory()->create(['role' => 'OTHER']))
             ->get(route('survey.responses.index'))->assertForbidden();
     }
 

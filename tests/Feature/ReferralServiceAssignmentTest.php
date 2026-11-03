@@ -57,7 +57,7 @@ class ReferralServiceAssignmentTest extends TestCase
 
     public function test_case_manager_creates_referral_with_no_services(): void
     {
-        $response = $this->actingAs($this->caseManager)->post(route('referrals.store'), [
+        $response = $this->actingAsWithMfa($this->caseManager)->post(route('referrals.store'), [
             'case_id' => $this->case->id,
             'agcy_id' => $this->agency->id,
         ]);
@@ -82,7 +82,7 @@ class ReferralServiceAssignmentTest extends TestCase
             'agcy_id' => $this->agency->id,
         ]);
 
-        $response = $this->actingAs($this->agencyUser)->post(
+        $response = $this->actingAsWithMfa($this->agencyUser)->post(
             route('referrals.services.add', $referral),
             ['service_id' => $this->service->id]
         );
@@ -125,7 +125,7 @@ class ReferralServiceAssignmentTest extends TestCase
             'agcy_id' => $this->agency->id,
         ]);
 
-        $this->actingAs($this->agencyUser)->post(
+        $this->actingAsWithMfa($this->agencyUser)->post(
             route('referrals.services.add', $referral),
             ['service_id' => $this->service->id]
         );
@@ -157,7 +157,7 @@ class ReferralServiceAssignmentTest extends TestCase
             'agcy_id' => $this->agency->id,
         ]);
 
-        $acting = $this->actingAs($this->agencyUser);
+        $acting = $this->actingAsWithMfa($this->agencyUser);
         $acting->post(route('referrals.services.add', $referral), ['service_id' => $this->service->id]);
         $acting->post(route('referrals.services.add', $referral), ['service_id' => $serviceB->id]);
 
@@ -178,7 +178,7 @@ class ReferralServiceAssignmentTest extends TestCase
             'agcy_id' => $this->agency->id,
         ]);
 
-        $acting = $this->actingAs($this->agencyUser);
+        $acting = $this->actingAsWithMfa($this->agencyUser);
         $acting->post(route('referrals.services.add', $referral), ['service_id' => $this->service->id]);
 
         $referral->refresh();
@@ -217,7 +217,7 @@ class ReferralServiceAssignmentTest extends TestCase
             'agcy_id' => $this->agency->id,
         ]);
 
-        $acting = $this->actingAs($this->agencyUser);
+        $acting = $this->actingAsWithMfa($this->agencyUser);
         $acting->post(route('referrals.services.add', $referral), ['service_id' => $this->service->id]);
 
         $this->assertDatabaseHas('referral_service_requirements', [
@@ -246,7 +246,7 @@ class ReferralServiceAssignmentTest extends TestCase
             'agcy_id' => $this->agency->id,
         ]);
 
-        $response = $this->actingAs($this->caseManager)->post(
+        $response = $this->actingAsWithMfa($this->caseManager)->post(
             route('referrals.services.add', $referral),
             ['service_id' => $this->service->id]
         );
@@ -272,7 +272,7 @@ class ReferralServiceAssignmentTest extends TestCase
             'agcy_id' => $this->agency->id,
         ]);
 
-        $response = $this->actingAs($admin)->post(
+        $response = $this->actingAsWithMfa($admin)->post(
             route('referrals.services.add', $referral),
             ['service_id' => $this->service->id]
         );
@@ -297,7 +297,7 @@ class ReferralServiceAssignmentTest extends TestCase
         ]);
 
         // Agency focal adds the service first
-        $this->actingAs($this->agencyUser)->post(
+        $this->actingAsWithMfa($this->agencyUser)->post(
             route('referrals.services.add', $referral),
             ['service_id' => $this->service->id]
         );
@@ -307,7 +307,7 @@ class ReferralServiceAssignmentTest extends TestCase
             'service_id' => $this->service->id,
         ]);
 
-        $response = $this->actingAs($this->caseManager)->delete(
+        $response = $this->actingAsWithMfa($this->caseManager)->delete(
             route('referrals.services.remove', [$referral, $this->service])
         );
 
@@ -332,12 +332,12 @@ class ReferralServiceAssignmentTest extends TestCase
             'agcy_id' => $this->agency->id,
         ]);
 
-        $this->actingAs($this->agencyUser)->post(
+        $this->actingAsWithMfa($this->agencyUser)->post(
             route('referrals.services.add', $referral),
             ['service_id' => $this->service->id]
         );
 
-        $response = $this->actingAs($admin)->delete(
+        $response = $this->actingAsWithMfa($admin)->delete(
             route('referrals.services.remove', [$referral, $this->service])
         );
 

@@ -2,7 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
+use App\Models\SystemSetting;
 use App\Models\User;
+use App\Services\MfaPendingState;
 use App\Services\MfaService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Route;
@@ -72,17 +75,59 @@ class MfaControllerTest extends TestCase
         $this->assertNull($user->mfa_enabled_at);
     }
 
-    public function test_disable_mfa_clears_fields(): void
+    public function test_disable_rejects_replayed_proof_even_with_fresh_confirmation(): void
     {
+        SystemSetting::setValue('mfa_role_case_manager_required', false);
+        $service = app(MfaService::class);
+        $recovery = 'ABCD-EFGH-IJKL';
         $user = User::factory()->create([
-            'mfa_secret' => 'test-secret',
-            'mfa_recovery_codes' => ['code1', 'code2'],
+            'role' => UserRole::CASE_MANAGER->value,
+            'mfa_secret' => 'JBSWY3DPEHPK3PXP',
+            'mfa_recovery_codes' => $service->hashRecoveryCodes([$recovery]),
             'mfa_enabled_at' => now(),
         ]);
 
+        $this->actingAs($user)->postJson(route('profile.mfa.confirm'), ['recovery_code' => $recovery])->assertOk();
+        $this->postJson(route('profile.mfa.disable'), [
+            'password' => 'P@ssw0rd!',
+            'recovery_code' => $recovery,
+        ])->assertUnprocessable()->assertJsonValidationErrors(['mfa_confirmation', 'recovery_code']);
+
+        $this->assertNotNull($user->fresh()->mfa_enabled_at);
+    }
+
+    public function test_disable_accepts_new_proof_after_fresh_confirmation(): void
+    {
+        SystemSetting::setValue('mfa_role_case_manager_required', false);
+        $service = app(MfaService::class);
+        $user = User::factory()->create([
+            'role' => UserRole::CASE_MANAGER->value,
+            'mfa_secret' => 'JBSWY3DPEHPK3PXP',
+            'mfa_recovery_codes' => $service->hashRecoveryCodes(['ABCD-EFGH-IJKL']),
+            'mfa_enabled_at' => now(),
+        ]);
+
+        $this->actingAs($user)->postJson(route('profile.mfa.confirm'), ['recovery_code' => 'ABCD-EFGH-IJKL'])->assertOk();
+        $this->postJson(route('profile.mfa.disable'), [
+            'password' => 'P@ssw0rd!',
+            'otp' => app(Google2FA::class)->getCurrentOtp($user->mfa_secret),
+        ])->assertOk();
+        $this->assertNull($user->fresh()->mfa_enabled_at);
+    }
+
+    public function test_disable_mfa_clears_fields(): void
+    {
+        SystemSetting::setValue('mfa_role_case_manager_required', false);
+        $user = User::factory()->create([
+            'role' => UserRole::CASE_MANAGER->value,
+            'mfa_secret' => 'JBSWY3DPEHPK3PXP',
+            'mfa_recovery_codes' => [],
+            'mfa_enabled_at' => now(),
+        ]);
         $this->actingAs($user)
             ->postJson(route('profile.mfa.disable'), [
                 'password' => 'P@ssw0rd!',
+                'otp' => app(Google2FA::class)->getCurrentOtp('JBSWY3DPEHPK3PXP'),
             ])
             ->assertOk();
 
@@ -120,10 +165,19 @@ class MfaControllerTest extends TestCase
     public function test_regenerate_recovery_codes(): void
     {
         $user = User::factory()->create([
-            'mfa_secret' => 'test-secret',
-            'mfa_recovery_codes' => ['old-code-1', 'old-code-2'],
+            'mfa_secret' => 'JBSWY3DPEHPK3PXP',
+            'mfa_recovery_codes' => [],
             'mfa_enabled_at' => now(),
         ]);
+        $this->withSession([
+            MfaPendingState::MARKER_KEY => [
+                'user_id' => $user->id,
+                'credential_fingerprint' => hash('sha256', (string) $user->password),
+            ],
+        ]);
+        $this->actingAs($user)->postJson(route('profile.mfa.confirm'), [
+            'otp' => app(Google2FA::class)->getCurrentOtp($user->mfa_secret),
+        ])->assertOk();
 
         $response = $this->actingAs($user)
             ->postJson(route('profile.mfa.recovery-codes.regenerate'), ['password' => 'P@ssw0rd!'])
