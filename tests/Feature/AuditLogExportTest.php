@@ -130,6 +130,21 @@ class AuditLogExportTest extends TestCase
         $this->assertSame($this->admin->id, $entry->user_id);
     }
 
+    public function test_stream_stays_within_row_limit_when_rows_arrive_after_preflight(): void
+    {
+        $this->freezeTime();
+        config(['audit.export.max_rows' => 2]);
+        $this->seedLogs(2);
+
+        $response = $this->actingAsWithMfa($this->admin)
+            ->get('/audit-logs/export?module=referral&date_from='.now()->subDays(7)->toDateString().'&date_to='.now()->toDateString());
+        $response->assertOk();
+        $this->seedLogs(1);
+
+        $lines = explode("\n", trim($response->streamedContent()));
+        $this->assertCount(3, $lines);
+    }
+
     public function test_export_applies_active_filters(): void
     {
         $this->seedLogs(2);

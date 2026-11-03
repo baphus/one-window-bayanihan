@@ -5,7 +5,7 @@ ARG PHP_VERSION=8.4.27
 # Stage 1: Frontend build — Node.js
 # Builds Inertia SPA assets via Vite
 # ============================================================================
-FROM node:22-bookworm AS node-build
+FROM node:24-bookworm AS node-build
 
 WORKDIR /build
 
