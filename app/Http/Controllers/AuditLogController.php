@@ -136,6 +136,7 @@ class AuditLogController extends Controller
 
         $formatter = app(AuditLogFormatter::class);
         $filename = 'audit-logs-'.$from->format('Ymd').'-'.$to->format('Ymd').'.csv';
+        $query->limit($maxRows);
 
         return response()->streamDownload(function () use ($query, $formatter) {
             $out = fopen('php://output', 'w');

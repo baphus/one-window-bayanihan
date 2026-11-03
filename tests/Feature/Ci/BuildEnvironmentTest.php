@@ -88,6 +88,18 @@ class BuildEnvironmentTest extends TestCase
         $this->assertStringContainsString('FROM php:${PHP_VERSION}-fpm AS app', $dockerfile);
     }
 
+    public function test_frontend_image_uses_the_ci_node_major_version(): void
+    {
+        $ci = file_get_contents(base_path('.github/workflows/ci.yml'));
+        preg_match('/node-version:\s*[\'"]?(\d+)/', $ci, $matches);
+        $this->assertNotEmpty($matches);
+
+        $this->assertMatchesRegularExpression(
+            '/^FROM node:'.$matches[1].'-bookworm AS node-build$/m',
+            file_get_contents(base_path('Dockerfile'))
+        );
+    }
+
     public function test_dockerfile_default_matches_the_dispatch_default(): void
     {
         $dockerfile = file_get_contents(base_path('Dockerfile'));
