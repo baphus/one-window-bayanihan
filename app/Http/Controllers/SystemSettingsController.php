@@ -13,10 +13,7 @@ use App\Services\MfaPolicyService;
 use App\Services\MfaService;
 use App\Settings\SettingGroup;
 use App\Settings\SettingRegistry;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Artisan;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
@@ -52,7 +49,6 @@ class SystemSettingsController extends Controller
             'groups' => $this->groups(),
             'readOnly' => $this->readOnlyValues(),
             'mfa' => $this->mfaStatus(),
-            'chatbot_last_reindexed_at' => SystemSetting::getValue('chatbot_last_reindexed_at'),
         ]);
     }
 
@@ -177,47 +173,6 @@ class SystemSettingsController extends Controller
         }
 
         return app(MfaPendingState::class)->ensureConfirmed($request, $request->user(), app(MfaService::class));
-    }
-
-    /**
-     * Refresh the parsed chatbot helpdesk content cache.
-     *
-     * Runs synchronously — the corpus is small (~300 sections) and completes
-     * in under 30 seconds. Returns JSON for the frontend polling handler.
-     */
-    public function reindexChatbot(): JsonResponse
-    {
-        try {
-            $exitCode = Artisan::call('chatbot:index');
-
-            if ($exitCode !== 0) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Helpdesk cache refresh failed. Check the server logs for details.',
-                ], 500);
-            }
-
-            SystemSetting::setValue('chatbot_last_reindexed_at', now()->toIso8601String());
-
-            AuditLogger::log(AuditAction::UPDATE)
-                ->byId(auth()->id())
-                ->module(AuditModule::SYSTEM_SETTING)
-                ->description('Chatbot helpdesk content cache refreshed (reindexed)')
-                ->write();
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Chatbot helpdesk content refreshed successfully.',
-                'last_reindexed_at' => now()->toIso8601String(),
-            ]);
-        } catch (\Throwable $e) {
-            Log::error('Chatbot helpdesk cache refresh failed', ['exception' => $e]);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Helpdesk cache refresh failed. Please try again.',
-            ], 500);
-        }
     }
 
     /**

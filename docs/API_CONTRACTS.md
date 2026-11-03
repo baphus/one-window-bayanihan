@@ -443,7 +443,6 @@ All prefixed with `/admin`, named with the `admin.` prefix, behind `role:ADMIN`.
 |---|---|---|---|---|
 | GET | `/admin/system-settings` | `SystemSettingsController@index` | admin.system-settings.index | web, auth, verified, role:ADMIN |
 | POST | `/admin/system-settings` | `SystemSettingsController@update` | admin.system-settings.update | web, auth, verified, role:ADMIN |
-| POST | `/admin/system-settings/reindex-chatbot` | `SystemSettingsController@reindexChatbot` | admin.system-settings.reindex-chatbot | web, auth, verified, role:ADMIN |
 
 ### Monitoring
 

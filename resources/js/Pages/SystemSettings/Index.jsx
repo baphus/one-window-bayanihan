@@ -3,10 +3,8 @@ import { Head, router } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import useMfaStatus from '@/Hooks/useMfaStatus';
-import { useToast } from '@/Hooks/useToast';
 import ConfirmDialog from '@/Components/ui/ConfirmDialog';
 import MfaConfirmDialog from '@/Components/MfaConfirmDialog';
-import { formatDisplayDateTime } from '@/lib/utils';
 
 const isMfaSetting = (setting) => /^mfa_role_(case_manager|agency|ofw)_required$/.test(setting?.key ?? '');
 function settingInputValue(setting) {
@@ -75,10 +73,8 @@ function SettingField({ setting, value, onChange }) {
 export default function SystemSettings({
   groups = [],
   readOnly = [],
-  chatbot_last_reindexed_at,
   errors = {},
 }) {
-  const toast = useToast();
   const { status: mfaStatus } = useMfaStatus();
   const pendingReasonRef = useRef('');
 
@@ -95,8 +91,6 @@ export default function SystemSettings({
 
   const [values, setValues] = useState(initial);
   const [pendingConfirm, setPendingConfirm] = useState(null);
-  const [reindexing, setReindexing] = useState(false);
-  const [lastReindexedAt, setLastReindexedAt] = useState(chatbot_last_reindexed_at);
   const [mfaConfirmOpen, setMfaConfirmOpen] = useState(false);
   const [forceMfaProof, setForceMfaProof] = useState(false);
   const [mfaProofError, setMfaProofError] = useState('');
@@ -179,23 +173,6 @@ export default function SystemSettings({
     setForceMfaProof(false);
     setMfaProofError('');
     submit(otherConfirmKeys.length > 0, reason, proof || {});
-  };
-
-  const handleReindex = async () => {
-    setReindexing(true);
-    try {
-      const { data } = await window.axios.post(route('admin.system-settings.reindex-chatbot'));
-      if (data.success) {
-        setLastReindexedAt(data.last_reindexed_at);
-        toast.success(data.message);
-      } else {
-        toast.error(data.message || 'Refresh failed.');
-      }
-    } catch {
-      toast.error('Failed to reach the server. Please try again.');
-    } finally {
-      setReindexing(false);
-    }
   };
 
   return (
@@ -283,25 +260,6 @@ export default function SystemSettings({
           )}
         </div>
 
-        <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="text-base font-semibold text-slate-900">Chatbot knowledge</h2>
-          <p className="mt-1 text-sm text-slate-500">
-            Refresh the helpdesk articles the chatbot answers from. The provider, model and API key
-            are set by the deployment, not here.
-          </p>
-          {lastReindexedAt && (
-            <p className="mt-2 text-xs text-slate-400">
-              Last refreshed: {formatDisplayDateTime(lastReindexedAt)}
-            </p>
-          )}
-          <button
-            onClick={handleReindex}
-            disabled={reindexing}
-            className="mt-4 inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {reindexing ? 'Refreshing…' : 'Refresh knowledge'}
-          </button>
-        </section>
       </div>
 
       <ConfirmDialog

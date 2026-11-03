@@ -9,10 +9,7 @@ use App\Models\SystemSetting;
 use App\Models\User;
 use App\Settings\SettingRegistry;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Artisan;
-use Illuminate\Support\Facades\Log;
 use PHPUnit\Framework\Attributes\Test;
-use RuntimeException;
 use Tests\TestCase;
 
 class SystemSettingsWriteTest extends TestCase
@@ -208,44 +205,5 @@ class SystemSettingsWriteTest extends TestCase
             $response->viewData('page')['props']['retentionDays'],
         );
         $this->assertSame(30, $response->viewData('page')['props']['retentionDays']);
-    }
-
-    #[Test]
-    public function chatbot_reindex_returns_graceful_json_when_the_command_throws(): void
-    {
-        Artisan::shouldReceive('call')
-            ->once()
-            ->with('chatbot:index')
-            ->andThrow(new RuntimeException('Helpdesk corpus is missing.'));
-
-        Log::spy();
-
-        $response = $this->actingAsWithMfa($this->admin)
-            ->post('/admin/system-settings/reindex-chatbot');
-
-        $response->assertStatus(500);
-        $response->assertExactJson([
-            'success' => false,
-            'message' => 'Helpdesk cache refresh failed. Please try again.',
-        ]);
-
-        Log::shouldHaveReceived('error')->once();
-    }
-
-    #[Test]
-    public function chatbot_reindex_returns_graceful_json_when_the_command_exits_non_zero(): void
-    {
-        Artisan::shouldReceive('call')->once()->with('chatbot:index')->andReturn(1);
-
-        $response = $this->actingAsWithMfa($this->admin)
-            ->post('/admin/system-settings/reindex-chatbot');
-
-        $response->assertStatus(500);
-        $response->assertJson([
-            'success' => false,
-            'message' => 'Helpdesk cache refresh failed. Check the server logs for details.',
-        ]);
-
-        $this->assertNull(SystemSetting::getValue('chatbot_last_reindexed_at'));
     }
 }
