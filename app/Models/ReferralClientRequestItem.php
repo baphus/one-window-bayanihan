@@ -29,7 +29,7 @@ class ReferralClientRequestItem extends Model
 
     public function attachments()
     {
-        return $this->hasMany(ReferralClientMessageAttachment::class, 'request_item_id')->withTrashed();
+        return $this->hasMany(ReferralClientMessageAttachment::class, 'request_item_id');
     }
 
     public function getAuditModuleName(): string
