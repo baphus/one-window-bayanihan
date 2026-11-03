@@ -308,7 +308,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         Route::get('/system-settings', [SystemSettingsController::class, 'index'])->name('system-settings.index');
         Route::post('/system-settings', [SystemSettingsController::class, 'update'])->name('system-settings.update');
-        Route::post('/system-settings/reindex-chatbot', [SystemSettingsController::class, 'reindexChatbot'])->name('system-settings.reindex-chatbot');
 
         // Monitoring surfaces. Read-only apart from retrying a failed job; all
         // inside the role:ADMIN group, so they carry no separate authorisation.

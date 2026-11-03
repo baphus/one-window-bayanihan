@@ -113,6 +113,25 @@ class MfaPolicyLifecycleTest extends TestCase
     }
 
     #[Test]
+    public function one_save_updates_all_changed_role_defaults(): void
+    {
+        $this->withFreshConfirmation($this->admin);
+        $otp = app(Google2FA::class)->getCurrentOtp($this->admin->mfa_secret);
+
+        $this->post(route('admin.system-settings.update'), [
+            'mfa_role_case_manager_required' => false,
+            'mfa_role_agency_required' => false,
+            'mfa_role_ofw_required' => false,
+            'mfa_change_reason' => 'Approved policy change',
+            'otp' => $otp,
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        foreach (['mfa_role_case_manager_required', 'mfa_role_agency_required', 'mfa_role_ofw_required'] as $key) {
+            $this->assertFalse((bool) SystemSetting::getValue($key, true), "Setting [{$key}] was not saved.");
+        }
+    }
+
+    #[Test]
     public function override_requires_fresh_proof_and_reason_and_stays_across_role_changes(): void
     {
         $target = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);

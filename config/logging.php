@@ -1,6 +1,6 @@
 <?php
 
-use App\Logging\RedactSensitiveData;
+use App\Logging\RedactSensitiveDataTap;
 use Monolog\Handler\NullHandler;
 use Monolog\Handler\StreamHandler;
 use Monolog\Handler\SyslogUdpHandler;
@@ -64,7 +64,7 @@ return [
             'path' => storage_path('logs/laravel.log'),
             'level' => env('LOG_LEVEL', 'warning'),
             'replace_placeholders' => true,
-            'tap' => [RedactSensitiveData::class],
+            'tap' => [RedactSensitiveDataTap::class],
         ],
 
         'daily' => [
@@ -73,7 +73,7 @@ return [
             'level' => env('LOG_LEVEL', 'warning'),
             'days' => env('LOG_DAILY_DAYS', 14),
             'replace_placeholders' => true,
-            'tap' => [RedactSensitiveData::class],
+            'tap' => [RedactSensitiveDataTap::class],
         ],
 
         'slack' => [
@@ -148,7 +148,7 @@ return [
             'level' => env('LOG_LEVEL', 'warning'),
             'days' => 14,
             'replace_placeholders' => true,
-            'tap' => [RedactSensitiveData::class],
+            'tap' => [RedactSensitiveDataTap::class],
         ],
 
     ],

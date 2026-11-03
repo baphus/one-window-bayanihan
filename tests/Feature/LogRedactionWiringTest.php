@@ -2,7 +2,8 @@
 
 namespace Tests\Feature;
 
-use App\Logging\RedactSensitiveData;
+use App\Logging\RedactSensitiveDataTap;
+use Illuminate\Support\Facades\Log;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -24,7 +25,7 @@ class LogRedactionWiringTest extends TestCase
             }
 
             $this->assertContains(
-                RedactSensitiveData::class,
+                RedactSensitiveDataTap::class,
                 $channel['tap'] ?? [],
                 "Log channel '{$name}' writes files without the redaction tap.",
             );
@@ -32,6 +33,37 @@ class LogRedactionWiringTest extends TestCase
         }
 
         $this->assertGreaterThan(0, $checked);
+    }
+
+    #[Test]
+    public function file_channels_resolve_and_write_redacted_context(): void
+    {
+        $path = tempnam(sys_get_temp_dir(), 'log-redaction-');
+        $this->assertNotFalse($path);
+
+        try {
+            foreach (['single', 'daily', 'chatbot'] as $name) {
+                config(["logging.channels.{$name}.path" => $path, "logging.channels.{$name}.level" => 'debug']);
+                Log::forgetChannel($name);
+                $logger = Log::channel($name)->getLogger();
+                $output = $logger->getHandlers()[0]->getUrl();
+
+                try {
+                    $logger->warning('probe', ['email' => 'private@example.test']);
+                    $contents = file_get_contents($output);
+                    $this->assertStringContainsString('[redacted]', $contents);
+                    $this->assertStringNotContainsString('private@example.test', $contents);
+                } finally {
+                    $logger->close();
+                    Log::forgetChannel($name);
+                    if (is_file($output)) {
+                        unlink($output);
+                    }
+                }
+            }
+        } finally {
+            @unlink($path);
+        }
     }
 
     #[Test]
@@ -43,7 +75,7 @@ class LogRedactionWiringTest extends TestCase
         foreach ($stack['channels'] as $channel) {
             $driver = config("logging.channels.{$channel}.driver");
             if (in_array($driver, ['single', 'daily'], true)) {
-                $this->assertContains(RedactSensitiveData::class, config("logging.channels.{$channel}.tap"));
+                $this->assertContains(RedactSensitiveDataTap::class, config("logging.channels.{$channel}.tap"));
             }
         }
     }

@@ -108,7 +108,7 @@ export default function Profile({ user, client }) {
             .map((part) => (part ?? '').toString().trim())
             .filter(Boolean)
             .join(' ')
-        : (user?.name ?? '');
+        : [user?.name, client?.suffix].filter(Boolean).join(' ');
 
     const homeAddress = {
         ...resolveAddressToCodes(client?.address),
@@ -421,8 +421,6 @@ export default function Profile({ user, client }) {
                         <div className="mt-4 grid grid-cols-2 gap-4 border-t border-slate-100 pt-4 sm:grid-cols-4">
                             <StaticField label="Date of birth" value={formatDate(client?.date_of_birth)} />
                             <StaticField label="Sex" value={formatSex(client?.sex)} />
-                            <StaticField label="Suffix" value={client?.suffix} />
-                            <StaticField label="Assigned office" value="DMW Region VII" />
                         </div>
                     </ProfileSection>
 
