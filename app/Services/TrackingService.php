@@ -7,6 +7,8 @@ use App\Models\CaseFile;
 use App\Models\CaseNotification;
 use App\Models\Milestone;
 use App\Models\Referral;
+use App\Models\ReferralClientMessage;
+use App\Models\ReferralClientMessageAttachment;
 use App\Models\ReferralClientRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -137,6 +139,28 @@ class TrackingService
         }
         $case->loadMissing(['referrals.agency', 'referrals.services', 'referrals.milestones.user']);
 
+        $requestDocuments = $forOfwPortal
+            ? ReferralClientMessageAttachment::query()
+                ->whereNull('deleted_at')
+                ->where('is_deleted', false)
+                ->whereHas('message', fn ($query) => $query->whereNull('deleted_at')->where('is_deleted', false)->whereIn('sender_kind', [ReferralClientMessage::SENDER_CLIENT_ACCESS, ReferralClientMessage::SENDER_CLIENT_USER])->whereHas('request', fn ($requestQuery) => $requestQuery->whereNull('deleted_at')->whereIn('referral_id', $case->referrals->pluck('id'))->where('is_deleted', false)))
+                ->with('message.request.referral.agency')
+                ->get()
+                ->map(fn ($attachment) => [
+                    'id' => $attachment->id,
+                    'name' => $attachment->file_name,
+                    'meta' => $attachment->message->request->referral->agency?->short ?? $attachment->message->request->referral->agency?->name,
+                    'statusLabel' => 'Received',
+                    'download_url' => route('ofw.case.requests.attachments.download', [
+                        'case' => $case->id,
+                        'referral' => $attachment->message->request->referral_id,
+                        'request' => $attachment->message->request_id,
+                        'attachment' => $attachment->id,
+                    ]),
+                ])
+                ->values()
+            : collect();
+
         // Queried by referral, not eager-loaded: $case is serialized as its own
         // page prop, so attaching the relation would ship request rows inside it.
         $openRequestsByReferral = $forOfwPortal
@@ -148,6 +172,7 @@ class TrackingService
                     ReferralClientRequest::STATUS_IN_PROGRESS,
                     ReferralClientRequest::STATUS_CLIENT_RESPONDED,
                 ])
+                ->with(['messages' => fn ($query) => $query->where('is_deleted', false)->where('kind', 'MESSAGE')])
                 ->orderByDesc('created_at')
                 ->get()
                 ->unique('referral_id')
@@ -344,6 +369,7 @@ class TrackingService
             'completionPercentage' => $completionPercentage,
             'rejectedCount' => $rejectedCount,
             'trackingAgencies' => $agencyCards,
+            'requestDocuments' => $requestDocuments,
             'caseNotifications' => [
                 'unread_count' => $unreadCount,
                 'items' => $caseNotifications,

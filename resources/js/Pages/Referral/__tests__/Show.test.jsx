@@ -4,6 +4,7 @@ import ReferralShow from '../Show';
 
 const state = vi.hoisted(() => ({ role: 'AGENCY', agencyId: 'agency-1' }));
 const routerSpy = vi.hoisted(() => ({ post: vi.fn(), patch: vi.fn(), delete: vi.fn(), reload: vi.fn() }));
+const formSpy = vi.hoisted(() => ({ transform: null, submitted: null }));
 
 vi.mock('@inertiajs/react', () => ({
   Head: () => null,
@@ -14,10 +15,11 @@ vi.mock('@inertiajs/react', () => ({
     data: initial,
     errors: {},
     processing: false,
-    transform: vi.fn(),
-    post: vi.fn(),
+    transform: (callback) => { formSpy.transform = callback; },
+    post: vi.fn((url, data) => { formSpy.submitted = { url, data: formSpy.transform(data) }; }),
     patch: vi.fn(),
     reset: vi.fn(),
+    setData: (key, value) => { initial[key] = value; },
   }),
 }));
 
@@ -107,6 +109,16 @@ function renderReferral(role, permissions) {
 }
 
 describe('Referral/Show client request permissions', () => {
+  it('shows upload visibility info from the Documents icon on hover and keyboard focus', () => {
+    renderReferral('AGENCY', { canCreate: true, canReply: true, canTransition: true, canRevokeAccess: true });
+
+    const message = screen.getByRole('tooltip', { name: 'Files uploaded here are visible to this agency only.' });
+    const icon = screen.getByLabelText('Documents info');
+    expect(message).toHaveClass('hidden', 'group-hover:block', 'group-focus-within:block');
+    expect(icon).toHaveAttribute('aria-describedby', 'agency-upload-info');
+    expect(icon.tagName).toBe('SPAN');
+  });
+
   it('shows the request-client creation control to the owning agency', () => {
     renderReferral('AGENCY', { canCreate: true, canReply: true, canTransition: true, canRevokeAccess: true });
 
@@ -150,6 +162,28 @@ describe('Referral/Show client request permissions', () => {
     const pdfLink = screen.getByRole('link', { name: /contract\.pdf/ });
     expect(pdfLink.querySelector('img')).toBeNull();
     expect(screen.getByRole('button', { name: /Preview contract\.pdf/ })).toBeInTheDocument();
+  });
+
+  it('shows each request upload under its checklist item and not as a chat attachment', () => {
+    state.role = 'AGENCY';
+    const items = [{ id: 'item-1', label: 'Passport copy' }, { id: 'item-2', label: 'Work contract' }];
+    const attachments = [
+      { id: 'linked-1', request_item_id: 'item-1', file_name: 'passport.pdf', file_type: 'application/pdf', size: 100 },
+      { id: 'linked-2', request_item_id: 'item-2', file_name: 'contract.pdf', file_type: 'application/pdf', size: 200 },
+      { id: 'other-file', file_name: 'extra.pdf', file_type: 'application/pdf', size: 300 },
+    ];
+    const history = [{ ...requestHistory[0], items, messages: [{ id: 'upload-only', sender_kind: 'CLIENT_ACCESS', body: '', created_at: '2026-01-01T00:00:00Z', attachments }] }];
+    render(<ReferralShow referral={referral} clientRequestHistory={history} clientRequestPermissions={{ canCreate: true, canReply: true, canTransition: true, canRevokeAccess: true }} timeline={[]} />);
+
+    const passport = screen.getByRole('link', { name: /passport\.pdf/ });
+    const contract = screen.getByRole('link', { name: /contract\.pdf/ });
+    expect(passport.closest('li')).toHaveTextContent('Passport copy');
+    expect(contract.closest('li')).toHaveTextContent('Work contract');
+    expect(screen.getAllByLabelText('Review passport.pdf')).toHaveLength(2);
+    expect(screen.getAllByLabelText('Visibility passport.pdf')).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: 'Save review' })).toHaveLength(2);
+    expect(screen.getAllByText('Client · Jan 1, 2026')).toHaveLength(1);
+    expect(screen.getByRole('link', { name: /extra\.pdf/ })).toBeInTheDocument();
   });
 
   it('labels CLIENT_ACCESS and CLIENT_USER messages as Client, and agency messages as Agency', () => {

@@ -197,24 +197,8 @@ const CLIENT_REQUEST_STATUS_LABELS = {
 };
 
 const CLIENT_REQUEST_BANNER = {
-  COMPLETED: {
-    title: 'This request is completed',
-    description: 'Your response and documents have been received. Review the conversation below to confirm what you submitted.',
-    icon: 'check_circle',
-    container: 'border-emerald-500/40 bg-emerald-50',
-    iconClass: 'text-emerald-600',
-    titleClass: 'text-emerald-900',
-    textClass: 'text-emerald-800',
-  },
-  CANCELLED: {
-    title: 'This request was closed',
-    description: 'This request is no longer open, and replies are not accepted.',
-    icon: 'block',
-    container: 'border-slate-300 bg-slate-100',
-    iconClass: 'text-slate-500',
-    titleClass: 'text-slate-800',
-    textClass: 'text-slate-600',
-  },
+  COMPLETED: { title: 'This request is completed', description: 'Your response and documents have been received. Review the conversation below to confirm what you submitted.', icon: 'check_circle', container: 'border-emerald-500/40 bg-emerald-50', iconClass: 'text-emerald-600', titleClass: 'text-emerald-900', textClass: 'text-emerald-800' },
+  CANCELLED: { title: 'This request was closed', description: 'This request is no longer open, and replies are not accepted.', icon: 'block', container: 'border-slate-300 bg-slate-100', iconClass: 'text-slate-500', titleClass: 'text-slate-800', textClass: 'text-slate-600' },
 };
 
 const CLIENT_REQUEST_STATUS_BADGE = {
@@ -234,7 +218,6 @@ function formatRequestDate(dateStr) {
   });
 }
 
-const MAX_ATTACHMENTS = 5;
 const MAX_ATTACHMENT_MB = 20;
 const ACCEPTED_ATTACHMENT_TYPES = ['application/pdf', 'image/jpeg', 'image/png', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
 
@@ -280,9 +263,7 @@ function requestStateCopy(state) {
 
 function ClientRequestPanel({ clientRequestPanel, ofwRequestContext }) {
   const [body, setBody] = useState('');
-  const [files, setFiles] = useState([]);
-  const [fileItems, setFileItems] = useState([]);
-  const [fileError, setFileError] = useState('');
+  const [uploadingItem, setUploadingItem] = useState(null);
   const [replying, setReplying] = useState(false);
   const [requestingReplacement, setRequestingReplacement] = useState(false);
   const [error, setError] = useState('');
@@ -300,6 +281,10 @@ function ClientRequestPanel({ clientRequestPanel, ofwRequestContext }) {
     && !['COMPLETED', 'CANCELLED'].includes(request.status);
   const stateCopy = request ? null : requestStateCopy(state);
   const dueDate = formatRequestDate(request?.due_at);
+  const checklistAttachmentIds = new Set((request?.checklist ?? []).map((item) => item.attachment?.id).filter(Boolean));
+  const checklistItemIds = new Set((request?.checklist ?? []).map((item) => item.id).filter(Boolean));
+  const isChecklistAttachment = (attachment) => checklistItemIds.has(attachment.request_item_id) || checklistAttachmentIds.has(attachment.id);
+  const visibleMessages = (request?.messages ?? []).filter((message) => message.body || message.attachments?.some((attachment) => !isChecklistAttachment(attachment)));
   const requestBanner = CLIENT_REQUEST_BANNER[request?.status];
   const statusBadgeClass = CLIENT_REQUEST_STATUS_BADGE[request?.status] ?? 'border-primary text-primary';
 
@@ -325,60 +310,18 @@ function ClientRequestPanel({ clientRequestPanel, ofwRequestContext }) {
     return Object.values(errors).flat().find(Boolean) || 'We could not complete that request. Please try again.';
   }
 
-  function handleFileChange(event) {
-    setFileError('');
-    const incoming = Array.from(event.target.files ?? []);
-    if (incoming.length === 0) return;
-
-    const room = MAX_ATTACHMENTS - files.length;
-    if (room <= 0) {
-      setFileError(`You can attach up to ${MAX_ATTACHMENTS} documents. Remove one to add another.`);
-      event.target.value = '';
-      return;
-    }
-
-    const accepted = [];
-    for (const file of incoming.slice(0, room)) {
-      if (!ACCEPTED_ATTACHMENT_TYPES.includes(file.type)) {
-        setFileError(`"${file.name}" is not an accepted file type. Use PDF, JPG, PNG, DOC or DOCX.`);
-        continue;
-      }
-      if (file.size > MAX_ATTACHMENT_MB * 1024 * 1024) {
-        setFileError(`"${file.name}" is larger than ${MAX_ATTACHMENT_MB} MB.`);
-        continue;
-      }
-      accepted.push(file);
-    }
-
-    if (accepted.length > 0) {
-      setFiles((prev) => [...prev, ...accepted].slice(0, MAX_ATTACHMENTS));
-      setFileItems((prev) => [...prev, ...accepted.map(() => '')].slice(0, MAX_ATTACHMENTS));
-    }
-    event.target.value = '';
-  }
-
   function handleReply(event) {
     event.preventDefault();
     const trimmed = body.trim();
-    if (!canReply || (!trimmed && files.length === 0) || replying) return;
+    if (!canReply || !trimmed || replying) return;
 
     setError('');
     setReplying(true);
 
-    const formData = new FormData();
-    if (trimmed) formData.append('body', trimmed);
-    files.forEach((file, index) => {
-      formData.append('attachments[]', file);
-      formData.append('request_item_ids[]', fileItems[index] ?? '');
-    });
-
-    router.post(replyAction, formData, {
+    router.post(replyAction, { body: trimmed }, {
       preserveScroll: true,
       onSuccess: () => {
         setBody('');
-        setFiles([]);
-        setFileItems([]);
-        setFileError('');
         router.reload({ only: ['clientRequestPanel'], preserveScroll: true });
       },
       onError: (errors) => setError(getErrorMessage(errors)),
@@ -455,10 +398,7 @@ function ClientRequestPanel({ clientRequestPanel, ofwRequestContext }) {
             {requestBanner && (
               <section role="status" aria-live="polite" className={`flex items-start gap-3 rounded-md border px-4 py-4 ${requestBanner.container}`}>
                 <span aria-hidden="true" className={`material-symbols-outlined mt-px text-[22px] ${requestBanner.iconClass}`}>{requestBanner.icon}</span>
-                <div>
-                  <p className={`text-sm font-bold ${requestBanner.titleClass}`}>{requestBanner.title}</p>
-                  <p className={`mt-0.5 text-[13px] leading-relaxed ${requestBanner.textClass}`}>{requestBanner.description}</p>
-                </div>
+                <div><p className={`text-sm font-bold ${requestBanner.titleClass}`}>{requestBanner.title}</p><p className={`mt-0.5 text-[13px] leading-relaxed ${requestBanner.textClass}`}>{requestBanner.description}</p></div>
               </section>
             )}
             <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -493,7 +433,8 @@ function ClientRequestPanel({ clientRequestPanel, ofwRequestContext }) {
                   {[
                     CLIENT_REQUEST_TYPE_LABELS[request.type],
                     request.agency_name,
-                    `Requested ${formatRequestDate(request.created_at)}`,
+                    formatRequestDate(request.created_at) ? `Requested ${formatRequestDate(request.created_at)}` : null,
+                    dueDate ? `Due ${dueDate}` : null,
                   ].filter(Boolean).join(' · ')}
                 </p>
                 {request.case_number && (
@@ -502,26 +443,19 @@ function ClientRequestPanel({ clientRequestPanel, ofwRequestContext }) {
                   </p>
                 )}
 
-                {request.instructions && (
-                  <div className="mt-4 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3.5">
-                    <span aria-hidden="true" className="material-symbols-outlined mt-px shrink-0 text-[18px] leading-none text-amber-600">error</span>
-                    <div className="text-[13px]">
-                      <p className="font-bold text-amber-800">{request.instructions}</p>
-                      <p className="mt-0.5 text-amber-700">
-                        {dueDate ? `Please respond by ${dueDate}.` : 'No deadline is recorded for this request.'}
-                      </p>
-                    </div>
-                  </div>
-                )}
-
                 {request.checklist?.length > 0 && (
                   <div className="mt-5">
                     <p className="text-[13px] font-bold text-slate-800">Documents to prepare</p>
-                    <ul className="mt-2 space-y-1.5">
+                    <ul className="mt-2 divide-y divide-slate-100">
                       {request.checklist.map((item) => (
-                        <li key={item.id ?? item.sort_order ?? item.label} className="flex items-start gap-2 text-[13px] text-slate-700">
-                          <span aria-hidden="true" className="material-symbols-outlined mt-px text-[16px] text-slate-400">description</span>
-                          <span>{item.label}</span>
+                        <li key={item.id ?? item.sort_order ?? item.label} className="flex flex-wrap items-center gap-2 py-2 text-[13px] text-slate-700">
+                          <span aria-hidden="true" className="material-symbols-outlined text-[16px] text-slate-400">description</span>
+                          <span className="min-w-0 flex-1">{item.label}</span>
+                          {item.id && item.attachment && <a href={item.attachment.download_url} className="truncate text-[11px] font-medium text-primary underline">{item.attachment.file_name}</a>}
+                          {canReply && item.id && <label className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-slate-200 px-2 py-1 text-[11px] font-semibold text-primary hover:bg-slate-50">
+                            {uploadingItem === item.id ? 'Uploading…' : item.attachment ? 'Replace' : 'Upload'}
+                            <input aria-label={`Upload ${item.label}`} type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" disabled={replying || uploadingItem !== null} onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ''; if (!file) return; if (!ACCEPTED_ATTACHMENT_TYPES.includes(file.type) || file.size > MAX_ATTACHMENT_MB * 1024 * 1024) { setError(`Choose a supported document smaller than ${MAX_ATTACHMENT_MB} MB.`); return; } setError(''); setUploadingItem(item.id); const data = new FormData(); data.append('attachments[]', file); data.append('request_item_ids[]', item.id); router.post(replyAction, data, { preserveScroll: true, onSuccess: () => router.reload({ only: ['clientRequestPanel', 'documents'], preserveScroll: true }), onError: (errors) => setError(getErrorMessage(errors)), onFinish: () => setUploadingItem(null) }); }} className="sr-only" />
+                          </label>}
                         </li>
                       ))}
                     </ul>
@@ -534,17 +468,17 @@ function ClientRequestPanel({ clientRequestPanel, ofwRequestContext }) {
               <div className="flex items-center gap-2 border-b border-slate-200 bg-slate-50/80 px-5 py-3">
                 <span aria-hidden="true" className="material-symbols-outlined text-[16px] text-slate-400">forum</span>
                 <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">Messages</h2>
-                {request.messages?.length > 0 && (
+                {visibleMessages.length > 0 && (
                   <span className="ml-auto rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
-                    {request.messages.length} {request.messages.length === 1 ? 'message' : 'messages'}
+                    {visibleMessages.length} {visibleMessages.length === 1 ? 'message' : 'messages'}
                   </span>
                 )}
               </div>
 
               <div className="max-h-[26rem] overflow-y-auto overscroll-contain bg-slate-50/50 px-4 py-4 sm:px-5">
-                {request.messages?.length > 0 ? (
+                {visibleMessages.length > 0 ? (
                   <div className="space-y-4">
-                    {request.messages.map((message) => {
+                    {visibleMessages.map((message) => {
                       const isClient = ['CLIENT_ACCESS', 'CLIENT_USER'].includes(message.sender_kind);
                       const senderName = isClient ? 'You' : 'Agency';
                       const messageDate = formatRequestDate(message.created_at);
@@ -559,9 +493,9 @@ function ClientRequestPanel({ clientRequestPanel, ofwRequestContext }) {
                           <div className={`flex max-w-[85%] flex-col ${isClient ? 'items-end' : 'items-start'}`}>
                             <div className={`rounded-xl px-3.5 py-2.5 text-[13px] leading-relaxed shadow-sm ${isClient ? 'rounded-br-sm bg-primary text-white' : 'rounded-bl-sm border border-slate-200 bg-white text-slate-800'}`}>
                               {message.body && <p className="whitespace-pre-wrap">{message.body}</p>}
-                              {message.attachments?.length > 0 && (
-                                <ul className={`mt-2 space-y-1.5 ${message.body ? '' : ''}`}>
-                                  {message.attachments.map((attachment) => (
+                              {message.attachments?.some((attachment) => !isChecklistAttachment(attachment)) && (
+                                <ul className="mt-2 space-y-1.5">
+                                  {message.attachments.filter((attachment) => !isChecklistAttachment(attachment)).map((attachment) => (
                                     <li key={attachment.id}>
                                       <a
                                         href={attachment.download_url ?? (actions.downloadAttachmentTemplate ? actions.downloadAttachmentTemplate.replace('__ATTACHMENT__', encodeURIComponent(attachment.id)) : route('track.request.attachments.download', { attachment: attachment.id }))}
@@ -612,48 +546,9 @@ function ClientRequestPanel({ clientRequestPanel, ofwRequestContext }) {
                   />
                   {error && <p id="client-request-error" role="alert" className="mt-2 text-[12px] font-semibold text-error">{error}</p>}
 
-                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-md border border-dashed border-slate-300 bg-slate-50/70 px-3 py-2.5">
-                    <label htmlFor="client-request-files" className="inline-flex cursor-pointer items-center gap-1.5 text-[12px] font-bold text-primary hover:underline">
-                      <span aria-hidden="true" className="material-symbols-outlined text-[15px]">attach_file</span>
-                      Attach documents
-                      <input
-                        id="client-request-files"
-                        type="file"
-                        multiple
-                        accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-                        disabled={replying}
-                        onChange={handleFileChange}
-                        className="sr-only"
-                      />
-                    </label>
-                    <p className="text-[11px] text-slate-500">PDF, JPG, PNG, DOC or DOCX · up to {MAX_ATTACHMENT_MB} MB · max {MAX_ATTACHMENTS} files</p>
-                  </div>
-
-                  {files.length > 0 && (
-                    <ul className="mt-2 space-y-1.5">
-                      {files.map((file, index) => (
-                        <li key={`${file.name}-${index}`} className="flex items-center gap-2 rounded-md border border-slate-200 bg-white px-2.5 py-1.5">
-                          <span aria-hidden="true" className="material-symbols-outlined shrink-0 text-[15px] text-slate-500">description</span>
-                          <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-slate-800">{file.name}</span>
-                          <span className="shrink-0 text-[10px] text-slate-400">{formatFileSize(file.size)}</span>
-                          <button
-                            type="button"
-                            onClick={() => setFiles((prev) => prev.filter((_, i) => i !== index))}
-                            disabled={replying}
-                            aria-label={`Remove ${file.name}`}
-                            className="shrink-0 text-slate-400 transition-colors hover:text-error disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            <span aria-hidden="true" className="material-symbols-outlined text-[15px]">close</span>
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  {fileError && <p role="alert" className="mt-2 text-[12px] font-semibold text-error">{fileError}</p>}
-
                   <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3">
-                    <p className="text-[11px] text-slate-500">Your reply and any documents will be shared with the agency.</p>
-                    <button type="submit" disabled={replying || (!body.trim() && files.length === 0)} className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-primary-container disabled:cursor-not-allowed disabled:opacity-60">
+                    <p className="text-[11px] text-slate-500">Your reply will be shared with the agency.</p>
+                    <button type="submit" disabled={replying || !body.trim()} className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-primary-container disabled:cursor-not-allowed disabled:opacity-60">
                       <span aria-hidden="true" className="material-symbols-outlined text-[17px]">{replying ? 'progress_activity' : 'send'}</span>
                       {replying ? 'Sending…' : 'Send reply'}
                     </button>

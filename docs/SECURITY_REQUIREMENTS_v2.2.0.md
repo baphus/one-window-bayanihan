@@ -138,9 +138,9 @@ authenticated user ID and falls back to IP for guests.
 | `reports-view` | 120/min | Per user (fallback: IP) | `GET /reports`; expensive queries |
 | `api-global` | 60/min | Per user (fallback: IP) | Session-authenticated `/api/*` helpers |
 | `api-mutations` | 10/min | Per user (fallback: IP) | Reserved for authenticated mutations |
-| `agency-client-request-create` | 5/hour | Per user + referral | Agency client-request creation |
+| `agency-client-request-create` | 30/hour | Per user + referral | Agency client-request creation |
 | `agency-client-access` | 3/hour | Per user + client-request | Agency access issue/reissue, reopen |
-| `agency-client-delivery-recipient` | 5/hour | Per recipient email hash (no cap when recipient unknown) | Per-recipient delivery cap, stacked with the two limiters above |
+| `agency-client-delivery-recipient` | 20/hour | Per recipient email hash (fallback: per user + IP when unknown) | Per-recipient delivery cap, stacked with the other route limiter |
 
 Additional named limiters in the current provider (32 total): `register` (10/min per email, fallback IP), `email-availability` (10/min email+IP and 30/min IP), `helpdesk-feedback` (10/min IP), `reports-export` (5/min user, fallback IP), and `password-confirm` (5/min user, fallback IP).
 

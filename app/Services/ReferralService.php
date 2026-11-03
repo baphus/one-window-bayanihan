@@ -333,6 +333,7 @@ class ReferralService
         $relations = [
             'services',
             'serviceRequirements.service',
+            'caseFile.client.user:id,avatar_url',
             'caseFile.client.addresses',
             'caseFile.client.employments',
             'caseFile.client.nextOfKin',

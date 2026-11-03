@@ -233,9 +233,15 @@ function ClientRequestCard({ request, permissions, isOversight, onMutate, embedd
 
     const items = request.items ?? [];
     const messages = request.messages ?? [];
+    const isChecklistAttachment = (attachment) => attachment.request_item_id && items.some((item) => item.id === attachment.request_item_id);
+    const attachmentsByItem = messages.flatMap((message) => message.attachments ?? []).reduce((grouped, attachment) => {
+        if (isChecklistAttachment(attachment)) (grouped[attachment.request_item_id] ??= []).push(attachment);
+        return grouped;
+    }, {});
+    const visibleMessages = messages.filter((message) => message.body || message.attachments?.some((attachment) => !isChecklistAttachment(attachment)));
 
     return (
-        <article className={embedded ? 'flex h-full min-w-0 flex-col rounded-none border-0 bg-white p-3 shadow-none' : 'rounded-md border border-slate-200 bg-white p-3 shadow-sm'}>
+        <article className={embedded ? 'flex h-full min-w-0 flex-col rounded-none border-0 bg-white p-2 shadow-none' : 'rounded-md border border-slate-200 bg-white p-3 shadow-sm'}>
             <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
@@ -251,27 +257,25 @@ function ClientRequestCard({ request, permissions, isOversight, onMutate, embedd
 
             {items.length > 0 && (
                 <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2.5">
-                    <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Document checklist</p>
-                    <ul className="mt-1.5 space-y-1">
-                        {items.map((item) => <li key={item.id ?? item.sort_order ?? item.label} className="flex items-start gap-2 text-[11px] text-slate-700"><span className="material-symbols-outlined mt-0.5 text-[14px] text-slate-400">check_box_outline_blank</span>{item.label}</li>)}
+                    <ul className="divide-y divide-slate-200">
+                        {items.map((item) => <li key={item.id ?? item.sort_order ?? item.label} className="py-2 text-[11px] text-slate-700"><div className="flex items-center gap-2"><span aria-hidden="true" className="material-symbols-outlined text-[14px] text-slate-400">description</span><span className="min-w-0 flex-1">{item.label}</span></div>{attachmentsByItem[item.id]?.map((attachment) => { const href = route('referrals.client-requests.attachments.download', [request.referral_id, attachment.id]); return <div key={attachment.id} className="mt-1 ml-5 flex flex-wrap items-center gap-2"><a href={href} className="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-900 hover:underline"><span className="material-symbols-outlined text-[13px]">attach_file</span>{attachment.file_name}{attachment.size > 0 && <span className="font-normal text-slate-400">{formatDisplayBytes(attachment.size)}</span>}</a>{!isOversight && permissions.canReply && <div className="flex flex-wrap items-center gap-1"><Select aria-label={`Review ${attachment.file_name}`} value={reviewingAttachment?.[attachment.id] ?? attachment.review_status ?? 'PENDING'} onChange={(event) => setReviewingAttachment((current) => ({ ...current, [attachment.id]: event.target.value }))} className="h-auto w-auto px-1 py-0.5 text-[9px]"><option value="PENDING">Pending</option><option value="ACCEPTED">Accept</option><option value="REJECTED">Reject</option><option value="NEEDS_REVISION">Needs revision</option></Select><Select aria-label={`Visibility ${attachment.file_name}`} value={attachmentVisibility[attachment.id] ?? attachment.visibility ?? 'HIDDEN'} onChange={(event) => setAttachmentVisibility((current) => ({ ...current, [attachment.id]: event.target.value }))} className="h-auto w-auto px-1 py-0.5 text-[9px]"><option value="HIDDEN">Hidden</option><option value="ALL">All agencies</option><option value="SELECTED">Selected agencies</option></Select>{(attachmentVisibility[attachment.id] ?? attachment.visibility) === 'SELECTED' && <Select aria-label={`Agencies ${attachment.file_name}`} multiple value={selectedAgencies[attachment.id] ?? []} onChange={(event) => setSelectedAgencies((current) => ({ ...current, [attachment.id]: Array.from(event.target.selectedOptions, (option) => option.value) }))} className="h-auto w-auto max-w-[150px] px-1 py-0.5 text-[9px]">{activeAgencies.map((agency) => <option key={agency.id} value={agency.id}>{agency.name}</option>)}</Select>}<button type="button" onClick={() => reviewAttachment(attachment, reviewingAttachment?.[attachment.id] ?? 'PENDING', attachmentVisibility[attachment.id] ?? attachment.visibility ?? 'HIDDEN')} disabled={!!loading} className="text-[9px] font-bold text-blue-900 disabled:opacity-50">Save review</button></div>}</div>; })}</li>)}
                     </ul>
                 </div>
             )}
 
             <div className="mt-3 border-t border-slate-200">
                 <div className="flex items-center gap-2 pt-3">
-                    <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500">Conversation</p>
-                    {messages.length > 0 && (
+                    {visibleMessages.length > 0 && (
                         <span className="ml-auto rounded-full bg-blue-900/10 px-2 py-0.5 text-[9px] font-bold text-blue-900">
-                            {messages.length} {messages.length === 1 ? 'message' : 'messages'}
+                            {visibleMessages.length} {visibleMessages.length === 1 ? 'message' : 'messages'}
                         </span>
                     )}
                 </div>
 
                 <div className="mt-2 max-h-[24rem] overflow-y-auto overscroll-contain bg-slate-50/50 px-2.5 py-3">
-                    {messages.length > 0 ? (
+                    {visibleMessages.length > 0 ? (
                         <div className="space-y-3.5">
-                            {messages.map((message) => {
+                            {visibleMessages.map((message) => {
                                 const isOwn = message.sender_kind === 'AGENCY_USER';
                                 const senderName = isOwn ? 'Agency' : 'Client';
                                 return (
@@ -285,9 +289,9 @@ function ClientRequestCard({ request, permissions, isOversight, onMutate, embedd
                                         <div className={`flex max-w-[85%] flex-col ${isOwn ? 'items-end' : 'items-start'}`}>
                                             <div className={`rounded-lg px-3 py-2 text-[12px] leading-relaxed shadow-sm ${isOwn ? 'rounded-br-sm bg-blue-900 text-white' : 'rounded-bl-sm border border-slate-200 bg-white text-slate-700'}`}>
                                                 {message.body && <p className="whitespace-pre-wrap">{message.body}</p>}
-                                                {message.attachments?.length > 0 && (
+                                                {message.attachments?.some((attachment) => !isChecklistAttachment(attachment)) && (
                                                     <div className="mt-2 space-y-1.5">
-                                                        {message.attachments.map((attachment) => {
+                                                        {message.attachments.filter((attachment) => !isChecklistAttachment(attachment)).map((attachment) => {
                                                             const downloadHref = route('referrals.client-requests.attachments.download', [request.referral_id, attachment.id]);
                                                             const fileType = typeof attachment.file_type === 'string' ? attachment.file_type : '';
                                                             const isImage = fileType.startsWith('image/');
@@ -489,7 +493,7 @@ function ClientRequestsSection({ referral, requests, permissions, isReceivingAge
                                 <div><label htmlFor="client_request_title" className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-600">Title *</label><input id="client_request_title" value={createForm.data.title} onChange={(event) => createForm.setData('title', event.target.value)} className="h-10 w-full px-3 text-sm" /><InputError message={createForm.errors.title} className="mt-1" /></div>
                                 <div><label htmlFor="client_request_instructions" className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-600">Instructions *</label><textarea id="client_request_instructions" rows={3} value={createForm.data.instructions} onChange={(event) => createForm.setData('instructions', event.target.value)} className="w-full resize-none rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-700 focus:ring-1 focus:ring-blue-700" /><InputError message={createForm.errors.instructions} className="mt-1" /></div>
                                 <div><label htmlFor="client_request_due_at" className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-600">Due date <span className="font-normal normal-case text-slate-400">(optional)</span></label><input id="client_request_due_at" type="date" value={createForm.data.due_at} onChange={(event) => createForm.setData('due_at', event.target.value)} className="h-10 rounded border border-slate-300 px-3 text-sm text-slate-700 outline-none focus:border-blue-700 focus:ring-1 focus:ring-blue-700" /><InputError message={createForm.errors.due_at} className="mt-1" /></div>
-                                {createForm.data.type === 'DOCUMENT_REQUEST' && <div>{referralRequirements.length > 0 && <div className="mb-3 rounded border border-indigo-100 bg-indigo-50/40 p-2.5"><p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-indigo-700">Referral requirements</p><div className="space-y-1.5">{referralRequirements.map((item) => <label key={item.id} className="flex items-start gap-2 text-[11px] text-slate-700"><input type="checkbox" checked={selectedRequirements.some((selected) => selected.id === item.id)} onChange={(event) => setSelectedRequirements((current) => event.target.checked ? [...current, item] : current.filter((selected) => selected.id !== item.id))} /><span>{item.name}</span></label>)}</div></div>}<div><div className="mb-1.5 flex items-center justify-between"><label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600">Checklist</label><button type="button" onClick={() => createForm.setData('checklist', [...createForm.data.checklist, ''])} className="text-[10px] font-bold text-blue-900 hover:underline">+ Add item</button></div><div className="space-y-2">{createForm.data.checklist.map((item, index) => <div key={index} className="flex gap-2"><input aria-label={`Checklist item ${index + 1}`} value={item} onChange={(event) => { const next = [...createForm.data.checklist]; next[index] = event.target.value; createForm.setData('checklist', next); }} className="h-9 min-w-0 flex-1 rounded border border-slate-300 px-3 text-[12px] text-slate-700" placeholder="Document or item needed" />{createForm.data.checklist.length > 1 && <button type="button" onClick={() => createForm.setData('checklist', createForm.data.checklist.filter((_, itemIndex) => itemIndex !== index))} className="text-[18px] text-slate-400">×</button>}</div>)}</div></div></div>}
+                                {createForm.data.type === 'DOCUMENT_REQUEST' && <div>{referralRequirements.length > 0 && <div className="mb-3 rounded border border-indigo-100 bg-indigo-50/40 p-2.5"><p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-indigo-700">Referral requirements</p><div className="space-y-1.5">{referralRequirements.map((item) => <label key={item.id} className="flex items-start gap-2 text-[11px] text-slate-700"><input type="checkbox" checked={selectedRequirements.some((selected) => selected.id === item.id)} onChange={(event) => setSelectedRequirements((current) => event.target.checked ? [...current, item] : current.filter((selected) => selected.id !== item.id))} /><span>{item.name}</span></label>)}</div></div>}<div><div className="mb-1.5 flex items-center justify-between"><label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600">Checklist</label><button type="button" onClick={() => createForm.setData('checklist', [...createForm.data.checklist, ''])} className="text-[10px] font-bold text-blue-900 hover:underline">+ Add item</button></div><div className="space-y-2">{createForm.data.checklist.map((item, index) => <div key={index} className="flex gap-2"><input aria-label={`Checklist item ${index + 1}`} value={item} onChange={(event) => { const next = [...createForm.data.checklist]; next[index] = event.target.value; createForm.setData('checklist', next); }} className="h-9 min-w-0 flex-1 rounded border border-slate-300 px-3 text-[12px] text-slate-700" placeholder="Document or item needed" />{createForm.data.checklist.length > 1 && <button type="button" onClick={() => createForm.setData('checklist', createForm.data.checklist.filter((_, itemIndex) => itemIndex !== index))} className="text-[18px] text-slate-400">×</button>}</div>)}<InputError message={Object.entries(createForm.errors).filter(([key]) => key.startsWith('checklist.')).map(([, message]) => message).join(' ')} className="mt-1" /></div></div></div>}
                             </div>
                             <div className="flex justify-end gap-2 border-t border-slate-200 px-5 py-3"><button type="button" onClick={() => setShowCreate(false)} className="h-9 rounded border border-slate-300 bg-white px-4 text-xs font-bold text-slate-700 hover:bg-slate-50">Cancel</button><button type="submit" disabled={createForm.processing || !createForm.data.title.trim() || !createForm.data.instructions.trim()} className="h-9 rounded bg-blue-900 px-4 text-xs font-bold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50">{createForm.processing ? 'Creating…' : 'Create request'}</button></div>
                         </form>
@@ -1203,110 +1207,7 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                         </section>
                     </div>
 
-                    <div data-tour="referral-comments">
-                        <section className="rounded-xl border border-[#dce3eb] bg-white shadow-[0_1px_3px_rgba(23,35,51,0.04)]">
-                            <CardHeader title="Referral Comments" />
-                            <div className="px-5 pb-5">
-                                <div className="space-y-3">
-                                    {topLevelComments.length > 0 ? (
-                                        topLevelComments.map((comment) => {
-                                            const replies = comment.replies ?? [];
-                                            return (
-                                                <div key={comment.id} className="rounded-md border border-slate-200 bg-white shadow-sm">
-                                                    <div className="flex items-start gap-2.5 px-3 pt-2.5 pb-2">
-                                                        <UserAvatar user={comment.user} size="sm" />
-                                                        <div className="min-w-0 flex-1">
-                                                            <div className="flex items-baseline gap-2">
-                                                                <span className="text-[11px] font-bold text-slate-800">{comment.user?.name ?? 'Unknown'}</span>
-                                                                <span className="text-[9px] text-slate-400">{formatDisplayDateTime(comment.created_at)}</span>
-                                                                {comment.is_edited && <span className="text-[9px] text-slate-400 italic">(edited)</span>}
-                                                            </div>
-                                                            <p className="mt-0.5 text-[11px] leading-5 text-slate-700 whitespace-pre-wrap">{comment.content}</p>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => {
-                                                                    setReplyToCommentId(comment.id);
-                                                                    setCommentDraft('');
-                                                                }}
-                                                                className="mt-1 text-[9px] font-bold text-blue-900 hover:text-blue-800 transition-colors"
-                                                            >
-                                                                Reply
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                    {replies.length > 0 && (
-                                                        <div className="ml-8 mr-3 pb-2.5 space-y-2">
-                                                            {replies.map((reply) => (
-                                                                <div key={reply.id} className="flex items-start gap-2 rounded-md bg-slate-50 px-2.5 py-2">
-                                                                    <UserAvatar user={reply.user} size="sm" onClick={() => setPeerProfileUser(reply.user)} />
-                                                                    <div className="min-w-0 flex-1">
-                                                                        <div className="flex items-baseline gap-2">
-                                                                            <span className="text-[10px] font-bold text-slate-700">{reply.user?.name ?? 'Unknown'}</span>
-                                                                            <span className="text-[9px] text-slate-400">{formatDisplayDateTime(reply.created_at)}</span>
-                                                                            {reply.is_edited && <span className="text-[9px] text-slate-400 italic">(edited)</span>}
-                                                                        </div>
-                                                                        <p className="text-[11px] leading-5 text-slate-700 whitespace-pre-wrap">{reply.content}</p>
-                                                                    </div>
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            );
-                                        })
-                                    ) : (
-                                        <div className="flex flex-col items-center justify-center py-8 text-center">
-                                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 border border-slate-200">
-                                                <span className="material-symbols-outlined text-[18px] text-slate-400">chat_bubble_outline</span>
-                                            </div>
-                                            <p className="mt-2 text-[11px] font-semibold text-slate-500">No comments yet</p>
-                                            <p className="text-[10px] text-slate-400">Start the conversation below.</p>
-                                        </div>
-                                    )}
-                                </div>
 
-                                <div className="mt-3 pt-3 border-t border-slate-200">
-                                    {replyToComment && (
-                                        <div className="mb-2 flex items-center justify-between rounded-md bg-sky-50 border border-sky-200 px-2.5 py-1.5">
-                                            <p className="text-[10px] text-blue-900 font-semibold truncate">
-                                                Replying to <span className="font-bold">{replyToComment.user?.name ?? 'comment'}</span>
-                                            </p>
-                                            <button
-                                                type="button"
-                                                onClick={cancelReply}
-                                                className="text-[10px] font-bold text-blue-900 hover:underline shrink-0 ml-2"
-                                            >
-                                                Cancel
-                                            </button>
-                                        </div>
-                                    )}
-                                    <div className="flex items-start gap-2">
-                                        <UserAvatar user={auth.user} size="sm" />
-                                        <div className="flex-1 min-w-0">
-                                            <textarea
-                                                value={commentDraft}
-                                                onChange={(e) => setCommentDraft(e.target.value)}
-                                                rows={2}
-                                                className="w-full rounded-md border border-slate-200 px-3 py-1.5 text-[12px] text-slate-700 outline-none focus:border-blue-900 focus:ring-1 focus:ring-blue-900/20 resize-none transition-colors"
-                                                placeholder={replyToComment ? 'Write a reply...' : 'Write a comment...'}
-                                            />
-                                            <div className="mt-1.5 flex items-center justify-between">
-                                                <span className="text-[9px] text-slate-400">{replyToComment ? 'Your reply will be posted immediately' : 'Your comment will be posted immediately'}</span>
-                                                <button
-                                                    type="button"
-                                                    onClick={handlePostComment}
-                                                    disabled={postingComment || !commentDraft.trim()}
-                                                    className="h-[26px] px-3 bg-blue-900 text-white text-[10px] font-bold rounded-md border border-blue-900 hover:bg-blue-800 disabled:opacity-60 transition-colors"
-                                                >
-                                                    {postingComment ? 'Posting...' : 'Post'}
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </section>
-                    </div>
 
                     {(isAdmin || isReceivingAgency) && (
                     <ClientRequestsSection
@@ -1327,9 +1228,9 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                         <CardHeader title="Client Information" />
                         <div className="space-y-4 px-5 pb-5">
                             {client ? (
-                                client.avatar_url ? (
+                                (client.user?.avatar_url || client.avatar_url) ? (
                                     <img
-                                        src={client.avatar_url}
+                                        src={client.user?.avatar_url || client.avatar_url}
                                         alt=""
                                         className="h-[72px] w-[72px] shrink-0 rounded-2xl border border-slate-200 object-cover"
                                         onError={(e) => { e.target.style.display = 'none'; }}
@@ -1461,7 +1362,17 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                     <div data-tour="referral-documents">
                         <section className="rounded-xl border border-[#dce3eb] bg-white shadow-[0_1px_3px_rgba(23,35,51,0.04)]">
                             <CardHeader
-                                title="Documents"
+                                title={
+                                    <>
+                                        Documents
+                                        <span className="group relative inline-flex align-middle">
+                                            <span tabIndex={0} aria-label="Documents info" aria-describedby="agency-upload-info" className="material-symbols-outlined ml-1 cursor-help text-[16px] text-slate-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-700">info</span>
+                                            <span id="agency-upload-info" role="tooltip" className="pointer-events-none absolute left-1/2 top-full z-20 mt-2 hidden w-56 -translate-x-1/2 rounded-md bg-slate-900 px-3 py-2 text-left text-[11px] font-normal leading-4 text-white shadow-lg group-hover:block group-focus-within:block">
+                                                Files uploaded here are visible to this agency only.
+                                            </span>
+                                        </span>
+                                    </>
+                                }
                                 meta={`${((referral.attachments ?? []).filter((att) => !att.is_archived).length) + ((referral.documents ?? []).length)} files`}
                                 actions={(isCaseManager || isAdmin) && (
                                     <>
@@ -1496,13 +1407,6 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                                 )}
                             />
                             <div className="space-y-3 px-5 pb-5">
-                                <div className="flex items-start gap-2 rounded-md border border-blue-100 bg-blue-50 px-3 py-2">
-                                    <span className="material-symbols-outlined text-[16px] text-blue-600 mt-0.5">info</span>
-                                    <p className="text-[11px] leading-5 text-blue-800">
-                                        Files uploaded here are visible to this agency only.
-                                    </p>
-                                </div>
-
                                 {uploadError && (
                                     <p className="text-[11px] text-red-600">{uploadError}</p>
                                 )}
@@ -1588,6 +1492,111 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                                         )}
                                     </div>
                                 ) : null}
+                            </div>
+                        </section>
+                    </div>
+
+                    <div data-tour="referral-comments">
+                        <section className="rounded-xl border border-[#dce3eb] bg-white shadow-[0_1px_3px_rgba(23,35,51,0.04)]">
+                            <CardHeader title="Referral Comments" />
+                            <div className="px-5 pb-5">
+                                <div className="space-y-3">
+                                    {topLevelComments.length > 0 ? (
+                                        topLevelComments.map((comment) => {
+                                            const replies = comment.replies ?? [];
+                                            return (
+                                                <div key={comment.id} className="rounded-md border border-slate-200 bg-white shadow-sm">
+                                                    <div className="flex items-start gap-2.5 px-3 pt-2.5 pb-2">
+                                                        <UserAvatar user={comment.user} size="sm" />
+                                                        <div className="min-w-0 flex-1">
+                                                            <div className="flex items-baseline gap-2">
+                                                                <span className="text-[11px] font-bold text-slate-800">{comment.user?.name ?? 'Unknown'}</span>
+                                                                <span className="text-[9px] text-slate-400">{formatDisplayDateTime(comment.created_at)}</span>
+                                                                {comment.is_edited && <span className="text-[9px] text-slate-400 italic">(edited)</span>}
+                                                            </div>
+                                                            <p className="mt-0.5 text-[11px] leading-5 text-slate-700 whitespace-pre-wrap">{comment.content}</p>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setReplyToCommentId(comment.id);
+                                                                    setCommentDraft('');
+                                                                }}
+                                                                className="mt-1 text-[9px] font-bold text-blue-900 hover:text-blue-800 transition-colors"
+                                                            >
+                                                                Reply
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                    {replies.length > 0 && (
+                                                        <div className="ml-8 mr-3 pb-2.5 space-y-2">
+                                                            {replies.map((reply) => (
+                                                                <div key={reply.id} className="flex items-start gap-2 rounded-md bg-slate-50 px-2.5 py-2">
+                                                                    <UserAvatar user={reply.user} size="sm" onClick={() => setPeerProfileUser(reply.user)} />
+                                                                    <div className="min-w-0 flex-1">
+                                                                        <div className="flex items-baseline gap-2">
+                                                                            <span className="text-[10px] font-bold text-slate-700">{reply.user?.name ?? 'Unknown'}</span>
+                                                                            <span className="text-[9px] text-slate-400">{formatDisplayDateTime(reply.created_at)}</span>
+                                                                            {reply.is_edited && <span className="text-[9px] text-slate-400 italic">(edited)</span>}
+                                                                        </div>
+                                                                        <p className="text-[11px] leading-5 text-slate-700 whitespace-pre-wrap">{reply.content}</p>
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })
+                                    ) : (
+                                        <div className="flex flex-col items-center justify-center py-8 text-center">
+                                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 border border-slate-200">
+                                                <span className="material-symbols-outlined text-[18px] text-slate-400">chat_bubble_outline</span>
+                                            </div>
+                                            <p className="mt-2 text-[11px] font-semibold text-slate-500">No comments yet</p>
+                                            <p className="text-[10px] text-slate-400">Start the conversation below.</p>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="mt-3 pt-3 border-t border-slate-200">
+                                    {replyToComment && (
+                                        <div className="mb-2 flex items-center justify-between rounded-md bg-sky-50 border border-sky-200 px-2.5 py-1.5">
+                                            <p className="text-[10px] text-blue-900 font-semibold truncate">
+                                                Replying to <span className="font-bold">{replyToComment.user?.name ?? 'comment'}</span>
+                                            </p>
+                                            <button
+                                                type="button"
+                                                onClick={cancelReply}
+                                                className="text-[10px] font-bold text-blue-900 hover:underline shrink-0 ml-2"
+                                            >
+                                                Cancel
+                                            </button>
+                                        </div>
+                                    )}
+                                    <div className="flex items-start gap-2">
+                                        <UserAvatar user={auth.user} size="sm" />
+                                        <div className="flex-1 min-w-0">
+                                            <textarea
+                                                value={commentDraft}
+                                                onChange={(e) => setCommentDraft(e.target.value)}
+                                                rows={2}
+                                                className="w-full rounded-md border border-slate-200 px-3 py-1.5 text-[12px] text-slate-700 outline-none focus:border-blue-900 focus:ring-1 focus:ring-blue-900/20 resize-none transition-colors"
+                                                placeholder={replyToComment ? 'Write a reply...' : 'Write a comment...'}
+                                            />
+                                            <div className="mt-1.5 flex items-center justify-between">
+                                                <span className="text-[9px] text-slate-400">{replyToComment ? 'Your reply will be posted immediately' : 'Your comment will be posted immediately'}</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={handlePostComment}
+                                                    disabled={postingComment || !commentDraft.trim()}
+                                                    className="h-[26px] px-3 bg-blue-900 text-white text-[10px] font-bold rounded-md border border-blue-900 hover:bg-blue-800 disabled:opacity-60 transition-colors"
+                                                >
+                                                    {postingComment ? 'Posting...' : 'Post'}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </section>
                     </div>

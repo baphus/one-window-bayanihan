@@ -10,6 +10,7 @@ use App\Models\Referral;
 use App\Models\ReferralClientMessage;
 use App\Models\ReferralClientMessageAttachment;
 use App\Models\ReferralClientRequest;
+use App\Models\ReferralClientRequestItem;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\Test;
@@ -23,6 +24,39 @@ class OfwClientRequestAccessTest extends TestCase
     {
         parent::setUp();
         $this->withoutMiddleware(HandleInertiaRequests::class);
+    }
+
+    #[Test]
+    public function checklist_links_latest_replacement_upload(): void
+    {
+        [$user, $case, $referral, $request] = $this->context();
+        $item = ReferralClientRequestItem::create(['request_id' => $request->id, 'label' => 'Passport', 'sort_order' => 0]);
+        $oldMessage = ReferralClientMessage::factory()->create(['request_id' => $request->id, 'sender_kind' => ReferralClientMessage::SENDER_CLIENT_USER, 'user_id' => $user->id]);
+        $oldAttachment = ReferralClientMessageAttachment::create(['message_id' => $oldMessage->id, 'request_item_id' => $item->id, 'file_name' => 'old.pdf', 'file_path' => 'old.pdf', 'file_type' => 'application/pdf', 'size' => 1]);
+        $newMessage = ReferralClientMessage::factory()->create(['request_id' => $request->id, 'sender_kind' => ReferralClientMessage::SENDER_CLIENT_USER, 'user_id' => $user->id]);
+        $newAttachment = ReferralClientMessageAttachment::create(['message_id' => $newMessage->id, 'request_item_id' => $item->id, 'file_name' => 'new.pdf', 'file_path' => 'new.pdf', 'file_type' => 'application/pdf', 'size' => 1]);
+        $oldAttachment->delete();
+
+        $response = $this->actingAsWithMfa($user)->withHeader('X-Inertia', 'true')->get(route('ofw.case.requests.show', ['case' => $case, 'referral' => $referral, 'request' => $request]));
+        $response->assertOk()
+            ->assertJsonPath('props.clientRequestPanel.activeRequest.checklist.0.attachment.file_name', 'new.pdf');
+        $this->assertSame($item->id, $response->json('props.clientRequestPanel.activeRequest.messages.1.attachments.0.request_item_id'));
+    }
+
+    #[Test]
+    public function request_uploads_from_closed_requests_remain_in_owner_documents_and_exclude_staff_files(): void
+    {
+        [$user, $case, $referral, $request] = $this->context(['status' => ReferralClientRequest::STATUS_COMPLETED]);
+        $message = ReferralClientMessage::factory()->create(['request_id' => $request->id, 'sender_kind' => ReferralClientMessage::SENDER_CLIENT_USER, 'user_id' => $user->id]);
+        $attachment = ReferralClientMessageAttachment::create(['message_id' => $message->id, 'file_name' => 'old.pdf', 'file_path' => 'old.pdf', 'file_type' => 'application/pdf', 'size' => 1]);
+        $agencyMessage = ReferralClientMessage::factory()->create(['request_id' => $request->id, 'sender_kind' => ReferralClientMessage::SENDER_AGENCY_USER, 'user_id' => User::factory()->create(['role' => UserRole::AGENCY->value])->id]);
+        ReferralClientMessageAttachment::create(['message_id' => $agencyMessage->id, 'file_name' => 'internal.pdf', 'file_path' => 'internal.pdf', 'file_type' => 'application/pdf', 'size' => 1, 'review_status' => 'PENDING', 'visibility' => 'HIDDEN']);
+
+        $response = $this->actingAsWithMfa($user)->withHeader('X-Inertia', 'true')->get('/my-cases/'.$case->id);
+        $response->assertOk();
+        $this->assertSame([$attachment->id], collect($response->json('props.requestDocuments'))->pluck('id')->all());
+        $this->assertSame(route('ofw.case.requests.attachments.download', ['case' => $case, 'referral' => $referral, 'request' => $request, 'attachment' => $attachment]), $response->json('props.requestDocuments.0.download_url'));
+        $response->assertJsonMissing(['name' => 'internal.pdf']);
     }
 
     #[Test]
