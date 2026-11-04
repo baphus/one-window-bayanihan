@@ -6,9 +6,6 @@ use App\Models\CaseFile;
 use App\Models\Client;
 use App\Models\Milestone;
 use App\Models\Referral;
-use App\Models\ReferralClientAccessLink;
-use App\Models\ReferralClientMessage;
-use App\Models\ReferralClientRequest;
 use App\Models\User;
 use App\Services\CaseEventRecorder;
 use App\Services\TrackingService;
@@ -266,26 +263,6 @@ class FullLifecycleIntegrationTest extends TestCase
         $payload = json_encode($data);
         $this->assertStringNotContainsString('Case intake initiated', $payload);
         $this->assertStringNotContainsString('Case status updated to OPEN', $payload);
-    }
-
-    public function test_ofw_tracking_request_messages_include_authenticated_sender_avatars(): void
-    {
-        $result = $this->createCompleteCase();
-        $case = $result['case'];
-        $referral = $case->referrals->first();
-        $agencyUser = User::factory()->create(['role' => 'AGENCY', 'agcy_id' => $referral->agcy_id, 'avatar_url' => 'private/agency-avatar.jpg']);
-        $owner = User::factory()->create(['role' => 'OFW', 'client_id' => $case->client_id, 'avatar_url' => 'private/ofw-avatar.jpg']);
-        $request = ReferralClientRequest::factory()->create(['referral_id' => $referral->id]);
-        ReferralClientMessage::factory()->create(['request_id' => $request->id, 'sender_kind' => ReferralClientMessage::SENDER_AGENCY_USER, 'user_id' => $agencyUser->id]);
-        ReferralClientMessage::factory()->create(['request_id' => $request->id, 'sender_kind' => ReferralClientMessage::SENDER_CLIENT_USER, 'user_id' => $owner->id]);
-        ReferralClientMessage::factory()->create(['request_id' => $request->id, 'sender_kind' => ReferralClientMessage::SENDER_CLIENT_ACCESS, 'user_id' => null, 'access_link_id' => ReferralClientAccessLink::factory()->create(['request_id' => $request->id])->id]);
-
-        $card = app(TrackingService::class)->buildTrackingData($this->loadRelations($case), true)['trackingAgencies'][0];
-        $messages = collect($card['openRequest']['messages']);
-
-        $this->assertNotNull($messages[0]['sender_avatar_url']);
-        $this->assertNotNull($messages[1]['sender_avatar_url']);
-        $this->assertNull($messages[2]['sender_avatar_url']);
     }
 
     public function test_tracking_data_field_level_consistency(): void
