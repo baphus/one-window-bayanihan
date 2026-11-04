@@ -61,25 +61,77 @@ jobs:
     environment:
       name: ${{ inputs.environment }}
       url: https://${{ inputs.hostname }}
+    # The step loops below can legitimately reach ~15 minutes, and an automatic
+    # rollback adds up to another 10. Fail in 45 rather than holding the
+    # `deploy-production` concurrency group for the 6-hour default if a single
+    # AWS call hangs — but leave room for the rollback to finish.
+    timeout-minutes: 45
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      # The tag arrives as free text from a dispatch form and is later placed in
+      # shell commands and in the deployment payload. Two checks, both cheap:
+      # it must be a full commit SHA (no shell metacharacters, no partial tag),
+      # and it must be an ancestor of main — otherwise anyone with Actions write
+      # access can build an image from an unreviewed branch and promote it.
+      - name: Validate the image tag
+        env:
+          IMAGE_TAG: ${{ inputs.image_tag }}
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if ! printf '%s' "$IMAGE_TAG" | grep -Eq '^[0-9a-f]{40}$'; then
+            echo "::error::image_tag must be a full 40-character commit SHA, got '$IMAGE_TAG'"
+            exit 1
+          fi
+          STATUS=$(gh api "repos/$REPOSITORY/compare/$IMAGE_TAG...main" --jq .status)
+          echo "commit $IMAGE_TAG vs main: $STATUS"
+          case "$STATUS" in
+            identical|ahead) ;;
+            *)
+              echo "::error::image_tag is not on main (compare status: $STATUS). Build the image from main before promoting it."
+              exit 1
+              ;;
+          esac
 
       - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v5
+        uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: gha-deploy-${{ github.run_id }}
 
       - name: Confirm the image exists before touching anything
+        env:
+          IMAGE_TAG: ${{ inputs.image_tag }}
         run: |
           set -euo pipefail
           aws ecr describe-images \
             --repository-name "$ECR_REPOSITORY" \
-            --image-ids imageTag="${{ inputs.image_tag }}" \
+            --image-ids imageTag="$IMAGE_TAG" \
             --region "$AWS_REGION" >/dev/null
-          echo "image ${{ inputs.image_tag }} present in ECR"
+          echo "image $IMAGE_TAG present in ECR"
+
+      # Report only. The hard gate is in build-image.yml, which refuses to
+      # report success on an image with CRITICAL findings. It is deliberately not
+      # enforced again here: a rollback must be able to redeploy a previous tag
+      # even after a later scan flags its base image, and blocking that would
+      # remove the only recovery path during an incident.
+      - name: Report image scan findings
+        continue-on-error: true
+        env:
+          IMAGE_TAG: ${{ inputs.image_tag }}
+        run: |
+          set -euo pipefail
+          aws ecr wait image-scan-complete --repository-name "$ECR_REPOSITORY" \
+            --image-id imageTag="$IMAGE_TAG" --region "$AWS_REGION" || true
+          FINDINGS=$(aws ecr describe-image-scan-findings --repository-name "$ECR_REPOSITORY" \
+            --image-id imageTag="$IMAGE_TAG" --region "$AWS_REGION" \
+            --query 'imageScanFindings.findingSeverityCounts' --output json || echo '{}')
+          echo "scan findings: $FINDINGS"
+          echo "- Scan findings: \`$FINDINGS\`" >> "$GITHUB_STEP_SUMMARY"
 
       # A secret that does not exist on the Environment renders as an EMPTY
       # STRING, not an error. So a rename applied to this workflow but not to
@@ -99,14 +151,15 @@ jobs:
         env:
           MAIL_MAILER: ${{ vars.MAIL_MAILER || 'log' }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          ENVIRONMENT: ${{ inputs.environment }}
         run: |
           set -euo pipefail
           # Lowercased: `Resend` would slip this comparison and only be caught
           # later, by the container refusing to boot.
           MAILER=$(printf '%s' "$MAIL_MAILER" | tr '[:upper:]' '[:lower:]')
           if [ "$MAILER" = "resend" ] && [ -z "${RESEND_API_KEY:-}" ]; then
-            echo "::error::MAIL_MAILER=resend but the RESEND_API_KEY secret is empty or unset on the '${{ inputs.environment }}' Environment."
-            echo "::error::Fix: gh secret set RESEND_API_KEY --env ${{ inputs.environment }} --repo ${{ github.repository }} --body '<key>'"
+            echo "::error::MAIL_MAILER=resend but the RESEND_API_KEY secret is empty or unset on the '$ENVIRONMENT' Environment."
+            echo "::error::Fix: gh secret set RESEND_API_KEY --env $ENVIRONMENT --repo $GITHUB_REPOSITORY --body '<key>'"
             echo "::error::If the key is still stored under the pre-1.6.0 secret name it is being ignored — see docs/DEPLOYMENT_PRODUCTION_AWS_v1.6.0.md section 0."
             exit 1
           fi
@@ -142,7 +195,25 @@ jobs:
             --relational-database-snapshot-name "$SNAP" \
             --region "$AWS_REGION" >/dev/null
           echo "snapshot requested: $SNAP"
-          echo "Pre-deploy snapshot: \`$SNAP\`" >> "$GITHUB_STEP_SUMMARY"
+
+          # The API returns as soon as the snapshot is queued. The container
+          # migrates as soon as the deployment is submitted, so without this wait
+          # the snapshot can capture a half-applied schema — the exact state the
+          # snapshot exists to recover from.
+          for i in $(seq 1 30); do
+            STATE=$(aws lightsail get-relational-database-snapshot \
+              --relational-database-snapshot-name "$SNAP" --region "$AWS_REGION" \
+              --query relationalDatabaseSnapshot.state --output text 2>/dev/null || echo pending)
+            if [ "$STATE" = "available" ]; then
+              echo "snapshot available: $SNAP"
+              echo "Pre-deploy snapshot: \`$SNAP\`" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            echo "snapshot $i: state=$STATE"
+            sleep 10
+          done
+          echo "::error::snapshot $SNAP did not become available within 5 minutes; refusing to migrate without a usable restore point"
+          exit 1
 
       # Catch a half-configured chatbot BEFORE it reaches users.
       #
@@ -235,9 +306,13 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           TURNSTILE_SITE_KEY: ${{ secrets.TURNSTILE_SITE_KEY }}
           TURNSTILE_SECRET_KEY: ${{ secrets.TURNSTILE_SECRET_KEY }}
-          # All GitHub Environment variables are merged into the container env
-          # below. Add any non-sensitive config to the GitHub Environment and it
-          # flows through automatically — no workflow change needed.
+          # Every GitHub Environment variable is merged into the container env,
+          # so a new non-sensitive setting reaches the app without a workflow
+          # change. The explicit keys below are applied AFTER this merge and
+          # therefore win: a variable named CACHE_STORE, QUEUE_CONNECTION,
+          # MAIL_MAILER, RUN_* or similar in the Environment is silently ignored.
+          # Deploy-only variables are stripped in the payload so account ids and
+          # role ARNs do not end up inside the running container.
           GH_VARS_JSON: ${{ toJSON(vars) }}
         run: |
           set -euo pipefail
@@ -285,7 +360,13 @@ jobs:
                 app: {
                   image: $image,
                   ports: { "8080": "HTTP" },
-                  environment: ($ghVars + {
+                  environment: (($ghVars | del(
+                    "AWS_ACCOUNT_ID",
+                    "AWS_DEPLOY_ROLE_ARN",
+                    "AWS_CI_ROLE_ARN",
+                    "LIGHTSAIL_DB_NAME",
+                    "VITE_SENTRY_DSN_PUBLIC"
+                  )) + {
                     APP_NAME: "One Window Bayanihan",
                     APP_ENV: $appEnv,
                     APP_DEBUG: "false",
@@ -365,6 +446,21 @@ jobs:
           }
           echo "SENTRY_RELEASE verified: $IMAGE_TAG"
 
+      # Captured before the new deployment is submitted, so a failed health gate
+      # has something to roll back TO. Not required to succeed (a first-ever
+      # deployment has no current image); the rollback step handles the empty case.
+      - name: Record the deployment currently serving traffic
+        id: previous
+        env:
+          SERVICE: ${{ inputs.service_name }}
+        run: |
+          set -euo pipefail
+          IMAGE=$(aws lightsail get-container-services --service-name "$SERVICE" \
+            --query "containerServices[0].currentDeployment.containers.app.image" \
+            --region "$AWS_REGION" --output text 2>/dev/null || echo "None")
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+          echo "currently serving: $IMAGE"
+
       - name: Deploy to Lightsail
         run: |
           set -euo pipefail
@@ -398,6 +494,9 @@ jobs:
             echo "attempt $i: deployment=$STATE image=${IMAGE##*:}"
 
             if [ "$STATE" = "ACTIVE" ] && [ "${IMAGE##*:}" = "$EXPECTED_TAG" ]; then
+              # Marker read by the rollback step: the new image is now serving,
+              # so a later gate failure genuinely needs a redeploy to undo.
+              touch "$RUNNER_TEMP/deployment-activated"
               echo "deployment ACTIVE on the expected image"
               exit 0
             fi
@@ -418,10 +517,12 @@ jobs:
           exit 1
 
       - name: Health gate (/up)
+        env:
+          HOSTNAME: ${{ inputs.hostname }}
         run: |
           set -euo pipefail
           for i in $(seq 1 10); do
-            CODE=$(curl -s -o /dev/null -w "%{http_code}" "https://${{ inputs.hostname }}/up" || echo 000)
+            CODE=$(curl -s -o /dev/null -w "%{http_code}" "https://$HOSTNAME/up" || echo 000)
             if [ "$CODE" = "200" ]; then echo "/up 200"; exit 0; fi
             echo "attempt $i: /up returned $CODE"
             sleep 15
@@ -431,8 +532,15 @@ jobs:
 
       # The check that /up cannot make. /up never touches the database, so it
       # answers 200 while the queue worker and scheduler are unable to connect.
+      #
+      # No fixed pre-sleep: the scheduler heartbeat needs up to one tick (60s), so
+      # a 503 from `scheduler` alone is tolerated while the loop runs. Pending-job
+      # and failed-job counters describe data that predates this release — a
+      # backlog that already exceeded the alert threshold must not block shipping
+      # a fix. Both stay in the monitoring alert path, not the release gate.
       - name: Readiness gate (/api/readyz)
         env:
+          HOSTNAME: ${{ inputs.hostname }}
           MONITORING_READINESS_TOKEN: ${{ secrets.MONITORING_READINESS_TOKEN }}
         run: |
           set -euo pipefail
@@ -440,32 +548,91 @@ jobs:
             echo "::error::MONITORING_READINESS_TOKEN is required; refusing to declare deployment healthy without the deep readiness gate"
             exit 1
           fi
-          # The scheduler heartbeat needs a tick before it can be fresh.
-          sleep 75
-          for i in $(seq 1 8); do
+          for i in $(seq 1 12); do
             BODY=$(curl -s -w '\n%{http_code}' \
               -H "X-Monitoring-Token: $MONITORING_READINESS_TOKEN" \
-              "https://${{ inputs.hostname }}/api/readyz" || true)
+              "https://$HOSTNAME/api/readyz" || true)
             CODE=$(printf '%s' "$BODY" | tail -n1)
+            PAYLOAD=$(printf '%s' "$BODY" | head -n-1)
+
             if [ "$CODE" = "200" ]; then
               echo "readiness OK"
-              printf '%s' "$BODY" | head -n-1 >> "$GITHUB_STEP_SUMMARY"
+              printf '%s' "$PAYLOAD" >> "$GITHUB_STEP_SUMMARY"
               exit 0
             fi
-            echo "attempt $i: readyz returned $CODE"
-            printf '%s' "$BODY" | head -n-1
-            sleep 20
+
+            FAILING=$(printf '%s' "$PAYLOAD" | jq -r '(.failing // []) | join(",")' 2>/dev/null || echo "")
+            echo "attempt $i: readyz $CODE failing=[$FAILING]"
+
+            if [ -n "$FAILING" ] && [ -z "$(printf '%s' "$FAILING" | tr ',' '\n' | grep -Ev '^(queue_backlog|failed_jobs)$' || true)" ]; then
+              echo "::warning::only pre-existing backlog counters are failing; release-level checks pass"
+              printf '%s' "$PAYLOAD" >> "$GITHUB_STEP_SUMMARY"
+              echo "- Readiness: backlog counters still failing (\`$FAILING\`)" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+
+            sleep 15
           done
           echo "::error::readiness never returned 200 — the container is serving but degraded"
           exit 1
 
+      # A gate that fails after the new image is serving must undo itself. This
+      # also covers the case the previous comment relied on: a container that
+      # boots but is broken never trips Lightsail's health check, so the platform
+      # has no reason to restore the old deployment on its own.
+      #
+      # The migration already ran forward. Rolling back the image does not roll
+      # back the schema, so this only works while migrations stay backward
+      # compatible (expand first, contract later) — see docker-entrypoint.sh.
+      - name: Roll back to the previous deployment
+        if: failure()
+        env:
+          SERVICE: ${{ inputs.service_name }}
+          PREVIOUS_IMAGE: ${{ steps.previous.outputs.image }}
+        run: |
+          set -euo pipefail
+          if [ ! -f "$RUNNER_TEMP/deployment-activated" ]; then
+            echo "the new deployment never became ACTIVE; the previous one is still serving and needs no rollback"
+            echo "- Rollback: not needed, the new deployment never served traffic" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          if [ -z "${PREVIOUS_IMAGE:-}" ] || [ "$PREVIOUS_IMAGE" = "None" ]; then
+            echo "::error::health gates failed and no previous image was recorded — roll back by hand with a known good image_tag"
+            exit 1
+          fi
+          echo "::warning::health gates failed — redeploying $PREVIOUS_IMAGE"
+          jq --arg image "$PREVIOUS_IMAGE" '.containers.app.image = $image' \
+            "$RUNNER_TEMP/deployment.json" > "$RUNNER_TEMP/rollback.json"
+          aws lightsail create-container-service-deployment \
+            --cli-input-json "file://$RUNNER_TEMP/rollback.json" --region "$AWS_REGION" >/dev/null
+          for i in $(seq 1 40); do
+            read -r STATE IMAGE < <(aws lightsail get-container-services \
+              --service-name "$SERVICE" --region "$AWS_REGION" \
+              --query "containerServices[0].[currentDeployment.state, currentDeployment.containers.app.image]" \
+              --output text)
+            if [ "$STATE" = "ACTIVE" ] && [ "$IMAGE" = "$PREVIOUS_IMAGE" ]; then
+              echo "rolled back to $PREVIOUS_IMAGE"
+              echo "- Rollback: redeployed \`${PREVIOUS_IMAGE##*:}\` automatically" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            echo "rollback attempt $i: state=$STATE image=${IMAGE##*:}"
+            sleep 15
+          done
+          echo "::error::automatic rollback did not reach ACTIVE — the failed release may still be serving; roll back by hand"
+          exit 1
+
       - name: Summary
         if: always()
+        env:
+          ENVIRONMENT: ${{ inputs.environment }}
+          SERVICE_NAME: ${{ inputs.service_name }}
+          IMAGE_TAG: ${{ inputs.image_tag }}
+          HOSTNAME: ${{ inputs.hostname }}
         run: |
           {
             echo "### Deployment"
-            echo "- Environment: \`${{ inputs.environment }}\`"
-            echo "- Service: \`${{ inputs.service_name }}\`"
-            echo "- Image tag: \`${{ inputs.image_tag }}\`"
-            echo "- URL: https://${{ inputs.hostname }}"
+            echo "- Environment: \`$ENVIRONMENT\`"
+            echo "- Service: \`$SERVICE_NAME\`"
+            echo "- Image tag: \`$IMAGE_TAG\`"
+            echo "- URL: https://$HOSTNAME"
           } >> "$GITHUB_STEP_SUMMARY"

@@ -53,10 +53,10 @@ jobs:
       image-tag: ${{ github.sha }}
       registry: ${{ steps.ecr.outputs.registry }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
       - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v5
+        uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5
         with:
           role-to-assume: ${{ vars.AWS_CI_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
@@ -64,16 +64,16 @@ jobs:
 
       - name: Log in to Amazon ECR
         id: ecr
-        uses: aws-actions/amazon-ecr-login@v2
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
       # Build to a local image first so the verification steps below can run
       # against the exact artefact that will be pushed. Cache is scoped to the
       # branch via GitHub Actions cache.
       - name: Build image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
           load: true
@@ -253,16 +253,31 @@ jobs:
       # ECR tags are IMMUTABLE on this repository, so a tag always identifies
       # exactly one image. That is what makes "redeploy the previous tag" a
       # trustworthy rollback rather than a guess.
-      - name: Report scan findings
-        continue-on-error: true
+      #
+      # The scan has to run after the push (ECR only scans what it stores), so a
+      # red result here leaves the image in the registry. That is intentional and
+      # is why deploy.yml reports the same findings: a failed build is the signal
+      # not to promote it, and the release tag stays available for a rollback
+      # that must not be blocked by a finding discovered later.
+      - name: Gate on image scan findings
+        env:
+          IMAGE_TAG: ${{ github.sha }}
         run: |
-          aws ecr wait image-scan-complete \
-            --repository-name "$ECR_REPOSITORY" \
-            --image-id imageTag=${{ github.sha }} \
-            --region "$AWS_REGION" || true
-          aws ecr describe-image-scan-findings \
-            --repository-name "$ECR_REPOSITORY" \
-            --image-id imageTag=${{ github.sha }} \
+          set -euo pipefail
+          aws ecr wait image-scan-complete --repository-name "$ECR_REPOSITORY" \
+            --image-id imageTag="$IMAGE_TAG" --region "$AWS_REGION"
+          FINDINGS=$(aws ecr describe-image-scan-findings \
+            --repository-name "$ECR_REPOSITORY" --image-id imageTag="$IMAGE_TAG" \
             --region "$AWS_REGION" \
-            --query 'imageScanFindings.findingSeverityCounts' --output json \
-            | tee -a "$GITHUB_STEP_SUMMARY"
+            --query 'imageScanFindings.findingSeverityCounts' --output json)
+          echo "scan findings: $FINDINGS"
+          echo "- Scan findings: \`$FINDINGS\`" >> "$GITHUB_STEP_SUMMARY"
+          CRITICAL=$(printf '%s' "$FINDINGS" | jq -r '.CRITICAL // 0')
+          HIGH=$(printf '%s' "$FINDINGS" | jq -r '.HIGH // 0')
+          if [ "$CRITICAL" -gt 0 ]; then
+            echo "::error::$CRITICAL CRITICAL vulnerabilities in $IMAGE_TAG — do not promote this image"
+            exit 1
+          fi
+          if [ "$HIGH" -gt 0 ]; then
+            echo "::warning::$HIGH HIGH-severity findings in $IMAGE_TAG — review before promoting"
+          fi
