@@ -166,7 +166,7 @@ jobs:
       - name: Verify chatbot helpdesk content is available
         run: |
           docker run --rm --entrypoint php bayanihan:${{ github.sha }} -r \
-            'if (!glob("resources/js/data/helpdesk/content/*.ts")) { exit(1); } echo "Helpdesk content OK\n";'
+            'if (!glob("/var/www/html/resources/js/data/helpdesk/content/*.ts")) { exit(1); } echo "Helpdesk content OK\n";'
 
       # The nginx config carries the client-IP resolution that makes
       # X-Forwarded-For non-spoofable. A syntax error there would only surface as
