@@ -48,6 +48,9 @@ class ReferralMessageTest extends TestCase
     {
         $f = $this->threadFixtures();
 
+        $f['yUser']->avatar_url = 'private/y-avatar.jpg';
+        $f['yUser']->save();
+
         $response = $this->actingAsWithMfa($f['yUser'])
             ->postJson(route('referrals.messages.store', $f['referralX']), [
                 'body' => 'We received the referral and are processing it.',
@@ -56,7 +59,8 @@ class ReferralMessageTest extends TestCase
         $response->assertStatus(201)
             ->assertJsonPath('data.body', 'We received the referral and are processing it.')
             ->assertJsonPath('data.sender.id', $f['yUser']->id)
-            ->assertJsonPath('data.sender.agency.id', $f['agencyY']->id);
+            ->assertJsonPath('data.sender.agency.id', $f['agencyY']->id)
+            ->assertJsonPath('data.sender_avatar_url', fn ($url) => is_string($url) && str_contains($url, '/files/temp/private/'));
 
         $this->assertDatabaseHas('referral_messages', [
             'referral_id' => $f['referralX']->id,

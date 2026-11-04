@@ -46,6 +46,31 @@ class ClientRequestAttachmentUploadTest extends ReferralClientInboxTestCase
             ->where('clientRequestPanel.activeRequest.messages.0.attachments.0.file_name', 'passport.pdf'));
     }
 
+    public function test_checklist_requires_item_association_for_every_uploaded_file(): void
+    {
+        Config::set('filesystems.default', 'object-storage');
+        Storage::fake('object-storage');
+
+        $context = $this->context();
+        $item = $context['clientRequest']->items()->create(['label' => 'Passport', 'sort_order' => 1]);
+        $issued = $this->issue($context);
+        $this->post(route('track.request.exchange'), ['token' => $issued['raw_token']]);
+        $files = [
+            UploadedFile::fake()->createWithContent('one.pdf', '%PDF-1.4 one', 'application/pdf'),
+            UploadedFile::fake()->createWithContent('two.pdf', '%PDF-1.4 two', 'application/pdf'),
+        ];
+
+        $this->from(route('track.request.index'))->post(route('track.request.messages.store'), [
+            'body' => 'Documents',
+            'attachments' => $files,
+            'request_item_ids' => [$item->id],
+        ])->assertSessionHasErrors('attachments');
+
+        $this->assertDatabaseCount('referral_client_messages', 0);
+        $this->assertDatabaseCount('referral_client_message_attachments', 0);
+        Storage::disk('object-storage')->assertDirectoryEmpty('client-request-attachments/'.$context['clientRequest']->id);
+    }
+
     public function test_reply_requires_message_or_attachment(): void
     {
         $context = $this->context();

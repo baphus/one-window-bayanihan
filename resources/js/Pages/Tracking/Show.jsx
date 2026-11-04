@@ -486,9 +486,10 @@ function ClientRequestPanel({ clientRequestPanel, ofwRequestContext }) {
                         <article key={message.id} className={`flex items-end gap-2 ${isClient ? 'flex-row-reverse' : ''}`}>
                           <span
                             aria-hidden="true"
-                            className={`flex h-7 w-7 shrink-0 select-none items-center justify-center rounded-full text-[11px] font-bold ${isClient ? 'bg-primary text-white' : 'bg-slate-200 text-slate-600'}`}
+                            className={`relative flex h-7 w-7 shrink-0 select-none items-center justify-center rounded-full text-[11px] font-bold ${isClient ? 'bg-primary text-white' : 'bg-slate-200 text-slate-600'}`}
                           >
                             {senderName.charAt(0)}
+                            {message.sender_avatar_url && <img src={message.sender_avatar_url} alt="" className="absolute inset-0 h-full w-full rounded-full object-cover" onError={(event) => { event.currentTarget.hidden = true; }} />}
                           </span>
                           <div className={`flex max-w-[85%] flex-col ${isClient ? 'items-end' : 'items-start'}`}>
                             <div className={`rounded-xl px-3.5 py-2.5 text-[13px] leading-relaxed shadow-sm ${isClient ? 'rounded-br-sm bg-primary text-white' : 'rounded-bl-sm border border-slate-200 bg-white text-slate-800'}`}>

@@ -172,7 +172,7 @@ class TrackingService
                     ReferralClientRequest::STATUS_IN_PROGRESS,
                     ReferralClientRequest::STATUS_CLIENT_RESPONDED,
                 ])
-                ->with(['messages' => fn ($query) => $query->where('is_deleted', false)->where('kind', 'MESSAGE')])
+                ->with(['messages' => fn ($query) => $query->where('is_deleted', false)->where('kind', 'MESSAGE')->with('user:id,avatar_url')])
                 ->orderByDesc('created_at')
                 ->get()
                 ->unique('referral_id')
@@ -434,6 +434,15 @@ class TrackingService
         return [
             'id' => $openRequest->id,
             'title' => $openRequest->title,
+            'messages' => $openRequest->messages->map(fn ($message) => [
+                'id' => $message->id,
+                'body' => $message->body,
+                'sender_kind' => $message->sender_kind,
+                'sender_avatar_url' => in_array($message->sender_kind, [ReferralClientMessage::SENDER_AGENCY_USER, ReferralClientMessage::SENDER_CLIENT_USER], true)
+                    ? $message->user?->avatar_url
+                    : null,
+                'created_at' => $message->created_at?->toIso8601String(),
+            ])->values(),
             'type' => $openRequest->type,
             'status' => $openRequest->status,
             'dueAt' => $openRequest->due_at?->toIso8601String(),

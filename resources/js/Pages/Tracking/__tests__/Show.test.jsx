@@ -108,6 +108,17 @@ describe('Tracking/Show client request panel', () => {
     expect(document.querySelector('input[type="file"]')).toBeNull();
   });
 
+  it('shows sender photos in messages and retains initials after image failure', () => {
+    const panel = { ...readyPanel, activeRequest: { ...readyPanel.activeRequest, messages: [{ id: 'photo-message', body: 'Hello', sender_kind: 'CLIENT_USER', sender_avatar_url: '/avatars/client.jpg', attachments: [] }] } };
+    render(<TrackingShow clientRequestPanel={panel} />);
+
+    const photo = document.querySelector('img[src="/avatars/client.jpg"]');
+    expect(photo).toBeInTheDocument();
+    fireEvent.error(photo);
+    expect(photo).not.toBeVisible();
+    expect(screen.getByText('Y')).toBeInTheDocument();
+  });
+
   it('renders download links for attachments on thread messages', () => {
     render(<TrackingShow clientRequestPanel={{
       ...readyPanel,

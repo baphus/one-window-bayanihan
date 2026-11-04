@@ -215,6 +215,10 @@ class ReferralClientRequestService
             ]);
 
             $items = $lockedRequest->items()->whereIn('id', array_filter($requestItemIds))->get()->keyBy('id');
+            $hasActiveItems = $lockedRequest->items()->exists();
+            if ($hasActiveItems && collect($files)->keys()->contains(fn ($index) => empty($requestItemIds[$index]))) {
+                throw new InvalidArgumentException('Select a checklist item for every uploaded document.');
+            }
             // Rows are new (and roll back with the transaction); the stored
             // files are not. Remember their paths so a failed reply after the
             // first upload does not leave orphaned objects in the bucket.

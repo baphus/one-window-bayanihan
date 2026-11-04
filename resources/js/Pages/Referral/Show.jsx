@@ -282,9 +282,10 @@ function ClientRequestCard({ request, permissions, isOversight, onMutate, embedd
                                     <article key={message.id} className={`flex items-end gap-2 ${isOwn ? 'flex-row-reverse' : ''}`}>
                                         <span
                                             aria-hidden="true"
-                                            className={`flex h-6 w-6 shrink-0 select-none items-center justify-center rounded-full text-[10px] font-bold ${isOwn ? 'bg-blue-900 text-white' : 'bg-slate-200 text-slate-600'}`}
+                                            className={`relative flex h-6 w-6 shrink-0 select-none items-center justify-center rounded-full text-[10px] font-bold ${isOwn ? 'bg-blue-900 text-white' : 'bg-slate-200 text-slate-600'}`}
                                         >
                                             {senderName.charAt(0)}
+                                            {message.sender_avatar_url && <img src={message.sender_avatar_url} alt="" className="absolute inset-0 h-full w-full rounded-full object-cover" onError={(event) => { event.currentTarget.hidden = true; }} />}
                                         </span>
                                         <div className={`flex max-w-[85%] flex-col ${isOwn ? 'items-end' : 'items-start'}`}>
                                             <div className={`rounded-lg px-3 py-2 text-[12px] leading-relaxed shadow-sm ${isOwn ? 'rounded-br-sm bg-blue-900 text-white' : 'rounded-bl-sm border border-slate-200 bg-white text-slate-700'}`}>
