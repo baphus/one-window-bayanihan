@@ -2,8 +2,12 @@ name: Deploy Production
 
 # Manual only, by design. Production is never deployed as a side effect of a
 # merge: the release order (migrate, then deploy) has to be a decision someone
-# takes, and the image being promoted should already have been exercised on
-# staging.
+# takes.
+#
+# There is no staging caller yet — no staging container service, database,
+# buckets, or GitHub Environment exist (docs/CI_CD_GUIDE_v2.1.0.md §5). Until
+# they do, "exercise it on staging first" is not a step anyone can take, so
+# `deploy.yml` carries the gates that would otherwise be staging's job.
 #
 # Configure the `production` GitHub Environment with required reviewers so this
 # cannot run unattended. Without that, "manual" only means "someone clicked".
@@ -38,8 +42,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check confirmation phrase
+        env:
+          CONFIRM: ${{ inputs.confirm }}
         run: |
-          if [ "${{ inputs.confirm }}" != "PRODUCTION" ]; then
+          if [ "$CONFIRM" != "PRODUCTION" ]; then
             echo "::error::confirmation phrase did not match; expected PRODUCTION"
             exit 1
           fi
@@ -55,3 +61,8 @@ jobs:
       app_env: production
       image_tag: ${{ inputs.image_tag }}
     secrets: inherit
+    # `inherit` rather than an explicit map: the reusable workflow reads ~20
+    # secrets, and an explicit map that misses one renders it as an EMPTY STRING
+    # instead of failing — the exact silent-miss shape behind the Resend outage
+    # (docs/DEPLOYMENT_PRODUCTION_AWS_v1.6.0.md §0). The `production` Environment
+    # still scopes every one of them, and requires a reviewer.

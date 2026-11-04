@@ -7,6 +7,19 @@
 # failing on the old advisory until the lockfile is updated.
 version: 2
 updates:
+  # PHP advisories otherwise reach CI only on a PR that touches composer.lock.
+  - package-ecosystem: "composer"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+
+  # Pins in .github/workflows are SHA-pinned by hand; this is what keeps them
+  # from going stale, and what surfaces a new release worth pinning to.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+
   - package-ecosystem: "npm"
     directory: "/"
     schedule:

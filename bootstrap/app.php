@@ -47,6 +47,28 @@ return Application::configure(basePath: dirname(__DIR__))
         // the JavaScript-readable XSRF-TOKEN cookie on every web response.
         $middleware->preventRequestForgery(originOnly: true);
 
+        // Pin the Host header to APP_URL's host (plus subdomains). Without this,
+        // nginx's `server_name _` accepts any Host and Laravel builds absolute
+        // URLs from it, so a forged Host on POST /forgot-password poisons the
+        // emailed reset link. Loopback, RFC1918 and the platform's own service
+        // domain stay trusted because the container health check and the
+        // platform URL reach the app by address, not by APP_URL's name.
+        //
+        // Getting this wrong is safe: an untrusted Host answers 400, the
+        // container health check never passes, and the deploy stays on the
+        // previous release instead of serving a broken one.
+        $middleware->trustHosts(
+            at: [
+                '^localhost$',
+                '^127\.0\.0\.1$',
+                '^10\.\d+\.\d+\.\d+$',
+                '^172\.(1[6-9]|2\d|3[01])\.\d+\.\d+$',
+                '^192\.168\.\d+\.\d+$',
+                '^.+\.cs\.amazonlightsail\.com$',
+            ],
+            subdomains: true,
+        );
+
         $middleware->trustProxies(
             at: explode(',', env('TRUSTED_PROXIES', '10.0.0.0/8')),
             headers: Request::HEADER_X_FORWARDED_FOR

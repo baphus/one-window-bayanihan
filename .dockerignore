@@ -34,14 +34,19 @@ public/build/*
 # Frontend dev
 .vite
 
-# Tests
+# Tests / CI
+tests
+.github
+openspec
 test-results
 .phpunit.result.cache
 
 # Laravel
+# Every env file, including untracked local ones (.env.testing, .env.local):
+# `docker build` copies the working tree, not the git index, so a locally built
+# image would otherwise bake a developer's live credentials into a layer.
 .env
-.env.backup
-.env.production
+.env.*
 storage/framework/cache/data/*
 storage/framework/sessions/*
 storage/framework/views/*
