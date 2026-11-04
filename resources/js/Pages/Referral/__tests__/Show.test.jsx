@@ -186,6 +186,17 @@ describe('Referral/Show client request permissions', () => {
     expect(screen.getByRole('link', { name: /extra\.pdf/ })).toBeInTheDocument();
   });
 
+  it('shows sender photos in messages and falls back to initials when image fails', () => {
+    state.role = 'AGENCY';
+    const history = [{ ...requestHistory[0], messages: [{ id: 'photo-message', sender_kind: 'CLIENT_USER', body: 'Hello', sender_avatar_url: '/avatars/client.jpg', attachments: [] }] }];
+    render(<ReferralShow referral={referral} clientRequestHistory={history} clientRequestPermissions={{ canCreate: true, canReply: true, canTransition: true, canRevokeAccess: true }} timeline={[]} />);
+
+    const photo = document.querySelector('img[src="/avatars/client.jpg"]');
+    expect(photo).toBeInTheDocument();
+    fireEvent.error(photo);
+    expect(screen.getByText('C', { selector: 'span' })).toBeInTheDocument();
+  });
+
   it('labels CLIENT_ACCESS and CLIENT_USER messages as Client, and agency messages as Agency', () => {
     state.role = 'AGENCY';
     const messages = [

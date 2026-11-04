@@ -119,7 +119,7 @@ class ReferralClientRequestController extends Controller
             $case,
             $referral,
             $clientRequest,
-            with: ['items.attachments.message', 'referral.agency', 'messages' => fn ($query) => $query->where('is_deleted', false)->where('kind', 'MESSAGE')->orderBy('created_at'), 'messages.user', 'messages.attachments.requestItem'],
+            with: ['items.attachments.message', 'referral.agency', 'messages' => fn ($query) => $query->where('is_deleted', false)->where('kind', 'MESSAGE')->orderBy('created_at'), 'messages.user:id,name,role,avatar_url', 'messages.attachments.requestItem'],
         );
 
         $agencyShort = $clientRequestModel->referral?->agency?->short;
@@ -333,7 +333,7 @@ class ReferralClientRequestController extends Controller
             ]), $request);
         }
 
-        $clientRequest->loadMissing(['referral.agency', 'items', 'messages.attachments']);
+        $clientRequest->loadMissing(['referral.agency', 'items', 'messages.attachments', 'messages.user:id,avatar_url']);
         $payload = [
             'type' => $clientRequest->type,
             'title' => $clientRequest->title,
@@ -749,6 +749,9 @@ class ReferralClientRequestController extends Controller
             'id' => $message->id,
             'body' => $message->body,
             'sender_kind' => $message->sender_kind,
+            'sender_avatar_url' => in_array($message->sender_kind, [ReferralClientMessage::SENDER_AGENCY_USER, ReferralClientMessage::SENDER_CLIENT_USER], true)
+                ? $message->user?->avatar_url
+                : null,
             'created_at' => $message->created_at?->toIso8601String(),
             'attachments' => $message->attachments
                 ?->filter(fn ($attachment) => ! $attachment->is_deleted && ! $attachment->trashed()
@@ -773,6 +776,9 @@ class ReferralClientRequestController extends Controller
             'id' => $message->id,
             'body' => $message->body,
             'sender_kind' => $message->sender_kind,
+            'sender_avatar_url' => in_array($message->sender_kind, [ReferralClientMessage::SENDER_AGENCY_USER, ReferralClientMessage::SENDER_CLIENT_USER], true)
+                ? $message->user?->avatar_url
+                : null,
             'created_at' => $message->created_at?->toIso8601String(),
             'attachments' => $message->attachments
                 ?->where('is_deleted', false)

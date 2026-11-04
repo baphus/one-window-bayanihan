@@ -52,7 +52,7 @@ class ReferralMessageService
         $this->assertCanAccessThread($referral, $actor);
 
         return $this->pairQuery($referral, $actor)
-            ->with('sender.agency')
+            ->with('sender:id,name,role,agcy_id,avatar_url', 'sender.agency')
             ->orderBy('created_at')
             ->get()
             ->map(fn (ReferralMessage $message) => $this->payload($message))
@@ -81,7 +81,7 @@ class ReferralMessageService
             return $message;
         });
 
-        return $this->payload($message->load('sender.agency'));
+        return $this->payload($message->load(['sender:id,name,role,agcy_id,avatar_url', 'sender.agency']));
     }
 
     /** Mark the pair's conversation read for the user. */
@@ -287,6 +287,7 @@ class ReferralMessageService
             'id' => $message->id,
             'body' => $message->body,
             'created_at' => $message->created_at?->toISOString(),
+            'sender_avatar_url' => $message->sender?->avatar_url,
             'sender' => $message->sender ? [
                 'id' => $message->sender->id,
                 'name' => $message->sender->name,

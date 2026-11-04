@@ -353,7 +353,7 @@ class ReferralService
                     'creator:id,name,role',
                     'messages' => fn ($messages) => $messages
                         ->where('is_deleted', false)
-                        ->with(['user:id,name,role', 'attachments'])
+                        ->with(['user:id,name,role,avatar_url', 'attachments'])
                         ->orderBy('created_at'),
                     'accessLinks:id,request_id,expires_at,revoked_at,first_used_at,last_used_at,use_count',
                     'milestone:id,refr_id,client_request_id,title,description,created_at',
@@ -434,6 +434,9 @@ class ReferralService
                         'name' => $message->user->name,
                         'role' => $message->user->role,
                     ] : null,
+                    'sender_avatar_url' => in_array($message->sender_kind, [ReferralClientMessage::SENDER_AGENCY_USER, ReferralClientMessage::SENDER_CLIENT_USER], true)
+                        ? $message->user?->avatar_url
+                        : null,
                     'attachments' => $message->attachments
                         ->map(fn ($attachment) => [
                             'id' => $attachment->id,
