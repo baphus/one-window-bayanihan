@@ -62,10 +62,18 @@ export default function OfwLayout({ children, title }) {
                                 File a Case
                             </Link>
                             <div className="flex items-center gap-4 border-l border-gray-200 pl-5">
-                                <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-primary">
-                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-3/5 w-3/5 text-white/50">
-                                        <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-                                    </svg>
+                                <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary">
+                                    {auth?.user?.avatar_url ? (
+                                        <img
+                                            src={auth.user.avatar_url}
+                                            alt={auth.user.name ? `${auth.user.name} profile photo` : 'Profile photo'}
+                                            className="h-full w-full object-cover"
+                                        />
+                                    ) : (
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-3/5 w-3/5 text-white/50">
+                                            <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                                        </svg>
+                                    )}
                                 </span>
                                 <div className="hidden flex-col lg:flex">
                                     <span className="text-sm font-semibold text-slate-800">
