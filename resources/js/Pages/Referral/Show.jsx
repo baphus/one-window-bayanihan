@@ -248,6 +248,7 @@ function ClientRequestCard({ request, permissions, isOversight, onMutate, embedd
         return grouped;
     }, {});
     const visibleMessages = messages.filter((message) => message.body || message.attachments?.some((attachment) => !isChecklistAttachment(attachment)));
+    const reviewAttachmentHref = reviewAttachment ? route('referrals.client-requests.attachments.download', [request.referral_id, reviewAttachment.id]) : null;
 
     return (
         <article className={embedded ? 'flex h-full min-w-0 flex-col rounded-none border-0 bg-white p-2 shadow-none' : 'rounded-md border border-slate-200 bg-white p-3 shadow-sm'}>
@@ -422,32 +423,26 @@ function ClientRequestCard({ request, permissions, isOversight, onMutate, embedd
                                 <span className="material-symbols-outlined text-[16px]">close</span>
                             </button>
                         </div>
-                        <div className="flex max-h-[70vh] items-center justify-center overflow-auto bg-slate-100 p-3">
-                            {(() => {
-                                const href = route('referrals.client-requests.attachments.download', [request.referral_id, reviewAttachment.id]);
-                                const fileType = typeof reviewAttachment.file_type === 'string' ? reviewAttachment.file_type : '';
-                                const isImage = fileType.startsWith('image/');
-                                const isPdf = fileType === 'application/pdf';
-                                const preview = isImage ? (
-                                    <img src={href} alt={reviewAttachment.file_name} className="max-h-[65vh] max-w-full object-contain" />
-                                ) : isPdf ? (
-                                    <iframe src={href} title={reviewAttachment.file_name} className="h-[65vh] w-full rounded-md border-0 bg-white" />
-                                ) : (
-                                    <div className="flex flex-col items-center justify-center text-slate-500">
-                                        <span className="material-symbols-outlined text-[40px] mb-2">description</span>
-                                        <p className="text-[12px]">{reviewAttachment.file_name}</p>
-                                    </div>
-                                );
-                                return (
-                                    <>
-                                        {preview}
-                                        <a href={href} download={reviewAttachment.file_name} className="mt-2 inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-[10px] font-semibold text-blue-900 hover:bg-blue-50 shadow-sm">
-                                            <span className="material-symbols-outlined text-[14px]">download</span>Download
-                                        </a>
-                                    </>
-                                );
-                            })()}
-                        </div>
+                        {(() => {
+                            const fileType = typeof reviewAttachment.file_type === 'string' ? reviewAttachment.file_type : '';
+                            const isImage = fileType.startsWith('image/');
+                            const isPdf = fileType === 'application/pdf';
+                            const preview = isImage ? (
+                                <img src={reviewAttachmentHref} alt={reviewAttachment.file_name} className="max-h-[65vh] max-w-full object-contain" />
+                            ) : isPdf ? (
+                                <iframe src={reviewAttachmentHref} title={reviewAttachment.file_name} className="h-[65vh] w-full rounded-md border-0 bg-white" />
+                            ) : (
+                                <div className="flex flex-col items-center justify-center text-slate-500">
+                                    <span className="material-symbols-outlined text-[40px] mb-2">description</span>
+                                    <p className="text-[12px]">{reviewAttachment.file_name}</p>
+                                </div>
+                            );
+                            return (
+                                <>
+                                    {preview}
+                                </>
+                            );
+                        })()}
                         <div className="border-t border-slate-200 bg-slate-50 px-4 py-3">
                             <div className="space-y-2">
                                 <div className="flex items-center gap-2">
@@ -476,7 +471,10 @@ function ClientRequestCard({ request, permissions, isOversight, onMutate, embedd
                                     </div>
                                 )}
                             </div>
-                            <div className="mt-3 flex justify-end">
+                            <div className="mt-3 flex items-center gap-2 justify-end">
+                                <a href={reviewAttachmentHref} download={reviewAttachment.file_name} className="inline-flex h-[28px] items-center gap-1 rounded-md border border-slate-200 bg-white px-3 py-1 text-[10px] font-semibold text-blue-900 hover:bg-blue-50">
+                                    <span className="material-symbols-outlined text-[14px]">download</span>Download
+                                </a>
                                 <button type="button" onClick={saveReview} disabled={reviewLoading} className="inline-flex h-[28px] items-center gap-1.5 rounded-md bg-blue-900 px-3 text-[10px] font-bold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60">
                                     {reviewLoading ? 'Saving…' : 'Save review'}
                                 </button>
