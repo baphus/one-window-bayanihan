@@ -86,6 +86,7 @@ class ReferralClientRequestActivity extends Notification implements ShouldQueue
         return match ($activity) {
             'created' => 'New client request created',
             'client_reply' => 'Client responded',
+            'needs_revision' => 'Client document needs revision',
             'replacement_requested' => 'Client asked for a replacement',
             'agency_message' => 'New message sent to client',
             'completed' => 'Client request completed',

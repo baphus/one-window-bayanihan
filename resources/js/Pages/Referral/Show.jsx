@@ -1,4 +1,4 @@
-import Select from '@/Components/Select';
+﻿import Select from '@/Components/Select';
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { useEffect, useRef, useState } from 'react';
@@ -183,9 +183,9 @@ function AttachmentThumb({ attachment, href, onPreview }) {
 }
 
 function ClientRequestCard({ request, permissions, isOversight, onMutate, embedded = false, activeAgencies = [] }) {
-    const [reviewingAttachment, setReviewingAttachment] = useState({});
-    const [attachmentVisibility, setAttachmentVisibility] = useState({});
-    const [selectedAgencies, setSelectedAgencies] = useState({});
+    const [reviewAttachment, setReviewAttachment] = useState(null);
+    const [reviewDraft, setReviewDraft] = useState({});
+    const [reviewLoading, setReviewLoading] = useState(null);
     const [reply, setReply] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(null);
@@ -208,18 +208,27 @@ function ClientRequestCard({ request, permissions, isOversight, onMutate, embedd
         });
     }
 
-    function reviewAttachment(attachment, reviewStatus, visibility = attachment.visibility ?? 'HIDDEN') {
-        if (loading || !permissions.canReply) return;
-        setLoading(`review-${attachment.id}`);
-        router.patch(route('referrals.client-requests.attachments.review', [attachment.id]), {
-            review_status: reviewStatus,
-            visibility,
-            agency_ids: visibility === 'SELECTED' ? (selectedAgencies[attachment.id] ?? []) : [],
+    function openReview(attachment) {
+        setReviewAttachment(attachment);
+        setReviewDraft({
+            status: attachment.review_status ?? 'PENDING',
+            visibility: attachment.visibility ?? 'HIDDEN',
+            agencyIds: [],
+        });
+    }
+
+    function saveReview() {
+        if (!reviewAttachment || reviewLoading || !permissions.canReply) return;
+        setReviewLoading(reviewAttachment.id);
+        router.patch(route('referrals.client-requests.attachments.review', [reviewAttachment.id]), {
+            review_status: reviewDraft.status,
+            visibility: reviewDraft.visibility,
+            agency_ids: reviewDraft.visibility === 'SELECTED' ? (reviewDraft.agencyIds ?? []) : [],
         }, {
             preserveScroll: true,
-            onSuccess: reloadRequests,
+            onSuccess: () => { setReviewAttachment(null); reloadRequests(); },
             onError: (errors) => setError(Object.values(errors ?? {}).flat().find(Boolean) || 'Unable to review document.'),
-            onFinish: () => setLoading(null),
+            onFinish: () => setReviewLoading(null),
         });
     }
 
@@ -257,16 +266,18 @@ function ClientRequestCard({ request, permissions, isOversight, onMutate, embedd
 
             {items.length > 0 && (
                 <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2.5">
+                    <h3 className="text-[10px] font-bold uppercase tracking-[0.1em] text-slate-500 mb-2">Requirements &amp; uploads</h3>
                     <ul className="divide-y divide-slate-200">
-                        {items.map((item) => <li key={item.id ?? item.sort_order ?? item.label} className="py-2 text-[11px] text-slate-700"><div className="flex items-center gap-2"><span aria-hidden="true" className="material-symbols-outlined text-[14px] text-slate-400">description</span><span className="min-w-0 flex-1">{item.label}</span></div>{attachmentsByItem[item.id]?.map((attachment) => { const href = route('referrals.client-requests.attachments.download', [request.referral_id, attachment.id]); return <div key={attachment.id} className="mt-1 ml-5 flex flex-wrap items-center gap-2"><a href={href} className="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-900 hover:underline"><span className="material-symbols-outlined text-[13px]">attach_file</span>{attachment.file_name}{attachment.size > 0 && <span className="font-normal text-slate-400">{formatDisplayBytes(attachment.size)}</span>}</a>{!isOversight && permissions.canReply && <div className="flex flex-wrap items-center gap-1"><Select aria-label={`Review ${attachment.file_name}`} value={reviewingAttachment?.[attachment.id] ?? attachment.review_status ?? 'PENDING'} onChange={(event) => setReviewingAttachment((current) => ({ ...current, [attachment.id]: event.target.value }))} className="h-auto w-auto px-1 py-0.5 text-[9px]"><option value="PENDING">Pending</option><option value="ACCEPTED">Accept</option><option value="REJECTED">Reject</option><option value="NEEDS_REVISION">Needs revision</option></Select><Select aria-label={`Visibility ${attachment.file_name}`} value={attachmentVisibility[attachment.id] ?? attachment.visibility ?? 'HIDDEN'} onChange={(event) => setAttachmentVisibility((current) => ({ ...current, [attachment.id]: event.target.value }))} className="h-auto w-auto px-1 py-0.5 text-[9px]"><option value="HIDDEN">Hidden</option><option value="ALL">All agencies</option><option value="SELECTED">Selected agencies</option></Select>{(attachmentVisibility[attachment.id] ?? attachment.visibility) === 'SELECTED' && <Select aria-label={`Agencies ${attachment.file_name}`} multiple value={selectedAgencies[attachment.id] ?? []} onChange={(event) => setSelectedAgencies((current) => ({ ...current, [attachment.id]: Array.from(event.target.selectedOptions, (option) => option.value) }))} className="h-auto w-auto max-w-[150px] px-1 py-0.5 text-[9px]">{activeAgencies.map((agency) => <option key={agency.id} value={agency.id}>{agency.name}</option>)}</Select>}<button type="button" onClick={() => reviewAttachment(attachment, reviewingAttachment?.[attachment.id] ?? 'PENDING', attachmentVisibility[attachment.id] ?? attachment.visibility ?? 'HIDDEN')} disabled={!!loading} className="text-[9px] font-bold text-blue-900 disabled:opacity-50">Save review</button></div>}</div>; })}</li>)}
+                        {items.map((item) => <li key={item.id ?? item.sort_order ?? item.label} className="py-2 text-[11px] text-slate-700"><div className="flex items-center gap-2"><span aria-hidden="true" className="material-symbols-outlined text-[14px] text-slate-400">description</span><span className="min-w-0 flex-1">{item.label}</span></div>{attachmentsByItem[item.id]?.map((attachment) => { const href = route('referrals.client-requests.attachments.download', [request.referral_id, attachment.id]); const fileType = typeof attachment.file_type === 'string' ? attachment.file_type : ''; const isImage = fileType.startsWith('image/'); const isPdf = fileType === 'application/pdf'; return <div key={attachment.id} className="mt-1 ml-5 flex flex-wrap items-center gap-2">{isImage ? <AttachmentThumb attachment={attachment} href={href} onPreview={() => setPreview(attachment)} /> : isPdf ? <button type="button" onClick={() => setPreview(attachment)} aria-label={`Preview ${attachment.file_name}`} className="inline-flex items-center gap-1 rounded-md border border-slate-200 px-2 py-1 text-[10px] font-semibold hover:bg-slate-50"><span className="material-symbols-outlined text-[13px]">picture_as_pdf</span>Preview</button> : null}<a href={href} className="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-900 hover:underline"><span className="material-symbols-outlined text-[13px]">attach_file</span>{attachment.file_name}</a>{attachment.size > 0 && <span className="font-normal text-slate-400">{formatDisplayBytes(attachment.size)}</span>}{!isOversight && permissions.canReply && attachment.request_item_id && <button type="button" onClick={() => openReview(attachment)} className="ml-2 inline-flex items-center gap-1 rounded-md border border-slate-200 px-2 py-1 text-[10px] font-semibold text-slate-700 hover:bg-slate-50"><span className="material-symbols-outlined text-[13px]">edit_note</span>Review</button>}</div>; })}</li>)}
                     </ul>
                 </div>
             )}
 
             <div className="mt-3 border-t border-slate-200">
-                <div className="flex items-center gap-2 pt-3">
+                <div className="flex items-center justify-between gap-2 pt-3">
+                    <h3 className="text-[10px] font-bold uppercase tracking-[0.1em] text-slate-500">Messages</h3>
                     {visibleMessages.length > 0 && (
-                        <span className="ml-auto rounded-full bg-blue-900/10 px-2 py-0.5 text-[9px] font-bold text-blue-900">
+                        <span className="rounded-full bg-blue-900/10 px-2 py-0.5 text-[9px] font-bold text-blue-900">
                             {visibleMessages.length} {visibleMessages.length === 1 ? 'message' : 'messages'}
                         </span>
                     )}
@@ -300,15 +311,7 @@ function ClientRequestCard({ request, permissions, isOversight, onMutate, embedd
                                                             return (
                                                                 <div key={attachment.id} className="flex items-center gap-1.5">
                                                                     {!isOwn && attachment.request_item_id && (
-                                                                         <div className="flex shrink-0 flex-col gap-1">
-                                                                             <Select value={reviewingAttachment?.[attachment.id] ?? attachment.review_status ?? 'PENDING'} onChange={(event) => setReviewingAttachment((current) => ({ ...current, [attachment.id]: event.target.value }))} className="h-auto w-auto px-1 py-0.5 text-[9px]">
-                                                                                 <option value="PENDING">Pending</option>
-                                                                                 <option value="ACCEPTED">Accept</option>
-                                                                                 <option value="REJECTED">Reject</option>
-                                                                                 <option value="NEEDS_REVISION">Needs revision</option>
-                                                                             </Select>
-                                                                             <Select value={attachmentVisibility[attachment.id] ?? attachment.visibility ?? 'HIDDEN'} onChange={(event) => setAttachmentVisibility((current) => ({ ...current, [attachment.id]: event.target.value }))} className="h-auto w-auto px-1 py-0.5 text-[9px]"><option value="HIDDEN">Hidden</option><option value="ALL">All agencies</option><option value="SELECTED">Selected agencies</option></Select>{(attachmentVisibility[attachment.id] ?? attachment.visibility) === 'SELECTED' && <Select multiple value={selectedAgencies[attachment.id] ?? []} onChange={(event) => setSelectedAgencies((current) => ({ ...current, [attachment.id]: Array.from(event.target.selectedOptions, (option) => option.value) }))} className="h-auto w-auto max-w-[150px] px-1 py-0.5 text-[9px]">{activeAgencies.map((agency) => <option key={agency.id} value={agency.id}>{agency.name}</option>)}</Select>}<button type="button" onClick={() => reviewAttachment(attachment, reviewingAttachment?.[attachment.id] ?? 'PENDING', attachmentVisibility[attachment.id] ?? attachment.visibility ?? 'HIDDEN')} className="text-[9px] font-bold text-blue-900">Save review</button>
-                                                                         </div>
+                                                                         <button type="button" onClick={() => openReview(attachment)} className="inline-flex items-center gap-1 rounded-md border border-slate-200 px-2 py-1 text-[10px] font-semibold text-slate-700 hover:bg-slate-50"><span className="material-symbols-outlined text-[13px]">edit_note</span>Review</button>
                                                                      )}
                                                                      {isImage
                                                                         ? <AttachmentThumb attachment={attachment} href={downloadHref} onPreview={() => setPreview(attachment)} />
@@ -406,6 +409,84 @@ function ClientRequestCard({ request, permissions, isOversight, onMutate, embedd
                     </div>
                 )}
             </Modal>
+
+            {reviewAttachment && (
+                <Modal show={!!reviewAttachment} maxWidth="2xl" onClose={() => setReviewAttachment(null)}>
+                    <div className="bg-white">
+                        <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-2.5">
+                            <div className="min-w-0">
+                                <p className="truncate text-[12px] font-bold text-slate-800">{reviewAttachment.file_name}</p>
+                                {reviewAttachment.size > 0 && <p className="text-[10px] text-slate-400">{formatDisplayBytes(reviewAttachment.size)}</p>}
+                            </div>
+                            <button type="button" onClick={() => setReviewAttachment(null)} aria-label="Close review" className="inline-flex items-center justify-center rounded-md p-1 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700">
+                                <span className="material-symbols-outlined text-[16px]">close</span>
+                            </button>
+                        </div>
+                        <div className="flex max-h-[70vh] items-center justify-center overflow-auto bg-slate-100 p-3">
+                            {(() => {
+                                const href = route('referrals.client-requests.attachments.download', [request.referral_id, reviewAttachment.id]);
+                                const fileType = typeof reviewAttachment.file_type === 'string' ? reviewAttachment.file_type : '';
+                                const isImage = fileType.startsWith('image/');
+                                const isPdf = fileType === 'application/pdf';
+                                const preview = isImage ? (
+                                    <img src={href} alt={reviewAttachment.file_name} className="max-h-[65vh] max-w-full object-contain" />
+                                ) : isPdf ? (
+                                    <iframe src={href} title={reviewAttachment.file_name} className="h-[65vh] w-full rounded-md border-0 bg-white" />
+                                ) : (
+                                    <div className="flex flex-col items-center justify-center text-slate-500">
+                                        <span className="material-symbols-outlined text-[40px] mb-2">description</span>
+                                        <p className="text-[12px]">{reviewAttachment.file_name}</p>
+                                    </div>
+                                );
+                                return (
+                                    <>
+                                        {preview}
+                                        <div className="absolute bottom-3 right-3 inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-[10px] font-semibold text-blue-900 hover:bg-blue-50 shadow-sm z-10">
+                                            <a href={href} download={reviewAttachment.file_name} className="inline-flex items-center gap-1">
+                                                <span className="material-symbols-outlined text-[14px]">download</span>Download
+                                            </a>
+                                        </div>
+                                    </>
+                                );
+                            })()}
+                        </div>
+                        <div className="border-t border-slate-200 bg-slate-50 px-4 py-3">
+                            <div className="space-y-2">
+                                <div className="flex items-center gap-2">
+                                    <label className="text-[10px] font-bold uppercase tracking-[0.1em] text-slate-500 w-20 shrink-0">Decision</label>
+                                    <Select value={reviewDraft.status} onChange={(event) => setReviewDraft({ ...reviewDraft, status: event.target.value })} className="flex-1 text-[11px]">
+                                        <option value="PENDING">Pending</option>
+                                        <option value="ACCEPTED">Accept</option>
+                                        <option value="REJECTED">Reject</option>
+                                        <option value="NEEDS_REVISION">Needs revision</option>
+                                    </Select>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <label className="text-[10px] font-bold uppercase tracking-[0.1em] text-slate-500 w-20 shrink-0">Visibility</label>
+                                    <Select value={reviewDraft.visibility} onChange={(event) => setReviewDraft({ ...reviewDraft, visibility: event.target.value })} className="flex-1 text-[11px]">
+                                        <option value="HIDDEN">Hidden</option>
+                                        <option value="ALL">All agencies</option>
+                                        <option value="SELECTED">Selected agencies</option>
+                                    </Select>
+                                </div>
+                                {reviewDraft.visibility === 'SELECTED' && (
+                                    <div className="flex items-center gap-2">
+                                        <label className="text-[10px] font-bold uppercase tracking-[0.1em] text-slate-500 w-20 shrink-0">Agencies</label>
+                                        <Select multiple value={reviewDraft.agencyIds} onChange={(event) => setReviewDraft({ ...reviewDraft, agencyIds: Array.from(event.target.selectedOptions, (option) => option.value) })} className="flex-1 text-[11px]">
+                                            {activeAgencies.map((agency) => <option key={agency.id} value={agency.id}>{agency.name}</option>)}
+                                        </Select>
+                                    </div>
+                                )}
+                            </div>
+                            <div className="mt-3 flex justify-end">
+                                <button type="button" onClick={saveReview} disabled={reviewLoading} className="inline-flex h-[28px] items-center gap-1.5 rounded-md bg-blue-900 px-3 text-[10px] font-bold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60">
+                                    {reviewLoading ? 'Saving…' : 'Save review'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </Modal>
+            )}
         </article>
     );
 }
@@ -2060,3 +2141,4 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
         </AppLayout>
     );
 }
+

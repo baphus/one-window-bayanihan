@@ -443,6 +443,9 @@ class ReferralService
                             'file_name' => $attachment->file_name,
                             'file_type' => $attachment->file_type,
                             'size' => $attachment->size,
+                            'request_item_id' => $attachment->request_item_id,
+                            'review_status' => $attachment->review_status,
+                            'visibility' => $attachment->visibility,
                             'created_at' => $attachment->created_at?->toISOString(),
                         ])
                         ->values()
