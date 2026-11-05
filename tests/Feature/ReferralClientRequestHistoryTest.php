@@ -10,6 +10,8 @@ use App\Models\Referral;
 use App\Models\ReferralClientAccessLink;
 use App\Models\ReferralClientMessage;
 use App\Models\ReferralClientRequest;
+use App\Models\ReferralServiceRequirement;
+use App\Models\Service as AgencyService;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -135,6 +137,48 @@ class ReferralClientRequestHistoryTest extends TestCase
             ->assertSessionHasErrors('type');
 
         $this->assertDatabaseMissing('referral_client_requests', ['referral_id' => $referral->id]);
+    }
+
+    public function test_store_document_request_accepts_requirement_objects_in_checklist(): void
+    {
+        $agency = Agency::factory()->create();
+        $agencyUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id, 'is_active' => true]);
+        $owner = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $case = CaseFile::factory()->create(['user_id' => $owner->id]);
+        $referral = Referral::factory()->create(['case_id' => $case->id, 'agcy_id' => $agency->id]);
+
+        $service = AgencyService::create(['name' => 'Support', 'description' => 'Support', 'processing_days' => 5, 'agcy_id' => $agency->id]);
+        $requirement = ReferralServiceRequirement::create([
+            'referral_id' => $referral->id,
+            'service_id' => $service->id,
+            'name' => 'Passport',
+            'description' => 'Government-issued ID',
+            'is_required' => true,
+            'sort_order' => 1,
+        ]);
+
+        $this->actingAsWithMfa($agencyUser)
+            ->post(route('referrals.client-requests.store', $referral), [
+                'type' => ReferralClientRequest::TYPE_DOCUMENT_REQUEST,
+                'title' => 'request ko documents pleeease',
+                'instructions' => 'pls give me this and that',
+                'due_at' => '',
+                'checklist' => [
+                    ['label' => 'Passport', 'source_requirement_id' => $requirement->id, 'source_requirement_ids' => [$requirement->id]],
+                    'Employment contract',
+                ],
+            ])
+            ->assertRedirect();
+
+        $request = ReferralClientRequest::where('referral_id', $referral->id)->first();
+        $this->assertNotNull($request);
+        $this->assertCount(2, $request->items);
+        $passport = $request->items->firstWhere('label', 'Passport');
+        $this->assertNotNull($passport);
+        $this->assertEqualsCanonicalizing([$requirement->id], $passport->sourceRequirements()->pluck('id')->all());
+        $contract = $request->items->firstWhere('label', 'Employment contract');
+        $this->assertNotNull($contract);
+        $this->assertNull($contract->source_requirement_id);
     }
 
     public function test_index_redirects_browser_navigation_to_referral_page(): void
