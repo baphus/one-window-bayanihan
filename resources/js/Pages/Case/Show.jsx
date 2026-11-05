@@ -499,7 +499,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
             <span className="material-symbols-outlined text-[16px]">history</span>
             Audit Log
           </button>
-          {(caseFile.status === 'OPEN' || caseFile.status === 'CLOSED') && (
+          {(caseFile.status === 'OPEN' || caseFile.status === 'CLOSED' || caseFile.status === 'ARCHIVED') && (
             <button
               type="button"
               onClick={() => setConfirmToggleStatus(true)}
@@ -1038,6 +1038,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
         tone="danger"
         onConfirm={() => {
           router.delete(route('referrals.destroy', confirmDeleteReferral.id), { preserveScroll: true });
+          router.reload({ only: ['case'] });
           setConfirmDeleteReferral(null);
         }}
         onCancel={() => setConfirmDeleteReferral(null)}
