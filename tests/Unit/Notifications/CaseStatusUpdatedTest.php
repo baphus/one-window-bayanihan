@@ -32,6 +32,7 @@ class CaseStatusUpdatedTest extends TestCase
             'case_id' => $case->id,
             'old_status' => 'open',
             'new_status' => 'closed',
+            'client_name' => null, // case built with makeCaseFile() has no client row
         ], $notification->toDatabase((object) []));
     }
 

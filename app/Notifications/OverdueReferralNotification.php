@@ -39,14 +39,13 @@ class OverdueReferralNotification extends Notification implements ShouldQueue
         $referral = $this->referral;
         // Never lazy-load on a non-persisted model: fall back to raw identifiers.
         if ($referral->relationLoaded('caseFile') || $referral->exists) {
-            $referral->loadMissing('caseFile');
-        }
-        if ($referral->relationLoaded('agency') || $referral->exists) {
-            $referral->loadMissing('agency');
+            $referral->loadMissing(['caseFile.client', 'agency']);
         }
         $caseFile = $referral->relationLoaded('caseFile') ? $referral->caseFile : null;
         $caseNumber = $caseFile?->case_number ?? $referral->case_id;
         $trackerNumber = $caseFile?->tracker_number;
+        $client = $caseFile?->client;
+        $clientName = $client ? trim(($client->first_name ?? '').' '.($client->last_name ?? '')) ?: null : null;
         $agencyName = $referral->relationLoaded('agency')
             ? ($referral->agency?->name ?? 'the assigned agency')
             : 'the assigned agency';
@@ -63,6 +62,7 @@ class OverdueReferralNotification extends Notification implements ShouldQueue
             'tracker_number' => $trackerNumber,
             'agency' => $agencyName,
             'overdue_days' => $this->overdueDays,
+            'client_name' => $clientName,
         ];
     }
 

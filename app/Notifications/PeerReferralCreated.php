@@ -45,13 +45,10 @@ class PeerReferralCreated extends Notification implements ShouldQueue
 
         // Never lazy-load on a non-persisted model: fall back to raw identifiers.
         if ($newReferral->relationLoaded('agency') || $newReferral->exists) {
-            $newReferral->loadMissing(['agency', 'services']);
+            $newReferral->loadMissing(['agency', 'services', 'caseFile.client']);
         }
         if ($peerReferral->relationLoaded('agency') || $peerReferral->exists) {
             $peerReferral->loadMissing(['agency']);
-        }
-        if ($newReferral->relationLoaded('caseFile') || $newReferral->exists) {
-            $newReferral->loadMissing('caseFile');
         }
 
         $caseNumber = $newReferral->relationLoaded('caseFile')
@@ -64,6 +61,8 @@ class PeerReferralCreated extends Notification implements ShouldQueue
             ? $newReferral->services->pluck('name')->implode(', ')
             : $newReferral->required_services;
         $servicesDisplay = $services !== '' ? $services : 'Services pending agency assignment';
+        $client = $newReferral->relationLoaded('caseFile') ? $newReferral->caseFile?->client : null;
+        $clientName = $client ? trim(($client->first_name ?? '').' '.($client->last_name ?? '')) ?: null : null;
 
         $message = "Case {$caseNumber} was referred to {$newAgencyName} — {$servicesDisplay}";
         if ($this->actorName !== null && $this->actorName !== '') {
@@ -81,6 +80,7 @@ class PeerReferralCreated extends Notification implements ShouldQueue
             'case_id' => $newReferral->case_id,
             'new_agency' => $newAgencyName,
             'required_services' => $servicesDisplay,
+            'client_name' => $clientName,
         ];
     }
 

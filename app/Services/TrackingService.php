@@ -50,6 +50,7 @@ class TrackingService
         private readonly OtpService $otpService,
         private readonly PhilippineAddressService $addressResolver,
         private readonly ReferralClientRequestService $clientRequestService,
+        private readonly NotificationService $notificationService,
     ) {}
 
     public function findCaseByTracker(string $trackerNumber): ?CaseFile
@@ -378,44 +379,15 @@ class TrackingService
     }
 
     /**
-     * Rewrite a staff deep-link to its OFW-safe equivalent so client payloads
-     * never carry case-manager URLs. Staff /cases/{id} links become the OFW
-     * case page; /referrals/{id} links become the OFW agency-milestones page
-     * for the same case and referral (ids come from the notification payload,
-     * never parsed out of the staff URL). Public /track links pass through
-     * untouched; anything unrecognized is dropped rather than shipped.
+     * Rewrite a stored notification deep-link to its OFW-safe equivalent so
+     * client payloads never carry case-manager URLs (see
+     * NotificationService::ofwSafeRelatedUrl for the mapping rules).
      *
      * @param  array<string, mixed>  $data
      */
     private function ofwSafeRelatedUrl(?string $url, array $data, string $caseId): ?string
     {
-        if (! is_string($url) || $url === '') {
-            return null;
-        }
-
-        $path = parse_url($url, PHP_URL_PATH);
-        if (! is_string($path) || $path === '') {
-            return null;
-        }
-
-        if (preg_match('#^/cases/[^/]+$#', $path) === 1) {
-            return route('ofw.case.show', $caseId);
-        }
-
-        if (preg_match('#^/referrals/[^/]+$#', $path) === 1) {
-            $referralId = $data['referral_id'] ?? null;
-            if (! is_string($referralId) || $referralId === '') {
-                return null;
-            }
-
-            return route('ofw.case.milestones', ['case' => $caseId, 'referral' => $referralId]);
-        }
-
-        if (str_starts_with($path, '/track')) {
-            return $url;
-        }
-
-        return null;
+        return $this->notificationService->ofwSafeRelatedUrl($url, $data, $caseId);
     }
 
     /**

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, router } from '@inertiajs/react';
 import useJsonPoll from '@/Hooks/useJsonPoll';
 import safeRoute from '@/utils/safeRoute';
+import { sameOriginPath } from '@/lib/utils';
 
 async function fetchJson(url, options = {}) {
     const { headers: optionHeaders = {}, ...rest } = options;
@@ -70,7 +71,10 @@ function NotificationBellView({ listData, isLoading, error, reload }) {
             headers: {
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
             },
-        }).then(reload);
+        })
+            // Re-sync silently: a failed PATCH must not leave a false badge.
+            .catch(() => {})
+            .finally(reload);
 
     // Close on outside click
     useEffect(() => {
@@ -96,11 +100,12 @@ function NotificationBellView({ listData, isLoading, error, reload }) {
 
     function handleItemClick(item) {
         setOpen(false);
-        if (!item.action_url || !item.action_url.startsWith('/')) return;
+        const target = sameOriginPath(item.action_url);
+        if (!target) return;
         if (!item.read_at) {
             markRead(item.id);
         }
-        router.visit(item.action_url);
+        router.visit(target);
     }
 
     const badgeLabel = unreadCount > 99 ? '99+' : unreadCount;
@@ -170,7 +175,7 @@ function NotificationBellView({ listData, isLoading, error, reload }) {
                                         key={item.id}
                                         type="button"
                                         onClick={() => handleItemClick(item)}
-                                        className={`block w-full px-4 py-3 text-left transition-colors ${
+                                        className={`flex w-full items-start gap-3 px-3 py-2.5 text-left transition-colors ${
                                             isUnread ? 'bg-blue-50/40' : ''
                                         } ${item.action_url ? 'cursor-pointer hover:bg-slate-100' : 'cursor-default'}`}
                                     >

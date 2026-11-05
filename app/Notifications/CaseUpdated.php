@@ -49,7 +49,12 @@ class CaseUpdated extends Notification implements ShouldQueue
      */
     public function toDatabase(object $notifiable): array
     {
+        if ($this->case->relationLoaded('client') || $this->case->exists) {
+            $this->case->loadMissing('client');
+        }
         $caseNumber = $this->case->case_number ?? $this->case->id;
+        $client = $this->case->client;
+        $clientName = $client ? trim(($client->first_name ?? '').' '.($client->last_name ?? '')) ?: null : null;
 
         return [
             'type' => 'case_updated',
@@ -61,6 +66,7 @@ class CaseUpdated extends Notification implements ShouldQueue
             'case_id' => $this->case->id,
             'updated_by' => $this->updatedBy,
             'changes' => $this->changes,
+            'client_name' => $clientName,
         ];
     }
 

@@ -64,9 +64,14 @@ class ReferralCreated extends Notification implements ShouldQueue
         $agencyName = $referral->relationLoaded('agency')
             ? ($referral->agency?->name ?? 'agency')
             : 'agency';
+        $client = $referral->caseFile?->client;
+        $clientName = $client ? trim(($client->first_name ?? '').' '.($client->last_name ?? '')) ?: null : null;
         $message = "Case {$caseNumber} referred to {$agencyName}";
         if ($this->actorName !== null && $this->actorName !== '') {
             $message .= " by {$this->actorName}";
+        }
+        if ($clientName !== null) {
+            $message .= " — client {$clientName}";
         }
 
         return [
@@ -79,6 +84,7 @@ class ReferralCreated extends Notification implements ShouldQueue
             'referral_id' => $referral->id,
             'case_id' => $referral->case_id,
             'agency' => $agencyName,
+            'client_name' => $clientName,
         ];
     }
 

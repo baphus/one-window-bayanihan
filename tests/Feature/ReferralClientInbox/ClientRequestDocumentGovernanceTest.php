@@ -8,6 +8,7 @@ use App\Models\ReferralServiceRequirement;
 use App\Models\Service as AgencyService;
 use App\Services\ReferralClientRequestService;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 
 class ClientRequestDocumentGovernanceTest extends ReferralClientInboxTestCase
@@ -51,6 +52,42 @@ class ClientRequestDocumentGovernanceTest extends ReferralClientInboxTestCase
         $item = $request->items->first();
         $this->assertCount(1, $request->items);
         $this->assertEqualsCanonicalizing([$first->id, $second->id], $item->sourceRequirements()->pluck('id')->all());
+    }
+
+    public function test_store_accepts_requirement_backed_checklist_items(): void
+    {
+        Mail::fake();
+        $context = $this->context();
+        $service = AgencyService::create(['name' => 'Support', 'description' => 'Support', 'processing_days' => 5, 'agcy_id' => $context['agency']->id]);
+        $requirement = ReferralServiceRequirement::create([
+            'referral_id' => $context['referral']->id,
+            'service_id' => $service->id,
+            'name' => 'Valid ID',
+            'description' => 'Government-issued ID',
+            'is_required' => true,
+            'sort_order' => 1,
+        ]);
+
+        $this->actingAsWithMfa($context['agencyUser'])
+            ->post(route('referrals.client-requests.store', $context['referral']), [
+                'type' => ReferralClientRequest::TYPE_DOCUMENT_REQUEST,
+                'title' => 'Documents',
+                'instructions' => 'Upload your documents.',
+                'checklist' => [
+                    [
+                        'label' => $requirement->name,
+                        'description' => $requirement->description,
+                        'source_requirement_id' => $requirement->id,
+                        'source_requirement_ids' => [$requirement->id],
+                    ],
+                    'Extra form',
+                ],
+            ])
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $request = ReferralClientRequest::where('referral_id', $context['referral']->id)->where('title', 'Documents')->firstOrFail();
+        $this->assertEqualsCanonicalizing(['Valid ID', 'Extra form'], $request->items()->pluck('label')->all());
     }
 
     public function test_request_item_upload_replaces_previous_active_file(): void

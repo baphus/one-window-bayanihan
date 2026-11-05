@@ -1,10 +1,10 @@
 import { AlertTriangle, ShieldAlert, Info, CheckCircle2 } from 'lucide-react';
 
 export const SEVERITY_CONFIG = {
-  warning: { icon: AlertTriangle, dot: 'bg-amber-500', label: 'Warning' },
-  critical: { icon: ShieldAlert, dot: 'bg-rose-500', label: 'Critical' },
-  info: { icon: Info, dot: 'bg-blue-500', label: 'Info' },
-  success: { icon: CheckCircle2, dot: 'bg-emerald-500', label: 'Success' },
+  warning: { icon: AlertTriangle, dot: 'bg-amber-500', chip: 'bg-amber-50 text-amber-600', label: 'Warning' },
+  critical: { icon: ShieldAlert, dot: 'bg-rose-500', chip: 'bg-rose-50 text-rose-600', label: 'Critical' },
+  info: { icon: Info, dot: 'bg-blue-500', chip: 'bg-blue-50 text-blue-600', label: 'Info' },
+  success: { icon: CheckCircle2, dot: 'bg-emerald-500', chip: 'bg-emerald-50 text-emerald-600', label: 'Success' },
 };
 
 // Map Laravel notification class short names to severity levels
@@ -77,6 +77,7 @@ export function normalizeNotification(notification, severityMap = NOTIFICATION_T
   const actor = extractActorName(data);
   const detail = extractDetailTitle(data);
   const actionUrl = extractActionUrl(data);
+  const clientName = extractClientName(data);
 
   let title = toPlainLanguage(pickString(data.title, data.subject, data.notification_title));
   if (!title && detail) {
@@ -114,6 +115,7 @@ export function normalizeNotification(notification, severityMap = NOTIFICATION_T
     // Enriched keys for list/panel rendering; may be null when old rows miss them.
     case_number: caseRef,
     actor_name: actor,
+    client_name: clientName,
     type: shortName,
   };
 }
@@ -292,6 +294,11 @@ function extractActionUrl(data) {
     data.deepLink
   );
   return url || null;
+}
+
+/** Client display name across legacy key spellings. */
+function extractClientName(data) {
+  return pickString(data.client_name, data.clientName);
 }
 
 /**

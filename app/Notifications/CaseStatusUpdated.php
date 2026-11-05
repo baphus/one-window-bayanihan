@@ -50,13 +50,21 @@ class CaseStatusUpdated extends Notification implements ShouldQueue
      */
     public function toDatabase(object $notifiable): array
     {
+        if ($this->case->relationLoaded('client') || $this->case->exists) {
+            $this->case->loadMissing('client');
+        }
         $caseNumber = $this->case->case_number ?? $this->case->id;
         $old = $this->humanizeStatus($this->oldStatus);
         $new = $this->humanizeStatus($this->newStatus);
+        $client = $this->case->client;
+        $clientName = $client ? trim(($client->first_name ?? '').' '.($client->last_name ?? '')) ?: null : null;
 
         $message = "Case {$caseNumber} status changed from {$old} to {$new}";
         if ($this->actorName !== null && $this->actorName !== '') {
             $message .= " by {$this->actorName}";
+        }
+        if ($clientName !== null) {
+            $message .= " — client {$clientName}";
         }
 
         return [
@@ -69,6 +77,7 @@ class CaseStatusUpdated extends Notification implements ShouldQueue
             'case_id' => $this->case->id,
             'old_status' => $this->oldStatus,
             'new_status' => $this->newStatus,
+            'client_name' => $clientName,
         ];
     }
 

@@ -1382,6 +1382,7 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                                             Choose File
                                             <input
                                                 type="file"
+                                                accept=".pdf,.jpg,.jpeg,.png,.webp"
                                                 className="hidden"
                                                 onChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)}
                                             />

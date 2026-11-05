@@ -21,7 +21,7 @@ class StoreReferralRequest extends FormRequest
             'agcy_id' => ['required', 'string', 'exists:agencies,id'],
             'notes' => ['nullable', 'string', 'max:5000'],
             'documents' => ['nullable', 'array'],
-            'documents.*' => ['file', 'mimes:pdf,doc,docx,jpg,jpeg,png', 'max:10240'],
+            'documents.*' => ['file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:10240'],
         ];
     }
 

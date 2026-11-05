@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\CaseFile;
 use App\Models\CaseNotification;
 use App\Models\Referral;
+use App\Services\NotificationService;
 use App\Services\TrackingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,6 +16,7 @@ class OfwDashboardController extends Controller
 {
     public function __construct(
         private readonly TrackingService $trackingService,
+        private readonly NotificationService $notificationService,
     ) {}
 
     /**
@@ -163,17 +166,41 @@ class OfwDashboardController extends Controller
             ->orderBy('created_at', 'desc')
             ->paginate(15);
 
-        if ($request->expectsJson()) {
-            $items = collect($notifications->items())->map(fn ($n) => [
-                'id' => $n->id,
-                'case_id' => $n->case_id,
-                'title' => $n->title,
-                'message' => $n->message,
-                'read_at' => $n->read_at,
-                'created_at' => $n->created_at,
-                'action_url' => $n->case_id ? route('ofw.case.show', $n->case_id) : null,
-            ]);
+        $notifications->getCollection()->transform(function ($n) {
+            $url = $this->notificationService->ofwSafeRelatedUrl(
+                $n->related_url,
+                $n->data ?? [],
+                (string) $n->case_id,
+            );
 
+            $path = is_string($url) ? parse_url($url, PHP_URL_PATH) : null;
+            $caseUrl = $n->case_id ? route('ofw.case.show', $n->case_id) : null;
+            $isTrack = is_string($path) && str_starts_with($path, '/track');
+
+            // Keep the mapped OFW destination, except public /track links: a
+            // signed-in OFW never follows through to the OTP flow — the case
+            // page is always the safe fallback.
+            $n->setAttribute('action_url', match (true) {
+                $url === null => $caseUrl,
+                $isTrack => $caseUrl,
+                default => $url,
+            });
+
+            return $n;
+        });
+
+        $items = collect($notifications->items())->map(fn ($n) => [
+            'id' => $n->id,
+            'case_id' => $n->case_id,
+            'type' => $n->type,
+            'title' => $n->title,
+            'message' => $n->message,
+            'read_at' => $n->read_at,
+            'created_at' => $n->created_at,
+            'action_url' => $n->action_url,
+        ]);
+
+        if ($request->expectsJson()) {
             return response()->json([
                 'data' => $items,
                 'meta' => [
@@ -210,6 +237,14 @@ class OfwDashboardController extends Controller
             ->whereNull('read_at')
             ->update(['read_at' => now()]);
 
-        return response()->json(['success' => $updated > 0]);
+        if ($updated === 0) {
+            return response()->json(['message' => 'Notification not found'], 404);
+        }
+
+        // Same invalidation the service path performs, so the cached unread
+        // count never lags a mark-read.
+        HandleInertiaRequests::invalidateNotificationCount($user->id);
+
+        return response()->json(['success' => true]);
     }
 }
