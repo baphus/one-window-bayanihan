@@ -466,6 +466,10 @@ class ReferralClientRequestController extends Controller
         ]);
         $attachment->agencies()->sync($data['visibility'] === 'SELECTED' ? ($data['agency_ids'] ?? []) : []);
 
+        if ($data['review_status'] === 'NEEDS_REVISION') {
+            $this->notifyClientOfRevision($clientRequest);
+        }
+
         return redirect()->back()->with('success', 'Document review updated.');
     }
 
@@ -726,6 +730,29 @@ class ReferralClientRequestController extends Controller
             ],
             'related_url' => null,
         ]);
+    }
+
+    /**
+     * Tell the OFW that the agency flagged their uploaded document as
+     * needing revision, so they can re-submit it through the request.
+     */
+    private function notifyClientOfRevision(ReferralClientRequest $clientRequest): void
+    {
+        $clientRequest->loadMissing('referral.caseFile');
+        $owner = $clientRequest->referral?->caseFile?->user;
+        if (! $owner) {
+            return;
+        }
+
+        $owner->notify(new ReferralClientRequestActivity(
+            'needs_revision',
+            $clientRequest->id,
+            $clientRequest->referral_id,
+            $clientRequest->title,
+            $clientRequest->status,
+            $clientRequest->referral?->caseFile?->case_number,
+            null,
+        ));
     }
 
     private function agencyPayload(ReferralClientRequest $clientRequest): array

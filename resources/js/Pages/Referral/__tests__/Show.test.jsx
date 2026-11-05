@@ -179,9 +179,16 @@ describe('Referral/Show client request permissions', () => {
     const contract = screen.getByRole('link', { name: /contract\.pdf/ });
     expect(passport.closest('li')).toHaveTextContent('Passport copy');
     expect(contract.closest('li')).toHaveTextContent('Work contract');
-    expect(screen.getAllByLabelText('Review passport.pdf')).toHaveLength(2);
-    expect(screen.getAllByLabelText('Visibility passport.pdf')).toHaveLength(2);
-    expect(screen.getAllByRole('button', { name: 'Save review' })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: /Review/ })).toHaveLength(2);
+    fireEvent.click(screen.getAllByRole('button', { name: /Review/ })[0]);
+    const combos = screen.getAllByRole('combobox');
+    expect(combos).toHaveLength(2);
+    fireEvent.click(combos[0]);
+    fireEvent.mouseDown(screen.getByRole('option', { name: 'Accept' }));
+    fireEvent.click(combos[1]);
+    expect(screen.getByRole('option', { name: 'Selected agencies' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Close review/ }));
+    expect(screen.queryAllByRole('combobox')).toHaveLength(0);
     expect(screen.getAllByText('Client · Jan 1, 2026')).toHaveLength(1);
     expect(screen.getByRole('link', { name: /extra\.pdf/ })).toBeInTheDocument();
   });
@@ -305,10 +312,12 @@ describe('Referral/Show client request permissions', () => {
       />,
     );
 
-    expect(screen.getAllByRole('combobox').length).toBeGreaterThan(0);
-    fireEvent.click(screen.getAllByRole('combobox')[0]);
+    fireEvent.click(screen.getByRole('button', { name: /Review/ }));
+    const combos = screen.getAllByRole('combobox');
+    expect(combos.length).toBeGreaterThan(0);
+    fireEvent.click(combos[0]);
     fireEvent.mouseDown(screen.getByRole('option', { name: 'Accept' }));
-    fireEvent.click(screen.getAllByRole('combobox')[1]);
+    fireEvent.click(combos[1]);
     expect(screen.getByRole('option', { name: 'Selected agencies' })).toBeInTheDocument();
   });
 
@@ -316,8 +325,10 @@ describe('Referral/Show client request permissions', () => {
     state.role = 'AGENCY';
     const reviewedHistory = [{ ...requestHistory[0], messages: [{ id: 'message-1', sender_kind: 'CLIENT_ACCESS', body: 'Document', attachments: [{ id: 'attachment-1', file_name: 'id.pdf', file_type: 'application/pdf', size: 100, request_item_id: 'item-1', review_status: 'ACCEPTED', visibility: 'HIDDEN' }] }] }];
     render(<ReferralShow referral={{ ...referral, case_file: { ...referral.case_file, referrals: [{ agency: { id: 'agency-2', name: 'Partner Agency' } }] } }} clientRequestHistory={reviewedHistory} clientRequestPermissions={{ canCreate: true, canReply: true, canTransition: true, canRevokeAccess: true }} timeline={[]} />);
-    const visibility = screen.getAllByRole('combobox').find((select) => select.textContent.includes('Hidden'));
-    fireEvent.click(visibility);
+
+    fireEvent.click(screen.getByRole('button', { name: /Review/ }));
+    const combos = screen.getAllByRole('combobox');
+    fireEvent.click(combos[1]);
     fireEvent.mouseDown(screen.getByRole('option', { name: 'Selected agencies' }));
     const agencyPicker = screen.getAllByRole('combobox').at(-1);
     fireEvent.click(agencyPicker);
