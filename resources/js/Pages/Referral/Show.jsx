@@ -1,4 +1,4 @@
-﻿import Select from '@/Components/Select';
+import Select from '@/Components/Select';
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { useEffect, useRef, useState } from 'react';
@@ -441,11 +441,9 @@ function ClientRequestCard({ request, permissions, isOversight, onMutate, embedd
                                 return (
                                     <>
                                         {preview}
-                                        <div className="absolute bottom-3 right-3 inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-[10px] font-semibold text-blue-900 hover:bg-blue-50 shadow-sm z-10">
-                                            <a href={href} download={reviewAttachment.file_name} className="inline-flex items-center gap-1">
-                                                <span className="material-symbols-outlined text-[14px]">download</span>Download
-                                            </a>
-                                        </div>
+                                        <a href={href} download={reviewAttachment.file_name} className="mt-2 inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-[10px] font-semibold text-blue-900 hover:bg-blue-50 shadow-sm">
+                                            <span className="material-symbols-outlined text-[14px]">download</span>Download
+                                        </a>
                                     </>
                                 );
                             })()}
