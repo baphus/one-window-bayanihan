@@ -219,7 +219,7 @@ function formatRequestDate(dateStr) {
 }
 
 const MAX_ATTACHMENT_MB = 20;
-const ACCEPTED_ATTACHMENT_TYPES = ['application/pdf', 'image/jpeg', 'image/png', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+const ACCEPTED_ATTACHMENT_TYPES = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
 
 function formatFileSize(bytes) {
   if (!bytes) return '';
@@ -454,7 +454,7 @@ function ClientRequestPanel({ clientRequestPanel, ofwRequestContext }) {
                           {item.id && item.attachment && <a href={item.attachment.download_url} className="truncate text-[11px] font-medium text-primary underline">{item.attachment.file_name}</a>}
                           {canReply && item.id && <label className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-slate-200 px-2 py-1 text-[11px] font-semibold text-primary hover:bg-slate-50">
                             {uploadingItem === item.id ? 'Uploading…' : item.attachment ? 'Replace' : 'Upload'}
-                            <input aria-label={`Upload ${item.label}`} type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" disabled={replying || uploadingItem !== null} onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ''; if (!file) return; if (!ACCEPTED_ATTACHMENT_TYPES.includes(file.type) || file.size > MAX_ATTACHMENT_MB * 1024 * 1024) { setError(`Choose a supported document smaller than ${MAX_ATTACHMENT_MB} MB.`); return; } setError(''); setUploadingItem(item.id); const data = new FormData(); data.append('attachments[]', file); data.append('request_item_ids[]', item.id); router.post(replyAction, data, { preserveScroll: true, onSuccess: () => router.reload({ only: ['clientRequestPanel', 'documents'], preserveScroll: true }), onError: (errors) => setError(getErrorMessage(errors)), onFinish: () => setUploadingItem(null) }); }} className="sr-only" />
+                            <input aria-label={`Upload ${item.label}`} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" disabled={replying || uploadingItem !== null} onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ''; if (!file) return; if (!ACCEPTED_ATTACHMENT_TYPES.includes(file.type) || file.size > MAX_ATTACHMENT_MB * 1024 * 1024) { setError(`Choose a supported document smaller than ${MAX_ATTACHMENT_MB} MB.`); return; } setError(''); setUploadingItem(item.id); const data = new FormData(); data.append('attachments[]', file); data.append('request_item_ids[]', item.id); router.post(replyAction, data, { preserveScroll: true, onSuccess: () => router.reload({ only: ['clientRequestPanel', 'documents'], preserveScroll: true }), onError: (errors) => setError(getErrorMessage(errors)), onFinish: () => setUploadingItem(null) }); }} className="sr-only" />
                           </label>}
                         </li>
                       ))}

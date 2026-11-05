@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getCategoryFilterIds } from '../utils';
+import { getCategoryFilterIds, sameOriginPath } from '../utils';
 
 describe('getCategoryFilterIds', () => {
   it('returns an empty array when no category filter is set', () => {
@@ -38,5 +38,24 @@ describe('getCategoryFilterIds', () => {
   it('drops null, undefined and empty-string ids', () => {
     expect(getCategoryFilterIds({ category_ids: [null, undefined, '', '4'] })).toEqual(['4']);
     expect(getCategoryFilterIds({ category_id: '' })).toEqual([]);
+  });
+});
+
+describe('sameOriginPath', () => {
+  it('keeps root-relative paths untouched', () => {
+    expect(sameOriginPath('/my-cases/abc')).toBe('/my-cases/abc');
+  });
+
+  it('reduces an absolute same-origin route() URL to its path', () => {
+    // Laravel route() builds absolute URLs — the guard must not reject them.
+    expect(sameOriginPath(`${window.location.origin}/my-cases/abc`)).toBe('/my-cases/abc');
+  });
+
+  it('drops cross-origin, unsupported and blank links', () => {
+    expect(sameOriginPath('https://evil.example/steal')).toBeNull();
+    expect(sameOriginPath(`http://elsewhere.example${window.location.pathname}`)).toBeNull();
+    expect(sameOriginPath('//evil.example/path')).toBeNull();
+    expect(sameOriginPath('')).toBeNull();
+    expect(sameOriginPath(null)).toBeNull();
   });
 });

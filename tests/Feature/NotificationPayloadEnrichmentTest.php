@@ -156,6 +156,32 @@ class NotificationPayloadEnrichmentTest extends TestCase
         $this->assertNotEmpty($payload['url']);
     }
 
+    public function test_referral_and_case_payloads_carry_client_name(): void
+    {
+        $caseManager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $case = $this->createCase($caseManager);
+        $referral = Referral::factory()->create([
+            'case_id' => $case->id,
+            'agcy_id' => Agency::factory()->create()->id,
+        ]);
+
+        $payloads = [
+            (new ReferralCreated($referral, 'Stu Torres'))->toDatabase($caseManager),
+            (new PeerReferralCreated($referral, $referral, 'Stu Torres'))->toDatabase($caseManager),
+            (new OverdueReferralNotification($referral, 9, 'Stu Torres'))->toDatabase($caseManager),
+            (new CaseUpdated($case, 'Stu Torres', ['summary' => ['old' => 'a', 'new' => 'b']]))->toDatabase($caseManager),
+            (new CaseStatusUpdated($case, 'OPEN', 'CLOSED', 'Stu Torres'))->toDatabase($caseManager),
+        ];
+
+        foreach ($payloads as $payload) {
+            $this->assertArrayHasKey('client_name', $payload);
+        }
+
+        $expected = trim(($case->client->first_name ?? '').' '.($case->client->last_name ?? ''));
+        $this->assertSame($expected, $payloads[0]['client_name']);
+        $this->assertStringContainsString($expected, $payloads[0]['message']);
+    }
+
     private function createCase(User $user): CaseFile
     {
         $client = Client::factory()->create(['email' => 'ofw@example.com']);

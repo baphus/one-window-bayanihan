@@ -655,11 +655,11 @@ export default function ReferralCreate({ case_id, agencies, cases: paginatedCase
                                                 <label className="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-slate-300 bg-slate-50/50 px-6 py-6 transition-colors hover:border-indigo-400 hover:bg-indigo-50/30 cursor-pointer">
                                                     <span className="material-symbols-outlined text-[28px] text-slate-400">upload_file</span>
                                                     <span className="text-[13px] font-semibold text-slate-600">Click to browse files</span>
-                                                    <span className="text-[11px] text-slate-400">PDF, JPG, PNG, DOC, DOCX &middot; Multiple files allowed</span>
+                                                    <span className="text-[11px] text-slate-400">PDF, JPG, PNG, WebP &middot; Multiple files allowed</span>
                                                     <input
                                                         type="file"
                                                         multiple
-                                                        accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                                                        accept=".pdf,.jpg,.jpeg,.png,.webp"
                                                         onChange={(e) => setData('documents', Array.from(e.target.files || []))}
                                                         className="hidden"
                                                     />

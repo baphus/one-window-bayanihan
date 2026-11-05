@@ -109,7 +109,7 @@ class NotificationServiceTest extends TestCase
             'data' => '{}',
         ]);
 
-        $result = $this->service->markAsRead($note->id, 'user');
+        $result = $this->service->markAsRead($note->id, 'user', $user);
 
         $this->assertTrue($result);
         $this->assertNotNull($note->fresh()->read_at);

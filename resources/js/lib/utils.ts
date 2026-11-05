@@ -52,3 +52,26 @@ export function getCaseAgeInDays(timestamp: string): number {
 
     return Math.floor(Math.max(0, Date.now() - parsed.getTime()) / (24 * 60 * 60 * 1000));
 }
+
+/**
+ * Turn a server-generated deep link into a router-visit target, or null.
+ *
+ * Laravel `route()` builds absolute URLs, so a plain `startsWith('/')` guard
+ * rejects every notification deep link. Accept anything that resolves to
+ * this app's origin; drop cross-origin links.
+ */
+export function sameOriginPath(url: unknown): string | null {
+    if (typeof url !== 'string' || url.trim() === '') return null;
+    if (url.startsWith('/') && !url.startsWith('//')) return url;
+
+    try {
+        const parsed = new URL(url, window.location.origin);
+        if (parsed.origin === window.location.origin) {
+            return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+        }
+    } catch {
+        // Unparseable — treated as not visitable below.
+    }
+
+    return null;
+}

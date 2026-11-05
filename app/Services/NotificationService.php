@@ -8,7 +8,6 @@ use App\Models\CaseFile;
 use App\Models\CaseNotification;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Notifications\Notification;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
@@ -118,19 +117,17 @@ class NotificationService
             return $updated > 0;
         }
 
-        // For authenticated users, scope to the user's notifications
-        if ($notifiable) {
-            $notification = $notifiable->notifications()
-                ->where('id', $notificationId)
-                ->whereNull('read_at')
-                ->first();
-        } else {
-            // Fallback if no notifiable provided (maintains backwards compatibility)
-            $notification = app(DatabaseNotification::class)
-                ->where('id', $notificationId)
-                ->whereNull('read_at')
-                ->first();
+        // For authenticated users, scope to the user's notifications. A
+        // notifiable is required: matching by id alone would let any caller
+        // mark another user's notification read.
+        if (! $notifiable) {
+            return false;
         }
+
+        $notification = $notifiable->notifications()
+            ->where('id', $notificationId)
+            ->whereNull('read_at')
+            ->first();
 
         if (! $notification) {
             return false;
@@ -206,5 +203,60 @@ class NotificationService
         return $notifiable->notifications()
             ->orderBy('created_at', 'desc')
             ->paginate($perPage);
+    }
+
+    /**
+     * Rewrite a stored notification deep-link into an OFW-safe destination so
+     * client payloads never carry case-manager URLs, and link notifications
+     * about client requests straight to that request. Staff /cases/{id} links
+     * become the OFW case page; /referrals/{id} links become the OFW
+     * agency-milestones page for the same case and referral (ids come from
+     * the notification payload, never parsed out of the staff URL). Public
+     * /track links pass through untouched; anything unrecognized is dropped
+     * rather than shipped. Returns the related_url-derived destination or
+     * null, leaving the caller free to fall back to the case page.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public function ofwSafeRelatedUrl(?string $url, array $data, string $caseId): ?string
+    {
+        // Client-request notifications carry the request in the payload, so
+        // they deep-link to the request itself even when related_url is null.
+        $requestId = $data['request_id'] ?? null;
+        $referralId = $data['referral_id'] ?? null;
+        if (is_string($requestId) && $requestId !== '' && is_string($referralId) && $referralId !== '') {
+            return route('ofw.case.requests.show', [
+                'case' => $caseId,
+                'referral' => $referralId,
+                'request' => $requestId,
+            ]);
+        }
+
+        if (! is_string($url) || $url === '') {
+            return null;
+        }
+
+        $path = parse_url($url, PHP_URL_PATH);
+        if (! is_string($path) || $path === '') {
+            return null;
+        }
+
+        if (preg_match('#^/cases/[^/]+$#', $path) === 1) {
+            return route('ofw.case.show', $caseId);
+        }
+
+        if (preg_match('#^/referrals/[^/]+$#', $path) === 1) {
+            if (! is_string($referralId) || $referralId === '') {
+                return null;
+            }
+
+            return route('ofw.case.milestones', ['case' => $caseId, 'referral' => $referralId]);
+        }
+
+        if (str_starts_with($path, '/track')) {
+            return $url;
+        }
+
+        return null;
     }
 }

@@ -21,7 +21,8 @@ return [
     // Default config for StorageService::validate(). Every upload context
     // falls back to this when no context-specific block exists.
     'default' => [
-        'mimes' => ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx'],
+        // PDF + images only; Office documents carry macro/embedded-payload risk.
+        'mimes' => ['pdf', 'jpg', 'jpeg', 'png', 'webp'],
         'max_size' => (int) env('FILE_UPLOAD_MAX_SIZE', 20480),
     ],
 ];

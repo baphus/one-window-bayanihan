@@ -46,6 +46,20 @@ class StorageServiceMimeValidationTest extends TestCase
         $this->assertStringContainsString('MIME:', implode(' ', $errors));
     }
 
+    public function test_office_document_rejected_by_default_allowlist(): void
+    {
+        $file = UploadedFile::fake()->create(
+            'notes.docx',
+            100,
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        );
+
+        $service = $this->app->make(StorageService::class);
+        $errors = $service->validate($file, 'default');
+
+        $this->assertNotEmpty($errors);
+    }
+
     public function test_valid_pdf_passes_mime_check(): void
     {
         $tempPath = tempnam(sys_get_temp_dir(), 'owb_');

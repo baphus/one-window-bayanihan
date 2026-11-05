@@ -537,6 +537,22 @@ class CaseDocumentTest extends TestCase
         $response->assertUnprocessable();
     }
 
+    public function test_office_document_upload_is_rejected()
+    {
+        $file = UploadedFile::fake()->create(
+            'notes.docx',
+            100,
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        );
+
+        $response = $this->actingAsWithMfa($this->caseManager)
+            ->postJson(route('cases.documents.store', $this->case->id), [
+                'file' => $file,
+            ]);
+
+        $response->assertUnprocessable()->assertJsonValidationErrors('file');
+    }
+
     public function test_unauthorized_user_cannot_upload()
     {
         $unauthorized = User::factory()->create([
