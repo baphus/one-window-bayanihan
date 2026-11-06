@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Ci;
 
+use Symfony\Component\Process\Process;
 use Tests\TestCase;
 
 /**
@@ -109,6 +110,31 @@ class DeployPipelineContractTest extends TestCase
             $workflow,
             'The rollback must reuse the rendered payload with the previous image'
         );
+    }
+
+    public function test_deploy_variable_filter_runs_with_account_id_present(): void
+    {
+        exec('jq --version 2>&1', $output, $status);
+        if ($status !== 0) {
+            $this->markTestSkipped('jq is required to execute the deployment payload filter');
+        }
+
+        $workflow = $this->deploy();
+        preg_match('/\$ghVars \\| del\\(([^)]*)\\)/', $workflow, $match);
+        $this->assertNotEmpty($match[1] ?? null, 'Deployment payload must filter deploy-only variables');
+
+        $filter = '$ghVars | del('.$match[1].')';
+        $input = json_encode([
+            'AWS_ACCOUNT_ID' => '123456789012',
+            'AWS_DEPLOY_ROLE_ARN' => 'arn:aws:iam::123456789012:role/deploy',
+            'LIGHTSAIL_DB_NAME' => 'production',
+            'APP_ENV' => 'production',
+        ], JSON_THROW_ON_ERROR);
+        $process = new Process(['jq', '-nc', '--argjson', 'ghVars', $input, $filter]);
+        $process->run();
+
+        $this->assertSame(0, $process->getExitCode(), $process->getErrorOutput());
+        $this->assertSame(['APP_ENV' => 'production'], json_decode($process->getOutput(), true, flags: JSON_THROW_ON_ERROR));
     }
 
     /**
