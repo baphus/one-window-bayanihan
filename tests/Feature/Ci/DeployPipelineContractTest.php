@@ -48,11 +48,20 @@ class DeployPipelineContractTest extends TestCase
     {
         $workflow = $this->deploy();
 
-        $this->assertStringContainsString('relationalDatabaseSnapshot.state', $workflow);
+        $this->assertStringContainsString('relationalDatabaseSnapshots[?name==', $workflow);
         $this->assertMatchesRegularExpression(
             '/available\)\s*\n\s+echo "snapshot available/',
             $workflow,
             'The snapshot must be polled until it is available before the deployment is submitted'
+        );
+
+        // The deploy role grants the LIST action, not the singular read. Using
+        // the singular one returned AccessDenied, which the poll reported as
+        // `pending` until the budget ran out.
+        $this->assertDoesNotMatchRegularExpression(
+            '/get-relational-database-snapshot(?![s])/',
+            $workflow,
+            'The snapshot poll must use get-relational-database-snapshots; the singular action is not granted to the deploy role'
         );
 
         // A 5-minute ceiling was shorter than the snapshot itself and failed a

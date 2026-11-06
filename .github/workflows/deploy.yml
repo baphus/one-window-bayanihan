@@ -220,11 +220,15 @@ jobs:
           # Prove it exists under that exact name before waiting 20 minutes on
           # it. A wrong name or a missing read permission used to look exactly
           # like a snapshot that never finishes.
-          aws lightsail get-relational-database-snapshot \
-            --relational-database-snapshot-name "$SNAP" --region "$AWS_REGION" \
-            --query 'relationalDatabaseSnapshot.[name,state,sizeInGb]' --output text 2>&1 \
-            | sed 's/^/created: /' \
-            || echo "::warning::snapshot $SNAP not readable right after creation — check the name and the role's lightsail:GetRelationalDatabaseSnapshot permission"
+          #
+          # Both reads use the LIST action on purpose: the deploy role grants
+          # lightsail:GetRelationalDatabaseSnapshots but not the singular
+          # GetRelationalDatabaseSnapshot, and that denied call was reported as
+          # `pending` for the whole budget.
+          aws lightsail get-relational-database-snapshots --region "$AWS_REGION" \
+            --query "relationalDatabaseSnapshots[?name=='${SNAP}'].[name,state,sizeInGb] | [0]" \
+            --output text 2>&1 | sed 's/^/created: /' \
+            || echo "::warning::snapshot $SNAP not readable right after creation — check the name and the role's lightsail:GetRelationalDatabaseSnapshots permission"
 
           # The API returns as soon as the snapshot is queued. The container
           # migrates as soon as the deployment is submitted, so without this wait
@@ -243,12 +247,20 @@ jobs:
             # pending`, an AccessDenied or a name mismatch produced 20 minutes of
             # "pending" while the account had no pending snapshot at all — the
             # log could not distinguish a slow copy from a broken call.
-            if ! STATE=$(aws lightsail get-relational-database-snapshot \
-              --relational-database-snapshot-name "$SNAP" --region "$AWS_REGION" \
-              --query relationalDatabaseSnapshot.state --output text 2>&1); then
+            #
+            # LIST + name filter, not the singular call: see above.
+            if ! STATE=$(aws lightsail get-relational-database-snapshots \
+              --region "$AWS_REGION" \
+              --query "relationalDatabaseSnapshots[?name=='${SNAP}'].state | [0]" \
+              --output text 2>&1); then
               echo "::warning::cannot read state of $SNAP: $STATE"
               STATE=unknown
             fi
+            # The filter yields None (or an empty string) until the snapshot is
+            # visible; that is the same wait state as pending.
+            case "$STATE" in
+              None|"") STATE=pending ;;
+            esac
             case "$STATE" in
               available)
                 echo "snapshot available: $SNAP"
