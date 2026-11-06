@@ -217,6 +217,15 @@ jobs:
             --region "$AWS_REGION" >/dev/null
           echo "snapshot requested: $SNAP"
 
+          # Prove it exists under that exact name before waiting 20 minutes on
+          # it. A wrong name or a missing read permission used to look exactly
+          # like a snapshot that never finishes.
+          aws lightsail get-relational-database-snapshot \
+            --relational-database-snapshot-name "$SNAP" --region "$AWS_REGION" \
+            --query 'relationalDatabaseSnapshot.[name,state,sizeInGb]' --output text 2>&1 \
+            | sed 's/^/created: /' \
+            || echo "::warning::snapshot $SNAP not readable right after creation — check the name and the role's lightsail:GetRelationalDatabaseSnapshot permission"
+
           # The API returns as soon as the snapshot is queued. The container
           # migrates as soon as the deployment is submitted, so without this wait
           # the snapshot can capture a half-applied schema — the exact state the
@@ -230,9 +239,16 @@ jobs:
           INTERVAL=15
           DEADLINE=$((SECONDS + BUDGET_SECONDS))
           while [ "$SECONDS" -lt "$DEADLINE" ]; do
-            STATE=$(aws lightsail get-relational-database-snapshot \
+            # Never mask a failing call as `pending`. With `2>/dev/null || echo
+            # pending`, an AccessDenied or a name mismatch produced 20 minutes of
+            # "pending" while the account had no pending snapshot at all — the
+            # log could not distinguish a slow copy from a broken call.
+            if ! STATE=$(aws lightsail get-relational-database-snapshot \
               --relational-database-snapshot-name "$SNAP" --region "$AWS_REGION" \
-              --query relationalDatabaseSnapshot.state --output text 2>/dev/null || echo pending)
+              --query relationalDatabaseSnapshot.state --output text 2>&1); then
+              echo "::warning::cannot read state of $SNAP: $STATE"
+              STATE=unknown
+            fi
             case "$STATE" in
               available)
                 echo "snapshot available: $SNAP"
