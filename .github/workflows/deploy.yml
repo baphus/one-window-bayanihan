@@ -200,19 +200,33 @@ jobs:
           # migrates as soon as the deployment is submitted, so without this wait
           # the snapshot can capture a half-applied schema — the exact state the
           # snapshot exists to recover from.
-          for i in $(seq 1 30); do
+          #
+          # Snapshot duration scales with database size, not with a fixed delay.
+          # A hard 5-minute ceiling failed a healthy deployment at 30 consecutive
+          # `pending` polls. Poll for up to 20 minutes instead, and stop early on
+          # a terminal error state rather than burning the budget.
+          BUDGET_SECONDS=1200
+          INTERVAL=15
+          DEADLINE=$((SECONDS + BUDGET_SECONDS))
+          while [ "$SECONDS" -lt "$DEADLINE" ]; do
             STATE=$(aws lightsail get-relational-database-snapshot \
               --relational-database-snapshot-name "$SNAP" --region "$AWS_REGION" \
               --query relationalDatabaseSnapshot.state --output text 2>/dev/null || echo pending)
-            if [ "$STATE" = "available" ]; then
-              echo "snapshot available: $SNAP"
-              echo "Pre-deploy snapshot: \`$SNAP\`" >> "$GITHUB_STEP_SUMMARY"
-              exit 0
-            fi
-            echo "snapshot $i: state=$STATE"
-            sleep 10
+            case "$STATE" in
+              available)
+                echo "snapshot available: $SNAP"
+                echo "Pre-deploy snapshot: \`$SNAP\`" >> "$GITHUB_STEP_SUMMARY"
+                exit 0
+                ;;
+              error|failed|incompatible-*)
+                echo "::error::snapshot $SNAP entered terminal state '$STATE'; refusing to migrate"
+                exit 1
+                ;;
+            esac
+            echo "snapshot: state=$STATE (${SECONDS}s elapsed)"
+            sleep "$INTERVAL"
           done
-          echo "::error::snapshot $SNAP did not become available within 5 minutes; refusing to migrate without a usable restore point"
+          echo "::error::snapshot $SNAP did not become available within $((BUDGET_SECONDS / 60)) minutes; refusing to migrate without a usable restore point"
           exit 1
 
       # Catch a half-configured chatbot BEFORE it reaches users.
