@@ -34,11 +34,21 @@ class CaseStatusUpdated extends Notification implements ShouldQueue
 
     public function toMail(object $notifiable): MailMessage
     {
+        // The template prints every assigned category, not just the primary
+        // category_id, so the pivot rows have to be on hand before render.
+        if ($this->case->exists) {
+            $this->case->loadMissing(['client', 'category', 'categories', 'user']);
+        }
+
+        $caseNumber = $this->case->case_number ?? $this->case->id;
+
         return (new MailMessage)
+            ->subject("Case {$caseNumber} is now {$this->humanizeStatus($this->newStatus)}")
             ->markdown('emails.notifications.case-status-updated', [
                 'case' => $this->case,
                 'oldStatus' => $this->oldStatus,
                 'newStatus' => $this->newStatus,
+                'actorName' => $this->actorName,
                 'url' => url("/cases/{$this->case->id}"),
             ]);
     }

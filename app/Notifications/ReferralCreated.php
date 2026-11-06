@@ -38,7 +38,16 @@ class ReferralCreated extends Notification implements ShouldQueue
 
     public function toMail(object $notifiable): MailMessage
     {
+        // The template reads the client, the case categories and the agency's
+        // requirements; none travel with the queued model.
+        if ($this->referral->exists) {
+            $this->referral->loadMissing(['agency', 'caseFile.client', 'caseFile.category', 'caseFile.categories']);
+        }
+
+        $caseNumber = $this->referral->caseFile?->case_number ?? $this->referral->case_id;
+
         return (new MailMessage)
+            ->subject("New referral for case {$caseNumber}")
             ->markdown('emails.notifications.referral-created', [
                 'referral' => $this->referral,
                 'url' => url("/referrals/{$this->referral->id}"),

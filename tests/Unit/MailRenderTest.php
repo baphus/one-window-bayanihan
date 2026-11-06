@@ -34,6 +34,9 @@ class MailRenderTest extends TestCase
         $case->client->first_name = 'Test';
         $case->tracker_number = 'TRACK-001';
         $case->caseEvents = [];
+        $case->category = null;
+        $case->categories = collect();
+        $case->referrals = collect();
 
         $html = $markdown->render('emails.client-update', [
             'case' => $case,
