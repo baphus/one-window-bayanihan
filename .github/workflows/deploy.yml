@@ -192,11 +192,43 @@ jobs:
             exit 1
           fi
           SNAP="${DB_NAME}-predeploy-$(date -u +%Y%m%d%H%M%S)"
+          PREDEPLOY_FILTER="relationalDatabaseSnapshots[?state=='pending' && starts_with(name, '${DB_NAME}-predeploy-')]"
+
+          # A `pending` snapshot left behind by an interrupted run keeps the
+          # database's snapshot operation occupied, so every later snapshot sits
+          # in `pending` too — which is exactly what a 20-minute timeout looks
+          # like. Pending snapshots hold no restorable data, so clearing them is
+          # safe; completed snapshots are never touched.
+          aws lightsail get-relational-database-snapshots --region "$AWS_REGION" \
+            --query "$PREDEPLOY_FILTER.name" --output text 2>/dev/null \
+            | tr '\t' '\n' | while read -r STALE; do
+                [ -n "$STALE" ] || continue
+                if aws lightsail delete-relational-database-snapshot \
+                  --relational-database-snapshot-name "$STALE" --region "$AWS_REGION" >/dev/null 2>&1; then
+                  echo "deleted stale pending snapshot: $STALE"
+                else
+                  echo "::warning::could not delete stale pending snapshot $STALE"
+                fi
+              done
+
           aws lightsail create-relational-database-snapshot \
             --relational-database-name "$DB_NAME" \
             --relational-database-snapshot-name "$SNAP" \
             --region "$AWS_REGION" >/dev/null
           echo "snapshot requested: $SNAP"
+
+          # Prove it exists under that exact name before waiting 20 minutes on
+          # it. A wrong name or a missing read permission used to look exactly
+          # like a snapshot that never finishes.
+          #
+          # Both reads use the LIST action on purpose: the deploy role grants
+          # lightsail:GetRelationalDatabaseSnapshots but not the singular
+          # GetRelationalDatabaseSnapshot, and that denied call was reported as
+          # `pending` for the whole budget.
+          aws lightsail get-relational-database-snapshots --region "$AWS_REGION" \
+            --query "relationalDatabaseSnapshots[?name=='${SNAP}'].[name,state,sizeInGb] | [0]" \
+            --output text 2>&1 | sed 's/^/created: /' \
+            || echo "::warning::snapshot $SNAP not readable right after creation — check the name and the role's lightsail:GetRelationalDatabaseSnapshots permission"
 
           # The API returns as soon as the snapshot is queued. The container
           # migrates as soon as the deployment is submitted, so without this wait
@@ -211,9 +243,24 @@ jobs:
           INTERVAL=15
           DEADLINE=$((SECONDS + BUDGET_SECONDS))
           while [ "$SECONDS" -lt "$DEADLINE" ]; do
-            STATE=$(aws lightsail get-relational-database-snapshot \
-              --relational-database-snapshot-name "$SNAP" --region "$AWS_REGION" \
-              --query relationalDatabaseSnapshot.state --output text 2>/dev/null || echo pending)
+            # Never mask a failing call as `pending`. With `2>/dev/null || echo
+            # pending`, an AccessDenied or a name mismatch produced 20 minutes of
+            # "pending" while the account had no pending snapshot at all — the
+            # log could not distinguish a slow copy from a broken call.
+            #
+            # LIST + name filter, not the singular call: see above.
+            if ! STATE=$(aws lightsail get-relational-database-snapshots \
+              --region "$AWS_REGION" \
+              --query "relationalDatabaseSnapshots[?name=='${SNAP}'].state | [0]" \
+              --output text 2>&1); then
+              echo "::warning::cannot read state of $SNAP: $STATE"
+              STATE=unknown
+            fi
+            # The filter yields None (or an empty string) until the snapshot is
+            # visible; that is the same wait state as pending.
+            case "$STATE" in
+              None|"") STATE=pending ;;
+            esac
             case "$STATE" in
               available)
                 echo "snapshot available: $SNAP"
@@ -229,6 +276,27 @@ jobs:
             sleep "$INTERVAL"
           done
           echo "::error::snapshot $SNAP did not become available within $((BUDGET_SECONDS / 60)) minutes; refusing to migrate without a usable restore point"
+
+          # A timeout with no explanation is undebuggable from the log alone. Put
+          # the database state, its predeploy snapshots and its recent events in
+          # the summary: a stuck `pending` from an earlier run and a database in
+          # `modifying` look identical from the poll loop.
+          {
+            echo "### Snapshot $SNAP did not become available"
+            echo ""
+            echo '```'
+            aws lightsail get-relational-databases --region "$AWS_REGION" \
+              --query "relationalDatabases[?name=='${DB_NAME}'].[name,state,engine,engineVersion]" \
+              --output table 2>&1 || true
+            aws lightsail get-relational-database-snapshots --region "$AWS_REGION" \
+              --query "relationalDatabaseSnapshots[?starts_with(name, '${DB_NAME}-predeploy-')].[name,state,createdAt,sizeInGb]" \
+              --output table 2>&1 || true
+            aws lightsail get-relational-database-events --region "$AWS_REGION" \
+              --relational-database-name "$DB_NAME" --duration-in-minutes 1440 \
+              --query 'relationalDatabaseEvents[].[createdAt,message]' \
+              --output table 2>&1 || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
           exit 1
 
       # Catch a half-configured chatbot BEFORE it reaches users.
