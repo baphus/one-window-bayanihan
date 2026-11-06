@@ -192,6 +192,25 @@ jobs:
             exit 1
           fi
           SNAP="${DB_NAME}-predeploy-$(date -u +%Y%m%d%H%M%S)"
+          PREDEPLOY_FILTER="relationalDatabaseSnapshots[?state=='pending' && starts_with(name, '${DB_NAME}-predeploy-')]"
+
+          # A `pending` snapshot left behind by an interrupted run keeps the
+          # database's snapshot operation occupied, so every later snapshot sits
+          # in `pending` too — which is exactly what a 20-minute timeout looks
+          # like. Pending snapshots hold no restorable data, so clearing them is
+          # safe; completed snapshots are never touched.
+          aws lightsail get-relational-database-snapshots --region "$AWS_REGION" \
+            --query "$PREDEPLOY_FILTER.name" --output text 2>/dev/null \
+            | tr '\t' '\n' | while read -r STALE; do
+                [ -n "$STALE" ] || continue
+                if aws lightsail delete-relational-database-snapshot \
+                  --relational-database-snapshot-name "$STALE" --region "$AWS_REGION" >/dev/null 2>&1; then
+                  echo "deleted stale pending snapshot: $STALE"
+                else
+                  echo "::warning::could not delete stale pending snapshot $STALE"
+                fi
+              done
+
           aws lightsail create-relational-database-snapshot \
             --relational-database-name "$DB_NAME" \
             --relational-database-snapshot-name "$SNAP" \
@@ -229,6 +248,27 @@ jobs:
             sleep "$INTERVAL"
           done
           echo "::error::snapshot $SNAP did not become available within $((BUDGET_SECONDS / 60)) minutes; refusing to migrate without a usable restore point"
+
+          # A timeout with no explanation is undebuggable from the log alone. Put
+          # the database state, its predeploy snapshots and its recent events in
+          # the summary: a stuck `pending` from an earlier run and a database in
+          # `modifying` look identical from the poll loop.
+          {
+            echo "### Snapshot $SNAP did not become available"
+            echo ""
+            echo '```'
+            aws lightsail get-relational-databases --region "$AWS_REGION" \
+              --query "relationalDatabases[?name=='${DB_NAME}'].[name,state,engine,engineVersion]" \
+              --output table 2>&1 || true
+            aws lightsail get-relational-database-snapshots --region "$AWS_REGION" \
+              --query "relationalDatabaseSnapshots[?starts_with(name, '${DB_NAME}-predeploy-')].[name,state,createdAt,sizeInGb]" \
+              --output table 2>&1 || true
+            aws lightsail get-relational-database-events --region "$AWS_REGION" \
+              --relational-database-name "$DB_NAME" --duration-in-minutes 1440 \
+              --query 'relationalDatabaseEvents[].[createdAt,message]' \
+              --output table 2>&1 || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
           exit 1
 
       # Catch a half-configured chatbot BEFORE it reaches users.

@@ -67,6 +67,14 @@ class DeployPipelineContractTest extends TestCase
             (int) $matches[1],
             'The snapshot wait budget must exceed the 5 minutes that failed a real snapshot'
         );
+
+        // A `pending` snapshot left by a timed-out run blocks the database's next
+        // snapshot operation, so every later run waits forever too.
+        $this->assertMatchesRegularExpression(
+            '/delete-relational-database-snapshot/',
+            $workflow,
+            'Stale pending pre-deploy snapshots must be cleared before requesting a new one'
+        );
     }
 
     /**
