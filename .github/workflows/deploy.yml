@@ -62,10 +62,12 @@ jobs:
       name: ${{ inputs.environment }}
       url: https://${{ inputs.hostname }}
     # The step loops below can legitimately reach ~15 minutes, and an automatic
-    # rollback adds up to another 10. Fail in 45 rather than holding the
+    # rollback adds up to another 10. The pre-deploy snapshot alone can now take
+    # 20 (it is sized by the database, not by the workflow), on top of a 20-minute
+    # deployment wait and the health gate. Fail in 60 rather than holding the
     # `deploy-production` concurrency group for the 6-hour default if a single
     # AWS call hangs — but leave room for the rollback to finish.
-    timeout-minutes: 45
+    timeout-minutes: 60
 
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
