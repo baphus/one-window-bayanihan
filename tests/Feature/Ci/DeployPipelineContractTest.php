@@ -50,9 +50,22 @@ class DeployPipelineContractTest extends TestCase
 
         $this->assertStringContainsString('relationalDatabaseSnapshot.state', $workflow);
         $this->assertMatchesRegularExpression(
-            '/STATE" = "available"|STATE" != "available"/',
+            '/available\)\s*\n\s+echo "snapshot available/',
             $workflow,
             'The snapshot must be polled until it is available before the deployment is submitted'
+        );
+
+        // A 5-minute ceiling was shorter than the snapshot itself and failed a
+        // healthy deployment at 30 consecutive `pending` polls.
+        $this->assertSame(
+            1,
+            preg_match('/BUDGET_SECONDS=(\d+)/', $workflow, $matches),
+            'The snapshot wait must declare an explicit time budget'
+        );
+        $this->assertGreaterThan(
+            300,
+            (int) $matches[1],
+            'The snapshot wait budget must exceed the 5 minutes that failed a real snapshot'
         );
     }
 

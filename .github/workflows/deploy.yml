@@ -62,10 +62,12 @@ jobs:
       name: ${{ inputs.environment }}
       url: https://${{ inputs.hostname }}
     # The step loops below can legitimately reach ~15 minutes, and an automatic
-    # rollback adds up to another 10. Fail in 45 rather than holding the
+    # rollback adds up to another 10. The pre-deploy snapshot alone can now take
+    # 20 (it is sized by the database, not by the workflow), on top of a 20-minute
+    # deployment wait and the health gate. Fail in 60 rather than holding the
     # `deploy-production` concurrency group for the 6-hour default if a single
     # AWS call hangs — but leave room for the rollback to finish.
-    timeout-minutes: 45
+    timeout-minutes: 60
 
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -200,19 +202,33 @@ jobs:
           # migrates as soon as the deployment is submitted, so without this wait
           # the snapshot can capture a half-applied schema — the exact state the
           # snapshot exists to recover from.
-          for i in $(seq 1 30); do
+          #
+          # Snapshot duration scales with database size, not with a fixed delay.
+          # A hard 5-minute ceiling failed a healthy deployment at 30 consecutive
+          # `pending` polls. Poll for up to 20 minutes instead, and stop early on
+          # a terminal error state rather than burning the budget.
+          BUDGET_SECONDS=1200
+          INTERVAL=15
+          DEADLINE=$((SECONDS + BUDGET_SECONDS))
+          while [ "$SECONDS" -lt "$DEADLINE" ]; do
             STATE=$(aws lightsail get-relational-database-snapshot \
               --relational-database-snapshot-name "$SNAP" --region "$AWS_REGION" \
               --query relationalDatabaseSnapshot.state --output text 2>/dev/null || echo pending)
-            if [ "$STATE" = "available" ]; then
-              echo "snapshot available: $SNAP"
-              echo "Pre-deploy snapshot: \`$SNAP\`" >> "$GITHUB_STEP_SUMMARY"
-              exit 0
-            fi
-            echo "snapshot $i: state=$STATE"
-            sleep 10
+            case "$STATE" in
+              available)
+                echo "snapshot available: $SNAP"
+                echo "Pre-deploy snapshot: \`$SNAP\`" >> "$GITHUB_STEP_SUMMARY"
+                exit 0
+                ;;
+              error|failed|incompatible-*)
+                echo "::error::snapshot $SNAP entered terminal state '$STATE'; refusing to migrate"
+                exit 1
+                ;;
+            esac
+            echo "snapshot: state=$STATE (${SECONDS}s elapsed)"
+            sleep "$INTERVAL"
           done
-          echo "::error::snapshot $SNAP did not become available within 5 minutes; refusing to migrate without a usable restore point"
+          echo "::error::snapshot $SNAP did not become available within $((BUDGET_SECONDS / 60)) minutes; refusing to migrate without a usable restore point"
           exit 1
 
       # Catch a half-configured chatbot BEFORE it reaches users.
