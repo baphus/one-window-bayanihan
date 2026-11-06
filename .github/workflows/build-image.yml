@@ -249,9 +249,11 @@ jobs:
       - name: Ensure ECR scans images on push
         run: |
           set -euo pipefail
-          SCAN_ON_PUSH=$(aws ecr get-image-scanning-configuration \
-            --repository-name "$ECR_REPOSITORY" --region "$AWS_REGION" \
-            --query 'imageScanningConfiguration.scanOnPush' --output text)
+          # There is no get-image-scanning-configuration; the per-repository
+          # setting is only visible on describe-repositories.
+          SCAN_ON_PUSH=$(aws ecr describe-repositories \
+            --repository-names "$ECR_REPOSITORY" --region "$AWS_REGION" \
+            --query 'repositories[0].imageScanningConfiguration.scanOnPush' --output text)
           if [ "$SCAN_ON_PUSH" = "True" ] || [ "$SCAN_ON_PUSH" = "true" ]; then
             echo "scanOnPush already enabled on $ECR_REPOSITORY"
             exit 0
