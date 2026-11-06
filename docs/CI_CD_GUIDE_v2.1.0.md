@@ -53,7 +53,7 @@ Builds the deployable artefact separately from deploying it (schema must apply b
 1. PHP extensions present: `pdo_pgsql pdo_sqlite redis bcmath gd intl pcntl exif zip`
 2. GD FreeType + JPEG (`imagettftext`/`imagettfbbox` exist, `gd_info` flags) — guards the `/reports/export-pdf` 500 class
 3. `PdfChartRenderer::pieChart` renders `data:image/png;base64,` through the real code path
-4. Helpdesk corpus packaged (`resources/js/data/helpdesk/content/*.ts`)
+4. Helpdesk corpus packaged (`resources/helpdesk/articles.json`)
 5. `nginx -t` parses (with `--entrypoint` bypass — the image entrypoint would otherwise demand full prod env)
 6. Supervisord parses via configparser: sections `php-fpm/nginx/queue-worker/scheduler` present, `RUN_SCHEDULER` + `RUN_QUEUE_WORKER` guards present, worker `--timeout=` explicit
 7. Entrypoint **fail-closed**: with `APP_ENV=production` and no creds → non-zero exit naming `APP_KEY DB_HOST DB_DATABASE DB_USERNAME DB_PASSWORD`
