@@ -13,6 +13,31 @@
     {{ $message }}
 </p>
 
+@php
+// Client-safe facts only: no case manager name, no internal summary, no
+// verbatim agency decision comment.
+$categories = $case->categories->isNotEmpty()
+    ? $case->categories->pluck('name')->implode(', ')
+    : ($case->category?->name ?? '');
+$agencies = $case->referrals->map(fn ($referral) => $referral->agency?->name)->filter()->unique()->implode(', ');
+$services = $case->referrals->pluck('required_services')->filter()->unique()->implode(', ');
+
+$rows = [];
+if ($categories !== '') {
+    $rows[] = ['label' => 'Categories', 'value' => $categories];
+}
+if ($agencies !== '') {
+    $rows[] = ['label' => 'Partner Agency', 'value' => $agencies];
+}
+if ($services !== '') {
+    $rows[] = ['label' => 'Services Requested', 'value' => $services];
+}
+@endphp
+
+@if(count($rows) > 0)
+<x-mail::detail-table :rows="$rows" />
+@endif
+
 @if($case->caseEvents && $case->caseEvents->count() > 0)
 <p style="font-size: 14px; font-weight: 600; color: #18181b; margin: 0 0 8px 0;">Timeline</p>
 <x-mail::timeline :events="$case->caseEvents" />

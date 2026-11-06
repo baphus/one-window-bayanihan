@@ -29,7 +29,7 @@ class ClientUpdateMail extends Mailable implements ShouldQueue
 
     public function content(): Content
     {
-        $this->case->loadMissing('client', 'caseEvents');
+        $this->case->loadMissing('client', 'caseEvents', 'category', 'categories', 'referrals.agency');
 
         return new Content(
             markdown: 'emails.client-update',

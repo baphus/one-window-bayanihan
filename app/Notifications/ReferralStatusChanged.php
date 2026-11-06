@@ -41,11 +41,22 @@ class ReferralStatusChanged extends Notification implements ShouldQueue
 
     public function toMail(object $notifiable): MailMessage
     {
+        // Referral detail rows read the case, its client and its categories;
+        // queued notifications rehydrate the referral without them.
+        if ($this->referral->exists) {
+            $this->referral->loadMissing(['agency', 'caseFile.client', 'caseFile.category', 'caseFile.categories']);
+        }
+
+        $caseNumber = $this->referral->caseFile?->case_number ?? $this->referral->case_id;
+
         return (new MailMessage)
+            ->subject("Referral for case {$caseNumber} is now {$this->humanizeStatus($this->newStatus)}")
             ->markdown('emails.notifications.referral-status-changed', [
                 'referral' => $this->referral,
                 'oldStatus' => $this->oldStatus,
                 'newStatus' => $this->newStatus,
+                'actorName' => $this->actorName,
+                'reason' => $this->reason,
                 'url' => url("/referrals/{$this->referral->id}"),
             ]);
     }

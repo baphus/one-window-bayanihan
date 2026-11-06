@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Enums\UserRole;
 use App\Mail\ClientUpdateMail;
 use App\Models\Agency;
+use App\Models\CaseCategory;
 use App\Models\CaseFile;
 use App\Models\Client;
 use App\Models\Referral;
@@ -126,6 +127,59 @@ class ReferralStatusChangedMailTest extends TestCase
 
         $agencyName = $referral->agency?->name ?? 'The assigned agency';
         $this->assertStringContainsString($agencyName, $html);
+    }
+
+    public function test_subject_names_the_case_and_new_status(): void
+    {
+        $user = User::factory()->create(['email' => 'cm@example.com']);
+        $referral = Referral::factory()->create(['required_services' => 'Passport assistance']);
+
+        $message = (new ReferralStatusChanged($referral, 'PENDING', 'PROCESSING'))->toMail($user);
+
+        $this->assertSame(
+            "Referral for case {$referral->caseFile->case_number} is now Processing",
+            $message->subject,
+        );
+    }
+
+    public function test_rejection_reason_is_humanized_not_a_raw_code(): void
+    {
+        $user = User::factory()->create(['email' => 'cm@example.com']);
+        $referral = Referral::factory()->create([
+            'required_services' => 'Passport assistance',
+        ]);
+
+        $html = (new ReferralStatusChanged($referral, 'PROCESSING', 'REJECTED', 'Stu Torres', 'OUTSIDE_MANDATE'))
+            ->toMail($user)
+            ->render();
+
+        $this->assertStringContainsString('Outside mandate', $html);
+        $this->assertStringNotContainsString('OUTSIDE_MANDATE', $html);
+    }
+
+    public function test_email_includes_case_context_and_referral_notes(): void
+    {
+        $user = User::factory()->create(['email' => 'cm@example.com']);
+        $client = Client::factory()->create(['first_name' => 'Maria', 'last_name' => 'Santos']);
+        $case = CaseFile::factory()->create(['client_id' => $client->id]);
+
+        $category = CaseCategory::factory()->create(['name' => 'Repatriation']);
+        $case->categories()->sync([$category->id]);
+
+        $referral = Referral::factory()->create([
+            'case_id' => $case->id,
+            'required_services' => 'Passport assistance',
+            'notes' => 'Client submitted complete documents.',
+        ]);
+
+        $html = (new ReferralStatusChanged($referral, 'PENDING', 'PROCESSING'))
+            ->toMail($user)
+            ->render();
+
+        $this->assertStringContainsString('Maria Santos', $html);
+        $this->assertStringContainsString('Repatriation', $html);
+        $this->assertStringContainsString('Passport assistance', $html);
+        $this->assertStringContainsString('Client submitted complete documents.', $html);
     }
 
     // ── Channel selection (via) ──────────────────────────────────
