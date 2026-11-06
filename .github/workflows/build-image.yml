@@ -243,27 +243,21 @@ jobs:
       # scanOnPush is repository configuration, not something a workflow can
       # assume. The repository was created without it, so `aws ecr wait
       # image-scan-complete` failed with ScanNotFoundException and failed a build
-      # that was otherwise green. Enable it here (idempotent) rather than relying
-      # on the console. A missing IAM permission is a warning, not a failed
-      # release: the image is still deployable.
+      # that was otherwise green. Enable it here rather than relying on the
+      # console.
+      #
+      # No read first: the CI role may lack ecr:DescribeRepositories (it did),
+      # which failed the build before the push. put is idempotent, so one call is
+      # enough. A denied call is a warning, not a failed release — the image is
+      # still deployable and the gate below already skips when no scan exists.
       - name: Ensure ECR scans images on push
         run: |
           set -euo pipefail
-          # There is no get-image-scanning-configuration; the per-repository
-          # setting is only visible on describe-repositories.
-          SCAN_ON_PUSH=$(aws ecr describe-repositories \
-            --repository-names "$ECR_REPOSITORY" --region "$AWS_REGION" \
-            --query 'repositories[0].imageScanningConfiguration.scanOnPush' --output text)
-          if [ "$SCAN_ON_PUSH" = "True" ] || [ "$SCAN_ON_PUSH" = "true" ]; then
-            echo "scanOnPush already enabled on $ECR_REPOSITORY"
-            exit 0
-          fi
           aws ecr put-image-scanning-configuration \
             --repository-name "$ECR_REPOSITORY" \
             --image-scanning-configuration scanOnPush=true \
             --region "$AWS_REGION" \
-            || echo "::warning::could not enable scanOnPush on $ECR_REPOSITORY — the scan gate will be skipped if ECR has no findings"
-          echo "scanOnPush enabled on $ECR_REPOSITORY"
+            || echo "::warning::could not enable scanOnPush on $ECR_REPOSITORY (missing ecr:PutImageScanningConfiguration) — the scan gate will be skipped"
 
       - name: Push image to ECR
         env:
