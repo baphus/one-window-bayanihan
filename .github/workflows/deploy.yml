@@ -444,13 +444,7 @@ jobs:
                 app: {
                   image: $image,
                   ports: { "8080": "HTTP" },
-                  environment: (($ghVars | del(
-                    "AWS_ACCOUNT_ID",
-                    "AWS_DEPLOY_ROLE_ARN",
-                    "AWS_CI_ROLE_ARN",
-                    "LIGHTSAIL_DB_NAME",
-                    "VITE_SENTRY_DSN_PUBLIC"
-                  )) + {
+                  environment: (($ghVars | del(.AWS_ACCOUNT_ID, .AWS_DEPLOY_ROLE_ARN, .AWS_CI_ROLE_ARN, .LIGHTSAIL_DB_NAME, .VITE_SENTRY_DSN_PUBLIC)) + {
                     APP_NAME: "One Window Bayanihan",
                     APP_ENV: $appEnv,
                     APP_DEBUG: "false",
