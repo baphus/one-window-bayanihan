@@ -98,6 +98,27 @@ class DeployPipelineContractTest extends TestCase
     }
 
     /**
+     * ECR raises ScanNotFoundException when the repository has no scanning
+     * configured, which failed a green build with exit 255. The wait must be
+     * conditional so a missing scan skips the gate instead of failing it.
+     */
+    public function test_the_build_gate_survives_a_missing_image_scan(): void
+    {
+        $build = (string) file_get_contents(base_path('.github/workflows/build-image.yml'));
+
+        $this->assertMatchesRegularExpression(
+            '/if ! aws ecr wait image-scan-complete/',
+            $build,
+            'build-image.yml must not fail the build when ECR has no scan for the image'
+        );
+        $this->assertStringContainsString(
+            'put-image-scanning-configuration',
+            $build,
+            'build-image.yml must enable scanOnPush so the gate has a scan to read'
+        );
+    }
+
+    /**
      * Backlog counters describe data that predates the release. Gating on them
      * let a pre-existing backlog block every subsequent fix.
      */
