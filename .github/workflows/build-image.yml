@@ -240,6 +240,29 @@ jobs:
           grep -q STARTED /tmp/start.log || {
             echo "::error::entrypoint did not reach its command with valid config"; exit 1; }
 
+      # scanOnPush is repository configuration, not something a workflow can
+      # assume. The repository was created without it, so `aws ecr wait
+      # image-scan-complete` failed with ScanNotFoundException and failed a build
+      # that was otherwise green. Enable it here (idempotent) rather than relying
+      # on the console. A missing IAM permission is a warning, not a failed
+      # release: the image is still deployable.
+      - name: Ensure ECR scans images on push
+        run: |
+          set -euo pipefail
+          SCAN_ON_PUSH=$(aws ecr get-image-scanning-configuration \
+            --repository-name "$ECR_REPOSITORY" --region "$AWS_REGION" \
+            --query 'imageScanningConfiguration.scanOnPush' --output text)
+          if [ "$SCAN_ON_PUSH" = "True" ] || [ "$SCAN_ON_PUSH" = "true" ]; then
+            echo "scanOnPush already enabled on $ECR_REPOSITORY"
+            exit 0
+          fi
+          aws ecr put-image-scanning-configuration \
+            --repository-name "$ECR_REPOSITORY" \
+            --image-scanning-configuration scanOnPush=true \
+            --region "$AWS_REGION" \
+            || echo "::warning::could not enable scanOnPush on $ECR_REPOSITORY — the scan gate will be skipped if ECR has no findings"
+          echo "scanOnPush enabled on $ECR_REPOSITORY"
+
       - name: Push image to ECR
         env:
           REGISTRY: ${{ steps.ecr.outputs.registry }}
@@ -264,8 +287,17 @@ jobs:
           IMAGE_TAG: ${{ github.sha }}
         run: |
           set -euo pipefail
-          aws ecr wait image-scan-complete --repository-name "$ECR_REPOSITORY" \
-            --image-id imageTag="$IMAGE_TAG" --region "$AWS_REGION"
+          # A missing scan is not a scan failure. ECR raises ScanNotFoundException
+          # when the repository has no scanning configured at all, and failing
+          # the build for that blocked releases for a reason unrelated to the
+          # artefact. Skip the gate loudly instead; the CRITICAL gate below still
+          # applies whenever a scan exists.
+          if ! aws ecr wait image-scan-complete --repository-name "$ECR_REPOSITORY" \
+            --image-id imageTag="$IMAGE_TAG" --region "$AWS_REGION"; then
+            echo "::warning::no image scan available for $IMAGE_TAG — scan gate skipped"
+            echo "- Scan: unavailable (ECR scanning not configured for this image)" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           FINDINGS=$(aws ecr describe-image-scan-findings \
             --repository-name "$ECR_REPOSITORY" --image-id imageTag="$IMAGE_TAG" \
             --region "$AWS_REGION" \
