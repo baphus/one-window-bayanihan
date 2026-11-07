@@ -9,6 +9,7 @@ import MfaConfirmDialog from '@/Components/MfaConfirmDialog';
 import useMfaStatus from '@/Hooks/useMfaStatus';
 import { useToast } from '@/Hooks/useToast';
 import TextInput from '@/Components/TextInput';
+import OtpInput from '@/Components/OtpInput';
 
 export default function MfaSetup({ mfaEnabled, mfaRequired = true }) {
     const [enabled, setEnabled] = useState(mfaEnabled);
@@ -311,17 +312,14 @@ export default function MfaSetup({ mfaEnabled, mfaRequired = true }) {
                             </div>
                         )}
                         <div>
-                            <InputLabel htmlFor="mfa-otp" value="Authentication Code" />
-                            <TextInput
+                            <OtpInput
                                 id="mfa-otp"
-                                className="mt-1 block w-full"
+                                label="Authentication Code"
                                 value={otp}
-                                onChange={(e) => { setOtp(e.target.value.replace(/\D/g, '').slice(0, 6)); setError(''); }}
-                                placeholder="000000"
-                                maxLength={6}
-                                autoComplete="off"
+                                onChange={(value) => { setOtp(value); setError(''); }}
+                                error={error}
+                                disabled={loading}
                             />
-                            <InputError className="mt-2" message={error} />
                         </div>
                         <div className="flex items-center gap-2">
                             <PrimaryButton onClick={handleVerify} disabled={loading || otp.length !== 6}>

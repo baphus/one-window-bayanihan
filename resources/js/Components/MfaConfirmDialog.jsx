@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import InputLabel from '@/Components/InputLabel';
 import InputError from '@/Components/InputError';
 import TextInput from '@/Components/TextInput';
+import OtpInput from '@/Components/OtpInput';
 import { csrfToken, isFreshMfa } from '@/lib/mfa';
 
 /**
@@ -201,16 +202,13 @@ export default function MfaConfirmDialog({
 
                             {mode === 'totp' ? (
                                 <div>
-                                    <InputLabel htmlFor="mfa-confirm-otp" value="Authentication code" />
-                                    <TextInput
+                                    <OtpInput
                                         id="mfa-confirm-otp"
-                                        className="mt-1 block w-full text-center font-mono tracking-[0.4em]"
+                                        label="Authentication code"
                                         value={otp}
-                                        onChange={(e) => { setOtp(e.target.value.replace(/\D/g, '').slice(0, 6)); setError(''); }}
-                                        placeholder="000000"
-                                        maxLength={6}
-                                        inputMode="numeric"
-                                        autoComplete="one-time-code"
+                                        onChange={(value) => { setOtp(value); setError(''); }}
+                                        error={shownError}
+                                        disabled={submitting}
                                         data-dialog-initial-focus
                                     />
                                 </div>
@@ -264,7 +262,7 @@ export default function MfaConfirmDialog({
                         </div>
                     )}
 
-                    {shownError && <InputError message={shownError} />}
+                    {shownError && mode !== 'totp' && <InputError message={shownError} />}
                 </div>
 
                 <div className="flex justify-end gap-3 border-t border-slate-200 px-6 py-4">

@@ -1,15 +1,15 @@
-import { useRef, useState, useEffect, useMemo } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { Head, router } from '@inertiajs/react';
 import AppHeader from '@/Components/landing/AppHeader';
 import AppFooter from '@/Components/landing/AppFooter';
 import ChatBot from '@/Components/ChatBot';
+import OtpInput from '@/Components/OtpInput';
 
 export default function TrackingVerify({ tracker_number, email, hint }) {
-  const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  const [otp, setOtp] = useState('');
   const [error, setError] = useState('');
   const [processing, setProcessing] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
-  const otpRefs = useRef([]);
   const cooldownInterval = useRef(null);
 
   useEffect(() => {
@@ -30,40 +30,9 @@ export default function TrackingVerify({ tracker_number, email, hint }) {
     };
   }, [resendCooldown > 0]);
 
-  const handleOtpChange = (index, value) => {
-    if (value.length > 1) return;
-    const sanitized = value.replace(/\D/g, '');
-    const nextOtp = [...otp];
-    nextOtp[index] = sanitized;
-    setOtp(nextOtp);
-    setError('');
-
-    if (sanitized && index < nextOtp.length - 1) {
-      otpRefs.current[index + 1]?.focus();
-    }
-  };
-
-  const handleOtpKeyDown = (index, event) => {
-    if (event.key === 'Backspace' && otp[index] === '' && index > 0) {
-      otpRefs.current[index - 1]?.focus();
-    }
-  };
-
-  const handlePaste = (event) => {
-    event.preventDefault();
-    const value = event.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
-    const nextOtp = ['', '', '', '', '', ''];
-    value.split('').forEach((digit, index) => { nextOtp[index] = digit; });
-    setOtp(nextOtp);
-    setError('');
-    if (value.length > 0) {
-      otpRefs.current[Math.min(value.length - 1, 5)]?.focus();
-    }
-  };
-
   const handleVerify = async (event) => {
     event.preventDefault();
-    const otpValue = otp.join('');
+    const otpValue = otp;
 
     if (otpValue.length !== 6) {
       setError('Please enter the complete 6-digit code.');
@@ -96,9 +65,7 @@ export default function TrackingVerify({ tracker_number, email, hint }) {
       onSuccess: () => {
         setProcessing(false);
         setResendCooldown(30);
-        setOtp(['', '', '', '', '', '']);
-        otpRefs.current[0]?.focus();
-        autoFilled.current = false;
+        setOtp('');
       },
       onError: () => {
         setProcessing(false);
@@ -145,43 +112,14 @@ export default function TrackingVerify({ tracker_number, email, hint }) {
             </p>
 
             <form onSubmit={handleVerify} className="mt-6">
-              <label htmlFor="otp-0" className="block text-[13px] font-bold text-slate-700">
-                Verification code
-              </label>
-              <div
-                id="otp-group"
-                aria-label="Verification code"
-                className="mt-2 flex justify-start gap-2"
-                onPaste={handlePaste}
-              >
-                {otp.map((digit, index) => (
-                  <input
-                    key={`otp-${index}`}
-                    id={`otp-${index}`}
-                    ref={(el) => { otpRefs.current[index] = el; }}
-                    type="text"
-                    inputMode="numeric"
-                    autoComplete="one-time-code"
-                    maxLength={1}
-                    value={digit}
-                    onChange={(e) => handleOtpChange(index, e.target.value)}
-                    onKeyDown={(e) => handleOtpKeyDown(index, e)}
-                    aria-invalid={Boolean(error)}
-                    className={`h-14 w-full min-w-0 rounded-lg border bg-white text-center text-[20px] font-bold text-slate-900 transition-colors focus:outline-none focus:ring-1 ${
-                      error
-                        ? 'border-red-400 text-red-700 focus:border-red-500 focus:ring-red-400'
-                        : 'border-slate-200 focus:border-primary focus:ring-primary'
-                    }`}
-                  />
-                ))}
-              </div>
-
-              {error ? (
-                <p className="mt-2 flex items-center gap-1.5 text-[12px] font-medium text-red-600">
-                  <span className="material-symbols-outlined text-[14px]" aria-hidden="true">error</span>
-                  {error}
-                </p>
-              ) : null}
+              <OtpInput
+                id="tracking-otp"
+                label="Verification code"
+                value={otp}
+                onChange={(value) => { setOtp(value); setError(''); }}
+                error={error}
+                disabled={processing}
+              />
 
               <button
                 type="submit"

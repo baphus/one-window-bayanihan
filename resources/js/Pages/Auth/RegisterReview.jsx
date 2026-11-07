@@ -2,6 +2,7 @@ import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 import AppFooter from '@/Components/landing/AppFooter';
 import AppHeader from '@/Components/landing/AppHeader';
+import OtpInput from '@/Components/OtpInput';
 import AvatarPicker from '@/Components/AvatarPicker';
 import { useToast } from '@/Hooks/useToast';
 import { formatResolvedAddress } from '@/lib/addressResolver';
@@ -152,24 +153,18 @@ export default function RegisterReview({ pendingName = {}, pending = {} }) {
                             ) : (
                                 <form onSubmit={submit} className="mt-5 space-y-4">
                                     <div>
-                                        <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-on-surface-variant">
-                                            Email Verification Code
-                                        </label>
-                                        <input
-                                            type="text"
+                                        <OtpInput
+                                            id="registration-email-otp"
+                                            label="Email Verification Code"
                                             value={data.otp}
-                                            onChange={(e) => setData('otp', e.target.value.replace(/\D/g, '').slice(0, 6))}
-                                            placeholder="6-digit code"
-                                            inputMode="numeric"
-                                            autoComplete="one-time-code"
+                                            onChange={(value) => setData('otp', value)}
+                                            error={errors.otp}
                                             autoFocus
-                                            className="w-full rounded-md border border-outline-variant bg-surface-container px-4 py-3 text-center text-sm font-bold tracking-[0.3em] focus:border-primary focus:outline-none"
-                                            required
+                                            disabled={submitting || sending}
                                         />
                                         <p className="mt-1 text-xs text-slate-500">
                                             Enter the 6-digit code we sent to {pending.email ?? 'your email address'}.
                                         </p>
-                                        {errors.otp && <p className="mt-1 text-xs text-red-600">{errors.otp}</p>}
                                         <button
                                             type="button"
                                             onClick={sendCode}
