@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Head, useForm, usePage } from '@inertiajs/react';
 import AppFooter from '@/Components/landing/AppFooter';
 import AppHeader from '@/Components/landing/AppHeader';
+import OtpInput from '@/Components/OtpInput';
 
 export default function MfaChallenge() {
     const { errors: pageErrors } = usePage().props;
@@ -10,6 +11,11 @@ export default function MfaChallenge() {
     const totpForm = useForm({ code: '' });
     const recoveryForm = useForm({ code: '' });
     const cancelForm = useRef(null);
+    const codeRef = useRef(null);
+
+    useEffect(() => {
+        codeRef.current?.focus();
+    }, [mode]);
 
     const form = mode === 'totp' ? totpForm : recoveryForm;
     const setCode = mode === 'totp'
@@ -17,11 +23,6 @@ export default function MfaChallenge() {
         : (v) => recoveryForm.setData('code', v);
 
     // Focus code input on mount and mode switch
-    const codeRef = useRef(null);
-    useEffect(() => {
-        codeRef.current?.focus();
-    }, [mode]);
-
     function handleTotpSubmit(e) {
         e.preventDefault();
         totpForm.post(route('mfa.challenge.totp'), {
@@ -112,29 +113,15 @@ export default function MfaChallenge() {
                             {mode === 'totp' && (
                                 <form onSubmit={handleTotpSubmit} className="space-y-6">
                                     <div>
-                                        <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-on-surface-variant">
-                                            Authentication Code
-                                        </label>
-                                        <div className="relative">
-                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant/40 text-[20px] material-symbols-outlined">
-                                                pin
-                                            </span>
-                                            <input
-                                                ref={codeRef}
-                                                type="text"
-                                                inputMode="numeric"
-                                                autoComplete="one-time-code"
-                                                value={code}
-                                                onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                                                className="w-full border border-outline-variant bg-surface-container px-4 py-3 pl-12 text-sm font-mono tracking-[0.5em] text-center focus:border-primary focus:outline-none rounded-md"
-                                                placeholder="000000"
-                                                maxLength={6}
-                                                required
-                                            />
-                                        </div>
-                                        {totpForm.errors.code && (
-                                            <p className="mt-2 text-sm text-red-600">{totpForm.errors.code}</p>
-                                        )}
+                                        <OtpInput
+                                            id="mfa-challenge-code"
+                                            label="Authentication Code"
+                                            value={code}
+                                            onChange={setCode}
+                                            error={totpForm.errors.code}
+                                            inputRef={codeRef}
+                                            disabled={processing}
+                                        />
                                     </div>
 
                                     <button
@@ -160,6 +147,7 @@ export default function MfaChallenge() {
                                             <input
                                                 ref={codeRef}
                                                 type="text"
+                                                disabled={processing}
                                                 inputMode="text"
                                                 autoComplete="off"
                                                 value={code}

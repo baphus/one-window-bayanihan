@@ -3,6 +3,7 @@ import { router, usePage } from '@inertiajs/react';
 import PrimaryButton from '@/Components/PrimaryButton';
 import InputLabel from '@/Components/InputLabel';
 import TextInput from '@/Components/TextInput';
+import OtpInput from '@/Components/OtpInput';
 import { CardSection as Section } from '@/Components/ui/CardSection';
 import { useToast } from '@/Hooks/useToast';
 
@@ -18,14 +19,13 @@ export default function ChangeEmailForm({
     const [step, setStep] = useState(stepFromServer || 'start');
     const [password, setPassword] = useState('');
     const [newEmail, setNewEmail] = useState('');
-    const [otp, setOtp] = useState(['', '', '', '', '', '']);
+    const [otp, setOtp] = useState('');
     const [processing, setProcessing] = useState(false);
     const [error, setError] = useState('');
     const [otpError, setOtpError] = useState('');
     const [emailError, setEmailError] = useState('');
     const [passwordError, setPasswordError] = useState('');
     const [resendCooldown, setResendCooldown] = useState(0);
-    const otpRefs = useRef([]);
     const cooldownInterval = useRef(null);
 
     // Sync step from server props
@@ -79,37 +79,9 @@ export default function ChangeEmailForm({
         });
     }
 
-    function handleOtpChange(index, value) {
-        if (value.length > 1) return;
-        const nextOtp = [...otp];
-        nextOtp[index] = value;
-        setOtp(nextOtp);
-        setOtpError('');
-
-        if (value && index < 5) {
-            otpRefs.current[index + 1]?.focus();
-        }
-    }
-
-    function handleOtpKeyDown(index, e) {
-        if (e.key === 'Backspace' && otp[index] === '' && index > 0) {
-            otpRefs.current[index - 1]?.focus();
-        }
-    }
-
-    function handlePaste(e) {
-        e.preventDefault();
-        const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6).split('');
-        const nextOtp = ['', '', '', '', '', ''];
-        pasted.forEach((char, idx) => { nextOtp[idx] = char; });
-        setOtp(nextOtp);
-        const lastIdx = Math.min(pasted.length - 1, 5);
-        if (lastIdx >= 0) otpRefs.current[lastIdx]?.focus();
-    }
-
     function handleVerifyOtp(e) {
         e.preventDefault();
-        const otpValue = otp.join('');
+        const otpValue = otp;
 
         if (otpValue.length !== 6) {
             setOtpError('Please enter the complete 6-digit code.');
@@ -147,8 +119,7 @@ export default function ChangeEmailForm({
             onSuccess: () => {
                 setProcessing(false);
                 setResendCooldown(30);
-                setOtp(['', '', '', '', '', '']);
-                otpRefs.current[0]?.focus();
+                setOtp('');
             },
             onError: (errors) => {
                 setProcessing(false);
@@ -238,32 +209,15 @@ export default function ChangeEmailForm({
                 }
                 className="border-t-2 border-t-slate-200 pt-6"
             >
-                {otpError && (
-                    <div className="rounded-md bg-red-50 border border-red-200 p-3">
-                        <p className="text-sm font-medium text-red-800">{otpError}</p>
-                    </div>
-                )}
-
                 <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">
-                        Verification Code
-                    </label>
-                    <div className="flex gap-2 justify-center" onPaste={handlePaste}>
-                        {otp.map((digit, idx) => (
-                            <input
-                                key={idx}
-                                ref={(el) => { otpRefs.current[idx] = el; }}
-                                type="text"
-                                inputMode="numeric"
-                                autoComplete="one-time-code"
-                                maxLength={1}
-                                value={digit}
-                                onChange={(e) => handleOtpChange(idx, e.target.value)}
-                                onKeyDown={(e) => handleOtpKeyDown(idx, e)}
-                                className="h-12 w-10 rounded-md border border-slate-300 bg-white text-center text-lg font-bold focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                            />
-                        ))}
-                    </div>
+                    <OtpInput
+                        id="email-change-otp"
+                        label="Verification Code"
+                        value={otp}
+                        onChange={(value) => { setOtp(value); setOtpError(''); }}
+                        error={otpError}
+                        disabled={processing}
+                    />
                 </div>
 
                 <div className="flex items-center justify-between">
