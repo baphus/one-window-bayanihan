@@ -202,6 +202,36 @@ class ManilaReportWindowsTest extends TestCase
         $this->assertSame([1, 1, 1, 1], $result['data']);
     }
 
+    public function test_referral_kpi_previous_window_has_same_inclusive_length_for_single_and_seven_day_ranges(): void
+    {
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $agency = Agency::factory()->create();
+        foreach (['2026-01-01', '2026-01-03', '2026-01-07', '2026-01-08', '2026-01-14'] as $date) {
+            $case = CaseFile::factory()->create(['user_id' => $manager->id, 'status' => 'OPEN']);
+            Referral::factory()->pending()->create([
+                'case_id' => $case->id,
+                'agcy_id' => $agency->id,
+                'created_at' => $date.' 12:00:00',
+                'updated_at' => $date.' 12:00:00',
+            ]);
+        }
+
+        $metrics = app(ReferralMetrics::class);
+        $singleDay = $metrics->getReferralKpis(
+            userId: $manager->id, role: UserRole::CASE_MANAGER->value,
+            fromDate: '2026-01-08', toDate: '2026-01-08', dateScope: 'referral_created_at',
+        );
+        $sevenDays = $metrics->getReferralKpis(
+            userId: $manager->id, role: UserRole::CASE_MANAGER->value,
+            fromDate: '2026-01-08', toDate: '2026-01-14', dateScope: 'referral_created_at',
+        );
+
+        $this->assertSame(1, $singleDay['totalReferrals']);
+        $this->assertSame(0.0, $singleDay['kpiChanges']['totalReferrals']);
+        $this->assertSame(2, $sevenDays['totalReferrals']);
+        $this->assertSame(-33.3, $sevenDays['kpiChanges']['totalReferrals']);
+    }
+
     public function test_scorecard_overdue_is_strictly_more_than_fourteen_days(): void
     {
         Carbon::setTestNow('2026-07-20 12:00:00');

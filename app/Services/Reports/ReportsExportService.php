@@ -447,11 +447,8 @@ class ReportsExportService
             'geographicDistribution' => $report['geographicDistribution'] ?? ['labels' => [], 'data' => []],
             'employmentDistribution' => $report['employmentDistribution'] ?? ['labels' => [], 'data' => []],
             'geographicMapData' => $report['geographicMapData'] ?? ['provinces' => []],
-            // Only the AGENCY payload carries avgReferralCompletion; every
-            // other role falls back to the same computation directly so the
-            // Trends section can cite the on-screen average finish time.
-            'avgReferralCompletion' => $report['avgReferralCompletion']
-                ?? $this->reports->getAvgReferralCompletionDays($role === UserRole::AGENCY->value ? UserRole::AGENCY->value : null, $c['agency_id']),
+            // Match the on-screen average using the same date and location filters.
+            'avgReferralCompletion' => $report['avgReferralCompletion'] ?? $kpis['avgCompletionDays'] ?? 0,
             'caseTrends' => $this->trendFromBase($caseBase, 'cases.created_at'),
             'referralTrends' => $this->trendFromBase($refBase, 'referrals.created_at'),
         ];
