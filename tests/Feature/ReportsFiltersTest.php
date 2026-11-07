@@ -8,9 +8,12 @@ use App\Models\Agency;
 use App\Models\CaseFile;
 use App\Models\Referral;
 use App\Models\User;
+use App\Services\Reports\CaseMetrics;
+use App\Services\ReportsService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Inertia\Testing\AssertableInertia;
 use Tests\TestCase;
 
@@ -64,6 +67,47 @@ class ReportsFiltersTest extends TestCase
         $this->actingAsWithMfa($user)->get(route('reports.index', [
             'agency_id' => 'not-a-uuid',
         ]))->assertRedirect()->assertSessionHas('error');
+    }
+
+    public function test_deferred_metrics_only_compute_on_requested_reload_with_original_scope(): void
+    {
+        Cache::flush();
+        $agency = Agency::factory()->create();
+        $user = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id]);
+        $calls = 0;
+        $cases = \Mockery::mock(CaseMetrics::class)->makePartial();
+        $cases->shouldReceive('getCaseSourceDistribution')->once()
+            ->with(null, UserRole::AGENCY->value, $agency->id, '2026-06-01', '2026-06-30', 'Cebu', 'Cebu City')
+            ->andReturnUsing(function () use (&$calls) {
+                $calls++;
+
+                return ['labels' => ['Internal', 'Self-filed'], 'data' => [7, 2], 'colors' => []];
+            });
+        $this->app->instance(ReportsService::class, new ReportsService(cases: $cases));
+        $url = route('reports.index', [
+            'from' => '2026-06-01', 'to' => '2026-06-30',
+            'province' => 'Cebu', 'city' => 'Cebu City',
+            'agency_id' => Agency::factory()->create()->id,
+        ]);
+
+        $this->actingAsWithMfa($user)->get($url)->assertOk()
+            ->assertInertia(fn (AssertableInertia $page) => $page
+                ->component('Reports/Index')->missing('caseSourceDistribution'));
+        $this->assertSame(0, $calls, 'Initial response must not compute deferred metrics.');
+
+        $version = app(HandleInertiaRequests::class)->version(Request::create($url, 'GET'));
+        $headers = [
+            'X-Inertia' => 'true', 'X-Inertia-Version' => $version ?? '',
+            'X-Inertia-Partial-Component' => 'Reports/Index',
+            'X-Inertia-Partial-Data' => 'caseSourceDistribution',
+        ];
+        $this->withHeaders($headers)->get($url)->assertOk()
+            ->assertJsonPath('props.caseSourceDistribution.data', [7, 2])
+            ->assertJsonMissingPath('props.kpis');
+        $this->assertSame(1, $calls);
+        $this->withHeaders($headers)->get($url)->assertOk()
+            ->assertJsonPath('props.caseSourceDistribution.data', [7, 2]);
+        $this->assertSame(1, $calls, 'Same scoped selection should reuse cache.');
     }
 
     public function test_reports_deferred_partial_props_are_available_over_http(): void

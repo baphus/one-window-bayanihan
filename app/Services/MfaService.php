@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\User;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Throwable;
@@ -211,14 +210,6 @@ class MfaService
             }
 
             $consumedCounter = $counter;
-
-            // Best-effort fast path for the same counter within the same step.
-            // Losing this is harmless — the database check above holds.
-            try {
-                Cache::add('mfa:totp:'.$user->getKey().':'.$counter, true, config('mfa.replay_ttl', 120));
-            } catch (Throwable $e) {
-                report($e);
-            }
 
             return true;
         }
