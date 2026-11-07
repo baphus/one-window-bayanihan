@@ -14,6 +14,7 @@ use App\Models\ServiceRequirement;
 use App\Models\User;
 use App\Services\ReferralService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class ReferralServiceAddMilestoneTest extends TestCase
@@ -68,6 +69,100 @@ class ReferralServiceAddMilestoneTest extends TestCase
             'case_id' => $this->case->id,
             'agcy_id' => $this->agency->id,
         ]);
+    }
+
+    public function test_stale_referral_cannot_be_deleted_after_completion(): void
+    {
+        $referral = $this->makeReferral();
+        Referral::whereKey($referral->id)->update(['status' => 'COMPLETED']);
+
+        try {
+            $this->referralService->deleteReferral($referral);
+            $this->fail('Expected completed referral deletion to fail.');
+        } catch (\InvalidArgumentException $exception) {
+            $this->assertSame('A completed referral cannot be deleted.', $exception->getMessage());
+        }
+
+        $this->assertNotSoftDeleted($referral);
+    }
+
+    public function test_cascade_failure_rolls_back_all_referral_deletions(): void
+    {
+        $referral = $this->makeReferral();
+        $first = Milestone::create(['refr_id' => $referral->id, 'user_id' => $this->agencyUser->id, 'title' => 'First']);
+        $second = Milestone::create(['refr_id' => $referral->id, 'user_id' => $this->agencyUser->id, 'title' => 'Second']);
+        $dispatcher = Milestone::getEventDispatcher();
+        Milestone::setEventDispatcher(clone $dispatcher);
+        $deleted = 0;
+        Milestone::deleted(function () use (&$deleted) {
+            if (++$deleted === 2) {
+                throw new \RuntimeException('Cascade failed');
+            }
+        });
+
+        try {
+            $this->referralService->deleteReferral($referral);
+            $this->fail('Expected cascade failure.');
+        } catch (\RuntimeException $exception) {
+            $this->assertSame('Cascade failed', $exception->getMessage());
+        } finally {
+            Milestone::setEventDispatcher($dispatcher);
+        }
+
+        $this->assertNotSoftDeleted($referral);
+        $this->assertNotSoftDeleted($first);
+        $this->assertNotSoftDeleted($second);
+    }
+
+    public function test_milestone_reads_referral_under_row_lock(): void
+    {
+        $referral = $this->makeReferral();
+        $locked = false;
+        DB::listen(function ($query) use (&$locked) {
+            if (str_contains($query->sql, '"referrals"') && str_contains($query->sql, 'for update')) {
+                $locked = true;
+            }
+        });
+
+        $this->referralService->addMilestone($referral->id, 'Update', null, $this->agencyUser->id);
+
+        $this->assertTrue($locked);
+        $this->assertDatabaseHas('milestones', ['refr_id' => $referral->id, 'title' => 'Update']);
+    }
+
+    public function test_requirement_description_can_be_cleared_without_changing_omitted_fields(): void
+    {
+        $referral = $this->makeReferral();
+        $requirement = ReferralServiceRequirement::create([
+            'referral_id' => $referral->id,
+            'service_id' => $this->service->id,
+            'name' => 'ID',
+            'description' => 'Old description',
+            'is_required' => true,
+        ]);
+
+        $this->referralService->updateRequirement($referral, $this->service->id, $requirement->id, ['description' => null, 'is_required' => false]);
+
+        $this->assertDatabaseHas('referral_service_requirements', [
+            'id' => $requirement->id, 'name' => 'ID', 'description' => null, 'is_required' => false,
+        ]);
+    }
+
+    public function test_overdue_uses_newest_live_activity_and_ignores_deleted_milestones(): void
+    {
+        $recentStatus = $this->makeReferral();
+        $recentStatus->forceFill(['created_at' => now()->subDays(30), 'updated_at' => now()->subDay()])->saveQuietly();
+        $oldMilestone = Milestone::create(['refr_id' => $recentStatus->id, 'user_id' => $this->agencyUser->id, 'title' => 'Old']);
+        $oldMilestone->forceFill(['created_at' => now()->subDays(20)])->saveQuietly();
+        $oldStatus = $this->makeReferral();
+        $oldStatus->forceFill(['created_at' => now()->subDays(30), 'updated_at' => now()->subDays(20)])->saveQuietly();
+        $deleted = Milestone::create(['refr_id' => $oldStatus->id, 'user_id' => $this->agencyUser->id, 'title' => 'Deleted']);
+        $deleted->delete();
+
+        $ids = $this->referralService->overdueReferralsQuery(UserRole::ADMIN->value, null, null)->pluck('id')->all();
+
+        $this->assertNotContains($recentStatus->id, $ids);
+        $this->assertContains($oldStatus->id, $ids);
     }
 
     public function test_search_matches_partial_uuid_with_joined_sort(): void

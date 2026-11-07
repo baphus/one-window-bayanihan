@@ -4,8 +4,12 @@ namespace Tests\Feature\ReferralClientInbox;
 
 use App\Models\ReferralClientMessage;
 use App\Models\ReferralClientMessageAttachment;
+use App\Models\User;
+use App\Services\StorageService;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Storage;
+use Inertia\Testing\AssertableInertia as Assert;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 class ClientRequestVisibilityAuthorizationTest extends ReferralClientInboxTestCase
 {
@@ -63,6 +67,68 @@ class ClientRequestVisibilityAuthorizationTest extends ReferralClientInboxTestCa
         ])->assertRedirect();
 
         $this->actingAsWithMfa($context['otherAgencyUser'])->get(route('referrals.client-requests.attachments.download', [$context['referral']->id, $context['attachment']->id]))->assertForbidden();
+    }
+
+    public function test_admin_can_download_request_attachment_without_agency_sharing(): void
+    {
+        $context = $this->attachmentContext();
+        $admin = User::factory()->create(['role' => 'ADMIN']);
+        $this->mock(StorageService::class)->shouldReceive('temporaryUrl')
+            ->once()->with($context['attachment']->file_path, 24)->andReturn('https://storage.example.test/document.pdf');
+
+        $this->actingAsWithMfa($admin)
+            ->get(route('referrals.client-requests.attachments.download', [$context['referral'], $context['attachment']]))
+            ->assertRedirect('https://storage.example.test/document.pdf');
+    }
+
+    public static function guestAttachmentStates(): array
+    {
+        return [
+            'pending agency file' => ['AGENCY_USER', 'PENDING', 'ALL', false, false, false],
+            'rejected agency file' => ['AGENCY_USER', 'REJECTED', 'ALL', false, false, false],
+            'hidden agency file' => ['AGENCY_USER', 'ACCEPTED', 'HIDDEN', false, false, false],
+            'selected agency file' => ['AGENCY_USER', 'ACCEPTED', 'SELECTED', false, false, false],
+            'approved public agency file' => ['AGENCY_USER', 'ACCEPTED', 'ALL', false, false, true],
+            'client upload' => ['CLIENT_ACCESS', 'PENDING', 'HIDDEN', false, false, true],
+            'deleted attachment' => ['CLIENT_ACCESS', 'PENDING', 'HIDDEN', true, false, false],
+            'deleted message' => ['CLIENT_ACCESS', 'PENDING', 'HIDDEN', false, true, false],
+        ];
+    }
+
+    #[DataProvider('guestAttachmentStates')]
+    public function test_guest_projection_and_download_follow_client_visibility(string $sender, string $review, string $visibility, bool $deletedAttachment, bool $deletedMessage, bool $allowed): void
+    {
+        $context = $this->attachmentContext();
+        $issued = $this->issue($context);
+        $context['message']->forceFill([
+            'sender_kind' => $sender,
+            'user_id' => $sender === 'CLIENT_ACCESS' ? null : $context['agencyUser']->id,
+            'access_link_id' => $sender === 'CLIENT_ACCESS' ? $issued['link']->id : null,
+            'kind' => 'MESSAGE',
+            'is_deleted' => $deletedMessage,
+        ])->save();
+        $context['attachment']->forceFill(['review_status' => $review, 'visibility' => $visibility, 'is_deleted' => $deletedAttachment])->save();
+        $this->post(route('track.request.exchange'), ['token' => $issued['raw_token']])->assertRedirect();
+
+        $this->get(route('track.request.index'))->assertInertia(fn (Assert $page) => $page
+            ->component('Tracking/Show')
+            ->has('clientRequestPanel.activeRequest.messages', $deletedMessage ? 0 : 1)
+            ->when(! $deletedMessage, fn (Assert $page) => $page
+                ->has('clientRequestPanel.activeRequest.messages.0.attachments', $allowed ? 1 : 0)));
+
+        if ($allowed) {
+            $this->mock(StorageService::class)->shouldReceive('temporaryUrl')->once()
+                ->with($context['attachment']->file_path, 24)->andReturn('https://storage.example.test/document.pdf');
+        } else {
+            $this->mock(StorageService::class)->shouldNotReceive('temporaryUrl');
+        }
+
+        $response = $this->get(route('track.request.attachments.download', $context['attachment']));
+        if ($allowed) {
+            $response->assertRedirect('https://storage.example.test/document.pdf');
+        } else {
+            $response->assertNotFound();
+        }
     }
 
     private function attachmentContext(): array

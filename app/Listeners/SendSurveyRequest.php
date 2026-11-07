@@ -3,14 +3,12 @@
 namespace App\Listeners;
 
 use App\Events\ReferralCompleted;
-use App\Mail\SurveyRequestMail;
 use App\Models\SurveyInvitation;
 use App\Models\SystemSetting;
 use App\Services\SurveyFormService;
 use App\Services\SurveyInvitationService;
 use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 
 class SendSurveyRequest implements ShouldQueueAfterCommit
 {
@@ -48,6 +46,8 @@ class SendSurveyRequest implements ShouldQueueAfterCommit
             ->where('agency_id', $referral->agcy_id)
             ->where('referral_id', $referral->id)
             ->exists()) {
+            app(SurveyInvitationService::class)->queuePendingInvitation($referral->id);
+
             return;
         }
 
@@ -79,6 +79,8 @@ class SendSurveyRequest implements ShouldQueueAfterCommit
         );
 
         if (! $created) {
+            app(SurveyInvitationService::class)->queuePendingInvitation($referral->id);
+
             return;
         }
 
@@ -91,6 +93,6 @@ class SendSurveyRequest implements ShouldQueueAfterCommit
         ]);
 
         // Queue the survey request email
-        Mail::to($caseFile->client->email)->queue(new SurveyRequestMail($invitation, $created['rawToken']));
+        app(SurveyInvitationService::class)->queuePendingInvitation($referral->id);
     }
 }

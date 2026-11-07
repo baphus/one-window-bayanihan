@@ -15,7 +15,7 @@ class SurveyInvitation extends Model
     public static array $auditExclude = [
         'id', 'created_at', 'updated_at', 'deleted_at', 'deleted_by',
         'survey_form_id', 'case_id', 'agency_id', 'referral_id',
-        'token', 'token_hash',
+        'token', 'token_hash', 'pending_token',
     ];
 
     public function getAuditModuleName(): string
@@ -26,6 +26,7 @@ class SurveyInvitation extends Model
     protected $hidden = [
         'token',
         'token_hash',
+        'pending_token',
     ];
 
     protected $fillable = [
@@ -37,11 +38,15 @@ class SurveyInvitation extends Model
         'client_email',
         'service_name',
         'token_hash',
+        'pending_token',
+        'queued_at',
         'expires_at',
         'submitted_at',
     ];
 
     protected $casts = [
+        'pending_token' => 'encrypted',
+        'queued_at' => 'datetime',
         'expires_at' => 'datetime',
         'submitted_at' => 'datetime',
     ];

@@ -367,7 +367,9 @@ class ReportsExportService
         $query->whereIn($caseIdColumn, function ($q) use ($c) {
             $q->select('cases.id')->from('cases')
                 ->join('clients', 'clients.id', '=', 'cases.client_id')
-                ->join('client_addresses', 'client_addresses.client_id', '=', 'clients.id');
+                ->join('client_addresses', 'client_addresses.client_id', '=', 'clients.id')
+                ->where('client_addresses.is_deleted', false)
+                ->whereNull('client_addresses.deleted_at');
             if ($c['province']) {
                 $q->where('client_addresses.province', $c['province']);
             }

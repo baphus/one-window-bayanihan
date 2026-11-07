@@ -225,10 +225,7 @@ class ReferralClientRequestController extends Controller
         if (! $attachedRequest || $attachedRequest->id !== $requestModel->id || $attachment->is_deleted || $attachment->message->is_deleted) {
             abort(404);
         }
-        if ($attachment->message->sender_kind === ReferralClientMessage::SENDER_AGENCY_USER
-            && ($attachment->review_status !== 'ACCEPTED' || $attachment->visibility !== 'ALL')) {
-            abort(404);
-        }
+        abort_unless($this->clientCanReadAttachment($attachment, $attachment->message), 404);
 
         $url = app(StorageService::class)->temporaryUrl($attachment->file_path, 24);
         abort_unless($url, 404, 'File not found or unavailable.');
@@ -349,7 +346,7 @@ class ReferralClientRequestController extends Controller
                 ->where('is_deleted', false)
                 ->where('kind', 'MESSAGE')
                 ->sortBy('created_at')
-                ->map(fn ($message) => $this->messagePayload($message))
+                ->map(fn ($message) => $this->ownerMessagePayload($message))
                 ->values(),
         ];
 
@@ -417,7 +414,8 @@ class ReferralClientRequestController extends Controller
         }
 
         $attachment->loadMissing('message');
-        if (! $attachment->message || $attachment->message->request_id !== $clientRequest->id) {
+        if (! $attachment->message || $attachment->message->request_id !== $clientRequest->id
+            || ! $this->clientCanReadAttachment($attachment, $attachment->message)) {
             abort(404);
         }
 
@@ -484,7 +482,9 @@ class ReferralClientRequestController extends Controller
 
         $isRequestingAgency = $request->user()->isAgency()
             && $request->user()->agcy_id === $referral->agcy_id;
-        if (! $isRequestingAgency) {
+        if ($request->user()->isAdmin() || $isRequestingAgency) {
+            $this->requestService->assertCanRead($clientRequest, $request->user());
+        } else {
             $referral->loadMissing('caseFile');
             $hasActiveCaseReferral = $request->user()->isAgency()
                 && $referral->caseFile?->referrals()
@@ -494,11 +494,7 @@ class ReferralClientRequestController extends Controller
             if (! $hasActiveCaseReferral) {
                 abort(403);
             }
-        } else {
-            $this->requestService->assertCanRead($clientRequest, $request->user());
         }
-        $isRequestingAgency = $request->user()->isAgency()
-            && $request->user()->agcy_id === $referral->agcy_id;
         if ($request->user()->isAgency() && ! $isRequestingAgency && $attachment->review_status !== 'ACCEPTED') {
             abort(403);
         }
@@ -770,6 +766,14 @@ class ReferralClientRequestController extends Controller
         ];
     }
 
+    private function clientCanReadAttachment(ReferralClientMessageAttachment $attachment, ReferralClientMessage $message): bool
+    {
+        return ! $attachment->is_deleted && ! $attachment->trashed()
+            && ! $message->is_deleted && ! $message->trashed()
+            && ($message->sender_kind !== ReferralClientMessage::SENDER_AGENCY_USER
+                || ($attachment->review_status === 'ACCEPTED' && $attachment->visibility === 'ALL'));
+    }
+
     private function ownerMessagePayload($message): array
     {
         return [
@@ -781,9 +785,7 @@ class ReferralClientRequestController extends Controller
                 : null,
             'created_at' => $message->created_at?->toIso8601String(),
             'attachments' => $message->attachments
-                ?->filter(fn ($attachment) => ! $attachment->is_deleted && ! $attachment->trashed()
-                    && ($message->sender_kind !== ReferralClientMessage::SENDER_AGENCY_USER
-                        || ($attachment->review_status === 'ACCEPTED' && $attachment->visibility === 'ALL')))
+                ?->filter(fn ($attachment) => $this->clientCanReadAttachment($attachment, $message))
                 ->values()
                 ->map(fn ($attachment) => [
                     'id' => $attachment->id,

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\AuditModule;
+use App\Mail\SurveyRequestMail;
 use App\Models\Referral;
 use App\Models\SurveyForm;
 use App\Models\SurveyInvitation;
@@ -10,6 +11,7 @@ use App\Models\SurveyQuestion;
 use App\Models\SurveyResponse;
 use App\Settings\SettingRegistry;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use RuntimeException;
 
@@ -54,6 +56,7 @@ class SurveyInvitationService
                 'client_email' => $clientEmail,
                 'service_name' => $serviceName,
                 'token_hash' => hash('sha256', $rawToken),
+                'pending_token' => $rawToken,
                 'expires_at' => now()->addDays(
                     SettingRegistry::int('survey_invitation_expiry_days')
                 ),
@@ -61,6 +64,21 @@ class SurveyInvitationService
         });
 
         return $invitation ? ['invitation' => $invitation, 'rawToken' => $rawToken] : null;
+    }
+
+    public function queuePendingInvitation(string $referralId): void
+    {
+        DB::transaction(function () use ($referralId) {
+            $invitation = SurveyInvitation::where('referral_id', $referralId)->lockForUpdate()->first();
+
+            if (! $invitation || $invitation->queued_at || ! $invitation->pending_token || ! $invitation->isUsable()) {
+                return;
+            }
+
+            // A crash after Redis accepts the mail can duplicate delivery, but keeps the same valid link.
+            Mail::to($invitation->client_email)->queue(new SurveyRequestMail($invitation, $invitation->pending_token));
+            $invitation->update(['queued_at' => now(), 'pending_token' => null]);
+        });
     }
 
     /**

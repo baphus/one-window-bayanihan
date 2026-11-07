@@ -76,7 +76,7 @@ class ReportAndReferralRoleGuardTest extends TestCase
 
             $this->actingAsWithMfa($user)
                 ->{$method}(route($routeName))
-                ->assertStatus(200);
+                ->assertStatus($routeName === 'referrals.create' && $role === UserRole::AGENCY->value ? 403 : 200);
         }
     }
 
@@ -116,7 +116,7 @@ class ReportAndReferralRoleGuardTest extends TestCase
             $middleware = Route::getRoutes()->getByName($routeName)?->gatherMiddleware() ?? [];
 
             $this->assertContains(
-                'role:CASE_MANAGER,ADMIN,AGENCY',
+                $routeName === 'referrals.create' ? 'role:CASE_MANAGER,ADMIN' : 'role:CASE_MANAGER,ADMIN,AGENCY',
                 $middleware,
                 "Route [{$routeName}] is missing the staff role guard."
             );

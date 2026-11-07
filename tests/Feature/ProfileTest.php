@@ -29,7 +29,7 @@ class ProfileTest extends TestCase
             ->actingAsWithMfa($user)
             ->patch('/profile', [
                 'name' => 'Test User',
-                'email' => 'test@example.com',
+                'email' => $user->email,
             ]);
 
         $response
@@ -39,8 +39,7 @@ class ProfileTest extends TestCase
         $user->refresh();
 
         $this->assertSame('Test User', $user->name);
-        $this->assertSame('test@example.com', $user->email);
-        $this->assertNull($user->email_verified_at);
+        $this->assertNotNull($user->email_verified_at);
     }
 
     public function test_email_verification_status_is_unchanged_when_the_email_address_is_unchanged(): void
@@ -59,6 +58,34 @@ class ProfileTest extends TestCase
             ->assertRedirect('/profile');
 
         $this->assertNotNull($user->refresh()->email_verified_at);
+    }
+
+    public function test_profile_update_cannot_bypass_email_change_verification(): void
+    {
+        $user = User::factory()->create();
+        $originalEmail = $user->email;
+
+        $this->actingAsWithMfa($user)->from('/profile')->patch('/profile', [
+            'name' => 'Changed Name',
+            'email' => 'changed@example.com',
+        ])->assertRedirect('/profile')->assertSessionHasErrors('email');
+
+        $this->assertSame($originalEmail, $user->fresh()->email);
+        $this->assertNotNull($user->fresh()->email_verified_at);
+        $this->assertNotSame('Changed Name', $user->fresh()->name);
+    }
+
+    public function test_admin_cannot_delete_their_own_account(): void
+    {
+        $user = User::factory()->create(['role' => 'ADMIN']);
+
+        $this->actingAsWithMfa($user)->delete('/profile', [
+            'password' => 'P@ssw0rd!',
+        ])->assertForbidden();
+
+        $this->assertAuthenticatedAs($user);
+        $this->assertFalse($user->fresh()->is_deleted);
+        $this->assertTrue($user->fresh()->is_active);
     }
 
     public function test_user_can_delete_their_account(): void
