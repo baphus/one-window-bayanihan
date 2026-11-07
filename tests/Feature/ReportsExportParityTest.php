@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Services\Reports\ReportsExportService;
 use App\Services\ReportsService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -132,6 +133,37 @@ class ReportsExportParityTest extends TestCase
                 "Agency {$row['agency']} active must equal total minus completed"
             );
         }
+    }
+
+    #[Test]
+    public function export_average_completion_matches_filtered_report_kpis(): void
+    {
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $agency = Agency::factory()->create();
+        foreach ([
+            ['case' => '2026-03-10 08:00:00', 'days' => 4, 'province' => 'Cebu'],
+            ['case' => '2026-03-11 08:00:00', 'days' => 30, 'province' => 'Cebu'],
+            ['case' => '2025-12-10 08:00:00', 'days' => 60, 'province' => 'Cebu'],
+            ['case' => '2026-03-12 08:00:00', 'days' => 90, 'province' => 'Bohol'],
+        ] as $row) {
+            $case = $this->seedCase($manager, $agency,
+                ['created_at' => $row['case'], 'updated_at' => $row['case']],
+                ['status' => 'COMPLETED', 'created_at' => $row['case'], 'updated_at' => Carbon::parse($row['case'])->addDays($row['days'])]);
+            ClientAddress::create([
+                'client_id' => $case->client_id, 'province' => $row['province'], 'city_municipality' => 'Test City',
+            ]);
+        }
+
+        $criteria = $this->criteriaFor($manager, ['from' => '2026-03-01', 'to' => '2026-03-31', 'province' => 'Cebu']);
+        $screenKpis = $this->reports->getAll(
+            userId: $manager->id, role: $manager->role, agencyId: $criteria['agency_id'],
+            fromDate: $criteria['from'], toDate: $criteria['to'], dateScope: $criteria['dateScope'],
+            province: $criteria['province'], city: $criteria['city'],
+        )['kpis'];
+        $payload = $this->exports->buildPdfPayloadFromCriteria($criteria);
+
+        $this->assertSame(17.0, $screenKpis['avgCompletionDays']);
+        $this->assertSame($screenKpis['avgCompletionDays'], $payload['avgReferralCompletion']);
     }
 
     #[Test]

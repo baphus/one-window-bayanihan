@@ -54,7 +54,7 @@ class ReferralMetrics
             ->select(DB::raw('AVG(EXTRACT(EPOCH FROM (cases.closed_at - cases.created_at)) / 86400) as avg_days'))
             ->value('avg_days');
 
-        $duration = $from->diffInDays($to);
+        $duration = $from->diffInDays($to) + 1;
         $prevFrom = $from->copy()->subDays($duration);
         $prevTo = $from->copy()->subDay();
 
