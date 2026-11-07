@@ -10,8 +10,11 @@ use App\Mail\EmailChangedNotification;
 use App\Services\AuditCategory;
 use App\Services\AuditLogger;
 use App\Services\OtpService;
+use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -97,24 +100,42 @@ class EmailChangeController extends Controller
         $user = $request->user();
         $oldEmail = $user->email;
 
-        // Update email and mark as verified
-        $user->email = $newEmail;
-        $user->email_verified_at = now();
-        $user->save();
+        try {
+            DB::transaction(function () use ($user, $newEmail, $oldEmail): void {
+                $user->email = $newEmail;
+                $user->email_verified_at = now();
+                $user->save();
 
-        // Notify old email about the change
-        Mail::to($oldEmail)->queue(
-            new EmailChangedNotification($oldEmail, $newEmail, $user->name)
-        );
+                // Audit email separately; AuditObserver excludes it to prevent noise in general updates.
+                AuditLogger::changeEmail()
+                    ->by($user)
+                    ->forEntity($user, $user->email)
+                    ->module(AuditModule::USER)
+                    ->category(AuditCategory::SECURITY)
+                    ->context(['email' => $oldEmail], ['email' => $newEmail])
+                    ->write();
+            });
+        } catch (QueryException $exception) {
+            if (! $this->isEmailUniqueViolation($exception)) {
+                throw $exception;
+            }
 
-        // Audit the email change (email is excluded from AuditObserver to prevent noise in general updates)
-        AuditLogger::changeEmail()
-            ->by($user)
-            ->forEntity($user, $user->email)
-            ->module(AuditModule::USER)
-            ->category(AuditCategory::SECURITY)
-            ->context(['email' => $oldEmail], ['email' => $newEmail])
-            ->write();
+            throw ValidationException::withMessages([
+                'new_email' => 'The email address has already been taken.',
+            ]);
+        }
+
+        // Notification failure must not turn a committed email change into an apparent failed request.
+        try {
+            Mail::to($oldEmail)->queue(
+                new EmailChangedNotification($oldEmail, $newEmail, $user->name)
+            );
+        } catch (\Throwable $exception) {
+            Log::warning('email_change_notification_failed', [
+                'user_id' => $user->id,
+                'error' => $exception->getMessage(),
+            ]);
+        }
 
         // Clear email change session state so the section resets
         $request->session()->forget(['email_change_step', 'email_change_hint', 'pending_new_email']);
@@ -127,6 +148,15 @@ class EmailChangeController extends Controller
 
         return redirect()->route('profile.edit')
             ->with('success', 'Your email address has been changed successfully.');
+    }
+
+    private function isEmailUniqueViolation(QueryException $exception): bool
+    {
+        $sqlState = $exception->errorInfo[0] ?? $exception->getCode();
+        $message = $exception->getMessage();
+
+        return $sqlState === '23505'
+            && str_contains($message, 'users_email_unique');
     }
 
     private function redactEmail(string $email): string

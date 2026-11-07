@@ -73,6 +73,20 @@ class EmailChangeTest extends TestCase
         $response->assertSessionHasErrors(['password', 'new_email']);
     }
 
+    public function test_resending_otp_requires_current_password_even_with_pending_email(): void
+    {
+        $this->actingAsWithMfa($this->user);
+        session(['pending_new_email' => 'new@example.com']);
+
+        $response = $this->from(route('profile.edit'))
+            ->post(route('profile.email-change.send-otp'), [
+                'new_email' => 'changed@example.com',
+            ]);
+
+        $response->assertRedirect(route('profile.edit'));
+        $response->assertSessionHasErrors(['password']);
+    }
+
     public function test_send_otp_rejects_wrong_password(): void
     {
         $response = $this
@@ -124,6 +138,79 @@ class EmailChangeTest extends TestCase
         $this->assertNotNull($audit);
         $this->assertEquals('old@example.com', $audit->old_value['email']);
         $this->assertEquals('new@example.com', $audit->new_value['email']);
+    }
+
+    public function test_verify_otp_rejects_email_taken_after_otp_was_sent(): void
+    {
+        $this->actingAsWithMfa($this->user);
+        User::factory()->create(['email' => 'new@example.com']);
+
+        $otp = $this->createMock(OtpService::class);
+        $otp->expects($this->never())->method('verify');
+        $this->app->instance(OtpService::class, $otp);
+
+        $response = $this->from(route('profile.edit'))
+            ->post(route('profile.email-change.verify-otp'), [
+                'new_email' => 'new@example.com',
+                'otp' => '123456',
+            ]);
+
+        $response->assertRedirect(route('profile.edit'));
+        $response->assertSessionHasErrors(['new_email']);
+        $this->assertSame('old@example.com', $this->user->fresh()->email);
+    }
+
+    public function test_verify_email_unique_constraint_conflict_is_validation_error_and_rolls_back(): void
+    {
+        $this->actingAsWithMfa($this->user);
+        User::updating(function (User $user): void {
+            if ($user->isDirty('email') && $user->email === 'new@example.com') {
+                User::factory()->create(['email' => 'new@example.com']);
+            }
+        });
+
+        $otp = $this->createMock(OtpService::class);
+        $otp->method('verify')->willReturn(true);
+        $this->app->instance(OtpService::class, $otp);
+
+        $response = $this->from(route('profile.edit'))
+            ->post(route('profile.email-change.verify-otp'), [
+                'new_email' => 'new@example.com',
+                'otp' => '123456',
+            ]);
+
+        $response->assertRedirect(route('profile.edit'));
+        $response->assertSessionHasErrors(['new_email']);
+        $this->assertSame('old@example.com', $this->user->fresh()->email);
+        $this->assertDatabaseMissing('audit_logs', [
+            'entity_id' => $this->user->id,
+            'action' => 'CHANGE_EMAIL',
+        ]);
+    }
+
+    public function test_mail_queue_failure_does_not_fail_committed_email_change(): void
+    {
+        $this->actingAsWithMfa($this->user);
+
+        $otp = $this->createMock(OtpService::class);
+        $otp->method('verify')->willReturn(true);
+        $this->app->instance(OtpService::class, $otp);
+
+        Mail::shouldReceive('to')->once()->with('old@example.com')->andThrow(new \RuntimeException('mail unavailable'));
+
+        $response = $this->post(route('profile.email-change.verify-otp'), [
+            'new_email' => 'new@example.com',
+            'otp' => '123456',
+        ]);
+
+        $response->assertRedirect(route('profile.edit'));
+        $response->assertSessionHas('success');
+        $response->assertSessionMissing('pending_new_email');
+        $this->assertSame('new@example.com', $this->user->fresh()->email);
+        $this->assertDatabaseHas('audit_logs', [
+            'entity_id' => $this->user->id,
+            'action' => 'CHANGE_EMAIL',
+        ]);
     }
 
     public function test_verify_otp_fails_with_invalid_otp(): void

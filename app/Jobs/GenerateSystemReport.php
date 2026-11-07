@@ -70,7 +70,9 @@ class GenerateSystemReport implements ShouldBeUnique, ShouldQueue
             };
 
             $storagePath = 'generated-documents/'.$this->documentId.'/'.$document->filename;
-            Storage::disk('object-storage')->put($storagePath, file_get_contents($tempPath));
+            if (! Storage::disk('object-storage')->put($storagePath, file_get_contents($tempPath))) {
+                throw new \RuntimeException('Failed to store generated report.');
+            }
 
             $document->update([
                 'status' => 'completed',
@@ -97,7 +99,7 @@ class GenerateSystemReport implements ShouldBeUnique, ShouldQueue
         }
     }
 
-    private function generatePdf(ReportsExportService $service, string $tempPath): void
+    protected function generatePdf(ReportsExportService $service, string $tempPath): void
     {
         $payload = $service->buildPdfPayloadFromCriteria($this->criteria);
         $pdf = Pdf::loadView('pdf.report', $payload);

@@ -2,8 +2,10 @@
 
 namespace App\Http\Requests;
 
+use App\Models\User;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class EmailChangeVerifyOtpRequest extends FormRequest
 {
@@ -23,7 +25,7 @@ class EmailChangeVerifyOtpRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'new_email' => ['required', 'string', 'email'],
+            'new_email' => ['required', 'string', 'lowercase', 'email', 'max:255', Rule::unique(User::class, 'email')->ignore($this->user()->id)],
             'otp' => ['required', 'string', 'size:6'],
         ];
     }

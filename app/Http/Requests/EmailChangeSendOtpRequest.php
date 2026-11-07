@@ -24,12 +24,8 @@ class EmailChangeSendOtpRequest extends FormRequest
      */
     public function rules(): array
     {
-        $hasPendingEmailChange = $this->session()->has('pending_new_email');
-
         return [
-            'password' => $hasPendingEmailChange
-                ? ['nullable', 'string']
-                : ['required', 'string', 'current_password'],
+            'password' => ['required', 'string', 'current_password'],
             'new_email' => [
                 'required',
                 'string',
