@@ -102,7 +102,7 @@ trait ScopesReportQueries
     /**
      * Apply geographic filter (province/city) to a query builder.
      * For referral-based queries, uses a subquery on cases->clients->client_addresses.
-     * For case-based queries, joins directly.
+     * For case-based queries, uses a subquery to avoid duplicate counts.
      */
     /**
      * Restrict a `cases`-based query to the active reporting window.
@@ -128,7 +128,11 @@ trait ScopesReportQueries
         $query->whereIn('cases.id', function ($q) use ($province, $city) {
             $q->select('cases.id')->from('cases')
                 ->join('clients', 'clients.id', '=', 'cases.client_id')
-                ->join('client_addresses', 'client_addresses.client_id', '=', 'clients.id');
+                ->join('client_addresses', function ($join) {
+                    $join->on('client_addresses.client_id', '=', 'clients.id')
+                        ->where('client_addresses.is_deleted', false)
+                        ->whereNull('client_addresses.deleted_at');
+                });
             if ($province) {
                 $q->where('client_addresses.province', $province);
             }
@@ -172,7 +176,11 @@ trait ScopesReportQueries
             $query->select('referrals.*')->whereIn('referrals.case_id', function ($q) use ($province, $city) {
                 $q->select('cases.id')->from('cases')
                     ->join('clients', 'clients.id', '=', 'cases.client_id')
-                    ->join('client_addresses', 'client_addresses.client_id', '=', 'clients.id');
+                    ->join('client_addresses', function ($join) {
+                        $join->on('client_addresses.client_id', '=', 'clients.id')
+                            ->where('client_addresses.is_deleted', false)
+                            ->whereNull('client_addresses.deleted_at');
+                    });
                 if ($province) {
                     $q->where('client_addresses.province', $province);
                 }
@@ -181,14 +189,21 @@ trait ScopesReportQueries
                 }
             });
         } else {
-            $query->join('clients', 'clients.id', '=', 'cases.client_id')
-                ->join('client_addresses', 'client_addresses.client_id', '=', 'clients.id');
-            if ($province) {
-                $query->where('client_addresses.province', $province);
-            }
-            if ($city) {
-                $query->where('client_addresses.city_municipality', $city);
-            }
+            $query->whereIn('cases.id', function ($q) use ($province, $city) {
+                $q->select('cases.id')->from('cases')
+                    ->join('clients', 'clients.id', '=', 'cases.client_id')
+                    ->join('client_addresses', function ($join) {
+                        $join->on('client_addresses.client_id', '=', 'clients.id')
+                            ->where('client_addresses.is_deleted', false)
+                            ->whereNull('client_addresses.deleted_at');
+                    });
+                if ($province) {
+                    $q->where('client_addresses.province', $province);
+                }
+                if ($city) {
+                    $q->where('client_addresses.city_municipality', $city);
+                }
+            });
         }
     }
 
@@ -214,13 +229,17 @@ trait ScopesReportQueries
             $this->applyLocalDateWindow($q, 'cases.created_at', $fromDate, $toDate);
         }
         if ($province || $city) {
-            $q->join('client_addresses', 'client_addresses.client_id', '=', 'cases.client_id');
-            if ($province) {
-                $q->where('client_addresses.province', $province);
-            }
-            if ($city) {
-                $q->where('client_addresses.city_municipality', $city);
-            }
+            $q->whereIn('cases.client_id', function ($addresses) use ($province, $city) {
+                $addresses->select('client_addresses.client_id')->from('client_addresses')
+                    ->where('client_addresses.is_deleted', false)
+                    ->whereNull('client_addresses.deleted_at');
+                if ($province) {
+                    $addresses->where('client_addresses.province', $province);
+                }
+                if ($city) {
+                    $addresses->where('client_addresses.city_municipality', $city);
+                }
+            });
         }
 
         return $q->select('cases.client_id');

@@ -31,6 +31,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class ReferralService
 {
@@ -57,6 +58,27 @@ class ReferralService
     public function createReferral(array $data, string $userId): Referral
     {
         $referral = DB::transaction(function () use ($data, $userId) {
+            $case = CaseFile::withTrashed()->lockForUpdate()->findOrFail($data['case_id']);
+
+            if ($case->trashed() || $case->is_deleted || $case->status !== 'OPEN') {
+                throw ValidationException::withMessages([
+                    'case_id' => 'Referrals can only be created for open cases.',
+                ]);
+            }
+
+            $duplicate = Referral::query()
+                ->where('case_id', $case->id)
+                ->where('agcy_id', $data['agcy_id'])
+                ->where('is_deleted', false)
+                ->whereNotIn('status', ['REJECTED', 'COMPLETED'])
+                ->exists();
+
+            if ($duplicate) {
+                throw ValidationException::withMessages([
+                    'agcy_id' => 'This case already has an active referral with the selected agency.',
+                ]);
+            }
+
             $referral = Referral::create([
                 'required_services' => '',
                 'notes' => $data['notes'] ?? null,

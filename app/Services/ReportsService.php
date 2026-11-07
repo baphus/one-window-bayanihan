@@ -149,7 +149,7 @@ class ReportsService
             'referralStatusDistribution' => $this->referrals->getReferralStatusDistribution(null, UserRole::AGENCY->value, $from, $to, $dateScope, $province, $city, $agencyId),
             'rejectionReasonDistribution' => $this->referrals->getRejectionReasonDistribution(null, UserRole::AGENCY->value, $from, $to, $dateScope, $province, $city, $agencyId),
             'referralTrends' => $this->referrals->getReferralTrends(null, UserRole::AGENCY->value, $from, $to, $dateScope, $province, $city, $agencyId),
-            'avgReferralCompletion' => $this->referrals->getAvgReferralCompletionDays(role: UserRole::AGENCY->value, agencyId: $agencyId),
+            'avgReferralCompletion' => null,
             'cycleTimeDistribution' => $this->referrals->getReferralCycleTimeDistribution(null, UserRole::AGENCY->value, $from, $to, $dateScope, $province, $city, $agencyId),
             'agencyScorecard' => $this->referrals->getAgencyScorecard(null, UserRole::AGENCY->value, $from, $to, $dateScope, $province, $city, $agencyId),
             'categoryDistribution' => $this->cases->categoryDistribution(null, UserRole::AGENCY->value, $agencyId, $from, $to, $province, $city),
