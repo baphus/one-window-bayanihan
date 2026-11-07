@@ -44,16 +44,17 @@ class ReportsController extends Controller
             default => null,
         };
 
-        $data = $this->reportsService->getAll(
-            userId: $user->id,
-            role: $user->role,
-            agencyId: $effectiveAgencyId,
-            fromDate: $fromDate,
-            toDate: $toDate,
-            dateScope: $dateScope,
-            province: $province,
-            city: $city,
-        );
+        $reportScope = [
+            'userId' => $user->id,
+            'role' => $user->role,
+            'agencyId' => $effectiveAgencyId,
+            'fromDate' => $fromDate,
+            'toDate' => $toDate,
+            'dateScope' => $dateScope,
+            'province' => $province,
+            'city' => $city,
+        ];
+        $data = fn (string $key) => $this->reportsService->getAll(...[...$reportScope, 'only' => [$key]])[$key] ?? null;
 
         // Gather filter options
         $provinceOptions = $this->reportsService->getProvinceOptions(
@@ -81,7 +82,7 @@ class ReportsController extends Controller
             'role' => $user->role,
             'agencyId' => $effectiveAgencyId,
             'agencyOptions' => $agencyOptions,
-            'kpis' => $data['kpis'],
+            'kpis' => fn () => $data('kpis'),
             'from' => $fromDate,
             'to' => $toDate,
             'dateScope' => $dateScope,
@@ -91,36 +92,36 @@ class ReportsController extends Controller
             'cityOptions' => $cityOptions,
 
             // ── EAGER PROPS (filter-sensitive — re-fetched on every filter change) ──
-            'referralStatusDistribution' => $data['referralStatusDistribution'] ?? null,
-            'referralAgencyDistribution' => $data['referralAgencyDistribution'] ?? null,
-            'casesOverTime' => $data['casesOverTime'] ?? null,
-            'genderDistribution' => $data['genderDistribution'] ?? null,
-            'ageGroupDistribution' => $data['ageGroupDistribution'] ?? null,
-            'cycleTimeDistribution' => $data['cycleTimeDistribution'] ?? null,
-            'agencyScorecard' => $data['agencyScorecard'] ?? null,
-            'geographicDistribution' => $data['geographicDistribution'] ?? null,
-            'geographicMapData' => $data['geographicMapData'] ?? null,
-            'caseIssueDistribution' => $data['caseIssueDistribution'] ?? null,
-            'mostRequestedService' => $data['mostRequestedService'] ?? null,
-            'cityDistribution' => $data['cityDistribution'] ?? null,
+            'referralStatusDistribution' => fn () => $data('referralStatusDistribution'),
+            'referralAgencyDistribution' => fn () => $data('referralAgencyDistribution'),
+            'casesOverTime' => fn () => $data('casesOverTime'),
+            'genderDistribution' => fn () => $data('genderDistribution'),
+            'ageGroupDistribution' => fn () => $data('ageGroupDistribution'),
+            'cycleTimeDistribution' => fn () => $data('cycleTimeDistribution'),
+            'agencyScorecard' => fn () => $data('agencyScorecard'),
+            'geographicDistribution' => fn () => $data('geographicDistribution'),
+            'geographicMapData' => fn () => $data('geographicMapData'),
+            'caseIssueDistribution' => fn () => $data('caseIssueDistribution'),
+            'mostRequestedService' => fn () => $data('mostRequestedService'),
+            'cityDistribution' => fn () => $data('cityDistribution'),
 
-            // ── DEFERRED PROPS (static data that doesn't change with filters) ──
+            // ── DEFERRED PROPS (computed only when requested) ──
             // Loaded in one background group after initial render.
-            'clientTypeDistribution' => Inertia::defer(fn () => $data['clientTypeDistribution'] ?? null),
-            'categoryDistribution' => Inertia::defer(fn () => $data['categoryDistribution'] ?? null),
-            'employmentDistribution' => Inertia::defer(fn () => $data['employmentDistribution'] ?? null),
-            'employmentOccupationBreakdown' => Inertia::defer(fn () => $data['employmentOccupationBreakdown'] ?? null),
-            'caseStatusDistribution' => Inertia::defer(fn () => $data['caseStatusDistribution'] ?? null),
-            'vulnerabilityDistribution' => Inertia::defer(fn () => $data['vulnerabilityDistribution'] ?? null),
-            'overview' => Inertia::defer(fn () => $data['overview'] ?? null),
-            'caseTrends' => Inertia::defer(fn () => $data['caseTrends'] ?? null),
-            'referralTrends' => Inertia::defer(fn () => $data['referralTrends'] ?? null),
-            'avgReferralCompletion' => Inertia::defer(fn () => $data['kpis']['avgCompletionDays']),
-            'rejectionReasonDistribution' => Inertia::defer(fn () => $data['rejectionReasonDistribution'] ?? null),
-            'caseSourceDistribution' => Inertia::defer(fn () => $data['caseSourceDistribution'] ?? null),
-            'closedCasesOverTime' => Inertia::defer(fn () => $data['closedCasesOverTime'] ?? null),
-            'agencyFirstResponse' => Inertia::defer(fn () => $data['agencyFirstResponse'] ?? null),
-            'clientRequestTypeDistribution' => Inertia::defer(fn () => $data['clientRequestTypeDistribution'] ?? null),
+            'clientTypeDistribution' => Inertia::defer(fn () => $data('clientTypeDistribution')),
+            'categoryDistribution' => Inertia::defer(fn () => $data('categoryDistribution')),
+            'employmentDistribution' => Inertia::defer(fn () => $data('employmentDistribution')),
+            'employmentOccupationBreakdown' => Inertia::defer(fn () => $data('employmentOccupationBreakdown')),
+            'caseStatusDistribution' => Inertia::defer(fn () => $data('caseStatusDistribution')),
+            'vulnerabilityDistribution' => Inertia::defer(fn () => $data('vulnerabilityDistribution')),
+            'overview' => Inertia::defer(fn () => $data('overview')),
+            'caseTrends' => Inertia::defer(fn () => $data('caseTrends')),
+            'referralTrends' => Inertia::defer(fn () => $data('referralTrends')),
+            'avgReferralCompletion' => Inertia::defer(fn () => $data('kpis')['avgCompletionDays']),
+            'rejectionReasonDistribution' => Inertia::defer(fn () => $data('rejectionReasonDistribution')),
+            'caseSourceDistribution' => Inertia::defer(fn () => $data('caseSourceDistribution')),
+            'closedCasesOverTime' => Inertia::defer(fn () => $data('closedCasesOverTime')),
+            'agencyFirstResponse' => Inertia::defer(fn () => $data('agencyFirstResponse')),
+            'clientRequestTypeDistribution' => Inertia::defer(fn () => $data('clientRequestTypeDistribution')),
         ]);
     }
 

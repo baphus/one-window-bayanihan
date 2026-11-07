@@ -116,7 +116,7 @@ Browser → HTTPS → Laravel middleware stack → Controller → Service → Mo
 Custom config files (21 total in `config/`):
 - `ai-chatbot.php` — provider (default: gemini), model, temperature, max_tokens, assistant name ("Bayani")
 - `audit.php` — retention_days (365), archive_disk, chain_verified_from, export limits, 28 observed models, redaction policy
-- `mfa.php` — pending_ttl (300s), max_attempts (5), window (1), replay_ttl (120s), production enforcement
+- `mfa.php` — pending_ttl (300s), max_attempts (5), window (1), persisted-counter replay protection, production enforcement
 - `csp.php` — CSP report URI (`/api/csp/report`)
 - `turnstile.php` — Cloudflare Turnstile CAPTCHA config
 - `file-uploads.php` — max_size (20480 KB = 20 MB), default mimes

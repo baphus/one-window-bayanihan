@@ -95,7 +95,7 @@ path, middleware name, and queue policy below was read from code on 2026-09-15:
   `docker-compose.yml:296`; `CACHE_STORE`/`QUEUE_CONNECTION` default to `redis`
   in compose), with the database drivers as degraded fallback. OTP state lives
   in cache (`OtpService` uses `Cache::`), and MFA challenge tuning lives in
-  `config/mfa.php` (`pending_ttl` 300, `max_attempts` 5, `replay_ttl` 120).
+  `config/mfa.php` (`pending_ttl` 300, `max_attempts` 5, `window` 1).
 
 **2.1.0 (2026-07-27)** — see `ARCHITECTURE_v2.1.0.md`.
 
@@ -206,15 +206,15 @@ a live exposure, not a backstopped one.
 
 2. POST /login/mfa/totp (totp_code) [mfa.pending + throttle:totp-challenge]
    → MfaChallengeController::totp validates the authenticator code
-   → Replay protection: replay_ttl 120s (config/mfa.php:7)
+   → Replay protection: persisted users.mfa_last_totp_counter under a row lock
    → Authenticates, redirects to /dashboard
 
 Alternative: POST /login/mfa/recovery (recovery_code) [throttle:recovery-code]
    → Consumes one recovery code, authenticates
 ```
 
-Challenge policy (`config/mfa.php:4-7`): `pending_ttl` 300s, `max_attempts` 5,
-`replay_ttl` 120s. Enrollment is enforced by `CheckMfaEnrolled`
+Challenge policy (`config/mfa.php`): `pending_ttl` 300s, `max_attempts` 5,
+`window` 1. Replay protection uses a persisted counter, not a cache TTL. Enrollment is enforced by `CheckMfaEnrolled`
 (`bootstrap/app.php:67`) after `EnsureMfaSession` (`bootstrap/app.php:66`), for
 the roles in `config('mfa.enrollment_enforced_roles')` — default
 `ADMIN,CASE_MANAGER,AGENCY` (`config/mfa.php:30-33`) — **except that in

@@ -329,7 +329,7 @@ class ReferralService
         if (! empty($filters['search'])) {
             $search = $filters['search'];
             $query->where(function ($q) use ($search) {
-                $q->where('referrals.id', 'ilike', "%{$search}%")
+                $q->whereRaw('referrals.id::text ILIKE ?', ["%{$search}%"])
                     ->orWhereHas('services', fn ($sq) => $sq->where('name', 'ilike', "%{$search}%"))
                     ->orWhereHas('caseFile', function ($q) use ($search) {
                         $q->where('case_number', 'ilike', "%{$search}%");
@@ -531,15 +531,17 @@ class ReferralService
 
     public function addService(Referral $referral, string $serviceId, string $userId): Referral
     {
-        if ($referral->status === 'COMPLETED') {
-            throw new \InvalidArgumentException('Cannot modify services on a completed referral.');
-        }
+        return DB::transaction(function () use ($referral, $serviceId, $userId) {
+            $referral = Referral::whereKey($referral->getKey())->lockForUpdate()->firstOrFail();
 
-        $service = Service::where('id', $serviceId)
-            ->where('agcy_id', $referral->agcy_id)
-            ->firstOrFail();
+            if ($referral->status === 'COMPLETED') {
+                throw new \InvalidArgumentException('Cannot modify services on a completed referral.');
+            }
 
-        return DB::transaction(function () use ($referral, $service, $userId) {
+            $service = Service::where('id', $serviceId)
+                ->where('agcy_id', $referral->agcy_id)
+                ->firstOrFail();
+
             $alreadyAttached = $referral->services()->where('services.id', $service->id)->exists();
 
             $referral->services()->syncWithoutDetaching([$service->id]);
@@ -597,20 +599,24 @@ class ReferralService
 
     public function removeService(Referral $referral, string $serviceId): Referral
     {
-        if ($referral->status === 'COMPLETED') {
-            throw new \InvalidArgumentException('Cannot modify services on a completed referral.');
-        }
+        return DB::transaction(function () use ($referral, $serviceId) {
+            $referral = Referral::whereKey($referral->getKey())->lockForUpdate()->firstOrFail();
 
-        // Delete per-referral requirements for this service
-        ReferralServiceRequirement::where('referral_id', $referral->id)
-            ->where('service_id', $serviceId)
-            ->delete();
+            if ($referral->status === 'COMPLETED') {
+                throw new \InvalidArgumentException('Cannot modify services on a completed referral.');
+            }
 
-        $referral->services()->detach($serviceId);
+            // Delete per-referral requirements for this service
+            ReferralServiceRequirement::where('referral_id', $referral->id)
+                ->where('service_id', $serviceId)
+                ->delete();
 
-        $this->syncRequiredServicesText($referral);
+            $referral->services()->detach($serviceId);
 
-        return $referral->load('services');
+            $this->syncRequiredServicesText($referral);
+
+            return $referral->load('services');
+        });
     }
 
     /**
