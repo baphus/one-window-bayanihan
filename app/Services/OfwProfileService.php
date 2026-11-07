@@ -38,13 +38,20 @@ class OfwProfileService
      */
     public function updateClientProfile(User $user, array $data): void
     {
-        $client = $user->client;
+        $clientId = $user->client_id;
 
-        if (! $client) {
+        if (! $clientId) {
             return;
         }
 
-        $changes = DB::transaction(function () use ($user, $client, $data) {
+        $client = null;
+        $changes = DB::transaction(function () use ($user, $clientId, $data, &$client) {
+            $client = Client::whereKey($clientId)->lockForUpdate()->first();
+
+            if (! $client) {
+                return [];
+            }
+
             $changes = [];
 
             if (array_key_exists('contact_number', $data)) {

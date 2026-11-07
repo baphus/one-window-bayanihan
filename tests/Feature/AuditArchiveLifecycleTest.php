@@ -127,6 +127,31 @@ class AuditArchiveLifecycleTest extends TestCase
         $this->artisan('audit:verify')->assertExitCode(0);
     }
 
+    public function test_new_entry_after_pruning_all_rows_uses_checkpoint_as_chain_anchor(): void
+    {
+        $period = now()->subDays(500)->format('Y-m');
+        $this->seedOldLogs($period, 1);
+
+        $this->artisan('audit:archive')->assertExitCode(0);
+        $this->artisan('audit:prune', ['--force' => true])
+            ->expectsOutputToContain('Pruned 1')
+            ->assertExitCode(0);
+
+        $this->assertSame(0, AuditLog::count());
+        $checkpoint = AuditChainCheckpoint::firstOrFail();
+
+        $newLog = AuditLog::create([
+            'action' => 'CREATE',
+            'module' => 'case',
+            'description' => 'Entry after full prune',
+            'timestamp' => now(),
+            'ip_address' => '127.0.0.1',
+        ]);
+
+        $this->assertSame($checkpoint->anchor_hash, $newLog->prev_hash);
+        $this->artisan('audit:verify')->assertExitCode(0);
+    }
+
     public function test_prune_skips_period_when_bundle_checksum_mismatches(): void
     {
         $period = now()->subDays(500)->format('Y-m');

@@ -78,7 +78,6 @@ class ProfileController extends Controller
         if ($request->hasFile('avatar')) {
             $file = $request->file('avatar');
             try {
-                app(CloudinaryAvatarService::class)->deleteByUrl($user->getRawOriginal('avatar_url'));
                 $user->avatar_url = app(CloudinaryAvatarService::class)->uploadImage(
                     $file,
                     'avatars',
@@ -100,10 +99,8 @@ class ProfileController extends Controller
     /**
      * Upload or replace the authenticated user's profile picture.
      *
-     * Delete-before-upload is deliberate (same ordering as
-     * ClientController::storeAvatar): a failed upload leaves the user with no
-     * photo rather than a broken image. The public_id is derived from the user
-     * id so a replacement overwrites the same Cloudinary asset.
+     * The public_id is derived from the user id, so Cloudinary overwrites the
+     * same asset only after the replacement upload succeeds.
      */
     public function storeAvatar(AvatarUploadRequest $request): RedirectResponse
     {
@@ -115,7 +112,6 @@ class ProfileController extends Controller
         }
 
         try {
-            app(CloudinaryAvatarService::class)->deleteByUrl($user->getRawOriginal('avatar_url'));
             $user->avatar_url = app(CloudinaryAvatarService::class)->uploadImage(
                 $file,
                 'avatars',

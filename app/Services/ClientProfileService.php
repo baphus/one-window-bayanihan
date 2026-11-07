@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Client;
 use App\Models\NextOfKin;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Owns client identity rows and their child records (address, employment,
@@ -102,6 +103,15 @@ class ClientProfileService
             return;
         }
 
+        DB::transaction(function () use ($client, $nokData) {
+            $client = Client::whereKey($client->id)->lockForUpdate()->firstOrFail();
+
+            $this->syncNextOfKinLocked($client, $nokData);
+        });
+    }
+
+    private function syncNextOfKinLocked(Client $client, mixed $nokData): void
+    {
         // Handle single-object format
         if (isset($nokData['first_name'])) {
             $nokData = [$nokData];

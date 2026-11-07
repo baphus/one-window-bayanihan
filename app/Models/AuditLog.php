@@ -200,8 +200,12 @@ class AuditLog extends Model
 
             if ($lastLog) {
                 $auditLog->prev_hash = $lastLog->chainDigest();
+            } else {
+                $auditLog->prev_hash = AuditChainCheckpoint::query()
+                    ->orderBy('created_at', 'desc')
+                    ->value('anchor_hash');
             }
-            // First row: prev_hash remains null
+            // First row without a checkpoint: prev_hash remains null
         });
     }
 

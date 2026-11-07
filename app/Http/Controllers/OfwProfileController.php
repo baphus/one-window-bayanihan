@@ -46,9 +46,8 @@ class OfwProfileController extends Controller
     /**
      * Upload or replace the OFW's own profile picture.
      *
-     * Delete-before-upload keeps a failed upload from leaving a broken image.
-     * The public_id is derived from the user id so a replacement overwrites the
-     * same Cloudinary asset rather than orphaning the previous one.
+     * The public_id is derived from the user id, so Cloudinary overwrites the
+     * same asset only after the replacement upload succeeds.
      */
     public function storeAvatar(AvatarUploadRequest $request): RedirectResponse
     {
@@ -61,7 +60,6 @@ class OfwProfileController extends Controller
         }
 
         try {
-            app(CloudinaryAvatarService::class)->deleteByUrl($user->getRawOriginal('avatar_url'));
             $user->avatar_url = app(CloudinaryAvatarService::class)->uploadImage(
                 $file,
                 'avatars',

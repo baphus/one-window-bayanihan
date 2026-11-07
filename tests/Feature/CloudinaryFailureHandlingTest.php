@@ -131,6 +131,7 @@ class CloudinaryFailureHandlingTest extends TestCase
             $client->getRawOriginal('avatar_url'),
             'A failed upload must leave the previous avatar in place.'
         );
+        $this->assertSame(0, $this->app->make(CloudinaryAvatarService::class)->deleteCalls);
     }
 
     #[Test]
@@ -177,8 +178,10 @@ class CloudinaryFailureHandlingTest extends TestCase
      */
     private function bindAvatarServiceRejectingUploads(): void
     {
-        $this->app->bind(CloudinaryAvatarService::class, fn () => new class extends CloudinaryAvatarService
+        $this->app->singleton(CloudinaryAvatarService::class, fn () => new class extends CloudinaryAvatarService
         {
+            public int $deleteCalls = 0;
+
             public function __construct() {}
 
             public function uploadImage(UploadedFile $file, string $folder, string $publicId): string
@@ -186,7 +189,10 @@ class CloudinaryFailureHandlingTest extends TestCase
                 throw new AuthorizationRequired('Invalid api_key 158513922971517');
             }
 
-            public function deleteByUrl(?string $url): void {}
+            public function deleteByUrl(?string $url): void
+            {
+                $this->deleteCalls++;
+            }
         });
     }
 
