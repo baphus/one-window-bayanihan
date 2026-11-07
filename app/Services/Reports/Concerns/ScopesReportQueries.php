@@ -173,7 +173,7 @@ trait ScopesReportQueries
         }
 
         if ($baseTable === 'referrals') {
-            $query->select('referrals.*')->whereIn('referrals.case_id', function ($q) use ($province, $city) {
+            $query->whereIn('referrals.case_id', function ($q) use ($province, $city) {
                 $q->select('cases.id')->from('cases')
                     ->join('clients', 'clients.id', '=', 'cases.client_id')
                     ->join('client_addresses', function ($join) {
