@@ -239,24 +239,20 @@ class ReferralMetrics
         $query = $this->referralQuery($userId, $role, $agencyId, $fromDate, $toDate, $dateScope);
         $this->applyGeoFilter($query, $province, $city);
 
-        $referrals = (clone $query)
+        $counts = (clone $query)
             ->where('status', 'COMPLETED')
-            ->select(DB::raw('EXTRACT(EPOCH FROM (updated_at - created_at)) / 86400 as days'))
-            ->get()
-            ->pluck('days');
+            ->selectRaw('count(*) FILTER (WHERE EXTRACT(EPOCH FROM (updated_at - created_at)) / 86400 < 7) as under_week')
+            ->selectRaw('count(*) FILTER (WHERE EXTRACT(EPOCH FROM (updated_at - created_at)) / 86400 >= 7 AND EXTRACT(EPOCH FROM (updated_at - created_at)) / 86400 < 14) as one_to_two_weeks')
+            ->selectRaw('count(*) FILTER (WHERE EXTRACT(EPOCH FROM (updated_at - created_at)) / 86400 >= 14 AND EXTRACT(EPOCH FROM (updated_at - created_at)) / 86400 < 30) as two_to_four_weeks')
+            ->selectRaw('count(*) FILTER (WHERE EXTRACT(EPOCH FROM (updated_at - created_at)) / 86400 >= 30) as over_month')
+            ->first();
 
-        $buckets = ['< 1 week' => 0, '1-2 weeks' => 0, '2-4 weeks' => 0, '> 1 month' => 0];
-        foreach ($referrals as $days) {
-            if ($days < 7) {
-                $buckets['< 1 week']++;
-            } elseif ($days < 14) {
-                $buckets['1-2 weeks']++;
-            } elseif ($days < 30) {
-                $buckets['2-4 weeks']++;
-            } else {
-                $buckets['> 1 month']++;
-            }
-        }
+        $buckets = [
+            '< 1 week' => (int) $counts->under_week,
+            '1-2 weeks' => (int) $counts->one_to_two_weeks,
+            '2-4 weeks' => (int) $counts->two_to_four_weeks,
+            '> 1 month' => (int) $counts->over_month,
+        ];
 
         return [
             'labels' => array_keys($buckets),
@@ -279,36 +275,33 @@ class ReferralMetrics
         $this->applyGeoFilter($query, $province, $city);
 
         $referrals = (clone $query)
-            ->select('agcy_id', 'status', 'created_at', DB::raw('EXTRACT(EPOCH FROM (updated_at - created_at)) / 86400 as days'))
-            ->get()
-            ->groupBy('agcy_id');
+            ->select('agcy_id')
+            ->selectRaw('count(*) as total')
+            ->selectRaw("count(*) FILTER (WHERE status = 'COMPLETED') as completed")
+            ->selectRaw("count(*) FILTER (WHERE status = 'PENDING') as pending")
+            ->selectRaw("count(*) FILTER (WHERE status IN ('PENDING', 'PROCESSING', 'FOR_COMPLIANCE') AND created_at < ?) as overdue", [now()->subDays(14)])
+            ->selectRaw("AVG(EXTRACT(EPOCH FROM (updated_at - created_at)) / 86400) FILTER (WHERE status = 'COMPLETED') as avg_days")
+            ->groupBy('agcy_id')
+            ->get();
 
         if ($referrals->isEmpty()) {
             return [];
         }
 
-        $agencyIds = $referrals->keys();
-        $agencyNames = Agency::whereIn('id', $agencyIds)->pluck('name', 'id');
+        $agencyNames = Agency::whereIn('id', $referrals->pluck('agcy_id'))->pluck('name', 'id');
 
         $result = [];
-        foreach ($referrals as $agcyId => $rows) {
-            $total = $rows->count();
-            $completed = $rows->where('status', 'COMPLETED')->count();
-            $pending = $rows->where('status', 'PENDING')->count();
-            $avgDays = $rows->where('status', 'COMPLETED')->avg('days');
-            // Same >14d active-referral rule as getOverdueReferrals().
-            // Absolute is explicit: Carbon 3 diffs are signed by default.
-            $overdue = $rows->filter(fn ($row) => in_array($row->status, ['PENDING', 'PROCESSING', 'FOR_COMPLIANCE'], true)
-                && $row->created_at && now()->diffInDays($row->created_at, true) > 14)->count();
-
+        foreach ($referrals as $row) {
+            $total = (int) $row->total;
+            $completed = (int) $row->completed;
             $result[] = [
-                'agency' => $agencyNames[$agcyId] ?? 'Unknown',
+                'agency' => $agencyNames[$row->agcy_id] ?? 'Unknown',
                 'total' => $total,
                 'completed' => $completed,
-                'pending' => $pending,
-                'overdue' => $overdue,
+                'pending' => (int) $row->pending,
+                'overdue' => (int) $row->overdue,
                 'completionRate' => $total > 0 ? round(($completed / $total) * 100) : 0,
-                'avgDays' => round((float) ($avgDays ?? 0), 1),
+                'avgDays' => round((float) ($row->avg_days ?? 0), 1),
             ];
         }
 

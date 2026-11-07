@@ -7,7 +7,9 @@ use App\Models\Agency;
 use App\Models\CaseFile;
 use App\Models\Referral;
 use App\Models\User;
+use App\Services\ReferralService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Validation\ValidationException;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -81,6 +83,57 @@ class ReferralDuplicateTest extends TestCase
         $response2->assertSessionHasErrors('agcy_id');
         // Ensure no second referral was created
         $this->assertEquals(1, Referral::where('case_id', $this->case->id)->count());
+    }
+
+    #[Test]
+    public function cannot_create_referral_for_closed_archived_or_deleted_case(): void
+    {
+        foreach ([['status' => 'CLOSED'], ['status' => 'ARCHIVED'], ['delete' => true]] as $attributes) {
+            $case = CaseFile::factory()->create([
+                'user_id' => $this->caseManager->id,
+                'status' => 'OPEN',
+            ]);
+            $shouldDelete = $attributes['delete'] ?? false;
+            unset($attributes['delete']);
+            $case->update($attributes);
+
+            if ($shouldDelete) {
+                $case->delete();
+            }
+
+            $response = $this->actingAsWithMfa($this->caseManager)->post(route('referrals.store'), [
+                'case_id' => $case->id,
+                'agcy_id' => $this->agencyA->id,
+            ]);
+
+            $response->assertSessionHasErrors('case_id');
+            $this->assertDatabaseMissing('referrals', ['case_id' => $case->id]);
+        }
+    }
+
+    #[Test]
+    public function service_rejects_duplicate_active_referral_without_request_validation(): void
+    {
+        Referral::factory()->create([
+            'case_id' => $this->case->id,
+            'agcy_id' => $this->agencyA->id,
+            'status' => 'PENDING',
+        ]);
+
+        try {
+            app(ReferralService::class)->createReferral([
+                'case_id' => $this->case->id,
+                'agcy_id' => $this->agencyA->id,
+            ], $this->caseManager->id);
+            $this->fail('Expected duplicate referral validation to fail.');
+        } catch (ValidationException $exception) {
+            $this->assertSame(
+                'This case already has an active referral with the selected agency.',
+                $exception->errors()['agcy_id'][0],
+            );
+        }
+
+        $this->assertSame(1, Referral::where('case_id', $this->case->id)->count());
     }
 
     #[Test]

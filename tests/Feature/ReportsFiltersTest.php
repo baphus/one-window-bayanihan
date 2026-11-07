@@ -10,6 +10,7 @@ use App\Models\Referral;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Inertia\Testing\AssertableInertia;
 use Tests\TestCase;
 
@@ -99,6 +100,32 @@ class ReportsFiltersTest extends TestCase
                     ->component('Reports/Index')
                     ->where('casesOverTime.labels', ['2026-06'])
                     ->where('casesOverTime.datasets.0.data', [$role === UserRole::ADMIN ? 2 : 1]));
+        }
+    }
+
+    public function test_average_finish_time_uses_filtered_referrals_for_every_staff_role(): void
+    {
+        $agency = Agency::factory()->create();
+        foreach ([['2026-06-01 04:00:00', 2], ['2026-05-01 04:00:00', 20]] as [$createdAt, $days]) {
+            $case = CaseFile::factory()->open()->create(['created_at' => $createdAt]);
+            Referral::factory()->completed()->create([
+                'case_id' => $case->id,
+                'agcy_id' => $agency->id,
+                'created_at' => $createdAt,
+                'updated_at' => Carbon::parse($createdAt)->addDays($days),
+            ]);
+        }
+        $version = app(HandleInertiaRequests::class)->version(Request::create(route('reports.index'), 'GET'));
+
+        foreach ([UserRole::ADMIN, UserRole::CASE_MANAGER, UserRole::AGENCY] as $role) {
+            $user = User::factory()->create(['role' => $role->value, 'agcy_id' => $role === UserRole::AGENCY ? $agency->id : null]);
+            $this->actingAsWithMfa($user)->withHeaders([
+                'X-Inertia' => 'true',
+                'X-Inertia-Version' => $version ?? '',
+                'X-Inertia-Partial-Component' => 'Reports/Index',
+                'X-Inertia-Partial-Data' => 'avgReferralCompletion',
+            ])->get(route('reports.index', ['from' => '2026-06-01', 'to' => '2026-06-30']))
+                ->assertOk()->assertJsonPath('props.avgReferralCompletion', 2);
         }
     }
 

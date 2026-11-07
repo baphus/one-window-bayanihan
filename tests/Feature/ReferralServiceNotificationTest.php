@@ -228,9 +228,10 @@ class ReferralServiceNotificationTest extends TestCase
 
         Notification::fake();
 
-        // New referral to agencyA on same case — should NOT get PeerReferralCreated (already gets ReferralCreated)
+        // No peer referral exists, so the receiving agency only gets ReferralCreated.
+        $otherCase = $this->createCase($caseManager);
         $this->service->createReferral([
-            'case_id' => $case->id,
+            'case_id' => $otherCase->id,
             'agcy_id' => $agencyA->id,
         ], $caseManager->id);
 

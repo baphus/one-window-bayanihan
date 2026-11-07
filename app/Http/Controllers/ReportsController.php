@@ -115,7 +115,7 @@ class ReportsController extends Controller
             'overview' => Inertia::defer(fn () => $data['overview'] ?? null),
             'caseTrends' => Inertia::defer(fn () => $data['caseTrends'] ?? null),
             'referralTrends' => Inertia::defer(fn () => $data['referralTrends'] ?? null),
-            'avgReferralCompletion' => Inertia::defer(fn () => $data['avgReferralCompletion'] ?? null),
+            'avgReferralCompletion' => Inertia::defer(fn () => $data['kpis']['avgCompletionDays']),
             'rejectionReasonDistribution' => Inertia::defer(fn () => $data['rejectionReasonDistribution'] ?? null),
             'caseSourceDistribution' => Inertia::defer(fn () => $data['caseSourceDistribution'] ?? null),
             'closedCasesOverTime' => Inertia::defer(fn () => $data['closedCasesOverTime'] ?? null),
