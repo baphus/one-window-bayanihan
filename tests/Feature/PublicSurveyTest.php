@@ -14,6 +14,7 @@ use App\Models\SurveyInvitation;
 use App\Models\SurveyResponse;
 use App\Models\SystemSetting;
 use App\Services\SurveyInvitationService;
+use Illuminate\Contracts\Queue\Queue;
 use Illuminate\Contracts\Queue\ShouldBeEncrypted;
 use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 use Illuminate\Database\QueryException;
@@ -303,6 +304,58 @@ class PublicSurveyTest extends TestCase
         (new SendSurveyRequest)->handle(new ReferralCompleted($referral->fresh(['caseFile.client', 'agency'])));
         $this->assertSame(0, SurveyInvitation::count());
         Mail::assertQueuedCount(0);
+    }
+
+    public function test_failed_queue_push_retries_same_encrypted_pending_token_without_duplicate_invitation(): void
+    {
+        $referral = $this->deliveryReferral();
+        $queue = \Mockery::mock(Queue::class);
+        \Illuminate\Support\Facades\Queue::shouldReceive('resolveConnectionFromQueueRoute')->once()->andReturn(null);
+        \Illuminate\Support\Facades\Queue::shouldReceive('resolveQueueFromQueueRoute')->once()->andReturn(null);
+        \Illuminate\Support\Facades\Queue::shouldReceive('connection')->once()->andReturn($queue);
+        $queue->shouldReceive('pushOn')->once()->andThrow(new \RuntimeException('Redis unavailable'));
+        $listener = new SendSurveyRequest;
+
+        try {
+            $listener->handle(new ReferralCompleted($referral));
+            $this->fail('Expected queue push to fail.');
+        } catch (\RuntimeException $exception) {
+            $this->assertSame('Redis unavailable', $exception->getMessage());
+        }
+
+        $invitation = SurveyInvitation::sole();
+        $rawToken = $invitation->pending_token;
+        $this->assertNotEmpty($rawToken);
+        $this->assertSame(hash('sha256', $rawToken), $invitation->token_hash);
+        $this->assertNotSame($rawToken, DB::table('survey_invitations')->value('pending_token'));
+        $this->assertArrayNotHasKey('pending_token', $invitation->toArray());
+        $this->assertNull($invitation->queued_at);
+
+        Mail::fake();
+        $listener->handle(new ReferralCompleted($referral));
+        $listener->handle(new ReferralCompleted($referral));
+
+        $this->assertSame(1, SurveyInvitation::count());
+        Mail::assertQueued(SurveyRequestMail::class, fn ($mail) => $mail->rawToken === $rawToken);
+        Mail::assertQueuedCount(1);
+        $this->assertNull($invitation->fresh()->pending_token);
+        $this->assertNotNull($invitation->fresh()->queued_at);
+        $this->assertSame($invitation->id, app(SurveyInvitationService::class)->validateToken($rawToken)->id);
+    }
+
+    public function test_legacy_invitation_without_pending_token_is_not_resent(): void
+    {
+        $referral = $this->deliveryReferral();
+        $created = app(SurveyInvitationService::class)->createInvitation(
+            $referral->id, 'Client', 'client@example.test', 'Service',
+        );
+        $created['invitation']->update(['pending_token' => null]);
+        Mail::fake();
+
+        (new SendSurveyRequest)->handle(new ReferralCompleted($referral));
+
+        Mail::assertNothingQueued();
+        $this->assertSame(1, SurveyInvitation::count());
     }
 
     public function test_delivery_queues_exactly_one_encrypted_mail_with_resolvable_raw_url(): void

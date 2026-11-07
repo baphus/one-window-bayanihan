@@ -21,7 +21,7 @@ const flush = async () => {
 function fireBefore(method, url = `/target-${method}`) {
   const event = new CustomEvent('inertia:before', {
     cancelable: true,
-    detail: { visit: { method, url, data: {}, replace: false } },
+    detail: { visit: { method, url: new URL(url, window.location.href), data: {}, replace: false } },
   });
   act(() => { document.dispatchEvent(event); });
   return event;
@@ -92,7 +92,7 @@ describe('useUnsavedChanges bypass lifecycle', () => {
     const post = fireBefore('post');
     expect(post.defaultPrevented).toBe(false);
 
-    const reload = fireBefore('get', window.location.href);
+    const reload = fireBefore('get', `${window.location.href.split('?')[0]}?submitted=1`);
     expect(reload.defaultPrevented).toBe(false);
 
     const laterGet = fireBefore('get');
@@ -130,7 +130,7 @@ describe('useUnsavedChanges bypass lifecycle', () => {
 
     expect(onDiscard).toHaveBeenCalledTimes(1);
     expect(result.current.showModal).toBe(false);
-    expect(visitSpy).toHaveBeenCalledWith('/target-get', expect.objectContaining({ method: 'get' }));
+    expect(visitSpy).toHaveBeenCalledWith(new URL('/target-get', window.location.href), expect.objectContaining({ method: 'get' }));
 
     // The replayed GET is the one the bypass is for.
     const replayed = fireBefore('get');

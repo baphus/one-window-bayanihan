@@ -103,7 +103,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // referral PII) and the reports exports were already refused OFW further
     // down in the controller, so the routes themselves are closed here too.
     Route::get('/referrals', [ReferralController::class, 'index'])->name('referrals.index')->middleware('role:CASE_MANAGER,ADMIN,AGENCY');
-    Route::get('/referrals/create', [ReferralController::class, 'create'])->name('referrals.create')->middleware('role:CASE_MANAGER,ADMIN,AGENCY');
+    Route::get('/referrals/create', [ReferralController::class, 'create'])->name('referrals.create')->middleware('role:CASE_MANAGER,ADMIN');
     Route::post('/referrals', [ReferralController::class, 'store'])->name('referrals.store');
     Route::get('/referrals/export-excel', [ReferralController::class, 'exportExcel'])->name('referrals.export-excel')->middleware('role:CASE_MANAGER,ADMIN,AGENCY');
     Route::get('/referrals/export-count', [ReferralController::class, 'exportCount'])->name('referrals.export-count')->middleware('role:CASE_MANAGER,ADMIN,AGENCY');

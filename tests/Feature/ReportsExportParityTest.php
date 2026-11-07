@@ -6,6 +6,7 @@ use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\CaseFile;
 use App\Models\Client;
+use App\Models\ClientAddress;
 use App\Models\Referral;
 use App\Models\User;
 use App\Services\Reports\ReportsExportService;
@@ -65,6 +66,33 @@ class ReportsExportParityTest extends TestCase
         ], $referralAttributes));
 
         return $case;
+    }
+
+    #[Test]
+    public function geo_detail_exports_ignore_deleted_and_flagged_addresses(): void
+    {
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $agency = Agency::factory()->create();
+        $live = $this->seedCase($manager, $agency);
+        $deleted = $this->seedCase($manager, $agency);
+        $flagged = $this->seedCase($manager, $agency);
+        foreach ([$live, $deleted, $flagged] as $case) {
+            $address = ClientAddress::create([
+                'client_id' => $case->client_id, 'province' => 'Cebu', 'city_municipality' => 'Cebu City',
+            ]);
+            if ($case->id === $deleted->id) {
+                $address->delete();
+            } elseif ($case->id === $flagged->id) {
+                $address->forceFill(['is_deleted' => true])->saveQuietly();
+            }
+        }
+
+        $sheets = $this->exports->buildExcelSheetsFromCriteria($this->criteriaFor($manager, ['province' => 'Cebu']));
+
+        $cases = collect($sheets)->firstWhere('title', 'Case Details');
+        $referrals = collect($sheets)->firstWhere('title', 'Referral Details');
+        $this->assertSame([$live->id], collect($cases['rows'])->pluck('case_id')->all());
+        $this->assertSame([$live->id], collect($referrals['rows'])->pluck('case_id')->all());
     }
 
     #[Test]

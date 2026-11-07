@@ -17,6 +17,7 @@ use App\Services\StorageService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
 use Mockery;
@@ -45,6 +46,35 @@ class NotificationDispatchAfterCommitTest extends TestCase
         Notification::fake();
         Mail::fake();
         $this->service = app(ReferralService::class);
+    }
+
+    public function test_postcommit_notification_failure_keeps_committed_documents_and_logs_failure(): void
+    {
+        $caseManager = $this->createUser(UserRole::CASE_MANAGER->value);
+        $case = $this->createCase($caseManager);
+        $agency = Agency::factory()->create();
+        User::factory()->create(['agcy_id' => $agency->id, 'is_active' => true]);
+        Notification::shouldReceive('send')->andThrow(new \RuntimeException('Queue unavailable'));
+        Log::spy();
+        $storage = Mockery::mock(StorageService::class);
+        $storage->shouldReceive('store')->once()->andReturn(new FileStoreResult(
+            path: 'case-documents/stored.pdf', originalName: 'document.pdf', storedName: 'stored.pdf', type: 'application/pdf', size: 123,
+        ));
+        $storage->shouldNotReceive('delete');
+
+        $referral = $this->service->createReferralWithDocuments(
+            ['case_id' => $case->id, 'agcy_id' => $agency->id],
+            $caseManager->id,
+            [UploadedFile::fake()->create('document.pdf', 1)],
+            $storage,
+        );
+
+        $this->assertModelExists($referral);
+        $this->assertDatabaseHas('case_documents', ['referral_id' => $referral->id, 'file_path' => 'case-documents/stored.pdf']);
+        Log::shouldHaveReceived('error')->with(
+            'Referral notification failed after commit',
+            Mockery::on(fn ($context) => $context['referral_id'] === $referral->id && $context['exception']->getMessage() === 'Queue unavailable'),
+        )->once();
     }
 
     public function test_rolled_back_referral_creation_dispatches_no_notifications_or_client_email(): void

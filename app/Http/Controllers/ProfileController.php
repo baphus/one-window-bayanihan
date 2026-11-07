@@ -89,10 +89,6 @@ class ProfileController extends Controller
             }
         }
 
-        if ($user->isDirty('email')) {
-            $user->email_verified_at = null;
-        }
-
         $user->save();
 
         // Auto-mark profile as complete if all necessary fields are filled
@@ -164,6 +160,8 @@ class ProfileController extends Controller
      */
     public function destroy(Request $request): RedirectResponse
     {
+        abort_if($request->user()->isAdmin(), 403, 'You cannot delete your own account.');
+
         $request->validate([
             'password' => ['required', 'current_password'],
         ]);

@@ -32,7 +32,7 @@ export default function useUnsavedChanges(dirty, { onDiscard, onSaveDraft } = {}
       }
 
       if (visit.method !== 'get') return;
-      if (allowReloadRef.current && visit.url.split('?')[0] === allowReloadRef.current) {
+      if (allowReloadRef.current && visit.url.href.split('?')[0] === allowReloadRef.current) {
         allowReloadRef.current = false;
         return;
       }

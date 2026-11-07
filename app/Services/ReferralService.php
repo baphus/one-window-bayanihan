@@ -674,11 +674,9 @@ class ReferralService
             ->where('service_id', $serviceId)
             ->firstOrFail();
 
-        $requirement->update(array_filter([
-            'name' => $data['name'] ?? null,
-            'description' => array_key_exists('description', $data) ? $data['description'] : null,
-            'is_required' => $data['is_required'] ?? null,
-        ], fn ($v) => $v !== null));
+        $requirement->update(array_intersect_key($data, array_flip([
+            'name', 'description', 'is_required',
+        ])));
 
         $requirement = $requirement->fresh();
 
@@ -723,11 +721,15 @@ class ReferralService
      */
     public function deleteReferral(Referral $referral): void
     {
-        if ($referral->status === 'COMPLETED') {
-            throw new \InvalidArgumentException('A completed referral cannot be deleted.');
-        }
+        DB::transaction(function () use ($referral) {
+            $referral = Referral::whereKey($referral->getKey())->lockForUpdate()->firstOrFail();
 
-        $referral->delete();
+            if ($referral->status === 'COMPLETED') {
+                throw new \InvalidArgumentException('A completed referral cannot be deleted.');
+            }
+
+            $referral->delete();
+        });
     }
 
     public function updateStatus(string $id, string $status, ?string $decision, ?string $decisionComment, string $userId, ?string $rejectionReason = null): Referral
@@ -821,7 +823,7 @@ class ReferralService
     public function addMilestone(string $referralId, string $title, ?string $description, string $userId, ?array $requirements = null): Milestone
     {
         $milestone = DB::transaction(function () use ($referralId, $title, $description, $userId, $requirements) {
-            $referral = Referral::findOrFail($referralId);
+            $referral = Referral::whereKey($referralId)->lockForUpdate()->firstOrFail();
 
             if ($referral->status === 'COMPLETED') {
                 throw new \InvalidArgumentException('Cannot add milestones to a completed referral.');
@@ -859,9 +861,9 @@ class ReferralService
     ): Builder {
         $query = Referral::query()
             ->whereNotIn('status', ['COMPLETED', 'REJECTED'])
-            ->whereRaw('EXTRACT(EPOCH FROM (NOW() - COALESCE(
-                (SELECT MAX(created_at) FROM milestones WHERE refr_id = referrals.id),
-                GREATEST(referrals.updated_at, referrals.created_at)
+            ->whereRaw('EXTRACT(EPOCH FROM (NOW() - GREATEST(
+                (SELECT MAX(created_at) FROM milestones WHERE refr_id = referrals.id AND is_deleted = false AND deleted_at IS NULL),
+                referrals.updated_at, referrals.created_at
             ))) / 86400 > ?', [$overdueDays]);
 
         match ($userRole) {
