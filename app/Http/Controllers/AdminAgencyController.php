@@ -115,7 +115,6 @@ class AdminAgencyController extends Controller
 
         // Handle logo upload
         if ($request->hasFile('logo_url')) {
-            app(CloudinaryAvatarService::class)->deleteByUrl($agency->getRawOriginal('logo_url'));
             $validated['logo_url'] = app(CloudinaryAvatarService::class)->uploadImage(
                 $logoFile,
                 'agency-logos',

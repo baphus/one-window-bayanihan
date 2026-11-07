@@ -414,7 +414,6 @@ class ClientController extends Controller
 
         $file = $request->file('profile_picture');
         try {
-            app(CloudinaryAvatarService::class)->deleteByUrl($client->getRawOriginal('avatar_url'));
             $client->avatar_url = app(CloudinaryAvatarService::class)->uploadImage(
                 $file,
                 'client-profile-pictures',

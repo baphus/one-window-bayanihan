@@ -132,9 +132,8 @@ class CloudinaryAvatarService
 
     /**
      * Best-effort asset deletion: a failure (expired/revoked credentials,
-     * outage) must never abort the caller's flow — ClientController::storeAvatar
-     * deletes the previous avatar BEFORE uploading the new one — so failures
-     * are logged and swallowed.
+     * outage) must never abort an explicit picture removal, so failures are
+     * logged and swallowed.
      */
     public function deleteByUrl(?string $url): void
     {

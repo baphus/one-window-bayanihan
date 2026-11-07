@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Client;
 use App\Models\User;
 use App\Services\ClientProfileService;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -74,6 +75,24 @@ class ClientProfileServiceTest extends TestCase
         $this->assertCount(1, $client->addresses()->get());
         $this->assertEquals('Second Street', $client->addresses()->first()->street);
         $this->assertEquals('National Capital Region', $client->addresses()->first()->region);
+    }
+
+    public function test_next_of_kin_replacement_rolls_back_if_a_later_row_fails(): void
+    {
+        $client = Client::factory()->create();
+        $this->service->syncNextOfKin($client, [['first_name' => 'Original']]);
+
+        try {
+            $this->service->syncNextOfKin($client, [
+                ['first_name' => 'Replacement'],
+                ['first_name' => 'Invalid', 'sort_order' => 'not-an-integer'],
+            ]);
+            $this->fail('An invalid sort order must fail the replacement.');
+        } catch (QueryException $exception) {
+            $this->assertSame('22P02', $exception->errorInfo[0]);
+        }
+
+        $this->assertSame(['Original'], $client->nextOfKin()->pluck('first_name')->all());
     }
 
     public function test_sync_employment_drops_placeholder_occupations(): void
