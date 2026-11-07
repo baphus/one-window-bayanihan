@@ -34,6 +34,14 @@ class OtpServiceTest extends TestCase
         $this->assertSame($otp, Cache::get('otp:default:test@example.com'));
     }
 
+    public function test_successful_otp_can_only_be_consumed_once(): void
+    {
+        $otp = $this->service->generate('test@example.com');
+
+        $this->assertTrue($this->service->verify('test@example.com', 'default', $otp));
+        $this->assertFalse($this->service->verify('test@example.com', 'default', $otp));
+    }
+
     public function test_verify_success_with_correct_code(): void
     {
         $otp = $this->service->generate('test@example.com');

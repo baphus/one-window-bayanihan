@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Enums\AuditModule;
 use App\Http\Controllers\Controller;
 use App\Services\AuditLogger;
+use App\Services\MfaPendingState;
 use Illuminate\Auth\SessionGuard;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -27,10 +28,13 @@ class PasswordController extends Controller
         ]);
 
         $user = $request->user();
+        $hadValidMfaMarker = app(MfaPendingState::class)->hasValidMarker($request, $user);
 
         $user->update([
             'password' => Hash::make($validated['password']),
         ]);
+
+        $request->session()->forget(MfaPendingState::CONFIRMATION_KEY);
 
         // Invalidate all other sessions for this user to force re-login
         // on other devices after a password change.
@@ -54,6 +58,10 @@ class PasswordController extends Controller
         /** @var SessionGuard $webGuard */
         $webGuard = Auth::guard('web');
         $webGuard->logoutOtherDevices($validated['password']);
+
+        if ($user->mfa_enabled_at !== null && $hadValidMfaMarker) {
+            app(MfaPendingState::class)->markAuthenticated($request, $user);
+        }
 
         AuditLogger::changePassword()
             ->by($user)
