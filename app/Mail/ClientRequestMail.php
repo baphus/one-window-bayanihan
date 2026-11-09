@@ -52,7 +52,7 @@ class ClientRequestMail extends Mailable implements ShouldBeEncrypted, ShouldQue
 
     public function envelope(): Envelope
     {
-        return new Envelope(subject: 'Action needed for your agency request');
+        return new Envelope(subject: 'A response is needed for your agency request');
     }
 
     public function content(): Content

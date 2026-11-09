@@ -96,7 +96,7 @@ export default function TrackingVerify({ tracker_number, email, hint }) {
             </div>
 
             <p className="mt-5 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
-              DMW Region VII · Secure case access
+              DMW Region VII · Secure request access
             </p>
             <span className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-primary/25 bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary">
               <span className="h-1.5 w-1.5 rounded-full bg-current" />
@@ -132,7 +132,7 @@ export default function TrackingVerify({ tracker_number, email, hint }) {
                     Verifying...
                   </>
                 ) : (
-                  'Verify and View Case'
+                  'Verify and View Request'
                 )}
               </button>
 
@@ -156,7 +156,7 @@ export default function TrackingVerify({ tracker_number, email, hint }) {
 
               <p className="mt-4 flex items-start gap-2 text-[12px] leading-relaxed text-slate-500">
                 <span className="material-symbols-outlined mt-px shrink-0 text-[16px] leading-none text-slate-400" aria-hidden="true">shield</span>
-                Never share your one-time code. Your case information remains hidden until verification succeeds.
+                Never share your one-time code. Your request information remains hidden until verification succeeds.
               </p>
             </form>
           </div>

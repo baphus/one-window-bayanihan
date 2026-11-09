@@ -10,7 +10,7 @@
 </p>
 
 @if($caseNumber)
-<p style="font-size: 13px; color: #a1a1aa; margin: 0 0 24px 0;">Case reference: {{ $caseNumber }}</p>
+<p style="font-size: 13px; color: #a1a1aa; margin: 0 0 24px 0;">Request reference: {{ $caseNumber }}</p>
 @endif
 
 <p style="font-size: 15px; line-height: 1.7; color: #3f3f46; margin: 0 0 28px 0;">
@@ -20,7 +20,7 @@
 <x-mail::action-card url="{{ $survey_url }}" label="Complete Survey" />
 
 <p style="font-size: 13px; line-height: 1.7; color: #71717a; margin: 0;">
-    This link is valid for 30 days. Participation is voluntary and will not affect your case in any way.
+    This link is valid for 30 days. Participation is voluntary and will not affect your request in any way.
 </p>
 
 <x-mail::contact-footer />

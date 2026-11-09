@@ -1,16 +1,16 @@
 <x-mail::message>
 <x-mail::status-badge status="{{ $clientRequest->type === \App\Models\ReferralClientRequest::TYPE_DOCUMENT_REQUEST ? 'pending' : 'processing' }}" label="{{ $requestTypeLabel }}" />
 
-<p style="color: #a1a1aa; font-size: 12px; margin: 12px 0 24px 0;">Case {{ $caseNumber }}</p>
+<p style="color: #a1a1aa; font-size: 12px; margin: 12px 0 24px 0;">Request Reference {{ $caseNumber }}</p>
 
-# Action Required
+# Your Response Is Needed
 
 <p style="font-size: 15px; line-height: 1.7; color: #3f3f46; margin: 0 0 20px 0;">
     Dear {{ $clientName }},
 </p>
 
 <p style="font-size: 15px; line-height: 1.7; color: #3f3f46; margin: 0 0 20px 0;">
-    {{ $agencyName }} requires the following from you to continue processing your case.
+    {{ $agencyName }} needs the following from you to continue with your request.
 </p>
 
 @if($clientRequest->type === \App\Models\ReferralClientRequest::TYPE_DOCUMENT_REQUEST && count($checklistItems) > 0)
@@ -27,7 +27,7 @@
 <x-mail::action-card url="{{ $magicLink }}" label="{{ $ctaLabel }}" :deadline="$dueDate" :urgency="!is_null($dueDate)" />
 
 <p style="font-size: 13px; line-height: 1.7; color: #71717a; margin: 0;">
-    This secure link expires in seven days. If you need more time or have questions, reply to this email or contact our office directly.
+    This secure link expires in seven days. If you need more time or have questions, reply to this email or contact our office directly. We are here to help.
 </p>
 
 <x-mail::contact-footer />

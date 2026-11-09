@@ -29,7 +29,7 @@ function formatDate(dateStr) {
 }
 
 /**
- * Map a case status onto the three filter buckets the citizen portal
+ * Map a request status onto the three filter buckets the citizen portal
  * exposes: All / Open / Closed. OPEN and PENDING_REVIEW count as open;
  * CLOSED and ARCHIVED count as closed. This mirrors the bucketing the
  * backend already does for the overview counts.
@@ -56,7 +56,7 @@ function statusBadge(status) {
 }
 
 /**
- * Segmented list/grid switch. The reference presents the case list as a
+ * Segmented list/grid switch. The reference presents the request list as a
  * table, so this is offered as a secondary control that remembers the
  * citizen's choice the same way the rest of the portal does.
  */
@@ -69,7 +69,7 @@ function ViewModeToggle({ viewMode, onChange }) {
     return (
         <div
             role="group"
-            aria-label="Case layout"
+            aria-label="Request layout"
             className="flex items-center gap-0.5 rounded-full border border-slate-200 bg-slate-100 p-0.5"
         >
             {options.map((option) => {
@@ -100,7 +100,7 @@ function ViewModeToggle({ viewMode, onChange }) {
 }
 
 /**
- * Card grid for the OFW case list. Each card links to the case detail as a
+ * Card grid for the OFW request list. Each card links to the request detail as a
  * whole, so the footer affordance is a styled span rather than a nested
  * <Link> (nested interactive elements are invalid and trap focus).
  */
@@ -125,7 +125,7 @@ function CaseCardGrid({ cases }) {
                             </div>
 
                             <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                                Case {caseItem.case_number ?? 'Pending'}
+                                Request {caseItem.case_number ?? 'Pending'}
                             </p>
 
                             <p className="mt-2 line-clamp-3 text-[13px] text-slate-600">
@@ -147,7 +147,7 @@ function CaseCardGrid({ cases }) {
 }
 
 /**
- * The case table: CASE / CATEGORY, CASE STATUS, UPDATED, ACTION.
+ * The request table: REQUEST / CATEGORY, REQUEST STATUS, UPDATED, ACTION.
  */
 function CaseTable({ cases }) {
     return (
@@ -159,13 +159,13 @@ function CaseTable({ cases }) {
                             scope="col"
                             className="whitespace-nowrap px-5 py-3 text-[11px] font-extrabold uppercase tracking-[0.14em] text-slate-500"
                         >
-                            Case / Category
+                            Request / Category
                         </th>
                         <th
                             scope="col"
                             className="whitespace-nowrap px-5 py-3 text-[11px] font-extrabold uppercase tracking-[0.14em] text-slate-500"
                         >
-                            Case status
+                            Request status
                         </th>
                         <th
                             scope="col"
@@ -214,7 +214,7 @@ function CaseTable({ cases }) {
                                         href={href}
                                         className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-2 text-[12px] font-bold text-primary transition-colors hover:border-slate-300 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                                     >
-                                        View Case
+                                        View Request
                                     </Link>
                                 </td>
                             </tr>
@@ -238,10 +238,10 @@ function HelpCard() {
                     help
                 </span>
                 <h2 className="mt-3 font-headline text-[17px] font-extrabold tracking-tight text-slate-900">
-                    Need help with your case?
+                    Need help with your request?
                 </h2>
                 <p className="mt-2 text-[13px] leading-relaxed text-slate-600">
-                    Contact DMW for assistance understanding your case status or responding to a request.
+                    Contact DMW for help understanding your request status or responding to an agency request.
                 </p>
 
                 <Link
@@ -309,26 +309,26 @@ export default function Dashboard({ cases, caseStats }) {
     const requestCount = caseList.length === 1 ? '1 request for assistance' : `${caseList.length} requests for assistance`;
 
     return (
-        <OfwPortalLayout title="My Cases">
+        <OfwPortalLayout title="My Requests">
             <OfwBreadcrumbs items={[
-                { label: 'My Cases' },
+                { label: 'My Requests' },
             ]} />
 
             <h1 className="mt-2 font-headline text-[28px] font-extrabold tracking-tight text-slate-900 sm:text-[32px]">
-                My Cases
+                My Requests
             </h1>
             <div className="mt-3">
                 <p className="text-[16px] font-bold text-slate-900">Welcome, {auth?.user?.name ?? 'OFW'}</p>
                 <p className="mt-1 text-[13px] text-slate-600">View your requests for assistance and follow their latest updates.</p>
             </div>
 
-            {/* Cases + help aside */}
+            {/* Requests + help aside */}
             <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
                 <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
                     <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
                         <div>
                             <h2 className="font-headline text-[17px] font-extrabold tracking-tight text-slate-900">
-                                Your cases
+                                Your requests
                             </h2>
                             <p className="mt-0.5 text-[12px] text-slate-500">{requestCount}</p>
                         </div>
@@ -338,7 +338,7 @@ export default function Dashboard({ cases, caseStats }) {
                                 className="inline-flex min-h-[34px] items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-[12px] font-bold text-on-primary transition-colors hover:bg-primary/90"
                             >
                                 <span className="material-symbols-outlined text-[16px]">add</span>
-                                New case
+                                Request Assistance
                             </Link>
                             {hasCases ? (
                                 <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
@@ -362,13 +362,13 @@ export default function Dashboard({ cases, caseStats }) {
                                         value={query}
                                         onChange={(e) => setQuery(e.target.value)}
                                         placeholder="Search by tracking number or category"
-                                        aria-label="Search your cases"
+                                        aria-label="Search your requests"
                                         className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-[13px] text-slate-900 placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                                     />
                                 </div>
                                 <div className="flex flex-wrap items-center gap-2">
                                     <FilterChip
-                                        label="All cases"
+                                        label="All requests"
                                         count={total}
                                         active={filter === 'all'}
                                         onClick={() => setFilter('all')}
@@ -389,7 +389,7 @@ export default function Dashboard({ cases, caseStats }) {
                             </div>
 
                             {visibleCases.length === 0 ? (
-                                <EmptyState message="No cases on this page match your search or filter." />
+                                <EmptyState message="No requests on this page match your search or filter." />
                             ) : viewMode === 'grid' ? (
                                 <CaseCardGrid cases={visibleCases} />
                             ) : (
@@ -397,14 +397,14 @@ export default function Dashboard({ cases, caseStats }) {
                             )}
 
                             <p className="border-t border-slate-100 px-5 py-3 text-[12px] text-slate-500">
-                                Showing {visibleCases.length} of {caseList.length} case{caseList.length === 1 ? '' : 's'} · Your records only
+                                Showing {visibleCases.length} of {caseList.length} request{caseList.length === 1 ? '' : 's'} · Your records only
                             </p>
                         </>
                     ) : (
                         <EmptyState
-                            message="You have no cases yet."
+                            message="You have no requests yet."
                             href={fileCaseHref}
-                            actionLabel="File one"
+                            actionLabel="Request Assistance"
                             art
                         />
                     )}
@@ -415,11 +415,11 @@ export default function Dashboard({ cases, caseStats }) {
                 </aside>
             </div>
 
-            {/* Protect your case information */}
+            {/* Protect your request information */}
             <div className="mt-6 flex items-start gap-3 rounded-lg border border-info/25 bg-info-container/40 px-5 py-4">
                 <Info className="mt-0.5 h-4 w-4 shrink-0 text-info" aria-hidden="true" />
                 <div className="text-[13px]">
-                    <p className="font-bold text-slate-900">Protect your case information</p>
+                    <p className="font-bold text-slate-900">Protect your request information</p>
                     <p className="mt-0.5 text-slate-600">
                         Keep your tracking number and verification codes private. DMW will not ask you to
                         share a one-time code with another person.
@@ -462,7 +462,7 @@ export default function Dashboard({ cases, caseStats }) {
                 >
                     info
                 </span>
-                All case information on this page comes from your own records.
+                All request information on this page comes from your own records.
             </p>
         </OfwPortalLayout>
     );

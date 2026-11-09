@@ -37,9 +37,9 @@ function renderCase(status, overrides = {}) {
 }
 
 describe('OFW/CaseDetail status line', () => {
-    it('tells a newly submitted OFW that a case manager is reviewing the case', () => {
+    it('tells a newly submitted OFW that a case manager is reviewing the request', () => {
         renderCase('BEING_REVIEWED');
-        expect(screen.getByText('Your case is being reviewed by a case manager.')).toBeInTheDocument();
+        expect(screen.getByText('Your request is being reviewed by a case manager.')).toBeInTheDocument();
     });
 
     it('does not show "Case status is currently unavailable" for a pending-review case', () => {
@@ -49,7 +49,7 @@ describe('OFW/CaseDetail status line', () => {
 
     it('points an in-progress case with no referrals at upcoming referrals', () => {
         renderCase('IN_PROGRESS');
-        expect(screen.getByText('Your case is being reviewed. Referrals to partner offices will appear here.')).toBeInTheDocument();
+        expect(screen.getByText('Your request is being reviewed. Referrals to partner offices will appear here.')).toBeInTheDocument();
     });
 
     it('reports completed partner offices once referrals exist', () => {
@@ -97,7 +97,7 @@ describe('OFW/CaseDetail status line', () => {
 
     it('confirms a resolved case', () => {
         renderCase('RESOLVED');
-        expect(screen.getByText('This case has been resolved.')).toBeInTheDocument();
+        expect(screen.getByText('This request has been resolved.')).toBeInTheDocument();
     });
 
     it('shows the neutral fallback instead of an error for an unrecognized status', () => {

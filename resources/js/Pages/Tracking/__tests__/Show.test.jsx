@@ -92,8 +92,8 @@ describe('Tracking/Show client request panel', () => {
     expect(screen.queryByLabelText(/Attach documents/)).not.toBeInTheDocument();
     expect(document.querySelector('input[type="file"]')).not.toBeNull();
     expect(screen.queryByText('PRIVATE-CASE')).not.toBeInTheDocument();
-    expect(screen.queryByText('Case summary')).not.toBeInTheDocument();
-    expect(screen.queryByText('Complete case history')).not.toBeInTheDocument();
+    expect(screen.queryByText('Request Summary')).not.toBeInTheDocument();
+    expect(screen.queryByText('Complete request history')).not.toBeInTheDocument();
   });
 
   it('offers a safe replacement action for an expired request state without upload controls', () => {

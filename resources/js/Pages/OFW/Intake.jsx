@@ -70,23 +70,23 @@ export default function Intake({ profile: profileProp, client, vulnerabilityOpti
         form.clearErrors();
         form.post(safeRoute('ofw.intake.store', undefined, '/my-cases/intake'), {
             preserveScroll: true,
-            onSuccess: () => toast.success('Case submitted successfully.'),
-            onError: (errors) => toast.error(Object.values(errors)[0] || 'Unable to submit your case.'),
+            onSuccess: () => toast.success('Request submitted successfully.'),
+            onError: (errors) => toast.error(Object.values(errors)[0] || 'Unable to submit your request.'),
         });
     }
 
     return (
-        <OfwLayout title="File a New Case">
+        <OfwLayout title="Request Assistance">
             <Link
                 href={safeRoute('ofw.dashboard', undefined, '/my-cases')}
                 className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-slate-600 hover:text-slate-900"
             >
                 <MaterialSymbol name="arrow_back" className="text-[18px]" />
-                Back to My Cases
+                Back to My Requests
             </Link>
 
             <PageHeader
-                title="File a new case"
+                title="Request Assistance"
                 subtitle="Tell us what you need help with. A case manager will review your request."
             />
 
@@ -117,7 +117,7 @@ export default function Intake({ profile: profileProp, client, vulnerabilityOpti
                         <ProfileRow icon="work" label="Employment" value={employment} />
                     </div>
                     <p className="mt-4 border-t border-slate-100 pt-3 text-xs text-slate-400">
-                        These details come from your profile. Use <strong>Edit profile</strong> to change them before filing.
+                        These details come from your profile. Use <strong>Edit profile</strong> to update them before submitting your request.
                     </p>
                 </SectionCard>
 
@@ -126,7 +126,7 @@ export default function Intake({ profile: profileProp, client, vulnerabilityOpti
                     <div className="space-y-4">
                         <div>
                             <label htmlFor="intake-summary" className="block text-sm font-medium text-slate-700">
-                                Case summary <span className="text-red-600">*</span>
+                                Details of Your Request <span className="text-red-600">*</span>
                             </label>
                             <textarea
                                 id="intake-summary"
@@ -188,7 +188,7 @@ export default function Intake({ profile: profileProp, client, vulnerabilityOpti
                             className="mt-0.5 h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary/40"
                         />
                         <span>
-                            I consent to the collection and use of my personal data for case management, in line with
+                            I consent to the collection and use of my personal data for coordinating assistance, in line with
                             the privacy policy. <span className="text-red-600">*</span>
                         </span>
                     </label>
@@ -211,7 +211,7 @@ export default function Intake({ profile: profileProp, client, vulnerabilityOpti
                         {form.processing && (
                             <MaterialSymbol name="progress_activity" className="animate-spin text-[18px]" />
                         )}
-                        {form.processing ? 'Submitting...' : 'Submit case'}
+                        {form.processing ? 'Submitting...' : 'Submit Request'}
                     </button>
                 </div>
             </form>

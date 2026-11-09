@@ -102,7 +102,7 @@ export default function Notifications({ notifications }) {
 
     return (
         <OfwPortalLayout title="Notifications">
-            <p className="text-[12px] text-slate-500">Home / My Cases / Notifications</p>
+            <p className="text-[12px] text-slate-500">Home / My Requests / Notifications</p>
 
             <div className="flex flex-wrap items-end justify-between gap-2">
                 <div>
@@ -110,7 +110,7 @@ export default function Notifications({ notifications }) {
                         Notifications
                     </h1>
                     <p className="mt-1 text-[13px] text-slate-600">
-                        Updates about your cases and requests.
+                        Updates about your assistance requests.
                     </p>
                 </div>
                 <span className="text-[12px] text-slate-400">
@@ -121,7 +121,7 @@ export default function Notifications({ notifications }) {
             <div className="mt-5">
                 {notificationList.length === 0 ? (
                     <SectionCard title="Updates">
-                        <EmptyState message="You'll receive notifications here when there are updates to your cases." />
+                        <EmptyState message="You'll receive notifications here when there are updates to your assistance requests." />
                     </SectionCard>
                 ) : (
                     <SectionCard title="Updates" bodyClassName="">

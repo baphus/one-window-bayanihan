@@ -137,7 +137,7 @@ describe('Helpdesk category view (/help?category=...)', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'OFW Assistance' })).toBeInTheDocument();
     expect(screen.getByRole('navigation', { name: /breadcrumb/i })).toBeInTheDocument();
     // One h2 per subcategory of OFW Assistance
-    expect(screen.getByRole('heading', { level: 2, name: /case submission/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: /requesting assistance/i })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 2, name: /ofw rights/i })).toBeInTheDocument();
     // Sidebar returns on browse pages (desktop nav + mobile disclosure)
     expect(screen.getAllByRole('navigation', { name: /help topics/i }).length).toBeGreaterThanOrEqual(1);
@@ -146,7 +146,7 @@ describe('Helpdesk category view (/help?category=...)', () => {
   it('renders subcategory view with breadcrumb back to parent', () => {
     mockPageProps = { category: 'case-submission' };
     render(<Index />);
-    expect(screen.getByRole('heading', { level: 1, name: 'Case Submission' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Requesting Assistance' })).toBeInTheDocument();
     const breadcrumb = screen.getByRole('navigation', { name: /breadcrumb/i });
     expect(within(breadcrumb).getByRole('link', { name: 'OFW Assistance' })).toBeInTheDocument();
   });

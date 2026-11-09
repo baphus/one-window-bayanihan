@@ -12,10 +12,10 @@ export default function TrackerSection() {
       <div className="mx-auto max-w-4xl text-center">
         <span ref={iconRef} className={`material-symbols-outlined mb-4 block text-4xl text-white/50 owb-reveal ${iconVisible ? 'is-visible' : ''}`}>radar</span>
         <h2 ref={headingRef} className={`mb-4 font-headline text-2xl font-extrabold text-white md:text-3xl owb-reveal ${headingVisible ? 'is-visible' : ''}`}>
-          Track Your Case
+          Track Your Request
         </h2>
         <p ref={textRef} className={`mx-auto mb-8 max-w-xl text-sm leading-relaxed text-white/70 md:text-base owb-reveal ${textVisible ? 'is-visible' : ''}`}>
-          Have a tracking number? Check the real-time status of your referral and see which agency is handling your case.
+          Have a tracking number? Check the real-time status of your request and see which agency is coordinating your assistance.
         </p>
         <div ref={ctaRef} className={`owb-reveal ${ctaVisible ? 'is-visible' : ''}`}>
           <button

@@ -9,7 +9,7 @@ import { formatResolvedAddress } from '@/lib/addressResolver';
 
 const ROLE_LABELS = {
     OFW: 'I am an OFW',
-    NEXT_OF_KIN: 'Filing for a family member',
+    NEXT_OF_KIN: 'Requesting assistance for a family member',
 };
 
 function Section({ title, children }) {
@@ -113,7 +113,7 @@ export default function RegisterReview({ pendingName = {}, pending = {} }) {
                             </div>
 
                             <div className="space-y-3">
-                                <Section title="Account for">
+                                <Section title="Assistance request for">
                                     <Row label="Registering as" value={ROLE_LABELS[pending.type] ?? '—'} />
                                     <Row label="Name" value={fullName} />
                                     <Row label="Birth / Sex" value={[pending.date_of_birth, pending.sex].filter(Boolean).join(' · ')} />

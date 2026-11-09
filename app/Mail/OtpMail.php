@@ -22,7 +22,7 @@ class OtpMail extends Mailable implements ShouldQueue
     {
         $subject = match ($this->purpose) {
             'login' => 'Your Login Verification Code',
-            'track' => 'Your Case Tracking Verification Code',
+            'track' => 'Your Request Tracking Verification Code',
             'email_change' => 'Your Email Change Verification Code',
             'register' => 'Verify your One Window Bayanihan email',
             default => 'Your Verification Code',

@@ -140,7 +140,7 @@ class CaseEventRecordingTest extends TestCase
             ->first();
 
         $this->assertNotNull($event);
-        $this->assertEquals('Your case has been opened', $event->title);
+        $this->assertEquals('Your request has been received', $event->title);
         $this->assertEquals('case_manager', $event->actor_type);
     }
 

@@ -27,13 +27,13 @@ const ROLE_CARDS = [
         value: 'OFW',
         icon: 'flight',
         title: 'I am an OFW',
-        description: 'File and track your own case request.',
+        description: 'Request assistance and track your progress.',
     },
     {
         value: 'NEXT_OF_KIN',
         icon: 'family_restroom',
-        title: 'Filing for a family member',
-        description: 'You are filing on behalf of an OFW.',
+        title: 'Requesting assistance for a family member',
+        description: 'You are requesting assistance on behalf of an OFW.',
     },
 ];
 

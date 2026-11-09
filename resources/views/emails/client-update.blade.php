@@ -1,9 +1,9 @@
 <x-mail::message>
 <x-mail::status-badge status="{{ strtolower($case->status) }}" label="{{ ucwords(strtolower(str_replace('_', ' ', $case->status))) }}" />
 
-<p style="color: #a1a1aa; font-size: 12px; margin: 12px 0 24px 0;">Tracking Number {{ $case->tracker_number }}</p>
+<p style="color: #a1a1aa; font-size: 12px; margin: 12px 0 24px 0;">Request Tracker {{ $case->tracker_number }}</p>
 
-# Case Update
+# Request Update
 
 <p style="font-size: 15px; line-height: 1.7; color: #3f3f46; margin: 0 0 20px 0;">
     Dear {{ $case->client->first_name ?? 'Sir/Madam' }},
@@ -51,7 +51,7 @@ if ($services !== '') {
 </p>
 @endif
 
-<x-mail::action-card url="{{ route('track.index', ['tracker_number' => $case->tracker_number]) }}" label="Track Your Case" />
+<x-mail::action-card url="{{ route('track.index', ['tracker_number' => $case->tracker_number]) }}" label="Track Your Request" />
 
 <x-mail::contact-footer />
 </x-mail::message>

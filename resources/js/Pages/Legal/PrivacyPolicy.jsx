@@ -87,14 +87,14 @@ export default function PrivacyPolicy() {
                   <div className="prose prose-slate max-w-none text-sm leading-relaxed text-on-surface-variant md:text-[15px]">
                     <p>
                       The One Window Bayanihan Assistance Program (&ldquo;we,&rdquo; &ldquo;us,&rdquo; or &ldquo;our&rdquo;) is the
-                      digital case management platform of the Department of Migrant Workers (DMW) Region VII. We are
+                      digital assistance coordination platform of the Department of Migrant Workers (DMW) Region VII. We are
                       committed to protecting the privacy and security of your personal data in accordance with Republic
                       Act No. 10173, otherwise known as the <strong>Data Privacy Act of 2012</strong>, and its
                       Implementing Rules and Regulations.
                     </p>
                     <p>
                       This Privacy Policy explains how we collect, use, disclose, and safeguard your personal information
-                      when you use our platform to file, track, and manage your case or avail of our services as an
+                      when you use our platform to request assistance, track progress, and access our services as an
                       Overseas Filipino Worker (OFW) or stakeholder.
                     </p>
                   </div>
@@ -117,7 +117,7 @@ export default function PrivacyPolicy() {
                         ['badge', 'Personal Identifiers', 'Full name, date of birth, place of birth, gender, civil status, and nationality.'],
                         ['contact_mail', 'Contact Information', 'Home address, mobile number, email address, and emergency contact details.'],
                         ['credit_card', 'Government-Issued IDs', 'Passport number, Philippine Passport details, Unified Multi-Purpose ID (UMID), Philippine Identification System (PhilSys ID) number, and other valid government-issued identification documents.'],
-                        ['work', 'Employment and Case Data', 'Employment contract details, employer information, POEA/DMW processing records, case history, referrals, supporting documents, and correspondence related to your case.'],
+                        ['work', 'Employment and Assistance Data', 'Employment contract details, employer information, POEA/DMW processing records, request history, referrals, supporting documents, and correspondence related to your assistance.'],
                         ['devices', 'Technical Data', 'IP address, browser type, device information, and usage analytics collected automatically when you access the platform.'],
                       ].map(([icon, title, desc]) => (
                         <li key={title} className="flex gap-3 rounded-xl border border-outline-variant/20 bg-surface-container p-4">
@@ -146,11 +146,11 @@ export default function PrivacyPolicy() {
                     <p>We process your personal data solely for the following legitimate purposes:</p>
                     <ul className="mt-3 space-y-3">
                       {[
-                        ['folder_special', 'Case Management', 'To receive, process, track, and resolve your concerns, complaints, or requests filed through the One Window Bayanihan Assistance Program.'],
-                        ['swap_horiz', 'Referrals and Coordination', 'To refer your case to the appropriate partner agency (OWWA, DOLE, DSWD, TESDA, DOH, POEA, or other government entities) when necessary for case resolution.'],
+                        ['folder_special', 'Assistance Coordination', 'To receive, process, track, and respond to your concerns or requests submitted through the One Window Bayanihan Assistance Program.'],
+                        ['swap_horiz', 'Referrals and Coordination', 'To refer your request to the appropriate partner agency (OWWA, DOLE, DSWD, TESDA, DOH, POEA, or other government entities) when needed to provide assistance.'],
                         ['policy', 'Legal Compliance', 'To comply with legal obligations under RA 10173, RA 11641 (DMW Act), and other applicable laws, rules, and regulations.'],
                         ['bar_chart', 'Reporting and Analytics', 'To generate anonymized statistical reports for program improvement, policy development, and public accountability.'],
-                        ['chat', 'Communication', 'To contact you regarding the status of your case, requests for additional information, and other case-related matters.'],
+                        ['chat', 'Communication', 'To contact you regarding the status of your request, requests for additional information, and other matters related to your assistance.'],
                       ].map(([icon, title, desc]) => (
                         <li key={title} className="flex gap-3 rounded-xl border border-outline-variant/20 bg-surface-container p-4">
                           <span className="material-symbols-outlined mt-0.5 shrink-0 text-lg text-primary/70">{icon}</span>
@@ -182,7 +182,7 @@ export default function PrivacyPolicy() {
                     <ul className="mt-3 space-y-3">
                       {[
                         ['check_circle', 'Consent', 'Where you have voluntarily provided your personal data and explicitly consented to its processing for the purposes stated in this policy.'],
-                        ['handshake', 'Contractual Necessity', 'Processing is necessary for the performance of a contract to which you are a party, including the filing and management of your case.'],
+                        ['handshake', 'Contractual Necessity', 'Processing is necessary for the performance of a contract to which you are a party, including submitting and managing your assistance request.'],
                         ['gavel', 'Legal Obligation', 'Processing is required by law, including our mandate under Republic Act No. 11641 (Department of Migrant Workers Act), which establishes DMW as the lead agency for the protection of OFW rights and welfare.'],
                         ['public', 'Public Interest', 'Processing is necessary for the performance of a task carried out in the public interest, specifically the delivery of migrant worker services and the administration of government programs for OFWs.'],
                       ].map(([icon, title, desc]) => (
@@ -211,7 +211,7 @@ export default function PrivacyPolicy() {
                   <div className="prose prose-slate max-w-none text-sm leading-relaxed text-on-surface-variant md:text-[15px]">
                     <p>
                       Your personal data may be shared with the following government partner agencies strictly on a
-                      need-to-know basis and only to the extent necessary for case resolution:
+                      need-to-know basis and only to the extent necessary to provide assistance:
                     </p>
                     <div className="my-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
                       {[

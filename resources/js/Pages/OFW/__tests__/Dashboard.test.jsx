@@ -53,7 +53,7 @@ function renderDashboard(overrides = {}) {
 }
 
 function layoutGroup() {
-    return screen.getByRole('group', { name: 'Case layout' });
+    return screen.getByRole('group', { name: 'Request layout' });
 }
 
 beforeEach(() => {
@@ -65,7 +65,7 @@ describe('OFW/Dashboard case view mode', () => {
         renderDashboard();
 
         // The reference presents the case list as a table by default.
-        expect(screen.getByRole('columnheader', { name: 'Case / Category' })).toBeInTheDocument();
+        expect(screen.getByRole('columnheader', { name: 'Request / Category' })).toBeInTheDocument();
         expect(within(layoutGroup()).getByRole('button', { name: 'List view' })).toHaveAttribute('aria-pressed', 'true');
     });
 
@@ -76,7 +76,7 @@ describe('OFW/Dashboard case view mode', () => {
 
         // Grid cards show the summary as card text; the table header does not exist.
         expect(screen.getByText('Unpaid wages claim against employer')).toBeInTheDocument();
-        expect(screen.queryByRole('columnheader', { name: 'Case / Category' })).not.toBeInTheDocument();
+        expect(screen.queryByRole('columnheader', { name: 'Request / Category' })).not.toBeInTheDocument();
         expect(within(layoutGroup()).getByRole('button', { name: 'Grid view' })).toHaveAttribute('aria-pressed', 'true');
     });
 
@@ -93,15 +93,15 @@ describe('OFW/Dashboard case view mode', () => {
 
         renderDashboard();
 
-        expect(screen.queryByRole('columnheader', { name: 'Case / Category' })).not.toBeInTheDocument();
+        expect(screen.queryByRole('columnheader', { name: 'Request / Category' })).not.toBeInTheDocument();
         expect(within(layoutGroup()).getByRole('button', { name: 'Grid view' })).toHaveAttribute('aria-pressed', 'true');
     });
 
     it('renders the empty state without a layout toggle when the OFW has no cases', () => {
         renderDashboard({ cases: { data: [] } });
 
-        expect(screen.getByText(/You have no cases yet/i)).toBeInTheDocument();
-        expect(screen.queryByRole('group', { name: 'Case layout' })).not.toBeInTheDocument();
+        expect(screen.getByText(/You have no requests yet/i)).toBeInTheDocument();
+        expect(screen.queryByRole('group', { name: 'Request layout' })).not.toBeInTheDocument();
     });
 
     it('labels a pending-review case as Under Review in the grid', () => {
