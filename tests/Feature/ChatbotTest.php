@@ -160,7 +160,7 @@ class ChatbotTest extends TestCase
         $content = $service->getFallbackSections();
 
         // Should include sections from fallback articles (by title, not slug)
-        $this->assertStringContainsString('Public Tracking Portal', $content);
+        $this->assertStringContainsString('Using the Public Request Tracking Portal', $content);
         $this->assertStringNotContainsString('Troubleshooting Common Issues', $content);
 
         // Should NOT include unrelated articles
