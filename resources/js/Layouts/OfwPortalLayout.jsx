@@ -16,7 +16,7 @@ import { clearAllDraftBackups } from '@/Hooks/useLocalStorageDraft';
  */
 
 const NAV_ITEMS = [
-    { key: 'my-cases', label: 'My Cases', icon: 'folder_open', href: '/my-cases', route: 'ofw.dashboard' },
+    { key: 'my-cases', label: 'My Requests', icon: 'folder_open', href: '/my-cases', route: 'ofw.dashboard' },
     { key: 'notifications', label: 'Notifications', icon: 'notifications', href: '/my-cases/notifications', route: 'ofw.notifications', badge: true },
     { key: 'profile', label: 'Profile', icon: 'person', href: '/my-cases/profile', route: 'ofw.profile.edit' },
     { key: 'help', label: 'Help Center', icon: 'help', href: '/help', route: 'helpdesk.index' },

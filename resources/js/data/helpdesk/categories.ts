@@ -11,7 +11,7 @@ export const categories: HelpdeskCategory[] = [
     name: "OFW Assistance",
     slug: "ofw-assistance",
     description:
-      "Guides and resources for Overseas Filipino Workers on case submission, document requirements, and rights.",
+      "Guides and resources for Overseas Filipino Workers on requesting assistance, document requirements, and rights.",
     parentId: null,
     icon: "badge",
     sortOrder: 0,
@@ -70,9 +70,9 @@ export const categories: HelpdeskCategory[] = [
   // ── Child categories (under OFW Assistance) ──────────────────────────────
   {
     id: "cat-6",
-    name: "Case Submission",
+    name: "Requesting Assistance",
     slug: "case-submission",
-    description: "Guides on submitting cases and required documents.",
+    description: "Guides on requesting assistance and preparing required documents.",
     parentId: "cat-1",
     icon: "add_circle",
     sortOrder: 0,

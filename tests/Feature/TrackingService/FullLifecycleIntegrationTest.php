@@ -105,7 +105,7 @@ class FullLifecycleIntegrationTest extends TestCase
             ['case_opened', 'referral_sent', 'milestone_added', 'case_closed'],
             array_column($data['milestoneTimeline'], 'type')
         );
-        $this->assertEquals('Your case has been opened', $data['milestoneTimeline'][0]['title']);
+        $this->assertEquals('Your request has been received', $data['milestoneTimeline'][0]['title']);
 
         // ASSERT — trackingAgencies has exactly 1 entry (one referral)
         $this->assertCount(1, $data['trackingAgencies']);
@@ -192,7 +192,7 @@ class FullLifecycleIntegrationTest extends TestCase
 
         // ASSERT — first event is case_opened
         $this->assertEquals('case_opened', $timeline[0]['type']);
-        $this->assertEquals('Your case has been opened', $timeline[0]['title']);
+        $this->assertEquals('Your request has been received', $timeline[0]['title']);
         $this->assertNull($timeline[0]['agency']);
 
         // ASSERT — all expected event types are present
@@ -206,7 +206,7 @@ class FullLifecycleIntegrationTest extends TestCase
         // ASSERT — case_closed is the last event
         $lastIndex = count($timeline) - 1;
         $this->assertEquals('case_closed', $timeline[$lastIndex]['type']);
-        $this->assertEquals('Your case has been resolved', $timeline[$lastIndex]['title']);
+        $this->assertEquals('Your request has been resolved', $timeline[$lastIndex]['title']);
         $this->assertNull($timeline[$lastIndex]['agency']);
 
         // ASSERT — no audit log raw data leaks into milestoneTimeline
@@ -337,7 +337,7 @@ class FullLifecycleIntegrationTest extends TestCase
         // ASSERT — milestoneTimeline has only case_opened
         $this->assertCount(1, $data['milestoneTimeline']);
         $this->assertEquals('case_opened', $data['milestoneTimeline'][0]['type']);
-        $this->assertEquals('Your case has been opened', $data['milestoneTimeline'][0]['title']);
+        $this->assertEquals('Your request has been received', $data['milestoneTimeline'][0]['title']);
 
         // Also test a CLOSED case with no referrals
         $closedCase = CaseFile::factory()->closed()->create([

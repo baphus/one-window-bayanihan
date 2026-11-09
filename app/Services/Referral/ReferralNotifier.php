@@ -86,8 +86,8 @@ class ReferralNotifier
                 $ofwCase,
                 $ofwEmail,
                 'referral_created',
-                "Your case was sent to {$agencyName}",
-                "Good news — your case {$ofwCase->case_number} was sent to {$agencyName} for: {$services}. They will post updates here as they work on it.",
+                "Your request was sent to {$agencyName}",
+                "Good news — your request {$ofwCase->case_number} was sent to {$agencyName} for: {$services}. They will post updates here as they work on it.",
                 ['referral_id' => $referral->id, 'status' => $referral->status],
                 $trackUrl,
             ));
@@ -178,8 +178,8 @@ class ReferralNotifier
                 $clientEmail,
                 new MilestoneAdded($milestone, $referral, $actorName),
                 'milestone_added',
-                "New update on your case from {$agencyName}",
-                "{$agencyName} posted an update on your case {$caseNumber}: '{$title}'. Open your case to read the details.",
+                "New update on your request from {$agencyName}",
+                "{$agencyName} posted an update on your request {$caseNumber}: '{$title}'. Open your request to read the details.",
                 ['referral_id' => $referral->id, 'milestone_id' => $milestone->id, 'milestone_title' => $title],
                 route('referrals.show', $referral->id),
             ));
@@ -210,9 +210,9 @@ class ReferralNotifier
         $agencyName = $referral->agency?->name ?? 'the agency';
 
         return match ($status) {
-            'PROCESSING' => "{$agencyName} is now working on your case",
+            'PROCESSING' => "{$agencyName} is now working on your request",
             'FOR_COMPLIANCE' => "Action needed: {$agencyName} needs something from you",
-            'COMPLETED' => "{$agencyName} finished their part of your case",
+            'COMPLETED' => "{$agencyName} finished their part of your request",
             'REJECTED' => "Update on your referral with {$agencyName}",
             default => "{$agencyName} received your referral",
         };
@@ -228,11 +228,11 @@ class ReferralNotifier
         $caseNumber = $referral->caseFile?->case_number ?? '';
 
         return match ($status) {
-            'PROCESSING' => "Good news — {$agencyName} has started working on your case {$caseNumber}. They will post updates here as they progress.",
-            'FOR_COMPLIANCE' => "{$agencyName} needs additional information for your case {$caseNumber}. Please watch for their message and respond as soon as you can.",
-            'COMPLETED' => "{$agencyName} has finished their part of your case {$caseNumber}. Thank you for your patience.",
-            'REJECTED' => "{$agencyName} could not take on this part of your case {$caseNumber}. Your case manager will tell you what happens next.",
-            default => "{$agencyName} received the referral for your case {$caseNumber} and will start on it shortly.",
+            'PROCESSING' => "Good news — {$agencyName} has started working on your request {$caseNumber}. They will post updates here as they progress.",
+            'FOR_COMPLIANCE' => "{$agencyName} needs additional information for your request {$caseNumber}. Please watch for their message and respond as soon as you can.",
+            'COMPLETED' => "{$agencyName} has finished their part of your request {$caseNumber}. Thank you for your patience.",
+            'REJECTED' => "{$agencyName} could not take on this part of your request {$caseNumber}. Your case manager will guide you on what happens next.",
+            default => "{$agencyName} received the referral for your request {$caseNumber} and will start on it shortly.",
         };
     }
 }

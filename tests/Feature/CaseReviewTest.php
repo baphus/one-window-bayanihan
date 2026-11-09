@@ -115,7 +115,7 @@ class CaseReviewTest extends TestCase
         $this->assertDatabaseHas('case_notifications', [
             'case_id' => $case->id,
             'type' => 'case_rejected',
-            'message' => 'Your case request was not approved. Reason: Incomplete employment history.',
+            'message' => 'Your assistance request was not approved. Reason: Incomplete employment history.',
         ]);
         Mail::assertQueued(ClientUpdateMail::class, function (ClientUpdateMail $mail) use ($case): bool {
             return $mail->case->id === $case->id

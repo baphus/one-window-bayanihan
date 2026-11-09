@@ -285,7 +285,7 @@ class CaseService
                     $clientEmail,
                     'case_rejected',
                     "Case {$case->case_number} was not approved",
-                    "Your case request was not approved. Reason: {$reason}",
+                    "Your assistance request was not approved. Reason: {$reason}",
                     ['reason' => $reason, 'status' => 'REJECTED'],
                     route('ofw.case.show', $case->id),
                 );
@@ -992,8 +992,8 @@ class CaseService
             $case,
             $clientEmail,
             'case_updated',
-            'Case Updated',
-            "The details of case #{$case->case_number} have been updated by the Bayanihan team.",
+            'Request Updated',
+            "The details of request #{$case->case_number} have been updated by the Bayanihan team.",
             [],
             route('cases.show', $case->id),
         );
@@ -1018,7 +1018,7 @@ class CaseService
             $clientEmail,
             new CaseStatusUpdated($case, $oldStatus, $newStatus, $updatedBy),
             'case_status_updated',
-            "Your case is now {$statusLabel}",
+            "Your request is now {$statusLabel}",
             $statusMessage,
             ['old_status' => $oldStatus, 'new_status' => $newStatus],
             route('cases.show', $case->id),
@@ -1042,19 +1042,19 @@ class CaseService
         return match (strtoupper($status)) {
             'OPEN' => [
                 'in progress',
-                "Your case {$caseNumber} is now in progress. Your case manager is coordinating the help you need.",
+                "Your request {$caseNumber} is now in progress. Your case manager is coordinating the help you need.",
             ],
             'CLOSED' => [
                 'resolved',
-                "Your case {$caseNumber} has been resolved. Thank you for trusting the Bayanihan team.",
+                "Your request {$caseNumber} has been resolved. Thank you for trusting the Bayanihan team.",
             ],
             'ARCHIVED' => [
                 'archived',
-                "Your case {$caseNumber} has been filed for safekeeping. Contact us if you need help again.",
+                "Your request {$caseNumber} has been filed for safekeeping. Contact us if you need help again.",
             ],
             default => [
                 'updated',
-                "There is an update on your case {$caseNumber}. Open your case to read the details.",
+                "There is an update on your request {$caseNumber}. Open your request to read the details.",
             ],
         };
     }

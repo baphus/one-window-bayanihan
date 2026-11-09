@@ -58,7 +58,7 @@ class BuildMilestoneTimelineTest extends TestCase
         $timeline = $this->timeline($case);
 
         $this->assertEquals('case_opened', $timeline[0]['type']);
-        $this->assertEquals('Your case has been opened', $timeline[0]['title']);
+        $this->assertEquals('Your request has been received', $timeline[0]['title']);
         $this->assertNull($timeline[0]['agency']);
     }
 
@@ -136,8 +136,8 @@ class BuildMilestoneTimelineTest extends TestCase
         $last = $timeline[count($timeline) - 1];
 
         $this->assertEquals('case_closed', $last['type']);
-        $this->assertEquals('Your case has been resolved', $last['title']);
-        $this->assertEquals('All referrals have been processed and your case is now closed.', $last['description']);
+        $this->assertEquals('Your request has been resolved', $last['title']);
+        $this->assertEquals('All referrals have been processed and your request is now complete.', $last['description']);
         $this->assertNull($last['agency']);
     }
 
@@ -153,7 +153,7 @@ class BuildMilestoneTimelineTest extends TestCase
         $last = $timeline[count($timeline) - 1];
 
         $this->assertEquals('case_reopened', $last['type']);
-        $this->assertEquals('Your case has been reopened', $last['title']);
+        $this->assertEquals('Your request is being reviewed again', $last['title']);
     }
 
     public function test_audit_logs_never_reach_milestone_timeline(): void

@@ -27,7 +27,7 @@ export default function IntakeSection() {
               className="inline-flex items-center justify-center gap-2 rounded-none bg-primary px-6 py-2.5 text-[14px] font-bold text-white transition-all hover:brightness-110 active:scale-95 px-8 py-3 text-base"
             >
               <span className="material-symbols-outlined">edit_note</span>
-              File a Case
+              Request Assistance
             </button>
             <p className="text-xs text-slate-500">
               Don't have an account?{' '}

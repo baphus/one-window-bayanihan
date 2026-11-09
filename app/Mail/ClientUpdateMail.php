@@ -23,7 +23,7 @@ class ClientUpdateMail extends Mailable implements ShouldQueue
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: "Update on Your Case ({$this->case->tracker_number})",
+            subject: "Update on Your Assistance Request ({$this->case->tracker_number})",
         );
     }
 

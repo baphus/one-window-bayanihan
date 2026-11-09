@@ -106,12 +106,12 @@ export default function TermsOfService() {
                   </div>
                   <div className="prose prose-slate max-w-none text-sm leading-relaxed text-on-surface-variant md:text-[15px]">
                     <p>
-                      The One Window Bayanihan system is a centralized digital case management platform
-                      designed to streamline the processing, tracking, and referral of concerns involving
+                      The One Window Bayanihan system is a centralized digital assistance coordination platform
+                      designed to streamline the processing, tracking, and referral of requests involving
                       Overseas Filipino Workers (OFWs) and their families. The System facilitates
                       coordination among DMW, OWWA, DOLE, DOH, DSWD, TESDA, and other partner government
                       agencies to ensure timely and efficient delivery of assistance and services. The
-                      System provides case registration, document management, referral tracking, and
+                      System provides request registration, document management, referral tracking, and
                       communication tools for authorized personnel and stakeholders.
                     </p>
                   </div>
@@ -131,7 +131,7 @@ export default function TermsOfService() {
                     <p>As a user of the System, you agree to:</p>
                     <ul className="mt-3 space-y-3">
                       {[
-                        ['fact_check', 'Provide Accurate Information', 'You must provide true, accurate, current, and complete information when registering for an account or submitting case-related data. Knowingly submitting false or misleading information may result in account suspension and referral to appropriate legal authorities.'],
+                        ['fact_check', 'Provide Accurate Information', 'You must provide true, accurate, current, and complete information when registering for an account or submitting request-related information. Knowingly submitting false or misleading information may result in account suspension and referral to appropriate legal authorities.'],
                         ['balance', 'Use Lawfully', 'You shall use the System only for lawful purposes and in accordance with these Terms. You may not use the System for any fraudulent, abusive, or otherwise illegal activity.'],
                         ['lock', 'Maintain Confidentiality', 'You are responsible for maintaining the confidentiality of your account credentials, including your username and password. You must notify DMW Region VII immediately of any unauthorized use of your account or any other breach of security.'],
                         ['policy', 'Comply with Applicable Laws', 'You shall comply with all applicable Philippine laws and regulations, including but not limited to the Data Privacy Act of 2012 (Republic Act No. 10173) and the Department of Migrant Workers Act (Republic Act No. 11641).'],
@@ -165,8 +165,8 @@ export default function TermsOfService() {
                     </p>
                     <ul className="mt-3 space-y-3">
                       {[
-                        ['badge', 'Case Managers', 'DMW personnel authorized to create, process, and manage case records within the System.'],
-                        ['apartment', 'Agency Staff', 'Personnel from partner government agencies authorized to receive referrals, update case statuses, and coordinate with DMW on shared cases.'],
+                        ['badge', 'Case Managers', 'DMW personnel authorized to create, process, and manage assistance records within the System.'],
+                        ['apartment', 'Agency Staff', 'Personnel from partner government agencies authorized to receive referrals, update request statuses, and coordinate with DMW on shared requests.'],
                         ['admin_panel_settings', 'Administrators', 'Authorized system administrators with elevated privileges to manage user accounts, system settings, and audit trails.'],
                       ].map(([icon, title, desc]) => (
                         <li key={title} className="flex gap-3 rounded-xl border border-outline-variant/20 bg-surface-container p-4">
@@ -203,7 +203,7 @@ export default function TermsOfService() {
                       {[
                         ['no_accounts', 'Unauthorized Access', 'Attempting to access, probe, or connect to computing systems or accounts without authorization, including attempting to bypass authentication mechanisms or access data not intended for you.'],
                         ['cloud_off', 'Data Misuse', 'Accessing, downloading, modifying, copying, distributing, or disclosing any data or information from the System without proper authorization or for purposes beyond the scope of your official duties.'],
-                        ['gpp_maybe', 'Fraudulent Activity', 'Submitting false or fabricated case information, documents, or evidence. Impersonating another person or entity, or misrepresenting your affiliation with any person or entity.'],
+                        ['gpp_maybe', 'Fraudulent Activity', 'Submitting false or fabricated request information, documents, or evidence. Impersonating another person or entity, or misrepresenting your affiliation with any person or entity.'],
                         ['bug_report', 'Interference', 'Uploading or transmitting viruses, malware, or any other malicious code that may disrupt, damage, or impair the functionality of the System or any connected network.'],
                         ['storefront', 'Commercial Exploitation', 'Using the System for commercial solicitation, advertising, or any activity that generates profit without the express written consent of DMW Region VII.'],
                       ].map(([icon, title, desc]) => (
