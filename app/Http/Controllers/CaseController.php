@@ -321,7 +321,7 @@ class CaseController extends Controller
         );
 
         return redirect()
-            ->route('cases.review-pending')
+            ->route('cases.index')
             ->with('success', 'Case approved successfully.');
     }
 
