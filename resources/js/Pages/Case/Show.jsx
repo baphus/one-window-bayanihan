@@ -140,6 +140,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
   const [showAuditLog, setShowAuditLog] = useState(false);
   const [confirmDeleteDoc, setConfirmDeleteDoc] = useState(null);
   const [confirmToggleStatus, setConfirmToggleStatus] = useState(false);
+  const [confirmApprove, setConfirmApprove] = useState(false);
   const [confirmArchive, setConfirmArchive] = useState(false);
   const [confirmUnarchive, setConfirmUnarchive] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -156,6 +157,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
   const [newIssueName, setNewIssueName] = useState('');
   const [addingIssue, setAddingIssue] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [approving, setApproving] = useState(false);
   const [uploadingDoc, setUploadingDoc] = useState(false);
 
   function handleDocumentDelete(docId) {
@@ -232,6 +234,8 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
 
   const canManageCaseDocuments = auth.user?.role === roles.CASE_MANAGER;
   const canManageReferrals = auth.user?.role === roles.CASE_MANAGER || auth.user?.role === roles.ADMIN;
+  const canApproveCase = caseFile.status === 'PENDING_REVIEW'
+    && (auth.user?.role === roles.CASE_MANAGER || auth.user?.role === roles.ADMIN);
   const clientTypeLabel = caseFile.client_type === 'OFW' ? 'Overseas Filipino Worker' : 'Next of Kin';
   const clientFullName = client ? [client.first_name, client.middle_name, client.last_name, client.suffix].filter(Boolean).join(' ') : '';
   const clientInitials = client ? [client.first_name, client.last_name].filter(Boolean).map((part) => part[0]).join('').toUpperCase().slice(0, 2) : '';
@@ -391,12 +395,29 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
       toast.error('Cannot close case: One or more referrals are still pending or in progress.');
       return;
     }
+
     router.post(route('cases.toggle-status', caseFile.id), {}, {
       preserveScroll: true,
       onError: (errors) => {
         const msg = errors?.message || 'An error occurred while updating case status.';
         toast.error(msg);
       },
+    });
+  }
+
+  function handleApprove() {
+    if (approving) return;
+
+    setApproving(true);
+    router.post(route('cases.review-approve', caseFile.id), {}, {
+      preserveScroll: true,
+      onSuccess: () => setConfirmApprove(false),
+      onError: (errors) => {
+        const message = errors?.message || Object.values(errors || {})[0] || 'Could not approve this case.';
+        toast.error(message);
+        setConfirmApprove(false);
+      },
+      onFinish: () => setApproving(false),
     });
   }
 
@@ -491,6 +512,16 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
             <span className="material-symbols-outlined text-[15px]">picture_as_pdf</span>
             Export PDF
           </a>
+          {canApproveCase && (
+            <button
+              type="button"
+              onClick={() => setConfirmApprove(true)}
+              className="px-3.5 min-h-[34px] bg-emerald-600 text-[12px] font-bold text-white border border-emerald-600 rounded-md hover:bg-emerald-700 transition-colors inline-flex items-center gap-1.5"
+            >
+              <span className="material-symbols-outlined text-[15px]">check_circle</span>
+              Approve Case
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setShowAuditLog(true)}
@@ -1070,6 +1101,18 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
           setConfirmToggleStatus(false);
         }}
         onCancel={() => setConfirmToggleStatus(false)}
+      />
+      <ConfirmDialog
+        open={confirmApprove}
+        title="Approve Case"
+        message={`Approve case ${caseFile.case_number}? It will move from Pending Reviews into the Cases list.`}
+        confirmLabel={approving ? 'Approving...' : 'Approve Case'}
+        tone="info"
+        disabled={approving}
+        onConfirm={() => {
+          handleApprove();
+        }}
+        onCancel={() => setConfirmApprove(false)}
       />
       <ConfirmDialog
         open={!!confirmUnarchive}
