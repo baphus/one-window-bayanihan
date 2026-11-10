@@ -7,19 +7,18 @@ namespace Database\Seeders;
  * │ TESTING SEEDER FOR ONE WINDOW BAYANIHAN
  * │
  * │ FK-dependent insertion order (parent → children):
- * │   1. clients                    (no FK dependencies)
- * │   2. client_addresses           (FK → clients.id)
- * │   3. client_employments         (FK → clients.id)
- * │   4. next_of_kin                (FK → clients.id)
- * │   5. cases                      (FK → clients.id, case_categories.id, case_issues.id, users.id)
- * │   6. referrals                  (FK → cases.id, agencies.id)
- * │   7. he geomilestones                 (FK → referrals.id, users.id)
- * │   8. alerts                     (FK → users.id)
- * │   9. audit_logs                 (FK → users.id)
+ * │   1. cases                      (FK → users.id; case-owned intake facts)
+ * │   2. referrals                  (FK → cases.id, agencies.id, case_categories.id)
+ * │   3. milestones                 (FK → referrals.id, users.id)
+ * │   4. audit_logs                 (FK → users.id)
+ * │
+ * │ Cases carry their own intake snapshot. No shared clients, addresses,
+ * │ employments or next-of-kin rows are created: `cases.user_id` is the staff
+ * │ creator and `cases.ofw_user_id` stays null for these synthetic records.
  * │
  * │ Total rows: ~4000
  * │ Works on: PostgreSQL
- * │ Idempotent: guarded by DB::table('clients')->count() > 0
+ * │ Idempotent: guarded by DB::table('cases')->count() > 10
  * │ No Eloquent, no factories
  * └─────────────────────────────────────────────────────────────────────────────
  */
@@ -30,6 +29,7 @@ use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -48,7 +48,6 @@ class TestingSeeder extends Seeder
             AgencySeeder::class,
             ServiceSeeder::class,
             CaseCategorySeeder::class,
-            CaseIssueSeeder::class,
             ProductionSeeder::class,
             SystemSettingSeeder::class,
         ]);
@@ -144,9 +143,9 @@ class TestingSeeder extends Seeder
         // =====================================================================
 
         // Guard: skip if testing data was already seeded.
-        // Using > 10 threshold because ProductionSeeder creates 3 baseline clients;
-        // once TestingSeeder has run there will be 1000+ clients.
-        if (DB::table('clients')->count() > 10) {
+        // Using > 10 threshold because ProductionSeeder creates the baseline
+        // administrator; once TestingSeeder has run there are 850+ cases.
+        if (DB::table('cases')->count() > 10) {
             return;
         }
 
@@ -163,9 +162,21 @@ class TestingSeeder extends Seeder
         $userIds = DB::table('users')->pluck('id')->toArray();
         $caseManagerId = DB::table('users')->where('email', 'case@bayanihan.gov.ph')->value('id')
             ?? DB::table('users')->where('email', 'admin@bayanihan.gov.ph')->value('id');
+        if ($caseManagerId === null) {
+            throw new \LogicException('Seed a case manager before testing cases.');
+        }
+        $adminId = DB::table('users')->where('email', 'admin@bayanihan.gov.ph')->value('id');
+        if ($adminId === null) {
+            throw new \LogicException('Seed an administrator before testing cases.');
+        }
         $categoryIds = DB::table('case_categories')->pluck('id')->toArray();
-        $issueIds = DB::table('case_issues')->pluck('id')->toArray();
+        if ($categoryIds === []) {
+            throw new \LogicException('Seed managed referral categories before testing referrals.');
+        }
         $agencyIds = DB::table('agencies')->pluck('id')->toArray();
+        if ($agencyIds === []) {
+            throw new \LogicException('Seed agencies before testing referrals.');
+        }
         $allServiceIds = DB::table('services')->pluck('id', 'agcy_id')->toArray();
 
         $firstServicePerAgency = [];
@@ -291,7 +302,11 @@ class TestingSeeder extends Seeder
             'None', null,
         ];
 
-        $relationships = ['Spouse', 'Parent', 'Sibling', 'Child'];
+        $civilStatuses = ['SINGLE', 'MARRIED', 'WIDOWED', 'SEPARATED', 'ANNULLED'];
+        $deploymentModes = ['AGENCY_HIRED', 'DIRECT_HIRED', 'TOURIST_VISIT', 'BUSINESS', 'INVITATION'];
+        $employmentStatuses = ['ON_SITE', 'FOR_DEPLOYMENT', 'RETURNED'];
+        $assessments = ['DISTRESSED_OFW', 'MEDICALLY_REPATRIATED', 'BURIAL_ASSISTANCE_CONCERN', 'POSSIBLE_LOCAL_EMPLOYMENT', 'PSYCHOSOCIAL_MEDICAL_INTERVENTION', 'SKILLS_ENHANCEMENT_TRAINING', 'LEGAL_ASSISTANCE'];
+        $returnReasons = ['DISTRESSED_WORKER', 'TERMINATION', 'OTHERS'];
 
         // Shuffle name pools for better distribution
         shuffle($femaleNames);
@@ -299,213 +314,13 @@ class TestingSeeder extends Seeder
         shuffle($surnames);
 
         // =====================================================================
-        // 1. CLIENTS  (1000 rows)
+        // 1. CASES  (850 rows, case-owned intake facts)
         // =====================================================================
 
-        $clients = [];
-        $clientIds = [];
-
-        DB::beginTransaction();
-
-        for ($i = 0; $i < 1000; $i++) {
-            $id = (string) Str::uuid();
-            $clientIds[] = $id;
-
-            $sex = $i < 500 ? 'MALE' : 'FEMALE';
-            $namePool = $sex === 'MALE' ? $maleNames : $femaleNames;
-            $firstName = $namePool[$i % count($namePool)];
-            $lastName = $surnames[$i % count($surnames)];
-
-            $hasMiddle = rand(0, 100) < 60;
-            $hasSuffix = rand(0, 100) < 3;
-
-            $dobYear = rand(1940, 2005);
-            $dobMonth = rand(1, 12);
-            $dobDay = rand(1, 28);
-
-            $clients[] = [
-                'id' => $id,
-                'first_name' => $firstName,
-                'last_name' => $lastName,
-                'middle_name' => $hasMiddle ? $middleInitials[array_rand($middleInitials)] : null,
-                'suffix' => $hasSuffix ? $suffixes[array_rand($suffixes)] : null,
-                'date_of_birth' => sprintf('%d-%02d-%02d', $dobYear, $dobMonth, $dobDay),
-                'sex' => $sex,
-                'email' => strtolower($firstName).'.'.strtolower(str_replace(' ', '', $lastName))
-                    .rand(1, 9999).'@email.com',
-                'contact_number' => '09'.str_pad(rand(0, 999999999), 9, '0', STR_PAD_LEFT),
-                'created_at' => now()->subDays(rand(0, 180)),
-                'updated_at' => $now,
-            ];
-        }
-
-        foreach (array_chunk($clients, 100) as $chunk) {
-            DB::table('clients')->insert($chunk);
-        }
-
-        DB::commit();
-
-        // Free memory
-        unset($clients);
-
-        // =====================================================================
-        // 2. CLIENT ADDRESSES  (1000 rows — one per client)
-        // =====================================================================
-
-        $addresses = [];
-        $clientLocations = [];
-
-        DB::beginTransaction();
-
-        for ($i = 0; $i < 1000; $i++) {
-            $location = $locationCycle[$i % count($locationCycle)];
-            $city = $location['cities'][$i % count($location['cities'])];
-            $clientLocations[$clientIds[$i]] = [
-                'province' => $location['province'],
-                'city' => $city,
-            ];
-
-            $addresses[] = [
-                'id' => (string) Str::uuid(),
-                'client_id' => $clientIds[$i],
-                'region' => 'Central Visayas',
-                'province' => $location['province'],
-                'city_municipality' => $city,
-                'barangay' => $barangays[array_rand($barangays)],
-                'street' => rand(1, 999).' '.$barangays[array_rand($barangays)].' St',
-                'created_at' => now()->subDays(rand(0, 180)),
-                'updated_at' => $now,
-            ];
-        }
-
-        foreach (array_chunk($addresses, 100) as $chunk) {
-            DB::table('client_addresses')->insert($chunk);
-        }
-
-        DB::commit();
-
-        unset($addresses);
-
-        // =====================================================================
-        // 3. CLIENT EMPLOYMENTS  (1000 rows — one per client)
-        // =====================================================================
-
-        $employments = [];
-
-        DB::beginTransaction();
-
-        for ($i = 0; $i < 1000; $i++) {
-            $cntIdx = array_rand($countries);
-            $startYear = rand(2018, 2024);
-            $endYear = $startYear + rand(1, 3);
-
-            $employments[] = [
-                'id' => (string) Str::uuid(),
-                'client_id' => $clientIds[$i],
-                'employer_name' => $employers[array_rand($employers)],
-                'position' => $positions[array_rand($positions)],
-                'last_position' => $positions[array_rand($positions)],
-                'country' => $countries[$cntIdx],
-                'last_country' => $countries[array_rand($countries)],
-                'start_date' => sprintf('%d-%02d-01', $startYear, rand(1, 12)),
-                'end_date' => sprintf('%d-%02d-01', $endYear, rand(1, 12)),
-                'date_of_arrival' => now()->subDays(rand(0, 180))->format('Y-m-d'),
-                'created_at' => now()->subDays(rand(0, 180)),
-                'updated_at' => $now,
-            ];
-        }
-
-        foreach (array_chunk($employments, 100) as $chunk) {
-            DB::table('client_employments')->insert($chunk);
-        }
-
-        DB::commit();
-
-        unset($employments);
-
-        // =====================================================================
-        // 4. NEXT OF KIN  (1000+ rows — one per client, some get a second)
-        // =====================================================================
-
-        $kinRecords = [];
-        $kinIds = []; // track which kin records belong to which client
-
-        DB::beginTransaction();
-
-        for ($i = 0; $i < 1000; $i++) {
-            $sex = $i < 500 ? 'MALE' : 'FEMALE';
-            $namePool = $sex === 'MALE' ? $maleNames : $femaleNames;
-            $kinFirstName = $namePool[array_rand($namePool)];
-            $location = $clientLocations[$clientIds[$i]] ?? ['province' => 'Cebu', 'city' => 'Cebu City'];
-
-            $kinId = (string) Str::uuid();
-            $kinIds[$clientIds[$i]][] = $kinId;
-            $kinRecords[] = [
-                'id' => $kinId,
-                'client_id' => $clientIds[$i],
-                'first_name' => $kinFirstName,
-                'last_name' => $surnames[array_rand($surnames)],
-                'middle_name' => rand(0, 1) ? $middleInitials[array_rand($middleInitials)] : null,
-                'relationship' => $relationships[array_rand($relationships)],
-                'is_primary' => true,
-                'phone_number' => '09'.str_pad(rand(0, 999999999), 9, '0', STR_PAD_LEFT),
-                'email' => strtolower($kinFirstName).'.'.strtolower(str_replace(' ', '', $surnames[array_rand($surnames)])).rand(1, 999).'@email.com',
-                'full_address' => rand(1, 999).' '.$barangays[array_rand($barangays)].' St, '
-                    .$location['city'].', '.$location['province'],
-                'region' => 'Central Visayas',
-                'province' => $location['province'],
-                'city_municipality' => $location['city'],
-                'barangay' => $barangays[array_rand($barangays)],
-                'street' => rand(1, 999).' '.$barangays[array_rand($barangays)].' St',
-                'sort_order' => 0,
-                'created_at' => now()->subDays(rand(0, 180)),
-                'updated_at' => $now,
-            ];
-
-            // ~20% of clients get a secondary NOK
-            if (rand(0, 100) < 20) {
-                $kinId2 = (string) Str::uuid();
-                $kinIds[$clientIds[$i]][] = $kinId2;
-                $kinSex = rand(0, 1) ? 'MALE' : 'FEMALE';
-                $kinNamePool2 = $kinSex === 'MALE' ? $maleNames : $femaleNames;
-                $kinRecords[] = [
-                    'id' => $kinId2,
-                    'client_id' => $clientIds[$i],
-                    'first_name' => $kinNamePool2[array_rand($kinNamePool2)],
-                    'last_name' => $surnames[array_rand($surnames)],
-                    'middle_name' => rand(0, 1) ? $middleInitials[array_rand($middleInitials)] : null,
-                    'relationship' => $relationships[array_rand($relationships)],
-                    'is_primary' => false,
-                    'phone_number' => '09'.str_pad(rand(0, 999999999), 9, '0', STR_PAD_LEFT),
-                    'email' => strtolower($kinFirstName).'.'.strtolower(str_replace(' ', '', $surnames[array_rand($surnames)])).rand(1, 999).'@email.com',
-                    'full_address' => rand(1, 999).' '.$barangays[array_rand($barangays)].' St, '
-                        .$location['city'].', '.$location['province'],
-                    'region' => 'Central Visayas',
-                    'province' => $location['province'],
-                    'city_municipality' => $location['city'],
-                    'barangay' => $barangays[array_rand($barangays)],
-                    'street' => rand(1, 999).' '.$barangays[array_rand($barangays)].' St',
-                    'sort_order' => 1,
-                    'created_at' => now()->subDays(rand(0, 180)),
-                    'updated_at' => $now,
-                ];
-            }
-        }
-
-        foreach (array_chunk($kinRecords, 100) as $chunk) {
-            DB::table('next_of_kin')->insert($chunk);
-        }
-
-        DB::commit();
-
-        unset($kinRecords);
-
-        // =====================================================================
-        // 5. CASES  (850 rows)
-        // =====================================================================
-
-        // We assign the first 850 clients to cases. The remaining 150 clients
-        // exist in the database but have no case — that's realistic.
+        // Every synthetic case owns its intake snapshot: no shared clients,
+        // addresses, employments or next-of-kin rows are created. `user_id` is
+        // the staff creator; `ofw_user_id` stays null because these cases were
+        // recorded on behalf of a walk-in applicant.
         $casesToCreate = 850;
         $caseNumbers = app(CaseNumberGenerator::class);
         $usedTrackers = [];
@@ -527,9 +342,7 @@ class TestingSeeder extends Seeder
 
         $cases = [];
         $caseIds = [];
-        $caseClientMap = []; // case_id => client_id
         $caseCreatedDates = []; // case_id => Carbon
-        $caseCategoryPivot = []; // case_category pivot records
 
         DB::beginTransaction();
 
@@ -552,33 +365,23 @@ class TestingSeeder extends Seeder
 
             // Chronological: cases created between 180 and 5 days ago, distributed evenly
             $caseCreatedAt = now()->subDays(180 - intval($i * 175 / $casesToCreate))->addHours(rand(0, 12));
-
-            // Client assignment — every case has a client (account-first)
-            $clientId = $clientIds[$i % 1000];
-            if ($clientId) {
-                $caseClientMap[$caseId] = $clientId;
-            }
             $caseCreatedDates[$caseId] = $caseCreatedAt;
 
-            $hasCategory = rand(0, 100) < 80;
-            $selectedCatId = $hasCategory ? \array_slice($categoryIds, \array_rand($categoryIds), 1)[0] : null;
-            $hasIssue = rand(0, 100) < 70;
+            $sex = $i < 500 ? 'MALE' : 'FEMALE';
+            $namePool = $sex === 'MALE' ? $maleNames : $femaleNames;
+            $firstName = $namePool[$i % count($namePool)];
+            $lastName = $surnames[$i % count($surnames)];
+            $location = $locationCycle[$i % count($locationCycle)];
+            $city = $location['cities'][$i % count($location['cities'])];
+            $country = $countries[array_rand($countries)];
+            $returnReason = $returnReasons[array_rand($returnReasons)];
             $closedAt = null;
 
             if ($status === 'CLOSED') {
                 $closedAt = $caseCreatedAt->copy()->addDays(rand(7, 60));
             }
 
-            // Collect pivot record for the case_category junction table
-            if ($selectedCatId) {
-                $caseCategoryPivot[] = [
-                    'id' => (string) Str::uuid(),
-                    'case_id' => $caseId,
-                    'case_category_id' => $selectedCatId,
-                    'created_at' => $caseCreatedAt,
-                    'updated_at' => $caseCreatedAt,
-                ];
-            }
+            $isPending = $status === 'PENDING_REVIEW';
 
             $cases[] = [
                 'id' => $caseId,
@@ -586,16 +389,69 @@ class TestingSeeder extends Seeder
                 'vulnerability_indicator' => $vulnerabilities[array_rand($vulnerabilities)],
                 'nok_vulnerability_indicator' => null,
                 'tracker_number' => $tracker,
-                'summary' => 'Test case for '.($clientId ? 'client' : 'walk-in').' — '.$status,
+                'summary' => 'Synthetic intake case — '.$status,
                 'status' => $status,
                 'closed_at' => $closedAt,
-                'consent_given_at' => null,
+                'consent_given_at' => $caseCreatedAt,
                 'user_id' => $caseManagerId,
-                'client_id' => $clientId,
-                'category_id' => $selectedCatId,
-                'case_issue_id' => $hasIssue ? $issueIds[array_rand($issueIds)] : null,
-                'reviewed_by' => $caseManagerId,
-                'reviewed_at' => $caseCreatedAt,
+                'ofw_user_id' => null,
+                'client_type' => 'OFW',
+                'intake_date' => $caseCreatedAt->toDateString(),
+                'first_name' => $firstName,
+                'middle_name' => rand(0, 100) < 60 ? $middleInitials[array_rand($middleInitials)] : null,
+                'last_name' => $lastName,
+                'suffix' => rand(0, 100) < 3 ? $suffixes[array_rand($suffixes)] : null,
+                'date_of_birth' => Crypt::encryptString($caseCreatedAt->copy()->subYears(rand(22, 65))->toDateString()),
+                'sex' => $sex,
+                'email' => strtolower($firstName).'.'.strtolower(str_replace(' ', '', $lastName))
+                    .rand(1, 9999).'@email.com',
+                'contact_number' => '09'.str_pad((string) rand(0, 999999999), 9, '0', STR_PAD_LEFT),
+                'civil_status' => $civilStatuses[array_rand($civilStatuses)],
+                'civil_status_other' => null,
+                'deployment_mode' => $deploymentModes[array_rand($deploymentModes)],
+                'employment_status' => $employmentStatuses[array_rand($employmentStatuses)],
+                'address_region' => 'Central Visayas',
+                'address_province' => $location['province'],
+                'address_city_municipality' => $city,
+                'address_barangay' => $barangays[array_rand($barangays)],
+                'address_street' => Crypt::encryptString(rand(1, 999).' '.$barangays[array_rand($barangays)].' St'),
+                'employment_employer_name' => Crypt::encryptString($employers[array_rand($employers)]),
+                'employment_employer_address' => Crypt::encryptString($city.', '.$location['province']),
+                'employment_position' => Crypt::encryptString($positions[array_rand($positions)]),
+                'employment_country' => Crypt::encryptString($country),
+                'employment_last_country' => Crypt::encryptString($country),
+                'employment_last_position' => Crypt::encryptString($positions[array_rand($positions)]),
+                'employment_start_date' => $caseCreatedAt->copy()->subYears(rand(1, 5))->toDateString(),
+                'employment_end_date' => $caseCreatedAt->copy()->subDays(rand(10, 300))->toDateString(),
+                'employment_date_of_arrival' => $caseCreatedAt->copy()->subDays(rand(1, 30))->toDateString(),
+                'nok_name' => null,
+                'nok_relationship' => null,
+                'nok_contact_number' => null,
+                'nok_email' => null,
+                'staff_summary' => $isPending ? Crypt::encryptString('Synthetic pending intake for review.') : null,
+                'proposed_assessments' => json_encode([$proposedAssessment = $assessments[array_rand($assessments)]]),
+                'proposed_assessment_other' => null,
+                'proposed_assessment_by' => $caseManagerId,
+                'proposed_assessment_at' => $caseCreatedAt,
+                'confirmed_assessments' => $isPending ? null : json_encode([$proposedAssessment]),
+                'confirmed_assessment_other' => null,
+                'confirmed_assessment_by' => $isPending ? null : $caseManagerId,
+                'confirmed_assessment_at' => $isPending ? null : $caseCreatedAt,
+                'consent_text_version' => 'case-intake-v1',
+                'consent_method' => 'WRITTEN',
+                'consent_evidence' => Crypt::encryptString('Synthetic signed consent retained.'),
+                'consent_accepted_by' => $caseManagerId,
+                'return_reason' => $returnReason,
+                'missing_document_reasons' => null,
+                'requested_document_slots' => null,
+                'document_request_reason' => null,
+                'document_requested_by' => null,
+                'document_requested_at' => null,
+                'reviewed_document_ids' => null,
+                'assigned_case_manager_id' => $caseManagerId,
+                'last_correction_reason' => null,
+                'reviewed_by' => $isPending ? null : $caseManagerId,
+                'reviewed_at' => $isPending ? null : $caseCreatedAt,
                 'created_at' => $caseCreatedAt,
                 'updated_at' => $closedAt ?? $caseCreatedAt->copy()->addDays(rand(0, 14)),
             ];
@@ -605,14 +461,9 @@ class TestingSeeder extends Seeder
             DB::table('cases')->insert($chunk);
         }
 
-        // Insert case_category pivot records (matches migration 2026_07_17_000001)
-        foreach (array_chunk($caseCategoryPivot, 100) as $chunk) {
-            DB::table('case_category')->insert($chunk);
-        }
-
         DB::commit();
 
-        unset($cases, $caseCategoryPivot);
+        unset($cases);
 
         // =====================================================================
         // 6. REFERRALS  (variable — target 896)
@@ -641,6 +492,11 @@ class TestingSeeder extends Seeder
 
         DB::beginTransaction();
 
+        $caseCategories = [];
+        foreach ($caseIds as $caseId) {
+            $caseCategories[$caseId] = $categoryIds[array_rand($categoryIds)];
+        }
+        $caseDocumentAuditRows = [];
         foreach ($caseIds as $caseId) {
             $caseInsert = DB::table('cases')->where('id', $caseId)->first();
             if (! $caseInsert) {
@@ -699,6 +555,8 @@ class TestingSeeder extends Seeder
                 $referrals[] = [
                     'id' => $refId,
                     'required_services' => $serviceName,
+                    'category_id' => $caseCategories[$caseId],
+                    'concern' => Crypt::encryptString('Synthetic referral concern for '.$serviceName),
                     'notes' => rand(0, 100) < 60 ? 'Referral notes for '.$caseStatus.' case' : null,
                     'status' => $refStatus,
                     'decision' => $decision,
@@ -720,6 +578,60 @@ class TestingSeeder extends Seeder
         DB::commit();
 
         unset($referrals);
+
+        $slotsByReason = [
+            'DISTRESSED_WORKER' => ['passport_front_page', 'arrival_stamp', 'employment_contract', 'distress_certificate'],
+            'TERMINATION' => ['passport_front_page', 'arrival_stamp', 'oec', 'termination_letter'],
+            'OTHERS' => ['passport_front_page', 'arrival_stamp', 'work_visa', 'sworn_affidavit'],
+        ];
+        foreach ($caseIds as $caseId) {
+            $case = DB::table('cases')->where('id', $caseId)->first();
+            $slots = $slotsByReason[$case->return_reason];
+            $documents = [];
+            $reviewedDocumentIds = [];
+            foreach ($slots as $slot) {
+                if ($case->status === 'PENDING_REVIEW' && $slot === 'passport_front_page') {
+                    continue;
+                }
+                $documentId = (string) Str::uuid();
+                if ($case->status !== 'PENDING_REVIEW') {
+                    $reviewedDocumentIds[] = $documentId;
+                }
+                $caseDocumentAuditRows[] = [
+                    'id' => (string) Str::uuid(),
+                    'action' => 'CREATE',
+                    'module' => 'case_document',
+                    'entity_id' => $documentId,
+                    'description' => null,
+                    'old_value' => null,
+                    'new_value' => null,
+                    'user_id' => $caseManagerId,
+                    'timestamp' => Carbon::parse($case->created_at),
+                ];
+                $documents[] = [
+                    'id' => $documentId,
+                    'file_name' => str_replace('_', '-', $slot).'.pdf',
+                    'file_path' => 'testing/case-documents/'.$documentId.'.pdf',
+                    'file_type' => 'application/pdf',
+                    'size' => rand(100_000, 2_000_000),
+                    'case_id' => $caseId,
+                    'user_id' => $caseManagerId,
+                    'category' => $slot,
+                    'referral_id' => null,
+                    'created_at' => $case->created_at,
+                    'updated_at' => $case->created_at,
+                ];
+            }
+            foreach (array_chunk($documents, 100) as $chunk) {
+                DB::table('case_documents')->insert($chunk);
+            }
+            DB::table('cases')->where('id', $caseId)->update([
+                'reviewed_document_ids' => $case->status === 'PENDING_REVIEW' ? null : json_encode($reviewedDocumentIds),
+                'missing_document_reasons' => $case->status === 'PENDING_REVIEW'
+                    ? Crypt::encrypt(json_encode(['passport_front_page' => 'Pending synthetic document']), false)
+                    : null,
+            ]);
+        }
 
         // =====================================================================
         // 7. MILESTONES  (based on referral status)
@@ -1037,6 +949,10 @@ class TestingSeeder extends Seeder
 
             return hash('sha256', $content);
         };
+
+        foreach ($caseDocumentAuditRows as $documentAudit) {
+            $auditLogs[] = $documentAudit;
+        }
 
         foreach ($auditLogs as &$auditRow) {
             $auditRow['prev_hash'] = $previousDigest;

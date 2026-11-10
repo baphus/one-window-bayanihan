@@ -2,12 +2,15 @@
 
 namespace App\Models;
 
+use App\Casts\EncryptedDate;
+use App\Casts\EncryptedString;
 use App\Models\Concerns\CascadeSoftDeletes;
 use App\Models\Concerns\SoftDeleteFlag;
 use App\Models\Concerns\UsesUuid;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class CaseFile extends Model
 {
@@ -18,33 +21,43 @@ class CaseFile extends Model
      */
     protected array $cascadeSoftDeletes = ['referrals', 'documents'];
 
-    public static array $auditExclude = ['id', 'created_at', 'updated_at', 'deleted_at', 'deleted_by', 'deletion_reason'];
+    public const INTAKE_FIELDS = [
+        'ofw_user_id', 'intake_date', 'first_name', 'middle_name', 'last_name', 'suffix',
+        'date_of_birth', 'sex', 'email', 'contact_number', 'civil_status', 'civil_status_other',
+        'deployment_mode', 'employment_status', 'address_region', 'address_province',
+        'address_city_municipality', 'address_barangay', 'address_street', 'address_region_code',
+        'address_province_code', 'address_city_municipality_code', 'address_barangay_code',
+        'employment_employer_name', 'employment_employer_address', 'employment_position', 'employment_country', 'employment_last_country',
+        'employment_last_position', 'employment_start_date', 'employment_end_date', 'employment_date_of_arrival',
+        'nok_name', 'nok_relationship', 'nok_contact_number', 'nok_email', 'staff_summary',
+        'proposed_assessments', 'proposed_assessment_other', 'proposed_assessment_by', 'proposed_assessment_at',
+        'confirmed_assessments', 'confirmed_assessment_other', 'confirmed_assessment_by', 'confirmed_assessment_at',
+        'consent_text_version', 'consent_method', 'consent_evidence', 'consent_accepted_by',
+        'return_reason', 'missing_document_reasons', 'requested_document_slots', 'document_request_reason',
+        'document_requested_by', 'document_requested_at', 'reviewed_document_ids', 'assigned_case_manager_id', 'last_correction_reason',
+    ];
+
+    public const CIVIL_STATUSES = ['SINGLE', 'MARRIED', 'WIDOWED', 'SEPARATED', 'ANNULLED', 'OTHER'];
+
+    public const DEPLOYMENT_MODES = ['AGENCY_HIRED', 'DIRECT_HIRED', 'TOURIST_VISIT', 'BUSINESS', 'INVITATION'];
+
+    public const EMPLOYMENT_STATUSES = ['ON_SITE', 'FOR_DEPLOYMENT', 'RETURNED'];
+
+    public const ASSESSMENTS = [
+        'DISTRESSED_OFW', 'MEDICALLY_REPATRIATED', 'BURIAL_ASSISTANCE_CONCERN', 'POSSIBLE_LOCAL_EMPLOYMENT',
+        'PSYCHOSOCIAL_MEDICAL_INTERVENTION', 'SKILLS_ENHANCEMENT_TRAINING', 'LEGAL_ASSISTANCE', 'OTHER',
+    ];
+
+    // Intake is disclosed only by authorized, explicit payloads, never generic model serialization/auditing.
+    protected $hidden = self::INTAKE_FIELDS;
+
+    public static array $auditExclude = ['id', 'created_at', 'updated_at', 'deleted_at', 'deleted_by', 'deletion_reason', ...self::INTAKE_FIELDS];
 
     public const STATUS_PENDING_REVIEW = 'PENDING_REVIEW';
 
-    /** @deprecated Intake-era constants. Cases no longer carry source/client_type; kept so Phase 1b callers fail loudly at review, not silently. */
     public const CLIENT_TYPE_OFW = 'OFW';
 
-    /** @deprecated See CLIENT_TYPE_OFW. */
     public const CLIENT_TYPE_NEXT_OF_KIN = 'NEXT_OF_KIN';
-
-    /** @deprecated See CLIENT_TYPE_OFW. */
-    public const CLIENT_TYPES = [
-        self::CLIENT_TYPE_OFW,
-        self::CLIENT_TYPE_NEXT_OF_KIN,
-    ];
-
-    /** @deprecated See CLIENT_TYPE_OFW. */
-    public const SOURCE_INTERNAL = 'internal';
-
-    /** @deprecated See CLIENT_TYPE_OFW. */
-    public const SOURCE_SELF_FILED = 'self_filed';
-
-    /** @deprecated See CLIENT_TYPE_OFW. */
-    public const SOURCES = [
-        self::SOURCE_INTERNAL,
-        self::SOURCE_SELF_FILED,
-    ];
 
     public function getAuditModuleName(): string
     {
@@ -54,25 +67,6 @@ class CaseFile extends Model
     public function getAuditEntityLabel(): ?string
     {
         return $this->case_number;
-    }
-
-    /**
-     * Derived from the case's client (`clients.type` — 'OFW' or 'NEXT_OF_KIN').
-     *
-     * Uses the eager-loaded `client` relation when present and falls back to a
-     * lazy load, so callers that build payloads must eager-load `client` to
-     * avoid N+1 (see CaseService::getCases/getCase, ClientController, and
-     * ReferralService::getReferral, which all do).
-     */
-    public function getClientTypeAttribute(): ?string
-    {
-        if (! $this->client_id) {
-            return null;
-        }
-
-        $client = $this->relationLoaded('client') ? $this->getRelation('client') : $this->client;
-
-        return $client?->type;
     }
 
     /**
@@ -91,7 +85,7 @@ class CaseFile extends Model
 
     /**
      * Live (non-deleted) cases. Task 2.2: query-builder replacement for the
-     * raw client-stats SQL in ClientController::getClientStats.
+     * raw client-directory stats SQL.
      */
     public function scopeLive(Builder $query): Builder
     {
@@ -134,21 +128,6 @@ class CaseFile extends Model
     }
 
     /**
-     * Filter by client type (OFW / NEXT_OF_KIN tiles). Type lives on
-     * clients.type — cases no longer carry client_type.
-     */
-    public function scopeOfClientType(Builder $query, string|array $clientType): Builder
-    {
-        $types = array_values(array_filter((array) $clientType, fn ($type) => is_string($type) && $type !== ''));
-
-        if ($types === []) {
-            return $query;
-        }
-
-        return $query->whereHas('client', fn (Builder $c) => $c->whereIn('type', $types));
-    }
-
-    /**
      * Vulnerability tiles: LIKE match on either indicator column.
      * Patterns are bound parameters via Eloquent.
      */
@@ -163,6 +142,7 @@ class CaseFile extends Model
     protected $table = 'cases';
 
     protected $fillable = [
+        ...self::INTAKE_FIELDS,
         'case_number',
         'vulnerability_indicator',
         'nok_vulnerability_indicator',
@@ -172,9 +152,7 @@ class CaseFile extends Model
         'closed_at',
         'consent_given_at',
         'user_id',
-        'client_id',
-        'category_id',
-        'case_issue_id',
+        'client_type',
         'deletion_reason',
         'reviewed_by',
         'reviewed_at',
@@ -185,17 +163,67 @@ class CaseFile extends Model
         'closed_at' => 'datetime',
         'consent_given_at' => 'datetime',
         'reviewed_at' => 'datetime',
+        'intake_date' => 'date:Y-m-d',
+        'date_of_birth' => EncryptedDate::class,
+        'address_street' => EncryptedString::class,
+        'employment_employer_name' => EncryptedString::class,
+        'employment_employer_address' => EncryptedString::class,
+        'missing_document_reasons' => 'encrypted:array',
+        'document_request_reason' => EncryptedString::class,
+        'last_correction_reason' => EncryptedString::class,
+        'requested_document_slots' => 'array',
+        'reviewed_document_ids' => 'array',
+        'document_requested_at' => 'datetime',
+        'employment_position' => EncryptedString::class,
+        'employment_country' => EncryptedString::class,
+        'employment_last_country' => EncryptedString::class,
+        'employment_last_position' => EncryptedString::class,
+        'employment_start_date' => 'date:Y-m-d',
+        'employment_end_date' => 'date:Y-m-d',
+        'employment_date_of_arrival' => 'date:Y-m-d',
+        'nok_contact_number' => EncryptedString::class,
+        'nok_email' => EncryptedString::class,
+        'civil_status_other' => EncryptedString::class,
+        'staff_summary' => EncryptedString::class,
+        'proposed_assessments' => 'array',
+        'confirmed_assessments' => 'array',
+        'proposed_assessment_other' => EncryptedString::class,
+        'confirmed_assessment_other' => EncryptedString::class,
+        'proposed_assessment_at' => 'datetime',
+        'confirmed_assessment_at' => 'datetime',
+        'consent_evidence' => EncryptedString::class,
     ];
 
-    /**
-     * The `client_type` column was dropped (2026_10_15_072238); the source of
-     * truth is `clients.type`. It is re-exposed as an appended accessor so the
-     * case index, case detail, referral screens, client directory and the case
-     * report PDF keep reading `case.client_type` in Inertia payloads and Blade.
-     *
-     * @see CaseFile::getClientTypeAttribute()
-     */
-    protected $appends = ['client_type'];
+    protected static function booted(): void
+    {
+        static::saving(function (self $case): void {
+            // DOB is encrypted, so PostgreSQL cannot enforce this cross-field constraint.
+            $case->age_at_intake;
+        });
+    }
+
+    public function getAgeAtIntakeAttribute(): ?int
+    {
+        if ($this->date_of_birth === null || $this->intake_date === null) {
+            return null;
+        }
+
+        if ($this->date_of_birth->toDateString() > $this->intake_date->toDateString()) {
+            throw new \InvalidArgumentException('Date of birth must not follow intake date.');
+        }
+
+        return (int) $this->date_of_birth->diffInYears($this->intake_date);
+    }
+
+    public function client()
+    {
+        return $this->belongsTo(User::class, 'ofw_user_id');
+    }
+
+    public function ofwUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'ofw_user_id');
+    }
 
     public function user()
     {
@@ -205,27 +233,6 @@ class CaseFile extends Model
     public function reviewer()
     {
         return $this->belongsTo(User::class, 'reviewed_by');
-    }
-
-    public function client()
-    {
-        return $this->belongsTo(Client::class, 'client_id');
-    }
-
-    public function category()
-    {
-        return $this->belongsTo(CaseCategory::class, 'category_id');
-    }
-
-    public function categories()
-    {
-        return $this->belongsToMany(CaseCategory::class, 'case_category', 'case_id', 'case_category_id')
-            ->withTimestamps();
-    }
-
-    public function caseIssue()
-    {
-        return $this->belongsTo(CaseIssue::class, 'case_issue_id');
     }
 
     public function referrals()

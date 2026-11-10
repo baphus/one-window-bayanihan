@@ -42,7 +42,6 @@ class User extends Authenticatable implements MustVerifyEmail
         'password',
         'role',
         'agcy_id',
-        'client_id',
         'is_active',
         'email_verified_at',
         'contact_number',
@@ -142,18 +141,8 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->roleEnum() === $role;
     }
 
-    public function client()
+    public function ownedCases()
     {
-        return $this->belongsTo(Client::class, 'client_id');
-    }
-
-    public function isOfType(string $type): bool
-    {
-        return $this->client?->type === $type;
-    }
-
-    public function isNextOfKin(): bool
-    {
-        return $this->isOfType('NEXT_OF_KIN');
+        return $this->hasMany(CaseFile::class, 'ofw_user_id');
     }
 }

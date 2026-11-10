@@ -2,11 +2,13 @@
 
 namespace App\Models;
 
+use App\Casts\EncryptedString;
 use App\Models\Concerns\CascadeSoftDeletes;
 use App\Models\Concerns\SoftDeleteFlag;
 use App\Models\Concerns\UsesUuid;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Referral extends Model
 {
@@ -51,7 +53,7 @@ class Referral extends Model
     // `decision_comment` (excluded from the safe audit response). The reason
     // stays out of per-row exports — it is served aggregate-only via
     // ReportsService::getRejectionReasonDistribution().
-    public static array $auditExclude = ['id', 'created_at', 'updated_at', 'deleted_at', 'deleted_by', 'case_id'];
+    public static array $auditExclude = ['id', 'created_at', 'updated_at', 'deleted_at', 'deleted_by', 'case_id', 'concern', 'override_reason'];
 
     public function getAuditModuleName(): string
     {
@@ -72,13 +74,56 @@ class Referral extends Model
         'rejection_reason',
         'case_id',
         'agcy_id',
+        'category_id',
+        'concern',
+        'override_reason',
     ];
 
     protected $casts = [
         'is_deleted' => 'boolean',
+        'concern' => EncryptedString::class,
+        'override_reason' => EncryptedString::class,
     ];
 
     protected $appends = [];
+
+    /**
+     * Explicit case-owned identity projection for authorized referral views.
+     * Never expose raw intake columns through generic model serialization.
+     */
+    public function caseIdentity(): array
+    {
+        $case = $this->caseFile;
+
+        if ($case === null) {
+            return [];
+        }
+
+        return [
+            'id' => $case->id,
+            'case_number' => $case->case_number,
+            'tracker_number' => $case->tracker_number,
+            'client_type' => $case->client_type,
+            'first_name' => $case->first_name,
+            'middle_name' => $case->middle_name,
+            'last_name' => $case->last_name,
+            'suffix' => $case->suffix,
+            'sex' => $case->sex,
+            'age_at_intake' => $case->age_at_intake,
+            'email' => $case->email,
+            'contact_number' => $case->contact_number,
+            'civil_status' => $case->civil_status,
+            'address_region' => $case->address_region,
+            'address_province' => $case->address_province,
+            'address_city_municipality' => $case->address_city_municipality,
+            'address_barangay' => $case->address_barangay,
+            'address_street' => $case->address_street,
+            'employment_status' => $case->employment_status,
+            'employment_country' => $case->employment_country,
+            'employment_position' => $case->employment_position,
+            'ofw_avatar_url' => $case->relationLoaded('ofwUser') ? $case->ofwUser?->avatar_url : null,
+        ];
+    }
 
     /**
      * Get the latest update for this referral — either the most recent milestone
@@ -153,6 +198,11 @@ class Referral extends Model
     public function caseFile()
     {
         return $this->belongsTo(CaseFile::class, 'case_id');
+    }
+
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(CaseCategory::class, 'category_id');
     }
 
     public function agency()

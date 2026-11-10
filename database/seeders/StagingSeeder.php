@@ -17,8 +17,8 @@ use Illuminate\Support\Str;
  * StagingSeeder — ~6 months of realistic staging data using only faker.
  *
  * Volumes mirror the old VolumeModel targets (~1,500 cases, ~2,700
- * referrals, ~100k rows): clients 1800, cases 1500 (2 referrals each,
- * except drafts), milestones per status template, surveys per agency,
+ * referrals, ~100k rows): 1,500 independent case-owned intake snapshots,
+ * two referrals per published case, milestones per status template, surveys per agency,
  * and a hash-chained audit trail gated by audit:verify.
  *
  * Timestamps use fake()->dateTimeBetween() with each stamp derived from a
@@ -28,8 +28,6 @@ use Illuminate\Support\Str;
  */
 class StagingSeeder extends Seeder
 {
-    private const CLIENTS = 1800;
-
     private const CASES = 1500;
 
     private const ARCHIVED = 240;
@@ -69,15 +67,10 @@ class StagingSeeder extends Seeder
         'audit_logs',
         'audit_archives',
         'audit_chain_checkpoints',
-        'clients',
-        'client_addresses',
-        'client_employments',
-        'next_of_kin',
         'cases',
-        'case_category',
+        'referrals',
         'case_documents',
         'case_notifications',
-        'referrals',
         'milestones',
         'referral_comments',
         'referral_attachments',
@@ -112,7 +105,7 @@ class StagingSeeder extends Seeder
     /** @var array<string, list<array{id: string, name: string, processing_days: int}>> */
     private array $servicesByAgency = [];
 
-    /** @var array<string, array{client_id: ?string, email: ?string, name: string, created_at: Carbon, updated_at: Carbon, status: string, user_id: string, tracker: string, is_deleted: bool}> */
+    /** @var array<string, array{email: ?string, name: string, created_at: Carbon, updated_at: Carbon, status: string, user_id: string, tracker: string, is_deleted: bool}> */
     private array $cases = [];
 
     /** @var array<string, array{case_id: string, agency_id: string, service: string, status: string, created_at: Carbon, updated_at: Carbon, completed_at: ?Carbon, is_deleted: bool}> */
@@ -144,13 +137,11 @@ class StagingSeeder extends Seeder
                 AgencySeeder::class,
                 ServiceSeeder::class,
                 CaseCategorySeeder::class,
-                CaseIssueSeeder::class,
                 ProductionSeeder::class,
                 SystemSettingSeeder::class,
             ]);
 
             $this->seedUsers();
-            $this->seedClients();
             $this->seedCases();
             $this->seedReferrals();
             $this->seedCollaboration();
@@ -210,6 +201,10 @@ class StagingSeeder extends Seeder
     {
         $agencies = DB::table('agencies')->select('id', 'slug')->get()->keyBy('slug');
         $dmwId = $agencies['dmw']->id ?? null;
+
+        if (! $dmwId) {
+            throw new \LogicException('Seed the DMW agency before staging users.');
+        }
 
         $agencyUsers = [
             'owwa' => 'OWWA',
@@ -283,174 +278,44 @@ class StagingSeeder extends Seeder
     }
 
     // ------------------------------------------------------------------
-    // Clients
-    // ------------------------------------------------------------------
-
-    private function seedClients(): void
-    {
-        $clientRows = [];
-        $addressRows = [];
-        $employmentRows = [];
-        $kinRows = [];
-
-        for ($i = 0; $i < self::CLIENTS; $i++) {
-            $sex = fake()->randomElement(['MALE', 'FEMALE']);
-            $firstName = fake()->firstName($sex === 'MALE' ? 'male' : 'female');
-            $lastName = fake()->lastName();
-            $location = fake()->randomElement(self::PROVINCES);
-            $city = fake()->randomElement($location['cities']);
-            $barangay = fake()->randomElement(['Poblacion', 'Mabini', 'Rizal', 'Lahug', 'Banilad', 'Guadalupe', 'Basak', 'Tisa', 'Labangon', 'Ermita']);
-            $created = $this->at(fake()->dateTimeBetween($this->windowStart, $this->now));
-            $clientId = (string) Str::uuid();
-
-            $clientRows[] = [
-                'id' => $clientId,
-                'first_name' => $firstName,
-                'last_name' => $lastName,
-                'middle_name' => fake()->boolean(60) ? fake()->randomElement(['A', 'B', 'C', 'D', 'M', 'R', 'S']) : null,
-                'suffix' => fake()->boolean(3) ? fake()->randomElement(['Jr.', 'Sr.', 'III']) : null,
-                'date_of_birth' => Crypt::encryptString(fake()->dateTimeBetween('-65 years', '-21 years')->format('Y-m-d')),
-                'sex' => $sex,
-                'email' => strtolower($firstName).'.'.strtolower(str_replace(' ', '', $lastName)).fake()->numberBetween(1, 9999).'@email.com',
-                'contact_number' => '09'.str_pad((string) fake()->numberBetween(0, 999999999), 9, '0', STR_PAD_LEFT),
-                'avatar_url' => null,
-                'created_at' => $created,
-                'updated_at' => $created,
-                'is_deleted' => false,
-                'deleted_at' => null,
-                'deleted_by' => null,
-            ];
-
-            $addressCreated = $this->after($created, 5, 600);
-            $addressRows[] = [
-                'id' => (string) Str::uuid(),
-                'client_id' => $clientId,
-                'region' => $location['region'],
-                'province' => $location['province'],
-                'city_municipality' => $city,
-                'barangay' => $barangay,
-                'street' => Crypt::encryptString(fake()->buildingNumber().' '.$barangay.' St'),
-                'created_at' => $addressCreated,
-                'updated_at' => $addressCreated,
-                'is_deleted' => false,
-                'deleted_at' => null,
-                'deleted_by' => null,
-            ];
-
-            $employmentRows[] = $this->employmentRow($clientId, $created);
-            if (fake()->boolean(10)) {
-                $employmentRows[] = $this->employmentRow($clientId, $created);
-            }
-
-            $kinRows[] = $this->kinRow($clientId, $firstName, $lastName, $location, $city, $barangay, $created, true, 0);
-            if (fake()->boolean(20)) {
-                $kinRows[] = $this->kinRow($clientId, $firstName, $lastName, $location, $city, $barangay, $created, false, 1);
-            }
-
-            $this->audit(AuditAction::CREATE->value, AuditModule::CLIENT->value, $clientId, $this->caseManagerId, $created);
-        }
-
-        $this->chunkInsert('clients', $clientRows);
-        $this->chunkInsert('client_addresses', $addressRows);
-        $this->chunkInsert('client_employments', $employmentRows);
-        $this->chunkInsert('next_of_kin', $kinRows);
-
-        foreach (['client_addresses' => AuditModule::CLIENT_ADDRESS, 'client_employments' => AuditModule::CLIENT_EMPLOYMENT, 'next_of_kin' => AuditModule::NEXT_OF_KIN] as $table => $module) {
-            foreach (DB::table($table)->select('id', 'created_at')->orderBy('created_at')->orderBy('id')->lazy(1000) as $row) {
-                $this->audit(AuditAction::CREATE->value, $module->value, $row->id, $this->caseManagerId, Carbon::parse($row->created_at));
-            }
-        }
-    }
-
-    private function employmentRow(string $clientId, Carbon $clientCreated): array
-    {
-        $created = $this->after($clientCreated, 5, 900);
-        $country = fake()->randomElement(['Saudi Arabia', 'UAE', 'Hong Kong', 'Taiwan', 'Singapore', 'Qatar', 'Kuwait', 'Japan']);
-
-        return [
-            'id' => (string) Str::uuid(),
-            'client_id' => $clientId,
-            'employer_name' => Crypt::encryptString(fake()->company()),
-            'position' => Crypt::encryptString(fake()->randomElement(['Domestic Worker', 'Nurse', 'Engineer', 'Driver', 'Technician', 'Laborer'])),
-            'country' => Crypt::encryptString($country),
-            'start_date' => fake()->dateTimeBetween('-8 years', '-2 years')->format('Y-m-d'),
-            'end_date' => fake()->boolean(70) ? fake()->dateTimeBetween('-2 years', 'now')->format('Y-m-d') : null,
-            'last_country' => Crypt::encryptString($country),
-            'last_position' => Crypt::encryptString(fake()->jobTitle()),
-            'date_of_arrival' => $clientCreated->format('Y-m-d'),
-            'created_at' => $created,
-            'updated_at' => $created,
-            'is_deleted' => false,
-            'deleted_at' => null,
-            'deleted_by' => null,
-        ];
-    }
-
-    private function kinRow(string $clientId, string $firstName, string $lastName, array $location, string $city, string $barangay, Carbon $clientCreated, bool $primary, int $sortOrder): array
-    {
-        $kinFirst = fake()->firstName();
-        $kinLast = fake()->lastName();
-        $created = $this->after($clientCreated, 5, 700);
-
-        return [
-            'id' => (string) Str::uuid(),
-            'client_id' => $clientId,
-            'first_name' => $kinFirst,
-            'middle_name' => fake()->boolean(60) ? fake()->randomElement(['A', 'B', 'C', 'M', 'R']) : null,
-            'last_name' => $kinLast,
-            'is_primary' => $primary,
-            'relationship' => fake()->randomElement(['Spouse', 'Parent', 'Sibling', 'Child']),
-            'phone_number' => Crypt::encryptString('09'.str_pad((string) fake()->numberBetween(0, 999999999), 9, '0', STR_PAD_LEFT)),
-            'email' => Crypt::encryptString(strtolower($kinFirst).'.'.strtolower($kinLast).fake()->numberBetween(1, 9999).'@email.com'),
-            'full_address' => Crypt::encryptString(fake()->buildingNumber().' '.$barangay.' St, '.$city.', '.$location['province']),
-            'region' => $location['region'],
-            'province' => $location['province'],
-            'city_municipality' => $city,
-            'barangay' => $barangay,
-            'street' => fake()->streetAddress(),
-            'sort_order' => $sortOrder,
-            'created_at' => $created,
-            'updated_at' => $created,
-            'is_deleted' => false,
-            'deleted_at' => null,
-            'deleted_by' => null,
-        ];
-    }
-
-    // ------------------------------------------------------------------
     // Cases
     // ------------------------------------------------------------------
 
     private function seedCases(): void
     {
-        $clients = DB::table('clients')->select('id', 'email', 'first_name', 'last_name', 'created_at')->orderBy('created_at')->get();
         $categoryIds = DB::table('case_categories')->pluck('id')->all();
-        $issueIds = DB::table('case_issues')->pluck('id')->all();
-
         $caseRows = [];
-        $pivotRows = [];
         $usedTrackers = [];
         $seqByPeriod = [];
+        $assessments = ['DISTRESSED_OFW', 'MEDICALLY_REPATRIATED', 'BURIAL_ASSISTANCE_CONCERN', 'POSSIBLE_LOCAL_EMPLOYMENT', 'PSYCHOSOCIAL_MEDICAL_INTERVENTION', 'SKILLS_ENHANCEMENT_TRAINING', 'LEGAL_ASSISTANCE'];
+        $statuses = ['SINGLE', 'MARRIED', 'WIDOWED', 'SEPARATED', 'ANNULLED'];
+        $returnReasons = ['DISTRESSED_WORKER', 'TERMINATION', 'OTHERS'];
+        $slotsByReason = [
+            'DISTRESSED_WORKER' => ['passport_front_page', 'arrival_stamp', 'employment_contract', 'distress_certificate'],
+            'TERMINATION' => ['passport_front_page', 'arrival_stamp', 'oec', 'termination_letter'],
+            'OTHERS' => ['passport_front_page', 'arrival_stamp', 'work_visa', 'sworn_affidavit'],
+        ];
 
         for ($i = 0; $i < self::CASES; $i++) {
             $created = $this->at(fake()->dateTimeBetween($this->windowStart, $this->now));
             $period = $created->format('Ym');
             $seqByPeriod[$period] = ($seqByPeriod[$period] ?? 0) + 1;
-
             do {
                 $tracker = 'OWBAP-'.strtoupper(Str::random(10));
             } while (isset($usedTrackers[$tracker]));
             $usedTrackers[$tracker] = true;
 
-            $owner = $clients[$i % count($clients)];
-            $ownerCreated = Carbon::parse($owner->created_at);
-            if ($created->lt($ownerCreated)) {
-                $created = $this->after($ownerCreated, 30, 1440);
-            }
-
-            $categoryId = fake()->boolean(80) && $categoryIds !== [] ? fake()->randomElement($categoryIds) : null;
+            $location = fake()->randomElement(self::PROVINCES);
+            $city = fake()->randomElement($location['cities']);
+            $sex = fake()->randomElement(['MALE', 'FEMALE']);
+            $firstName = fake()->firstName($sex === 'MALE' ? 'male' : 'female');
+            $lastName = fake()->lastName();
+            $reason = fake()->randomElement($returnReasons);
             $caseId = (string) Str::uuid();
+            $assessment = fake()->randomElement($assessments);
+            $birthDate = fake()->dateTimeBetween($created->copy()->subYears(65), $created->copy()->subYears(21))->format('Y-m-d');
 
+            $email = strtolower($firstName.'.'.$lastName.fake()->numberBetween(1, 9999).'@email.com');
             $caseRows[] = [
                 'id' => $caseId,
                 'case_number' => sprintf('OWB-%s-%s', $period, str_pad((string) $seqByPeriod[$period], 5, '0', STR_PAD_LEFT)),
@@ -460,13 +325,59 @@ class StagingSeeder extends Seeder
                 'summary' => 'Assistance request for returning OFW — intake '.$created->format('Y-m'),
                 'status' => 'OPEN',
                 'closed_at' => null,
-                'consent_given_at' => $this->after($created, 10, 300),
+                'consent_given_at' => $created,
                 'user_id' => $this->caseManagerId,
-                'client_id' => $owner->id,
-                'category_id' => $categoryId,
-                'case_issue_id' => fake()->boolean(70) && $issueIds !== [] ? fake()->randomElement($issueIds) : null,
+                'ofw_user_id' => null,
+                'client_id' => null,
+                'client_type' => 'OFW',
+                'consent_text_version' => IntakeDocumentService::CONSENT_VERSION,
+                'consent_method' => 'WRITTEN',
+                'consent_evidence' => Crypt::encryptString('Synthetic consent evidence.'),
+                'consent_accepted_by' => $this->caseManagerId,
+                'confirmed_assessments' => json_encode([$assessment]),
+                'confirmed_assessment_by' => $this->caseManagerId,
+                'confirmed_assessment_at' => $created,
+                'intake_date' => $created->toDateString(),
+                'first_name' => $firstName,
+                'middle_name' => fake()->boolean(60) ? fake()->firstName() : null,
+                'last_name' => $lastName,
+                'suffix' => null,
+                'date_of_birth' => Crypt::encryptString($birthDate),
+                'sex' => $sex,
+                'email' => $email,
+                'contact_number' => '09'.str_pad((string) fake()->numberBetween(0, 999999999), 9, '0', STR_PAD_LEFT),
+                'civil_status' => fake()->randomElement($statuses),
+                'deployment_mode' => fake()->randomElement(['AGENCY_HIRED', 'DIRECT_HIRED', 'TOURIST_VISIT', 'BUSINESS', 'INVITATION']),
+                'employment_status' => fake()->randomElement(['ON_SITE', 'FOR_DEPLOYMENT', 'RETURNED']),
+                'address_region' => $location['region'],
+                'address_province' => $location['province'],
+                'address_city_municipality' => $city,
+                'address_barangay' => fake()->randomElement(['Poblacion', 'Mabini', 'Rizal', 'Lahug', 'Banilad']),
+                'address_street' => Crypt::encryptString(fake()->streetAddress()),
+                'employment_employer_name' => Crypt::encryptString(fake()->company()),
+                'employment_employer_address' => Crypt::encryptString($city.', '.$location['province']),
+                'employment_position' => Crypt::encryptString(fake()->jobTitle()),
+                'employment_country' => Crypt::encryptString(fake()->country()),
+                'employment_last_country' => Crypt::encryptString(fake()->country()),
+                'employment_last_position' => Crypt::encryptString(fake()->jobTitle()),
+                'employment_start_date' => fake()->dateTimeBetween($created->copy()->subYears(8), $created->copy()->subYears(2))->format('Y-m-d'),
+                'employment_end_date' => fake()->boolean(70) ? $created->copy()->subDays(fake()->numberBetween(10, 300))->toDateString() : null,
+                'employment_date_of_arrival' => $created->copy()->subDays(1)->toDateString(),
+                'proposed_assessments' => json_encode([$assessment]),
+                'proposed_assessment_by' => $this->caseManagerId,
+                'proposed_assessment_at' => $created,
+                'confirmed_assessments' => json_encode([$assessment]),
+                'confirmed_assessment_by' => $this->caseManagerId,
+                'confirmed_assessment_at' => $created,
+                'consent_text_version' => IntakeDocumentService::CONSENT_VERSION,
+                'consent_method' => 'WRITTEN',
+                'consent_evidence' => Crypt::encryptString('Synthetic consent evidence.'),
+                'consent_accepted_by' => $this->caseManagerId,
+                'return_reason' => $reason,
+                'assigned_case_manager_id' => $this->caseManagerId,
                 'reviewed_by' => $this->caseManagerId,
                 'reviewed_at' => $created,
+                'reviewed_document_ids' => null,
                 'created_at' => $created,
                 'updated_at' => $created,
                 'is_deleted' => false,
@@ -475,72 +386,51 @@ class StagingSeeder extends Seeder
                 'deletion_reason' => null,
             ];
 
-            if ($categoryId !== null) {
-                $pivotRows[] = [
-                    'id' => (string) Str::uuid(),
-                    'case_id' => $caseId,
-                    'case_category_id' => $categoryId,
-                    'created_at' => $created,
-                    'updated_at' => $created,
-                ];
-            }
-        }
-
-        usort($caseRows, fn ($a, $b) => $a['created_at']->getTimestamp() <=> $b['created_at']->getTimestamp());
-
-        $total = count($caseRows);
-        $pendingCount = (int) round($total * self::PENDING_REVIEW_SHARE);
-
-        foreach ($caseRows as $index => &$row) {
-            if ($index < self::ARCHIVED) {
-                $row['status'] = 'ARCHIVED';
-            } elseif ($index < self::ARCHIVED + self::CLOSED) {
-                $row['status'] = 'CLOSED';
-            } elseif ($index >= $total - $pendingCount) {
-                $row['status'] = 'PENDING_REVIEW';
-                $row['consent_given_at'] = null;
-                $row['reviewed_by'] = null;
-                $row['reviewed_at'] = null;
-            }
-        }
-        unset($row);
-
-        $deleted = 0;
-        foreach ($caseRows as &$row) {
-            if ($row['status'] === 'OPEN' && $deleted < 15 && fake()->boolean(3)) {
-                $row['is_deleted'] = true;
-                $row['deleted_at'] = $this->after($row['updated_at'], 1440, 28800);
-                $row['deleted_by'] = $this->adminId;
-                $row['deletion_reason'] = 'Duplicate intake record';
-                $deleted++;
-            }
-        }
-        unset($row);
-
-        $insertRows = array_map(function ($row) use ($clients) {
-            $owner = $clients->firstWhere('id', $row['client_id']);
-            $row['_email'] = $owner->email ?? null;
-            $row['_name'] = $owner ? trim($owner->first_name.' '.$owner->last_name) : 'Walk-in client';
-
-            return $row;
-        }, $caseRows);
-
-        $this->chunkInsert('cases', array_map(fn ($row) => array_diff_key($row, ['_email' => 1, '_name' => 1]), $insertRows));
-        $this->chunkInsert('case_category', $pivotRows);
-
-        foreach ($insertRows as $row) {
-            $this->cases[$row['id']] = [
-                'client_id' => $row['client_id'],
-                'email' => $row['_email'],
-                'name' => $row['_name'],
-                'created_at' => $row['created_at'],
-                'updated_at' => $row['updated_at'],
-                'status' => $row['status'],
-                'user_id' => $row['user_id'],
-                'tracker' => $row['tracker_number'],
-                'is_deleted' => $row['is_deleted'],
+            $this->cases[$caseId] = [
+                'email' => $email,
+                'name' => trim($firstName.' '.$lastName),
+                'created_at' => $created,
+                'updated_at' => $created,
+                'status' => 'OPEN',
+                'user_id' => $this->caseManagerId,
+                'tracker' => $tracker,
+                'is_deleted' => false,
             ];
-            $this->audit(AuditAction::CREATE->value, AuditModule::CASE->value, $row['id'], $row['user_id'], $row['created_at']);
+            $this->audit(AuditAction::CREATE->value, AuditModule::CASE->value, $caseId, $this->caseManagerId, $created);
+        }
+
+        $this->chunkInsert('cases', $caseRows);
+
+        $documentRows = [];
+        foreach ($caseRows as $case) {
+            $slots = $slotsByReason[$case['return_reason']];
+            $documentIds = [];
+            foreach ($slots as $slot) {
+                $id = (string) Str::uuid();
+                $documentIds[] = $id;
+                $documentRows[] = [
+                    'id' => $id,
+                    'file_name' => $slot.'.pdf',
+                    'file_path' => 'staging/case-documents/'.$id.'.pdf',
+                    'file_type' => 'application/pdf',
+                    'size' => fake()->numberBetween(100_000, 2_000_000),
+                    'case_id' => $case['id'],
+                    'user_id' => $this->caseManagerId,
+                    'category' => $slot,
+                    'referral_id' => null,
+                    'created_at' => $case['created_at'],
+                    'updated_at' => $case['created_at'],
+                ];
+                $this->audit(AuditAction::CREATE->value, AuditModule::CASE_DOCUMENT->value, $id, $this->caseManagerId, $case['created_at']);
+            }
+        }
+        $this->chunkInsert('case_documents', $documentRows, 500);
+        $documentIdsByCase = [];
+        foreach ($documentRows as $document) {
+            $documentIdsByCase[$document['case_id']][] = $document['id'];
+        }
+        foreach ($caseRows as $case) {
+            DB::table('cases')->where('id', $case['id'])->update(['reviewed_document_ids' => json_encode($documentIdsByCase[$case['id']] ?? [])]);
         }
     }
 
@@ -550,6 +440,10 @@ class StagingSeeder extends Seeder
 
     private function seedReferrals(): void
     {
+        $categoryIds = DB::table('case_categories')->pluck('id')->all();
+        if ($categoryIds === []) {
+            throw new \LogicException('Seed managed referral categories before staging referrals.');
+        }
         $referralRows = [];
         $milestoneRows = [];
         $serviceReqRows = [];
@@ -567,6 +461,8 @@ class StagingSeeder extends Seeder
                     continue;
                 }
                 $referral = $this->buildReferral($caseId, $case, $pair[$position], $position);
+                $referral['category_id'] = fake()->randomElement($categoryIds);
+                $referral['concern'] = Crypt::encryptString('Synthetic referral concern for '.$referral['_service']);
                 $referralRows[] = array_diff_key($referral, ['_service' => 1, '_service_id' => 1, '_terminal' => 1]);
 
                 foreach (array_slice($this->requirementNames($referral), 0, 2) as $sort => $name) {
@@ -746,6 +642,9 @@ class StagingSeeder extends Seeder
             'case_id' => $caseId,
             'agcy_id' => $agency['id'],
             'first_action_at' => $firstAction,
+            'category_id' => null,
+            'concern' => null,
+            'override_reason' => null,
             'referral_assigned_at' => $status === 'PENDING' ? null : $this->after($created, 10, 480),
             'created_at' => $created,
             'updated_at' => $updated,
@@ -935,6 +834,10 @@ class StagingSeeder extends Seeder
         $this->chunkInsert('referral_attachments', $attachmentRows, 500);
         $this->chunkInsert('case_documents', $documentRows, 500);
         $this->chunkInsert('case_notifications', $notificationRows, 500);
+
+        foreach ($documentRows as $document) {
+            $this->audit(AuditAction::CREATE->value, AuditModule::CASE_DOCUMENT->value, $document['id'], $document['user_id'], $document['created_at']);
+        }
     }
 
     // ------------------------------------------------------------------
