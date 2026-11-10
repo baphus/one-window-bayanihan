@@ -29,18 +29,6 @@ class QueueNotificationsExportsTest extends TestCase
     }
 
     #[Test]
-    public function clients_export_returns_xlsx_stream(): void
-    {
-        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-
-        $response = $this->actingAsWithMfa($user)->get(route('clients.export-excel'));
-
-        $response->assertOk();
-        $response->assertHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        $response->assertHeader('Content-Disposition');
-    }
-
-    #[Test]
     public function referrals_export_returns_xlsx_stream(): void
     {
         $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);

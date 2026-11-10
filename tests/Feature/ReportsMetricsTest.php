@@ -4,14 +4,14 @@ namespace Tests\Feature;
 
 use App\Enums\UserRole;
 use App\Models\Agency;
+use App\Models\CaseCategory;
 use App\Models\CaseEvent;
 use App\Models\CaseFile;
 use App\Models\CaseStatus;
-use App\Models\Client;
-use App\Models\ClientEmployment;
 use App\Models\Referral;
 use App\Models\ReferralClientRequest;
 use App\Models\User;
+use App\Services\Reports\CaseMetrics;
 use App\Services\ReportsService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\Test;
@@ -164,16 +164,10 @@ class ReportsMetricsTest extends TestCase
     #[Test]
     public function gender_distribution_reports_unknown_not_other_and_unscoped_for_case_manager(): void
     {
-        $male = Client::factory()->create(['sex' => 'MALE']);
-        $female = Client::factory()->create(['sex' => 'FEMALE']);
-        $unknown = Client::factory()->create(['sex' => null]);
-
-        foreach ([$male, $female, $unknown] as $client) {
-            CaseFile::factory()->create(['user_id' => $this->managerA->id, 'status' => 'OPEN', 'client_id' => $client->id]);
+        foreach (['MALE', 'FEMALE', null] as $sex) {
+            CaseFile::factory()->create(['user_id' => $this->managerA->id, 'status' => 'OPEN', 'sex' => $sex]);
         }
-        // A client that belongs to another manager must not be counted.
-        $other = Client::factory()->create(['sex' => 'MALE']);
-        CaseFile::factory()->create(['user_id' => $this->managerB->id, 'status' => 'OPEN', 'client_id' => $other->id]);
+        CaseFile::factory()->create(['user_id' => $this->managerB->id, 'status' => 'OPEN', 'sex' => 'MALE']);
 
         $dist = $this->service->getGenderDistribution($this->managerA->id, UserRole::CASE_MANAGER->value);
 
@@ -203,24 +197,11 @@ class ReportsMetricsTest extends TestCase
     #[Test]
     public function employment_occupation_breakdown_is_unscoped_for_case_manager_and_is_deterministic(): void
     {
-        $otherManager = $this->managerB;
-        $ownedClient = Client::factory()->create();
-        $secondOwnedClient = Client::factory()->create();
-        $otherClient = Client::factory()->create();
-
-        CaseFile::factory()->create(['user_id' => $this->managerA->id, 'client_id' => $ownedClient->id, 'status' => 'OPEN']);
-        CaseFile::factory()->create(['user_id' => $this->managerA->id, 'client_id' => $secondOwnedClient->id, 'status' => 'OPEN']);
-        CaseFile::factory()->create(['user_id' => $otherManager->id, 'client_id' => $otherClient->id, 'status' => 'OPEN']);
-
-        // Multiple employment rows for one client count once for a position.
-        ClientEmployment::create(['client_id' => $ownedClient->id, 'last_position' => 'Engineer']);
-        ClientEmployment::create(['client_id' => $ownedClient->id, 'last_position' => 'Engineer']);
-        ClientEmployment::create(['client_id' => $secondOwnedClient->id, 'last_position' => 'Nurse']);
-        ClientEmployment::create(['client_id' => $otherClient->id, 'last_position' => 'Engineer']);
-
-        $deleted = ClientEmployment::create(['client_id' => $ownedClient->id, 'last_position' => 'Deleted Position']);
-        $deleted->forceFill(['is_deleted' => true])->save();
-        ClientEmployment::create(['client_id' => $ownedClient->id, 'last_position' => null]);
+        foreach (['Engineer', 'Nurse', 'Engineer'] as $position) {
+            CaseFile::factory()->create(['user_id' => $this->managerA->id, 'status' => 'OPEN', 'employment_last_position' => $position]);
+        }
+        $deleted = CaseFile::factory()->create(['status' => 'OPEN', 'employment_last_position' => 'Deleted Position']);
+        $deleted->delete();
 
         $breakdown = $this->service->getEmploymentOccupationBreakdown($this->managerA->id, UserRole::CASE_MANAGER->value);
 
@@ -321,9 +302,9 @@ class ReportsMetricsTest extends TestCase
     #[Test]
     public function reopened_stats_counts_reopens_and_repeat_clients(): void
     {
-        $client = Client::factory()->create();
-        $caseA = CaseFile::factory()->create(['user_id' => $this->managerA->id, 'client_id' => $client->id, 'status' => 'OPEN']);
-        CaseFile::factory()->create(['user_id' => $this->managerA->id, 'client_id' => $client->id, 'status' => 'OPEN']);
+        $client = User::factory()->create(['role' => UserRole::OFW->value]);
+        $caseA = CaseFile::factory()->create(['user_id' => $this->managerA->id, 'ofw_user_id' => $client->id, 'status' => 'OPEN']);
+        CaseFile::factory()->create(['user_id' => $this->managerA->id, 'ofw_user_id' => $client->id, 'status' => 'OPEN']);
         CaseEvent::create([
             'case_id' => $caseA->id,
             'type' => CaseEvent::TYPE_CASE_REOPENED,
@@ -335,9 +316,9 @@ class ReportsMetricsTest extends TestCase
         $stats = $this->service->getReopenedStats($this->managerA->id, UserRole::CASE_MANAGER->value);
 
         $this->assertSame(1, $stats['reopenedCount']);
-        $this->assertSame(1, $stats['repeatClients']);
-        $this->assertSame(1, $stats['totalClients']);
-        $this->assertSame(100.0, $stats['repeatClientRate']);
+        $this->assertSame(1, $stats['repeatAccounts']);
+        $this->assertSame(1, $stats['linkedAccounts']);
+        $this->assertSame(100.0, $stats['repeatAccountRate']);
     }
 
     #[Test]
@@ -519,5 +500,28 @@ class ReportsMetricsTest extends TestCase
         $this->assertSame(1, (int) $combined['OTHER']);
         $this->assertSame(0, (int) $combined['DUPLICATE_REFERRAL']);
         $this->assertSame(3, array_sum(array_map('intval', $distribution['data'])));
+    }
+
+    #[Test]
+    public function category_cases_reached_deduplicate_referrals_and_exclude_sibling_agency_categories(): void
+    {
+        $owner = User::factory()->create(['role' => UserRole::OFW->value]);
+        $category = CaseCategory::factory()->create();
+        $otherCategory = CaseCategory::factory()->create();
+        $otherAgency = Agency::factory()->create();
+        $case = CaseFile::factory()->create(['status' => 'OPEN', 'ofw_user_id' => $owner->id]);
+        CaseFile::factory()->create(['status' => 'OPEN', 'ofw_user_id' => $owner->id]);
+        Referral::factory()->count(2)->create(['case_id' => $case->id, 'agcy_id' => $this->agency->id, 'category_id' => $category->id]);
+        Referral::factory()->create(['case_id' => $case->id, 'agcy_id' => $otherAgency->id, 'category_id' => $otherCategory->id]);
+
+        $metrics = app(CaseMetrics::class);
+        $rows = $metrics->categoryDistribution(null, UserRole::AGENCY->value, $this->agency->id);
+        $this->assertCount(1, $rows);
+        $this->assertSame($category->name, $rows[0]['name']);
+        $this->assertSame(1, $rows[0]['count']);
+        $this->assertSame(2, $this->service->getReferralKpis(null, UserRole::AGENCY->value, agencyId: $this->agency->id)['totalReferrals']);
+        $stats = $metrics->getReopenedStats();
+        $this->assertSame(1, $stats['linkedAccounts']);
+        $this->assertSame(1, $stats['repeatAccounts']);
     }
 }

@@ -6,7 +6,6 @@ use App\Enums\UserRole;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\SetPostgresSession;
 use App\Models\CaseFile;
-use App\Models\Client;
 use App\Models\User;
 use App\Services\CaseService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -57,11 +56,9 @@ class CaseIndexContractTest extends TestCase
         $row = static fn (string $number, string $first, string $last, string $type, User $author, string $createdAt, string $status) => [
             'case_number' => $number,
             'tracker_number' => 'TRK-'.$number,
-            'client_id' => Client::factory()->create([
-                'first_name' => $first,
-                'last_name' => $last,
-                'type' => $type,
-            ])->id,
+            'client_type' => $type,
+            'first_name' => $first,
+            'last_name' => $last,
             'user_id' => $author->id,
             'status' => $status,
             'created_at' => $createdAt,

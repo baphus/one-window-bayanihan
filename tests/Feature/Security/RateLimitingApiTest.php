@@ -25,51 +25,51 @@ class RateLimitingApiTest extends TestCase
     #[Test]
     public function it_rate_limits_api_get_requests_at_60_per_minute(): void
     {
-        $user = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         // Make 60 requests (should all succeed)
         for ($i = 0; $i < 60; $i++) {
-            $this->actingAsWithMfa($user)->getJson('/api/clients');
+            $this->actingAsWithMfa($user)->getJson('/dashboard/case-manager-period');
         }
 
         // 61st should be rate limited
-        $response = $this->actingAsWithMfa($user)->getJson('/api/clients');
+        $response = $this->actingAsWithMfa($user)->getJson('/dashboard/case-manager-period');
         $response->assertStatus(429);
     }
 
     #[Test]
-    public function it_rate_limits_api_post_requests_via_global_limiter(): void
+    public function it_rate_limits_api_get_requests_via_global_limiter(): void
     {
-        $user = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         // The api-global limiter applies to all requests in the group (GET and POST)
         // Make 60 requests to exhaust the limit
         for ($i = 0; $i < 60; $i++) {
-            $this->actingAsWithMfa($user)->getJson('/api/clients');
+            $this->actingAsWithMfa($user)->getJson('/dashboard/case-manager-period');
         }
 
         // Next request should be 429
-        $response = $this->actingAsWithMfa($user)->getJson('/api/clients');
+        $response = $this->actingAsWithMfa($user)->getJson('/dashboard/case-manager-period');
         $response->assertStatus(429);
     }
 
     #[Test]
     public function it_uses_separate_buckets_per_user(): void
     {
-        $user1 = User::factory()->create(['role' => UserRole::ADMIN->value]);
-        $user2 = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $user1 = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $user2 = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         // Exhaust user1's limit
         for ($i = 0; $i < 60; $i++) {
-            $this->actingAsWithMfa($user1)->getJson('/api/clients');
+            $this->actingAsWithMfa($user1)->getJson('/dashboard/case-manager-period');
         }
 
         // user1 is rate limited
-        $response = $this->actingAsWithMfa($user1)->getJson('/api/clients');
+        $response = $this->actingAsWithMfa($user1)->getJson('/dashboard/case-manager-period');
         $response->assertStatus(429);
 
         // user2 still has quota
-        $response = $this->actingAsWithMfa($user2)->getJson('/api/clients');
+        $response = $this->actingAsWithMfa($user2)->getJson('/dashboard/case-manager-period');
         $response->assertStatus(200);
     }
 }

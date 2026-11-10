@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\CaseFile;
-use App\Models\Client;
 use App\Models\Referral;
 use App\Models\User;
 use App\Services\CaseService;
@@ -195,79 +194,26 @@ class CaseServiceScopeTest extends TestCase
         $this->assertCount(2, $cases);
     }
 
-    public function test_other_filters_still_work_with_role_scope(): void
+    public function test_case_classification_is_persisted_on_cases(): void
     {
         $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-
-        $ofwClient = Client::factory()->create(['type' => 'OFW']);
-        $nokClient = Client::factory()->create(['type' => 'NEXT_OF_KIN']);
-
-        CaseFile::factory()->create([
-            'user_id' => $manager->id,
-            'status' => 'OPEN',
-            'client_id' => $ofwClient->id,
-        ]);
-        CaseFile::factory()->create([
-            'user_id' => $manager->id,
-            'status' => 'OPEN',
-            'client_id' => $nokClient->id,
-        ]);
+        $ofwCase = CaseFile::factory()->create(['user_id' => $manager->id, 'status' => 'OPEN', 'client_type' => 'OFW']);
+        $nokCase = CaseFile::factory()->create(['user_id' => $manager->id, 'status' => 'OPEN', 'client_type' => 'NEXT_OF_KIN']);
 
         $this->actingAsWithMfa($manager);
-        $cases = $this->service->getCases();
+        $cases = $this->service->getCases()->keyBy('case_number');
 
-        $this->assertCount(2, $cases);
-
-        // ponytail: getCases() has no client_type filter (type lives on
-        // clients.type now); canonical path is CaseFile::ofClientType().
-        $ofwCases = CaseFile::ofClientType('OFW')->get();
-        $this->assertCount(1, $ofwCases);
-        $this->assertSame('OFW', $ofwCases->first()->client->type);
-
-        $nextOfKinCases = CaseFile::ofClientType(CaseFile::CLIENT_TYPE_NEXT_OF_KIN)->get();
-        $this->assertCount(1, $nextOfKinCases);
-        $this->assertSame('NEXT_OF_KIN', $nextOfKinCases->first()->client->type);
+        $this->assertSame('OFW', $cases[$ofwCase->case_number]->client_type);
+        $this->assertSame('NEXT_OF_KIN', $cases[$nokCase->case_number]->client_type);
+        $this->assertSame('OFW', $cases[$ofwCase->case_number]->toArray()['client_type']);
+        $this->assertSame('NEXT_OF_KIN', $cases[$nokCase->case_number]->toArray()['client_type']);
     }
 
-    public function test_client_type_is_restored_from_clients_type_in_case_payloads(): void
+    public function test_case_type_is_null_when_not_persisted(): void
     {
-        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-        $ofwClient = Client::factory()->create(['type' => 'OFW']);
-        $nokClient = Client::factory()->create(['type' => 'NEXT_OF_KIN']);
-
-        $ofwCase = CaseFile::factory()->create([
-            'user_id' => $manager->id,
-            'status' => 'OPEN',
-            'client_id' => $ofwClient->id,
-        ]);
-        $nokCase = CaseFile::factory()->create([
-            'user_id' => $manager->id,
-            'status' => 'OPEN',
-            'client_id' => $nokClient->id,
-        ]);
-
-        // cases.client_type was dropped; the UI and the case-report PDF still
-        // read it, so the accessor must answer on the model and on toArray()
-        // (the shape Inertia hands to Case/Index, Case/Show, Referral/* and
-        // Client/Index).
-        $this->assertSame('OFW', $ofwCase->client_type);
-        $this->assertSame('NEXT_OF_KIN', $nokCase->client_type);
-        $this->assertSame('OFW', $ofwCase->toArray()['client_type']);
-        $this->assertSame('NEXT_OF_KIN', $nokCase->toArray()['client_type']);
-
-        $this->actingAsWithMfa($manager);
-        $cases = $this->service->getCases();
-
-        $byNumber = $cases->keyBy('case_number');
-        $this->assertSame('OFW', $byNumber[$ofwCase->case_number]->toArray()['client_type']);
-        $this->assertSame('NEXT_OF_KIN', $byNumber[$nokCase->case_number]->toArray()['client_type']);
-    }
-
-    public function test_client_type_is_null_without_a_client(): void
-    {
-        $case = CaseFile::factory()->create();
+        $case = CaseFile::factory()->make();
 
         $this->assertNull($case->client_type);
-        $this->assertNull($case->toArray()['client_type']);
+        $this->assertArrayNotHasKey('client_type', $case->toArray());
     }
 }

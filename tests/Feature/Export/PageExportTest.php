@@ -45,31 +45,6 @@ class PageExportTest extends TestCase
     }
 
     // -------------------------------------------------------------------------
-    // Clients
-    // -------------------------------------------------------------------------
-
-    #[Test]
-    public function clients_export_requires_authentication(): void
-    {
-        $response = $this->get(route('clients.export-excel'));
-
-        $response->assertStatus(302);
-        $response->assertRedirectContains('login');
-    }
-
-    #[Test]
-    public function clients_export_returns_xlsx(): void
-    {
-        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-
-        $response = $this->actingAsWithMfa($user)->get(route('clients.export-excel'));
-
-        $response->assertStatus(200);
-        $response->assertHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        $response->assertHeader('Content-Disposition');
-    }
-
-    // -------------------------------------------------------------------------
     // Referrals
     // -------------------------------------------------------------------------
 

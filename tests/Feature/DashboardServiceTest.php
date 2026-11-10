@@ -5,8 +5,8 @@ namespace Tests\Feature;
 use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\AuditLog;
+use App\Models\CaseCategory;
 use App\Models\CaseFile;
-use App\Models\Client;
 use App\Models\Referral;
 use App\Models\Service;
 use App\Models\SurveyInvitation;
@@ -332,19 +332,28 @@ class DashboardServiceTest extends TestCase
 
         $agency = Agency::factory()->create();
         $otherAgency = Agency::factory()->create();
+        $category = CaseCategory::factory()->create(['name' => 'Legal', 'color' => '#123456']);
+        $otherCategory = CaseCategory::factory()->create(['name' => 'Employment', 'color' => '#654321']);
+        $sharedCase = $this->createCaseForClient();
 
-        $this->createReferralForAgency($agency, ['status' => 'PENDING', 'created_at' => now()->subDays(2)]);
-        $this->createReferralForAgency($agency, ['status' => 'COMPLETED', 'created_at' => now()->subDays(3)]);
+        $this->createReferralForAgency($agency, ['case_id' => $sharedCase->id, 'category_id' => $category->id, 'status' => 'PENDING', 'created_at' => now()->subDays(2)]);
+        $this->createReferralForAgency($agency, ['case_id' => $sharedCase->id, 'category_id' => $category->id, 'status' => 'COMPLETED', 'created_at' => now()->subDays(3)]);
+        $this->createReferralForAgency($agency, ['category_id' => $otherCategory->id, 'status' => 'PENDING', 'created_at' => now()->subDays(2)]);
         // Another agency's referral must never be counted.
-        $this->createReferralForAgency($otherAgency, ['status' => 'PENDING', 'created_at' => now()->subDays(2)]);
+        $this->createReferralForAgency($otherAgency, ['category_id' => $otherCategory->id, 'status' => 'PENDING', 'created_at' => now()->subDays(2)]);
 
         $payload = app(DashboardService::class)->getAgencyPeriodData($agency->id, 30);
 
-        $this->assertSame(2, $payload['kpis']['assigned']);
-        $this->assertSame(1, $payload['kpis']['awaiting']);
+        $this->assertSame(3, $payload['kpis']['assigned']);
+        $this->assertSame(2, $payload['kpis']['awaiting']);
         $this->assertSame(1, $payload['kpis']['resolved']);
         $this->assertCount(30, $payload['volume']['labels']);
-        $this->assertSame(2, array_sum($payload['volume']['received']));
+        $this->assertSame(3, array_sum($payload['volume']['received']));
+        $legalMix = collect($payload['category_mix'])->firstWhere('label', 'Legal');
+        $this->assertSame(2, $legalMix['total']);
+        $this->assertSame(1, $legalMix['cases_reached']);
+        $this->assertSame(1, collect($payload['category_mix'])->firstWhere('label', 'Employment')['cases_reached']);
+        $this->assertSame(3, array_sum(array_column($payload['category_mix'], 'total')));
     }
 
     #[Test]
@@ -403,10 +412,10 @@ class DashboardServiceTest extends TestCase
 
     private function createCaseForClient(array $attributes = []): CaseFile
     {
-        $client = Client::factory()->create();
-
         return CaseFile::factory()->create(array_merge([
-            'client_id' => $client->id,
+            'client_type' => CaseFile::CLIENT_TYPE_OFW,
+            'first_name' => 'Test',
+            'last_name' => 'Case',
         ], $attributes));
     }
 }

@@ -30,8 +30,7 @@ class MailRenderTest extends TestCase
         $case->status = 'OPEN';
         $case->case_number = 'TEST-001';
         $case->updated_at = now();
-        $case->client = new \stdClass;
-        $case->client->first_name = 'Test';
+        $case->first_name = 'Test';
         $case->tracker_number = 'TRACK-001';
         $case->caseEvents = [];
         $case->category = null;

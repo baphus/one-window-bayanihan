@@ -4,18 +4,15 @@ namespace Tests\Feature;
 
 use App\Enums\UserRole;
 use App\Mail\ClientUpdateMail;
-use App\Models\CaseCategory;
+use App\Models\CaseDocument;
 use App\Models\CaseFile;
-use App\Models\Client;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 
-/**
- * CM approve/reject against PENDING_REVIEW filings; OFW get 403.
- */
+/** CM approve/reject against PENDING_REVIEW filings; OFW gets 403. */
 class CaseReviewTest extends TestCase
 {
     use RefreshDatabase;
@@ -27,131 +24,100 @@ class CaseReviewTest extends TestCase
         $this->withoutMiddleware([ThrottleRequests::class]);
     }
 
-    private function createPendingCase(Client $client, User $filer): CaseFile
+    private function createPendingCase(User $filer): CaseFile
     {
-        $case = CaseFile::factory()->pendingReview()->create([
+        return CaseFile::factory()->withIntake()->pendingReview()->create([
             'user_id' => $filer->id,
-            'client_id' => $client->id,
+            'ofw_user_id' => $filer->id,
+            'email' => 'filer@example.test',
+            'return_reason' => 'OTHERS',
         ]);
-        // approveCase revalidates published categories; attach an active one
-        // so the test's fixture matches production behavior without weakening
-        // the validation gate.
-        $category = CaseCategory::factory()->create();
-        $case->categories()->attach($category->id);
-
-        return $case;
     }
 
-    // ── approve ─────────────────────────────────────────────────────────────
+    private function reviewPayload(CaseFile $case): array
+    {
+        $ids = [];
+        foreach (['passport_front_page', 'arrival_stamp', 'oec', 'sworn_affidavit'] as $slot) {
+            $ids[] = CaseDocument::factory()->create([
+                'case_id' => $case->id, 'category' => $slot, 'referral_id' => null,
+            ])->id;
+        }
+
+        return ['confirmed_assessments' => ['LEGAL_ASSISTANCE'], 'reviewed_document_ids' => $ids];
+    }
 
     public function test_cm_approve_sets_open_and_reviewed_fields(): void
     {
         $filer = User::factory()->create(['role' => UserRole::OFW->value]);
-        $client = Client::factory()->create(['user_id' => $filer->id]);
-        $filer->client_id = $client->id;
-        $filer->save();
-        $case = $this->createPendingCase($client, $filer);
-
+        $case = $this->createPendingCase($filer);
         $cm = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
-        $response = $this->actingAsWithMfa($cm)->postJson(route('cases.review-approve', $case));
-        $response->assertRedirect();
+        $this->actingAsWithMfa($cm)
+            ->postJson(route('cases.review-approve', $case), $this->reviewPayload($case))
+            ->assertRedirect();
 
         $case->refresh();
-        $this->assertEquals('OPEN', $case->status);
-        $this->assertEquals($cm->id, $case->reviewed_by);
+        $this->assertSame('OPEN', $case->status);
+        $this->assertSame($cm->id, $case->reviewed_by);
+        $this->assertSame($cm->id, $case->assigned_case_manager_id);
         $this->assertNotNull($case->reviewed_at);
     }
 
-    public function test_cm_approve_sends_notification_to_filer(): void
+    public function test_cm_approve_records_event_and_audit(): void
     {
         $filer = User::factory()->create(['role' => UserRole::OFW->value]);
-        $client = Client::factory()->create([
-            'user_id' => $filer->id,
-            'email' => 'filer@example.test',
-        ]);
-        $filer->client_id = $client->id;
-        $filer->save();
-        $case = $this->createPendingCase($client, $filer);
-
+        $case = $this->createPendingCase($filer);
         $cm = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
-        $this->actingAsWithMfa($cm)->postJson(route('cases.review-approve', $case));
+        $this->actingAsWithMfa($cm)
+            ->postJson(route('cases.review-approve', $case), $this->reviewPayload($case))
+            ->assertRedirect();
 
-        // Approve path records a client-facing event + audit entry for the filer.
-        $this->assertDatabaseHas('case_events', [
-            'case_id' => $case->id,
-            'type' => 'case_opened',
-        ]);
-        $this->assertDatabaseHas('audit_logs', [
-            'entity_id' => $case->id,
-            'action' => 'APPROVE',
-            'module' => 'case',
-        ]);
+        $this->assertDatabaseHas('case_events', ['case_id' => $case->id, 'type' => 'case_opened']);
+        $this->assertDatabaseHas('audit_logs', ['entity_id' => $case->id, 'action' => 'APPROVE', 'module' => 'case']);
     }
 
-    // ── reject ──────────────────────────────────────────────────────────────
-
-    public function test_cm_reject_soft_deletes_case_and_records_reason(): void
+    public function test_cm_reject_records_reason_and_notifies_case_email(): void
     {
         $filer = User::factory()->create(['role' => UserRole::OFW->value]);
-        $client = Client::factory()->create(['user_id' => $filer->id]);
-        $filer->client_id = $client->id;
-        $filer->save();
-        $case = $this->createPendingCase($client, $filer);
-
+        $case = $this->createPendingCase($filer);
         $cm = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
-        $response = $this->actingAsWithMfa($cm)->postJson(route('cases.review-reject', $case), [
-            'reason' => 'Incomplete employment history.',
-        ]);
-        $response->assertRedirect();
+        $this->actingAsWithMfa($cm)
+            ->postJson(route('cases.review-reject', $case), ['reason' => 'Incomplete employment history.'])
+            ->assertRedirect();
 
         $case->refresh();
-        $this->assertFalse((bool) $case->trashed());
-        $this->assertEquals('REJECTED', $case->status);
-        $this->assertEquals('Incomplete employment history.', $case->deletion_reason);
+        $this->assertFalse($case->trashed());
+        $this->assertSame('REJECTED', $case->status);
+        $this->assertSame('Incomplete employment history.', $case->deletion_reason);
         $this->assertNull($case->deleted_by);
         $this->assertDatabaseHas('case_notifications', [
             'case_id' => $case->id,
+            'client_email' => 'filer@example.test',
             'type' => 'case_rejected',
-            'message' => 'Your case request was not approved. Reason: Incomplete employment history.',
+            'message' => 'Your case request was not approved. The review team will contact you with next steps.',
         ]);
-        Mail::assertQueued(ClientUpdateMail::class, function (ClientUpdateMail $mail) use ($case): bool {
-            return $mail->case->id === $case->id
-                && str_contains($mail->message, 'Incomplete employment history.');
-        });
+        Mail::assertQueued(ClientUpdateMail::class, fn (ClientUpdateMail $mail): bool => $mail->case->id === $case->id && ! str_contains($mail->message, 'Incomplete employment history.')
+        );
     }
-
-    // ── authorization guard ─────────────────────────────────────────────────
 
     public function test_ofw_cannot_approve_pending_case(): void
     {
         $filer = User::factory()->create(['role' => UserRole::OFW->value]);
-        $client = Client::factory()->create(['user_id' => $filer->id]);
-        $filer->client_id = $client->id;
-        $filer->save();
-        $case = $this->createPendingCase($client, $filer);
+        $case = $this->createPendingCase($filer);
 
-        $ofw = User::factory()->create(['role' => UserRole::OFW->value]);
-
-        $response = $this->actingAsWithMfa($ofw)->postJson(route('cases.review-approve', $case));
-        $response->assertStatus(403);
+        $this->actingAsWithMfa($filer)->postJson(route('cases.review-approve', $case), $this->reviewPayload($case))
+            ->assertForbidden();
     }
 
     public function test_ofw_cannot_reject_pending_case(): void
     {
         $filer = User::factory()->create(['role' => UserRole::OFW->value]);
-        $client = Client::factory()->create(['user_id' => $filer->id]);
-        $filer->client_id = $client->id;
-        $filer->save();
-        $case = $this->createPendingCase($client, $filer);
+        $case = $this->createPendingCase($filer);
 
-        $ofw = User::factory()->create(['role' => UserRole::OFW->value]);
-
-        $response = $this->actingAsWithMfa($ofw)->postJson(route('cases.review-reject', $case), [
-            'reason' => 'Wrong.',
-        ]);
-        $response->assertStatus(403);
+        $this->actingAsWithMfa($filer)
+            ->postJson(route('cases.review-reject', $case), ['reason' => 'Wrong.'])
+            ->assertForbidden();
     }
 }

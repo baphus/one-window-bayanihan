@@ -5,11 +5,10 @@ namespace Tests\Feature\TrackingService;
 use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\CaseCategory;
+use App\Models\CaseDocument;
 use App\Models\CaseEvent;
 use App\Models\CaseFile;
 use App\Models\CaseNotification;
-use App\Models\Client;
-use App\Models\ClientAddress;
 use App\Models\User;
 use App\Services\CaseService;
 use App\Services\ReferralService;
@@ -44,6 +43,9 @@ class CaseEventRecordingTest extends TestCase
         $agency = Agency::factory()->create();
 
         $referral = app(ReferralService::class)->createReferral([
+            'category_id' => CaseCategory::factory()->create()->id,
+            'concern' => 'Assistance requested',
+            'override_reason' => 'Agency selected for this assistance',
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
         ], $user->id);
@@ -115,25 +117,15 @@ class CaseEventRecordingTest extends TestCase
 
     public function test_approving_a_pending_filing_records_case_opened(): void
     {
-        $user = User::factory()->create();
-        $client = Client::factory()->create(['sex' => 'FEMALE']);
-        ClientAddress::create([
-            'client_id' => $client->id,
-            'region' => 'Region VII',
-            'province' => 'Cebu',
-            'city_municipality' => 'Cebu City',
-            'barangay' => 'Lahug',
-            'street' => '123 Test St',
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $case = CaseFile::factory()->withIntake()->pendingReview()->create(['return_reason' => 'OTHERS']);
+        $ids = [];
+        foreach (['passport_front_page', 'arrival_stamp', 'oec', 'sworn_affidavit'] as $slot) {
+            $ids[] = CaseDocument::factory()->create(['case_id' => $case->id, 'category' => $slot, 'referral_id' => null])->id;
+        }
+        app(CaseService::class)->approveCase($case->id, $user->id, [
+            'confirmed_assessments' => ['LEGAL_ASSISTANCE'], 'reviewed_document_ids' => $ids,
         ]);
-        $category = CaseCategory::factory()->create();
-        $case = CaseFile::factory()->pendingReview()->create([
-            'user_id' => $user->id,
-            'client_id' => $client->id,
-            'category_id' => $category->id,
-        ]);
-        $case->categories()->attach($category->id);
-
-        app(CaseService::class)->approveCase($case->id, $user->id);
 
         $event = CaseEvent::where('case_id', $case->id)
             ->where('type', CaseEvent::TYPE_CASE_OPENED)
@@ -162,24 +154,19 @@ class CaseEventRecordingTest extends TestCase
         $this->assertEquals([CaseEvent::TYPE_CASE_CLOSED, CaseEvent::TYPE_CASE_REOPENED], $types);
     }
 
-    public function test_closing_case_via_update_case_records_event(): void
+    public function test_closing_case_via_status_endpoint_records_event(): void
     {
         $result = $this->createCompleteCase(0);
         $case = $result['case'];
 
-        app(CaseService::class)->updateCase($case->id, [
-            'status' => 'CLOSED',
-        ], $result['user']->id);
+        app(CaseService::class)->toggleCaseStatus($case->id, $result['user']->id);
 
         $this->assertNotNull(
             CaseEvent::where('case_id', $case->id)->where('type', CaseEvent::TYPE_CASE_CLOSED)->first(),
-            'Closing a case through the edit endpoint must record case_closed'
+            'Closing a case through the status endpoint must record case_closed'
         );
 
-        // And reopening the same way records case_reopened
-        app(CaseService::class)->updateCase($case->id, [
-            'status' => 'OPEN',
-        ], $result['user']->id);
+        app(CaseService::class)->toggleCaseStatus($case->id, $result['user']->id);
 
         $this->assertNotNull(
             CaseEvent::where('case_id', $case->id)->where('type', CaseEvent::TYPE_CASE_REOPENED)->first()
@@ -190,11 +177,12 @@ class CaseEventRecordingTest extends TestCase
     {
         $result = $this->createCompleteCase(0);
         $case = $result['case'];
-        $editor = User::factory()->create(['name' => 'Editha Stafferson Unique']);
+        $editor = User::factory()->create(['role' => UserRole::CASE_MANAGER->value, 'name' => 'Editha Stafferson Unique']);
+        $case->update(['assigned_case_manager_id' => $editor->id, 'ofw_user_id' => $result['user']->id]);
 
         app(CaseService::class)->updateCase($case->id, [
-            'status' => $case->status,
-            'summary' => 'Updated summary text for the client record.',
+            'correction_reason' => 'Correct transcription',
+            'summary' => 'Updated summary text for the client record.', 'email' => 'owner@example.test',
         ], $editor->id);
 
         $notification = CaseNotification::where('case_id', $case->id)

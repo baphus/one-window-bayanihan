@@ -5,7 +5,6 @@ namespace Tests\Feature\Export;
 use App\Enums\UserRole;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\CaseFile;
-use App\Models\Client;
 use App\Models\User;
 use App\Services\Export\ColumnMaps;
 use App\Services\Export\DataExportQueries;
@@ -33,14 +32,16 @@ class DataExportSheetsTest extends TestCase
     public function full_export_sheets_covers_every_mapped_table_in_order(): void
     {
         $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
-        // Published client: linked account plus live OPEN case.
-        $client = Client::factory()->create(['user_id' => User::factory()->create()->id]);
-        CaseFile::factory()->create(['client_id' => $client->id, 'user_id' => User::factory()->create()->id, 'status' => 'OPEN']);
+        CaseFile::factory()->create(['user_id' => User::factory()->create()->id, 'status' => 'OPEN']);
 
         $sheets = (new DataExportQueries)->fullExportSheets($admin);
 
         $titles = array_column($sheets, 'title');
-        $expected = array_map(ucfirst(...), ColumnMaps::getAllTables());
+        $expected = array_map(fn ($table) => match ($table) {
+            'clients' => 'Case intake records', 'client_addresses' => 'Case addresses',
+            'client_employments' => 'Case employment', 'next_of_kin' => 'Case representatives',
+            default => ucfirst($table),
+        }, ColumnMaps::getAllTables());
 
         $this->assertSame($expected, $titles);
 
@@ -59,9 +60,7 @@ class DataExportSheetsTest extends TestCase
     public function every_delegated_sheet_query_returns_a_collection(): void
     {
         $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
-        // Published client: linked account plus live OPEN case.
-        $client = Client::factory()->create(['user_id' => User::factory()->create()->id]);
-        $case = CaseFile::factory()->create(['client_id' => $client->id, 'user_id' => User::factory()->create()->id, 'status' => 'OPEN']);
+        $case = CaseFile::factory()->create(['user_id' => User::factory()->create()->id, 'status' => 'OPEN']);
 
         $queries = new DataExportQueries;
 
@@ -92,7 +91,7 @@ class DataExportSheetsTest extends TestCase
         // an exact count would fail for reasons the delegation has nothing to do with.
         $this->assertTrue($queries->getUsers($admin)->contains('id', $admin->id), 'getUsers() delegation lost the acting user');
         $this->assertTrue($queries->getCases($admin)->contains('id', $case->id), 'getCases() delegation lost the case');
-        $this->assertTrue($queries->getClients($admin)->contains('id', $client->id), 'getClients() delegation lost the client');
+        $this->assertTrue($queries->getClients($admin)->contains('id', $case->id), 'getClients() delegation lost the case intake record');
     }
 
     /** An agency user is scoped out of reference data and their own sheets. */
@@ -102,5 +101,28 @@ class DataExportSheetsTest extends TestCase
         $agency = User::factory()->create(['role' => UserRole::AGENCY->value]);
 
         $this->assertCount(0, (new DataExportQueries)->getUsers($agency));
+    }
+
+    #[Test]
+    public function independent_case_snapshots_export_decrypted_fields_and_unsplit_representative_name(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $owner = User::factory()->create(['role' => UserRole::OFW->value]);
+        foreach (['Japan', 'Canada'] as $country) {
+            CaseFile::factory()->create([
+                'user_id' => $admin->id, 'ofw_user_id' => $owner->id, 'status' => 'OPEN',
+                'date_of_birth' => '1990-06-15', 'intake_date' => '2026-06-14',
+                'employment_country' => $country, 'address_street' => 'Private street',
+                'nok_name' => 'Single unsplit representative', 'nok_contact_number' => '09123456789',
+            ]);
+        }
+        $queries = new DataExportQueries;
+        $rows = $queries->getClientsExport($admin);
+        $this->assertCount(2, $rows);
+        $this->assertEqualsCanonicalizing(['Japan', 'Canada'], $rows->pluck('previous_country')->all());
+        $this->assertSame([35, 35], $rows->pluck('age')->all());
+        $this->assertStringContainsString('Private street', $rows->first()->full_address);
+        $this->assertSame('Single unsplit representative', $queries->getNextOfKins($admin)->first()->name);
+        $this->assertSame('09123456789', $queries->getNextOfKins($admin)->first()->phone_number);
     }
 }

@@ -4,8 +4,8 @@ namespace Tests\Feature;
 
 use App\Enums\UserRole;
 use App\Models\Agency;
+use App\Models\CaseCategory;
 use App\Models\CaseFile;
-use App\Models\Client;
 use App\Models\Referral;
 use App\Models\ReferralServiceRequirement;
 use App\Models\Service;
@@ -33,10 +33,9 @@ class ReferralServiceAssignmentTest extends TestCase
         parent::setUp();
 
         $this->caseManager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-        $client = Client::factory()->create(['email' => 'ofw@example.com']);
-        $this->case = CaseFile::factory()->create([
+        $this->case = CaseFile::factory()->withIntake()->create([
             'user_id' => $this->caseManager->id,
-            'client_id' => $client->id,
+            'email' => 'ofw@example.com',
             'status' => 'OPEN',
         ]);
 
@@ -58,6 +57,9 @@ class ReferralServiceAssignmentTest extends TestCase
     public function test_case_manager_creates_referral_with_no_services(): void
     {
         $response = $this->actingAsWithMfa($this->caseManager)->post(route('referrals.store'), [
+            'category_id' => CaseCategory::factory()->create()->id,
+            'concern' => 'Assistance requested',
+            'override_reason' => 'Agency selected for this assistance',
             'case_id' => $this->case->id,
             'agcy_id' => $this->agency->id,
         ]);

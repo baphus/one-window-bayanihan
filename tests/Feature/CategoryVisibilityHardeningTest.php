@@ -6,9 +6,7 @@ use App\Enums\UserRole;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\SetPostgresSession;
 use App\Models\Agency;
-use App\Models\AuditLog;
 use App\Models\CaseFile;
-use App\Models\Client;
 use App\Models\Referral;
 use App\Models\User;
 use App\Services\Export\DataExportQueries;
@@ -27,23 +25,14 @@ class CategoryVisibilityHardeningTest extends TestCase
         $this->withoutMiddleware(SetPostgresSession::class);
     }
 
-    public function test_agency_user_without_agency_gets_no_client_or_referral_list_count_or_export_data(): void
+    public function test_agency_user_without_agency_gets_no_referral_list_count_or_export_data(): void
     {
         $user = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => null]);
         $agency = Agency::factory()->create();
-        $client = Client::factory()->create();
-        $case = CaseFile::factory()->create(['client_id' => $client->id]);
+        $case = CaseFile::factory()->create();
         Referral::factory()->create(['case_id' => $case->id, 'agcy_id' => $agency->id]);
 
-        $clientPage = $this->actingAsWithMfa($user)->get(route('clients.index'));
-        $clientPage->assertStatus(200)
-            ->assertInertia(fn ($page) => $page
-                ->has('clients.data', 0)
-                ->where('stats.total_clients', 0)
-                ->where('stats.total_referrals', 0));
-
-        $this->actingAsWithMfa($user)->getJson(route('clients.export-count'))
-            ->assertOk()->assertJson(['count' => 0]);
+        $this->actingAsWithMfa($user)->get('/clients')->assertNotFound();
 
         $referralPage = $this->actingAsWithMfa($user)->get(route('referrals.index'));
         $referralPage->assertStatus(200)
@@ -55,8 +44,6 @@ class CategoryVisibilityHardeningTest extends TestCase
             ->assertOk()->assertJson(['count' => 0]);
 
         $exports = new DataExportQueries;
-        $this->assertCount(0, $exports->getClientsExport($user));
-        $this->assertSame(0, $exports->countClientsExport($user));
         $this->assertCount(0, $exports->getReferralsExport($user));
         $this->assertSame(0, $exports->countReferralsExport($user));
 
@@ -64,62 +51,9 @@ class CategoryVisibilityHardeningTest extends TestCase
         $this->assertSame(0, $stats['total_referrals']);
     }
 
-    public function test_client_detail_uses_authorized_case_and_excludes_foreign_dependents(): void
+    public function test_retired_client_detail_route_returns_not_found(): void
     {
-        $agency = Agency::factory()->create();
-        $foreignAgency = Agency::factory()->create();
-        $viewer = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id]);
-        $foreignManager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-        // Client profile requires a published client: linked account + live OPEN case.
-        $client = Client::factory()->create(['user_id' => User::factory()->create()->id]);
-
-        $visibleCase = CaseFile::factory()->create([
-            'client_id' => $client->id,
-            'status' => 'OPEN',
-            'created_at' => now()->subDay(),
-        ]);
-        $foreignNewestCase = CaseFile::factory()->create([
-            'client_id' => $client->id,
-            'user_id' => $foreignManager->id,
-            'status' => 'OPEN',
-            'created_at' => now(),
-        ]);
-
-        $visibleReferral = Referral::factory()->create([
-            'case_id' => $visibleCase->id,
-            'agcy_id' => $agency->id,
-        ]);
-        $foreignReferral = Referral::factory()->create([
-            'case_id' => $foreignNewestCase->id,
-            'agcy_id' => $foreignAgency->id,
-        ]);
-
-        $visibleCaseLog = $this->audit($viewer, 'case', $visibleCase->id, 'Visible case audit');
-        $visibleReferralLog = $this->audit($viewer, 'referral', $visibleReferral->id, 'Visible referral audit');
-        $foreignCaseLog = $this->audit($viewer, 'case', $foreignNewestCase->id, 'Foreign case audit');
-        $foreignReferralLog = $this->audit($viewer, 'referral', $foreignReferral->id, 'Foreign referral audit');
-
-        $response = $this->actingAsWithMfa($viewer)
-            ->get(route('clients.show', $client));
-
-        $response->assertStatus(200)
-            ->assertInertia(fn ($page) => $page
-                ->where('client.case_file.id', $visibleCase->id)
-                ->where('client.case_file.referrals', function ($referrals) use ($visibleReferral, $foreignReferral) {
-                    $ids = collect($referrals)->pluck('id')->all();
-
-                    return $ids === [$visibleReferral->id]
-                        && ! in_array($foreignReferral->id, $ids, true);
-                })
-                ->where('auditLogs', function ($logs) use ($visibleCaseLog, $visibleReferralLog, $foreignCaseLog, $foreignReferralLog) {
-                    $ids = collect($logs)->pluck('id')->all();
-
-                    return in_array($visibleCaseLog, $ids, true)
-                        && in_array($visibleReferralLog, $ids, true)
-                        && ! in_array($foreignCaseLog, $ids, true)
-                        && ! in_array($foreignReferralLog, $ids, true)
-                        && ! array_key_exists('description', $logs[0]);
-                }));
+        $this->get('/clients/00000000-0000-0000-0000-000000000000')->assertNotFound();
     }
 
     public function test_case_manager_list_stats_and_export_count_are_scoped_to_viewer(): void
@@ -210,17 +144,5 @@ class CategoryVisibilityHardeningTest extends TestCase
 
         $this->assertSame(1, $service->getReferralStats(null, UserRole::CASE_MANAGER->value, $manager->id)['total_referrals']);
         $this->assertSame(1, $service->getReferralStats($agency->id, UserRole::AGENCY->value, null)['total_referrals']);
-    }
-
-    private function audit(User $user, string $module, string $entityId, string $description): string
-    {
-        return (string) AuditLog::create([
-            'user_id' => $user->id,
-            'action' => 'UPDATE',
-            'module' => $module,
-            'entity_id' => $entityId,
-            'description' => $description,
-            'timestamp' => now(),
-        ])->id;
     }
 }

@@ -2,19 +2,17 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Http\Requests\StoreCaseRequest;
-use App\Http\Requests\UpdateCaseRequest;
+use App\Models\Agency;
 use App\Models\CaseCategory;
+use App\Models\CaseDocument;
 use App\Models\CaseFile;
-use App\Models\Client;
+use App\Models\Referral;
 use App\Models\User;
 use App\Services\CaseService;
-use Illuminate\Database\QueryException;
+use App\Services\ReferralService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
@@ -22,228 +20,88 @@ class CategoryIntegrityHardeningTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_both_category_input_shapes_are_rejected_by_requests_and_service(): void
+    private function reviewDocuments(CaseFile $case): array
     {
-        $category = CaseCategory::factory()->create();
-        $data = ['category_id' => $category->id, 'category_ids' => [$category->id]];
-
-        foreach ([StoreCaseRequest::class, UpdateCaseRequest::class] as $requestClass) {
-            $request = $requestClass::create('/', 'POST', $data);
-            $validator = Validator::make($request->all(), $request->rules());
-            $method = new \ReflectionMethod($request, 'withValidator');
-            $method->setAccessible(true);
-            $method->invoke($request, $validator);
-            $this->assertTrue($validator->fails(), $requestClass);
+        $ids = [];
+        foreach (['passport_front_page', 'arrival_stamp', 'oec', 'sworn_affidavit'] as $slot) {
+            $ids[] = CaseDocument::factory()->create(['case_id' => $case->id, 'category' => $slot, 'referral_id' => null])->id;
         }
 
-        $user = User::factory()->create();
-        // OFW Account-First: staff filers must pick a client (or send new_ofw);
-        // without one CaseService throws "No client to file for".
-        $client = Client::factory()->create();
-        $case = app(CaseService::class)->createCase(['category_ids' => [$category->id], 'selected_client_id' => $client->id], $user->id);
+        return $ids;
+    }
+
+    public function test_category_classification_exists_only_on_referrals_and_case_input_is_prohibited(): void
+    {
+        $rules = (new StoreCaseRequest)->rules();
+        $this->assertSame(['prohibited'], $rules['category_id']);
+        $this->assertSame(['prohibited'], $rules['category_ids']);
+
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $target = CaseCategory::factory()->create();
+        $other = CaseCategory::factory()->create();
+        $agency = Agency::factory()->create();
+        $case = CaseFile::factory()->create(['status' => 'OPEN']);
+        $matching = Referral::factory()->create(['case_id' => $case->id, 'agcy_id' => $agency->id, 'category_id' => $target->id]);
+        Referral::factory()->create(['case_id' => $case->id, 'agcy_id' => Agency::factory()->create()->id, 'category_id' => $other->id]);
+        $this->actingAsWithMfa($manager);
+        $this->assertSame([$case->id], app(CaseService::class)->getCases(['category_id' => $target->id])->getCollection()->pluck('id')->all());
+        $this->assertSame([$matching->id], app(ReferralService::class)->getReferrals(['category_id' => $target->id])->getCollection()->pluck('id')->all());
+    }
+
+    public function test_partial_factual_correction_preserves_classification_and_requires_reason(): void
+    {
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $case = CaseFile::factory()->withIntake()->create(['status' => 'OPEN', 'assigned_case_manager_id' => $manager->id]);
+        $category = CaseCategory::factory()->create();
+        $referral = Referral::factory()->create(['case_id' => $case->id, 'category_id' => $category->id, 'agcy_id' => Agency::factory()->create()->id]);
+
         $this->expectException(ValidationException::class);
-        app(CaseService::class)->updateCase($case->id, $data, $user->id);
-    }
-
-    public function test_omitted_partial_update_preserves_assignments(): void
-    {
-        $first = CaseCategory::factory()->create();
-        $second = CaseCategory::factory()->create();
-        $case = CaseFile::factory()->create(['status' => 'OPEN', 'category_id' => $first->id]);
-        $this->link($case, [$first->id, $second->id]);
-
-        app(CaseService::class)->updateCase($case->id, ['summary' => 'touch'], $case->user_id);
-
-        $this->assertEqualsCanonicalizing([$first->id, $second->id], $case->fresh()->categories()->pluck('case_categories.id')->all());
-        $this->assertSame($first->id, $case->fresh()->category_id);
-    }
-
-    public function test_published_case_cannot_be_cleared(): void
-    {
-        $user = User::factory()->create();
-        $category = CaseCategory::factory()->create();
-        $case = CaseFile::factory()->create(['status' => 'OPEN', 'category_id' => $category->id]);
-        $this->link($case, [$category->id]);
-
-        foreach ([['category_ids' => []], ['category_id' => null]] as $input) {
-            try {
-                app(CaseService::class)->updateCase($case->id, $input, $user->id);
-                $this->fail('Expected category clearing to fail.');
-            } catch (ValidationException) {
-                $this->addToAssertionCount(1);
-            }
-        }
-    }
-
-    public function test_legacy_scalar_input_remains_primary_and_is_linked(): void
-    {
-        $user = User::factory()->create();
-        $category = CaseCategory::factory()->create();
-        $client = Client::factory()->create();
-        $case = app(CaseService::class)->createCase(['category_id' => $category->id, 'selected_client_id' => $client->id], $user->id);
-
-        $this->assertSame($category->id, $case->category_id);
-        $this->assertSame([$category->id], $case->categories()->pluck('case_categories.id')->all());
-    }
-
-    public function test_primary_retains_then_replaces_deterministically_and_always_belongs_to_pivot(): void
-    {
-        $user = User::factory()->create();
-        $retained = CaseCategory::factory()->create(['name' => 'Zed', 'sort_order' => 99]);
-        $replacement = CaseCategory::factory()->create(['name' => 'Alpha', 'sort_order' => 2]);
-        $tie = CaseCategory::factory()->create(['name' => 'Beta', 'sort_order' => 2]);
-        $client = Client::factory()->create();
-        $case = app(CaseService::class)->createCase([
-            'category_id' => $retained->id,
-            'selected_client_id' => $client->id,
-        ], $user->id);
-
-        app(CaseService::class)->updateCase($case->id, [
-            'category_ids' => [$retained->id, $replacement->id],
-        ], $user->id);
-        app(CaseService::class)->updateCase($case->id, [
-            'category_ids' => [$replacement->id, $retained->id, $tie->id],
-        ], $user->id);
-        $this->assertSame($retained->id, $case->fresh()->category_id);
-
-        app(CaseService::class)->updateCase($case->id, [
-            'category_ids' => [$tie->id, $replacement->id],
-        ], $user->id);
-        $fresh = $case->fresh();
-        $this->assertSame($replacement->id, $fresh->category_id);
-        $this->assertContains($fresh->category_id, $fresh->categories->pluck('id')->all());
-    }
-
-    public function test_approve_rejects_categoryless_and_inactive_assignments(): void
-    {
-        $user = User::factory()->create();
-        $service = app(CaseService::class);
-        // OFW Account-First: resolved via selected_client_id for staff filers.
-        $client = Client::factory()->create();
-        $categoryless = $service->createCase(['selected_client_id' => $client->id], $user->id);
         try {
-            $service->approveCase($categoryless->id, $user->id);
-            $this->fail('Expected categoryless approve to fail.');
-        } catch (ValidationException) {
-            $this->addToAssertionCount(1);
-        }
-
-        $category = CaseCategory::factory()->create();
-        $draft = $service->createCase(['category_id' => $category->id, 'selected_client_id' => $client->id], $user->id);
-        $category->update(['is_active' => false]);
-        try {
-            $service->approveCase($draft->id, $user->id);
-            $this->fail('Expected inactive-category approve to fail.');
-        } catch (ValidationException) {
-            $this->addToAssertionCount(1);
-        }
-    }
-
-    public function test_undeployed_pivot_migration_backfills_scalar_only_cases(): void
-    {
-        $category = CaseCategory::factory()->create();
-        $case = CaseFile::factory()->create(['category_id' => $category->id]);
-        Schema::drop('case_category');
-
-        // INLINE: 2026_07_17_000001_create_case_category_pivot_table.php up()
-        Schema::create('case_category', function ($table) {
-            $table->uuid('id')->primary()->default(DB::raw('gen_random_uuid()'));
-            $table->uuid('case_id');
-            $table->uuid('case_category_id');
-            $table->timestamps();
-
-            $table->foreign('case_id')->references('id')->on('cases')->onDelete('cascade');
-            $table->foreign('case_category_id')->references('id')->on('case_categories')->onDelete('restrict');
-            $table->index('case_id');
-            $table->index('case_category_id');
-            $table->unique(['case_id', 'case_category_id']);
-        });
-
-        DB::statement(<<<'SQL'
-            INSERT INTO case_category (case_id, case_category_id, created_at, updated_at)
-            SELECT id, category_id, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
-            FROM cases
-            WHERE category_id IS NOT NULL
-        SQL);
-
-        $this->assertDatabaseHas('case_category', ['case_id' => $case->id, 'case_category_id' => $category->id]);
-    }
-
-    public function test_pivot_uniqueness_is_enforced(): void
-    {
-        $category = CaseCategory::factory()->create();
-        $case = CaseFile::factory()->create(['category_id' => $category->id]);
-        $this->link($case, [$category->id]);
-
-        $this->expectException(QueryException::class);
-        DB::table('case_category')->insert([
-            'id' => (string) Str::uuid(),
-            'case_id' => $case->id,
-            'case_category_id' => $category->id,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-    }
-
-    public function test_second_postgresql_connection_cannot_update_a_case_while_its_lock_is_held(): void
-    {
-        $defaultConnection = config('database.default');
-        $lockConnection = 'phase1_lock_contention';
-        config(["database.connections.{$lockConnection}" => config("database.connections.{$defaultConnection}")]);
-        DB::purge($lockConnection);
-        DB::setDefaultConnection($lockConnection);
-
-        $user = User::factory()->create();
-        $category = CaseCategory::factory()->create();
-        $case = CaseFile::factory()->create(['status' => 'OPEN', 'category_id' => $category->id]);
-        $this->link($case, [$category->id]);
-
-        DB::setDefaultConnection($defaultConnection);
-        $holder = DB::connection($defaultConnection);
-        $contender = DB::connection($lockConnection);
-        $holder->beginTransaction();
-        DB::setDefaultConnection($lockConnection);
-
-        try {
-            $holder->select('SELECT id FROM cases WHERE id = ? FOR UPDATE', [$case->id]);
-            $contender->statement("SET lock_timeout = '250ms'");
-
-            $thrown = null;
-            try {
-                app(CaseService::class)->updateCase($case->id, [
-                    'category_ids' => [$category->id],
-                ], $user->id);
-            } catch (QueryException $exception) {
-                $thrown = $exception;
-            }
-
-            $this->assertNotNull($thrown);
-            $this->assertSame('55P03', $thrown->getCode());
+            app(CaseService::class)->updateCase($case->id, ['first_name' => 'Changed'], $manager->id);
         } finally {
-            DB::setDefaultConnection($defaultConnection);
-            $holder->rollBack();
-            $contender->table('cases')->where('id', $case->id)->delete();
-            $contender->table('case_categories')->where('id', $category->id)->delete();
-            $contender->table('users')->where('id', $user->id)->delete();
-            DB::purge($lockConnection);
+            $this->assertSame('Juan', $case->fresh()->first_name);
+            $this->assertSame($category->id, $referral->fresh()->category_id);
         }
     }
 
-    public function test_deleting_a_case_cascades_its_category_assignments(): void
+    public function test_assigned_manager_correction_does_not_mutate_referral_classification(): void
     {
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $case = CaseFile::factory()->withIntake()->create(['status' => 'OPEN', 'assigned_case_manager_id' => $manager->id]);
         $category = CaseCategory::factory()->create();
-        $case = CaseFile::factory()->create(['category_id' => $category->id]);
-        $this->link($case, [$category->id]);
+        $referral = Referral::factory()->create(['case_id' => $case->id, 'category_id' => $category->id, 'agcy_id' => Agency::factory()->create()->id]);
 
-        $case->forceDelete();
+        app(CaseService::class)->updateCase($case->id, ['first_name' => 'Corrected', 'correction_reason' => 'Verified transcription'], $manager->id);
 
-        $this->assertDatabaseMissing('case_category', ['case_id' => $case->id]);
+        $this->assertSame('Corrected', $case->fresh()->first_name);
+        $this->assertSame($category->id, $referral->fresh()->category_id);
     }
 
-    private function link(CaseFile $case, array $categoryIds): void
+    public function test_approval_requires_confirmation_and_documents_not_category_assignment(): void
     {
-        foreach ($categoryIds as $categoryId) {
-            $case->categories()->attach($categoryId);
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $case = CaseFile::factory()->withIntake()->pendingReview()->create(['return_reason' => 'OTHERS', 'assigned_case_manager_id' => $manager->id]);
+        $ids = $this->reviewDocuments($case);
+        try {
+            app(CaseService::class)->approveCase($case->id, $manager->id, ['confirmed_assessments' => [], 'reviewed_document_ids' => $ids]);
+            $this->fail('Approval requires at least one confirmed assessment.');
+        } catch (ValidationException) {
+            $this->addToAssertionCount(1);
         }
+        $this->assertSame(CaseFile::STATUS_PENDING_REVIEW, $case->fresh()->status);
+        $this->assertSame('OPEN', app(CaseService::class)->approveCase($case->id, $manager->id, [
+            'confirmed_assessments' => ['LEGAL_ASSISTANCE'], 'reviewed_document_ids' => $ids,
+        ])->status);
+    }
+
+    public function test_referral_category_reference_is_validated_independently(): void
+    {
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $case = CaseFile::factory()->create(['status' => 'OPEN']);
+        $agency = Agency::factory()->create();
+        $this->expectException(ValidationException::class);
+        app(ReferralService::class)->createReferral([
+            'case_id' => $case->id, 'agcy_id' => $agency->id, 'category_id' => fake()->uuid(), 'concern' => 'Request assistance',
+        ], $manager->id);
     }
 }

@@ -7,7 +7,6 @@ use App\Mail\ClientUpdateMail;
 use App\Models\Agency;
 use App\Models\CaseCategory;
 use App\Models\CaseFile;
-use App\Models\Client;
 use App\Models\Referral;
 use App\Models\User;
 use App\Notifications\ReferralStatusChanged;
@@ -160,14 +159,14 @@ class ReferralStatusChangedMailTest extends TestCase
     public function test_email_includes_case_context_and_referral_notes(): void
     {
         $user = User::factory()->create(['email' => 'cm@example.com']);
-        $client = Client::factory()->create(['first_name' => 'Maria', 'last_name' => 'Santos']);
-        $case = CaseFile::factory()->create(['client_id' => $client->id]);
+        $case = CaseFile::factory()->withIntake()->create(['first_name' => 'Maria', 'last_name' => 'Santos']);
 
         $category = CaseCategory::factory()->create(['name' => 'Repatriation']);
-        $case->categories()->sync([$category->id]);
 
         $referral = Referral::factory()->create([
             'case_id' => $case->id,
+            'category_id' => $category->id,
+            'concern' => 'Passport assistance',
             'required_services' => 'Passport assistance',
             'notes' => 'Client submitted complete documents.',
         ]);
@@ -286,16 +285,19 @@ class ReferralStatusChangedMailTest extends TestCase
             'role' => UserRole::CASE_MANAGER->value,
             'email' => 'cm@example.com',
         ]);
-        $client = Client::factory()->create(['email' => 'ofw@example.com']);
-        $case = CaseFile::factory()->create([
+        $case = CaseFile::factory()->withIntake()->create([
             'user_id' => $caseManager->id,
-            'client_id' => $client->id,
+            'email' => 'ofw@example.com',
             'status' => 'OPEN',
         ]);
         $agency = Agency::factory()->create();
 
         $referralService = app(ReferralService::class);
+        $category = CaseCategory::factory()->create();
         $referral = $referralService->createReferral([
+            'category_id' => $category->id,
+            'concern' => 'Assistance requested',
+            'override_reason' => 'Agency selected for this assistance',
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
         ], $caseManager->id);
@@ -317,16 +319,19 @@ class ReferralStatusChangedMailTest extends TestCase
             'role' => UserRole::CASE_MANAGER->value,
             'email' => 'cm@example.com',
         ]);
-        $client = Client::factory()->create(['email' => 'ofw@example.com']);
-        $case = CaseFile::factory()->create([
+        $case = CaseFile::factory()->withIntake()->create([
             'user_id' => $caseManager->id,
-            'client_id' => $client->id,
+            'email' => 'ofw@example.com',
             'status' => 'OPEN',
         ]);
         $agency = Agency::factory()->create();
 
         $referralService = app(ReferralService::class);
+        $category = CaseCategory::factory()->create();
         $referral = $referralService->createReferral([
+            'category_id' => $category->id,
+            'concern' => 'Assistance requested',
+            'override_reason' => 'Agency selected for this assistance',
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
         ], $caseManager->id);
@@ -346,16 +351,19 @@ class ReferralStatusChangedMailTest extends TestCase
             'role' => UserRole::CASE_MANAGER->value,
             'email' => 'cm@example.com',
         ]);
-        $client = Client::factory()->create(['email' => 'ofw@example.com']);
-        $case = CaseFile::factory()->create([
+        $case = CaseFile::factory()->withIntake()->create([
             'user_id' => $caseManager->id,
-            'client_id' => $client->id,
+            'email' => 'ofw@example.com',
             'status' => 'OPEN',
         ]);
         $agency = Agency::factory()->create();
 
         $referralService = app(ReferralService::class);
+        $category = CaseCategory::factory()->create();
         $referral = $referralService->createReferral([
+            'category_id' => $category->id,
+            'concern' => 'Assistance requested',
+            'override_reason' => 'Agency selected for this assistance',
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
         ], $caseManager->id);
@@ -380,16 +388,19 @@ class ReferralStatusChangedMailTest extends TestCase
             'role' => UserRole::CASE_MANAGER->value,
             'email' => 'cm@example.com',
         ]);
-        $client = Client::factory()->create(['email' => null]);
-        $case = CaseFile::factory()->create([
+        $case = CaseFile::factory()->withIntake()->create([
             'user_id' => $caseManager->id,
-            'client_id' => $client->id,
+            'email' => null,
             'status' => 'OPEN',
         ]);
         $agency = Agency::factory()->create();
 
         $referralService = app(ReferralService::class);
+        $category = CaseCategory::factory()->create();
         $referral = $referralService->createReferral([
+            'category_id' => $category->id,
+            'concern' => 'Assistance requested',
+            'override_reason' => 'Agency selected for this assistance',
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
         ], $caseManager->id);
@@ -410,16 +421,19 @@ class ReferralStatusChangedMailTest extends TestCase
             'role' => UserRole::CASE_MANAGER->value,
             'email' => 'cm@example.com',
         ]);
-        $client = Client::factory()->create(['email' => 'ofw@example.com']);
-        $case = CaseFile::factory()->create([
+        $case = CaseFile::factory()->withIntake()->create([
             'user_id' => $caseManager->id,
-            'client_id' => $client->id,
+            'email' => 'ofw@example.com',
             'status' => 'OPEN',
         ]);
         $agency = Agency::factory()->create();
 
         $referralService = app(ReferralService::class);
+        $category = CaseCategory::factory()->create();
         $referral = $referralService->createReferral([
+            'category_id' => $category->id,
+            'concern' => 'Assistance requested',
+            'override_reason' => 'Agency selected for this assistance',
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
         ], $caseManager->id);

@@ -5,16 +5,16 @@ namespace Tests\Feature;
 use App\Enums\UserRole;
 use App\Http\Middleware\EnsureMfaSession;
 use App\Http\Middleware\VerifyTurnstile;
-use App\Models\CaseCategory;
 use App\Models\CaseFile;
-use App\Models\CaseIssue;
-use App\Models\Client;
 use App\Models\User;
+use App\Services\IntakeDocumentService;
 use App\Services\MfaPendingState;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -33,16 +33,11 @@ class DateOfEmploymentValidationTest extends TestCase
 
     private User $user;
 
-    private CaseCategory $category;
-
-    private CaseIssue $caseIssue;
-
-    private Client $client;
-
     protected function setUp(): void
     {
         parent::setUp();
         Mail::fake();
+        Storage::fake('object-storage');
         $this->withoutMiddleware([
             VerifyTurnstile::class,
             PreventRequestForgery::class,
@@ -60,12 +55,6 @@ class DateOfEmploymentValidationTest extends TestCase
                 'credential_fingerprint' => hash('sha256', (string) $this->user->password),
             ],
         ]);
-        $this->category = CaseCategory::factory()->create(['is_active' => true]);
-        $this->caseIssue = CaseIssue::create([
-            'name' => 'Unpaid wages',
-            'is_active' => true,
-        ]);
-        $this->client = Client::factory()->create();
     }
 
     private function dateOfBirth(): string
@@ -82,7 +71,7 @@ class DateOfEmploymentValidationTest extends TestCase
         $this->actingAsWithMfa($this->user)
             ->postJson(route('cases.store'), $this->validPublishData($start, $this->dayAfter($start)))
             ->assertStatus(422)
-            ->assertJsonValidationErrors('employment.start_date');
+            ->assertJsonValidationErrors('employment_start_date');
     }
 
     #[Test]
@@ -94,7 +83,7 @@ class DateOfEmploymentValidationTest extends TestCase
         $this->actingAsWithMfa($this->user)
             ->postJson(route('cases.store'), $this->validPublishData($start, $start))
             ->assertStatus(422)
-            ->assertJsonValidationErrors('employment.start_date');
+            ->assertJsonValidationErrors('employment_start_date');
     }
 
     #[Test]
@@ -113,14 +102,14 @@ class DateOfEmploymentValidationTest extends TestCase
     {
         // A 21-year-old reporting a 10-year span would have started at age 11.
         $dob = now()->subYears(21)->toDateString();
-        $data = array_replace_recursive($this->validPublishData(now()->subYears(10)->toDateString(), now()->toDateString()), [
-            'client' => ['date_of_birth' => $dob],
+        $data = array_replace($this->validPublishData(now()->subYears(10)->toDateString(), now()->toDateString()), [
+            'date_of_birth' => $dob,
         ]);
 
         $this->actingAsWithMfa($this->user)
             ->postJson(route('cases.store'), $data)
             ->assertStatus(422)
-            ->assertJsonValidationErrors('employment.start_date');
+            ->assertJsonValidationErrors('employment_start_date');
     }
 
     #[Test]
@@ -128,8 +117,8 @@ class DateOfEmploymentValidationTest extends TestCase
     {
         // The same 21-year-old may report up to a 6-year span (start at 15).
         $dob = now()->subYears(21)->toDateString();
-        $data = array_replace_recursive($this->validPublishData(now()->parse($dob)->addYears(15)->toDateString(), now()->toDateString()), [
-            'client' => ['date_of_birth' => $dob],
+        $data = array_replace($this->validPublishData(now()->parse($dob)->addYears(15)->toDateString(), now()->toDateString()), [
+            'date_of_birth' => $dob,
         ]);
 
         $response = $this->actingAsWithMfa($this->user)->post(route('cases.store'), $data);
@@ -157,7 +146,7 @@ class DateOfEmploymentValidationTest extends TestCase
         $this->actingAsWithMfa($this->user)
             ->postJson(route('cases.store'), $this->validPublishData($start, $start))
             ->assertStatus(422)
-            ->assertJsonValidationErrors('employment.start_date');
+            ->assertJsonValidationErrors('employment_start_date');
     }
 
     #[Test]
@@ -168,7 +157,7 @@ class DateOfEmploymentValidationTest extends TestCase
         $this->actingAsWithMfa($this->user)
             ->postJson(route('cases.store'), $this->validPublishData($start, '2019-12-31'))
             ->assertStatus(422)
-            ->assertJsonValidationErrors('employment.end_date');
+            ->assertJsonValidationErrors('employment_end_date');
     }
 
     #[Test]
@@ -187,15 +176,14 @@ class DateOfEmploymentValidationTest extends TestCase
         $this->actingAsWithMfa($this->user)
             ->postJson(route('cases.store'), $this->validPublishData('2020-01-01', now()->addDay()->toDateString()))
             ->assertStatus(422)
-            ->assertJsonValidationErrors('employment.end_date');
+            ->assertJsonValidationErrors('employment_end_date');
     }
 
     #[Test]
     public function publish_accepts_present_employment_without_end(): void
     {
-        $data = array_replace_recursive($this->validPublishData('2020-01-01', now()->toDateString()), [
-            'employment' => ['is_present' => true, 'end_date' => null],
-        ]);
+        $data = $this->validPublishData('2020-01-01', null);
+        $data['employment_end_date'] = null;
 
         $response = $this->actingAsWithMfa($this->user)->post(route('cases.store'), $data);
 
@@ -210,41 +198,40 @@ class DateOfEmploymentValidationTest extends TestCase
 
     /**
      * A complete, publishable OFW payload. callers override $start/$end, or
-     * merge extra fields (e.g. is_present) through array_replace_recursive.
+     * merge extra fields through array_replace.
      */
-    private function validPublishData(string $start, string $end): array
+    private function validPublishData(string $start, ?string $end): array
     {
         return [
-            'selected_client_id' => $this->client->id,
-            'category_ids' => [$this->category->id],
-            'case_issue_id' => $this->caseIssue->id,
-            'client' => [
-                'first_name' => 'Juan',
-                'last_name' => 'Dela Cruz',
-                'date_of_birth' => $this->dateOfBirth(),
-                'sex' => 'MALE',
-                'email' => 'employment.test@example.com',
-                'contact_number' => '09171234567',
-            ],
-            'address' => [
-                'region' => 'Region VII',
-                'province' => 'Cebu',
-                'city_municipality' => 'Cebu City',
-                'barangay' => 'Barangay 1',
-            ],
-            'employment' => [
-                'employer_name' => 'ACME Corp',
-                'last_country' => 'UAE',
-                'last_position' => 'Engineer',
-                'date_of_arrival' => '2024-01-15',
-                'start_date' => $start,
-                'end_date' => $end,
-                'is_present' => false,
-            ],
-            'next_of_kin' => [],
-            'vulnerability_indicator' => 'None',
+            'client_type' => 'OFW',
+            'intake_date' => now()->toDateString(),
+            'first_name' => 'Juan',
+            'last_name' => 'Dela Cruz',
+            'date_of_birth' => $this->dateOfBirth(),
+            'sex' => 'MALE',
+            'email' => 'employment.test@example.com',
+            'contact_number' => '09171234567',
+            'civil_status' => 'SINGLE',
+            'deployment_mode' => 'AGENCY_HIRED',
+            'employment_status' => 'RETURNED',
+            'address_region' => 'Central Visayas',
+            'address_city_municipality' => 'Cebu City',
+            'address_barangay' => 'Lahug',
+            'employment_employer_name' => 'ACME Corp',
+            'employment_last_country' => 'UAE',
+            'employment_last_position' => 'Engineer',
+            'employment_country' => 'UAE',
+            'employment_date_of_arrival' => '2024-01-15',
+            'employment_start_date' => $start,
+            'employment_end_date' => $end,
             'summary' => 'Employment date validation test',
-            'consent' => true,
+            'vulnerability_indicator' => 'None',
+            'return_reason' => 'OTHERS',
+            'consent_text_version' => IntakeDocumentService::CONSENT_VERSION,
+            'consent_method' => 'WRITTEN',
+            'consent_evidence' => 'Signed consent form on file',
+            'documents' => collect(['passport_front_page', 'arrival_stamp', 'oec', 'sworn_affidavit'])
+                ->mapWithKeys(fn ($slot) => [$slot => UploadedFile::fake()->image($slot.'.jpg')])->all(),
         ];
     }
 }

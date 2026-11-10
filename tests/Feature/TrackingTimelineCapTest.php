@@ -23,8 +23,6 @@ class TrackingTimelineCapTest extends TestCase
     private function trackCase(CaseFile $case): CaseFile
     {
         return $case->load([
-            'client.addresses',
-            'client.employments',
             'referrals.agency',
             'referrals.services',
             'referrals.milestones.user',
@@ -60,7 +58,7 @@ class TrackingTimelineCapTest extends TestCase
 
     public function test_timeline_is_capped_at_two_hundred_events(): void
     {
-        $case = CaseFile::factory()->create();
+        $case = CaseFile::factory()->withIntake()->create();
         $this->seedEvents($case, self::CAP + 75);
 
         $titles = $this->timelineTitles($case);
@@ -70,7 +68,7 @@ class TrackingTimelineCapTest extends TestCase
 
     public function test_the_cap_keeps_the_newest_events_not_the_oldest(): void
     {
-        $case = CaseFile::factory()->create();
+        $case = CaseFile::factory()->withIntake()->create();
         $this->seedEvents($case, self::CAP + 75);
 
         $titles = $this->timelineTitles($case);
@@ -84,7 +82,7 @@ class TrackingTimelineCapTest extends TestCase
 
     public function test_presentation_order_stays_oldest_first(): void
     {
-        $case = CaseFile::factory()->create();
+        $case = CaseFile::factory()->withIntake()->create();
         $this->seedEvents($case, self::CAP + 75);
 
         $titles = $this->timelineTitles($case);
@@ -99,7 +97,7 @@ class TrackingTimelineCapTest extends TestCase
 
     public function test_events_under_the_cap_are_all_returned_in_order(): void
     {
-        $case = CaseFile::factory()->create();
+        $case = CaseFile::factory()->withIntake()->create();
         $this->seedEvents($case, 12);
 
         $titles = $this->timelineTitles($case);
@@ -111,7 +109,7 @@ class TrackingTimelineCapTest extends TestCase
 
     public function test_same_instant_events_keep_a_stable_order(): void
     {
-        $case = CaseFile::factory()->create();
+        $case = CaseFile::factory()->withIntake()->create();
         $at = now()->subHours(2);
 
         foreach (['Alpha', 'Bravo', 'Charlie'] as $title) {

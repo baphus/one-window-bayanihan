@@ -5,15 +5,12 @@ namespace Tests\Feature\Reports;
 use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\CaseFile;
-use App\Models\Client;
 use App\Models\Referral;
 use App\Models\User;
 use App\Services\Reports\CaseMetrics;
 use App\Services\Reports\ReferralMetrics;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use Tests\TestCase;
 
 /**
@@ -32,24 +29,14 @@ class ManilaReportWindowsTest extends TestCase
         parent::tearDown();
     }
 
-    private function createAddress(Client $client, string $province, bool $deleted = false): void
-    {
-        DB::table('client_addresses')->insert([
-            'id' => (string) Str::uuid(),
-            'client_id' => $client->id,
-            'province' => $province,
-            'city_municipality' => 'Test City',
-            'is_deleted' => $deleted,
-            'deleted_at' => $deleted ? now() : null,
-        ]);
-    }
-
-    private function createCaseAt(string $utc): CaseFile
+    private function createCaseAt(string $utc, ?string $province = null): CaseFile
     {
         return CaseFile::factory()->create([
             'status' => 'OPEN',
             'created_at' => $utc,
             'updated_at' => $utc,
+            'address_province' => $province,
+            'address_city_municipality' => $province ? 'Test City' : null,
         ]);
     }
 
@@ -147,13 +134,10 @@ class ManilaReportWindowsTest extends TestCase
         $this->assertSame('2026-01-31 16:00:00', $this->asUtcString($bindings[1]));
     }
 
-    public function test_geo_case_filter_counts_once_and_ignores_deleted_addresses(): void
+    public function test_geo_case_filter_matches_case_address_snapshot(): void
     {
         $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-        $client = Client::factory()->create();
-        $case = CaseFile::factory()->create(['user_id' => $manager->id, 'client_id' => $client->id, 'status' => 'OPEN']);
-        $this->createAddress($client, 'Active Province');
-        $this->createAddress($client, 'Deleted Province', true);
+        $this->createCaseAt('2026-01-01 00:00:00', 'Active Province');
         $metrics = app(CaseMetrics::class);
 
         $active = $metrics->getCaseStatusDistribution(
@@ -167,19 +151,17 @@ class ManilaReportWindowsTest extends TestCase
         $this->assertSame(0, array_sum($deleted['data']));
     }
 
-    public function test_referral_geo_filter_ignores_deleted_addresses(): void
+    public function test_referral_geo_filter_matches_case_address_snapshot(): void
     {
         $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-        $client = Client::factory()->create();
-        $case = CaseFile::factory()->create(['user_id' => $manager->id, 'client_id' => $client->id, 'status' => 'OPEN']);
+        $case = $this->createCaseAt('2026-01-01 00:00:00', 'Active Province');
         Referral::factory()->pending()->create(['case_id' => $case->id]);
-        $this->createAddress($client, 'Deleted Province', true);
 
         $dist = app(ReferralMetrics::class)->getReferralStatusDistribution(
-            $manager->id, UserRole::CASE_MANAGER->value, province: 'Deleted Province',
+            $manager->id, UserRole::CASE_MANAGER->value, province: 'Active Province',
         );
 
-        $this->assertSame(0, array_sum($dist['data']));
+        $this->assertSame(1, array_sum($dist['data']));
     }
 
     public function test_cycle_buckets_use_exact_seven_fourteen_and_thirty_day_boundaries(): void

@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Enums\UserRole;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\CaseFile;
-use App\Models\Client;
 use App\Models\Referral;
 use App\Models\ReferralClientRequest;
 use App\Models\User;
@@ -28,15 +27,9 @@ class OfwCaseDetailTest extends TestCase
     #[Test]
     public function test_ofw_sees_case_detail(): void
     {
-        $client = Client::factory()->create();
-        $ofwUser = User::factory()->create([
-            'role' => UserRole::OFW->value,
-            'client_id' => $client->id,
-        ]);
+        $ofwUser = User::factory()->create(['role' => UserRole::OFW->value]);
 
-        $case = CaseFile::factory()->open()->create([
-            'client_id' => $client->id,
-        ]);
+        $case = CaseFile::factory()->open()->create(['ofw_user_id' => $ofwUser->id]);
 
         $response = $this->actingAsWithMfa($ofwUser)
             ->withHeader('X-Inertia', 'true')
@@ -49,15 +42,9 @@ class OfwCaseDetailTest extends TestCase
     #[Test]
     public function test_ofw_case_detail_links_to_authenticated_milestones_route(): void
     {
-        $client = Client::factory()->create();
-        $ofwUser = User::factory()->create([
-            'role' => UserRole::OFW->value,
-            'client_id' => $client->id,
-        ]);
+        $ofwUser = User::factory()->create(['role' => UserRole::OFW->value]);
 
-        $case = CaseFile::factory()->open()->create([
-            'client_id' => $client->id,
-        ]);
+        $case = CaseFile::factory()->open()->create(['ofw_user_id' => $ofwUser->id]);
         $referral = Referral::factory()->create(['case_id' => $case->id]);
 
         $response = $this->actingAsWithMfa($ofwUser)
@@ -77,13 +64,9 @@ class OfwCaseDetailTest extends TestCase
     #[Test]
     public function test_ofw_case_detail_exposes_open_client_request_on_the_agency_card(): void
     {
-        $client = Client::factory()->create();
-        $ofwUser = User::factory()->create([
-            'role' => UserRole::OFW->value,
-            'client_id' => $client->id,
-        ]);
+        $ofwUser = User::factory()->create(['role' => UserRole::OFW->value]);
 
-        $case = CaseFile::factory()->open()->create(['client_id' => $client->id]);
+        $case = CaseFile::factory()->open()->create(['ofw_user_id' => $ofwUser->id]);
         // PROCESSING, not FOR_COMPLIANCE: an agency can send a request without
         // gating the referral, and the portal must still surface it.
         $referral = Referral::factory()->processing()->create(['case_id' => $case->id]);
@@ -122,13 +105,9 @@ class OfwCaseDetailTest extends TestCase
     #[Test]
     public function test_ofw_case_detail_hides_terminal_client_requests_from_the_agency_card(): void
     {
-        $client = Client::factory()->create();
-        $ofwUser = User::factory()->create([
-            'role' => UserRole::OFW->value,
-            'client_id' => $client->id,
-        ]);
+        $ofwUser = User::factory()->create(['role' => UserRole::OFW->value]);
 
-        $case = CaseFile::factory()->open()->create(['client_id' => $client->id]);
+        $case = CaseFile::factory()->open()->create(['ofw_user_id' => $ofwUser->id]);
         $referral = Referral::factory()->processing()->create(['case_id' => $case->id]);
         ReferralClientRequest::factory()->create([
             'referral_id' => $referral->id,
@@ -150,17 +129,13 @@ class OfwCaseDetailTest extends TestCase
     #[Test]
     public function test_ofw_case_detail_does_not_expose_another_clients_client_request(): void
     {
-        $client = Client::factory()->create();
-        $ofwUser = User::factory()->create([
-            'role' => UserRole::OFW->value,
-            'client_id' => $client->id,
-        ]);
+        $ofwUser = User::factory()->create(['role' => UserRole::OFW->value]);
 
-        $case = CaseFile::factory()->open()->create(['client_id' => $client->id]);
+        $case = CaseFile::factory()->open()->create(['ofw_user_id' => $ofwUser->id]);
         $referral = Referral::factory()->processing()->create(['case_id' => $case->id]);
 
         $otherCase = CaseFile::factory()->open()->create([
-            'client_id' => Client::factory()->create()->id,
+            'ofw_user_id' => User::factory()->create(['role' => UserRole::OFW->value])->id,
         ]);
         $otherReferral = Referral::factory()->processing()->create(['case_id' => $otherCase->id]);
         $foreignRequest = ReferralClientRequest::factory()->create([
@@ -181,8 +156,7 @@ class OfwCaseDetailTest extends TestCase
     #[Test]
     public function test_ofw_request_projection_does_not_add_a_query_per_referral(): void
     {
-        $client = Client::factory()->create();
-        $case = CaseFile::factory()->open()->create(['client_id' => $client->id]);
+        $case = CaseFile::factory()->open()->create();
         foreach (range(1, 5) as $ignored) {
             $referral = Referral::factory()->processing()->create(['case_id' => $case->id]);
             ReferralClientRequest::factory()->create([
@@ -192,13 +166,10 @@ class OfwCaseDetailTest extends TestCase
         }
 
         $loaded = CaseFile::with([
-            'client.addresses',
-            'client.employments',
-            'client.nextOfKin',
             'referrals.agency',
+            'referrals.category',
             'referrals.services',
             'referrals.milestones.user',
-            'category',
         ])->findOrFail($case->id);
 
         // The eager loads above happen before the log is enabled, so only the
@@ -245,12 +216,8 @@ class OfwCaseDetailTest extends TestCase
         ];
 
         foreach ($scenarios as $label => $arrange) {
-            $client = Client::factory()->create();
-            $ofwUser = User::factory()->create([
-                'role' => UserRole::OFW->value,
-                'client_id' => $client->id,
-            ]);
-            $case = CaseFile::factory()->open()->create(['client_id' => $client->id]);
+            $ofwUser = User::factory()->create(['role' => UserRole::OFW->value]);
+            $case = CaseFile::factory()->open()->create(['ofw_user_id' => $ofwUser->id]);
             $referral = Referral::factory()->processing()->create(['case_id' => $case->id]);
             ReferralClientRequest::factory()->create([
                 'referral_id' => $referral->id,
@@ -274,13 +241,9 @@ class OfwCaseDetailTest extends TestCase
     #[Test]
     public function test_ofw_case_payload_does_not_ship_client_requests_through_the_case_prop(): void
     {
-        $client = Client::factory()->create();
-        $ofwUser = User::factory()->create([
-            'role' => UserRole::OFW->value,
-            'client_id' => $client->id,
-        ]);
+        $ofwUser = User::factory()->create(['role' => UserRole::OFW->value]);
 
-        $case = CaseFile::factory()->open()->create(['client_id' => $client->id]);
+        $case = CaseFile::factory()->open()->create(['ofw_user_id' => $ofwUser->id]);
         $referral = Referral::factory()->processing()->create(['case_id' => $case->id]);
         ReferralClientRequest::factory()->create([
             'referral_id' => $referral->id,
@@ -301,8 +264,7 @@ class OfwCaseDetailTest extends TestCase
         // request row to the browser inside it.
         $caseProp = $response->json('props.case');
         $this->assertArrayNotHasKey('client_requests', $caseProp);
-        $this->assertArrayNotHasKey('clientRequests', $caseProp['referrals'][0]);
-        $this->assertArrayNotHasKey('case_file', $caseProp['referrals'][0]);
+        $this->assertArrayNotHasKey('referrals', $caseProp);
 
         // The request is reachable only through the card's link, never inlined.
         $response->assertDontSee('Private instructions that belong on the request page only.');
@@ -315,8 +277,7 @@ class OfwCaseDetailTest extends TestCase
     #[Test]
     public function test_public_tracking_payload_carries_no_client_request_projection(): void
     {
-        $client = Client::factory()->create();
-        $case = CaseFile::factory()->open()->create(['client_id' => $client->id]);
+        $case = CaseFile::factory()->open()->create(['email' => 'tracked@example.test']);
         $referral = Referral::factory()->processing()->create(['case_id' => $case->id]);
         ReferralClientRequest::factory()->create([
             'referral_id' => $referral->id,
@@ -334,7 +295,7 @@ class OfwCaseDetailTest extends TestCase
         $response = $this->withSession([
             TrackingService::SESSION_KEY => [
                 'tracker_number' => $case->tracker_number,
-                'email' => $client->email,
+                'email' => $case->email,
                 'verified_at' => now()->getTimestamp(),
             ],
         ])->get(route('track.show', ['tracker_number' => $case->tracker_number]));
@@ -350,15 +311,9 @@ class OfwCaseDetailTest extends TestCase
     #[Test]
     public function test_ofw_can_view_agency_milestones_for_own_case(): void
     {
-        $client = Client::factory()->create();
-        $ofwUser = User::factory()->create([
-            'role' => UserRole::OFW->value,
-            'client_id' => $client->id,
-        ]);
+        $ofwUser = User::factory()->create(['role' => UserRole::OFW->value]);
 
-        $case = CaseFile::factory()->open()->create([
-            'client_id' => $client->id,
-        ]);
+        $case = CaseFile::factory()->open()->create(['ofw_user_id' => $ofwUser->id]);
         $referral = Referral::factory()->create(['case_id' => $case->id]);
 
         $response = $this->actingAsWithMfa($ofwUser)
@@ -373,16 +328,12 @@ class OfwCaseDetailTest extends TestCase
     #[Test]
     public function test_ofw_cannot_view_milestones_for_another_clients_case(): void
     {
-        $otherClient = Client::factory()->create();
         $case = CaseFile::factory()->open()->create([
-            'client_id' => $otherClient->id,
+            'ofw_user_id' => User::factory()->create(['role' => UserRole::OFW->value])->id,
         ]);
         $referral = Referral::factory()->create(['case_id' => $case->id]);
 
-        $ofwUser = User::factory()->create([
-            'role' => UserRole::OFW->value,
-            'client_id' => Client::factory()->create()->id,
-        ]);
+        $ofwUser = User::factory()->create(['role' => UserRole::OFW->value]);
 
         $this->actingAsWithMfa($ofwUser)
             ->withHeader('X-Inertia', 'true')
@@ -393,18 +344,10 @@ class OfwCaseDetailTest extends TestCase
     #[Test]
     public function test_ofw_milestones_route_rejects_referral_from_another_case(): void
     {
-        $client = Client::factory()->create();
-        $ofwUser = User::factory()->create([
-            'role' => UserRole::OFW->value,
-            'client_id' => $client->id,
-        ]);
+        $ofwUser = User::factory()->create(['role' => UserRole::OFW->value]);
 
-        $case = CaseFile::factory()->open()->create([
-            'client_id' => $client->id,
-        ]);
-        $otherCase = CaseFile::factory()->open()->create([
-            'client_id' => $client->id,
-        ]);
+        $case = CaseFile::factory()->open()->create(['ofw_user_id' => $ofwUser->id]);
+        $otherCase = CaseFile::factory()->open()->create(['ofw_user_id' => $ofwUser->id]);
         $referral = Referral::factory()->create(['case_id' => $otherCase->id]);
 
         $this->actingAsWithMfa($ofwUser)

@@ -8,7 +8,6 @@ use App\Http\Middleware\SetPostgresSession;
 use App\Models\Agency;
 use App\Models\CaseCategory;
 use App\Models\CaseFile;
-use App\Models\Client;
 use App\Models\Referral;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -26,84 +25,64 @@ class CategoryFilterDeletionHardeningTest extends TestCase
         $this->withoutMiddleware(SetPostgresSession::class);
     }
 
-    public function test_invalid_duplicate_and_oversized_category_filters_are_rejected_on_all_list_and_export_endpoints(): void
+    public function test_invalid_duplicate_and_oversized_category_filters_are_rejected_on_case_and_referral_lists_and_exports(): void
     {
         $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $tooMany = array_map(static fn () => (string) Str::uuid(), range(1, 51));
-        $scalarPlusMaximumArray = array_map(static fn () => (string) Str::uuid(), range(1, 50));
-        $scalarForMaximumArray = (string) Str::uuid();
-        $duplicate = (string) Str::uuid();
+        $ids = array_map(static fn () => (string) Str::uuid(), range(1, 50));
         $cases = [
             ['key' => 'category_id', 'error' => 'category_ids.0', 'value' => 'not-a-uuid'],
-            ['key' => 'category_ids', 'error' => 'category_ids.0', 'value' => [$duplicate, $duplicate]],
+            ['key' => 'category_ids', 'error' => 'category_ids.0', 'value' => [$ids[0], $ids[0]]],
             ['key' => 'category_ids', 'error' => 'category_ids', 'value' => $tooMany],
-            ['key' => 'category_ids', 'error' => 'category_ids', 'value' => $scalarPlusMaximumArray, 'scalar' => $scalarForMaximumArray],
+            ['key' => 'category_ids', 'error' => 'category_ids', 'value' => $ids, 'scalar' => (string) Str::uuid()],
         ];
 
         foreach ($cases as $case) {
-            foreach ([
-                'cases.index', 'cases.export-excel', 'cases.export-count',
-                'clients.index', 'clients.export-excel', 'clients.export-count',
-                'referrals.index', 'referrals.export-excel', 'referrals.export-count',
-            ] as $routeName) {
+            foreach (['cases.index', 'cases.export-excel', 'cases.export-count', 'referrals.index', 'referrals.export-excel', 'referrals.export-count'] as $routeName) {
                 $query = [$case['key'] => $case['value']];
                 if (isset($case['scalar'])) {
                     $query['category_id'] = $case['scalar'];
                 }
 
-                $response = $this->actingAsWithMfa($admin)->get(route($routeName, $query));
-
-                $response->assertStatus(302)->assertSessionHasErrors($case['error']);
+                $this->actingAsWithMfa($admin)->get(route($routeName, $query))
+                    ->assertStatus(302)->assertSessionHasErrors($case['error']);
             }
         }
     }
 
-    public function test_scalar_and_array_category_filters_preserve_any_semantics(): void
+    public function test_scalar_and_array_category_filters_use_referral_classification(): void
     {
         $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $agency = Agency::factory()->create();
         $first = CaseCategory::factory()->create();
         $second = CaseCategory::factory()->create();
-        $firstCase = CaseFile::factory()->create(['category_id' => $first->id, 'status' => 'OPEN']);
-        $secondCase = CaseFile::factory()->create(['category_id' => $second->id, 'status' => 'OPEN']);
-        // Client directory/export list published clients only: linked account
-        // (clients.user_id) plus a live OPEN case.
-        $firstOwner = User::factory()->create();
-        $secondOwner = User::factory()->create();
-        $firstClient = Client::factory()->create(['user_id' => $firstOwner->id]);
-        $secondClient = Client::factory()->create(['user_id' => $secondOwner->id]);
-        $firstCase->update(['client_id' => $firstClient->id]);
-        $secondCase->update(['client_id' => $secondClient->id]);
-        Referral::factory()->create(['case_id' => $firstCase->id, 'agcy_id' => $agency->id]);
-        Referral::factory()->create(['case_id' => $secondCase->id, 'agcy_id' => $agency->id]);
+        $firstCase = CaseFile::factory()->create(['status' => 'OPEN']);
+        $secondCase = CaseFile::factory()->create(['status' => 'OPEN']);
+        $firstReferral = Referral::factory()->create(['case_id' => $firstCase->id, 'agcy_id' => $agency->id, 'category_id' => $first->id]);
+        $secondReferral = Referral::factory()->create(['case_id' => $secondCase->id, 'agcy_id' => $agency->id, 'category_id' => $second->id]);
 
-        foreach ([
-            ['category_id' => $first->id, 'count' => 1],
-            ['category_ids' => [$first->id, $second->id], 'count' => 2],
-        ] as $filter) {
+        foreach ([[$first->id, 1, $firstCase->id, $firstReferral->id], [[$first->id, $second->id], 2, null, null]] as [$filterValue, $count, $caseId, $referralId]) {
+            $filter = is_array($filterValue) ? ['category_ids' => $filterValue] : ['category_id' => $filterValue];
             $this->actingAsWithMfa($admin)->get(route('cases.index', $filter))
-                ->assertInertia(fn ($page) => $page->has('cases.data', $filter['count']));
-            $this->actingAsWithMfa($admin)->get(route('clients.index', $filter))
-                ->assertInertia(fn ($page) => $page->has('clients.data', $filter['count']));
-            $this->actingAsWithMfa($admin)->get(route('referrals.index', $filter))
-                ->assertInertia(fn ($page) => $page->has('referrals.data', $filter['count']));
+                ->assertInertia(fn ($page) => $page->has('cases.data', $count));
+            $response = $this->actingAsWithMfa($admin)->get(route('referrals.index', $filter));
+            $response->assertInertia(fn ($page) => $page->has('referrals.data', $count));
+            if ($caseId !== null) {
+                $this->assertSame($caseId, $response->viewData('page')['props']['referrals']['data'][0]['case_id']);
+                $this->assertSame($referralId, $response->viewData('page')['props']['referrals']['data'][0]['id']);
+            }
         }
     }
 
-    public function test_used_category_cannot_be_deleted(): void
+    public function test_used_referral_category_cannot_be_deleted(): void
     {
         $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $category = CaseCategory::factory()->create();
-        $case = CaseFile::factory()->create(['category_id' => $category->id]);
-        $case->categories()->attach($category->id);
+        Referral::factory()->create(['case_id' => CaseFile::factory()->create()->id, 'category_id' => $category->id, 'agcy_id' => Agency::factory()->create()->id]);
 
-        $response = $this->actingAsWithMfa($admin)->delete(route('admin.case-categories.destroy', $category));
-
-        $response->assertRedirect()->assertSessionHas('error');
-        $this->assertDatabaseHas('case_categories', [
-            'id' => $category->id,
-            'is_deleted' => false,
-        ]);
+        $this->actingAsWithMfa($admin)->delete(route('admin.case-categories.destroy', $category))
+            ->assertRedirect()->assertSessionHas('error');
+        $this->assertDatabaseHas('case_categories', ['id' => $category->id, 'is_deleted' => false]);
     }
 
     public function test_unused_category_is_soft_deleted_and_excluded_from_default_queries(): void
@@ -111,15 +90,9 @@ class CategoryFilterDeletionHardeningTest extends TestCase
         $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $category = CaseCategory::factory()->create(['is_active' => true]);
 
-        $response = $this->actingAsWithMfa($admin)->delete(route('admin.case-categories.destroy', $category));
-
-        $response->assertRedirect()->assertSessionHas('success');
-        $this->assertDatabaseHas('case_categories', [
-            'id' => $category->id,
-            'is_deleted' => true,
-            'is_active' => false,
-            'deleted_by' => $admin->id,
-        ]);
+        $this->actingAsWithMfa($admin)->delete(route('admin.case-categories.destroy', $category))
+            ->assertRedirect()->assertSessionHas('success');
+        $this->assertDatabaseHas('case_categories', ['id' => $category->id, 'is_deleted' => true, 'is_active' => false, 'deleted_by' => $admin->id]);
         $this->assertNotNull($category->fresh()->deleted_at);
         $this->assertFalse(CaseCategory::query()->whereKey($category->id)->exists());
     }

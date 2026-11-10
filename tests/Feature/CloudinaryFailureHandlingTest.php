@@ -3,8 +3,6 @@
 namespace Tests\Feature;
 
 use App\Enums\UserRole;
-use App\Models\CaseFile;
-use App\Models\Client;
 use App\Models\User;
 use App\Services\CloudinaryAvatarService;
 use Cloudinary\Api\Exception\AuthorizationRequired;
@@ -14,12 +12,12 @@ use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 /**
- * Cloudinary failure handling for the client avatar upload path:
+ * Cloudinary failure handling for the user avatar upload path:
  *  - CloudinaryAvatarService::uploadImage() must convert any Cloudinary API
  *    failure into a RuntimeException with a fixed, credential-free message.
  *  - CloudinaryAvatarService::deleteByUrl() is best-effort: a failing destroy
  *    is logged and swallowed, never thrown.
- *  - ClientController::storeAvatar()/destroyAvatar() must catch every
+ *  - ProfileController::storeAvatar()/destroyAvatar() must catch every
  *    throwable the service can raise — a third-party failure must yield a
  *    graceful redirect, never a 500.
  * The Cloudinary API calls are faked via the protected performUpload()/
@@ -61,7 +59,7 @@ class CloudinaryFailureHandlingTest extends TestCase
         $file = UploadedFile::fake()->image('avatar.jpg', 160, 160);
 
         try {
-            $service->uploadImage($file, 'client-profile-pictures', 'client-fake-id');
+            $service->uploadImage($file, 'avatars', 'user-fake-id');
             $this->fail('uploadImage() must throw when the Cloudinary upload fails.');
         } catch (\Throwable $e) {
             $this->assertInstanceOf(\RuntimeException::class, $e, 'The raw Cloudinary exception must be normalized to a RuntimeException.');
@@ -80,12 +78,14 @@ class CloudinaryFailureHandlingTest extends TestCase
     }
 
     #[Test]
-    public function delete_by_url_swallows_cloudinary_failures_without_touching_client_state(): void
+    public function delete_by_url_swallows_cloudinary_failures(): void
     {
         config(['services.cloudinary.url' => self::CONFIGURED_CLOUDINARY_URL]);
 
         $service = new class extends CloudinaryAvatarService
         {
+            public bool $destroyAttempted = false;
+
             public function performUpload(string $path, array $options): array
             {
                 throw new AuthorizationRequired('Invalid api_key 158513922971517');
@@ -93,83 +93,52 @@ class CloudinaryFailureHandlingTest extends TestCase
 
             public function performDestroy(string $publicId, array $options): void
             {
+                $this->destroyAttempted = true;
                 throw new AuthorizationRequired('Invalid api_key 158513922971517');
             }
         };
 
-        $avatarUrl = 'https://res.cloudinary.com/test-cloud/image/upload/v1750000000/client-profile-pictures/client-fake-id.jpg';
-        $client = Client::factory()->create(['user_id' => User::factory()->create()->id, 'avatar_url' => $avatarUrl]);
-
-        // Best-effort contract: this must not throw even though the destroy
-        // seam fails, and it never touches the clients table itself.
-        $service->deleteByUrl($client->getRawOriginal('avatar_url'));
-
-        $client->refresh();
-        $this->assertSame($avatarUrl, $client->getRawOriginal('avatar_url'), 'A failed best-effort delete must not change client state.');
+        $service->deleteByUrl('https://res.cloudinary.com/test-cloud/image/upload/v1750000000/avatars/user-fake-id.jpg');
+        $this->assertTrue($service->destroyAttempted);
     }
 
     #[Test]
-    public function store_avatar_redirects_gracefully_when_cloudinary_upload_fails(): void
+    public function user_avatar_upload_redirects_gracefully_when_cloudinary_fails_and_preserves_old_url(): void
     {
         $this->bindAvatarServiceRejectingUploads();
+        $user = User::factory()->create(['role' => UserRole::ADMIN->value, 'avatar_url' => 'https://res.cloudinary.com/test-cloud/image/upload/v1750000000/avatars/old.jpg']);
 
-        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
-        $client = $this->makePublishedClient('https://res.cloudinary.com/test-cloud/image/upload/v1750000000/client-profile-pictures/client-old.jpg');
-
-        $response = $this->actingAsWithMfa($admin)->post(route('clients.avatar.store', $client->id), [
+        $response = $this->actingAsWithMfa($user)->post(route('profile.avatar.store'), [
             'profile_picture' => UploadedFile::fake()->image('avatar.jpg', 160, 160),
         ]);
 
-        // The defect: an uncaught Cloudinary exception surfaced as an HTTP 500.
-        $response->assertStatus(302);
-        $response->assertRedirect(route('clients.show', $client->id));
-        $response->assertSessionHasErrors(['profile_picture']);
-
-        $client->refresh();
-        $this->assertSame(
-            'https://res.cloudinary.com/test-cloud/image/upload/v1750000000/client-profile-pictures/client-old.jpg',
-            $client->getRawOriginal('avatar_url'),
-            'A failed upload must leave the previous avatar in place.'
-        );
+        $response->assertRedirect(route('profile.edit'))->assertSessionHasErrors('profile_picture');
+        $this->assertSame('https://res.cloudinary.com/test-cloud/image/upload/v1750000000/avatars/old.jpg', $user->fresh()->getRawOriginal('avatar_url'));
         $this->assertSame(0, $this->app->make(CloudinaryAvatarService::class)->deleteCalls);
     }
 
     #[Test]
-    public function destroy_avatar_succeeds_even_when_cloudinary_delete_fails(): void
+    public function removing_user_avatar_clears_database_even_when_cloudinary_delete_fails(): void
     {
-        $avatarUrl = 'https://res.cloudinary.com/test-cloud/image/upload/v1750000000/client-profile-pictures/client-old.jpg';
-        $client = $this->makePublishedClient($avatarUrl);
+        $this->app->singleton(CloudinaryAvatarService::class, fn () => new class extends CloudinaryAvatarService
+        {
+            public function __construct() {}
 
-        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+            public function uploadImage(UploadedFile $file, string $folder, string $publicId): string
+            {
+                throw new AuthorizationRequired(self::LEAKING_UPSTREAM_MESSAGE);
+            }
 
-        $response = $this->actingAsWithMfa($admin)->delete(route('clients.avatar.destroy', $client->id));
+            public function deleteByUrl(?string $url): void
+            {
+                throw new AuthorizationRequired(self::LEAKING_UPSTREAM_MESSAGE);
+            }
+        });
+        $user = User::factory()->create(['role' => UserRole::ADMIN->value, 'avatar_url' => 'https://res.cloudinary.com/test-cloud/image/upload/v1750000000/avatars/old.jpg']);
 
-        $response->assertStatus(302);
-        $response->assertRedirect(route('clients.show', $client->id));
-        $response->assertSessionHas('success', 'Profile picture removed successfully.');
-
-        $client->refresh();
-        $this->assertNull($client->getRawOriginal('avatar_url'), 'The avatar must be cleared even when the Cloudinary destroy fails (best-effort).');
-    }
-
-    #[Test]
-    public function store_avatar_still_saves_through_the_test_double_on_success(): void
-    {
-        $client = $this->makePublishedClient(null);
-
-        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
-
-        $response = $this->actingAsWithMfa($admin)->post(route('clients.avatar.store', $client->id), [
-            'profile_picture' => UploadedFile::fake()->image('avatar.jpg', 160, 160),
-        ]);
-
-        $response->assertStatus(302);
-        $response->assertRedirect(route('clients.show', $client->id));
-        $response->assertSessionHas('success', 'Profile picture updated successfully.');
-
-        $client->refresh();
-        $this->assertNotNull($client->getRawOriginal('avatar_url'), 'The hardening must not break the normal upload flow.');
-        $this->assertStringContainsString('res.cloudinary.com', (string) $client->getRawOriginal('avatar_url'));
+        $this->actingAsWithMfa($user)->delete(route('profile.avatar.destroy'))
+            ->assertRedirect(route('profile.edit'))->assertSessionHas('success', 'Profile picture removed.');
+        $this->assertNull($user->fresh()->getRawOriginal('avatar_url'));
     }
 
     /**
@@ -194,17 +163,5 @@ class CloudinaryFailureHandlingTest extends TestCase
                 $this->deleteCalls++;
             }
         });
-    }
-
-    /**
-     * A client that passes authorizeClientAccess()'s publishedOnly() scope:
-     * linked user account plus one live OPEN, non-deleted case.
-     */
-    private function makePublishedClient(?string $avatarUrl): Client
-    {
-        $client = Client::factory()->create(['user_id' => User::factory()->create()->id, 'avatar_url' => $avatarUrl]);
-        CaseFile::factory()->open()->create(['client_id' => $client->id, 'status' => 'OPEN']);
-
-        return $client;
     }
 }

@@ -4,7 +4,6 @@ namespace Tests\Feature\Security;
 
 use App\Enums\UserRole;
 use App\Models\Agency;
-use App\Models\Client;
 use App\Models\User;
 use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Filesystem\FilesystemManager;
@@ -42,18 +41,18 @@ class AvatarAccessorTest extends TestCase
         Storage::disk('private')->assertExists($path);
     }
 
-    public function test_client_avatar_stored_on_private_disk(): void
+    public function test_profile_picture_stored_on_private_disk(): void
     {
         Storage::fake('private');
 
-        $client = Client::factory()->create();
+        $user = User::factory()->create();
         $file = UploadedFile::fake()->image('photo.jpg', 100, 100);
-        $path = $file->storeAs('profile-pictures', 'client-'.$client->id.'-test.jpg', 'private');
+        $path = $file->storeAs('profile-pictures', 'user-'.$user->id.'-test.jpg', 'private');
 
-        $client->avatar_url = $path;
-        $client->save();
+        $user->avatar_url = $path;
+        $user->save();
 
-        $this->assertNotNull($client->fresh()->avatar_url);
+        $this->assertNotNull($user->fresh()->avatar_url);
         $this->assertStringStartsWith('profile-pictures/', $path);
         Storage::disk('private')->assertExists($path);
     }
@@ -105,15 +104,15 @@ class AvatarAccessorTest extends TestCase
         $this->assertStringContainsString('signature=', $url);
     }
 
-    public function test_client_avatar_url_returns_signed_temporary_url(): void
+    public function test_profile_picture_url_returns_signed_temporary_url(): void
     {
-        $expectedUrl = 'http://localhost/storage/profile-pictures/client-test.jpg?expires=1234567890&signature=abc123';
+        $expectedUrl = 'http://localhost/storage/profile-pictures/user-test.jpg?expires=1234567890&signature=abc123';
 
         $this->swapStorageTemporaryUrl($expectedUrl);
 
-        $client = Client::factory()->create(['avatar_url' => 'profile-pictures/client-test.jpg']);
+        $user = User::factory()->create(['avatar_url' => 'profile-pictures/user-test.jpg']);
 
-        $url = $client->avatar_url;
+        $url = $user->avatar_url;
 
         $this->assertNotNull($url);
         $this->assertStringContainsString('expires=', $url);
@@ -142,11 +141,9 @@ class AvatarAccessorTest extends TestCase
     public function test_avatar_url_returns_null_when_not_set(): void
     {
         $user = User::factory()->create(['avatar_url' => null]);
-        $client = Client::factory()->create(['avatar_url' => null]);
         $agency = Agency::factory()->create(['logo_url' => null]);
 
         $this->assertNull($user->avatar_url);
-        $this->assertNull($client->avatar_url);
         $this->assertNull($agency->logo_url);
     }
 

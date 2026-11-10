@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Enums\UserRole;
 use App\Models\AuditLog;
 use App\Models\CaseFile;
-use App\Models\Client;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -22,7 +21,6 @@ class CaseApprovalDisplayTest extends TestCase
     private function makeCase(?User $reviewer = null): CaseFile
     {
         return CaseFile::factory()->open()->create([
-            'client_id' => Client::factory()->create()->id,
             'reviewed_by' => $reviewer?->id,
             'reviewed_at' => $reviewer ? now() : null,
         ]);

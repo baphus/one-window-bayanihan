@@ -4,14 +4,13 @@ namespace Tests\Feature;
 
 use App\Enums\AuditAction;
 use App\Enums\UserRole;
-use App\Models\CaseCategory;
 use App\Models\CaseFile;
-use App\Models\CaseIssue;
 use App\Models\User;
 use App\Services\CaseService;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\TestCase;
 
@@ -42,13 +41,10 @@ class CaseStateMachineHardeningTest extends TestCase
     public function test_reject_on_an_open_case_fails_and_leaves_the_case_intact(): void
     {
         $cm = $this->createCaseManager();
-        $category = CaseCategory::factory()->create();
         $case = CaseFile::factory()->create([
             'status' => 'OPEN',
             'user_id' => $cm->id,
-            'category_id' => $category->id,
         ]);
-        $case->categories()->attach($category->id);
 
         try {
             $this->service->rejectCase($case->id, 'Filed under the wrong region.', $cm->id);
@@ -62,10 +58,6 @@ class CaseStateMachineHardeningTest extends TestCase
         $this->assertSame('OPEN', $fresh->status);
         $this->assertNull($fresh->deletion_reason);
         $this->assertNull($fresh->deleted_by);
-        $this->assertSame(
-            [$category->id],
-            $fresh->categories()->pluck('case_categories.id')->all()
-        );
         $this->assertDatabaseMissing('audit_logs', [
             'action' => AuditAction::DELETE->value,
             'module' => 'case',
@@ -75,44 +67,67 @@ class CaseStateMachineHardeningTest extends TestCase
 
     // ── updateCase: partial payloads must not wipe untouched fields ──────────
 
-    public function test_status_only_update_preserves_vulnerability_summary_and_issue(): void
+    public function test_factual_correction_preserves_untouched_intake_fields(): void
     {
         $cm = $this->createCaseManager();
-        $issue = CaseIssue::create(['name' => 'Wage Theft', 'is_active' => true]);
         $case = $this->createCase([
             'user_id' => $cm->id,
+            'assigned_case_manager_id' => $cm->id,
             'status' => 'OPEN',
             'vulnerability_indicator' => 'Solo Parent',
-            'nok_vulnerability_indicator' => 'Senior Citizen',
             'summary' => 'Original summary text.',
-            'case_issue_id' => $issue->id,
         ]);
 
-        $this->service->updateCase($case->id, ['status' => 'CLOSED'], $cm->id);
+        $this->service->updateCase($case->id, ['summary' => 'Corrected summary text.', 'correction_reason' => 'Verified case facts'], $cm->id);
 
         $fresh = $case->fresh();
-        $this->assertSame('CLOSED', $fresh->status);
+        $this->assertSame('OPEN', $fresh->status);
         $this->assertSame('Solo Parent', $fresh->vulnerability_indicator);
-        $this->assertSame('Senior Citizen', $fresh->nok_vulnerability_indicator);
-        $this->assertSame('Original summary text.', $fresh->summary);
-        $this->assertSame($issue->id, $fresh->case_issue_id);
+        $this->assertSame('Corrected summary text.', $fresh->summary);
+        $this->assertSame('Solo Parent', $fresh->vulnerability_indicator);
     }
 
-    public function test_explicit_null_in_a_partial_payload_still_clears_that_field(): void
+    public function test_correction_without_reason_is_rejected_and_leaves_facts_unchanged(): void
     {
         $cm = $this->createCaseManager();
         $case = $this->createCase([
             'user_id' => $cm->id,
+            'assigned_case_manager_id' => $cm->id,
             'status' => 'OPEN',
-            'vulnerability_indicator' => 'Solo Parent',
             'summary' => 'Original summary text.',
         ]);
 
-        $this->service->updateCase($case->id, ['summary' => null], $cm->id);
+        try {
+            $this->service->updateCase($case->id, ['summary' => 'Changed summary'], $cm->id);
+            $this->fail('Expected a correction reason to be required.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('correction_reason', $exception->errors());
+        }
 
-        $fresh = $case->fresh();
-        $this->assertNull($fresh->summary);
-        $this->assertSame('Solo Parent', $fresh->vulnerability_indicator);
+        $this->assertSame('Original summary text.', $case->fresh()->summary);
+    }
+
+    public function test_unassigned_case_manager_cannot_correct_case_facts(): void
+    {
+        $owner = $this->createCaseManager();
+        $intruder = $this->createCaseManager();
+        $case = $this->createCase([
+            'user_id' => $owner->id,
+            'assigned_case_manager_id' => $owner->id,
+            'summary' => 'Original summary text.',
+        ]);
+
+        try {
+            $this->service->updateCase($case->id, [
+                'summary' => 'Changed summary',
+                'correction_reason' => 'Verified facts',
+            ], $intruder->id);
+            $this->fail('Expected an unassigned case manager correction to be denied.');
+        } catch (HttpException $exception) {
+            $this->assertSame(403, $exception->getStatusCode());
+        }
+
+        $this->assertSame('Original summary text.', $case->fresh()->summary);
     }
 
     // ── updateCase: cannot be used to jump the state machine ────────────────
@@ -125,12 +140,7 @@ class CaseStateMachineHardeningTest extends TestCase
             'status' => CaseFile::STATUS_PENDING_REVIEW,
         ]);
 
-        $this->assertTransitionRejected(
-            $case,
-            ['status' => 'OPEN'],
-            $cm,
-            'Pending cases must be published through the review queue.'
-        );
+        $this->assertTransitionRejected($case, ['status' => 'OPEN', 'correction_reason' => 'Attempted transition'], $cm);
 
         $this->assertSame(CaseFile::STATUS_PENDING_REVIEW, $case->fresh()->status);
     }
@@ -140,12 +150,7 @@ class CaseStateMachineHardeningTest extends TestCase
         $cm = $this->createCaseManager();
         $case = $this->createCase(['user_id' => $cm->id, 'status' => 'OPEN']);
 
-        $this->assertTransitionRejected(
-            $case,
-            ['status' => 'ARCHIVED'],
-            $cm,
-            'Only closed cases can be archived.'
-        );
+        $this->assertTransitionRejected($case, ['status' => 'ARCHIVED', 'correction_reason' => 'Attempted transition'], $cm);
 
         $fresh = $case->fresh();
         $this->assertSame('OPEN', $fresh->status);
@@ -157,10 +162,10 @@ class CaseStateMachineHardeningTest extends TestCase
         $cm = $this->createCaseManager();
         $case = $this->createCase(['user_id' => $cm->id, 'status' => 'OPEN']);
 
-        $this->service->updateCase($case->id, ['status' => 'CLOSED'], $cm->id);
+        $this->service->toggleCaseStatus($case->id, $cm->id);
         $this->assertSame('CLOSED', $case->fresh()->status);
 
-        $this->service->updateCase($case->id, ['status' => 'OPEN'], $cm->id);
+        $this->service->toggleCaseStatus($case->id, $cm->id);
         $fresh = $case->fresh();
         $this->assertSame('OPEN', $fresh->status);
         $this->assertNull($fresh->closed_at);
@@ -264,14 +269,13 @@ class CaseStateMachineHardeningTest extends TestCase
         return $case;
     }
 
-    private function assertTransitionRejected(CaseFile $case, array $data, User $actor, string $expectedMessage): void
+    private function assertTransitionRejected(CaseFile $case, array $data, User $actor): void
     {
         try {
             $this->service->updateCase($case->id, $data, $actor->id);
             $this->fail('Expected the status transition to be rejected.');
         } catch (HttpException $exception) {
-            $this->assertSame(422, $exception->getStatusCode());
-            $this->assertSame($expectedMessage, $exception->getMessage());
+            $this->assertSame(403, $exception->getStatusCode());
         }
     }
 }

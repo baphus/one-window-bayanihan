@@ -6,7 +6,6 @@ use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\CaseEvent;
 use App\Models\CaseFile;
-use App\Models\Client;
 use App\Models\Referral;
 use App\Models\SystemSetting;
 use App\Models\User;
@@ -63,19 +62,25 @@ class DashboardContractTest extends TestCase
         $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         CaseFile::factory()->create([
-            'client_id' => Client::factory()->create()->id,
+            'client_type' => CaseFile::CLIENT_TYPE_OFW,
+            'first_name' => 'Test',
+            'last_name' => 'Case',
             'user_id' => $manager->id,
             'status' => 'DRAFT',
         ]);
 
         $pendingReview = CaseFile::factory()->create([
-            'client_id' => Client::factory()->create()->id,
+            'client_type' => CaseFile::CLIENT_TYPE_OFW,
+            'first_name' => 'Test',
+            'last_name' => 'Case',
             'user_id' => $manager->id,
             'status' => CaseFile::STATUS_PENDING_REVIEW,
         ]);
 
         $milestoneCase = CaseFile::factory()->create([
-            'client_id' => Client::factory()->create()->id,
+            'client_type' => CaseFile::CLIENT_TYPE_OFW,
+            'first_name' => 'Test',
+            'last_name' => 'Case',
             'user_id' => $manager->id,
             'status' => 'OPEN',
         ]);
@@ -196,7 +201,7 @@ class DashboardContractTest extends TestCase
             'agcy_id' => $agency->id,
         ]);
         Referral::factory()->pending()->create([
-            'case_id' => CaseFile::factory()->create(['client_id' => Client::factory()->create()->id, 'status' => 'OPEN'])->id,
+            'case_id' => CaseFile::factory()->create(['client_type' => CaseFile::CLIENT_TYPE_OFW, 'status' => 'OPEN'])->id,
             'agcy_id' => $agency->id,
         ]);
 
@@ -338,13 +343,13 @@ class DashboardContractTest extends TestCase
         ]);
 
         $fresh = Referral::factory()->pending()->create([
-            'case_id' => CaseFile::factory()->create(['client_id' => Client::factory()->create()->id, 'status' => 'OPEN'])->id,
+            'case_id' => CaseFile::factory()->create(['client_type' => CaseFile::CLIENT_TYPE_OFW, 'status' => 'OPEN'])->id,
             'agcy_id' => $agency->id,
             'created_at' => now()->subDays(1),
             'updated_at' => now()->subDays(1),
         ]);
         $stale = Referral::factory()->pending()->create([
-            'case_id' => CaseFile::factory()->create(['client_id' => Client::factory()->create()->id, 'status' => 'OPEN'])->id,
+            'case_id' => CaseFile::factory()->create(['client_type' => CaseFile::CLIENT_TYPE_OFW, 'status' => 'OPEN'])->id,
             'agcy_id' => $agency->id,
             'created_at' => now()->subDays(3),
             'updated_at' => now()->subDays(3),
@@ -417,7 +422,9 @@ class DashboardContractTest extends TestCase
     private function makeCase(array $attributes = []): CaseFile
     {
         return CaseFile::factory()->create(array_merge([
-            'client_id' => Client::factory()->create()->id,
+            'client_type' => CaseFile::CLIENT_TYPE_OFW,
+            'first_name' => 'Test',
+            'last_name' => 'Case',
         ], $attributes));
     }
 }

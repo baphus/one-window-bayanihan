@@ -4,8 +4,8 @@ namespace Tests\Feature;
 
 use App\Enums\UserRole;
 use App\Models\Agency;
+use App\Models\CaseCategory;
 use App\Models\CaseFile;
-use App\Models\Client;
 use App\Models\Referral;
 use App\Models\User;
 use App\Notifications\MilestoneAdded;
@@ -45,6 +45,9 @@ class ReferralServiceNotificationTest extends TestCase
         ]);
 
         $this->service->createReferral([
+            'category_id' => CaseCategory::factory()->create()->id,
+            'concern' => 'Assistance requested',
+            'override_reason' => 'Agency selected for this assistance',
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
             'notes' => 'Test notes',
@@ -60,6 +63,9 @@ class ReferralServiceNotificationTest extends TestCase
         $agency = Agency::factory()->create();
 
         $this->service->createReferral([
+            'category_id' => CaseCategory::factory()->create()->id,
+            'concern' => 'Assistance requested',
+            'override_reason' => 'Agency selected for this assistance',
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
         ], $caseManager->id);
@@ -79,6 +85,9 @@ class ReferralServiceNotificationTest extends TestCase
         $agency = Agency::factory()->create();
 
         $referral = $this->service->createReferral([
+            'category_id' => CaseCategory::factory()->create()->id,
+            'concern' => 'Assistance requested',
+            'override_reason' => 'Agency selected for this assistance',
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
         ], $caseManager->id);
@@ -97,6 +106,9 @@ class ReferralServiceNotificationTest extends TestCase
         $agency = Agency::factory()->create();
 
         $referral = $this->service->createReferral([
+            'category_id' => CaseCategory::factory()->create()->id,
+            'concern' => 'Assistance requested',
+            'override_reason' => 'Agency selected for this assistance',
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
         ], $caseManager->id);
@@ -118,6 +130,9 @@ class ReferralServiceNotificationTest extends TestCase
         $agency = Agency::factory()->create();
 
         $referral = $this->service->createReferral([
+            'category_id' => CaseCategory::factory()->create()->id,
+            'concern' => 'Assistance requested',
+            'override_reason' => 'Agency selected for this assistance',
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
         ], $caseManager->id);
@@ -145,6 +160,9 @@ class ReferralServiceNotificationTest extends TestCase
         ]);
 
         $referral = $this->service->createReferral([
+            'category_id' => CaseCategory::factory()->create()->id,
+            'concern' => 'Assistance requested',
+            'override_reason' => 'Agency selected for this assistance',
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
         ], $caseManager->id);
@@ -163,6 +181,9 @@ class ReferralServiceNotificationTest extends TestCase
         $agency = Agency::factory()->create();
 
         $referral = $this->service->createReferral([
+            'category_id' => CaseCategory::factory()->create()->id,
+            'concern' => 'Assistance requested',
+            'override_reason' => 'Agency selected for this assistance',
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
         ], $caseManager->id);
@@ -191,6 +212,9 @@ class ReferralServiceNotificationTest extends TestCase
         ]);
 
         $this->service->createReferral([
+            'category_id' => CaseCategory::factory()->create()->id,
+            'concern' => 'Assistance requested',
+            'override_reason' => 'Agency selected for this assistance',
             'case_id' => $case->id,
             'agcy_id' => $agencyA->id,
         ], $caseManager->id);
@@ -200,6 +224,9 @@ class ReferralServiceNotificationTest extends TestCase
         // Second referral on the same case → agencyA users should get PeerReferralCreated
         $agencyB = Agency::factory()->create();
         $this->service->createReferral([
+            'category_id' => CaseCategory::factory()->create()->id,
+            'concern' => 'Assistance requested',
+            'override_reason' => 'Agency selected for this assistance',
             'case_id' => $case->id,
             'agcy_id' => $agencyB->id,
         ], $caseManager->id);
@@ -222,6 +249,9 @@ class ReferralServiceNotificationTest extends TestCase
         ]);
 
         $this->service->createReferral([
+            'category_id' => CaseCategory::factory()->create()->id,
+            'concern' => 'Assistance requested',
+            'override_reason' => 'Agency selected for this assistance',
             'case_id' => $case->id,
             'agcy_id' => $agencyA->id,
         ], $caseManager->id);
@@ -231,6 +261,9 @@ class ReferralServiceNotificationTest extends TestCase
         // No peer referral exists, so the receiving agency only gets ReferralCreated.
         $otherCase = $this->createCase($caseManager);
         $this->service->createReferral([
+            'category_id' => CaseCategory::factory()->create()->id,
+            'concern' => 'Assistance requested',
+            'override_reason' => 'Agency selected for this assistance',
             'case_id' => $otherCase->id,
             'agcy_id' => $agencyA->id,
         ], $caseManager->id);
@@ -254,6 +287,9 @@ class ReferralServiceNotificationTest extends TestCase
 
         // First referral — no other referrals exist, so no peer notification
         $this->service->createReferral([
+            'category_id' => CaseCategory::factory()->create()->id,
+            'concern' => 'Assistance requested',
+            'override_reason' => 'Agency selected for this assistance',
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
         ], $caseManager->id);
@@ -268,6 +304,9 @@ class ReferralServiceNotificationTest extends TestCase
         $agency = Agency::factory()->create();
 
         $referral = $this->service->createReferral([
+            'category_id' => CaseCategory::factory()->create()->id,
+            'concern' => 'Assistance requested',
+            'override_reason' => 'Agency selected for this assistance',
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
         ], $caseManager->id);
@@ -288,6 +327,9 @@ class ReferralServiceNotificationTest extends TestCase
         $agency = Agency::factory()->create();
 
         $referral = $this->service->createReferral([
+            'category_id' => CaseCategory::factory()->create()->id,
+            'concern' => 'Assistance requested',
+            'override_reason' => 'Agency selected for this assistance',
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
         ], $caseManager->id);
@@ -306,6 +348,9 @@ class ReferralServiceNotificationTest extends TestCase
         $agency = Agency::factory()->create();
 
         $referral = $this->service->createReferral([
+            'category_id' => CaseCategory::factory()->create()->id,
+            'concern' => 'Assistance requested',
+            'override_reason' => 'Agency selected for this assistance',
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
         ], $caseManager->id);
@@ -330,6 +375,9 @@ class ReferralServiceNotificationTest extends TestCase
         $agency = Agency::factory()->create();
 
         $referral = $this->service->createReferral([
+            'category_id' => CaseCategory::factory()->create()->id,
+            'concern' => 'Assistance requested',
+            'override_reason' => 'Agency selected for this assistance',
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
         ], $caseManager->id);
@@ -351,6 +399,9 @@ class ReferralServiceNotificationTest extends TestCase
         $agency = Agency::factory()->create();
 
         $referral = $this->service->createReferral([
+            'category_id' => CaseCategory::factory()->create()->id,
+            'concern' => 'Assistance requested',
+            'override_reason' => 'Agency selected for this assistance',
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
         ], $caseManager->id);
@@ -401,13 +452,9 @@ class ReferralServiceNotificationTest extends TestCase
 
     private function createCase(User $user): CaseFile
     {
-        $client = Client::factory()->create([
-            'email' => 'ofw@example.com',
-        ]);
-
-        return CaseFile::factory()->create([
+        return CaseFile::factory()->withIntake()->create([
             'user_id' => $user->id,
-            'client_id' => $client->id,
+            'email' => 'ofw@example.com',
             'status' => 'OPEN',
         ]);
     }

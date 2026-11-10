@@ -6,7 +6,6 @@ use App\Enums\UserRole;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\Agency;
 use App\Models\CaseFile;
-use App\Models\Client;
 use App\Models\Referral;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -38,7 +37,6 @@ class PageExportCountTest extends TestCase
         foreach ([
             'referrals.export-count',
             'cases.export-count',
-            'clients.export-count',
         ] as $routeName) {
             $response = $this->get(route($routeName));
 
@@ -125,70 +123,11 @@ class PageExportCountTest extends TestCase
     public function cases_count_respects_next_of_kin_client_type_filter(): void
     {
         $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-        $ofwClient = Client::factory()->create(['type' => 'OFW']);
-        $nokClient = Client::factory()->nextOfKin()->create();
-        CaseFile::factory()->create(['client_id' => $ofwClient->id]);
-        CaseFile::factory()->create(['client_id' => $nokClient->id]);
+        CaseFile::factory()->create(['client_type' => 'OFW']);
+        CaseFile::factory()->create(['client_type' => 'NEXT_OF_KIN']);
 
         $response = $this->actingAsWithMfa($user)->getJson(route('cases.export-count', [
-            'client_type' => CaseFile::CLIENT_TYPE_NEXT_OF_KIN,
-        ]));
-
-        $response->assertOk()->assertJson(['count' => 1]);
-    }
-
-    // -------------------------------------------------------------------------
-    // Clients
-    // -------------------------------------------------------------------------
-
-    #[Test]
-    public function clients_count_respects_search_filter(): void
-    {
-        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-        // The directory and its export list only clients with a live non-DRAFT case.
-        $mariaOwner = User::factory()->create(['role' => UserRole::OFW->value]);
-        $juanOwner = User::factory()->create(['role' => UserRole::OFW->value]);
-        $maria = Client::factory()->create(['first_name' => 'Maria', 'last_name' => 'Santos', 'user_id' => $mariaOwner->id]);
-        $juan = Client::factory()->create(['first_name' => 'Juan', 'last_name' => 'Dela Cruz', 'user_id' => $juanOwner->id]);
-        CaseFile::factory()->create(['client_id' => $maria->id]);
-        CaseFile::factory()->create(['client_id' => $juan->id]);
-
-        $response = $this->actingAsWithMfa($user)->getJson(route('clients.export-count', ['search' => 'Maria']));
-
-        $response->assertOk()->assertJson(['count' => 1]);
-    }
-
-    #[Test]
-    public function clients_count_respects_sex_filter(): void
-    {
-        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-        $maleOwner = User::factory()->create(['role' => UserRole::OFW->value]);
-        $male = Client::factory()->create(['sex' => 'MALE', 'user_id' => $maleOwner->id]);
-        Client::factory()->create(['sex' => 'FEMALE']);
-        CaseFile::factory()->create(['client_id' => $male->id]);
-
-        $response = $this->actingAsWithMfa($user)->getJson(route('clients.export-count', ['sex' => 'MALE']));
-
-        $response->assertOk()->assertJson(['count' => 1]);
-    }
-
-    #[Test]
-    public function clients_count_respects_next_of_kin_client_type_filter(): void
-    {
-        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-        $ofwOwner = User::factory()->create(['role' => UserRole::OFW->value]);
-        $nokOwner = User::factory()->create(['role' => UserRole::OFW->value]);
-        $ofw = Client::factory()->create(['user_id' => $ofwOwner->id]);
-        $nextOfKin = Client::factory()->nextOfKin()->create(['user_id' => $nokOwner->id]);
-        CaseFile::factory()->create([
-            'client_id' => $ofw->id,
-        ]);
-        CaseFile::factory()->create([
-            'client_id' => $nextOfKin->id,
-        ]);
-
-        $response = $this->actingAsWithMfa($user)->getJson(route('clients.export-count', [
-            'client_type' => CaseFile::CLIENT_TYPE_NEXT_OF_KIN,
+            'client_type' => 'NEXT_OF_KIN',
         ]));
 
         $response->assertOk()->assertJson(['count' => 1]);

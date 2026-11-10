@@ -9,7 +9,6 @@ use App\Http\Middleware\EnsureMfaSession;
 use App\Mail\EmailChangedNotification;
 use App\Mail\UserInviteMail;
 use App\Models\Agency;
-use App\Models\Client;
 use App\Models\User;
 use App\Models\UserInvite;
 use App\Services\MfaPendingState;
@@ -431,81 +430,26 @@ class AdminUserTest extends TestCase
         $response->assertNotFound();
     }
 
-    // ── Citizen listing and client-type filter ──────────────────────────────
-
-    /**
-     * Citizen accounts (users.role = OFW) used to be filtered out of the list
-     * entirely. Both OFWs and next of kin register with that same role — the
-     * answer lands on clients.type — so the list must show both and let the
-     * admin narrow by client type.
-     */
-    public function test_index_lists_citizen_accounts_by_default(): void
+    public function test_index_lists_accounts_without_client_linkage_or_client_type_stats(): void
     {
-        $ofw = $this->createCitizen('OFW', 'Oscar Worker');
-        $nok = $this->createCitizen('NEXT_OF_KIN', 'Nora Kin');
+        $citizen = User::factory()->create([
+            'name' => 'Oscar Worker',
+            'role' => UserRole::OFW->value,
+        ]);
 
-        $response = $this->actingAsWithMfa($this->admin)->get(route('admin.users.index'));
+        $response = $this->actingAsWithMfa($this->admin)->get(route('admin.users.index', ['client_type' => 'NEXT_OF_KIN']));
 
         $response->assertOk();
         $response->assertInertia(fn ($page) => $page
             ->component('Admin/User/Index')
-            ->where('stats.citizen_ofw', 1)
-            ->where('stats.citizen_nok', 1)
-            ->has('users.data', 3) // the two citizens plus the admin
+            ->has('users.data', 2)
+            ->missing('filters.client_type')
+            ->missing('stats.citizen_ofw')
+            ->missing('stats.citizen_nok')
         );
 
         $ids = collect($response->viewData('page')['props']['users']['data'])->pluck('id');
-        $this->assertTrue($ids->contains($ofw->id));
-        $this->assertTrue($ids->contains($nok->id));
-    }
-
-    public function test_client_type_filter_separates_ofw_from_next_of_kin(): void
-    {
-        $ofw = $this->createCitizen('OFW', 'Oscar Worker');
-        $nok = $this->createCitizen('NEXT_OF_KIN', 'Nora Kin');
-
-        $response = $this->actingAsWithMfa($this->admin)
-            ->get(route('admin.users.index', ['client_type' => 'NEXT_OF_KIN']));
-
-        $response->assertOk();
-
-        $ids = collect($response->viewData('page')['props']['users']['data'])->pluck('id');
-        $this->assertTrue($ids->contains($nok->id));
-        $this->assertFalse($ids->contains($ofw->id));
-    }
-
-    public function test_unlinked_citizen_counts_in_neither_stat_tile(): void
-    {
-        // A citizen account with no client row (should not normally happen)
-        // must not pad either tile.
-        User::factory()->create(['role' => UserRole::OFW->value, 'client_id' => null]);
-
-        $response = $this->actingAsWithMfa($this->admin)->get(route('admin.users.index'));
-
-        $response->assertInertia(fn ($page) => $page
-            ->where('stats.citizen_ofw', 0)
-            ->where('stats.citizen_nok', 0)
-        );
-    }
-
-    private function createCitizen(string $clientType, string $name): User
-    {
-        $user = User::factory()->create([
-            'name' => $name,
-            'role' => UserRole::OFW->value,
-        ]);
-
-        $client = Client::factory()->create([
-            'type' => $clientType,
-            'user_id' => $user->id,
-            'first_name' => $name,
-            'last_name' => 'Test',
-        ]);
-
-        $user->client_id = $client->id;
-        $user->save();
-
-        return $user;
+        $this->assertTrue($ids->contains($citizen->id));
     }
 
     public function test_admin_can_reactivate_user_and_audit_is_logged(): void

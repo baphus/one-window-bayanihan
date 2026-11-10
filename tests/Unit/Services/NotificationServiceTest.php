@@ -65,7 +65,7 @@ class NotificationServiceTest extends TestCase
 
     public function test_notify_ofw_skips_when_email_empty(): void
     {
-        $case = $this->makeCaseFile();
+        $case = $this->makeCaseFile(null);
 
         $result = $this->service->notifyOfw($case, '', 'test', 'Test', 'Test message');
 
@@ -126,7 +126,7 @@ class NotificationServiceTest extends TestCase
             'message' => 'Test message',
         ]);
 
-        $result = $this->service->markAsRead($cn->id, 'ofw');
+        $result = $this->service->markAsRead($cn->id, 'ofw', User::find($case->ofw_user_id));
 
         $this->assertTrue($result);
         $this->assertNotNull($cn->fresh()->read_at);
@@ -168,10 +168,12 @@ class NotificationServiceTest extends TestCase
             'type' => 'b', 'title' => 'B', 'message' => 'Notif B',
         ]);
 
-        $count = $this->service->markAllAsRead($email, 'ofw');
+        $owner = User::find($case->ofw_user_id);
+
+        $count = $this->service->markAllAsRead($owner, 'ofw');
 
         $this->assertSame(2, $count);
-        $this->assertSame(0, $this->service->getUnreadCount($email, 'ofw'));
+        $this->assertSame(0, $this->service->getUnreadCount($owner, 'ofw'));
     }
 
     public function test_get_unread_count_for_user(): void
@@ -198,7 +200,7 @@ class NotificationServiceTest extends TestCase
             'type' => 'test', 'title' => 'Test', 'message' => 'Test',
         ]);
 
-        $count = $this->service->getUnreadCount($email, 'ofw');
+        $count = $this->service->getUnreadCount(User::find($case->ofw_user_id), 'ofw');
 
         $this->assertSame(1, $count);
     }
@@ -230,12 +232,12 @@ class NotificationServiceTest extends TestCase
             'type' => 'b', 'title' => 'B', 'message' => 'B',
         ]);
 
-        $result = $this->service->getNotifications($email, 'ofw', 10);
+        $result = $this->service->getNotifications(User::find($case->ofw_user_id), 'ofw', 10);
 
         $this->assertSame(2, $result->total());
     }
 
-    private function makeCaseFile(): CaseFile
+    private function makeCaseFile(?string $email = 'client@example.com'): CaseFile
     {
         $user = User::create([
             'name' => 'Case Manager',
@@ -250,6 +252,8 @@ class NotificationServiceTest extends TestCase
             'summary' => 'Test case for notification service',
             'status' => 'OPEN',
             'user_id' => $user->id,
+            'email' => $email,
+            'ofw_user_id' => User::factory()->create(['role' => UserRole::OFW->value])->id,
         ]);
     }
 

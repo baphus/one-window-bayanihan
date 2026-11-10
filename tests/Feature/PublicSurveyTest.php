@@ -7,7 +7,6 @@ use App\Listeners\SendSurveyRequest;
 use App\Mail\SurveyRequestMail;
 use App\Models\Agency;
 use App\Models\CaseFile;
-use App\Models\Client;
 use App\Models\Referral;
 use App\Models\SurveyForm;
 use App\Models\SurveyInvitation;
@@ -295,13 +294,17 @@ class PublicSurveyTest extends TestCase
         $this->assertSame(0, SurveyInvitation::count());
         Mail::assertQueuedCount(0);
         SystemSetting::setValue('feedback_enabled', true);
-        $referral->caseFile->client->update(['email' => null]);
-        (new SendSurveyRequest)->handle(new ReferralCompleted($referral->fresh(['caseFile.client', 'agency'])));
+        $referral->caseFile->update(['email' => null]);
+        (new SendSurveyRequest)->handle(new ReferralCompleted($referral->fresh(['caseFile', 'agency'])));
         $this->assertSame(0, SurveyInvitation::count());
         Mail::assertQueuedCount(0);
-        $referral->caseFile->client->update(['email' => 'recipient@example.test']);
+        $referral->caseFile->update(['email' => 'recipient@example.test']);
+        $referral->caseFile->update(['consent_given_at' => null]);
+        (new SendSurveyRequest)->handle(new ReferralCompleted($referral->fresh(['caseFile', 'agency'])));
+        $this->assertSame(0, SurveyInvitation::count());
+        $referral->caseFile->update(['consent_given_at' => now()]);
         SurveyForm::where('agency_id', $referral->agcy_id)->update(['is_active' => false]);
-        (new SendSurveyRequest)->handle(new ReferralCompleted($referral->fresh(['caseFile.client', 'agency'])));
+        (new SendSurveyRequest)->handle(new ReferralCompleted($referral->fresh(['caseFile', 'agency'])));
         $this->assertSame(0, SurveyInvitation::count());
         Mail::assertQueuedCount(0);
     }
@@ -364,14 +367,14 @@ class PublicSurveyTest extends TestCase
         $referral = $this->deliveryReferral();
         $listener = new SendSurveyRequest;
         $listener->handle(new ReferralCompleted($referral));
-        $listener->handle(new ReferralCompleted($referral->fresh(['caseFile.client', 'agency'])));
+        $listener->handle(new ReferralCompleted($referral->fresh(['caseFile', 'agency'])));
         $this->assertSame(1, SurveyInvitation::count());
         Mail::assertQueuedCount(1);
         $queuedMail = null;
         Mail::assertQueued(SurveyRequestMail::class, function (SurveyRequestMail $mail) use (&$queuedMail, $referral) {
             $queuedMail = $mail;
 
-            return $mail->hasTo($referral->caseFile->client->email);
+            return $mail->hasTo($referral->caseFile->email);
         });
         $this->assertInstanceOf(ShouldBeEncrypted::class, $queuedMail);
         $this->get(parse_url($queuedMail->survey_url, PHP_URL_PATH))
@@ -449,9 +452,10 @@ class PublicSurveyTest extends TestCase
 
     private function invitation(array $questions = [['type' => 'text', 'is_required' => true]]): array
     {
-        $referral = Referral::factory()->create();
-        $client = Client::factory()->create(['email' => 'client@example.test']);
-        $referral->caseFile->update(['client_id' => $client->id]);
+        $referral = Referral::factory()->create(['case_id' => CaseFile::factory()->withIntake()->create([
+            'email' => 'client@example.test',
+            'consent_given_at' => now(),
+        ])->id]);
         $form = SurveyForm::create(['agency_id' => $referral->agcy_id, 'title' => 'Feedback', 'is_active' => true]);
         foreach ($questions as $index => $question) {
             $form->questions()->create(array_merge(['label' => 'Question '.$index, 'order' => $index], $question));
@@ -465,12 +469,16 @@ class PublicSurveyTest extends TestCase
 
     private function deliveryReferral(): Referral
     {
-        $client = Client::factory()->create(['email' => 'recipient@example.test']);
-        $case = CaseFile::factory()->create(['client_id' => $client->id]);
+        $case = CaseFile::factory()->withIntake()->create([
+            'first_name' => 'Snapshot',
+            'last_name' => 'Recipient',
+            'email' => 'recipient@example.test',
+            'consent_given_at' => now(),
+        ]);
         $agency = Agency::factory()->create();
         $referral = Referral::factory()->create(['case_id' => $case->id, 'agcy_id' => $agency->id]);
         SurveyForm::create(['agency_id' => $agency->id, 'title' => 'Active', 'is_active' => true]);
 
-        return $referral->fresh(['caseFile.client', 'agency']);
+        return $referral->fresh(['caseFile', 'agency']);
     }
 }

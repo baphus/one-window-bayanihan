@@ -27,7 +27,7 @@ class ShowTest extends TestCase
         $response = $this->withSession([
             TrackingService::SESSION_KEY => [
                 'tracker_number' => $case->tracker_number,
-                'email' => $result['client']->email,
+                'email' => $case->email,
                 'verified_at' => now()->getTimestamp(),
             ],
         ])->get(route('track.show', [

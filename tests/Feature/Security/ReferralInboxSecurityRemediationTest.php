@@ -8,7 +8,6 @@ use App\Http\Middleware\SecurityHeaders;
 use App\Mail\ClientRequestMail;
 use App\Models\Agency;
 use App\Models\CaseFile;
-use App\Models\Client;
 use App\Models\Referral;
 use App\Models\ReferralClientRequest;
 use App\Models\User;
@@ -70,11 +69,10 @@ class ReferralInboxSecurityRemediationTest extends TestCase
     public function test_capability_exchange_keeps_no_store_and_no_referrer_headers(): void
     {
         [$agencyUser, $referral, $clientRequest] = $this->requestContext();
-        $clientRequest->loadMissing('referral.caseFile.client');
         $issued = app(ReferralClientAccessService::class)->issue(
             $clientRequest,
             $agencyUser,
-            ['email' => $clientRequest->referral->caseFile->client->email, 'name' => 'Test Client'],
+            ['email' => $clientRequest->referral->caseFile->email, 'name' => 'Test Client'],
         );
 
         $response = $this->post(route('track.request.exchange'), ['token' => $issued['raw_token']]);
@@ -141,14 +139,14 @@ class ReferralInboxSecurityRemediationTest extends TestCase
         $this->assertSame(3600, $accessLimit->decaySeconds);
         $this->assertSame($agencyUser->id.'|'.$clientRequest->id, $accessLimit->key);
 
-        $client = $clientRequest->referral->caseFile->client;
-        $client->update(['email' => 'Client@example.test']);
+        $case = $clientRequest->referral->caseFile;
+        $case->update(['email' => 'Client@example.test']);
         $recipient = $recipientLimiter($request);
         $this->assertSame(20, $recipient->maxAttempts);
         $this->assertSame(3600, $recipient->decaySeconds);
         $this->assertSame('recipient|'.hash('sha256', 'client@example.test'), $recipient->key);
 
-        $client->update(['email' => null]);
+        $case->update(['email' => null]);
         $recipient = $recipientLimiter($request);
         $this->assertSame(20, $recipient->maxAttempts);
         $this->assertSame(3600, $recipient->decaySeconds);
@@ -188,8 +186,10 @@ class ReferralInboxSecurityRemediationTest extends TestCase
             'is_active' => true,
         ]);
         $owner = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-        $client = Client::factory()->create();
-        $case = CaseFile::factory()->create(['user_id' => $owner->id, 'client_id' => $client->id]);
+        $case = CaseFile::factory()->withIntake()->create([
+            'user_id' => $owner->id,
+            'email' => 'client@example.test',
+        ]);
         $referral = Referral::factory()->create(['case_id' => $case->id, 'agcy_id' => $agency->id]);
         $clientRequest = ReferralClientRequest::factory()->create(['referral_id' => $referral->id]);
 

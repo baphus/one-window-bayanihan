@@ -3,9 +3,6 @@
 namespace Tests\Feature\TrackingService;
 
 use App\Models\CaseFile;
-use App\Models\Client;
-use App\Models\ClientAddress;
-use App\Models\ClientEmployment;
 use App\Models\ReferralAttachment;
 use App\Models\Service;
 use App\Services\TrackingService;
@@ -24,8 +21,7 @@ class FindCaseByTrackerTest extends TestCase
     private function loadRelations(CaseFile $case): CaseFile
     {
         $case->load([
-            'client.addresses',
-            'client.employments',
+            'referrals.category',
             'referrals.agency',
             'referrals.services',
             'referrals.milestones.user',
@@ -58,7 +54,6 @@ class FindCaseByTrackerTest extends TestCase
         // ARRANGE — build a complete case graph with all related records
         $result = $this->createCompleteCase(referralCount: 1, milestonesPerReferral: 1);
         $case = $result['case'];
-        $client = $result['client'];
         $referral = $result['referrals']->first();
 
         // Attach a service to the referral (replaces old requirements column)
@@ -68,23 +63,6 @@ class FindCaseByTrackerTest extends TestCase
         ]);
         $referral->services()->sync([$serviceModel->id]);
         $referral->load('services');
-
-        // Manually create records for relationships without dedicated factories
-        ClientAddress::create([
-            'client_id' => $client->id,
-            'region' => 'Region VII',
-            'province' => 'Cebu',
-            'city_municipality' => 'Cebu City',
-            'barangay' => 'Barangay Test',
-            'street' => '123 Test St',
-        ]);
-
-        ClientEmployment::create([
-            'client_id' => $client->id,
-            'employer_name' => 'Test Employer Ltd.',
-            'position' => 'Software Engineer',
-            'country' => 'Saudi Arabia',
-        ]);
 
         ReferralAttachment::create([
             'referral_id' => $referral->id,
@@ -105,14 +83,6 @@ class FindCaseByTrackerTest extends TestCase
         // Case-level: user
         $this->assertTrue($found->relationLoaded('user'), 'user relation should be loaded');
         $this->assertNotNull($found->user);
-
-        // Client chain
-        $this->assertTrue($found->relationLoaded('client'), 'client relation should be loaded');
-        $this->assertNotNull($found->client);
-        $this->assertTrue($found->client->relationLoaded('addresses'), 'client.addresses should be loaded');
-        $this->assertGreaterThan(0, $found->client->addresses->count());
-        $this->assertTrue($found->client->relationLoaded('employments'), 'client.employments should be loaded');
-        $this->assertGreaterThan(0, $found->client->employments->count());
 
         // Referral chain
         $this->assertGreaterThan(0, $found->referrals->count());
@@ -169,13 +139,10 @@ class FindCaseByTrackerTest extends TestCase
 
     public function test_personnel_draft_returns_null(): void
     {
-        // ARRANGE — a personnel draft created by staff against an existing client.
-        // The client already has an email, so without the clientVisible guard the
-        // OTP email check would pass and the draft would be trackable.
-        $client = Client::factory()->create(['email' => 'client@example.com']);
-        $case = CaseFile::factory()->draft()->create([
-            'client_id' => $client->id,
-        ]);
+        // ARRANGE — a personnel draft with a case contact email, so without the
+        // clientVisible guard the OTP email check would pass and the draft
+        // would be trackable.
+        $case = CaseFile::factory()->draft()->create(['email' => 'client@example.com']);
 
         $service = app(TrackingService::class);
 
@@ -191,10 +158,7 @@ class FindCaseByTrackerTest extends TestCase
         // ARRANGE — an OFW-filed case sits in PENDING_REVIEW and the filer is
         // handed the tracker on the success screen, so it must remain
         // trackable through CM review.
-        $client = Client::factory()->create(['email' => 'ofw@example.com']);
-        $case = CaseFile::factory()->pendingReview()->create([
-            'client_id' => $client->id,
-        ]);
+        $case = CaseFile::factory()->pendingReview()->create(['email' => 'ofw@example.com']);
 
         $service = app(TrackingService::class);
 

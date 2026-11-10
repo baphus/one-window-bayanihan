@@ -24,8 +24,7 @@ class EdgeCasesTest extends TestCase
     private function loadRelations(CaseFile $case): CaseFile
     {
         $case->load([
-            'client.addresses',
-            'client.employments',
+            'referrals.category',
             'referrals.agency',
             'referrals.services',
             'referrals.milestones.user',
@@ -58,10 +57,10 @@ class EdgeCasesTest extends TestCase
         $this->assertNull($found);
     }
 
-    public function test_case_with_no_client(): void
+    public function test_case_with_no_identity(): void
     {
         // ARRANGE
-        $case = CaseFile::factory()->create(['client_id' => null]);
+        $case = CaseFile::factory()->create();
         $this->loadRelations($case);
         $service = app(TrackingService::class);
 
@@ -73,7 +72,7 @@ class EdgeCasesTest extends TestCase
         $this->assertNull($data['caseOverview']['nextOfKin']);
         $this->assertEquals('Unknown', $data['trackedCase']['clientName']);
 
-        // Verify no exceptions are thrown during the call, and the legacy
+        // Verify missing case-owned identity stays absent and the legacy
         // audit-log timeline is no longer part of the payload
         $this->assertArrayNotHasKey('caseTimeline', $data);
         $this->assertArrayHasKey('milestoneTimeline', $data);
@@ -87,7 +86,6 @@ class EdgeCasesTest extends TestCase
 
         $openCase = CaseFile::factory()->create([
             'status' => 'OPEN',
-            'client_id' => null,
         ]);
         app(CaseEventRecorder::class)->caseOpened($openCase);
         $this->loadRelations($openCase);
@@ -103,9 +101,7 @@ class EdgeCasesTest extends TestCase
         $this->assertEquals('case_opened', $data['milestoneTimeline'][0]['type']);
 
         // ARRANGE — CLOSED case with no referrals
-        $closedCase = CaseFile::factory()->closed()->create([
-            'client_id' => null,
-        ]);
+        $closedCase = CaseFile::factory()->closed()->create();
         app(CaseEventRecorder::class)->caseOpened($closedCase);
         app(CaseEventRecorder::class)->caseClosed($closedCase);
         $this->loadRelations($closedCase);
@@ -156,7 +152,7 @@ class EdgeCasesTest extends TestCase
         Mail::fake();
         $result = $this->createCompleteCase();
         $case = $result['case'];
-        $email = $result['client']->email;
+        $email = $case->email;
 
         // ACT — send OTP twice for the same email
         $this->post(route('track.send-otp'), [
@@ -185,7 +181,7 @@ class EdgeCasesTest extends TestCase
         // ARRANGE
         $result = $this->createCompleteCase();
         $case = $result['case'];
-        $email = $result['client']->email;
+        $email = $case->email;
 
         // Pre-seed an OTP that differs from the trimmed "123456" so the
         // verification step fails — proving the value was trimmed.
@@ -280,7 +276,7 @@ class EdgeCasesTest extends TestCase
         $case = $result['case'];
         Mail::fake();
 
-        // ACT — POST with a valid email that does not match the case client.
+        // ACT — POST with an email that does not match the case snapshot.
         $response = $this->post(route('track.send-otp'), [
             'tracker_number' => $case->tracker_number,
             'email' => 'unmatched@example.com',

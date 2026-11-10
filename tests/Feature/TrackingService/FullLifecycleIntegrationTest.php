@@ -3,7 +3,6 @@
 namespace Tests\Feature\TrackingService;
 
 use App\Models\CaseFile;
-use App\Models\Client;
 use App\Models\Milestone;
 use App\Models\Referral;
 use App\Models\User;
@@ -23,8 +22,7 @@ class FullLifecycleIntegrationTest extends TestCase
     private function loadRelations(CaseFile $case): CaseFile
     {
         $case->load([
-            'client.addresses',
-            'client.employments',
+            'referrals.category',
             'referrals.agency',
             'referrals.services',
             'referrals.milestones.user',
@@ -44,11 +42,10 @@ class FullLifecycleIntegrationTest extends TestCase
     {
         // ARRANGE — simulate the full case lifecycle: DRAFT → OPEN → referral → milestone → CLOSED
         $user = User::factory()->create();
-        $client = Client::factory()->create();
-        $case = CaseFile::factory()->draft()->create([
+        $case = CaseFile::factory()->draft()->withIntake()->create([
             'user_id' => $user->id,
-            'client_id' => $client->id,
         ]);
+        $client = $case;
 
         // Open the case
         $case->update(['status' => 'OPEN']);
@@ -119,11 +116,7 @@ class FullLifecycleIntegrationTest extends TestCase
     {
         // ARRANGE
         $user = User::factory()->create();
-        $client = Client::factory()->create();
-        $case = CaseFile::factory()->create([
-            'user_id' => $user->id,
-            'client_id' => $client->id,
-        ]);
+        $case = CaseFile::factory()->create(['user_id' => $user->id]);
 
         // Create 3 referrals at different statuses
         Referral::factory()->pending()->create(['case_id' => $case->id]);
@@ -270,7 +263,7 @@ class FullLifecycleIntegrationTest extends TestCase
         // ARRANGE
         $result = $this->createCompleteCase();
         $case = $result['case'];
-        $client = $result['client'];
+        $client = $case;
 
         $this->loadRelations($case);
         $service = app(TrackingService::class);
@@ -318,11 +311,8 @@ class FullLifecycleIntegrationTest extends TestCase
 
     public function test_empty_tracking_agencies_and_minimal_timelines(): void
     {
-        // ARRANGE — OPEN case with a client but no referrals or milestones
-        $client = Client::factory()->create();
-        $case = CaseFile::factory()->open()->create([
-            'client_id' => $client->id,
-        ]);
+        // ARRANGE — OPEN case with case-owned intake but no referrals or milestones
+        $case = CaseFile::factory()->open()->withIntake()->create();
         $this->recorder()->caseOpened($case);
 
         $this->loadRelations($case);
@@ -340,9 +330,7 @@ class FullLifecycleIntegrationTest extends TestCase
         $this->assertEquals('Your case has been opened', $data['milestoneTimeline'][0]['title']);
 
         // Also test a CLOSED case with no referrals
-        $closedCase = CaseFile::factory()->closed()->create([
-            'client_id' => $client->id,
-        ]);
+        $closedCase = CaseFile::factory()->closed()->withIntake()->create();
         $this->recorder()->caseOpened($closedCase);
         $this->recorder()->caseClosed($closedCase);
         $this->loadRelations($closedCase);

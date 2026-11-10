@@ -4,10 +4,9 @@ namespace Tests\Feature;
 
 use App\Enums\UserRole;
 use App\Models\CaseFile;
-use App\Models\Client;
-use App\Models\ClientAddress;
 use App\Models\User;
 use App\Services\CaseService;
+use App\Services\IntakeDocumentService;
 use App\Services\PhilippineAddressService;
 use App\Services\ReportsService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -42,46 +41,33 @@ class AddressCodeToTextIntegrationTest extends TestCase
         $this->addressService = app(PhilippineAddressService::class);
     }
 
-    public function test_full_flow_create_client_with_address(): void
+    public function test_case_intake_resolves_address_codes_to_case_owned_names(): void
     {
         $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-        $client = Client::factory()->create();
+        $data = CaseFile::factory()->withIntake()->make()->only(CaseFile::INTAKE_FIELDS);
+        $data['address_street'] = '123 Main St';
+        $case = app(CaseService::class)->createCase(array_merge($data, [
+            'client_type' => 'OFW',
+            'address_region' => self::REGION_CODE,
+            'address_province' => self::PROVINCE_CODE,
+            'address_city_municipality' => self::CITY_CODE,
+            'address_barangay' => self::BARANGAY_CODE,
+            'consent_method' => 'WRITTEN',
+            'consent_evidence' => 'Signed consent retained',
+            'consent_text_version' => IntakeDocumentService::CONSENT_VERSION,
+            'missing_document_reasons' => array_fill_keys(['passport_front_page', 'arrival_stamp', 'employment_evidence', 'sworn_affidavit'], 'Awaiting copy'),
+        ]), $user->id);
 
-        $service = app(CaseService::class);
-        $service->createCase([
-            'client' => ['first_name' => 'John', 'last_name' => 'Doe'],
-            'selected_client_id' => $client->id,
-            'address' => [
-                'region' => self::REGION_CODE,
-                'province' => self::PROVINCE_CODE,
-                'city_municipality' => self::CITY_CODE,
-                'barangay' => self::BARANGAY_CODE,
-                'street' => '123 Main St',
-            ],
-        ], $user->id);
-
-        $address = $client->addresses()->first();
-
-        $this->assertNotNull($address);
-        $this->assertEquals(self::REGION_NAME, $address->region);
-        $this->assertEquals(self::PROVINCE_NAME, $address->province);
-        $this->assertEquals(self::CITY_NAME, $address->city_municipality);
-        $this->assertEquals(self::BARANGAY_NAME, $address->barangay);
-        $this->assertEquals('123 Main St', $address->street);
+        $this->assertSame(self::REGION_NAME, $case->address_region);
+        $this->assertSame(self::PROVINCE_NAME, $case->address_province);
+        $this->assertSame(self::CITY_NAME, $case->address_city_municipality);
+        $this->assertSame(self::BARANGAY_NAME, $case->address_barangay);
+        $this->assertSame('123 Main St', $case->address_street);
+        $this->assertNull($case->client_id);
     }
 
-    public function test_edit_existing_client_address(): void
+    public function test_case_address_names_resolve_back_to_psgc_codes(): void
     {
-        $client = Client::factory()->create();
-        $address = ClientAddress::create([
-            'client_id' => $client->id,
-            'region' => self::REGION_NAME,
-            'province' => self::PROVINCE_NAME,
-            'city_municipality' => self::CITY_NAME,
-            'barangay' => self::BARANGAY_NAME,
-            'street' => '456 Oak Ave',
-        ]);
-
         $codes = $this->addressService->resolveAddressToCodes([
             'region' => self::REGION_NAME,
             'province' => self::PROVINCE_NAME,
@@ -89,48 +75,29 @@ class AddressCodeToTextIntegrationTest extends TestCase
             'barangay' => self::BARANGAY_NAME,
         ]);
 
-        $this->assertEquals(self::REGION_CODE, $codes['region']);
-        $this->assertEquals(self::PROVINCE_CODE, $codes['province']);
-        $this->assertEquals(self::CITY_CODE, $codes['city_municipality']);
-        $this->assertEquals(self::BARANGAY_CODE, $codes['barangay']);
-
-        // Verify the DB still holds text names after the code resolution
-        $this->assertDatabaseHas('client_addresses', [
-            'id' => $address->id,
-            'region' => self::REGION_NAME,
-            'province' => self::PROVINCE_NAME,
-        ]);
+        $this->assertSame(self::REGION_CODE, $codes['region']);
+        $this->assertSame(self::PROVINCE_CODE, $codes['province']);
+        $this->assertSame(self::CITY_CODE, $codes['city_municipality']);
+        $this->assertSame(self::BARANGAY_CODE, $codes['barangay']);
     }
 
     public function test_reports_still_aggregate_correctly(): void
     {
         $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
-        $clientA = Client::factory()->create();
-        $clientB = Client::factory()->create();
-
-        ClientAddress::create([
-            'client_id' => $clientA->id,
-            'region' => self::REGION_NAME,
-            'province' => self::PROVINCE_NAME,
-            'city_municipality' => self::CITY_NAME,
-        ]);
-        ClientAddress::create([
-            'client_id' => $clientB->id,
-            'region' => self::REGION_NAME,
-            'province' => self::PROVINCE_NAME,
-            'city_municipality' => self::CITY_NAME,
-        ]);
-
-        CaseFile::factory()->create([
+        CaseFile::factory()->withIntake()->create([
             'user_id' => $user->id,
-            'client_id' => $clientA->id,
             'status' => 'OPEN',
+            'address_region' => self::REGION_NAME,
+            'address_province' => self::PROVINCE_NAME,
+            'address_city_municipality' => self::CITY_NAME,
         ]);
-        CaseFile::factory()->create([
+        CaseFile::factory()->withIntake()->create([
             'user_id' => $user->id,
-            'client_id' => $clientB->id,
             'status' => 'OPEN',
+            'address_region' => self::REGION_NAME,
+            'address_province' => self::PROVINCE_NAME,
+            'address_city_municipality' => self::CITY_NAME,
         ]);
 
         $reportService = app(ReportsService::class);

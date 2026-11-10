@@ -6,9 +6,6 @@ use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\CaseCategory;
 use App\Models\CaseFile;
-use App\Models\Client;
-use App\Models\ClientAddress;
-use App\Models\ClientEmployment;
 use App\Models\Referral;
 use App\Models\User;
 use App\Services\Export\DataExportQueries;
@@ -184,37 +181,14 @@ class ReportsExportServiceTest extends TestCase
     }
 
     #[Test]
-    public function case_export_uses_secondary_pivot_categories_without_scalar_category(): void
+    public function report_details_use_referral_categories_without_case_classification(): void
     {
-        [$agency] = $this->seedAgencies();
-        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-        $secondary = CaseCategory::factory()->create(['name' => 'Secondary category']);
-        $case = CaseFile::factory()->create([
-            'case_number' => 'CASE-PIVOT-CATEGORY-001',
-            'user_id' => $manager->id,
-            'category_id' => null,
-            'created_at' => CarbonImmutable::parse('2026-03-01 00:00:00'),
-            'updated_at' => CarbonImmutable::parse('2026-03-02 00:00:00'),
-        ]);
-        DB::table('case_category')->insert([
-            'id' => (string) Str::uuid(),
-            'case_id' => $case->id,
-            'case_category_id' => $secondary->id,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-        Referral::factory()->create([
-            'case_id' => $case->id,
-            'agcy_id' => $agency->id,
-            'status' => 'PENDING',
-            'required_services' => 'Assistance',
-        ]);
-
-        $sheets = $this->service->buildExcelSheets($this->requestFor($manager));
+        $case = $this->makeCaseWithReferral($this->manager);
+        $sheets = $this->service->buildExcelSheets($this->requestFor($this->manager));
         $row = $this->sheetRows($sheets, 'Case Details')->firstWhere('case_number', $case->case_number);
-
         $this->assertNotNull($row);
-        $this->assertSame($secondary->name, $row->category);
+        $this->assertFalse(property_exists($row, 'issue'));
+        $this->assertFalse(property_exists($row, 'category'));
     }
 
     #[Test]
@@ -412,12 +386,9 @@ class ReportsExportServiceTest extends TestCase
         $otherCase = $this->makeCaseWithReferral($other);
 
         foreach ([[$owned, 'Canada', 'Welder'], [$otherCase, 'Japan', 'Engineer']] as [$case, $country, $position]) {
-            ClientEmployment::create([
-                'client_id' => $case->client_id,
-                'country' => $country,
-                'position' => $position,
-                'last_country' => $country,
-                'last_position' => $position,
+            $case->update([
+                'employment_country' => $country, 'employment_position' => $position,
+                'employment_last_country' => $country, 'employment_last_position' => $position,
             ]);
         }
 
@@ -467,20 +438,10 @@ class ReportsExportServiceTest extends TestCase
 
     private function makeCaseWithReferral(User $manager, ?string $province = null): CaseFile
     {
-        // publishedOnly requires user_id; clients created without linked accounts
-        // are excluded from exports intentionally (same rule as ClientController).
-        $clientUser = User::factory()->create();
-        $client = Client::factory()->create(['user_id' => $clientUser->id]);
-        if ($province) {
-            ClientAddress::create([
-                'client_id' => $client->id,
-                'region' => 'Region VII',
-                'province' => $province,
-                'city_municipality' => 'Cebu City',
-                'barangay' => 'Lahug',
-            ]);
-        }
-        $case = CaseFile::factory()->create(['user_id' => $manager->id, 'status' => 'OPEN', 'client_id' => $client->id]);
+        $case = CaseFile::factory()->create([
+            'user_id' => $manager->id, 'status' => 'OPEN', 'address_province' => $province,
+            'address_region' => 'Region VII', 'address_city_municipality' => 'Cebu City', 'address_barangay' => 'Lahug',
+        ]);
         Referral::factory()->pending()->create(['case_id' => $case->id, 'agcy_id' => $this->agency->id]);
 
         return $case;
@@ -500,7 +461,6 @@ class ReportsExportServiceTest extends TestCase
         $case = CaseFile::factory()->create(array_merge([
             'case_number' => $caseNumber,
             'user_id' => $manager->id,
-            'category_id' => $category->id,
             'created_at' => CarbonImmutable::parse('2026-03-01 00:00:00'),
             'updated_at' => CarbonImmutable::parse('2026-03-02 00:00:00'),
         ], $caseAttrs));
@@ -510,6 +470,7 @@ class ReportsExportServiceTest extends TestCase
             'agcy_id' => $agency->id,
             'status' => 'PENDING',
             'required_services' => 'Assistance',
+            'category_id' => $category->id,
             'created_at' => CarbonImmutable::parse('2026-03-03 00:00:00'),
             'updated_at' => CarbonImmutable::parse('2026-03-05 00:00:00'),
         ], $referralAttrs));

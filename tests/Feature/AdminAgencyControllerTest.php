@@ -4,9 +4,12 @@ namespace Tests\Feature;
 
 use App\Enums\UserRole;
 use App\Models\Agency;
+use App\Models\CaseFile;
+use App\Models\Referral;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
 class AdminAgencyControllerTest extends TestCase
@@ -17,6 +20,29 @@ class AdminAgencyControllerTest extends TestCase
     {
         parent::setUp();
 
+    }
+
+    public function test_admin_agency_referral_summary_uses_case_snapshot_fields_only(): void
+    {
+        $admin = User::factory()->mfaEnabled()->create(['role' => UserRole::ADMIN->value, 'mfa_secret' => 'JBSWY3DPEHPK3PXP']);
+        $agency = Agency::factory()->create();
+        $case = CaseFile::factory()->create([
+            'first_name' => 'Case',
+            'last_name' => 'Snapshot',
+            'email' => 'case@example.test',
+        ]);
+        $referral = Referral::factory()->create(['case_id' => $case->id, 'agcy_id' => $agency->id]);
+
+        $this->actingAsWithMfa($admin)
+            ->get(route('admin.agencies.show', $agency->id))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Admin/Agency/Show')
+                ->where('referrals.data.0.id', $referral->id)
+                ->where('referrals.data.0.case_file.first_name', 'Case')
+                ->where('referrals.data.0.case_file.last_name', 'Snapshot')
+                ->missing('referrals.data.0.case_file.email')
+                ->missing('referrals.data.0.case_file.client'));
     }
 
     public function test_admin_can_delete_agency(): void

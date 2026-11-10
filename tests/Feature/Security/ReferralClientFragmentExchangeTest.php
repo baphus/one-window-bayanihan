@@ -6,7 +6,6 @@ use App\Enums\UserRole;
 use App\Mail\ClientRequestMail;
 use App\Models\Agency;
 use App\Models\CaseFile;
-use App\Models\Client;
 use App\Models\Referral;
 use App\Models\ReferralClientRequest;
 use App\Models\User;
@@ -59,7 +58,7 @@ class ReferralClientFragmentExchangeTest extends TestCase
         $issued = app(ReferralClientAccessService::class)->issue(
             $clientRequest,
             $agencyUser,
-            ['email' => $clientRequest->referral->caseFile->client->email, 'name' => 'Test Client'],
+            ['email' => $clientRequest->referral->caseFile->email, 'name' => 'Test Client'],
         );
 
         $response = $this->post(route('track.request.exchange'), ['token' => $issued['raw_token']]);
@@ -67,6 +66,10 @@ class ReferralClientFragmentExchangeTest extends TestCase
         $response->assertRedirect(route('track.request.index'));
         $response->assertSessionHas('client_request_access.request_id', $clientRequest->id);
         $this->assertStringNotContainsString($issued['raw_token'], $response->headers->get('Location'));
+
+        $this->post(route('track.request.exchange'), ['token' => $issued['raw_token']])
+            ->assertRedirect(route('track.request.index'));
+        $this->assertSame(2, $issued['link']->fresh()->use_count);
     }
 
     public function test_no_session_renders_generic_request_access_view_only(): void
@@ -128,8 +131,11 @@ class ReferralClientFragmentExchangeTest extends TestCase
         $agency = Agency::factory()->create();
         $agencyUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id, 'is_active' => true]);
         $owner = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-        $client = Client::factory()->create();
-        $case = CaseFile::factory()->create(['user_id' => $owner->id, 'client_id' => $client->id]);
+        $case = CaseFile::factory()->withIntake()->create([
+            'user_id' => $owner->id,
+            'email' => 'recipient@example.test',
+            'consent_given_at' => now(),
+        ]);
         $referral = Referral::factory()->create(['case_id' => $case->id, 'agcy_id' => $agency->id]);
         $clientRequest = ReferralClientRequest::factory()->create(['referral_id' => $referral->id]);
 
