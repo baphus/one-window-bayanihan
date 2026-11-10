@@ -9,8 +9,6 @@ use App\Models\Agency;
 use App\Models\AuditLog;
 use App\Models\CaseCategory;
 use App\Models\CaseFile;
-use App\Models\CaseIssue;
-use App\Models\Client;
 use App\Models\Milestone;
 use App\Models\Referral;
 use App\Models\User;
@@ -25,8 +23,6 @@ class AuditLogFormatter
     private array $uuidFieldMap = [
         'user_id' => [User::class, 'name'],
         'category_id' => [CaseCategory::class, 'name'],
-        'case_issue_id' => [CaseIssue::class, 'name'],
-        'client_id' => [Client::class, 'first_name', 'last_name'],
         'agcy_id' => [Agency::class, 'name'],
         'refr_id' => [Referral::class, 'required_services'],
         'milestone_id' => [Milestone::class, 'title'],
@@ -627,6 +623,7 @@ class AuditLogFormatter
             'agcy_id' => 'agency',
             'user_id' => 'assigned user',
             'client_type' => 'client type',
+            'client_id' => 'legacy client reference',
             'sex' => 'gender',
             'date_of_birth' => 'birth date',
             'phone_number' => 'phone number',
@@ -646,7 +643,7 @@ class AuditLogFormatter
             'nok_vulnerability_indicator' => 'NOK vulnerability level',
             'consent_given_at' => 'consent date',
             'escalation_reason' => 'escalation reason',
-            'case_issue_id' => 'case issue',
+            'case_issue_id' => 'legacy case issue reference',
             'case_issue' => 'case issue',
             'category_id' => 'category',
             'category_names' => 'categories',
@@ -746,6 +743,10 @@ class AuditLogFormatter
                 UserRole::ADMIN->value => 'System Admin',
                 default => $stringValue,
             };
+        }
+
+        if (in_array($field, ['client_id', 'case_issue_id'], true) && Str::isUuid($stringValue)) {
+            return 'legacy ID';
         }
 
         if ($field === 'client_type') {
@@ -1165,13 +1166,16 @@ class AuditLogFormatter
             return null;
         }
 
-        // Quick check: UUIDs are 36 chars with 4 hyphens
-        if (strlen($value) !== 36 || substr_count($value, '-') !== 4) {
+        if (! Str::isUuid($value)) {
             return null;
         }
 
         $nameFields = $this->uuidFieldMap[$field];
         $modelClass = array_shift($nameFields);
+        if (! class_exists($modelClass)) {
+            return null;
+        }
+
         $model = $modelClass::find($value);
 
         if ($model === null) {

@@ -71,7 +71,7 @@ class ReferralNotifier
         // Also create OFW notification for the case client (plain language, no status codes).
         // Deferred until after commit: notifyOfw queues the client email,
         // which must never send when the referral transaction rolls back.
-        if ($referral->caseFile && $referral->caseFile->client && $referral->caseFile->client->email) {
+        if ($referral->caseFile && $referral->caseFile->email) {
             $referral->loadMissing(['agency', 'services']);
             $agencyName = $referral->agency?->name ?? 'a partner agency';
             $services = $referral->relationLoaded('services') && $referral->services->isNotEmpty()
@@ -79,7 +79,7 @@ class ReferralNotifier
                 : 'the help you requested';
 
             $ofwCase = $referral->caseFile;
-            $ofwEmail = $referral->caseFile->client->email;
+            $ofwEmail = $referral->caseFile->email;
             $trackUrl = route('track.show', $referral->caseFile->tracker_number ?? $referral->case_id);
 
             $this->afterCommit($referral, fn () => $this->notificationService->notifyOfw(
@@ -120,10 +120,10 @@ class ReferralNotifier
             // Also create OFW notification (plain language, no status codes).
             // Deferred until after commit: notifyOfw queues the client email,
             // which must never send when the status-change transaction rolls back.
-            if ($referral->caseFile->client && $referral->caseFile->client->email) {
+            if ($referral->caseFile->email) {
                 $referral->loadMissing('agency');
                 $ofwCase = $referral->caseFile;
-                $ofwEmail = $referral->caseFile->client->email;
+                $ofwEmail = $referral->caseFile->email;
                 $ofwTitle = $this->ofwReferralStatusTitle($referral, $status);
                 $ofwMessage = $this->ofwReferralStatusMessage($referral, $status);
                 $trackUrl = route('track.show', $referral->caseFile->tracker_number ?? $referral->case_id);
@@ -162,7 +162,7 @@ class ReferralNotifier
                 $notifyUsers->push($au);
             }
 
-            $clientEmail = $referral->caseFile->client?->email ?? '';
+            $clientEmail = $referral->caseFile->email ?? '';
             $actorName = User::whereKey($userId)->value('name');
             $agencyName = $referral->agency?->name ?? 'the agency';
             $caseNumber = $referral->caseFile?->case_number ?? '';

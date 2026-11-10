@@ -188,7 +188,7 @@ class ReferralClientRequestService
 
             $lockedLink = null;
             if ($isOwner) {
-                if ($sender->role !== UserRole::OFW->value || $sender->is_active === false || ! $case || $case->client_id !== $sender->client_id) {
+                if ($sender->role !== UserRole::OFW->value || $sender->is_active === false || ! $case || $case->ofw_user_id !== $sender->id) {
                     throw new AuthorizationException('You are not allowed to reply to this request.');
                 }
             } else {

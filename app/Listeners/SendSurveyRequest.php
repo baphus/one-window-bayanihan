@@ -32,7 +32,7 @@ class SendSurveyRequest implements ShouldQueueAfterCommit
         $caseFile = $event->caseFile;
         $agency = $event->agency;
 
-        if (! $caseFile->client || ! $caseFile->client->email) {
+        if (! $caseFile->email || ! $caseFile->consent_given_at) {
             Log::warning('Survey request skipped: missing client email', [
                 'referral_id' => $referral->id,
                 'case_id' => $referral->case_id,
@@ -63,8 +63,7 @@ class SendSurveyRequest implements ShouldQueueAfterCommit
             return;
         }
 
-        // Build client name from the case file's client
-        $clientName = trim($caseFile->client->first_name.' '.$caseFile->client->last_name);
+        $clientName = trim(($caseFile->first_name ?? '').' '.($caseFile->last_name ?? ''));
 
         // Build service name from the first comma-separated value in required_services
         $serviceName = trim(explode(',', $referral->required_services ?? '')[0]) ?: 'General Service';
@@ -73,7 +72,7 @@ class SendSurveyRequest implements ShouldQueueAfterCommit
         $created = app(SurveyInvitationService::class)->createInvitation(
             referralId: $referral->id,
             clientName: $clientName,
-            clientEmail: $caseFile->client->email,
+            clientEmail: $caseFile->email,
             serviceName: $serviceName,
             surveyFormId: $activeForm->id,
         );

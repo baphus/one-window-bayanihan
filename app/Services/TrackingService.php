@@ -56,15 +56,11 @@ class TrackingService
     public function findCaseByTracker(string $trackerNumber): ?CaseFile
     {
         return CaseFile::with([
-            'client.addresses',
-            'client.employments',
-            'client.nextOfKin',
             'referrals.agency',
             'referrals.services',
             'referrals.milestones.user',
             'user:id,name',
-            'category',
-            'categories',
+            'referrals.category',
         ])
             ->clientVisible()
             ->where('tracker_number', $trackerNumber)
@@ -73,8 +69,8 @@ class TrackingService
 
     public function emailMatchesCase(CaseFile $case, string $email): bool
     {
-        return $case->client?->email !== null
-            && hash_equals(strtolower(trim($case->client->email)), strtolower(trim($email)));
+        return $case->email !== null
+            && hash_equals(strtolower(trim($case->email)), strtolower(trim($email)));
     }
 
     public function hasValidSessionBinding(Request $request, string $trackerNumber): bool
@@ -135,10 +131,7 @@ class TrackingService
      */
     public function buildTrackingData(CaseFile $case, bool $forOfwPortal = false, bool $withClientDetails = true, ?array $visibleReferralIds = null): array
     {
-        if ($withClientDetails) {
-            $case->loadMissing(['client.addresses', 'client.employments', 'client.nextOfKin']);
-        }
-        $case->loadMissing(['referrals.agency', 'referrals.services', 'referrals.milestones.user']);
+        $case->loadMissing(['referrals.agency', 'referrals.category', 'referrals.services', 'referrals.milestones.user']);
 
         $requestDocuments = $forOfwPortal
             ? ReferralClientMessageAttachment::query()
@@ -182,18 +175,11 @@ class TrackingService
 
         // Client payloads are built only for the OFW and their tracking
         // session. Staff pages pass false and receive just the timeline.
-        $client = false;
-        if ($withClientDetails) {
-            $client = $case->client;
-        }
+        $client = $withClientDetails && ($case->first_name || $case->last_name || $case->email) ? $case : null;
         $referrals = $case->referrals;
-
-        $primaryNok = $client && $client->nextOfKin->isNotEmpty()
-            ? ($client->nextOfKin->where('is_primary', true)->first() ?? $client->nextOfKin->first())
-            : null;
-
-        $homeAddress = $client ? $client->addresses->first() : null;
-        $lastEmployment = $client ? $client->employments->first() : null;
+        $primaryNok = $client && $case->nok_name ? $case : null;
+        $homeAddress = $client;
+        $lastEmployment = $client;
 
         $caseOverview = [
             'narrative' => $case->summary ?? '',
@@ -203,25 +189,25 @@ class TrackingService
                 'gender' => $client->sex ?? '',
                 'homeAddress' => $homeAddress
                     ? $this->addressResolver->format(
-                        $homeAddress->street,
-                        $homeAddress->barangay,
-                        $homeAddress->city_municipality,
-                        $homeAddress->province,
-                        $homeAddress->region,
+                        $homeAddress->address_street,
+                        $homeAddress->address_barangay,
+                        $homeAddress->address_city_municipality,
+                        $homeAddress->address_province,
+                        $homeAddress->address_region,
                     )
                     : '',
                 'homeAddressParts' => $this->formatAddressParts($homeAddress),
                 'specialCategories' => [],
             ] : null,
             'nextOfKin' => $primaryNok ? [
-                'fullName' => $primaryNok->first_name.' '.$primaryNok->last_name,
-                'relationship' => $primaryNok->relationship,
-                'contact' => $primaryNok->phone_number ?? $primaryNok->email,
+                'fullName' => $primaryNok->nok_name,
+                'relationship' => $primaryNok->nok_relationship,
+                'contact' => $primaryNok->nok_contact_number ?? $primaryNok->nok_email,
             ] : null,
             'workHistory' => $lastEmployment ? [
-                'lastCountry' => $lastEmployment->last_country ?? $lastEmployment->country ?? '',
-                'lastPosition' => $lastEmployment->last_position ?? $lastEmployment->position ?? '',
-                'arrivalDate' => $lastEmployment->date_of_arrival?->toDateString() ?? $lastEmployment->end_date?->toDateString() ?? '',
+                'lastCountry' => $lastEmployment->employment_last_country ?? $lastEmployment->employment_country ?? '',
+                'lastPosition' => $lastEmployment->employment_last_position ?? $lastEmployment->employment_position ?? '',
+                'arrivalDate' => $lastEmployment->employment_date_of_arrival?->toDateString() ?? $lastEmployment->employment_end_date?->toDateString() ?? '',
             ] : null,
         ];
 
@@ -308,9 +294,10 @@ class TrackingService
         $unreadCount = 0;
         $caseNotifications = [];
 
-        if ($withClientDetails && $case->client && $case->client->email) {
+        if ($withClientDetails && $case->email && (! $forOfwPortal || $case->ofw_user_id === auth()->id())) {
             $notifications = CaseNotification::where('case_id', $case->id)
-                ->where('client_email', $case->client->email)
+                ->where('client_email', $case->email)
+                ->when($forOfwPortal, fn ($query) => $query->whereHas('caseFile', fn ($caseQuery) => $caseQuery->where('ofw_user_id', $case->ofw_user_id)->where('id', $case->id)))
                 ->orderBy('created_at', 'desc')
                 ->limit(self::NOTIFICATION_LIMIT)
                 ->get();
@@ -356,7 +343,7 @@ class TrackingService
                 'id' => $case->id,
                 'caseNo' => $case->case_number,
                 'clientName' => $client ? "{$client->first_name} {$client->last_name}" : 'Unknown',
-                'clientType' => ($client?->type ?? 'OFW') === 'OFW' ? 'Overseas Filipino Worker' : 'Next of Kin',
+                'clientType' => ($client?->client_type ?? 'OFW') === 'OFW' ? 'Overseas Filipino Worker' : 'Next of Kin',
                 'categories' => $this->categoryPresentation($case),
                 'service' => $referrals->first()?->services->pluck('name')->implode(', ') ?? '',
                 'milestone' => '',
@@ -420,12 +407,8 @@ class TrackingService
 
     private function categoryPresentation(CaseFile $case): array
     {
-        $categories = $case->categories;
-        if ($categories->isNotEmpty()) {
-            return $categories->map(fn ($category) => ['name' => $category->name, 'color' => $category->color])->values()->all();
-        }
-
-        return $case->category ? [['name' => $case->category->name, 'color' => $case->category->color]] : [];
+        return $case->referrals->pluck('category')->filter()->unique('id')
+            ->map(fn ($category) => ['name' => $category->name, 'color' => $category->color])->values()->all();
     }
 
     /**
@@ -581,8 +564,8 @@ class TrackingService
             'trackingId' => $case->tracker_number,
             'trackedCase' => [
                 'caseNo' => $case->case_number,
-                'clientName' => $case->client ? trim("{$case->client->first_name} {$case->client->last_name}") : 'Unknown',
-                'clientType' => ($case->client?->type ?? 'OFW') === 'OFW' ? 'Overseas Filipino Worker' : 'Next of Kin',
+                'clientName' => trim("{$case->first_name} {$case->last_name}"),
+                'clientType' => ($case->client_type ?? 'OFW') === 'OFW' ? 'Overseas Filipino Worker' : 'Next of Kin',
                 'status' => $this->caseStatusKey($case->status),
             ],
             'agencyMilestones' => [
@@ -704,14 +687,14 @@ class TrackingService
 
         return [
             'regionCode' => '',
-            'regionName' => $this->addressResolver->resolve($address->region ?? null),
+            'regionName' => $this->addressResolver->resolve($address->address_region ?? null),
             'provinceCode' => '',
-            'provinceName' => $this->addressResolver->resolve($address->province ?? null),
+            'provinceName' => $this->addressResolver->resolve($address->address_province ?? null),
             'municipalityCode' => '',
-            'municipalityName' => $this->addressResolver->resolve($address->city_municipality ?? null),
+            'municipalityName' => $this->addressResolver->resolve($address->address_city_municipality ?? null),
             'barangayCode' => '',
-            'barangayName' => $this->addressResolver->resolve($address->barangay ?? null),
-            'streetAddress' => $address->street ?? '',
+            'barangayName' => $this->addressResolver->resolve($address->address_barangay ?? null),
+            'streetAddress' => $address->address_street ?? '',
         ];
     }
 }

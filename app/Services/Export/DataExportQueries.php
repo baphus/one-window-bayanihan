@@ -2,6 +2,7 @@
 
 namespace App\Services\Export;
 
+use App\Enums\UserRole;
 use App\Models\User;
 use App\Services\Export\Queries\CaseProgressQueries;
 use App\Services\Export\Queries\CaseQueries;
@@ -36,6 +37,8 @@ class DataExportQueries
      */
     public function fullExportSheets(?User $user = null): array
     {
+        abort_if($user !== null && ! in_array($user->role, [UserRole::ADMIN->value, UserRole::CASE_MANAGER->value, UserRole::AGENCY->value], true), 403);
+        abort_if($user?->role === UserRole::AGENCY->value && ! $user->agcy_id, 403);
         $tableQueryMap = [
             'cases' => fn () => $this->getCases($user),
             'clients' => fn () => $this->getClients($user),
@@ -56,7 +59,13 @@ class DataExportQueries
         foreach (ColumnMaps::getAllTables() as $table) {
             $data = isset($tableQueryMap[$table]) ? $tableQueryMap[$table]() : collect();
             $sheets[] = [
-                'title' => ucfirst($table),
+                'title' => match ($table) {
+                    'clients' => 'Case intake records',
+                    'client_addresses' => 'Case addresses',
+                    'client_employments' => 'Case employment',
+                    'next_of_kin' => 'Case representatives',
+                    default => ucfirst($table),
+                },
                 'columnMap' => ColumnMaps::getMap($table),
                 'rows' => $data,
             ];

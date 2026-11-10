@@ -22,7 +22,7 @@ class ClientRequestMail extends Mailable implements ShouldBeEncrypted, ShouldQue
         /** Build this in the future controller using the opaque token. */
         public readonly string $magicLink,
     ) {
-        $this->clientRequest->loadMissing('referral.agency', 'referral.caseFile.client');
+        $this->clientRequest->loadMissing('referral.agency', 'referral.caseFile');
     }
 
     public function getRequestTypeLabel(): string
@@ -67,7 +67,7 @@ class ClientRequestMail extends Mailable implements ShouldBeEncrypted, ShouldQue
                 'ctaLabel' => $this->getActionLabel(),
                 'checklistItems' => $this->getChecklistItems(),
                 'agencyName' => $this->clientRequest->referral?->agency?->name ?? 'the agency',
-                'clientName' => $this->clientRequest->referral?->caseFile?->client?->first_name ?? '',
+                'clientName' => $this->clientRequest->referral?->caseFile?->first_name ?? '',
                 'caseNumber' => $this->clientRequest->referral?->caseFile?->case_number ?? '',
                 'dueDate' => $this->clientRequest->due_at?->format('F j, Y'),
             ],

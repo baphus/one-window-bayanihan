@@ -3,16 +3,76 @@
 namespace App\Http\Controllers;
 
 use App\Enums\AuditModule;
+use App\Http\Requests\ReplaceIntakeDocumentsRequest;
 use App\Http\Requests\StoreCaseDocumentRequest;
 use App\Models\CaseDocument;
 use App\Models\CaseFile;
 use App\Models\Referral;
 use App\Services\AuditLogger;
+use App\Services\IntakeDocumentService;
 use App\Services\StorageService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class CaseDocumentController extends Controller
 {
+    public function requestReplacement(Request $request, CaseFile $case)
+    {
+        $data = $request->validate([
+            'slots' => ['required', 'array', 'min:1'],
+            'slots.*' => ['required', 'distinct', Rule::in(IntakeDocumentService::SLOTS)],
+            'reason' => ['required', 'string', 'max:1000'],
+        ]);
+        DB::transaction(function () use ($case, $request, $data) {
+            $locked = CaseFile::where('status', CaseFile::STATUS_PENDING_REVIEW)->lockForUpdate()->findOrFail($case->id);
+            abort_unless($request->user()->isAdmin() || ($request->user()->isCaseManager() && $locked->assigned_case_manager_id === $request->user()->id), 403);
+            $locked->update([
+                'requested_document_slots' => array_values(array_unique(array_merge($locked->requested_document_slots ?? [], $data['slots']))),
+                'document_request_reason' => $data['reason'], 'document_requested_by' => $request->user()->id,
+                'document_requested_at' => now(), 'reviewed_document_ids' => null,
+            ]);
+        });
+
+        return back()->with('success', 'Replacement documents requested.');
+    }
+
+    public function replace(ReplaceIntakeDocumentsRequest $request, CaseFile $case)
+    {
+        $paths = [];
+        try {
+            DB::transaction(function () use ($case, $request, &$paths) {
+                $locked = CaseFile::where('status', CaseFile::STATUS_PENDING_REVIEW)->lockForUpdate()->findOrFail($case->id);
+                abort_unless($locked->ofw_user_id === $request->user()->id, 403);
+                $files = $request->file('documents');
+                foreach (array_keys($files) as $slot) {
+                    if (! in_array($slot, $locked->requested_document_slots ?? [], true)) {
+                        throw ValidationException::withMessages(['documents.'.$slot => 'This document was not requested.']);
+                    }
+                }
+                $old = $locked->documents()->whereNull('referral_id')->whereIn('category', array_keys($files))->get();
+                app(IntakeDocumentService::class)->store($locked, $files, $request->user()->id, $paths);
+                foreach ($old as $document) {
+                    $document->delete();
+                }
+                $remaining = array_values(array_diff($locked->requested_document_slots ?? [], array_keys($files)));
+                $locked->update([
+                    'requested_document_slots' => $remaining === [] ? null : $remaining,
+                    'document_request_reason' => $remaining === [] ? null : $locked->document_request_reason,
+                    'document_requested_by' => $remaining === [] ? null : $locked->document_requested_by,
+                    'document_requested_at' => $remaining === [] ? null : $locked->document_requested_at,
+                    'reviewed_document_ids' => null,
+                ]);
+            });
+        } catch (\Throwable $exception) {
+            app(IntakeDocumentService::class)->cleanup($paths);
+            throw $exception;
+        }
+
+        return back()->with('success', 'Replacement documents submitted for review.');
+    }
+
     public function index(Request $request, string $caseId)
     {
         $case = CaseFile::findOrFail($caseId);
@@ -26,6 +86,8 @@ class CaseDocumentController extends Controller
 
         if ($request->user()->isAgency()) {
             $query->visibleToAgency($request->user()->agcy_id);
+        } elseif ($request->user()->isOfw()) {
+            $query->whereNull('referral_id');
         }
 
         if ($request->filled('category')) {
@@ -44,6 +106,7 @@ class CaseDocumentController extends Controller
     public function store(StoreCaseDocumentRequest $request, string $caseId)
     {
         $case = CaseFile::findOrFail($caseId);
+        $this->authorizeWriteAccess($request->user());
         $this->authorizeAccess($case, $request->user());
 
         $file = $request->file('file');
@@ -179,6 +242,12 @@ class CaseDocumentController extends Controller
             return;
         }
 
+        if ($user->isOfw()) {
+            abort_unless($case->ofw_user_id === $user->id, 403);
+
+            return;
+        }
+
         // A live referral, not merely any referral: access ends with it.
         $hasActiveReferral = $case->referrals()
             ->where('agcy_id', $user->agcy_id)
@@ -202,6 +271,10 @@ class CaseDocumentController extends Controller
     {
         // ADMIN and CASE_MANAGER: full access to all documents
         if ($user->isAdmin() || $user->isCaseManager()) {
+            return;
+        }
+
+        if ($user->isOfw() && $document->referral_id === null && $document->caseFile->ofw_user_id === $user->id) {
             return;
         }
 

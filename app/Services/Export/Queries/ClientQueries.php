@@ -2,330 +2,115 @@
 
 namespace App\Services\Export\Queries;
 
-use App\Casts\EncryptedString;
 use App\Enums\UserRole;
-use App\Models\Client;
+use App\Models\CaseFile;
 use App\Models\User;
 use App\Services\Export\Queries\Concerns\FiltersCaseCategories;
+use App\Services\Export\Queries\Concerns\ScopesForExportUser;
 use App\Services\PhilippineAddressService;
-use App\Support\CategoryFilter;
-use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 
 class ClientQueries
 {
-    use FiltersCaseCategories;
-
-    /**
-     * Get clients. ADMIN/CASE_MANAGER: all. AGENCY: clients linked to their referrals.
-     */
-    public function getClients(?User $user = null): Collection
-    {
-        $query = Client::query()
-            ->select([
-                'id',
-                'first_name',
-                'last_name',
-                'middle_name',
-                'suffix',
-                'date_of_birth',
-                'sex',
-                'email',
-                'contact_number',
-                'created_at',
-                'updated_at',
-            ])
-            ->where('is_deleted', false);
-
-        // ADMIN/CASE_MANAGER: all. AGENCY: clients linked to their referrals.
-        if ($user?->role === UserRole::AGENCY->value) {
-            if ($user->agcy_id) {
-                $query->whereIn('id', function ($q) use ($user) {
-                    $q->select('client_id')
-                        ->from('cases')
-                        ->where('is_deleted', false)
-                        ->whereNotNull('client_id')
-                        ->whereIn('id', function ($q2) use ($user) {
-                            $q2->select('case_id')
-                                ->from('referrals')
-                                ->where('agcy_id', $user->agcy_id);
-                        });
-                });
-            } else {
-                $query->whereRaw('1=0');
-            }
-        }
-
-        return $query->get();
-    }
+    use FiltersCaseCategories, ScopesForExportUser;
 
     private function clientsExportQuery(?User $user = null, array $filters = [])
     {
-        $query = DB::table('clients AS cl')
-            ->select([
-                // Client info
-                'cl.first_name',
-                'cl.last_name',
-                'cl.middle_name',
-                'cl.sex',
-                'cl.date_of_birth',
-                'cl.contact_number',
-                'cl.email',
-                // Case info — latest case per client via scalar subquery
-                DB::raw('(SELECT c.case_number FROM cases c WHERE c.client_id = cl.id AND c.is_deleted = false AND c.status != \'ARCHIVED\' ORDER BY c.created_at DESC, c.id DESC LIMIT 1) AS case_number'),
-                DB::raw('(SELECT c.status FROM cases c WHERE c.client_id = cl.id AND c.is_deleted = false AND c.status != \'ARCHIVED\' ORDER BY c.created_at DESC, c.id DESC LIMIT 1) AS case_status'),
-                DB::raw('(SELECT c.tracker_number FROM cases c WHERE c.client_id = cl.id AND c.is_deleted = false AND c.status != \'ARCHIVED\' ORDER BY c.created_at DESC, c.id DESC LIMIT 1) AS tracker_number'),
-                DB::raw("(SELECT CASE
-                    WHEN cl.type = 'NEXT_OF_KIN' THEN COALESCE(NULLIF(c.nok_vulnerability_indicator, 'None'), NULLIF(c.vulnerability_indicator, 'None'), 'None')
-                    ELSE COALESCE(NULLIF(c.vulnerability_indicator, 'None'), NULLIF(c.nok_vulnerability_indicator, 'None'), 'None')
-                END FROM cases c WHERE c.client_id = cl.id AND c.is_deleted = false AND c.status != 'ARCHIVED' ORDER BY c.created_at DESC, c.id DESC LIMIT 1) AS vulnerability"),
-                DB::raw("(SELECT CASE
-                    WHEN cl.type = 'NEXT_OF_KIN' THEN 'Next of Kin'
-                    ELSE 'OFW'
-                END FROM cases c WHERE c.client_id = cl.id AND c.is_deleted = false AND c.status != 'ARCHIVED' ORDER BY c.created_at DESC, c.id DESC LIMIT 1) AS client_type"),
-                // Case issue — from latest case
-                DB::raw("COALESCE((SELECT ci.name FROM case_issues ci JOIN cases c3 ON c3.case_issue_id = ci.id WHERE c3.client_id = cl.id AND c3.is_deleted = false AND c3.status != 'ARCHIVED' ORDER BY c3.created_at DESC, c3.id DESC LIMIT 1), '—') AS issue_concern"),
-                // Address — first active
-                DB::raw('(SELECT ca.street FROM client_addresses ca WHERE ca.client_id = cl.id AND ca.is_deleted = false LIMIT 1) AS street'),
-                DB::raw('(SELECT ca.barangay FROM client_addresses ca WHERE ca.client_id = cl.id AND ca.is_deleted = false LIMIT 1) AS barangay'),
-                DB::raw('(SELECT ca.city_municipality FROM client_addresses ca WHERE ca.client_id = cl.id AND ca.is_deleted = false LIMIT 1) AS municipality'),
-                DB::raw('(SELECT ca.province FROM client_addresses ca WHERE ca.client_id = cl.id AND ca.is_deleted = false LIMIT 1) AS province'),
-                DB::raw('(SELECT ca.region FROM client_addresses ca WHERE ca.client_id = cl.id AND ca.is_deleted = false LIMIT 1) AS region'),
-                // Employment — most recent
-                DB::raw('(SELECT ce.date_of_arrival FROM client_employments ce WHERE ce.client_id = cl.id AND ce.is_deleted = false ORDER BY ce.created_at DESC LIMIT 1) AS date_of_arrival'),
-                DB::raw('(SELECT ce.country FROM client_employments ce WHERE ce.client_id = cl.id AND ce.is_deleted = false ORDER BY ce.created_at DESC LIMIT 1) AS previous_country'),
-                DB::raw('(SELECT ce.position FROM client_employments ce WHERE ce.client_id = cl.id AND ce.is_deleted = false ORDER BY ce.created_at DESC LIMIT 1) AS work_position'),
-                // Receiving parties — comma-separated from referrals on all their cases
-                DB::raw("COALESCE((SELECT STRING_AGG(a.name, ', ') FROM referrals r JOIN agencies a ON r.agcy_id = a.id JOIN cases c4 ON r.case_id = c4.id WHERE c4.client_id = cl.id AND r.is_deleted = false), '') AS receiving_parties"),
-                // Next of kin — primary first, then sort_order
-                DB::raw('(SELECT nok.first_name FROM next_of_kin nok WHERE nok.client_id = cl.id AND nok.is_deleted = false ORDER BY nok.is_primary DESC, nok.sort_order ASC LIMIT 1) AS nok_first_name'),
-                DB::raw('(SELECT nok.last_name FROM next_of_kin nok WHERE nok.client_id = cl.id AND nok.is_deleted = false ORDER BY nok.is_primary DESC, nok.sort_order ASC LIMIT 1) AS nok_last_name'),
-                DB::raw('(SELECT nok.middle_name FROM next_of_kin nok WHERE nok.client_id = cl.id AND nok.is_deleted = false ORDER BY nok.is_primary DESC, nok.sort_order ASC LIMIT 1) AS nok_middle_name'),
-                DB::raw('(SELECT nok.phone_number FROM next_of_kin nok WHERE nok.client_id = cl.id AND nok.is_deleted = false ORDER BY nok.is_primary DESC, nok.sort_order ASC LIMIT 1) AS nok_contact_number'),
-                DB::raw('(SELECT nok.email FROM next_of_kin nok WHERE nok.client_id = cl.id AND nok.is_deleted = false ORDER BY nok.is_primary DESC, nok.sort_order ASC LIMIT 1) AS nok_email'),
-            ])
-            ->where('cl.is_deleted', false)
-            ->orderBy('cl.created_at', 'desc');
-
-        // Published-only rule, hand-written to match Client::scopePublishedOnly()
-        // because this builds on the query builder, not Eloquent — same rule, so
-        // change the two together. Linked account plus at least one live OPEN case.
-        $query->whereNotNull('cl.user_id');
-        $query->whereExists(function ($q) {
-            $q->selectRaw('1')
-                ->from('cases AS cp')
-                ->whereColumn('cp.client_id', 'cl.id')
-                ->where('cp.status', 'OPEN')
-                ->where('cp.is_deleted', false)
-                ->whereNull('cp.deleted_at');
-        });
-
-        // Directory rule: only clients with at least one live case are listed, so
-        // hide caseless clients here too — hand-written to match
-        // ClientController@index's whereHas('caseFiles'). Top-level AND; grouping
-        // it inside the block above would let it OR past the filters.
-        $query->whereExists(function ($q) {
-            $q->selectRaw('1')
-                ->from('cases AS cd')
-                ->whereColumn('cd.client_id', 'cl.id')
-                ->whereNotNull('cd.client_id')
-                ->where('cd.is_deleted', false)
-                ->whereNull('cd.deleted_at');
-        });
-
-        // ADMIN/CASE_MANAGER: all. AGENCY: clients linked to their referrals.
-        if ($user?->role === UserRole::AGENCY->value) {
-            if ($user->agcy_id) {
-                $query->whereIn('cl.id', function ($q) use ($user) {
-                    $q->select('c5.client_id')
-                        ->from('cases AS c5')
-                        ->where('c5.is_deleted', false)
-                        ->whereNotNull('c5.client_id')
-                        ->whereIn('c5.id', function ($q2) use ($user) {
-                            $q2->select('r2.case_id')
-                                ->from('referrals AS r2')
-                                ->where('r2.agcy_id', $user->agcy_id);
-                        });
-                });
+        $query = CaseFile::query()->where('cases.is_deleted', false);
+        if (! $this->isAdmin($user)) {
+            if ($user->role !== UserRole::AGENCY->value || ! $user->agcy_id) {
+                $query->whereRaw('1 = 0');
             } else {
-                $query->whereRaw('1=0');
+                $query->whereHas('referrals', fn ($q) => $q->where('agcy_id', $user->agcy_id));
             }
         }
-
-        // --- Apply optional filters ---
-        if (! empty($filters['sex'])) {
-            $query->where('cl.sex', $filters['sex']);
+        foreach (['sex', 'client_type'] as $field) {
+            if (! empty($filters[$field])) {
+                $query->where($field, $filters[$field]);
+            }
         }
-        if (! empty($filters['client_type'])) {
-            $query->where('cl.type', $filters['client_type']);
-        }
-
         if (($filters['account_status'] ?? null) === 'linked') {
-            $query->whereNotNull('cl.user_id');
+            $query->whereNotNull('ofw_user_id');
         } elseif (($filters['account_status'] ?? null) === 'no_account') {
-            $query->whereNull('cl.user_id');
-        }
-        if (! empty($filters['vulnerability_indicator'])) {
-            $vuln = $filters['vulnerability_indicator'];
-            $query->whereIn('cl.id', function ($q) use ($vuln) {
-                $q->select('c8.client_id')
-                    ->from('cases AS c8')
-                    ->where(function ($q2) use ($vuln) {
-                        $q2->where('c8.vulnerability_indicator', 'LIKE', "%{$vuln}%")
-                            ->orWhere('c8.nok_vulnerability_indicator', 'LIKE', "%{$vuln}%");
-                    })
-                    ->where('c8.is_deleted', false)
-                    ->whereNotNull('c8.client_id');
-            });
+            $query->whereNull('ofw_user_id');
         }
         if (! empty($filters['case_status'])) {
-            $query->whereIn('cl.id', function ($q) use ($filters) {
-                $q->select('c9.client_id')
-                    ->from('cases AS c9')
-                    ->where('c9.status', $filters['case_status'])
-                    ->where('c9.is_deleted', false)
-                    ->whereNotNull('c9.client_id');
-            });
+            $query->where('status', $filters['case_status']);
+        } else {
+            $query->where('status', '!=', 'ARCHIVED');
         }
-        $categoryIds = CategoryFilter::fromArray($filters)->ids();
-        if ($categoryIds) {
-            $query->whereIn('cl.id', function ($q) use ($filters) {
-                $q->select('c10.client_id')
-                    ->from('cases AS c10')
-                    ->where('c10.is_deleted', false)
-                    ->whereNotNull('c10.client_id');
-
-                $this->applyCategoryFilter($q, 'c10', $filters);
-            });
+        if (! empty($filters['vulnerability_indicator'])) {
+            $value = '%'.$filters['vulnerability_indicator'].'%';
+            $query->where(fn ($q) => $q->where('vulnerability_indicator', 'LIKE', $value)->orWhere('nok_vulnerability_indicator', 'LIKE', $value));
         }
-        if (! empty($filters['case_issue_id'])) {
-            $query->whereIn('cl.id', function ($q) use ($filters) {
-                $q->select('c11.client_id')
-                    ->from('cases AS c11')
-                    ->where('c11.case_issue_id', $filters['case_issue_id'])
-                    ->where('c11.is_deleted', false)
-                    ->whereNotNull('c11.client_id');
-            });
-        }
+        $this->applyCategoryFilter($query, 'cases', $filters, $user);
         if (! empty($filters['agcy_id'])) {
-            $query->whereIn('cl.id', function ($q) use ($filters) {
-                $q->select('c12.client_id')
-                    ->from('cases AS c12')
-                    ->whereIn('c12.id', function ($q2) use ($filters) {
-                        $q2->select('r3.case_id')
-                            ->from('referrals AS r3')
-                            ->where('r3.agcy_id', $filters['agcy_id'])
-                            ->where('r3.is_deleted', false);
-                    })
-                    ->where('c12.is_deleted', false)
-                    ->whereNotNull('c12.client_id');
-            });
+            $query->whereHas('referrals', fn ($q) => $q->where('agcy_id', $filters['agcy_id']));
         }
         if (! empty($filters['date_from'])) {
-            $query->whereDate('cl.created_at', '>=', $filters['date_from']);
+            $query->whereDate('cases.created_at', '>=', $filters['date_from']);
         }
         if (! empty($filters['date_to'])) {
-            $query->whereDate('cl.created_at', '<=', $filters['date_to']);
+            $query->whereDate('cases.created_at', '<=', $filters['date_to']);
         }
         if (! empty($filters['search'])) {
-            $search = $filters['search'];
-            $query->where(function ($q) use ($search) {
-                $q->where('cl.first_name', 'ilike', "%{$search}%")
-                    ->orWhere('cl.last_name', 'ilike', "%{$search}%")
-                    ->orWhere('cl.middle_name', 'ilike', "%{$search}%")
-                    ->orWhere('cl.contact_number', 'ilike', "%{$search}%")
-                    ->orWhere('cl.email', 'ilike', "%{$search}%");
+            $value = '%'.$filters['search'].'%';
+            $query->where(function ($q) use ($value) {
+                $q->where('first_name', 'ilike', $value)->orWhere('last_name', 'ilike', $value)
+                    ->orWhere('middle_name', 'ilike', $value)->orWhere('email', 'ilike', $value)
+                    ->orWhere('contact_number', 'ilike', $value)->orWhere('case_number', 'ilike', $value);
             });
         }
 
         return $query;
     }
 
-    /**
-     * Get enriched clients for business export — no IDs or system fields.
-     * Joins case info, addresses, employments, next-of-kin, and referral parties.
-     * ADMIN/CASE_MANAGER: all. AGENCY: clients on their referrals.
-     *
-     * @param  array  $filters  Optional: search, sex, client_type
-     */
+    public function getClients(?User $user = null): Collection
+    {
+        return $this->clientsExportQuery($user)->get()->map(fn ($case) => (object) array_merge(
+            $case->only(['id', 'case_number', 'first_name', 'last_name', 'middle_name', 'suffix', 'sex', 'email', 'contact_number', 'ofw_user_id', 'created_at', 'updated_at']),
+            ['date_of_birth' => $case->date_of_birth?->toDateString()],
+        ));
+    }
+
     public function getClientsExport(?User $user = null, array $filters = []): Collection
     {
-        // Safety cap — prevents memory exhaustion on unbounded exports.
-        // The DataExportService should eventually support streaming for larger sets.
-        return $this->clientsExportQuery($user, $filters)->limit(10000)->get()->map(function ($row) {
-            $row = (object) $row;
+        $resolver = app(PhilippineAddressService::class);
 
-            // --- Decrypt encrypted PII fields from raw subqueries ---
-            $row->date_of_birth = EncryptedString::decrypt($row->date_of_birth ?? null);
-            $row->contact_number = EncryptedString::decrypt($row->contact_number ?? null);
-            $row->email = EncryptedString::decrypt($row->email ?? null);
-            $row->nok_contact_number = EncryptedString::decrypt($row->nok_contact_number ?? null);
-            $row->nok_email = EncryptedString::decrypt($row->nok_email ?? null);
-            // Address street is encrypted
-            $row->street = EncryptedString::decrypt($row->street ?? null);
-            // Employment subquery fields
-            if (isset($row->previous_country)) {
-                $row->previous_country = EncryptedString::decrypt($row->previous_country);
+        $query = $this->clientsExportQuery($user, $filters)->with(['referrals' => function ($q) use ($user) {
+            $q->with('agency');
+            if ($user?->role === UserRole::AGENCY->value) {
+                $q->where('agcy_id', $user->agcy_id);
             }
-            if (isset($row->work_position)) {
-                $row->work_position = EncryptedString::decrypt($row->work_position);
-            }
+        }]);
 
-            // --- Full Name: "Last, First Middle" ---
-            $firstName = $row->first_name ?? '';
-            $lastName = $row->last_name ?? '';
-            $middleInitial = $row->middle_name ?? '';
-            $row->full_name = trim($lastName.($firstName ? ', '.$firstName : '').($middleInitial ? ' '.$middleInitial : ''));
-
-            // --- Age ---
-            $row->age = '';
-            if (! empty($row->date_of_birth)) {
-                try {
-                    $dob = new \DateTimeImmutable($row->date_of_birth);
-                    $row->age = (string) CarbonImmutable::parse($dob)->age;
-                } catch (\Exception) {
-                    $row->age = '';
-                }
-            }
-
-            // --- Full Address ---
-            $addressResolver = app(PhilippineAddressService::class);
-            $row->full_address = $addressResolver->format(
-                $row->street ?? null,
-                $row->barangay ?? null,
-                $row->municipality ?? null,
-                $row->province ?? null,
-                $row->region ?? null,
-            );
-
-            // --- NOK Full Name: "Last, First M." ---
-            $nokFirstName = $row->nok_first_name ?? '';
-            $nokLastName = $row->nok_last_name ?? '';
-            $nokMiddle = $row->nok_middle_name ?? '';
-            $row->nok_full_name = trim($nokLastName.($nokFirstName ? ', '.$nokFirstName : '').($nokMiddle ? ' '.$nokMiddle : ''));
-
-            // Strip raw intermediate fields
-            unset(
-                $row->first_name,
-                $row->last_name,
-                $row->middle_name,
-                $row->street,
-                $row->barangay,
-                $row->municipality,
-                $row->province,
-                $row->region,
-                $row->nok_first_name,
-                $row->nok_last_name,
-                $row->nok_middle_name,
-            );
-
-            return $row;
+        return $query->orderByDesc('cases.created_at')->limit(10000)->get()->map(function ($case) use ($resolver) {
+            return (object) [
+                'case_number' => $case->case_number,
+                'case_status' => $case->status,
+                'tracker_number' => $case->tracker_number,
+                'client_type' => $case->client_type === 'NEXT_OF_KIN' ? 'Next of Kin' : 'OFW',
+                'full_name' => trim($case->last_name.', '.$case->first_name.' '.$case->middle_name),
+                'sex' => $case->sex,
+                'date_of_birth' => $case->date_of_birth?->toDateString(),
+                'age' => $case->age_at_intake,
+                'contact_number' => $case->contact_number,
+                'email' => $case->email,
+                'vulnerability' => $case->vulnerability_indicator,
+                'full_address' => $resolver->format($case->address_street, $case->address_barangay, $case->address_city_municipality, $case->address_province, $case->address_region),
+                'date_of_arrival' => $case->employment_date_of_arrival?->toDateString(),
+                'previous_country' => $case->employment_country,
+                'work_position' => $case->employment_position,
+                'receiving_parties' => $case->referrals->pluck('agency.name')->filter()->unique()->implode(', '),
+                'nok_full_name' => $case->nok_name,
+                'nok_contact_number' => $case->nok_contact_number,
+                'nok_email' => $case->nok_email,
+            ];
         });
     }
 
     public function countClientsExport(?User $user = null, array $filters = []): int
     {
-        return (int) $this->clientsExportQuery($user, $filters)->count();
+        return $this->clientsExportQuery($user, $filters)->count();
     }
 }

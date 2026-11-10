@@ -6,11 +6,9 @@ use App\Enums\UserRole;
 use App\Helpers\CacheHelper;
 use App\Models\Agency;
 use App\Models\CaseCategory;
-use App\Models\CaseIssue;
 use App\Models\CaseStatus;
 use App\Services\PhilippineAddressService;
 use App\Services\Reports\Concerns\ScopesReportQueries;
-use Illuminate\Support\Facades\DB;
 
 class ReportLookups
 {
@@ -22,7 +20,7 @@ class ReportLookups
 
     private const CACHE_TTL_OPTIONS = 600;       // 10 minutes — filter options
 
-    public const KEY_REFERENCE_DATA = 'reports:reference_data';
+    public const KEY_REFERENCE_DATA = 'reports:reference_data:case_intake';
 
     /**
      * Reference rows that drive the chart toggle controls (statuses, categories,
@@ -44,9 +42,7 @@ class ReportLookups
                 'categories' => CaseCategory::query()
                     ->where('is_active', true)->orderBy('sort_order')
                     ->get(['name', 'color'])->toArray(),
-                'caseIssues' => CaseIssue::query()
-                    ->where('is_active', true)->orderBy('sort_order')
-                    ->get(['name'])->toArray(),
+                'caseIssues' => [],
             ];
         });
     }
@@ -89,29 +85,14 @@ class ReportLookups
         $cacheKey = 'reports:province_options:'.hash('sha256', ($userId ?? '').'|'.($role ?? '').'|'.($agencyId ?? ''));
 
         return CacheHelper::safeRemember($cacheKey, self::CACHE_TTL_OPTIONS, function () use ($agencyId) {
-            $query = DB::table('client_addresses')
-                ->select('province')
-                ->whereNotNull('province')
-                ->where('province', '!=', '')
-                ->where('is_deleted', false)
-                ->distinct()
-                ->orderBy('province');
-
-            if ($agencyId) {
-                $query->whereIn('client_id', function ($q) use ($agencyId) {
-                    $q->select('c.client_id')->from('cases as c')
-                        ->whereIn('c.id', function ($q2) use ($agencyId) {
-                            $q2->select('case_id')->from('referrals')
-                                ->where('agcy_id', $agencyId)
-                                ->whereNull('deleted_at');
-                        })
-                        ->whereNotIn('c.status', ['DRAFT', 'ARCHIVED']);
-                });
-            }
+            $query = $this->caseQuery(null, null, $agencyId)
+                ->select('address_province')
+                ->whereNotNull('address_province')->where('address_province', '!=', '')
+                ->distinct()->orderBy('address_province');
 
             $resolver = app(PhilippineAddressService::class);
 
-            return $query->pluck('province')->map(fn ($p) => [
+            return $query->pluck('address_province')->map(fn ($p) => [
                 'value' => $p,
                 'label' => $resolver->resolve($p),
             ])->values()->toArray();
@@ -127,33 +108,17 @@ class ReportLookups
         $cacheKey = 'reports:city_options:'.hash('sha256', ($province ?? '').'|'.($userId ?? '').'|'.($role ?? '').'|'.($agencyId ?? ''));
 
         return CacheHelper::safeRemember($cacheKey, self::CACHE_TTL_OPTIONS, function () use ($province, $agencyId) {
-            $query = DB::table('client_addresses')
-                ->select('city_municipality')
-                ->whereNotNull('city_municipality')
-                ->where('city_municipality', '!=', '')
-                ->where('is_deleted', false)
-                ->distinct()
-                ->orderBy('city_municipality');
-
+            $query = $this->caseQuery(null, null, $agencyId)
+                ->select('address_city_municipality')
+                ->whereNotNull('address_city_municipality')->where('address_city_municipality', '!=', '')
+                ->distinct()->orderBy('address_city_municipality');
             if ($province) {
-                $query->where('province', $province);
-            }
-
-            if ($agencyId) {
-                $query->whereIn('client_id', function ($q) use ($agencyId) {
-                    $q->select('c.client_id')->from('cases as c')
-                        ->whereIn('c.id', function ($q2) use ($agencyId) {
-                            $q2->select('case_id')->from('referrals')
-                                ->where('agcy_id', $agencyId)
-                                ->whereNull('deleted_at');
-                        })
-                        ->whereNotIn('c.status', ['DRAFT', 'ARCHIVED']);
-                });
+                $query->where('cases.address_province', $province);
             }
 
             $resolver = app(PhilippineAddressService::class);
 
-            return $query->pluck('city_municipality')->map(fn ($c) => [
+            return $query->pluck('address_city_municipality')->map(fn ($c) => [
                 'value' => $c,
                 'label' => $resolver->resolve($c),
             ])->values()->toArray();

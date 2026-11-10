@@ -6,7 +6,7 @@
 # Case Update
 
 <p style="font-size: 15px; line-height: 1.7; color: #3f3f46; margin: 0 0 20px 0;">
-    Dear {{ $case->client->first_name ?? 'Sir/Madam' }},
+    Dear {{ data_get($case, 'first_name') ?: 'Sir/Madam' }},
 </p>
 
 <p style="font-size: 15px; line-height: 1.7; color: #3f3f46; margin: 0 0 28px 0;">
@@ -16,9 +16,11 @@
 @php
 // Client-safe facts only: no case manager name, no internal summary, no
 // verbatim agency decision comment.
-$categories = $case->categories->isNotEmpty()
-    ? $case->categories->pluck('name')->implode(', ')
-    : ($case->category?->name ?? '');
+$categories = $case->referrals
+    ->pluck('category.name')
+    ->filter()
+    ->unique()
+    ->implode(', ');
 $agencies = $case->referrals->map(fn ($referral) => $referral->agency?->name)->filter()->unique()->implode(', ');
 $services = $case->referrals->pluck('required_services')->filter()->unique()->implode(', ');
 

@@ -30,7 +30,7 @@ class ReportsExportService
      * render on screen. They are now included in agency exports.
      */
     private const AGENCY_HIDDEN_SHEETS = [
-        'Geography', 'Case Issues', 'Employment',
+        'Geography', 'Employment',
         'Cities', 'Agency Workload', 'Referrals by Agency', 'Occupations', 'Vulnerability',
     ];
 
@@ -366,15 +366,13 @@ class ReportsExportService
         $caseIdColumn = $base === 'cases' ? 'cases.id' : 'referrals.case_id';
         $query->whereIn($caseIdColumn, function ($q) use ($c) {
             $q->select('cases.id')->from('cases')
-                ->join('clients', 'clients.id', '=', 'cases.client_id')
-                ->join('client_addresses', 'client_addresses.client_id', '=', 'clients.id')
-                ->where('client_addresses.is_deleted', false)
-                ->whereNull('client_addresses.deleted_at');
+                ->where('cases.is_deleted', false)
+                ->whereNull('cases.deleted_at');
             if ($c['province']) {
-                $q->where('client_addresses.province', $c['province']);
+                $q->where('cases.address_province', $c['province']);
             }
             if ($c['city']) {
-                $q->where('client_addresses.city_municipality', $c['city']);
+                $q->where('cases.address_city_municipality', $c['city']);
             }
         });
     }
@@ -388,11 +386,8 @@ class ReportsExportService
 
     private function caseRows($base)
     {
-        $category = "(SELECT STRING_AGG(DISTINCT cc.name, ', ' ORDER BY cc.name) FROM case_category ca JOIN case_categories cc ON cc.id = ca.case_category_id WHERE ca.case_id = cases.id)";
-
-        return (clone $base)->leftJoin('case_issues', 'case_issues.id', '=', 'cases.case_issue_id')
-            ->leftJoin('clients', 'clients.id', '=', 'cases.client_id')
-            ->selectRaw("cases.id as case_id, cases.case_number, clients.type as client_type, {$category} as category, case_issues.name as issue, cases.status, cases.created_at, cases.updated_at, cases.closed_at, DATE_PART('day', NOW() - cases.created_at)::int as age_days")
+        return (clone $base)
+            ->selectRaw("cases.id as case_id, cases.case_number, cases.client_type, cases.status, cases.created_at, cases.updated_at, cases.closed_at, DATE_PART('day', NOW() - cases.created_at)::int as age_days")
             ->orderByDesc('cases.created_at')->orderBy('cases.id');
     }
 
@@ -441,14 +436,13 @@ class ReportsExportService
             'caseStatusDistribution' => $report['caseStatusDistribution'] ?? ['labels' => [], 'data' => []],
             'agencyScorecard' => $scorecard,
             'categoryDistribution' => $report['categoryDistribution'] ?? [],
-            'caseIssueDistribution' => $report['caseIssueDistribution'] ?? [],
             'referralAging' => $report['referralAging'] ?? $this->agingFromBase($refBase),
             'cycleTimeDistribution' => $report['cycleTimeDistribution'] ?? ['labels' => [], 'data' => []],
             'geographicDistribution' => $report['geographicDistribution'] ?? ['labels' => [], 'data' => []],
             'employmentDistribution' => $report['employmentDistribution'] ?? ['labels' => [], 'data' => []],
             'geographicMapData' => $report['geographicMapData'] ?? ['provinces' => []],
             // Match the on-screen average using the same date and location filters.
-            'avgReferralCompletion' => $report['avgReferralCompletion'] ?? $kpis['avgCompletionDays'] ?? 0,
+            'avgReferralCompletion' => $kpis['avgCompletionDays'] ?? 0,
             'caseTrends' => $this->trendFromBase($caseBase, 'cases.created_at'),
             'referralTrends' => $this->trendFromBase($refBase, 'referrals.created_at'),
         ];
@@ -466,7 +460,6 @@ class ReportsExportService
             // ReportsService::getAgencyPayload() returns both, correctly
             // agency-scoped, and both render on the agency's tabs. Agencies
             // were losing data they are entitled to.
-            $summary['caseIssueDistribution'] = [];
             $summary['geographicDistribution'] = ['labels' => [], 'data' => []];
             $summary['employmentDistribution'] = ['labels' => [], 'data' => []];
 
@@ -503,12 +496,12 @@ class ReportsExportService
         //
         // getAll() short-circuits that state to an empty payload, but these
         // panels are called directly and so bypass that guard. Two of them —
-        // gender and age group — resolve their client set through
-        // filteredClientIds(), which has no role check of its own: with a null
-        // agency it returns every client in the system. referralBase() and
-        // caseBase() already `1=0` for exactly this case, so the state is
-        // reachable, and without this an export would show a user data their
-        // own dashboard refuses them.
+        // gender and age group — resolve their case set through
+        // filteredCaseIds(), which carries the shared role guard: with a null
+        // agency it returns every case in the system only for an unscoped role.
+        // referralBase() and caseBase() already `1=0` for exactly this case, so
+        // the state is reachable, and without this an export would show a user
+        // data their own dashboard refuses them.
         if ($role === UserRole::AGENCY->value && ! $agency) {
             return $this->emptyAdditionalSections();
         }
@@ -566,7 +559,7 @@ class ReportsExportService
             'rejectionReasonDistribution' => $emptyDist,
             'closedCasesOverTime' => ['labels' => [], 'datasets' => [['data' => []]]],
             'caseSourceDistribution' => $emptyDist,
-            'reopenedStats' => ['reopenedCount' => 0, 'repeatClients' => 0, 'totalClients' => 0, 'repeatClientRate' => 0],
+            'reopenedStats' => ['reopenedCount' => 0, 'repeatAccounts' => 0, 'linkedAccounts' => 0, 'repeatAccountRate' => 0],
             'caseEventActorDistribution' => $emptyDist,
             'agencyFirstResponse' => [],
             'clientRequestTypeDistribution' => $emptyDist,
@@ -577,7 +570,7 @@ class ReportsExportService
      * Overdue referral count, computed from the export's own filtered base.
      *
      * ReportsService::getOverdueReferrals() is not reusable here for two
-     * reasons: it eager-loads caseFile.client, which would pull client PII
+     * reasons: it eager-loads case details and paginates, which would pull PII
      * into an export that deliberately carries none, and it takes no date
      * range, so its figure would not match the window printed on the page.
      * The >14 day threshold matches the on-screen definition.
@@ -911,9 +904,7 @@ class ReportsExportService
         $caseCols = [
             ['key' => 'case_id', 'label' => 'Case ID', 'type' => 'uuid'],
             ['key' => 'case_number', 'label' => 'Case Number', 'type' => 'string'],
-            ['key' => 'client_type', 'label' => 'Client Type', 'type' => 'string'],
-            ['key' => 'category', 'label' => 'Category', 'type' => 'string'],
-            ['key' => 'issue', 'label' => 'Issue', 'type' => 'string'],
+            ['key' => 'client_type', 'label' => 'Intake Type', 'type' => 'string'],
             ['key' => 'status', 'label' => 'Status', 'type' => 'status'],
             ['key' => 'created_at', 'label' => 'Created At', 'type' => 'datetime'],
             ['key' => 'updated_at', 'label' => 'Updated At', 'type' => 'datetime'],
@@ -975,8 +966,7 @@ class ReportsExportService
 
             ['title' => 'Geography', 'columnMap' => $dist, 'rows' => $distRows($p['geographicDistribution']), 'chart' => 'bar'],
             ['title' => 'Cities', 'columnMap' => $dist, 'rows' => $distRows($p['cityDistribution'] ?? [])],
-            ['title' => 'Categories', 'columnMap' => $named('Category'), 'rows' => collect($p['categoryDistribution'])],
-            ['title' => 'Case Issues', 'columnMap' => $named('Issue'), 'rows' => collect($p['caseIssueDistribution'])],
+            ['title' => 'Referral Categories', 'columnMap' => $named('Category'), 'rows' => collect($p['categoryDistribution'])],
             ['title' => 'Case Status', 'columnMap' => $dist, 'rows' => $distRows($p['caseStatusDistribution']), 'chart' => 'pie'],
 
             ['title' => 'Gender', 'columnMap' => $dist, 'rows' => $distRows($p['genderDistribution'] ?? [])],

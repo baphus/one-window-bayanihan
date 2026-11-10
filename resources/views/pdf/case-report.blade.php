@@ -16,6 +16,7 @@
         .agencies td, .agencies th { border-bottom: 0.5pt solid #000; }
         .small { font-size: 8pt; }
         footer { position: fixed; bottom: -12pt; font-size: 7pt; }
+        .compact { font-size: 7pt; line-height: 1; }
     </style>
 </head>
 <body>
@@ -26,7 +27,7 @@
         $label = fn ($value) => ucwords(strtolower(str_replace('_', ' ', $value ?? '—')));
     @endphp
     @if(!empty($avatar))
-        <img src="{{ $avatar }}" alt="Client photo" style="position: absolute; top: 0; right: 0; width: 42pt; height: 42pt; object-fit: contain;">
+        <img src="{{ $avatar }}" alt="Intake photo" style="position: absolute; top: 0; right: 0; width: 42pt; height: 42pt; object-fit: contain;">
     @endif
     <h1>Case Summary — {{ $case->case_number }}</h1>
     <p class="small">One Window Bayanihan · Department of Migrant Workers, Region VII</p>
@@ -36,26 +37,24 @@
         <tr><td class="label">Status</td><td class="value">{{ $label($case->status) }}</td><td class="label">Tracking ID</td><td class="value">{{ $text($case->tracker_number) }}</td></tr>
         <tr><td class="label">Opened</td><td>{{ $date($case->created_at) }}</td><td class="label">Closed</td><td>{{ $date($case->closed_at) }}</td></tr>
         <tr><td class="label">Case Manager</td><td colspan="3">{{ $text($case->user?->name) }}</td></tr>
-        <tr><td class="label">Categories</td><td colspan="3">{{ $short(($case->categories ?? collect())->pluck('name')->filter()->unique()->implode(', ') ?: $case->category?->name, $textLimit) }}</td></tr>
-        <tr><td class="label">Issue</td><td colspan="3">{{ $short($case->caseIssue?->name, $textLimit) }}</td></tr>
         <tr><td class="label">Vulnerability</td><td colspan="3">{{ $short($case->vulnerability_indicator, $textLimit) }}</td></tr>
     </table>
 
-    <h2>Client Information</h2>
+    <h2>Case Intake Record</h2>
     <table>
-        <tr><td class="label">Full Name</td><td colspan="3">{{ $text(collect([$client->first_name, $client->middle_name, $client->last_name, $client->suffix])->filter()->implode(' ')) }}</td></tr>
-        <tr><td class="label">Client Type</td><td class="value">{{ $label($client->type) }}</td><td class="label">Date of Birth</td><td class="value">{{ $date($client->date_of_birth) }}</td></tr>
-        <tr><td class="label">Sex</td><td>{{ $text($client->sex) }}</td><td class="label">Contact</td><td>{{ $text($client->contact_number) }}</td></tr>
-        <tr><td class="label">Email</td><td colspan="3">{{ $text($client->email) }}</td></tr>
-        <tr><td class="label">Address</td><td colspan="3">{{ $address ? $short(collect([$address->street, $address->barangay, $address->city_municipality, $address->province, $address->region])->filter()->implode(', '), $textLimit) : '—' }}</td></tr>
+        <tr><td class="label">Full Name</td><td colspan="3">{{ $text(collect([$case->first_name, $case->middle_name, $case->last_name, $case->suffix])->filter()->implode(' ')) }}</td></tr>
+        <tr><td class="label">Intake Type</td><td class="value">{{ $label($case->client_type) }}</td><td class="label">Date of Birth</td><td class="value">{{ $date($case->date_of_birth) }}</td></tr>
+        <tr><td class="label">Sex</td><td>{{ $text($case->sex) }}</td><td class="label">Contact</td><td>{{ $text($case->contact_number) }}</td></tr>
+        <tr><td class="label">Email</td><td colspan="3">{{ $text($case->email) }}</td></tr>
+        <tr><td class="label">Address</td><td colspan="3">{{ $short(app(\App\Services\PhilippineAddressService::class)->format($case->address_street, $case->address_barangay, $case->address_city_municipality, $case->address_province, $case->address_region), $textLimit) }}</td></tr>
     </table>
 
-    @if($employment)
+    @if($case->employment_employer_name || $case->employment_country)
         <h2>Employment</h2>
         <table>
-            <tr><td class="label">Employer</td><td colspan="3">{{ $short($employment->employer_name, $textLimit) }}</td></tr>
-            <tr><td class="label">Position</td><td class="value">{{ $short($employment->position ?: $employment->last_position, 100) }}</td><td class="label">Country</td><td class="value">{{ $short($employment->country ?: $employment->last_country, 80) }}</td></tr>
-            <tr><td class="label">Period</td><td>{{ $date($employment->start_date) }} – {{ $employment->end_date ? $date($employment->end_date) : 'Present' }}</td><td class="label">Arrival</td><td>{{ $date($employment->date_of_arrival) }}</td></tr>
+            <tr><td class="label">Employer</td><td colspan="3">{{ $short($case->employment_employer_name, $textLimit) }}</td></tr>
+            <tr><td class="label">Position</td><td class="value">{{ $short($case->employment_position ?: $case->employment_last_position, 100) }}</td><td class="label">Jobsite</td><td class="value">{{ $short($case->employment_country ?: $case->employment_last_country, 80) }}</td></tr>
+            <tr><td class="label">Period</td><td>{{ $date($case->employment_start_date) }} – {{ $case->employment_end_date ? $date($case->employment_end_date) : 'Present' }}</td><td class="label">Arrival</td><td>{{ $date($case->employment_date_of_arrival) }}</td></tr>
         </table>
     @endif
 
@@ -65,10 +64,10 @@
 
     <h2>Agency Involvement / Pending Services</h2>
     <table class="agencies">
-        <thead><tr><th style="width:30%">Agency</th><th style="width:35%">Applied Service/Services</th><th style="width:20%">Status</th><th style="width:15%">Updated</th></tr></thead>
-        <tbody>
+        <thead><tr><th style="width:30%">Agency</th><th style="width:35%">Category / Concern / Services</th><th style="width:20%">Status</th><th style="width:15%">Updated</th></tr></thead>
+        <tbody class="compact">
             @forelse($referrals as $referral)
-                <tr><td>{{ $text($referral->agency?->name) }}</td><td>{{ $short($referral->required_services, min($textLimit, 70)) }}</td><td>{{ $label($referral->status) }}</td><td>{{ $date($referral->updated_at) }}</td></tr>
+                <tr><td>{{ $text($referral->agency?->name) }}</td><td>{{ $short($referral->category?->name, 70) }} — {{ $short($referral->concern, $textLimit) }}. {{ $short($referral->required_services, 70) }}</td><td>{{ $label($referral->status) }}</td><td>{{ $date($referral->updated_at) }}</td></tr>
             @empty
                 <tr><td colspan="4">No agency referrals recorded.</td></tr>
             @endforelse

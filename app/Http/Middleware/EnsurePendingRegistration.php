@@ -12,9 +12,13 @@ class EnsurePendingRegistration
     {
         $pending = $request->session()->get('pending_registration');
 
-        // OTP is verified in storeReview before the tx; the gate only checks
-        // step-1 credentials exist so a verified flag reset never strands users.
-        if (! is_array($pending) || empty($pending['credentials'])) {
+        $credentials = is_array($pending) ? ($pending['credentials'] ?? null) : null;
+        if (! is_array($credentials) || ! is_string($credentials['email'] ?? null) || $credentials['email'] === ''
+            || ! is_string($credentials['password'] ?? null) || $credentials['password'] === ''
+            || array_diff(array_keys($pending), ['credentials'])
+            || array_diff(array_keys($credentials), ['email', 'password'])) {
+            $request->session()->forget('pending_registration');
+
             return redirect()->route('register');
         }
 

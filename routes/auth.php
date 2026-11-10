@@ -26,7 +26,7 @@ Route::middleware('guest')->group(function () {
     Route::get('staff/login', [AuthenticatedSessionController::class, 'createStaff'])
         ->name('staff.login');
 
-    // OFW self-registration (account-first, 2 steps: profile capture → review + email OTP)
+    // OFW self-registration: credentials, then review + email OTP.
     Route::get('register', [OfwRegistrationController::class, 'create'])
         ->name('register');
     Route::post('register', [OfwRegistrationController::class, 'store'])

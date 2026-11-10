@@ -38,10 +38,9 @@ class ReferralCreated extends Notification implements ShouldQueue
 
     public function toMail(object $notifiable): MailMessage
     {
-        // The template reads the client, the case categories and the agency's
-        // requirements; none travel with the queued model.
+        // Referral category and agency details must be loaded for queued mail rendering.
         if ($this->referral->exists) {
-            $this->referral->loadMissing(['agency', 'caseFile.client', 'caseFile.category', 'caseFile.categories']);
+            $this->referral->loadMissing(['agency', 'category', 'caseFile.user']);
         }
 
         $caseNumber = $this->referral->caseFile?->case_number ?? $this->referral->case_id;
@@ -64,7 +63,7 @@ class ReferralCreated extends Notification implements ShouldQueue
         $referral = $this->referral;
         // Never lazy-load on a non-persisted model: fall back to raw identifiers.
         if ($referral->relationLoaded('caseFile') || $referral->exists) {
-            $referral->loadMissing(['caseFile.client', 'agency']);
+            $referral->loadMissing(['caseFile', 'agency']);
         }
 
         $caseNumber = $referral->relationLoaded('caseFile')
@@ -73,8 +72,8 @@ class ReferralCreated extends Notification implements ShouldQueue
         $agencyName = $referral->relationLoaded('agency')
             ? ($referral->agency?->name ?? 'agency')
             : 'agency';
-        $client = $referral->caseFile?->client;
-        $clientName = $client ? trim(($client->first_name ?? '').' '.($client->last_name ?? '')) ?: null : null;
+        $caseFile = $referral->caseFile;
+        $clientName = $caseFile ? trim(($caseFile->first_name ?? '').' '.($caseFile->last_name ?? '')) ?: null : null;
         $message = "Case {$caseNumber} referred to {$agencyName}";
         if ($this->actorName !== null && $this->actorName !== '') {
             $message .= " by {$this->actorName}";

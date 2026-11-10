@@ -10,7 +10,6 @@ use App\Listeners\LogSuccessfulLogout;
 use App\Models\Agency;
 use App\Models\CaseCategory;
 use App\Models\CaseFile;
-use App\Models\CaseIssue;
 use App\Models\CaseStatus;
 use App\Models\Milestone;
 use App\Models\Referral;
@@ -127,7 +126,6 @@ class AppServiceProvider extends ServiceProvider
         $cacheableModels = [
             Agency::class,
             CaseCategory::class,
-            CaseIssue::class,
             CaseStatus::class,
             User::class,
             CaseFile::class,
@@ -339,20 +337,20 @@ class AppServiceProvider extends ServiceProvider
         $recipientEmail = static function (Request $request): ?string {
             $referral = $request->route('referral');
             if ($referral instanceof Referral) {
-                return $referral->loadMissing('caseFile.client')->caseFile?->client?->email;
+                return $referral->loadMissing('caseFile')->caseFile?->email;
             }
 
             if (filled($referral)) {
-                return Referral::query()->with('caseFile.client')->find($referral)?->caseFile?->client?->email;
+                return Referral::query()->with('caseFile')->find($referral)?->caseFile?->email;
             }
 
             $clientRequest = $request->route('clientRequest');
             if ($clientRequest instanceof ReferralClientRequest) {
-                return $clientRequest->loadMissing('referral.caseFile.client')->referral?->caseFile?->client?->email;
+                return $clientRequest->loadMissing('referral.caseFile')->referral?->caseFile?->email;
             }
 
             if (filled($clientRequest)) {
-                return ReferralClientRequest::query()->with('referral.caseFile.client')->find($clientRequest)?->referral?->caseFile?->client?->email;
+                return ReferralClientRequest::query()->with('referral.caseFile')->find($clientRequest)?->referral?->caseFile?->email;
             }
 
             return null;

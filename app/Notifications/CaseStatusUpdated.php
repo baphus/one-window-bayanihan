@@ -34,10 +34,8 @@ class CaseStatusUpdated extends Notification implements ShouldQueue
 
     public function toMail(object $notifiable): MailMessage
     {
-        // The template prints every assigned category, not just the primary
-        // category_id, so the pivot rows have to be on hand before render.
         if ($this->case->exists) {
-            $this->case->loadMissing(['client', 'category', 'categories', 'user']);
+            $this->case->loadMissing(['user', 'referrals.category']);
         }
 
         $caseNumber = $this->case->case_number ?? $this->case->id;
@@ -60,14 +58,10 @@ class CaseStatusUpdated extends Notification implements ShouldQueue
      */
     public function toDatabase(object $notifiable): array
     {
-        if ($this->case->relationLoaded('client') || $this->case->exists) {
-            $this->case->loadMissing('client');
-        }
         $caseNumber = $this->case->case_number ?? $this->case->id;
         $old = $this->humanizeStatus($this->oldStatus);
         $new = $this->humanizeStatus($this->newStatus);
-        $client = $this->case->client;
-        $clientName = $client ? trim(($client->first_name ?? '').' '.($client->last_name ?? '')) ?: null : null;
+        $clientName = trim(($this->case->first_name ?? '').' '.($this->case->last_name ?? '')) ?: null;
 
         $message = "Case {$caseNumber} status changed from {$old} to {$new}";
         if ($this->actorName !== null && $this->actorName !== '') {

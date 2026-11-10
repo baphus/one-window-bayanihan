@@ -3,7 +3,6 @@
 namespace App\Services\Reports;
 
 use App\Models\CaseFile;
-use App\Models\Client;
 use App\Services\PhilippineAddressService;
 use App\Services\Reports\Concerns\ScopesReportQueries;
 use Illuminate\Support\Facades\DB;
@@ -15,15 +14,16 @@ class ClientMetrics
 
     public function getGenderDistribution(?string $userId = null, ?string $role = null, ?string $fromDate = null, ?string $toDate = null, string $dateScope = 'case_created_at', ?string $province = null, ?string $city = null, ?string $agencyId = null): array
     {
-        // DB CHECK constraint (clients_sex_check) permits only MALE/FEMALE; a
-        // null value is surfaced as "Unknown" rather than an always-empty "Other".
-        $known = Client::whereIn('id', $this->filteredClientIds($userId, $role, $fromDate, $toDate, $province, $city, $agencyId))
+        // Case intake permits MALE/FEMALE; a null value is surfaced as "Unknown"
+        // rather than an always-empty "Other". Counts are per case record, not
+        // per unique person.
+        $known = CaseFile::whereIn('id', $this->filteredCaseIds($userId, $role, $fromDate, $toDate, $province, $city, $agencyId))
             ->whereNotNull('sex')
             ->select('sex', DB::raw('count(*) as total'))
             ->groupBy('sex')
             ->pluck('total', 'sex');
 
-        $unknown = Client::whereIn('id', $this->filteredClientIds($userId, $role, $fromDate, $toDate, $province, $city, $agencyId))
+        $unknown = CaseFile::whereIn('id', $this->filteredCaseIds($userId, $role, $fromDate, $toDate, $province, $city, $agencyId))
             ->whereNull('sex')
             ->count();
 
@@ -46,17 +46,17 @@ class ClientMetrics
 
         // Use Eloquent to decrypt date_of_birth (encrypted via EncryptedDate cast),
         // then calculate age groups in PHP, avoiding PostgreSQL age() on text column.
-        $clients = Client::whereIn('id', $this->filteredClientIds($userId, $role, $fromDate, $toDate, $province, $city, $agencyId))
+        $cases = CaseFile::whereIn('id', $this->filteredCaseIds($userId, $role, $fromDate, $toDate, $province, $city, $agencyId))
             ->whereNotNull('date_of_birth')
-            ->get(['id', 'date_of_birth']);
+            ->whereNotNull('intake_date')
+            ->get(['id', 'date_of_birth', 'intake_date']);
 
         $counts = array_fill_keys($groups, 0);
-        foreach ($clients as $client) {
-            $dob = $client->date_of_birth;
-            if ($dob === null) {
+        foreach ($cases as $case) {
+            $age = $case->age_at_intake;
+            if ($age === null) {
                 continue;
             }
-            $age = $dob->age;
             if ($age < 18) {
                 $counts['0-17']++;
             } elseif ($age <= 25) {
@@ -89,10 +89,10 @@ class ClientMetrics
         // Use Eloquent so the EncryptedString cast decrypts last_country.
         // DB::table() bypasses casts and returns raw ciphertext for encrypted rows.
         $query = $this->employmentQuery($userId, $role, $agencyId, $fromDate, $toDate, $province, $city)
-            ->whereNotNull('last_country');
+            ->whereNotNull('employment_country');
 
         // Decrypt via Eloquent, then group in PHP
-        $grouped = $query->pluck('last_country')
+        $grouped = $query->pluck('employment_country')
             ->filter(fn ($v) => is_string($v) && $v !== '')
             ->groupBy(fn ($v) => $v)
             ->map(fn ($g) => $g->count())
@@ -113,45 +113,16 @@ class ClientMetrics
         ?string $province = null,
         ?string $city = null,
     ): array {
-        // last_position is encrypted, so grouping/counting must happen after
-        // Eloquent hydrates the models and applies the EncryptedString cast.
-        // Select only the columns needed for this metric; querying the raw
-        // ciphertext would produce incorrect groups and distinct totals.
+        // Group decrypted case snapshots, never randomized ciphertext.
         $rows = $this->employmentQuery($userId, $role, $agencyId, $fromDate, $toDate, $province, $city)
-            ->whereNotNull('last_position')
-            ->select(['id', 'client_id', 'last_position'])
-            ->orderBy('client_id')
-            ->orderBy('id')
-            ->lazy(500);
-
-        // Rows are ordered by client, so only the current client's distinct
-        // occupations need to remain in memory.  Counts retain one entry per
-        // decoded occupation, not one entry per employment row or client.
+            ->whereNotNull('employment_last_position')
+            ->select(['id', 'employment_last_position'])->orderBy('id')->lazy(500);
         $counts = [];
-        $currentClientId = null;
-        $clientPositions = [];
-        $flushClient = function () use (&$counts, &$clientPositions): void {
-            foreach (array_keys($clientPositions) as $position) {
+        foreach ($rows as $case) {
+            $position = $case->employment_last_position;
+            if (is_string($position) && $position !== '') {
                 $counts[$position] = ($counts[$position] ?? 0) + 1;
             }
-            $clientPositions = [];
-        };
-
-        foreach ($rows as $employment) {
-            if ($currentClientId !== null && $currentClientId !== $employment->client_id) {
-                $flushClient();
-            }
-            $currentClientId = $employment->client_id;
-
-            $position = $employment->last_position;
-            if (! is_string($position) || $position === '') {
-                continue;
-            }
-
-            $clientPositions[$position] = true;
-        }
-        if ($currentClientId !== null) {
-            $flushClient();
         }
 
         $ranked = collect($counts)
@@ -231,29 +202,13 @@ class ClientMetrics
         ?string $city = null,
         ?string $agencyId = null,
     ): array {
-        $query = CaseFile::select('ca.province', DB::raw('count(*) as total'))
-            ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
-            ->leftJoin('clients as c', 'c.id', '=', 'cases.client_id')
-            ->leftJoin('client_addresses as ca', 'ca.client_id', '=', 'c.id')
-            ->whereNotNull('ca.province')
-            ->where('ca.province', '!=', '');
+        $query = $this->caseQuery($userId, $role, $agencyId, $dateScope)
+            ->select('cases.address_province as province', DB::raw('count(DISTINCT cases.id) as total'))
+            ->whereNotNull('cases.address_province')
+            ->where('cases.address_province', '!=', '');
+        $this->applyCaseWindow($query, $fromDate, $toDate, $province, $city);
 
-        if ($agencyId) {
-            $query->whereIn('cases.id', function ($q) use ($agencyId) {
-                $q->select('case_id')->from('referrals')
-                    ->where('agcy_id', $agencyId)
-                    ->whereNull('deleted_at');
-            });
-        }
-        $this->applyLocalDateWindow($query, 'cases.created_at', $fromDate, $toDate);
-        if ($province) {
-            $query->where('ca.province', $province);
-        }
-        if ($city) {
-            $query->where('ca.city_municipality', $city);
-        }
-
-        $rows = $query->groupBy('ca.province')
+        $rows = $query->groupBy('cases.address_province')
             ->orderByDesc('total')
             ->get();
 
@@ -278,29 +233,13 @@ class ClientMetrics
 
     public function getCityDistribution(?string $userId = null, ?string $role = null, ?string $fromDate = null, ?string $toDate = null, string $dateScope = 'case_created_at', ?string $province = null, ?string $city = null, ?string $agencyId = null): array
     {
-        $query = CaseFile::select('ca.city_municipality', DB::raw('count(*) as total'))
-            ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
-            ->leftJoin('clients as c', 'c.id', '=', 'cases.client_id')
-            ->leftJoin('client_addresses as ca', 'ca.client_id', '=', 'c.id')
-            ->whereNotNull('ca.city_municipality')
-            ->where('ca.city_municipality', '!=', '');
+        $query = $this->caseQuery($userId, $role, $agencyId, $dateScope)
+            ->select('cases.address_city_municipality as city_municipality', DB::raw('count(DISTINCT cases.id) as total'))
+            ->whereNotNull('cases.address_city_municipality')
+            ->where('cases.address_city_municipality', '!=', '');
+        $this->applyCaseWindow($query, $fromDate, $toDate, $province, $city);
 
-        if ($agencyId) {
-            $query->whereIn('cases.id', function ($q) use ($agencyId) {
-                $q->select('case_id')->from('referrals')
-                    ->where('agcy_id', $agencyId)
-                    ->whereNull('deleted_at');
-            });
-        }
-        $this->applyLocalDateWindow($query, 'cases.created_at', $fromDate, $toDate);
-        if ($province) {
-            $query->where('ca.province', $province);
-        }
-        if ($city) {
-            $query->where('ca.city_municipality', $city);
-        }
-
-        $rows = $query->groupBy('ca.city_municipality')
+        $rows = $query->groupBy('cases.address_city_municipality')
             ->orderByDesc('total')
             ->get();
 

@@ -6,6 +6,7 @@ use App\Enums\UserRole;
 use App\Helpers\CacheHelper;
 use App\Services\CaseService;
 use App\Services\Chatbot\ChatbotSuggestionService;
+use App\Services\NotificationService;
 use App\Services\OnboardingService;
 use Closure;
 use Illuminate\Http\Request;
@@ -76,7 +77,9 @@ class HandleInertiaRequests extends Middleware
         return (int) CacheHelper::safeRemember(
             "notifications:unread:{$user->id}",
             60,
-            fn () => $user->unreadNotifications()->count(),
+            fn () => $user->role === UserRole::OFW->value
+                ? app(NotificationService::class)->getUnreadCount($user, 'ofw')
+                : $user->unreadNotifications()->count(),
         );
     }
 

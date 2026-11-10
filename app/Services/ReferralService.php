@@ -10,6 +10,7 @@ use App\Exceptions\SafeException;
 use App\Helpers\CacheHelper;
 use App\Models\Agency;
 use App\Models\AuditLog;
+use App\Models\CaseCategory;
 use App\Models\CaseDocument;
 use App\Models\CaseFile;
 use App\Models\Milestone;
@@ -30,6 +31,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -66,16 +68,42 @@ class ReferralService
                 ]);
             }
 
+            $actor = User::findOrFail($userId);
+            abort_unless($actor->isAdmin() || $actor->isCaseManager(), 403);
+
+            $data['concern'] = is_string($data['concern'] ?? null) ? trim($data['concern']) : ($data['concern'] ?? null);
+            $data['override_reason'] = is_string($data['override_reason'] ?? null) ? trim($data['override_reason']) : ($data['override_reason'] ?? null);
+            Validator::make($data, [
+                'agcy_id' => ['required', 'uuid'],
+                'category_id' => ['required', 'uuid'],
+                'concern' => ['required', 'string', 'max:5000'],
+                'override_reason' => ['nullable', 'string', 'max:5000'],
+            ])->validate();
+
+            $category = CaseCategory::whereKey($data['category_id'])->where('is_active', true)->sharedLock()->first();
+            if (! $category || $category->is_deleted) {
+                throw ValidationException::withMessages(['category_id' => 'Select an active category.']);
+            }
+            $agency = Agency::whereKey($data['agcy_id'])->where('is_active', true)->sharedLock()->first();
+            if (! $agency || $agency->is_deleted) {
+                throw ValidationException::withMessages(['agcy_id' => 'Select an active agency.']);
+            }
+            if (! $category->suggestedAgencies()->whereKey($agency->id)->exists() && ($data['override_reason'] === null || $data['override_reason'] === '')) {
+                throw ValidationException::withMessages(['override_reason' => 'Explain why this agency is selected outside category suggestions.']);
+            }
+
+            // Concern is encrypted; compare decrypted values while holding the case lock.
             $duplicate = Referral::query()
                 ->where('case_id', $case->id)
-                ->where('agcy_id', $data['agcy_id'])
+                ->where('agcy_id', $agency->id)
                 ->where('is_deleted', false)
                 ->whereNotIn('status', ['REJECTED', 'COMPLETED'])
-                ->exists();
+                ->get(['id', 'concern'])
+                ->contains(fn (Referral $existing) => trim($existing->concern ?? '') === $data['concern']);
 
             if ($duplicate) {
                 throw ValidationException::withMessages([
-                    'agcy_id' => 'This case already has an active referral with the selected agency.',
+                    'concern' => 'This case already has an active referral with this concern at the selected agency.',
                 ]);
             }
 
@@ -84,7 +112,10 @@ class ReferralService
                 'notes' => $data['notes'] ?? null,
                 'status' => 'PENDING',
                 'case_id' => $data['case_id'],
-                'agcy_id' => $data['agcy_id'],
+                'agcy_id' => $agency->id,
+                'category_id' => $category->id,
+                'concern' => $data['concern'],
+                'override_reason' => $data['override_reason'] === '' ? null : $data['override_reason'],
             ]);
 
             // Reload services so event recorder and timeline reflect actual service names
@@ -96,7 +127,7 @@ class ReferralService
 
             $this->notifier->notifyCreated($referral, $userId);
 
-            return $referral->load(['agency', 'caseFile', 'milestones']);
+            return $referral->load(['agency', 'category', 'caseFile', 'milestones']);
         });
 
         return $referral;
@@ -216,9 +247,9 @@ class ReferralService
     public function getReferrals(array $filters = [], ?string $userAgencyId = null, ?string $userRole = null, ?string $userId = null)
     {
         $relations = [
-            'caseFile.client.addresses',
-            'caseFile.category',
-            'caseFile.caseIssue',
+            'caseFile',
+            'caseFile.ofwUser:id,avatar_url',
+            'category',
             'agency',
             // Only the newest milestone is ever read: Referral::
             // getLatestUpdateAttribute() takes first(), which this accessor
@@ -226,7 +257,6 @@ class ReferralService
             // history hydrated every milestone of every row on the page.
             'milestones' => fn ($q) => $q->latest()->limit(1),
         ];
-        $relations[] = 'caseFile.categories';
 
         // Sort keys map to an ORDER BY expression plus the joins that
         // expression needs. Joins replace the correlated scalar subqueries
@@ -236,8 +266,8 @@ class ReferralService
         // sort that joins `cases`/`clients` shares names (status, created_at, id).
         $sortMap = [
             'case_number' => ['expression' => 'cases.case_number', 'joins' => ['cases']],
-            'client' => ['expression' => "CONCAT_WS(' ', clients.first_name, clients.last_name)", 'joins' => ['cases', 'clients']],
-            'case_issue' => ['expression' => 'case_issues.name', 'joins' => ['cases', 'case_issues']],
+            'client' => ['expression' => "CONCAT_WS(' ', cases.first_name, cases.last_name)", 'joins' => ['cases']],
+            'category' => ['expression' => 'case_categories.name', 'joins' => ['case_categories']],
             'agency' => ['expression' => 'agencies.name', 'joins' => ['agencies']],
             'status' => ['expression' => 'referrals.status', 'joins' => []],
             'created_at' => ['expression' => 'referrals.created_at', 'joins' => []],
@@ -253,11 +283,8 @@ class ReferralService
         if (in_array('cases', $requiredJoins, true)) {
             $query->leftJoin('cases', 'cases.id', '=', 'referrals.case_id');
         }
-        if (in_array('clients', $requiredJoins, true)) {
-            $query->leftJoin('clients', 'clients.id', '=', 'cases.client_id');
-        }
-        if (in_array('case_issues', $requiredJoins, true)) {
-            $query->leftJoin('case_issues', 'case_issues.id', '=', 'cases.case_issue_id');
+        if (in_array('case_categories', $requiredJoins, true)) {
+            $query->leftJoin('case_categories', 'case_categories.id', '=', 'referrals.category_id');
         }
         if (in_array('agencies', $requiredJoins, true)) {
             $query->leftJoin('agencies', 'agencies.id', '=', 'referrals.agcy_id');
@@ -298,17 +325,7 @@ class ReferralService
         $categoryIds = array_values(array_filter($categoryIds));
 
         if (! empty($categoryIds)) {
-            $query->whereHas('caseFile', function ($q) use ($categoryIds) {
-                $q->where(function ($categoryQuery) use ($categoryIds) {
-                    $categoryQuery->whereIn('category_id', $categoryIds);
-                    $categoryQuery->orWhereHas('categories', fn ($categories) => $categories->whereIn('case_categories.id', $categoryIds));
-                });
-            });
-        }
-
-        $issueIds = MultiSelectFilter::ids($filters['case_issue_id'] ?? null);
-        if ($issueIds !== []) {
-            $query->whereHas('caseFile', fn ($q) => $q->whereIn('case_issue_id', $issueIds));
+            $query->whereIn('referrals.category_id', $categoryIds);
         }
 
         if (! empty($filters['age_min_days']) && is_numeric($filters['age_min_days'])) {
@@ -337,7 +354,7 @@ class ReferralService
                     ->orWhereHas('agency', function ($q) use ($search) {
                         $q->where('name', 'ilike', "%{$search}%");
                     })
-                    ->orWhereHas('caseFile.client', function ($q) use ($search) {
+                    ->orWhereHas('caseFile', function ($q) use ($search) {
                         $q->where('first_name', 'ilike', "%{$search}%")
                             ->orWhere('last_name', 'ilike', "%{$search}%")
                             ->orWhere('middle_name', 'ilike', "%{$search}%");
@@ -347,7 +364,9 @@ class ReferralService
 
         $perPage = min(max((int) ($filters['per_page'] ?? 15), 10), 100);
 
-        return $query->paginate($perPage)->withQueryString()->through(fn ($referral) => $referral->append('latest_update'));
+        return $query->paginate($perPage)->withQueryString()->through(
+            fn (Referral $referral) => $referral->append('latest_update')->setAttribute('case_identity', $referral->caseIdentity()),
+        );
     }
 
     public function getReferral(string $id): Referral
@@ -355,13 +374,10 @@ class ReferralService
         $relations = [
             'services',
             'serviceRequirements.service',
-            'caseFile.client.user:id,avatar_url',
-            'caseFile.client.addresses',
-            'caseFile.client.employments',
-            'caseFile.client.nextOfKin',
+            'caseFile',
+            'caseFile.ofwUser:id,avatar_url',
             'caseFile.user',
-            'caseFile.category',
-            'caseFile.caseIssue',
+            'category',
             'agency',
             'milestones.user',
             'attachments.user',
@@ -382,10 +398,11 @@ class ReferralService
                 ])
                 ->latest(),
         ];
-        $relations[] = 'caseFile.categories';
-        $relations[] = 'caseFile.client.user:id,avatar_url';
 
-        return Referral::with($relations)->findOrFail($id);
+        $referral = Referral::with($relations)->findOrFail($id);
+        $referral->caseFile?->makeHidden(['client_id']);
+
+        return $referral;
     }
 
     /**
@@ -410,6 +427,9 @@ class ReferralService
             : [];
 
         foreach ($relatedReferrals as $item) {
+            if ($actor === null || (! $actor->isAdmin() && ! $actor->isCaseManager() && $actor->agcy_id !== $item->agcy_id)) {
+                $item->makeHidden(['concern', 'override_reason']);
+            }
             $canMessage = $actor !== null && $this->messageService->canAccessThread($item, $actor);
             $item->setAttribute('can_message', $canMessage);
             $item->setAttribute('unread_count', $canMessage ? ($unreadCounts[$item->id] ?? 0) : 0);
@@ -888,7 +908,7 @@ class ReferralService
             userAgencyId: $userAgencyId,
             overdueDays: $overdueDays,
         )->with([
-            'caseFile.client',
+            'caseFile',
             'agency.users' => fn ($q) => $q->where('role', UserRole::AGENCY->value)->where('is_active', true),
         ]);
 
@@ -905,7 +925,7 @@ class ReferralService
     ) {
         $query = $this->overdueReferralsQuery($userRole, $userId, $userAgencyId, $overdueDays)
             ->with([
-                'caseFile.client',
+                'caseFile',
                 'agency.users' => fn ($q) => $q->where('role', UserRole::AGENCY->value)->where('is_active', true),
             ]);
 
@@ -940,7 +960,7 @@ class ReferralService
         array $filters = [],
     ): array {
         $query = $this->overdueReferralsQuery($userRole, $userId, $userAgencyId, $overdueDays)->with([
-            'caseFile.client:id,first_name,last_name',
+            'caseFile:id,case_number,first_name,middle_name,last_name,suffix',
             'caseFile.user:id,name',
             'agency:id,name',
             'milestones' => fn ($q) => $q->latest()->limit(1),
@@ -965,8 +985,7 @@ class ReferralService
         if ($sortBy === 'client_name') {
             $query
                 ->leftJoin('cases', 'cases.id', '=', 'referrals.case_id')
-                ->leftJoin('clients', 'clients.id', '=', 'cases.client_id')
-                ->orderByRaw("CONCAT(clients.first_name, ' ', clients.last_name) DESC");
+                ->orderByRaw("CONCAT(cases.first_name, ' ', cases.last_name) DESC");
         } elseif ($sortBy === 'status') {
             $query->orderBy('referrals.status', 'asc');
         } else {
@@ -1043,9 +1062,7 @@ class ReferralService
             return [
                 'id' => $referral->id,
                 'case_number' => $referral->caseFile?->case_number,
-                'client_name' => $referral->caseFile?->client
-                    ? trim(($referral->caseFile->client->first_name ?? '').' '.($referral->caseFile->client->last_name ?? ''))
-                    : 'N/A',
+                'client_name' => trim(($referral->caseFile?->first_name ?? '').' '.($referral->caseFile?->last_name ?? '')) ?: 'N/A',
                 'required_services' => $referral->relationLoaded('services')
                     ? $referral->services->pluck('name')->implode(', ')
                     : $referral->required_services,

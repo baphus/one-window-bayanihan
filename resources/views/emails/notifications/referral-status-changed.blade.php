@@ -2,10 +2,8 @@
 @php
 $oldLabel = ucwords(strtolower(str_replace('_', ' ', $oldStatus)));
 $newLabel = ucwords(strtolower(str_replace('_', ' ', $newStatus)));
-$clientName = trim(($referral->caseFile?->client?->first_name ?? '').' '.($referral->caseFile?->client?->last_name ?? ''));
-$categories = $referral->caseFile?->categories?->isNotEmpty()
-    ? $referral->caseFile->categories->pluck('name')->implode(', ')
-    : ($referral->caseFile?->category?->name ?? 'N/A');
+$clientName = trim(($referral->caseFile?->first_name ?? '').' '.($referral->caseFile?->last_name ?? ''));
+$category = $referral->category?->name ?? 'N/A';
 @endphp
 
 <p style="color: #a1a1aa; font-size: 12px; margin: 0 0 20px 0;">Case {{ $referral->caseFile?->case_number ?? 'N/A' }}</p>
@@ -18,7 +16,7 @@ $categories = $referral->caseFile?->categories?->isNotEmpty()
 
 <x-mail::detail-table :rows="[
 ['label' => 'Client', 'value' => $clientName !== '' ? $clientName : 'N/A'],
-['label' => 'Categories', 'value' => $categories],
+['label' => 'Category', 'value' => $category],
 ['label' => 'Agency', 'value' => $referral->agency?->name ?? 'N/A'],
 ['label' => 'Services', 'value' => $referral->required_services ?: 'N/A'],
 ['label' => 'Status', 'value' => $oldLabel . ' → ' . $newLabel],

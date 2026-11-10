@@ -7,12 +7,11 @@ use App\Helpers\CacheHelper;
 use App\Models\Agency;
 use App\Models\CaseCategory;
 use App\Models\CaseFile;
-use App\Models\CaseIssue;
 use App\Models\CaseStatus;
-use App\Models\Client;
-use App\Models\ClientEmployment;
 use App\Models\User;
+use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Centralized service for reference/dropdown data that rarely changes.
@@ -39,17 +38,11 @@ class ReferenceDataService
 
     public const KEY_CATEGORIES_ACTIVE = 'ref:categories:active';
 
-    public const KEY_ISSUES_ACTIVE = 'ref:issues:active';
-
     public const KEY_CASE_STATUSES = 'ref:case_statuses:case';
 
     public const KEY_REFERRAL_STATUSES = 'ref:case_statuses:referral';
 
-    public const KEY_CLIENT_TYPES = 'ref:client_types';
-
     public const KEY_VULNERABILITY_INDICATORS = 'ref:vulnerability_indicators';
-
-    public const KEY_SEXES = 'ref:sexes';
 
     public const KEY_USERS_CASE_MANAGERS = 'ref:users:case_managers';
 
@@ -63,7 +56,7 @@ class ReferenceDataService
 
     /**
      * Agency list for dropdown filters (id + name only).
-     * Used by: CaseController, ReferralController, ClientController, ReportsController
+     * Used by: CaseController, ReferralController, ReportsController
      */
     public function getAgenciesDropdown(): Collection
     {
@@ -76,7 +69,7 @@ class ReferenceDataService
 
     /**
      * Active case categories for filters and forms.
-     * Used by: CaseController, ReferralController, ClientController, ReportsController
+     * Used by: CaseController, ReferralController, ReportsController
      */
     public function getActiveCategories(): Collection
     {
@@ -86,21 +79,6 @@ class ReferenceDataService
             fn () => CaseCategory::where('is_active', true)
                 ->orderBy('sort_order')
                 ->get(['id', 'name', 'color']),
-        );
-    }
-
-    /**
-     * Active case issues for filters and forms.
-     * Used by: CaseController, ReferralController, ClientController, ReportsController
-     */
-    public function getActiveIssues(): Collection
-    {
-        return CacheHelper::safeRemember(
-            self::KEY_ISSUES_ACTIVE,
-            self::TTL_REFERENCE,
-            fn () => CaseIssue::where('is_active', true)
-                ->orderBy('sort_order')
-                ->get(['id', 'name']),
         );
     }
 
@@ -175,27 +153,42 @@ class ReferenceDataService
     }
 
     /**
-     * Distinct occupation values from client_employments, for the case-create
-     * occupation dropdown. Not cached — the list should reflect the latest
-     * entries as new cases are created. Curated defaults are merged on the
-     * frontend (resources/js/data/defaultOccupations.ts).
+     * Distinct occupation values from case-owned employment facts, for the
+     * case-create occupation dropdown. Not cached — the list should reflect the
+     * latest entries as new cases are created. Curated defaults are merged on
+     * the frontend (resources/js/data/defaultOccupations.ts).
+     *
+     * `cases.employment_position` is an EncryptedString column, so a cursor
+     * read decrypts per row. A value that cannot be decrypted is skipped and
+     * logged rather than taking the whole dropdown down with a 500.
      *
      * Returns an array of [value, label] pairs for SearchableSelect.
      */
     public function getOccupationOptions(): array
     {
-        $occupations = ClientEmployment::query()
-            ->whereNotNull('last_position')
-            ->where('last_position', '!=', '')
-            ->cursor()
-            ->map(fn (ClientEmployment $e) => trim((string) $e->last_position))
-            ->filter()
-            ->unique()
-            ->values()
-            ->sort()
-            ->toArray();
+        $occupations = [];
 
-        return array_values(array_map(fn (string $o) => ['value' => $o, 'label' => $o], $occupations));
+        foreach (CaseFile::query()->whereNotNull('employment_position')->cursor() as $case) {
+            try {
+                $position = trim((string) $case->employment_position);
+            } catch (DecryptException $exception) {
+                Log::warning('Skipping undecryptable case employment_position for occupation options', [
+                    'case_id' => $case->getKey(),
+                    'exception' => $exception->getMessage(),
+                ]);
+
+                continue;
+            }
+
+            if ($position !== '') {
+                $occupations[$position] = true;
+            }
+        }
+
+        $occupations = array_keys($occupations);
+        sort($occupations, SORT_STRING);
+
+        return array_map(fn (string $occupation) => ['value' => $occupation, 'label' => $occupation], $occupations);
     }
 
     // ── Filter option lists ──────────────────────────────────────────────
@@ -245,27 +238,6 @@ class ReferenceDataService
     }
 
     /**
-     * Client types actually present in the directory.
-     *
-     * @return array<int, array{value: string, label: string}>
-     */
-    public function getClientTypeOptions(): array
-    {
-        return CacheHelper::safeRemember(self::KEY_CLIENT_TYPES, self::TTL_REFERENCE, function () {
-            return Client::query()
-                ->where('is_deleted', false)
-                ->whereNotNull('type')
-                ->where('type', '!=', '')
-                ->distinct()
-                ->orderBy('type')
-                ->pluck('type')
-                ->map(fn (string $type) => ['value' => $type, 'label' => self::clientTypeLabel($type)])
-                ->values()
-                ->toArray();
-        });
-    }
-
-    /**
      * Vulnerability markers present on case records.
      *
      * Both indicator columns hold a free-text comma-separated list, so the
@@ -303,40 +275,6 @@ class ReferenceDataService
     }
 
     /**
-     * Sex values actually present in the directory.
-     *
-     * @return array<int, array{value: string, label: string}>
-     */
-    public function getSexOptions(): array
-    {
-        return CacheHelper::safeRemember(self::KEY_SEXES, self::TTL_REFERENCE, function () {
-            return Client::query()
-                ->where('is_deleted', false)
-                ->whereNotNull('sex')
-                ->where('sex', '!=', '')
-                ->distinct()
-                ->orderBy('sex')
-                ->pluck('sex')
-                ->map(fn (string $sex) => ['value' => $sex, 'label' => ucfirst(strtolower($sex))])
-                ->values()
-                ->toArray();
-        });
-    }
-
-    /**
-     * Screen label for a stored client type. Explicit so "NEXT_OF_KIN" never
-     * renders as "Next Of Kin".
-     */
-    private static function clientTypeLabel(string $type): string
-    {
-        return match (strtoupper($type)) {
-            'OFW' => 'OFW',
-            'NEXT_OF_KIN' => 'Next of Kin',
-            default => ucwords(strtolower(str_replace('_', ' ', $type))),
-        };
-    }
-
-    /**
      * Flush the case/referral status option caches.
      */
     public static function invalidateCaseStatuses(): void
@@ -346,12 +284,10 @@ class ReferenceDataService
     }
 
     /**
-     * Flush the option caches derived from client/case records.
+     * Flush vulnerability options derived from case records.
      */
     public static function invalidateClientOptions(): void
     {
-        cache()->forget(self::KEY_CLIENT_TYPES);
-        cache()->forget(self::KEY_SEXES);
         cache()->forget(self::KEY_VULNERABILITY_INDICATORS);
     }
 
@@ -382,14 +318,6 @@ class ReferenceDataService
     }
 
     /**
-     * Flush case issue caches.
-     */
-    public static function invalidateIssues(): void
-    {
-        cache()->forget(self::KEY_ISSUES_ACTIVE);
-    }
-
-    /**
      * Flush user-related caches.
      */
     public static function invalidateUsers(): void
@@ -404,7 +332,6 @@ class ReferenceDataService
     {
         self::invalidateAgencies();
         self::invalidateCategories();
-        self::invalidateIssues();
         self::invalidateUsers();
         self::invalidateCaseStatuses();
         self::invalidateClientOptions();

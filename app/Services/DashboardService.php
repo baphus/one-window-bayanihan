@@ -67,25 +67,6 @@ class DashboardService
             return Agency::where('is_active', true)->count();
         });
 
-        // Unique client count + OFW/NOK split via DB query (avoids loading all clients into memory)
-        $clientCounts = CacheHelper::safeRemember('dashboard:cm_client_counts', 120, function () {
-            // Cache only arrays/scalars, never DB result objects.
-            // Client type lives on clients.type (cases.client_type dropped in Phase 1a).
-            return (array) DB::selectOne('
-                SELECT
-                    COUNT(DISTINCT c.client_id) AS total,
-                    COUNT(DISTINCT CASE WHEN cl.type = \'OFW\' THEN c.client_id END) AS ofw,
-                    COUNT(DISTINCT CASE WHEN cl.type = \'NEXT_OF_KIN\' THEN c.client_id END) AS nok
-                FROM referrals r
-                JOIN cases c ON r.case_id = c.id AND c.is_deleted = false
-                LEFT JOIN clients cl ON cl.id = c.client_id AND cl.is_deleted = false
-                WHERE r.is_deleted = false AND c.client_id IS NOT NULL
-            ');
-        });
-        $uniqueClientCount = (int) ($clientCounts['total'] ?? 0);
-        $ofwCount = (int) ($clientCounts['ofw'] ?? 0);
-        $nokCount = (int) ($clientCounts['nok'] ?? 0);
-
         // Recent activity — DATA category only (no security/admin/system events).
         // Cached 300s; invalidated by CacheInvalidationObserver on case/referral writes.
         $recentActivity = CacheHelper::safeRemember('dashboard:cm_recent_activity', 300, function () use ($formatter) {
@@ -144,24 +125,21 @@ class DashboardService
         });
 
         $casesByCategory = CacheHelper::safeRemember('dashboard:cm_cases_by_category', 300, function () {
-            // Authoritative assignments: one case may contribute once to each
-            // assigned category, but never more than once per category. Deleted,
-            // draft, and archived cases are intentionally excluded.
-            return DB::table('case_category AS assignments')
-                ->join('cases', 'cases.id', '=', 'assignments.case_id')
-                ->join('case_categories', 'case_categories.id', '=', 'assignments.case_category_id')
-                ->select('case_categories.name', 'case_categories.color', DB::raw('count(DISTINCT cases.id) as count'))
-                ->where('cases.is_deleted', false)
-                ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
-                ->groupBy('case_categories.name', 'case_categories.color')
-                ->orderByDesc('count')
-                ->get()
-                ->map(fn ($row) => [
-                    'name' => $row->name,
-                    'color' => $row->color,
-                    'count' => (int) $row->count,
-                ])
-                ->toArray();
+            $rows = DB::select('
+                SELECT cc.name, cc.color, COUNT(DISTINCT c.id) AS count
+                FROM referrals r
+                JOIN cases c ON c.id = r.case_id AND c.is_deleted = false
+                JOIN case_categories cc ON cc.id = r.category_id
+                WHERE r.is_deleted = false AND c.status NOT IN (\'DRAFT\', \'ARCHIVED\')
+                GROUP BY cc.name, cc.color
+                ORDER BY count DESC
+            ');
+
+            return array_map(fn ($row) => [
+                'name' => $row->name,
+                'color' => $row->color,
+                'count' => (int) $row->count,
+            ], $rows);
         });
 
         // Optimized SQL-based computations (replace $allReferrals bulk load)
@@ -221,9 +199,6 @@ class DashboardService
             'rejectedReferrals' => $rejectedReferrals,
             'totalReferrals' => $totalReferrals,
             'activeAgencies' => $activeAgencies,
-            'uniqueClientCount' => $uniqueClientCount,
-            'ofwCount' => $ofwCount,
-            'nokCount' => $nokCount,
             'casesByCategory' => $casesByCategory,
             'referralStatusDistribution' => $referralStatusDistribution,
             'referralAgingBands' => $referralAgingBands,
@@ -459,13 +434,14 @@ class DashboardService
                 ORDER BY total DESC
             ', [$agencyId]);
 
-            // Category mix: the case category is the only reliable taxonomy on
-            // the referral row (referral_services is sparsely populated).
+            // Category mix counts referrals and distinct cases reached separately.
             $categoryMix = DB::select('
-                SELECT COALESCE(cc.name, ?) AS label, COUNT(*) AS total
+                SELECT COALESCE(cc.name, ?) AS label,
+                    COUNT(*) AS total,
+                    COUNT(DISTINCT c.id) AS cases_reached
                 FROM referrals r
                 JOIN cases c ON c.id = r.case_id AND c.is_deleted = false
-                LEFT JOIN case_categories cc ON cc.id = c.category_id
+                LEFT JOIN case_categories cc ON cc.id = r.category_id
                 WHERE r.is_deleted = false AND r.agcy_id = ?
                 GROUP BY cc.name
                 ORDER BY total DESC
@@ -497,6 +473,7 @@ class DashboardService
                 'category_mix' => array_map(fn ($row) => [
                     'label' => $row->label,
                     'total' => (int) $row->total,
+                    'cases_reached' => (int) $row->cases_reached,
                 ], $categoryMix),
             ];
         });
@@ -943,7 +920,7 @@ class DashboardService
             ], array_slice($this->queries->buildAgencyResponseScorecardSQL(), 0, 5));
         });
 
-        $recentCases = CaseFile::with(['client', 'user', 'category'])
+        $recentCases = CaseFile::with('user')
             ->whereNotIn('status', ['DRAFT', 'ARCHIVED'])
             ->where('is_deleted', false)
             ->orderBy('updated_at', 'desc')
@@ -964,13 +941,13 @@ class DashboardService
                     'id' => $c->id,
                     'case_number' => $c->case_number,
                     'tracker_number' => $c->tracker_number,
-                    'client_name' => $c->client ? trim(($c->client->first_name ?? '').' '.($c->client->last_name ?? '')) : 'N/A',
-                    'client_type' => ($c->client?->type ?? 'OFW') === 'NEXT_OF_KIN' ? 'Next of Kin' : 'Overseas Filipino Worker',
+                    'client_name' => trim(($c->first_name ?? '').' '.($c->last_name ?? '')) ?: 'N/A',
+                    'client_type' => ($c->client_type ?? 'OFW') === 'NEXT_OF_KIN' ? 'Next of Kin' : 'Overseas Filipino Worker',
                     'status' => $c->status,
                     'created_at' => $c->created_at?->toISOString() ?? now()->toISOString(),
                     'updated_at' => $c->updated_at?->toISOString() ?? now()->toISOString(),
                     'case_owner' => $c->user?->name,
-                    'category' => $c->category?->name,
+                    'category' => $agg['category'] ?? null,
                     'last_activity' => $this->safeRelativeTime($c->updated_at),
                     'referral_count' => $agg['referral_count'] ?? 0,
                     'active_referral_count' => $agg['active_referral_count'] ?? 0,
@@ -1036,23 +1013,21 @@ class DashboardService
         });
 
         $casesByCategory = CacheHelper::safeRemember('dashboard:admin_cases_by_category', 300, function () {
-            // Keep category counts additive across assignments while excluding
-            // deleted, draft, and archived cases from the dashboard mix.
-            return DB::table('case_category AS assignments')
-                ->join('cases', 'cases.id', '=', 'assignments.case_id')
-                ->join('case_categories', 'case_categories.id', '=', 'assignments.case_category_id')
-                ->select('case_categories.name', 'case_categories.color', DB::raw('count(DISTINCT cases.id) as count'))
-                ->where('cases.is_deleted', false)
-                ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
-                ->groupBy('case_categories.name', 'case_categories.color')
-                ->orderByDesc('count')
-                ->get()
-                ->map(fn ($row) => [
-                    'name' => $row->name,
-                    'color' => $row->color,
-                    'count' => (int) $row->count,
-                ])
-                ->toArray();
+            $rows = DB::select('
+                SELECT cc.name, cc.color, COUNT(DISTINCT c.id) AS count
+                FROM referrals r
+                JOIN cases c ON c.id = r.case_id AND c.is_deleted = false
+                JOIN case_categories cc ON cc.id = r.category_id
+                WHERE r.is_deleted = false AND c.status NOT IN (\'DRAFT\', \'ARCHIVED\')
+                GROUP BY cc.name, cc.color
+                ORDER BY count DESC
+            ');
+
+            return array_map(fn ($row) => [
+                'name' => $row->name,
+                'color' => $row->color,
+                'count' => (int) $row->count,
+            ], $rows);
         });
 
         $stats = [
