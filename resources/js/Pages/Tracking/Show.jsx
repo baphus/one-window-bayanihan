@@ -652,7 +652,7 @@ export default function TrackingShow({
       <main className="mx-auto w-full max-w-6xl px-4 pt-24 pb-16 sm:px-6 lg:px-8">
         <p className="text-[12px] text-slate-500">Home / Track Your Request / Request Details</p>
         <h1 className="mt-2 font-headline text-[28px] font-extrabold tracking-tight text-slate-900 sm:text-[32px]">My Request Tracking</h1>
-        <p className="mt-1.5 text-[14px] text-slate-600">Track your request and follow updates from partner agencies.</p>
+        <p className="mt-1.5 text-[14px] text-slate-600">Track your request and follow updates from the DMW Region VII partner agencies coordinating your assistance.</p>
 
         <section className="mt-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
           <div className="px-5 py-5">

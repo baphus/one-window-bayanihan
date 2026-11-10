@@ -27,7 +27,7 @@ export default function Welcome({ agencies }) {
       <main>
         <HeroSection
           title="Connecting Government Services Through One Window"
-          description="A unified platform for inter-agency referrals, ensuring secure, transparent, and efficient assistance for migrant workers and their families."
+          description="A unified inter-agency platform ensuring secure, transparent, and efficient assistance for migrant workers and their families in Region VII (Central Visayas)."
           onTrackAction={() => router.get(route('track.index'))}
           agencies={agencies}
         />

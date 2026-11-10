@@ -23,7 +23,7 @@ export default function AppFooter({ showImage = true }) {
             <span className="font-headline text-lg font-bold leading-tight text-sky-900">One Window Bayanihan<span className="block text-[13px] font-semibold uppercase tracking-wider">Assistance Program</span></span>
           </div>
           <p className="text-[12px] leading-relaxed text-slate-500">
-            A centralized digital infrastructure for the Department of Migrant Workers, enhancing the Philippine government&apos;s commitment to the welfare of overseas workers.
+            A centralized digital infrastructure for the Department of Migrant Workers – Region VII, enhancing the Philippine government&apos;s commitment to the welfare of overseas workers.
           </p>
           <div className="mt-2 text-[10px] font-medium tracking-tight text-slate-400">
             In compliance with the Data Privacy Act of 2012 (RA 10173).

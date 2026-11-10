@@ -87,7 +87,7 @@ export default function Intake({ profile: profileProp, client, vulnerabilityOpti
 
             <PageHeader
                 title="Request Assistance"
-                subtitle="Tell us what you need help with. A case manager will review your request."
+                subtitle="Tell us what you need help with. A DMW Region VII case manager will review your request."
             />
 
             <form onSubmit={submit} className="max-w-3xl space-y-6">
