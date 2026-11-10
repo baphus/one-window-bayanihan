@@ -32,7 +32,11 @@ class OfwProfileTest extends TestCase
         $user = $this->ofw();
         $this->actingAsWithMfa($user)->get(route('ofw.profile.edit'))->assertOk()
             ->assertInertia(fn ($page) => $page->component('OFW/Profile')
-                ->where('user.email', $user->email)->missing('client')->missing('occupationOptions'));
+                ->where('user.email', $user->email)
+                ->where('mfaEnabled', true)
+                ->where('mfaRequired', false)
+                ->has('mustVerifyEmail')
+                ->missing('client')->missing('occupationOptions'));
     }
 
     public function test_contact_change_updates_only_account_not_historical_case(): void
@@ -43,6 +47,40 @@ class OfwProfileTest extends TestCase
             ->assertRedirect(route('ofw.profile.edit'));
         $this->assertSame('09182222222', $user->fresh()->contact_number);
         $this->assertSame('09171111111', $case->fresh()->contact_number);
+    }
+
+    public function test_shared_profile_redirects_to_the_minimal_ofw_settings_page(): void
+    {
+        $this->actingAsWithMfa($this->ofw())->get('/profile')
+            ->assertRedirect(route('ofw.profile.edit'));
+    }
+
+    public function test_required_ofw_override_can_reach_mfa_enrollment_on_minimal_settings_page(): void
+    {
+        $user = User::factory()->create([
+            'role' => UserRole::OFW->value,
+            'mfa_requirement_override' => 'required',
+            'mfa_enabled_at' => null,
+            'mfa_secret' => null,
+        ]);
+
+        $this->actingAs($user)->get(route('ofw.profile.edit'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->component('OFW/Profile')->where('mfaRequired', true));
+        $this->get(route('ofw.dashboard'))->assertRedirect(route('ofw.profile.edit'));
+    }
+
+    public function test_shared_profile_patch_rejects_staff_fields_for_ofw(): void
+    {
+        $user = $this->ofw();
+
+        $this->actingAsWithMfa($user)->patch('/profile', [
+            'department' => 'Changed', 'position' => 'Changed', 'office_location' => 'Changed',
+            'bio' => 'Changed', 'emergency_contact' => ['name' => 'Changed'],
+        ])->assertSessionHasErrors(['department', 'position', 'office_location', 'bio', 'emergency_contact']);
+
+        $this->assertNull($user->fresh()->department);
+        $this->assertNull($user->fresh()->position);
     }
 
     public function test_settings_reject_case_identity_and_representative_fields(): void
@@ -90,6 +128,21 @@ class OfwProfileTest extends TestCase
         $this->assertDatabaseHas('sessions', ['id' => $sessionId]);
         $this->assertSame($rememberToken, $user->fresh()->remember_token);
         $this->assertTrue(Hash::check('P@ssw0rd!', $user->fresh()->password));
+    }
+
+    public function test_ofw_can_delete_account_with_current_password_without_deleting_case_history(): void
+    {
+        $user = $this->ofw();
+        $case = CaseFile::factory()->create(['ofw_user_id' => $user->id]);
+        $sessionId = $this->otherSession($user);
+
+        $this->actingAsWithMfa($user)->delete('/profile', ['password' => 'P@ssw0rd!'])
+            ->assertRedirect('/');
+
+        $this->assertSoftDeleted('users', ['id' => $user->id]);
+        $this->assertDatabaseMissing('sessions', ['id' => $sessionId]);
+        $this->assertNotNull($case->fresh());
+        $this->assertSame($user->id, $case->fresh()->ofw_user_id);
     }
 
     public function test_contact_update_is_not_audited_as_sensitive_account_data(): void

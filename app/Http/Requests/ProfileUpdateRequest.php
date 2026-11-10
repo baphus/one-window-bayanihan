@@ -15,6 +15,17 @@ class ProfileUpdateRequest extends FormRequest
      */
     public function rules(): array
     {
+        if ($this->user()->isOfw()) {
+            return array_fill_keys([
+                'name', 'email', 'first_name', 'middle_name', 'last_name', 'date_of_birth', 'sex', 'suffix',
+                'address', 'employment', 'next_of_kin', 'type', 'client_type', 'client_id', 'ofw_client_id',
+                'nok_name', 'nok_relationship', 'nok_contact_number', 'nok_email', 'position', 'department',
+                'office_location', 'bio', 'emergency_contact', 'notifications_config', 'timezone',
+            ], ['prohibited']) + [
+                'contact_number' => ['sometimes', 'nullable', 'string', 'max:50'],
+            ];
+        }
+
         return [
             'name' => ['required', 'string', 'max:255'],
             'email' => [

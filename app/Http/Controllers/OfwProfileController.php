@@ -4,8 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\AvatarUploadRequest;
 use App\Services\CloudinaryAvatarService;
+use App\Services\MfaPolicyService;
 use App\Services\OfwProfileService;
 use Illuminate\Auth\SessionGuard;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -22,8 +24,16 @@ class OfwProfileController extends Controller
 
     public function edit(Request $request)
     {
+        $user = $request->user();
+
         return Inertia::render('OFW/Profile', [
-            'user' => $request->user()->only(['id', 'name', 'email', 'contact_number', 'avatar_url']),
+            'user' => $user->only(['id', 'name', 'email', 'contact_number', 'avatar_url']),
+            'mfaEnabled' => $user->mfa_enabled_at !== null,
+            'mfaRequired' => app(MfaPolicyService::class)->requiresEnrollment($user),
+            'mustVerifyEmail' => $user instanceof MustVerifyEmail,
+            'status' => session('status'),
+            'email_change_step' => $request->session()->get('email_change_step'),
+            'email_change_hint' => $request->session()->get('email_change_hint'),
         ]);
     }
 
@@ -86,7 +96,8 @@ class OfwProfileController extends Controller
         ] + array_fill_keys([
             'name', 'email', 'first_name', 'middle_name', 'last_name', 'date_of_birth', 'sex', 'suffix',
             'address', 'employment', 'next_of_kin', 'type', 'client_type', 'client_id', 'ofw_client_id',
-            'nok_name', 'nok_relationship', 'nok_contact_number', 'nok_email',
+            'nok_name', 'nok_relationship', 'nok_contact_number', 'nok_email', 'department', 'position',
+            'office_location', 'bio', 'emergency_contact', 'notifications_config', 'timezone', 'avatar',
         ], 'prohibited'));
 
         if (! empty($validated['password'])) {

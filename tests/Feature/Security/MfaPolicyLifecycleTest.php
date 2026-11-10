@@ -89,13 +89,28 @@ class MfaPolicyLifecycleTest extends TestCase
     }
 
     #[Test]
+    public function ofw_default_is_optional_and_explicit_required_override_wins(): void
+    {
+        SystemSetting::query()->where('key', 'mfa_role_ofw_required')->delete();
+        $optional = User::factory()->create(['role' => UserRole::OFW->value]);
+        $required = User::factory()->create([
+            'role' => UserRole::OFW->value,
+            'mfa_requirement_override' => 'required',
+        ]);
+
+        $this->assertFalse($optional->isInMfaEnforcedRole());
+        $this->assertTrue($required->isInMfaEnforcedRole());
+    }
+
+    #[Test]
     public function changed_role_default_requires_fresh_proof_reason_and_audits(): void
     {
         $key = 'mfa_role_ofw_required';
+        SystemSetting::setValue($key, true);
         $this->withMfaMarker($this->admin);
         $this->actingAsWithMfa($this->admin)->post(route('admin.system-settings.update'), [$key => false])
             ->assertSessionHasErrors('mfa_change_reason');
-        $this->assertSame(true, SystemSetting::getValue($key, true));
+        $this->assertTrue((bool) SystemSetting::getValue($key));
 
         $otp = app(Google2FA::class)->getCurrentOtp($this->admin->mfa_secret);
         $this->post(route('admin.system-settings.update'), [

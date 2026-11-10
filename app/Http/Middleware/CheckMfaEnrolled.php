@@ -31,6 +31,7 @@ class CheckMfaEnrolled
             }
         }
 
-        return redirect()->route('profile.edit')->with('warning', 'You must enable two-factor authentication before continuing.');
+        return redirect()->route($user->isOfw() ? 'ofw.profile.edit' : 'profile.edit')
+            ->with('warning', 'You must enable two-factor authentication before continuing.');
     }
 }
