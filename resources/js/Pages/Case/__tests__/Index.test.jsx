@@ -42,7 +42,8 @@ const caseRow = {
   status: 'OPEN',
   vulnerability_indicator: 'None',
   created_at: '2026-01-05T00:00:00Z',
-  client: { first_name: 'Maria', last_name: 'Santos' },
+  first_name: 'Maria',
+  last_name: 'Santos',
   referrals: [],
 };
 
@@ -58,8 +59,6 @@ function renderIndex(props = {}) {
       stats={{}}
       users={[]}
       agencies={[]}
-      categories={[]}
-      caseIssues={[]}
       {...props}
     />,
   );
@@ -150,37 +149,33 @@ describe('Case Index register columns', () => {
     expect(screen.queryByRole('columnheader', { name: /^Tracking ID$/ })).not.toBeInTheDocument();
   });
 
-  it('merges client name with client type and age into one column', () => {
+  it('merges OFW name with client type and age into one column', () => {
     renderIndex({
-      cases: page({ data: [{ ...caseRow, client: { first_name: 'Maria', last_name: 'Santos', date_of_birth: '1990-01-01' } }] }),
+      cases: page({ data: [{ ...caseRow, first_name: 'Maria', last_name: 'Santos', date_of_birth: '1990-01-01', age_at_intake: 35 }] }),
     });
 
-    expect(screen.getByRole('columnheader', { name: /^Client$/ })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: /^OFW$/ })).toBeInTheDocument();
     expect(screen.getByText('Maria Santos')).toBeInTheDocument();
-    // Secondary line carries type + derived age.
-    expect(screen.getByText(/OFW · \d+ yrs?/)).toBeInTheDocument();
-    expect(screen.queryByRole('columnheader', { name: /^Client Name$/ })).not.toBeInTheDocument();
+    // Secondary line carries type + age at intake.
+    expect(screen.getByText(/OFW · 35/)).toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: /^OFW Name$/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('columnheader', { name: /^Client Type$/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole('columnheader', { name: /^Age$/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: /^Age at intake$/ })).not.toBeInTheDocument();
   });
 
-  it('merges issue and category into one column', () => {
+  it('shows referral-scoped categories without case-wide issue text', () => {
     renderIndex({
       cases: page({
         data: [{
           ...caseRow,
-          case_issue: { id: 'i1', name: 'Unpaid final salary' },
-          categories: [{ id: 'c1', name: 'Employment' }],
+          referrals: [{ category: { id: 'c1', name: 'Employment' } }],
         }],
       }),
-      categories: [{ id: 'c1', name: 'Employment' }],
     });
 
-    expect(screen.getByRole('columnheader', { name: /Issue \/ Category/i })).toBeInTheDocument();
-    expect(screen.getByText('Unpaid final salary')).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: /^Categories$/ })).toBeInTheDocument();
     expect(screen.getByText('Employment')).toBeInTheDocument();
-    expect(screen.queryByRole('columnheader', { name: /^Issue\/Concern$/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole('columnheader', { name: /^Category$/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: /Issue/i })).not.toBeInTheDocument();
   });
 
   it('keeps the register default to nine data columns plus actions', () => {
@@ -190,8 +185,8 @@ describe('Case Index register columns', () => {
     // never joins the name the way it joins textContent.
     const expectedHeaders = [
       'Case / Tracking ID',
-      'Client',
-      'Issue / Category',
+      'OFW',
+      'Categories',
       'Vulnerability',
       'Author',
       'Case Status',

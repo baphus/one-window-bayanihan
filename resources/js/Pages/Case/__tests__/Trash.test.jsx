@@ -46,7 +46,8 @@ const casesWithData = {
     {
       id: 'case-1',
       case_number: 'CASE-20260724-0001',
-      client: { first_name: 'Juan', last_name: 'Dela Cruz' },
+      first_name: 'Juan',
+      last_name: 'Dela Cruz',
       user: { name: 'Admin User' },
       deleted_at: '2026-07-20T00:00:00.000Z',
       deletion_reason: 'Duplicate record — resolved on another case',
@@ -54,7 +55,8 @@ const casesWithData = {
     {
       id: 'case-2',
       case_number: 'CASE-20260724-0002',
-      client: { first_name: 'Maria', last_name: 'Santos' },
+      first_name: 'Maria',
+      last_name: 'Santos',
       user: { name: 'Case Manager' },
       deleted_at: '2026-07-22T00:00:00.000Z',
       deletion_reason: 'Incorrect entry — data migrated to proper case',

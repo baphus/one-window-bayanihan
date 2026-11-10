@@ -368,7 +368,7 @@ export default function AdminAgencyShow({ agency, referrals }) {
                   referrals.data.map((ref) => (
                     <tr key={ref.id} className="hover:bg-slate-50">
                       <td className="px-4 py-3 font-medium text-slate-900">{ref.case_file?.case_number || '\u2014'}</td>
-                      <td className="px-4 py-3 text-slate-600">{ref.case_file?.client ? `${ref.case_file.client.first_name} ${ref.case_file.client.last_name}` : '\u2014'}</td>
+                      <td className="px-4 py-3 text-slate-600">{[ref.case_file?.first_name, ref.case_file?.last_name].filter(Boolean).join(' ') || '\u2014'}</td>
                       <td className="px-4 py-3 text-slate-600 max-w-xs truncate">{ref.required_services || '\u2014'}</td>
                       <td className="px-4 py-3">
                         <StatusBadge status={ref.status} />

@@ -66,52 +66,21 @@ describe('Citizen accounts in the users list', () => {
     window.history.replaceState({}, '', '/admin/users');
   });
 
-  const citizen = (id, name, type) => ({
-    id,
-    name,
-    email: `${id}@example.test`,
-    role: 'OFW',
-    agency: null,
-    email_verified_at: null,
-    is_active: true,
-    client: { id: `client-${id}`, type, first_name: name.split(' ')[0], last_name: name.split(' ')[1], ofw_client: null },
-  });
-
-  it('offers the Citizen role and Client Type filters', () => {
+  it('offers Citizen role filtering without linked client classification', () => {
     render(<Index {...props} />);
-
-    // The advanced filter panel only mounts once its toggle is clicked.
     fireEvent.click(screen.getByRole('button', { name: /filters/i }));
 
     const roleFilter = screen.getAllByRole('combobox').find((combobox) => /all roles/i.test(combobox.textContent));
     fireEvent.click(roleFilter);
     expect(screen.getByRole('option', { name: 'Citizen' })).toBeInTheDocument();
-    fireEvent.click(roleFilter);
-    const clientTypeFilter = screen.getAllByRole('combobox').find((combobox) => /all client types/i.test(combobox.textContent));
-    fireEvent.click(clientTypeFilter);
-    expect(screen.getByRole('option', { name: 'Next of Kin' })).toBeInTheDocument();
+    expect(screen.queryByText(/client type/i)).not.toBeInTheDocument();
   });
 
-  it('labels a next-of-kin account as NOK and keeps them out of the edit modal', () => {
-    render(
-      <Index
-        {...props}
-        users={{ ...props.users, data: [citizen('u1', 'Nora Kin', 'NEXT_OF_KIN')] }}
-      />,
-    );
+  it('shows citizen account role without profile links or client-type stats', () => {
+    render(<Index {...props} users={{ ...props.users, data: [{ ...props.users.data[0], role: 'OFW' }] }} />);
 
-    // Role column shows the account role, the Client column carries the split.
     expect(screen.getByText('Citizen')).toBeInTheDocument();
-    expect(screen.queryByText('Edit')).not.toBeInTheDocument();
-    expect(screen.getByText('View')).toBeInTheDocument();
-  });
-
-  it('renders the client-type split in the stat tiles', () => {
-    render(<Index {...props} stats={{ ...props.stats, citizen_ofw: 4, citizen_nok: 2 }} />);
-
-    expect(screen.getByText('Client (OFW)')).toBeInTheDocument();
-    expect(screen.getByText('Client (NOK)')).toBeInTheDocument();
-    expect(screen.getByText('4')).toBeInTheDocument();
-    expect(screen.getByText('2')).toBeInTheDocument();
+    expect(screen.queryByText(/Client \(OFW\)|Client \(NOK\)/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /client profile|related ofw/i })).not.toBeInTheDocument();
   });
 });

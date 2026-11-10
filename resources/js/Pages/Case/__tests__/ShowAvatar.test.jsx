@@ -19,13 +19,10 @@ vi.mock('@/Components/ui/ConfirmDialog', () => ({ default: () => null }));
 vi.mock('@/Hooks/useToast', () => ({ useToast: () => ({ success: vi.fn(), error: vi.fn() }) }));
 globalThis.route = () => '/';
 
-describe('Case details client avatar', () => {
-  it('prefers linked user avatar and falls back to client avatar', () => {
-    const client = { first_name: 'Ari', last_name: 'Example', avatar_url: '/client.jpg', user: { avatar_url: '/user.jpg' } };
-    const { rerender } = render(<CaseShow case={{ client }} milestoneTimeline={[]} categories={[]} caseIssues={[]} />);
-    expect(document.querySelector('img')).toHaveAttribute('src', '/user.jpg');
-
-    rerender(<CaseShow case={{ client: { ...client, user: null } }} milestoneTimeline={[]} categories={[]} caseIssues={[]} />);
-    expect(document.querySelector('img')).toHaveAttribute('src', '/client.jpg');
+describe('Case details identity', () => {
+  it('renders independent case identity without legacy client relations', () => {
+    render(<CaseShow case={{ first_name: 'Ari', last_name: 'Example', avatar_url: '/case.jpg' }} milestoneTimeline={[]} />);
+    expect(document.querySelector('img')).toHaveAttribute('src', '/case.jpg');
+    expect(screen.getByText('Ari Example')).toBeInTheDocument();
   });
 });

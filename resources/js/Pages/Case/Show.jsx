@@ -1,8 +1,7 @@
-import Select from '@/Components/Select';
 import AppLayout from '@/Layouts/AppLayout';
+import Select from '@/Components/Select';
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { useState, useMemo, useRef, useEffect } from 'react';
-import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
+import { useState, useMemo } from 'react';
 import ConfirmDialog from '@/Components/ui/ConfirmDialog';
 
 import { useToast } from '@/Hooks/useToast';
@@ -14,6 +13,7 @@ import { InfoCell, CardHeader, InfoField } from '@/Components/ui/CardSection';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import { getAvatarColor } from '@/Components/ui/UserAvatar';
 import { formatDisplayDateTime, formatDisplayDate, formatDisplayTime } from '@/lib/utils';
+import { RETURN_REASON_LABELS } from '@/Components/CaseIntakeForm';
 import { formatResolvedAddress } from '@/lib/addressResolver';
 import AuditLogModal from '@/Components/AuditLogModal';
 import UnifiedTimeline from '@/Components/Timeline';
@@ -25,42 +25,6 @@ const vulnConfig = {
   'Indigenous Person': { icon: 'groups', className: 'bg-teal-100 text-teal-800 border-teal-200' },
 };
 
-function getCaseCategories(caseFile) {
-  if (Array.isArray(caseFile?.categories) && caseFile.categories.length) return caseFile.categories;
-  if (Array.isArray(caseFile?.category_ids) && caseFile.category_ids.length) {
-    return caseFile.category_ids.map((id) => (id && typeof id === 'object' ? id : { id, name: id }));
-  }
-  return caseFile?.category ? [caseFile.category] : [];
-}
-
-function CategoryBadges({ caseFile }) {
-  const categories = getCaseCategories(caseFile);
-  if (!categories.length) return <span className="text-slate-400">&mdash;</span>;
-  return (
-    <span className="flex flex-wrap items-center gap-1">
-      {categories.map((category) => (
-        <span key={category.id || category.name} className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ backgroundColor: category.color ? `${category.color}20` : '#f1f5f9', color: category.color || '#64748b' }}>
-          {category.color && <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: category.color }} />}
-          {category.name || category.title}
-        </span>
-      ))}
-    </span>
-  );
-}
-
-function getClientAge(dob) {
-  if (!dob) return '\u2014';
-  const birth = new Date(dob);
-  if (Number.isNaN(birth.getTime())) return '\u2014';
-  const today = new Date();
-  let age = today.getFullYear() - birth.getFullYear();
-  const monthDiff = today.getMonth() - birth.getMonth();
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-    age--;
-  }
-  return age;
-}
-
 function formatAddress(addr) {
   return formatResolvedAddress(addr, '');
 }
@@ -69,7 +33,7 @@ function formatNokAddress(nok) {
   return formatResolvedAddress(nok, nok?.full_address || 'N/A');
 }
 
-export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTimeline = [], categories = [], caseIssues = [], approver = null, lifecycle = [] }) {
+export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTimeline = [], approver = null, lifecycle = [] }) {
   const EVENT_CONFIG = {
     case_opened:             { dot: 'bg-blue-50 border-blue-200 text-blue-600',       icon: 'folder' },
     referral_sent:           { dot: 'bg-purple-50 border-purple-200 text-purple-600',   icon: 'forward_to_inbox' },
@@ -131,33 +95,19 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
 
   const page = usePage();
   const { auth, roles } = page.props;
-  const client = caseFile.client;
   const toast = useToast();
-  const [isEditOpen, setIsEditOpen] = useState(false);
   const [showReferralPrompt, setShowReferralPrompt] = useState(!!page.props.just_published);
   const [showOverdueInfo, setShowOverdueInfo] = useState(false);
   const [showReferralBlockingInfo, setShowReferralBlockingInfo] = useState(false);
   const [showAuditLog, setShowAuditLog] = useState(false);
   const [confirmDeleteDoc, setConfirmDeleteDoc] = useState(null);
   const [confirmToggleStatus, setConfirmToggleStatus] = useState(false);
-  const [confirmApprove, setConfirmApprove] = useState(false);
   const [confirmArchive, setConfirmArchive] = useState(false);
   const [confirmUnarchive, setConfirmUnarchive] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deletionReason, setDeletionReason] = useState('');
   const [deletionReasonError, setDeletionReasonError] = useState('');
   const [deletingArchived, setDeletingArchived] = useState(false);
-  const [formIssueId, setFormIssueId] = useState(caseFile.case_issue_id || '');
-  const [formCategoryIds, setFormCategoryIds] = useState(getCaseCategories(caseFile).map(c => c.id));
-  // Issues created inline in the modal are appended to this local list so the
-  // select can show them without waiting for a page reload. The server prop
-  // is the source of truth on every other open.
-  const [localIssues, setLocalIssues] = useState(caseIssues);
-  const [showAddIssue, setShowAddIssue] = useState(false);
-  const [newIssueName, setNewIssueName] = useState('');
-  const [addingIssue, setAddingIssue] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [approving, setApproving] = useState(false);
   const [uploadingDoc, setUploadingDoc] = useState(false);
 
   function handleDocumentDelete(docId) {
@@ -195,50 +145,16 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
     );
   }
 
-  const initialEditRef = useRef({ issueId: caseFile.case_issue_id || '', categoryIds: getCaseCategories(caseFile).map(c => c.id) });
-  const editIntentHandledRef = useRef(false);
-  const hasEditDirty = useMemo(() => (
-    formIssueId !== initialEditRef.current.issueId
-    || JSON.stringify(formCategoryIds) !== JSON.stringify(initialEditRef.current.categoryIds)
-  ), [formIssueId, formCategoryIds]);
-  const { UnsavedModal, bypassNext } = useUnsavedChanges(hasEditDirty && isEditOpen);
-
-  function openEditDetails() {
-    const initial = {
-      issueId: caseFile.case_issue_id || '',
-      categoryIds: getCaseCategories(caseFile).map(c => c.id),
-    };
-
-    initialEditRef.current = initial;
-    setFormIssueId(initial.issueId);
-    setFormCategoryIds(initial.categoryIds);
-    setLocalIssues(caseIssues);
-    setShowAddIssue(false);
-    setNewIssueName('');
-    setIsEditOpen(true);
-  }
-
-  useEffect(() => {
-    const query = page.url?.split('?')[1] || '';
-    const shouldOpenEdit = new URLSearchParams(query).get('edit') === '1';
-
-    if (shouldOpenEdit && !editIntentHandledRef.current) {
-      editIntentHandledRef.current = true;
-      openEditDetails();
-    }
-  }, [page.url]);
-
-  const primaryAddress = client?.addresses?.[0] || null;
-  const primaryEmployment = client?.employments?.[0] || null;
-  const primaryNok = client?.nextOfKin?.find(n => n.is_primary) || client?.nextOfKin?.[0] || null;
-
+  const primaryAddress = { region: caseFile.address_region, province: caseFile.address_province, city_municipality: caseFile.address_city_municipality, barangay: caseFile.address_barangay, street: caseFile.address_street };
+  const hasAddress = Object.values(primaryAddress).some(Boolean);
+  const primaryEmployment = { employer_name: caseFile.employment_employer_name, position: caseFile.employment_position, country: caseFile.employment_country, last_country: caseFile.employment_last_country, last_position: caseFile.employment_last_position, date_of_arrival: caseFile.employment_date_of_arrival, start_date: caseFile.employment_start_date, end_date: caseFile.employment_end_date };
+  const hasEmployment = Object.values(primaryEmployment).some(Boolean);
   const canManageCaseDocuments = auth.user?.role === roles.CASE_MANAGER;
   const canManageReferrals = auth.user?.role === roles.CASE_MANAGER || auth.user?.role === roles.ADMIN;
-  const canApproveCase = caseFile.status === 'PENDING_REVIEW'
-    && (auth.user?.role === roles.CASE_MANAGER || auth.user?.role === roles.ADMIN);
   const clientTypeLabel = caseFile.client_type === 'OFW' ? 'Overseas Filipino Worker' : 'Next of Kin';
-  const clientFullName = client ? [client.first_name, client.middle_name, client.last_name, client.suffix].filter(Boolean).join(' ') : '';
-  const clientInitials = client ? [client.first_name, client.last_name].filter(Boolean).map((part) => part[0]).join('').toUpperCase().slice(0, 2) : '';
+  const intakeName = [caseFile.first_name, caseFile.middle_name, caseFile.last_name, caseFile.suffix].filter(Boolean).join(' ');
+  const clientFullName = intakeName;
+  const clientInitials = clientFullName ? clientFullName.split(' ').filter(Boolean).map((part) => part[0]).join('').toUpperCase().slice(0, 2) : '';
   const [confirmDeleteReferral, setConfirmDeleteReferral] = useState(null);
 
   const referralRows = useMemo(() => {
@@ -349,46 +265,11 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
     },
   ];
 
-  function handleSaveDetails() {
-    if (saving) return;
-    setSaving(true);
-    bypassNext();
-    router.patch(route('cases.update', caseFile.id), {
-      case_issue_id: formIssueId || null,
-      category_ids: formCategoryIds,
-    }, {
-      preserveScroll: true,
-      onSuccess: () => {
-        setIsEditOpen(false);
-        setSaving(false);
-      },
-      onError: () => setSaving(false),
-    });
-  }
-
   /**
-   * Create a new issue reference record from inside the modal and select it.
-   * Mirrors the inline add on Case/ReviewPending.jsx and Case/Create.jsx: the
-   * new record is returned by the server and appended to the local option list
-   * so the select can show it without a page reload.
+   * Legacy case categories/issues are gone: classification belongs to each
+   * referral and confirmed assessment belongs to review. Nothing case-wide to
+   * edit from this page.
    */
-  async function handleQuickAddIssue() {
-    const name = newIssueName.trim();
-    if (!name || addingIssue) return;
-    setAddingIssue(true);
-    try {
-      const res = await window.axios.post(route('case-issues.quick'), { name });
-      const newIssue = res.data;
-      setLocalIssues((prev) => [...prev, newIssue]);
-      setFormIssueId(newIssue.id);
-      setNewIssueName('');
-      setShowAddIssue(false);
-    } catch (err) {
-      toast.error(err.response?.data?.errors?.name?.[0] || 'Failed to add issue.');
-    } finally {
-      setAddingIssue(false);
-    }
-  }
 
   function handleToggleStatus() {
     if (caseFile.status === 'OPEN' && hasActiveReferrals) {
@@ -402,22 +283,6 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
         const msg = errors?.message || 'An error occurred while updating case status.';
         toast.error(msg);
       },
-    });
-  }
-
-  function handleApprove() {
-    if (approving) return;
-
-    setApproving(true);
-    router.post(route('cases.review-approve', caseFile.id), {}, {
-      preserveScroll: true,
-      onSuccess: () => setConfirmApprove(false),
-      onError: (errors) => {
-        const message = errors?.message || Object.values(errors || {})[0] || 'Could not approve this case.';
-        toast.error(message);
-        setConfirmApprove(false);
-      },
-      onFinish: () => setApproving(false),
     });
   }
 
@@ -512,15 +377,14 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
             <span className="material-symbols-outlined text-[15px]">picture_as_pdf</span>
             Export PDF
           </a>
-          {canApproveCase && (
-            <button
-              type="button"
-              onClick={() => setConfirmApprove(true)}
+          {canManageReferrals && caseFile.status === 'PENDING_REVIEW' && (
+            <Link
+              href={route('cases.review-pending')}
               className="px-3.5 min-h-[34px] bg-emerald-600 text-[12px] font-bold text-white border border-emerald-600 rounded-md hover:bg-emerald-700 transition-colors inline-flex items-center gap-1.5"
             >
               <span className="material-symbols-outlined text-[15px]">check_circle</span>
-              Approve Case
-            </button>
+              Review intake
+            </Link>
           )}
           <button
             type="button"
@@ -584,16 +448,10 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
             <CardHeader
               title="Case Summary"
               actions={(
-                <>
-                  <button type="button" onClick={openEditDetails} className="inline-flex min-h-[34px] items-center gap-1.5 rounded-md bg-[#233f82] px-3.5 text-[12px] font-bold text-white transition hover:bg-[#172c63]">
-                    <span className="material-symbols-outlined text-[15px]">edit</span>
-                    Edit Details
-                  </button>
-                  <button type="button" onClick={() => setConfirmToggleStatus(true)} disabled={caseFile.status === 'OPEN' && hasActiveReferrals} className="inline-flex min-h-[34px] items-center gap-1.5 rounded-md bg-slate-100 px-3.5 text-[12px] font-bold text-slate-500 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:hover:bg-slate-100">
-                    <span className="material-symbols-outlined text-[15px]">lock</span>
-                    {caseFile.status === 'OPEN' ? 'Close Case' : 'Reopen Case'}
-                  </button>
-                </>
+                <button type="button" onClick={() => setConfirmToggleStatus(true)} disabled={caseFile.status === 'OPEN' && hasActiveReferrals} className="inline-flex min-h-[34px] items-center gap-1.5 rounded-md bg-slate-100 px-3.5 text-[12px] font-bold text-slate-500 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:hover:bg-slate-100">
+                  <span className="material-symbols-outlined text-[15px]">lock</span>
+                  {caseFile.status === 'OPEN' ? 'Close Case' : 'Reopen Case'}
+                </button>
               )}
             />
             {/* [&>div]:border-0 strips InfoCell's border-b/border-r dividers for this grid only */}
@@ -602,9 +460,9 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
               <InfoCell label="Tracking ID" value={caseFile.tracker_number} />
               <InfoCell label="Date created" value={<>{formatDisplayDate(caseFile.created_at)}<span className="block text-[10px] font-normal text-slate-500">{formatDisplayTime(caseFile.created_at)}</span></>} />
               <InfoCell label="Client type" value={clientTypeLabel} />
-              <InfoCell label="Category" value={<CategoryBadges caseFile={caseFile} />} />
+              <InfoCell label="Age at intake" value={caseFile.age_at_intake ?? '\u2014'} />
               <InfoCell label="Status" value={<StatusBadge status={caseFile.status} size="sm" />} />
-              <InfoCell label="Issue / concern" value={caseFile.case_issue?.name || '-'} />
+              <InfoCell label="Return reason" value={caseFile.return_reason ? (RETURN_REASON_LABELS[caseFile.return_reason] ?? caseFile.return_reason) : '-'} />
               <InfoCell label="Case narrative" value={caseFile.summary || '-'} />
               <InfoCell label="Opened by" value={caseFile.user?.name || '-'} />
               <InfoCell
@@ -768,40 +626,44 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
 
         <aside className="space-y-4 xl:col-span-4">
           {/* Client Information */}
-          <section data-tour="case-client-info" className="rounded-xl border border-[#dce3eb] bg-white shadow-[0_1px_3px_rgba(23,35,51,0.04)]">
-            <CardHeader title="Client Information" />
+          <section data-tour="case-ofw-info" className="rounded-xl border border-[#dce3eb] bg-white shadow-[0_1px_3px_rgba(23,35,51,0.04)]">
+            <CardHeader title="OFW information" />
             <div className="space-y-4 px-5 pb-5">
-              {/* Avatar */}
-              {client ? (
-                (client.user?.avatar_url || client.avatar_url) ? (
+              {/* Case facts are independent of any reusable account profile. */}
+              {(() => {
+                const avatarUrl = caseFile.avatar_url;
+                if (!avatarUrl) {
+                  return clientFullName ? (
+                    <span
+                      className={`inline-flex h-[88px] w-[88px] shrink-0 items-center justify-center rounded-2xl text-[26px] font-bold text-white ${getAvatarColor(clientFullName)}`}
+                      aria-hidden="true"
+                    >
+                      {clientInitials || '?'}
+                    </span>
+                  ) : null;
+                }
+                return (
                   <img
-                    src={client.user?.avatar_url || client.avatar_url}
+                    src={avatarUrl}
                     alt=""
                     className="h-[88px] w-[88px] shrink-0 rounded-2xl border border-slate-200 object-cover"
                     onError={(e) => { e.target.style.display = 'none'; }}
                   />
-                ) : (
-                  <span
-                    className={`inline-flex h-[88px] w-[88px] shrink-0 items-center justify-center rounded-2xl text-[26px] font-bold text-white ${getAvatarColor(clientFullName)}`}
-                    aria-hidden="true"
-                  >
-                    {clientInitials || '?'}
-                  </span>
-                )
-              ) : null}
+                );
+              })()}
 
               <InfoField label="Full name" value={clientFullName} />
 
-              <InfoField label="Date of birth" value={client?.date_of_birth ? formatDisplayDate(client.date_of_birth) : null} />
+              <InfoField label="Date of birth" value={caseFile.date_of_birth ? formatDisplayDate(caseFile.date_of_birth) : null} />
 
               <div className="grid grid-cols-2 gap-3">
-                <InfoField label="Age" value={client?.date_of_birth ? getClientAge(client.date_of_birth) : null} />
-                <InfoField label="Sex" value={client?.sex} />
+                <InfoField label="Age at intake" value={caseFile.age_at_intake} />
+                <InfoField label="Sex" value={caseFile.sex} />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <InfoField label="Email" value={client?.email} />
-                <InfoField label="Contact no." value={client?.contact_number} />
+                <InfoField label="Email" value={caseFile.email} />
+                <InfoField label="Contact no." value={caseFile.contact_number} />
               </div>
 
               {/* Vulnerability */}
@@ -831,9 +693,9 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
                 );
               })()}
 
-              <InfoField label="Address" value={primaryAddress ? formatAddress(primaryAddress) : null} fallback="No address recorded" />
+              {hasAddress && <InfoField label="Address" value={formatAddress(primaryAddress)} fallback="No address recorded" />}
 
-              {primaryEmployment && (
+              {hasEmployment && (
                 <>
                   <hr className="border-slate-200" />
                   <div className="grid grid-cols-2 gap-3">
@@ -932,128 +794,6 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
         </aside>
       </div>
 
-      {isEditOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" onClick={() => setIsEditOpen(false)}>
-          <div className="w-full max-w-2xl rounded-lg border border-slate-200 bg-white shadow-lg owb-modal-animate" onClick={(e) => e.stopPropagation()}>
-            <div className="border-b border-slate-200 px-5 py-4">
-              <h2 className="text-[16px] font-extrabold text-slate-900">Edit Case Details</h2>
-              <p className="mt-1 text-[12px] text-slate-500">Update visible case details for this record.</p>
-            </div>
-
-            <div className="grid grid-cols-1 gap-4 px-5 py-4">
-              <div>
-                <label htmlFor="edit-case-issue" className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-slate-600">Issue/Concern</label>
-                <div className="flex gap-2">
-                  <Select
-                    id="edit-case-issue"
-                    value={formIssueId}
-                    onChange={(e) => setFormIssueId(e.target.value)}
-                    className="h-10 min-w-0 flex-1 px-3 py-2 text-[13px]"
-                  >
-                    <option value="">None</option>
-                    {caseFile.case_issue && !localIssues.some(i => i.id === caseFile.case_issue_id) && (
-                      <option value={caseFile.case_issue_id}>{caseFile.case_issue.name}</option>
-                    )}
-                    {localIssues.map((issue) => (
-                      <option key={issue.id} value={issue.id}>{issue.name}</option>
-                    ))}
-                  </Select>
-                  <button
-                    type="button"
-                    onClick={() => { setNewIssueName(''); setShowAddIssue(!showAddIssue); }}
-                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-dashed border-blue-900/50 text-blue-900 transition-colors hover:bg-blue-50"
-                    title="Add new issue"
-                    aria-label="Add new issue"
-                    aria-expanded={showAddIssue}
-                  >
-                    <span className="material-symbols-outlined text-[20px]">add</span>
-                  </button>
-                </div>
-                {showAddIssue && (
-                  <div className="mt-2 rounded-md border border-slate-200 bg-slate-50 p-3">
-                    <label htmlFor="edit-new-issue" className="mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-slate-600">New issue name</label>
-                    <input
-                      id="edit-new-issue"
-                      type="text"
-                      value={newIssueName}
-                      onChange={(e) => setNewIssueName(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleQuickAddIssue(); } }}
-                      placeholder="Enter new issue name..."
-                      className="h-10 w-full rounded-md border border-slate-200 px-3 text-[13px] text-slate-700 outline-none focus:ring-1 focus:ring-blue-900"
-                      autoFocus
-                    />
-                    <div className="mt-2 flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={handleQuickAddIssue}
-                        disabled={addingIssue || !newIssueName.trim()}
-                        className="inline-flex items-center gap-1.5 rounded-md bg-blue-900 px-3 py-1.5 text-[12px] font-bold text-white transition-colors hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        {addingIssue ? 'Adding…' : 'Add'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => { setShowAddIssue(false); setNewIssueName(''); }}
-                        className="text-[12px] font-medium text-slate-500 hover:text-slate-700"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-slate-600">Category</label>
-                <div className="flex flex-wrap gap-3">
-                  {categories.map((cat) => {
-                    const checked = formCategoryIds.includes(cat.id);
-                    return (
-                      <label key={cat.id} className="inline-flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => {
-                            setFormCategoryIds(prev => checked ? prev.filter(id => id !== cat.id) : [...prev, cat.id]);
-                          }}
-                          className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                        />
-                        <span className="inline-flex items-center gap-1.5 text-[13px] text-slate-700">
-                          {cat.color && <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />}
-                          {cat.name}
-                        </span>
-                      </label>
-                    );
-                  })}
-                  {categories.length === 0 && (
-                    <span className="text-[12px] text-slate-400">No categories available.</span>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2 border-t border-slate-200 px-5 py-3">
-              <button
-                type="button"
-                onClick={() => setIsEditOpen(false)}
-                className="h-9 rounded-md border border-slate-200 px-3 text-[12px] font-bold text-slate-700"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveDetails}
-                disabled={saving}
-                className="h-9 rounded-md bg-blue-900 px-3 text-[12px] font-bold text-white disabled:opacity-60"
-              >
-                {saving ? 'Saving...' : 'Save Changes'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {UnsavedModal}
       <AuditLogModal
         show={showAuditLog}
         onClose={() => setShowAuditLog(false)}
@@ -1101,18 +841,6 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
           setConfirmToggleStatus(false);
         }}
         onCancel={() => setConfirmToggleStatus(false)}
-      />
-      <ConfirmDialog
-        open={confirmApprove}
-        title="Approve Case"
-        message={`Approve case ${caseFile.case_number}? It will move from Pending Reviews into the Cases list.`}
-        confirmLabel={approving ? 'Approving...' : 'Approve Case'}
-        tone="info"
-        disabled={approving}
-        onConfirm={() => {
-          handleApprove();
-        }}
-        onCancel={() => setConfirmApprove(false)}
       />
       <ConfirmDialog
         open={!!confirmUnarchive}

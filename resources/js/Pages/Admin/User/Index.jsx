@@ -5,7 +5,7 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import UserAvatar from '@/Components/ui/UserAvatar';
-import { Users, UserCheck, Briefcase, Building2, Shield, Plane } from 'lucide-react';
+import { Users, UserCheck, Briefcase, Building2, Shield } from 'lucide-react';
 import KpiCard from '@/Components/ui/KpiCard';
 import { formatDisplayDate, formatDisplayTime } from '@/lib/utils';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
@@ -33,23 +33,10 @@ const roleLabels = {
   OFW: 'Citizen',
 };
 
-// clients.type — the registration answer. users.role is OFW for both of
-// these, so this is the only thing that separates an OFW from a next of kin.
-const clientTypeStyles = {
-  OFW: 'bg-sky-100 text-sky-800 border-sky-300',
-  NEXT_OF_KIN: 'bg-rose-100 text-rose-800 border-rose-300',
-};
-
-const clientTypeLabels = {
-  OFW: 'OFW',
-  NEXT_OF_KIN: 'NOK',
-};
-
 const COLUMN_DEFS = [
   { key: 'name', label: 'Name', default: true },
   { key: 'email', label: 'Email', default: true },
   { key: 'role', label: 'Role', default: true },
-  { key: 'client', label: 'Client', default: false },
   { key: 'agency', label: 'Agency', default: true },
   { key: 'position', label: 'Occupation', default: false },
   { key: 'department', label: 'Department', default: false },
@@ -94,7 +81,6 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [], p
   );
 
   const [roleFilter, setRoleFilter] = useState(filters?.role ?? '');
-  const [clientTypeFilter, setClientTypeFilter] = useState(filters?.client_type ?? '');
   const [statusFilter, setStatusFilter] = useState(filters?.status ?? '');
   const [agencyFilter, setAgencyFilter] = useState(filters?.agcy_id ?? '');
   const [mfaFilter, setMfaFilter] = useState(filters?.mfa_status ?? '');
@@ -151,7 +137,6 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [], p
   const restoreFilters = (saved) => {
     setSearchValue(saved.search ?? '');
     setRoleFilter(saved.role ?? '');
-    setClientTypeFilter(saved.client_type ?? '');
     setStatusFilter(saved.status ?? '');
     setAgencyFilter(saved.agcy_id ?? '');
     setMfaFilter(saved.mfa_status ?? '');
@@ -171,7 +156,6 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [], p
   const activeFilters = useMemo(() => {
     const chips = [];
     if (roleFilter) chips.push({ key: 'role', label: 'Role', value: roleLabels[roleFilter] || roleFilter });
-    if (clientTypeFilter) chips.push({ key: 'client_type', label: 'Client Type', value: clientTypeFilter === 'NEXT_OF_KIN' ? 'Next of Kin' : 'OFW' });
     if (statusFilter) chips.push({ key: 'status', label: 'Status', value: statusFilter === 'active' ? 'Active' : 'Inactive' });
     if (agencyFilter) {
       const agency = agencies.find(a => a.id === agencyFilter);
@@ -180,11 +164,10 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [], p
     if (mfaFilter) chips.push({ key: 'mfa_status', label: 'MFA', value: mfaFilter === 'enabled' ? 'Enabled' : 'Disabled' });
     if (showDeleted) chips.push({ key: 'show_deleted', label: 'Deleted', value: 'Including deleted' });
     return chips;
-  }, [roleFilter, clientTypeFilter, statusFilter, agencyFilter, mfaFilter, agencies]);
+  }, [roleFilter, statusFilter, agencyFilter, mfaFilter, agencies]);
 
   const handleRemoveFilter = (filter) => {
     if (filter.key === 'role') { setRoleFilter(''); navigateWith({ role: undefined }); }
-    if (filter.key === 'client_type') { setClientTypeFilter(''); navigateWith({ client_type: undefined }); }
     if (filter.key === 'status') { setStatusFilter(''); navigateWith({ status: undefined }); }
     if (filter.key === 'agcy_id') { setAgencyFilter(''); navigateWith({ agcy_id: undefined }); }
     if (filter.key === 'mfa_status') { setMfaFilter(''); navigateWith({ mfa_status: undefined }); }
@@ -193,12 +176,11 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [], p
 
   const handleClearFilters = () => {
     setRoleFilter('');
-    setClientTypeFilter('');
     setStatusFilter('');
     setAgencyFilter('');
     setMfaFilter('');
     setShowDeleted(false);
-    navigateWith({ role: undefined, client_type: undefined, status: undefined, agcy_id: undefined, mfa_status: undefined, show_deleted: undefined });
+    navigateWith({ role: undefined, status: undefined, agcy_id: undefined, mfa_status: undefined, show_deleted: undefined });
   };
 
   function paginatorProps(paginator) {
@@ -257,29 +239,6 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [], p
                   {roleLabels[row.role] || row.role}
                 </span>
               ),
-            };
-          case 'client':
-            return {
-              ...base,
-              sortable: false,
-              render: (row) => {
-                const client = row.client;
-                if (!client) return <span className="text-slate-400">&mdash;</span>;
-                const typeLabel = clientTypeLabels[client.type] || client.type;
-                return (
-                  <div className="flex items-center gap-2">
-                    <a
-                      href={route('clients.show', client.id)}
-                      className="text-xs font-semibold text-blue-900 hover:underline truncate max-w-[140px]"
-                    >
-                      {[client.first_name, client.last_name].filter(Boolean).join(' ') || 'Unnamed client'}
-                    </a>
-                    <span className={`inline-flex shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold border ${clientTypeStyles[client.type] || 'bg-slate-100 text-slate-700 border-slate-200'}`}>
-                      {typeLabel}
-                    </span>
-                  </div>
-                );
-              },
             };
           case 'agency':
             return {
@@ -457,23 +416,6 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [], p
         </Select>
       </div>
       <div>
-        <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Client Type</label>
-        <Select
-          value={clientTypeFilter}
-          onChange={(e) => {
-            const val = e.target.value;
-            setClientTypeFilter(val);
-            setFilterOpen(false);
-            navigateWith({ client_type: val || undefined });
-          }}
-          className="w-full px-3 py-2 text-[13px] font-medium"
-        >
-          <option value="">All Client Types</option>
-          <option value="OFW">OFW</option>
-          <option value="NEXT_OF_KIN">Next of Kin</option>
-        </Select>
-      </div>
-      <div>
         <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Agency</label>
         <Select
           value={agencyFilter}
@@ -542,7 +484,7 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [], p
         </label>
       </div>
     </div>
-  ), [roleFilter, clientTypeFilter, statusFilter, agencyFilter, mfaFilter, showDeleted, agencies, roles]);
+  ), [roleFilter, statusFilter, agencyFilter, mfaFilter, showDeleted, agencies, roles]);
 
   const columnControlContent = useMemo(() => (
     <div className="space-y-2">
@@ -638,21 +580,6 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [], p
           <p className="text-2xl font-black text-slate-900">{stats?.admins ?? 0}</p>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-          <div className="flex items-start justify-between mb-2">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Client (OFW)</p>
-            <span className="p-1.5 bg-sky-50 rounded-lg"><Plane className="w-4 h-4 text-sky-600" /></span>
-          </div>
-          <p className="text-2xl font-black text-slate-900">{stats?.citizen_ofw ?? 0}</p>
-        </div>
-
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-          <div className="flex items-start justify-between mb-2">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Client (NOK)</p>
-            <span className="p-1.5 bg-rose-50 rounded-lg"><Users className="w-4 h-4 text-rose-600" /></span>
-          </div>
-          <p className="text-2xl font-black text-slate-900">{stats?.citizen_nok ?? 0}</p>
-        </div>
       </section>
 
       <div data-tour="users-table">
@@ -815,15 +742,6 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [], p
             router.visit(route('admin.users.show', contextMenu.row.id));
             setContextMenu(null);
           }} />
-          {contextMenu.row.client && (
-            <RowContextMenuItem icon="badge" label={contextMenu.row.client.type === 'NEXT_OF_KIN' ? 'View Related OFW' : 'View Client Profile'} onClick={() => {
-              // An NOK files for their OFW, so the meaningful record is
-              // ofw_client_id; their own client row is only the fallback.
-              const target = contextMenu.row.client.ofw_client ?? contextMenu.row.client;
-              router.visit(route('clients.show', target.id));
-              setContextMenu(null);
-            }} />
-          )}
           {contextMenu.row.role !== roles.OFW && (
             <RowContextMenuItem icon="edit" label="Edit" onClick={() => {
               setEditingUser(contextMenu.row);

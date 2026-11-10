@@ -88,7 +88,6 @@ function MiniBox({ heading, lines }) {
 
 function DemographicsSection({ mapProps }) {
     const [clientType, clientTypeSettled] = useSettledProp('clientTypeDistribution');
-    const [issues, issuesSettled] = useSettledProp('caseIssueDistribution');
     const [service, serviceSettled] = useSettledProp('mostRequestedService');
     const [age, ageSettled] = useSettledProp('ageGroupDistribution');
     const [vulnerability, vulnSettled] = useSettledProp('vulnerabilityDistribution');
@@ -98,19 +97,6 @@ function DemographicsSection({ mapProps }) {
     const clientTypeSlices = toSlices(clientType);
     const hasMiniData = clientTypeSlices.length > 0 || service != null;
     const minisSettled = clientTypeSettled && serviceSettled;
-    const issueRows = Array.isArray(issues) ? issues : [];
-    const issueTotal = issueRows.reduce((sum, row) => sum + Number(row?.count ?? 0), 0);
-    const issueSlices = ensureDistinctHues(
-        issueRows
-            .map((row, index) => ({
-                key: row.name ?? index,
-                label: row.name,
-                count: Number(row.count ?? 0),
-                hex: row.color ?? null,
-                percent: issueTotal > 0 ? Math.round((Number(row.count ?? 0) / issueTotal) * 100) : 0,
-            }))
-            .sort((a, b) => b.count - a.count),
-    );
     const ageSlices = toSlices(age);
     const ageTotal = totalOf(ageSlices);
     const vulnSlices = toSlices(vulnerability, { exclude: ['None'] }).sort((a, b) => b.count - a.count);
@@ -121,11 +107,11 @@ function DemographicsSection({ mapProps }) {
             {!minisSettled ? (
                 <LoadingBlock />
             ) : !hasMiniData ? (
-                <EmptyLine message="No client data to show yet." />
+                <EmptyLine message="No case data to show yet." />
             ) : (
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
                     <MiniBox
-                        heading="Clients"
+                        heading="Cases by client type"
                         lines={clientTypeSlices.map((slice) => ({ label: slice.label, value: slice.count }))}
                     />
                     <MiniBox
@@ -145,24 +131,6 @@ function DemographicsSection({ mapProps }) {
             )}
 
             <div className="mt-5 grid min-w-0 gap-5 lg:grid-cols-2">
-            <div>
-            <h3 className="mb-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
-                Top needs
-            </h3>
-            {!issuesSettled ? (
-                <LoadingBlock />
-            ) : issueSlices.length === 0 || totalOf(issueSlices) === 0 ? (
-                <EmptyLine message="No issue data to show yet." />
-            ) : (
-                <>
-                    <p className="mb-3 text-sm text-slate-500 dark:text-slate-400">
-                        {topSlice(issueSlices).label} is the most common need.
-                    </p>
-                    <DonutWithList slices={issueSlices} showAll />
-                </>
-            )}
-
-            </div>
             {sexSlices.length > 0 ? (
                 <div>
                     <h3 className="mb-3 text-xs font-extrabold uppercase tracking-wider text-black dark:text-white">By sex</h3>
@@ -172,7 +140,7 @@ function DemographicsSection({ mapProps }) {
 
             <div>
             <h3 className="mb-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
-                Age groups{ageTotal > 0 ? ` (of ${ageTotal} clients with age recorded)` : ''}
+                Age groups{ageTotal > 0 ? ` (of ${ageTotal} cases with age recorded)` : ''}
             </h3>
             {!ageSettled ? (
                 <LoadingBlock />
@@ -181,7 +149,7 @@ function DemographicsSection({ mapProps }) {
             ) : (
                 <>
                     <p className="mb-3 text-sm text-slate-500 dark:text-slate-400">
-                        Most clients are aged {topSlice(ageSlices).label}.
+                        Most cases are aged {topSlice(ageSlices).label}.
                     </p>
                     <DonutWithList slices={ageSlices} />
                 </>
@@ -190,7 +158,7 @@ function DemographicsSection({ mapProps }) {
             </div>
             <div>
             <h3 className="mb-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
-                Clients needing extra care (a client may be counted more than once)
+                Cases with vulnerability markers (a case may be counted more than once)
             </h3>
             {!vulnSettled ? (
                 <LoadingBlock />
@@ -251,7 +219,7 @@ function CountryRankList({ top, tailCount, tailCountries, tailSingle = 'country'
             </ol>
             {tailCount > 0 && tailCountries > 0 ? (
                 <p className="ml-9 mt-4 border-t border-dashed border-slate-300 pt-3 text-sm text-slate-500 dark:border-slate-600 dark:text-slate-400">
-                    Plus <strong>{tailCount}</strong> more clients across {tailCountries} other{' '}
+                    Plus <strong>{tailCount}</strong> more cases across {tailCountries} other{' '}
                     {tailCountries === 1 ? tailSingle : tailPlural}.
                 </p>
             ) : null}
@@ -292,7 +260,7 @@ function JobsSection() {
             ) : (
                 <>
                     <p className="mb-3 text-sm text-slate-500 dark:text-slate-400">
-                        Most clients last worked in {topCountry.label} ({topCountry.count}).
+                        Most cases last worked in {topCountry.label} ({topCountry.count}).
                     </p>
                     <CountryRankList
                         top={topCountries}
@@ -383,7 +351,7 @@ function CaseMixSection() {
                     )}
                 </div>
                 <div>
-                    <h3 className="mb-3 text-xs font-extrabold uppercase tracking-wider text-black dark:text-white">By client type</h3>
+                    <h3 className="mb-3 text-xs font-extrabold uppercase tracking-wider text-black dark:text-white">Cases by client type</h3>
                     {!clientTypeSettled ? (
                         <LoadingBlock />
                     ) : clientTypeSlices.length === 0 || totalOf(clientTypeSlices) === 0 ? (

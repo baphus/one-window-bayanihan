@@ -167,8 +167,8 @@ export default function OverdueReferralsIndex({ stats = {}, referrals, userRole 
       ),
     },
     {
-      key: 'client',
-      title: 'Client',
+      key: 'ofw',
+      title: 'OFW',
       sortable: true,
       render: (row) => (
         <div className="max-w-[220px]">

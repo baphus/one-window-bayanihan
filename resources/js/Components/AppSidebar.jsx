@@ -18,7 +18,6 @@ export const navByRole = {
       { name: 'Cases', href: '/cases', route: 'cases.index', icon: 'folder' },
       { name: 'Pending Reviews', href: '/cases/review-pending', route: 'cases.review-pending', icon: 'pending_actions', badge: 'pendingReviewCount' },
       { name: 'Case Trash', href: '/cases/trash', route: 'cases.trash', icon: 'delete_outline' },
-      { name: 'Clients', href: '/clients', route: 'clients.index', icon: 'people' },
       { name: 'Referrals', href: '/referrals', route: 'referrals.index', icon: 'send' },
       { name: 'Overdue Referrals', href: '/overdue-referrals', route: 'overdue-referrals.index', icon: 'warning' },
       { name: 'Stakeholders', href: '/stakeholders', route: 'stakeholders.index', icon: 'account_balance' },
@@ -70,7 +69,6 @@ export const navByRole = {
       { name: 'Cases', href: '/cases', route: 'cases.index', icon: 'folder' },
       { name: 'Pending Reviews', href: '/cases/review-pending', route: 'cases.review-pending', icon: 'pending_actions', badge: 'pendingReviewCount' },
       { name: 'Case Trash', href: '/cases/trash', route: 'cases.trash', icon: 'delete_outline' },
-      { name: 'Clients', href: '/clients', route: 'clients.index', icon: 'people' },
       { name: 'Referrals', href: '/referrals', route: 'referrals.index', icon: 'send' },
       { name: 'Overdue Referrals', href: '/overdue-referrals', route: 'overdue-referrals.index', icon: 'warning' },
       { name: 'Stakeholders', href: '/stakeholders', route: 'stakeholders.index', icon: 'account_balance' },
@@ -83,7 +81,6 @@ export const navByRole = {
     { label: 'Administration', items: [
       { name: 'Case Statuses', href: '/admin/case-statuses', route: 'admin.case-statuses.index', icon: 'label' },
       { name: 'Case Categories', href: '/admin/case-categories', route: 'admin.case-categories.index', icon: 'topic' },
-      { name: 'Case Issues', href: '/admin/case-issues', route: 'admin.case-issues.index', icon: 'feedback' },
       { name: 'Maintenance Mode', href: '/admin/system/maintenance', route: 'admin.system.maintenance', icon: 'construction' },
     ]},
     // Logs are a category of their own, not an admin setting: the question

@@ -1,11 +1,13 @@
 import Select from '@/Components/Select';
 import { useMemo, useState } from 'react';
-import { Link } from '@inertiajs/react';
+import { Link, useForm } from '@inertiajs/react';
 import { CheckCircle2, Copy } from 'lucide-react';
 import OfwPortalLayout from '@/Layouts/OfwPortalLayout';
 import OfwBreadcrumbs from '@/Components/OfwBreadcrumbs';
 import CitizenTimeline from '@/Components/CitizenTimeline';
 import { AgencyCard, DocumentRow, StatusBar } from '@/Components/CitizenStatus';
+import InputError from '@/Components/InputError';
+import { DOCUMENT_SLOT_LABELS } from '@/Components/CaseIntakeForm';
 import { buildCaseStatusLine } from '@/lib/caseStatusLine';
 import safeRoute from '@/utils/safeRoute';
 
@@ -26,6 +28,53 @@ const REQUEST_STATUS = {
 
 function formatRequestStatus(status) {
     return REQUEST_STATUS[status] ?? String(status ?? 'Unknown').replace(/_/g, ' ');
+}
+
+/** Owner-side upload for exactly the slots staff requested on this pending case. */
+function IntakeReplacementPanel({ caseId, slots = [], reason = '' }) {
+    const form = useForm({ documents: {} });
+    const [files, setFiles] = useState({});
+
+    function submit(event) {
+        event.preventDefault();
+        const documents = Object.fromEntries(Object.entries(files).filter(([, file]) => file));
+        if (Object.keys(documents).length === 0) return;
+        form.transform(() => ({ documents }));
+        form.post(safeRoute('ofw.intake.documents.replace', caseId, `/my-cases/${caseId}/intake-documents`), {
+            preserveScroll: true,
+            forceFormData: true,
+            onSuccess: () => { setFiles({}); form.reset(); },
+        });
+    }
+
+    if (!slots.length) return null;
+
+    return (
+        <form onSubmit={submit} className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4">
+            <p className="text-[12px] font-bold text-amber-900">Replacement documents requested</p>
+            {reason && <p className="mt-1 text-[12px] leading-relaxed text-amber-800">{reason}</p>}
+            <div className="mt-3 space-y-2">
+                {slots.map((slot) => (
+                    <div key={slot}>
+                        <label htmlFor={`replacement-${slot}`} className="block text-[12px] font-semibold text-amber-900">
+                            {DOCUMENT_SLOT_LABELS[slot] ?? slot}
+                        </label>
+                        <input
+                            id={`replacement-${slot}`}
+                            type="file"
+                            accept=".pdf,.jpg,.jpeg,.png,.webp"
+                            onChange={(event) => setFiles((prev) => ({ ...prev, [slot]: event.target.files?.[0] ?? null }))}
+                            className="mt-1 block w-full text-[12px] text-slate-700 file:mr-3 file:rounded-md file:border-0 file:bg-white file:px-3 file:py-1.5 file:text-[12px] file:font-bold"
+                        />
+                        <InputError message={form.errors[`documents.${slot}`]} className="mt-1" />
+                    </div>
+                ))}
+            </div>
+            <button type="submit" disabled={form.processing || Object.values(files).every((file) => !file)} className="mt-3 inline-flex min-h-[38px] items-center rounded-md bg-primary px-4 text-[12px] font-bold text-white disabled:opacity-50">
+                {form.processing ? 'Uploading…' : 'Submit replacement documents'}
+            </button>
+        </form>
+    );
 }
 
 const REFERRAL_STATUS = {
@@ -237,7 +286,12 @@ export default function CaseDetail({
     rejectedCount = 0,
     documents = [],
     requestDocuments = [],
+    case: caseFile,
 }) {
+    const requestedSlots = caseFile?.requested_document_slots
+        ?? trackedCase?.requestedDocumentSlots
+        ?? [];
+    const requestedReason = caseFile?.document_request_reason ?? trackedCase?.documentRequestReason ?? '';
     const totalAgencies = trackingAgencies.length;
     const completedAgencies = trackingAgencies.filter((a) => a.status === 'COMPLETED').length;
 
@@ -641,6 +695,7 @@ export default function CaseDetail({
                             )
                         ) : (
                             <div className="px-5 py-5">
+                                <IntakeReplacementPanel caseId={trackedCase?.id} slots={requestedSlots} reason={requestedReason} />
                                 <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
                                     My submitted documents
                                     {submittedDocuments.length > 0 ? ` · ${submittedDocuments.length}` : ''}

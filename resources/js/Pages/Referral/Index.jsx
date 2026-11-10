@@ -7,7 +7,6 @@ import TableTabs from '@/Components/ui/TableTabs';
 import { RowContextMenu, RowContextMenuItem } from '@/Components/ui/RowContextMenu';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import { formatResolvedAddress } from '@/lib/addressResolver';
-import { getCategoryFilterIds } from '@/lib/utils';
 import { ArrowRightLeft, Clock, Loader, ClipboardCheck, CheckCircle2, XCircle } from 'lucide-react';
 import KpiCard from '@/Components/ui/KpiCard';
 import ExportDialog from '@/Components/ExportDialog';
@@ -17,7 +16,7 @@ import usePersistedColumns from '@/Hooks/usePersistedColumns';
 import { usePersistedViewMode, usePersistedFilters } from '@/Hooks/usePersistedViewState';
 import useTableVisitLoading from '@/Hooks/useTableVisitLoading';
 import FilterPanel from '@/Components/ui/FilterPanel';
-import { toFilterList, toggleFilterValue, useArrayFilters } from '@/Hooks/useArrayFilters';
+import { toFilterList, useArrayFilters } from '@/Hooks/useArrayFilters';
 import { humanizeStatus } from '@/lib/statusLabels';
 
 const COLUMN_DEFS = [
@@ -25,7 +24,7 @@ const COLUMN_DEFS = [
     { key: 'client', label: 'Client', default: true },
     { key: 'client_contact', label: 'Client Contact', default: false },
     { key: 'case_summary', label: 'Case Summary', default: true },
-    { key: 'case_issue', label: 'Issue / Concern', default: false },
+    { key: 'category', label: 'Category', default: false },
     { key: 'agency', label: 'Agency', default: true },
     { key: 'required_services', label: 'Service', default: true },
     { key: 'status', label: 'Status', default: true },
@@ -33,9 +32,14 @@ const COLUMN_DEFS = [
     { key: 'id', label: 'Actions', default: true },
 ];
 
-function formatClientName(client) {
-    if (!client) return 'N/A';
-    return [client.first_name, client.middle_name, client.last_name, client.suffix].filter(Boolean).join(' ') || 'N/A';
+function caseIdentityOf(row) {
+    return row?.case_identity ?? row?.caseIdentity ?? null;
+}
+
+function formatClientName(identity) {
+    if (!identity) return 'N/A';
+    const full = [identity.first_name, identity.middle_name, identity.last_name, identity.suffix].filter(Boolean).join(' ');
+    return full || identity.name || 'N/A';
 }
 
 function formatAddress(address) {
@@ -51,7 +55,7 @@ const REJECTION_REASONS = [
     { value: 'OTHER', label: 'Other' },
 ];
 
-export default function ReferralIndex({ referrals, filters: rawFilters, stats, agencies = [], categories = [], caseIssues = [], statuses = [] }) {
+export default function ReferralIndex({ referrals, filters: rawFilters, stats, agencies = [], categories = [], statuses = [] }) {
     const { auth, roles, errors } = usePage().props;
     const isAgency = auth.user.role === roles.AGENCY;
     const canCreate = auth.user.role === roles.CASE_MANAGER || auth.user.role === roles.ADMIN;
@@ -89,8 +93,7 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
         if (filters.status) params.set('status', filters.status);
         if (filters.search) params.set('search', filters.search);
         if (filters.agcy_id) params.set('agcy_id', filters.agcy_id);
-        getCategoryFilterIds(filters).forEach((id) => params.append('category_ids[]', id));
-        if (filters.case_issue_id) params.set('case_issue_id', filters.case_issue_id);
+        if (filters.category_id) params.set('category_id', filters.category_id);
         if (filters.age_min_days) params.set('age_min_days', filters.age_min_days);
         if (filters.age_max_days) params.set('age_max_days', filters.age_max_days);
         if (dateFrom) params.set('date_from', dateFrom);
@@ -115,8 +118,7 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
         const chips = [];
         if (filters?.status) chips.push({ label: 'Status', value: filters.status });
         if (filters?.agcy_id) chips.push({ label: 'Agency', value: filters.agcy_id });
-        if (getCategoryFilterIds(filters).length) chips.push({ label: 'Category', value: getCategoryFilterIds(filters).join(', ') });
-        if (filters?.case_issue_id) chips.push({ label: 'Issue', value: filters.case_issue_id });
+        if (filters?.category_id) chips.push({ label: 'Category', value: filters.category_id });
         if (filters?.age_min_days) chips.push({ label: 'Older Than', value: `${filters.age_min_days}+ days` });
         if (filters?.age_max_days) chips.push({ label: 'Received Within', value: `Last ${filters.age_max_days} days` });
         if (filters?.date_from) chips.push({ label: 'From', value: filters.date_from });
@@ -160,7 +162,7 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
             preserveState: true,
             preserveScroll: true,
             replace: true,
-            only: ['referrals', 'filters', 'stats', 'agencies', 'categories', 'caseIssues'],
+            only: ['referrals', 'filters', 'stats', 'agencies', 'categories'],
         }));
     };
 
@@ -197,8 +199,6 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
         (id) => categories?.find((c) => String(c.id) === String(id))?.name ?? id,
         [categories],
     );
-    const issueLabel = useCallback((id) => caseIssues?.find((c) => c.id === id)?.name ?? id, [caseIssues]);
-
     // One chip per selected value, matching the multi-select checkbox panel.
     const activeFilters = useMemo(() => {
         const chips = [];
@@ -206,21 +206,14 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
 
         toFilterList(filters?.status).forEach((value) => push('status', 'Status', value, humanizeStatus(value)));
         toFilterList(filters?.agcy_id).forEach((value) => push('agcy_id', 'Agency', value, agencyLabel(value)));
-        getCategoryFilterIds(filters).forEach((value) => push('category_ids', 'Category', value, categoryLabel(value)));
-        toFilterList(filters?.case_issue_id).forEach((value) => push('case_issue_id', 'Issue/Concern', value, issueLabel(value)));
+        toFilterList(filters?.category_id).forEach((value) => push('category_id', 'Category', value, categoryLabel(value)));
         if (filters?.age_min_days) push('age_min_days', 'Age', filters.age_min_days, `${filters.age_min_days}+ days`);
         if (filters?.age_max_days) push('age_max_days', 'Received', filters.age_max_days, `within ${filters.age_max_days} days`);
 
         return chips;
-    }, [filters, agencyLabel, categoryLabel, issueLabel]);
+    }, [filters, agencyLabel, categoryLabel]);
 
     const handleRemoveFilter = (filter) => {
-        if (filter.key === 'category_ids') {
-            const remaining = getCategoryFilterIds(filters).filter((id) => id !== filter.value);
-            updateTable({ ...filters, category_ids: remaining.length ? remaining : undefined, category_id: undefined, page: undefined });
-            return;
-        }
-
         // The day-window filters are single-valued selects.
         if (filter.key === 'age_min_days' || filter.key === 'age_max_days') {
             updateTable({ ...filters, [filter.key]: undefined, page: undefined });
@@ -236,7 +229,7 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
     const handleClearFilters = () => {
         setSearchValue('');
         clearTimeout(searchTimeout.current);
-        updateTable({ status: undefined, search: undefined, agcy_id: undefined, category_id: undefined, category_ids: undefined, case_issue_id: undefined, age_min_days: undefined, age_max_days: undefined, page: undefined });
+        updateTable({ status: undefined, search: undefined, agcy_id: undefined, category_id: undefined, age_min_days: undefined, age_max_days: undefined, page: undefined });
     };
 
     const handleSortChange = (sortKey, sortDirection) => {
@@ -300,22 +293,23 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
                     case 'client':
                         return {
                             ...base,
-                            render: (row) => formatClientName(row.case_file?.client),
-                            sortAccessor: (row) => row.case_file?.client
-                                ? `${row.case_file.client.last_name}, ${row.case_file.client.first_name}`
-                                : '',
+                            render: (row) => formatClientName(caseIdentityOf(row)),
+                            sortAccessor: (row) => {
+                                const identity = caseIdentityOf(row);
+                                return identity?.last_name ? `${identity.last_name}, ${identity.first_name}` : '';
+                            },
                         };
                     case 'client_contact':
                         return {
                             ...base,
                             sortable: false,
                             render: (row) => {
-                                const client = row.case_file?.client;
-                                const address = client?.addresses?.[0] ?? null;
+                                const identity = caseIdentityOf(row);
+                                const address = identity?.address ?? null;
                                 return (
                                     <div className="max-w-xs space-y-0.5 text-[11px] text-slate-600">
-                                        <div>{client?.contact_number ?? 'No contact number'}</div>
-                                        {client?.email && <div className="truncate">{client.email}</div>}
+                                        <div>{identity?.contact_number ?? 'No contact number'}</div>
+                                        {identity?.email && <div className="truncate">{identity.email}</div>}
                                         {formatAddress(address) && <div className="truncate text-slate-400">{formatAddress(address)}</div>}
                                     </div>
                                 );
@@ -331,10 +325,10 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
                                 </span>
                             ),
                         };
-                    case 'case_issue':
+                    case 'category':
                         return {
                             ...base,
-                            render: (row) => row.case_file?.case_issue?.name ?? row.case_file?.case_issue?.title ?? 'N/A',
+                            render: (row) => row.category?.name ?? row.category?.title ?? 'N/A',
                         };
                     case 'agency':
                         return {
@@ -410,17 +404,12 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
                 options: (agencies ?? []).map((agency) => ({ value: agency.id, label: agency.name })),
             },
             {
-                key: 'category_ids',
+                key: 'category_id',
                 label: 'Category',
                 options: (categories ?? []).map((category) => ({ value: String(category.id), label: category.name })),
             },
-            {
-                key: 'case_issue_id',
-                label: 'Issue / Concern',
-                options: (caseIssues ?? []).map((issue) => ({ value: issue.id, label: issue.name })),
-            },
         ],
-        [statuses, agencies, categories, caseIssues],
+        [statuses, agencies, categories],
     );
 
     const { toggleFilter } = useArrayFilters();
@@ -429,19 +418,12 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
         () => ({
             status: toFilterList(filters?.status),
             agcy_id: toFilterList(filters?.agcy_id),
-            category_ids: getCategoryFilterIds(filters),
-            case_issue_id: toFilterList(filters?.case_issue_id),
+            category_id: toFilterList(filters?.category_id),
         }),
         [filters],
     );
 
     const handleFilterToggle = (key, value) => {
-        if (key === 'category_ids') {
-            const next = toggleFilterValue(getCategoryFilterIds(filters), value);
-            updateTable({ ...filters, category_ids: next.length ? next : undefined, category_id: undefined, page: undefined });
-            return;
-        }
-
         updateTable(toggleFilter(filters, key, value));
     };
 
