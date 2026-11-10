@@ -266,6 +266,9 @@ export default function PublicForm({ invitation, surveyForm, questions, token })
             {surveyForm?.description && (
               <p className="mt-3 text-sm text-white/80 leading-relaxed">{surveyForm.description}</p>
             )}
+            <p className="mt-2 text-xs text-white/60">
+              Your feedback helps DMW Region VII and its partner agencies improve services.
+            </p>
           </div>
         </div>
 

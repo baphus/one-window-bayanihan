@@ -12,7 +12,7 @@ const roleLabels = {
 const navLinks = [
   { name: 'Home', href: '/', route: 'home', exact: true },
   { name: 'Help Center', href: '/help', route: 'helpdesk.index', exact: false },
-  { name: 'Track Your Case', href: '/track', exact: false },
+  { name: 'Track Your Request', href: '/track', exact: false },
   { name: 'Partners', href: '/partners', exact: false },
   { name: 'Contact', href: '/contact', exact: false },
 ];
@@ -90,7 +90,7 @@ export default function AppHeader({ minimal }) {
                   href={route('register')}
                   className="inline-flex items-center justify-center gap-2 rounded-none bg-primary px-6 py-2.5 text-[14px] font-bold text-white transition-all hover:brightness-110 active:scale-95"
                 >
-                  File a Case
+                  Request Assistance
                 </Link>
               )}
 
@@ -290,7 +290,7 @@ export default function AppHeader({ minimal }) {
                     href={route('register')}
                     className="inline-flex w-full items-center justify-center gap-2 rounded-none bg-primary px-6 py-2.5 text-[14px] font-bold text-white transition-all hover:brightness-110 active:scale-95"
                   >
-                    File a Case
+                    Request Assistance
                   </Link>
                 )}
 

@@ -53,13 +53,13 @@ export default function OfwLayout({ children, title }) {
                                 href={safeRoute('ofw.dashboard', undefined, '/my-cases')}
                                 className="text-sm font-semibold text-slate-700 transition hover:text-primary"
                             >
-                                My Cases
+                                My Requests
                             </Link>
                             <Link
                                 href={safeRoute('ofw.intake', undefined, '/my-cases/intake')}
                                 className="inline-flex items-center justify-center gap-2 rounded-none bg-primary px-6 py-2.5 text-[14px] font-bold text-white transition-all hover:brightness-110 active:scale-95"
                             >
-                                File a Case
+                                Request Assistance
                             </Link>
                             <div className="flex items-center gap-4 border-l border-gray-200 pl-5">
                                 <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary">
@@ -162,7 +162,7 @@ export default function OfwLayout({ children, title }) {
                                         href={safeRoute('ofw.dashboard', undefined, '/my-cases')}
                                         className="rounded-md border border-gray-200 px-4 py-3 text-left text-sm font-medium text-slate-600 transition hover:bg-slate-50 hover:text-primary"
                                     >
-                                        My Cases
+                                        My Requests
                                     </Link>
                                     <Link
                                         href={safeRoute('ofw.notifications', undefined, '/my-cases/notifications')}
@@ -180,7 +180,7 @@ export default function OfwLayout({ children, title }) {
                                         href={safeRoute('ofw.intake', undefined, '/my-cases/intake')}
                                         className="rounded-md border border-gray-200 px-4 py-3 text-left text-sm font-medium text-slate-600 transition hover:bg-slate-50 hover:text-primary"
                                     >
-                                        File a Case
+                                        Request Assistance
                                     </Link>
                                     <button
                                         type="button"

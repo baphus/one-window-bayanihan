@@ -1,14 +1,14 @@
 <x-mail::message>
-# Case Submitted for Review
+# Request Submitted for Review
 
-A case has been received and is being reviewed by a case manager.
+A request has been received and is being reviewed by a case manager.
 
-**Case Number:** {{ $case->case_number }}
+**Request Reference:** {{ $case->case_number }}
 
 Please keep your tracker number safe: **{{ $case->tracker_number }}**.
 
 <x-mail::button :url="route('track.index', ['tracker_number' => $case->tracker_number])">
-Track Your Case
+Track Your Request
 </x-mail::button>
 
 <x-mail::contact-footer />

@@ -16,7 +16,7 @@ export const audienceEntries: AudienceEntry[] = [
     key: "ofw",
     label: "OFWs & families",
     description:
-      "Submit a case, track its progress, and know your rights and available assistance.",
+      "Request assistance, track your progress, and learn about your rights and available support.",
     icon: "badge",
     href: "/help?category=ofw-assistance",
   },

@@ -91,14 +91,14 @@ export default function HeroSection({ title, description, onTrackAction, agencie
               className="inline-flex items-center justify-center gap-2 rounded-none bg-secondary-container px-6 py-2.5 text-[14px] font-bold text-on-secondary-container transition-all hover:bg-secondary-fixed-dim disabled:cursor-not-allowed disabled:opacity-60 px-6 py-3 text-sm shadow-xl"
             >
               <span className="material-symbols-outlined">edit_note</span>
-              File a Case
+              Request Assistance
             </Link>
             <button
               onClick={onTrackAction}
               className="inline-flex items-center justify-center gap-2 border border-white/40 bg-white/10 px-6 py-3 text-sm font-bold text-white shadow-xl backdrop-blur-md transition-all hover:-translate-y-0.5 hover:bg-white/20 active:scale-95"
             >
               <span className="material-symbols-outlined text-[22px]">travel_explore</span>
-              Track Your Case
+              Track Your Request
             </button>
           </div>
         </div>

@@ -2,9 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { buildCaseStatusLine, NEUTRAL_STATUS_LINE } from '@/lib/caseStatusLine';
 
 describe('buildCaseStatusLine', () => {
-    it('explains that a submitted case is with a case manager', () => {
+    it('explains that a submitted request is with a case manager', () => {
         expect(buildCaseStatusLine({ status: 'BEING_REVIEWED' }))
-            .toBe('Your case is being reviewed by a case manager.');
+            .toBe('Your request is being reviewed by a case manager.');
     });
 
     it('never reports a pending-review case as unavailable', () => {
@@ -14,12 +14,12 @@ describe('buildCaseStatusLine', () => {
         expect(line).not.toBe(NEUTRAL_STATUS_LINE);
     });
 
-    it('points an unassigned in-progress case at upcoming referrals', () => {
+    it('points an unassigned in-progress request at upcoming referrals', () => {
         expect(buildCaseStatusLine({ status: 'IN_PROGRESS', totalAgencies: 0 }))
-            .toBe('Your case is being reviewed. Referrals to partner offices will appear here.');
+            .toBe('Your request is being reviewed. Referrals to partner offices will appear here.');
     });
 
-    it('counts completed partner offices for a multi-office case', () => {
+    it('counts completed partner offices for a multi-office request', () => {
         expect(buildCaseStatusLine({ status: 'IN_PROGRESS', totalAgencies: 3, completedAgencies: 2 }))
             .toBe('In progress — 2 of 3 partner offices have completed their part.');
     });
@@ -31,23 +31,23 @@ describe('buildCaseStatusLine', () => {
 
     it('notes rejected partner offices in the plural and the singular', () => {
         expect(buildCaseStatusLine({ status: 'RESOLVED', rejectedCount: 2 }))
-            .toBe('This case has been resolved. 2 offices were unable to assist.');
+            .toBe('This request has been resolved. 2 offices were unable to assist.');
         expect(buildCaseStatusLine({ status: 'RESOLVED', rejectedCount: 1 }))
-            .toBe('This case has been resolved. 1 office was unable to assist.');
+            .toBe('This request has been resolved. 1 office was unable to assist.');
     });
 
     it('omits the rejection note when nothing was rejected', () => {
         expect(buildCaseStatusLine({ status: 'RESOLVED', rejectedCount: 0 }))
-            .toBe('This case has been resolved.');
+            .toBe('This request has been resolved.');
     });
 
-    it('describes a draft case as still being prepared', () => {
+    it('describes a draft request as still being prepared', () => {
         expect(buildCaseStatusLine({ status: 'BEING_PREPARED' }))
-            .toBe('This case is still being prepared by the One Window Bayanihan team.');
+            .toBe('This request is still being prepared by the One Window Bayanihan team.');
     });
 
-    it('states plainly that an archived case is archived', () => {
-        expect(buildCaseStatusLine({ status: 'ARCHIVED' })).toBe('This case has been archived.');
+    it('states plainly that an archived request is archived', () => {
+        expect(buildCaseStatusLine({ status: 'ARCHIVED' })).toBe('This request has been archived.');
     });
 
     it('falls back to a neutral sentence for an unrecognized status', () => {

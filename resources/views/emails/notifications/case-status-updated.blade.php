@@ -10,12 +10,12 @@ $categories = $case->referrals
     ->implode(', ') ?: 'N/A';
 @endphp
 
-<p style="color: #a1a1aa; font-size: 12px; margin: 0 0 20px 0;">Case {{ $case->case_number }}</p>
+<p style="color: #a1a1aa; font-size: 12px; margin: 0 0 20px 0;">Request reference {{ $case->case_number }}</p>
 
-# Case Status Updated
+# Request Status Updated
 
 <p style="font-size: 15px; line-height: 1.7; color: #3f3f46; margin: 0 0 24px 0;">
-The status of this case has changed from <strong>{{ $oldLabel }}</strong> to <strong>{{ $statusLabel }}</strong>.
+The status of this request has changed from <strong>{{ $oldLabel }}</strong> to <strong>{{ $statusLabel }}</strong>.
 </p>
 
 <x-mail::detail-table :rows="[
@@ -28,14 +28,14 @@ The status of this case has changed from <strong>{{ $oldLabel }}</strong> to <st
 ]" />
 
 @if($case->summary)
-<p style="font-size: 14px; font-weight: 600; color: #18181b; margin: 28px 0 8px 0;">Case Summary</p>
+<p style="font-size: 14px; font-weight: 600; color: #18181b; margin: 28px 0 8px 0;">Request Summary</p>
 
 <div style="background-color: #f8fafc; border-left: 3px solid #e4e4e7; padding: 16px 20px; margin: 0 0 28px 0;">
 <p style="font-size: 15px; line-height: 1.7; color: #3f3f46; margin: 0;">{{ $case->summary }}</p>
 </div>
 @endif
 
-<x-mail::action-card url="{{ $url }}" label="View Case" />
+<x-mail::action-card url="{{ $url }}" label="View Request" />
 
 <x-mail::contact-footer />
 </x-mail::message>

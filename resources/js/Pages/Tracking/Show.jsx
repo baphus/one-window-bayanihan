@@ -10,10 +10,10 @@ import safeRoute from '@/utils/safeRoute';
 import { buildCaseStatusLine } from '@/lib/caseStatusLine';
 
 /**
- * Track Your Case — results page.
+ * Track Your Request — results page.
  *
- * Reads as an official case logbook: a navy record header answers "where is
- * my case right now", then one chapter per partner office shows what that
+ * Reads as an official request logbook: a navy record header answers "where is
+ * my request right now", then one chapter per partner office shows what that
  * office has done, in ledger form. The complete chronological record sits
  * behind a disclosure at the end.
  */
@@ -345,8 +345,8 @@ function ClientRequestPanel({ clientRequestPanel, ofwRequestContext }) {
   const content = (
       <div>
         {ofwRequestContext && <OfwBreadcrumbs items={[
-          { label: 'My Cases', href: safeRoute('ofw.dashboard', undefined, '/my-cases') },
-          { label: `Case ${ofwRequestContext.trackingId}`, href: ofwRequestContext.caseUrl },
+          { label: 'My Requests', href: safeRoute('ofw.dashboard', undefined, '/my-cases') },
+          { label: `Request ${ofwRequestContext.trackingId}`, href: ofwRequestContext.caseUrl },
           { label: `${ofwRequestContext.agencyShort || 'Agency'} referral`, href: ofwRequestContext.backUrl },
           { label: 'Client request' },
         ]} />}
@@ -354,7 +354,7 @@ function ClientRequestPanel({ clientRequestPanel, ofwRequestContext }) {
           Document request and response
         </h1>
         <p className="mt-1.5 text-[14px] text-slate-600">
-          Respond to the agency request for case
+          Respond to the agency request for request reference
           {request?.case_number ? <span className="font-semibold text-slate-800"> {request.case_number}</span> : null}.
         </p>
 
@@ -439,7 +439,7 @@ function ClientRequestPanel({ clientRequestPanel, ofwRequestContext }) {
                 </p>
                 {request.case_number && (
                   <p className="mt-0.5 text-[13px] text-slate-500">
-                    Case <span className="font-semibold text-slate-800">{request.case_number}</span>
+                    Request reference <span className="font-semibold text-slate-800">{request.case_number}</span>
                   </p>
                 )}
 
@@ -626,7 +626,7 @@ export default function TrackingShow({
         <main className="mx-auto w-full max-w-xl px-4 pt-24 pb-12 sm:px-6">
           <section className="border-l-[3px] border-red-600 bg-white px-[28px] py-[24px] shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
             <h1 className="font-headline text-[26px] font-[900] uppercase tracking-[-0.02em] text-red-700">Tracking ID Not Found</h1>
-            <p className="mt-[8px] text-[11px] font-[500] text-on-surface-variant">We could not find a case matching this tracking ID. Please verify your ID and try again.</p>
+            <p className="mt-[8px] text-[11px] font-[500] text-on-surface-variant">We could not find a request matching this tracking ID. Please verify your ID and try again.</p>
             <Link
               href={route('track.index')}
               className="mt-4 inline-flex px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-primary-container transition-colors"
@@ -646,13 +646,13 @@ export default function TrackingShow({
 
   return (
     <div className="min-h-screen bg-slate-50 font-body text-slate-800">
-      <Head title={`Case Record — ${trackingId}`} />
+      <Head title={`Request Record — ${trackingId}`} />
       <AppHeader />
 
       <main className="mx-auto w-full max-w-6xl px-4 pt-24 pb-16 sm:px-6 lg:px-8">
-        <p className="text-[12px] text-slate-500">Home / Track Your Case / Case Details</p>
-        <h1 className="mt-2 font-headline text-[28px] font-extrabold tracking-tight text-slate-900 sm:text-[32px]">My Case Tracking</h1>
-        <p className="mt-1.5 text-[14px] text-slate-600">Track your case and follow updates from partner agencies.</p>
+        <p className="text-[12px] text-slate-500">Home / Track Your Request / Request Details</p>
+        <h1 className="mt-2 font-headline text-[28px] font-extrabold tracking-tight text-slate-900 sm:text-[32px]">My Request Tracking</h1>
+        <p className="mt-1.5 text-[14px] text-slate-600">Track your request and follow updates from the DMW Region VII partner agencies coordinating your assistance.</p>
 
         <section className="mt-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
           <div className="px-5 py-5">
@@ -665,7 +665,7 @@ export default function TrackingShow({
             <p className="mt-1 text-[12px] text-slate-400">{trackedCase.clientName} · Opened {formatLongDate(trackedCase.createdAt)}</p>
             {caseOverview?.narrative && (
               <div className="mt-5 border-t border-slate-100 pt-4">
-                <h3 className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Case Summary</h3>
+                <h3 className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Request Summary</h3>
                 <p className="mt-2 whitespace-pre-wrap text-[13px] leading-relaxed text-slate-700">{caseOverview.narrative}</p>
               </div>
             )}
@@ -673,16 +673,16 @@ export default function TrackingShow({
           {totalAgencies > 0 && <div className="border-t border-slate-100 px-5 py-4"><div className="flex h-1.5 gap-1" role="img" aria-label={`${completionPercentage}% of processing complete`}>{trackingAgencies.map((a) => <span key={a.referralId ?? a.name} className={`flex-1 rounded-sm ${a.status === 'COMPLETED' ? 'bg-emerald-300' : a.status === 'REJECTED' ? 'bg-rose-300/60' : a.status === 'FOR_COMPLIANCE' ? 'bg-amber-300/70' : a.status === 'PROCESSING' ? 'bg-blue-300/80' : 'bg-slate-200'}`} />)}</div><p className="mt-2 text-[11px] text-slate-400">Last updated {formatLongDate(trackedCase.updatedAt)} · {completionPercentage}% of processing complete</p></div>}
         </section>
 
-        {/* Two-column layout: main content + case history sidebar */}
+        {/* Two-column layout: main content + request history sidebar */}
         <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
 
           {/* Left column — main content */}
           <div className="min-w-0">
-            {/* Case timeline */}
+            {/* Request timeline */}
             <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
               <header className="border-b border-slate-100 px-5 py-4">
-                <h2 className="font-headline text-[15px] font-extrabold tracking-tight text-slate-900">Case Timeline</h2>
-                <p className="mt-0.5 text-[12px] text-slate-500">Follow recorded milestones and updates for your case.</p>
+                <h2 className="font-headline text-[15px] font-extrabold tracking-tight text-slate-900">Request Timeline</h2>
+                <p className="mt-0.5 text-[12px] text-slate-500">Follow recorded milestones and updates for your request.</p>
               </header>
               {milestoneTimeline.length > 0 ? (
                 <UnifiedTimeline
@@ -694,7 +694,7 @@ export default function TrackingShow({
                 <div className="px-5 py-8 text-center">
                   <span className="material-symbols-outlined text-3xl text-slate-300">history</span>
                   <p className="mt-2 text-[13px] font-semibold text-slate-700">No milestones recorded yet</p>
-                  <p className="mt-1 text-[12px] text-slate-500">Updates will appear here as your case progresses.</p>
+                  <p className="mt-1 text-[12px] text-slate-500">Updates will appear here as your request progresses.</p>
                 </div>
               )}
             </section>
@@ -702,7 +702,7 @@ export default function TrackingShow({
             {/* Agency chapters */}
             <section className="mt-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
               <header className="border-b border-slate-100 px-5 py-4">
-                <h2 className="font-headline text-[15px] font-extrabold tracking-tight text-slate-900">Agencies Handling Your Case</h2>
+                <h2 className="font-headline text-[15px] font-extrabold tracking-tight text-slate-900">Agencies Handling Your Request</h2>
                 <p className="mt-0.5 text-[12px] text-slate-500">Each agency has a separate referral status.</p>
               </header>
               <div className="p-5">
@@ -732,7 +732,7 @@ export default function TrackingShow({
                   <span className="material-symbols-outlined text-3xl text-slate-300">hourglass_empty</span>
                   <p className="mt-2 text-sm font-semibold text-slate-700">No partner offices assigned yet</p>
                   <p className="mx-auto mt-1 max-w-xs text-[13px] text-slate-500">
-                    Your case manager is reviewing the case. Referrals will appear here once they are sent.
+                    Your case manager is reviewing your request. Referrals will appear here once they are sent.
                   </p>
                 </div>
               )}
@@ -745,20 +745,20 @@ export default function TrackingShow({
                 <section className="mt-8 rounded-md border border-slate-300 bg-amber-50/50 px-5 py-5 shadow-sm">
                   <h2 className="text-sm font-bold text-slate-800">How was the service?</h2>
                   <p className="mt-1 max-w-prose text-[13px] leading-relaxed text-slate-500">
-                    An office has completed its part of your case. A survey has been sent to your registered email address. Please check your inbox to provide your feedback.
+                    An office has completed its part of your request. A survey has been sent to your registered email address. Please check your inbox to provide your feedback.
                   </p>
                 </section>
               );
             })()}
           </div>
 
-          {/* Right column — Complete case history (sidebar on desktop) */}
+          {/* Right column — Complete request history (sidebar on desktop) */}
           {milestoneTimeline.length > 0 && (
             <aside className="lg:sticky lg:top-24 lg:self-start">
               <section className="rounded-md border border-slate-300 bg-white shadow-sm">
                 <header className="border-b border-slate-300 bg-info-container/60 px-4 py-3 rounded-t-md">
                   <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-700">
-                    Complete case history
+                    Complete request history
                   </h2>
                   <p className="mt-0.5 text-[11px] text-slate-400">
                     {milestoneTimeline.length} {milestoneTimeline.length === 1 ? 'entry' : 'entries'}

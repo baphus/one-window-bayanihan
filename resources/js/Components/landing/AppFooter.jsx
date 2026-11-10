@@ -23,7 +23,7 @@ export default function AppFooter({ showImage = true }) {
             <span className="font-headline text-lg font-bold leading-tight text-sky-900">One Window Bayanihan<span className="block text-[13px] font-semibold uppercase tracking-wider">Assistance Program</span></span>
           </div>
           <p className="text-[12px] leading-relaxed text-slate-500">
-            A centralized digital infrastructure for the Department of Migrant Workers, enhancing the Philippine government&apos;s commitment to the welfare of overseas workers.
+            A centralized digital infrastructure for the Department of Migrant Workers – Region VII, enhancing the Philippine government&apos;s commitment to the welfare of overseas workers.
           </p>
           <div className="mt-2 text-[10px] font-medium tracking-tight text-slate-400">
             In compliance with the Data Privacy Act of 2012 (RA 10173).
@@ -51,7 +51,7 @@ export default function AppFooter({ showImage = true }) {
             {showImage && <Link href={route('contact')} className="text-[10px] font-bold uppercase tracking-wider text-slate-500 transition-colors hover:text-sky-700">Contact Support</Link>}
             <Link href={route('privacy')} className="text-[10px] font-bold uppercase tracking-wider text-slate-500 transition-colors hover:text-sky-700">Privacy Policy</Link>
             <Link href={route('terms')} className="text-[10px] font-bold uppercase tracking-wider text-slate-500 transition-colors hover:text-sky-700">Terms of Service</Link>
-            <Link href={route('track.index')} className="text-[10px] font-bold uppercase tracking-wider text-slate-500 transition-colors hover:text-sky-700">Track Your Case</Link>
+            <Link href={route('track.index')} className="text-[10px] font-bold uppercase tracking-wider text-slate-500 transition-colors hover:text-sky-700">Track Your Request</Link>
             <Link href={route('staff.login')} className="text-[10px] font-bold uppercase tracking-wider text-slate-500 transition-colors hover:text-sky-700">Staff Login</Link>
           </div>
           <div className="text-center text-[9px] uppercase tracking-widest text-slate-500 md:text-right">

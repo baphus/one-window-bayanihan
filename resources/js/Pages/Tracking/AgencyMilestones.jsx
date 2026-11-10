@@ -75,11 +75,11 @@ export default function AgencyMilestones({ trackingId, trackedCase, agencyMilest
     <div className="space-y-6">
       <div>
         <OfwBreadcrumbs items={backUrl ? [
-          { label: 'My Cases', href: safeRoute('ofw.dashboard', undefined, '/my-cases') },
-          { label: `Case ${trackingId}`, href: backHref },
+          { label: 'My Requests', href: safeRoute('ofw.dashboard', undefined, '/my-cases') },
+          { label: `Request ${trackingId}`, href: backHref },
           { label: `${agencyMilestones?.agencyShort || agencyMilestones?.agencyName || 'Agency'} referral` },
         ] : [
-          { label: 'Case tracking', href: backHref },
+          { label: 'Request tracking', href: backHref },
           { label: 'Agency Milestones' },
         ]} />
         <h1 className="mt-2 font-headline text-[28px] font-extrabold tracking-tight text-slate-900 sm:text-[32px]">Agency referral details</h1>
@@ -117,12 +117,12 @@ export default function AgencyMilestones({ trackingId, trackedCase, agencyMilest
                 </dd>
               </div>
               <div className="flex items-start justify-between gap-3">
-                <dt className="text-xs text-slate-500">Case status</dt>
+                <dt className="text-xs text-slate-500">Request status</dt>
                 <dd className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] font-semibold ${config.bg}`}>
                   <span className="material-symbols-outlined text-[14px]" aria-hidden="true">{config.icon}</span>{config.label}
                 </dd>
               </div>
-              {trackedCase?.caseNo && <div className="flex items-start justify-between gap-3"><dt className="text-xs text-slate-500">Case number</dt><dd className="text-right text-xs font-semibold text-slate-700">{trackedCase.caseNo}</dd></div>}
+              {trackedCase?.caseNo && <div className="flex items-start justify-between gap-3"><dt className="text-xs text-slate-500">Request number</dt><dd className="text-right text-xs font-semibold text-slate-700">{trackedCase.caseNo}</dd></div>}
               {trackedCase?.clientName && <div className="flex items-start justify-between gap-3"><dt className="text-xs text-slate-500">Client</dt><dd className="min-w-0 break-words text-right text-xs font-semibold text-slate-700">{trackedCase.clientName}</dd></div>}
               <div className="flex items-start justify-between gap-3"><dt className="shrink-0 text-xs text-slate-500">Tracking number</dt><dd className="min-w-0 break-words [overflow-wrap:anywhere] text-right text-xs font-semibold text-slate-700">{trackingId}</dd></div>
               <div className="flex items-start justify-between gap-3"><dt className="text-xs text-slate-500">Milestones</dt><dd className="text-right text-xs font-semibold text-slate-700">{milestoneCount}</dd></div>

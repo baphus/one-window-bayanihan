@@ -12,7 +12,7 @@ import { buildCaseStatusLine } from '@/lib/caseStatusLine';
 import safeRoute from '@/utils/safeRoute';
 
 /**
- * My Cases — case record detail.
+ * My Requests — request record detail.
  *
  * Reads like a case logbook: a record header answers "where is my case right
  * now", the timeline shows what was recorded and by whom, each partner office
@@ -170,7 +170,7 @@ function CaseMetaGrid({ trackedCase, caseOverview }) {
         { label: 'Submitted', value: formatShortDate(trackedCase?.createdAt) },
         { label: 'Category', value: categoryLabel },
         { label: 'Assigned Office', value: caseOverview?.assignedOffice ?? 'DMW Region VII' },
-        { label: 'Case Team', value: caseOverview?.caseTeam ?? 'DMW Case Management Team' },
+        { label: 'Request Team', value: caseOverview?.caseTeam ?? 'DMW Case Management Team' },
     ];
 
     return (
@@ -242,10 +242,10 @@ function HelpCard() {
                     help
                 </span>
                 <h2 className="mt-3 font-headline text-[17px] font-extrabold tracking-tight text-slate-900">
-                    Need help with your case?
+                    Need help with your request?
                 </h2>
                 <p className="mt-2 text-[13px] leading-relaxed text-slate-600">
-                    Contact DMW for assistance understanding your case status or responding to a request.
+                    Contact DMW for help understanding your request status or responding to an agency request.
                 </p>
 
                 <Link
@@ -357,7 +357,7 @@ export default function CaseDetail({
                 <StatusBar
                     tone="positive"
                     title="No outstanding requests."
-                    detail="Only authorized DMW staff can reopen a case."
+                    detail="Only authorized DMW staff can reopen a request."
                 />
             );
         }
@@ -375,28 +375,28 @@ export default function CaseDetail({
         ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
         : 'border-primary/25 bg-primary/10 text-primary';
 
-    const recordBadgeLabel = kind === 'closed' ? 'Case Closed' : 'Open — In Progress';
+    const recordBadgeLabel = kind === 'closed' ? 'Request Closed' : 'Open — In Progress';
 
     return (
-        <OfwPortalLayout title={trackingId ? `Case — ${trackingId}` : 'Case Details'}>
+        <OfwPortalLayout title={trackingId ? `Request — ${trackingId}` : 'Request Details'}>
             <OfwBreadcrumbs items={[
-                { label: 'My Cases', href: safeRoute('ofw.dashboard', undefined, '/my-cases') },
-                { label: trackingId ? `Case ${trackingId}` : 'Case' },
+                { label: 'My Requests', href: safeRoute('ofw.dashboard', undefined, '/my-cases') },
+                { label: trackingId ? `Request ${trackingId}` : 'Request' },
             ]} />
 
             <h1 className="mt-2 font-headline text-[28px] font-extrabold tracking-tight text-slate-900 sm:text-[32px]">
-                My Case Tracking
+                My Request Tracking
             </h1>
             <p className="mt-1.5 text-[14px] text-slate-600">
-                Track your case, follow agency updates, and see if any action is needed from you.
+                Track your request, follow agency updates, and see if any action is needed from you.
             </p>
 
-            {/* Case selector */}
+            {/* Request selector */}
             {trackingId ? (
                 <div className="mt-5">
-                    <label htmlFor="case-selector" className="sr-only">Select a case</label>
+                    <label htmlFor="request-selector" className="sr-only">Select a request</label>
                     <Select
-                        id="case-selector"
+                        id="request-selector"
                         value={trackingId}
                         onChange={() => {}}
                         className="inline-flex items-center gap-2 py-2 pl-3 pr-8 text-[13px] font-semibold"
@@ -421,7 +421,7 @@ export default function CaseDetail({
                                 Action Required: Respond to an Agency Request
                             </p>
                             <p className="mt-0.5 text-[12px] text-amber-700">
-                                {actionableRequests[0]?.name ?? 'A partner office'} requested action on a case request.
+                                {actionableRequests[0]?.name ?? 'A partner office'} requested action on your assistance request.
                             </p>
                             <div className="mt-3 flex flex-wrap gap-2">
                                 <Link
@@ -459,9 +459,9 @@ export default function CaseDetail({
                         check_circle
                     </span>
                     <div>
-                        <p className="text-[13px] font-bold text-emerald-800">Case Closed</p>
+                        <p className="text-[13px] font-bold text-emerald-800">Request Closed</p>
                         <p className="mt-0.5 text-[12px] text-emerald-700">
-                            There are no outstanding requests. You can still view your documents and full case history.
+                            There are no outstanding requests. You can still view your documents and full request history.
                         </p>
                     </div>
                 </div>
@@ -482,7 +482,7 @@ export default function CaseDetail({
 
                     <div className="mt-2 flex flex-wrap items-center gap-3">
                         <h2 className="font-headline font-mono text-[26px] font-extrabold tracking-tight text-slate-900">
-                            {trackingId ?? 'Case details'}
+                            {trackingId ?? 'Request details'}
                         </h2>
                         {trackingId ? (
                             <button
@@ -537,7 +537,7 @@ export default function CaseDetail({
             {caseOverview?.narrative ? (
                 <section className="mt-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
                     <header className="border-b border-slate-100 px-5 py-4">
-                        <h2 className="font-headline text-[15px] font-extrabold tracking-tight text-slate-900">Case Summary</h2>
+                        <h2 className="font-headline text-[15px] font-extrabold tracking-tight text-slate-900">Details of Your Request</h2>
                     </header>
                     <p className="whitespace-pre-wrap px-5 py-5 text-[13px] leading-relaxed text-slate-700">{caseOverview.narrative}</p>
                 </section>
@@ -546,22 +546,22 @@ export default function CaseDetail({
             {/* Timeline + aside */}
             <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
                 <div className="min-w-0 space-y-6">
-                    {/* Case timeline */}
+                    {/* Request timeline */}
                     <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
                         <header className="border-b border-slate-100 px-5 py-4">
                             <h2 className="font-headline text-[15px] font-extrabold tracking-tight text-slate-900">
-                                Case Timeline
+                                Request Timeline
                             </h2>
                             <p className="mt-0.5 text-[12px] text-slate-500">
                                 {kind === 'closed'
                                     ? 'Complete recorded history · Read only'
-                                    : 'Follow the recorded milestones for your case.'}
+                                    : 'Follow the recorded milestones for your request.'}
                             </p>
                         </header>
                         <CitizenTimeline
                             events={timelineEvents}
                             statusBar={statusBar}
-                            emptyMessage="No milestones are recorded for this case yet."
+                            emptyMessage="No milestones are recorded for this request yet."
                         />
                     </section>
 
@@ -569,7 +569,7 @@ export default function CaseDetail({
                     <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
                         <header className="border-b border-slate-100 px-5 py-4">
                             <h2 className="font-headline text-[15px] font-extrabold tracking-tight text-slate-900">
-                                Agencies Handling Your Case
+                                Agencies Handling Your Request
                             </h2>
                             <p className="mt-0.5 text-[12px] text-slate-500">
                                 Each agency has a separate referral status.
@@ -604,7 +604,7 @@ export default function CaseDetail({
                                     No partner offices assigned yet
                                 </p>
                                 <p className="mx-auto mt-1 max-w-xs text-[12px] text-slate-500">
-                                    Your case manager is reviewing the case. Referrals will appear here once they are sent.
+                                    Your case manager is reviewing your request. Referrals will appear here once they are sent.
                                 </p>
                             </div>
                         )}
@@ -679,7 +679,7 @@ export default function CaseDetail({
                                     </span>
                                     <p className="mt-2 text-[13px] font-semibold text-slate-700">No outstanding requests</p>
                                     <p className="mt-1 text-[12px] text-slate-500">
-                                        This case is closed. Your documents and history remain available.
+                                        This request is closed. Your documents and history remain available.
                                     </p>
                                 </div>
                             ) : (
@@ -745,7 +745,7 @@ export default function CaseDetail({
                 >
                     info
                 </span>
-                All case information on this page comes from your own records.
+                All request information on this page comes from your own records.
             </p>
 
             {/* Copy-to-clipboard toast */}

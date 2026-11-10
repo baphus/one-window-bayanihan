@@ -48,7 +48,7 @@ class MailRenderTest extends TestCase
         $this->assertStringContainsString('You will receive another notification when there is further progress.', $html);
 
         $case->status = 'REJECTED';
-        $message = 'Your case request was not approved. Reason: Incomplete employment history.';
+        $message = 'Your assistance request was not approved. Reason: Incomplete employment history.';
         $html = $markdown->render('emails.client-update', [
             'case' => $case,
             'message' => $message,
@@ -56,7 +56,7 @@ class MailRenderTest extends TestCase
         ]);
 
         $this->assertStringContainsString($message, $html);
-        $this->assertStringContainsString('Track Your Case', $html);
+        $this->assertStringContainsString('Track Your Request', $html);
         $this->assertStringNotContainsString('Next Steps', $html);
         $this->assertStringNotContainsString('No action is required on your part', $html);
         $this->assertStringNotContainsString('You will receive another notification', $html);

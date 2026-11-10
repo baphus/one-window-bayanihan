@@ -96,7 +96,7 @@ class CaseReviewTest extends TestCase
             'case_id' => $case->id,
             'client_email' => 'filer@example.test',
             'type' => 'case_rejected',
-            'message' => 'Your case request was not approved. The review team will contact you with next steps.',
+            'message' => 'Your assistance request was not approved. The review team will contact you with next steps.',
         ]);
         Mail::assertQueued(ClientUpdateMail::class, fn (ClientUpdateMail $mail): bool => $mail->case->id === $case->id && ! str_contains($mail->message, 'Incomplete employment history.')
         );

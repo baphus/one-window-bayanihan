@@ -43,7 +43,7 @@ function LandingView({ categoryTree, allArticles }) {
           How can we help you?
         </h1>
         <p className="mt-3 max-w-2xl text-sm text-slate-500 sm:text-base">
-          Search our guides, or browse by topic below.
+          Search our guides, or browse by topic below. Everything here covers DMW Region VII services and partner agencies.
         </p>
         <div data-tour="helpdesk-search" className="mt-6 flex w-full justify-center">
           <SearchBar onSearch={handleSearch} large />

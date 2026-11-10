@@ -21,24 +21,24 @@ class CaseEventRecorder
     public function caseOpened(CaseFile $case, ?string $userId = null): CaseEvent
     {
         return $this->record($case->id, null, CaseEvent::TYPE_CASE_OPENED, [
-            'title' => 'Your case has been opened',
-            'description' => 'Your case is now with the Bayanihan team for review and referral to partner agencies.',
+            'title' => 'Your request has been received',
+            'description' => 'Your request is now with the Bayanihan team for review and referral to partner agencies.',
         ], $userId);
     }
 
     public function caseClosed(CaseFile $case, ?string $userId = null): CaseEvent
     {
         return $this->record($case->id, null, CaseEvent::TYPE_CASE_CLOSED, [
-            'title' => 'Your case has been resolved',
-            'description' => 'All referrals have been processed and your case is now closed.',
+            'title' => 'Your request has been resolved',
+            'description' => 'All referrals have been processed and your request is now complete.',
         ], $userId);
     }
 
     public function caseReopened(CaseFile $case, ?string $userId = null): CaseEvent
     {
         return $this->record($case->id, null, CaseEvent::TYPE_CASE_REOPENED, [
-            'title' => 'Your case has been reopened',
-            'description' => 'Your case has been reopened for further action by the Bayanihan team.',
+            'title' => 'Your request is being reviewed again',
+            'description' => 'Your request is being reviewed again for further action by the Bayanihan team.',
         ], $userId);
     }
 
@@ -73,11 +73,11 @@ class CaseEventRecorder
             ],
             'COMPLETED' => [
                 'Your referral with '.$agency.' has been completed',
-                'The agency has finished its part of your case.',
+                'The agency has finished its part of your request.',
             ],
             'REJECTED' => [
                 $agency.' was unable to process your referral',
-                'Your case manager will advise you on the next steps.',
+                'Your case manager will guide you on the next steps.',
             ],
             'PENDING' => [
                 'Your referral with '.$agency.' is awaiting action',

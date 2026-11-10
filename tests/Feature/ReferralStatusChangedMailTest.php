@@ -372,7 +372,7 @@ class ReferralStatusChangedMailTest extends TestCase
 
         Mail::assertQueued(ClientUpdateMail::class, function (ClientUpdateMail $mail) {
             // Client copy is plain language: no internal status codes.
-            return str_contains($mail->message, 'has started working on your case')
+            return str_contains($mail->message, 'has started working on your request')
                 && ! str_contains($mail->message, 'PENDING')
                 && ! str_contains($mail->message, 'PROCESSING');
         });

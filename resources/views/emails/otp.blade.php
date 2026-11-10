@@ -9,7 +9,7 @@
         @break
     @case('track')
 <p style="font-size: 15px; line-height: 1.7; color: #3f3f46; margin: 0 0 24px 0;">
-    To view the status of your case, enter the verification code below.
+    To view the status of your request, enter the verification code below.
 </p>
         @break
     @case('email_change')

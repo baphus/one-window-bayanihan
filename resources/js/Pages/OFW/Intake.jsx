@@ -55,7 +55,7 @@ export default function Intake(props) {
         form.post(safeRoute('ofw.intake.store', undefined, '/my-cases/intake'), {
             preserveScroll: true,
             forceFormData: true,
-            onSuccess: () => toast.success('Case submitted. It is now pending review.'),
+            onSuccess: () => toast.success('Request submitted. It is now pending review.'),
             onError: (errors) => {
                 const first = Object.values(errors)[0];
                 toast.error((Array.isArray(first) ? first[0] : first) || 'Please check the highlighted fields.');
@@ -65,19 +65,19 @@ export default function Intake(props) {
     }
 
     return (
-        <OfwLayout title="File a new case">
-            <Head title="File a new case" />
+        <OfwLayout title="Request Assistance">
+            <Head title="Request Assistance" />
             <Link
                 href={safeRoute('ofw.dashboard', undefined, '/my-cases')}
                 className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-slate-600 hover:text-slate-900"
             >
                 <span className="material-symbols-outlined text-[18px]" aria-hidden="true">arrow_back</span>
-                Back to my cases
+                Back to My Requests
             </Link>
 
             <PageHeader
-                title="File a new case"
-                subtitle="Each case keeps its own details. Enter everything fresh — nothing is copied from earlier cases or your account settings."
+                title="Request Assistance"
+                subtitle="A DMW Region VII case manager will review your request. Enter your details fresh — nothing is copied from earlier requests or your account settings."
             />
 
             <CaseIntakeForm
@@ -85,7 +85,7 @@ export default function Intake(props) {
                 mode="public"
                 options={options}
                 onSubmit={submit}
-                submitLabel="Submit case"
+                submitLabel="Submit Request"
             />
             {UnsavedModal}
         </OfwLayout>
