@@ -20,19 +20,37 @@ vi.mock('@/Layouts/OfwPortalLayout', () => ({ default: ({ children }) => <div>{c
 vi.mock('@/Hooks/useToast', () => ({ useToast: () => ({ success: vi.fn(), error: vi.fn() }) }));
 vi.mock('@/Hooks/useUnsavedChanges', () => ({ default: () => ({ UnsavedModal: null, bypassNext: vi.fn() }) }));
 vi.mock('@/Components/ProfilePictureUpload', () => ({ default: () => null }));
+vi.mock('@/Pages/Profile/Partials/ChangeEmailForm', () => ({ default: () => <section aria-label="Change email"><h2>Change Email</h2></section> }));
+vi.mock('@/Pages/Profile/Partials/UpdatePasswordForm', () => ({ default: () => <section aria-label="Update password"><h2>Update Password</h2><label>New password</label></section> }));
+vi.mock('@/Components/MfaSetup', () => ({ default: ({ mfaRequired = false }) => <section aria-label="Two-Factor Authentication"><h2>Two-Factor Authentication</h2><p>{mfaRequired ? 'MFA required' : 'MFA optional'}</p></section> }));
+vi.mock('@/Pages/Profile/Partials/DeleteUserForm', () => ({ default: ({ description, confirmationDescription }) => <section aria-label="Delete account"><h2>Delete Account</h2><p>{description}</p><p>{confirmationDescription}</p><label>Password</label></section> }));
 
 import Profile from '../Profile';
 
+const user = { id: 'u-1', name: 'Juan Cruz', email: 'juan@example.com', contact_number: '09171234567', avatar_url: null };
+
 describe('OFW account settings', () => {
-    it('shows account identity, contact and password only', () => {
-        render(<Profile user={{ id: 'u-1', name: 'Juan Cruz', email: 'juan@example.com', contact_number: '09171234567', avatar_url: null }} />);
+    it('shows six account sections and excludes staff-only profile fields', () => {
+        render(<Profile user={user} />);
 
         expect(screen.getByText('Juan Cruz')).toBeInTheDocument();
         expect(screen.getByText('juan@example.com')).toBeInTheDocument();
         expect(screen.getByLabelText('Contact number')).toBeInTheDocument();
-        expect(screen.getByLabelText('New password')).toBeInTheDocument();
-        expect(screen.queryByText(/home address/i)).not.toBeInTheDocument();
-        expect(screen.queryByText(/employment/i)).not.toBeInTheDocument();
-        expect(screen.queryByText(/next of kin/i)).not.toBeInTheDocument();
+        expect(screen.getByText('New password')).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: 'Account' })).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: 'Contact' })).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: 'Change Email' })).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: 'Update Password' })).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: 'Two-Factor Authentication' })).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: 'Delete Account' })).toBeInTheDocument();
+        expect(screen.queryByText(/home address|employment|next of kin|position|department|office location|emergency contact/i)).not.toBeInTheDocument();
+        expect(screen.getByText(/account details does not change.*facts already recorded on your cases/i)).toBeInTheDocument();
+        expect(screen.getByText('MFA optional')).toBeInTheDocument();
+        expect(screen.getByText(/deactivates access.*case, document, message, and audit records are retained/i)).toBeInTheDocument();
+    });
+
+    it('passes required MFA policy through when backend marks it required', () => {
+        render(<Profile user={user} mfaRequired />);
+        expect(screen.getByText('MFA required')).toBeInTheDocument();
     });
 });

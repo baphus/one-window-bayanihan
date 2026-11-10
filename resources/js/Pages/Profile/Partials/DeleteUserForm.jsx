@@ -8,7 +8,7 @@ import TextInput from '@/Components/TextInput';
 import { useForm } from '@inertiajs/react';
 import { useRef, useState, useEffect } from 'react';
 
-export default function DeleteUserForm({ className = '', onDirtyChange, onBypass }) {
+export default function DeleteUserForm({ className = '', onDirtyChange, onBypass, description = 'Once your account is deleted, all of its resources and data will be permanently deleted. Before deleting your account, please download any data or information that you wish to retain.', confirmationDescription = 'Once your account is deleted, all of its resources and data will be permanently deleted. Please enter your password to confirm you would like to permanently delete your account.' }) {
     const [confirmingUserDeletion, setConfirmingUserDeletion] = useState(false);
     const passwordInput = useRef();
 
@@ -54,7 +54,7 @@ export default function DeleteUserForm({ className = '', onDirtyChange, onBypass
     return (
         <Section
             title="Delete Account"
-            description="Once your account is deleted, all of its resources and data will be permanently deleted. Before deleting your account, please download any data or information that you wish to retain."
+            description={description}
         >
             <DangerButton onClick={confirmUserDeletion}>
                 Delete Account
@@ -67,10 +67,7 @@ export default function DeleteUserForm({ className = '', onDirtyChange, onBypass
                     </h2>
 
                     <p className="mt-1 text-sm text-gray-600">
-                        Once your account is deleted, all of its resources and
-                        data will be permanently deleted. Please enter your
-                        password to confirm you would like to permanently delete
-                        your account.
+                        {confirmationDescription}
                     </p>
 
                     <div className="mt-6">
