@@ -30,7 +30,7 @@ export default function PublicFormSubmitted({ message }) {
             </p>
             <div className="mt-6 rounded-lg bg-slate-50 px-5 py-4">
               <p className="text-xs text-slate-500 leading-relaxed">
-                Your feedback is confidential and will be used to improve the quality of services provided by our partner agencies.
+                Your feedback is confidential and will be used to improve the quality of services provided by DMW Region VII and its partner agencies.
               </p>
             </div>
           </div>

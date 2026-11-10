@@ -48,7 +48,7 @@ export default function PublicAgencies({ agencies }) {
             </h1>
             <p className="mx-auto max-w-2xl text-lg leading-relaxed text-white/80">
               Our network of partner government agencies working together to provide
-              seamless support for migrant workers and their families.
+              seamless support for migrant workers and their families in Region VII (Central Visayas).
             </p>
           </div>
         </section>

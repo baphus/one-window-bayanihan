@@ -15,7 +15,7 @@ export const FAQ_ITEMS = [
   {
     id: 'who-can-use-service', category: 'About the System',
     question: 'Who is this service for?',
-    answer: 'This service is for OFWs who need support, including those who have returned to the Philippines or are looking for help with their situation.',
+    answer: 'This service is for OFWs and their families in Region VII (Central Visayas) who need support, including those who have returned to the Philippines or are looking for help with their situation.',
   },
   {
     id: 'assistance-types', category: 'About the System',

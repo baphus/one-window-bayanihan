@@ -75,7 +75,7 @@ export default function FeaturesSection() {
               </p>
 
               <p className="mt-3">
-                It serves as a centralized inter-agency referral and tracking system, enabling the Department of Migrant Workers (DMW), local government units, and partner agencies to work together through one coordinated digital platform.
+                It serves as a centralized inter-agency referral and tracking system, enabling the Department of Migrant Workers (DMW) Region VII, local government units, and partner agencies across Central Visayas to work together through one coordinated digital platform.
               </p>
             </div>
 
