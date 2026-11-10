@@ -72,7 +72,6 @@ class RegistrationTest extends TestCase
 
         $response->assertStatus(422);
         $response->assertJsonValidationErrors([
-            'type',
             'date_of_birth',
             'address.region',
             'address.city_municipality',
@@ -223,24 +222,20 @@ class RegistrationTest extends TestCase
         $this->assertEquals($userCount + 1, User::count());
     }
 
-    public function test_review_step_creates_user_with_next_of_kin_type(): void
+    public function test_review_step_rejects_stale_next_of_kin_registration_without_writes(): void
     {
         $pending = $this->preparePendingRegistration('nok-one@example.test', 'Maria', null, 'Reyes');
         $pending['profile']['type'] = 'NEXT_OF_KIN';
-        $pending['profile']['sex'] = 'Female';
 
         $this->withSession(['pending_registration' => $pending])
-            ->post(route('register.review.store'), ['otp' => $pending['otp']]);
+            ->post(route('register.review.store'), ['otp' => $pending['otp']])
+            ->assertRedirect(route('register'))
+            ->assertSessionHasErrors('registration')
+            ->assertSessionMissing('pending_registration');
 
-        $user = User::where('email', 'nok-one@example.test')->sole();
-        $this->assertSame('Maria Reyes', $user->name);
-        $this->assertSame(UserRole::OFW->value, $user->role); // role stays OFW; type is on client.
-        $this->assertDatabaseHas('clients', [
-            'id' => $user->client_id,
-            'type' => 'NEXT_OF_KIN',
-            'first_name' => 'Maria',
-            'last_name' => 'Reyes',
-        ]);
+        $this->assertGuest();
+        $this->assertDatabaseMissing('users', ['email' => 'nok-one@example.test']);
+        $this->assertDatabaseMissing('clients', ['email' => 'nok-one@example.test']);
     }
 
     public function test_review_step_rejects_wrong_otp(): void

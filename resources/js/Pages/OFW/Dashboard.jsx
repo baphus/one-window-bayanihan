@@ -272,8 +272,10 @@ function HelpCard() {
     );
 }
 
-export default function Dashboard({ cases, caseStats }) {
+export default function Dashboard({ cases, caseStats, mfaRecoveryCodes = [] }) {
     const { auth } = usePage().props;
+    const [showMfaRecoveryCodes, setShowMfaRecoveryCodes] = useState((mfaRecoveryCodes?.length ?? 0) > 0);
+    const isNextOfKin = auth?.user?.type === 'NEXT_OF_KIN';
     const caseList = cases?.data ?? [];
     const stats = caseStats ?? {};
     const fileCaseHref = safeRoute('ofw.intake', undefined, '/my-cases/intake');
@@ -317,6 +319,20 @@ export default function Dashboard({ cases, caseStats }) {
             <h1 className="mt-2 font-headline text-[28px] font-extrabold tracking-tight text-slate-900 sm:text-[32px]">
                 My Requests
             </h1>
+            {showMfaRecoveryCodes && (
+                <section role="region" aria-label="MFA recovery codes" className="mt-5 rounded-xl border border-amber-300 bg-amber-50 p-5">
+                    <div className="flex items-start justify-between gap-4">
+                        <div>
+                            <h2 className="font-headline text-lg font-extrabold text-amber-950">Save your recovery codes</h2>
+                            <p className="mt-1 text-sm text-amber-900">Store these somewhere safe. Each recovery code can be used once.</p>
+                        </div>
+                        <button type="button" onClick={() => setShowMfaRecoveryCodes(false)} aria-label="Dismiss recovery codes" className="rounded p-1 text-amber-900 hover:bg-amber-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">×</button>
+                    </div>
+                    <ul className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                        {mfaRecoveryCodes.map((code, index) => <li key={index}><code className="block rounded border border-amber-200 bg-white px-3 py-2 font-mono text-sm text-slate-800">{code}</code></li>)}
+                    </ul>
+                </section>
+            )}
             <div className="mt-3">
                 <p className="text-[16px] font-bold text-slate-900">Welcome, {auth?.user?.name ?? 'OFW'}</p>
                 <p className="mt-1 text-[13px] text-slate-600">View your requests for assistance and follow their latest updates.</p>
@@ -333,18 +349,24 @@ export default function Dashboard({ cases, caseStats }) {
                             <p className="mt-0.5 text-[12px] text-slate-500">{requestCount}</p>
                         </div>
                         <div className="flex items-center gap-2">
-                            <Link
+                            {!isNextOfKin && <Link
                                 href={fileCaseHref}
                                 className="inline-flex min-h-[34px] items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-[12px] font-bold text-on-primary transition-colors hover:bg-primary/90"
                             >
                                 <span className="material-symbols-outlined text-[16px]">add</span>
                                 Request Assistance
-                            </Link>
+                            </Link>}
                             {hasCases ? (
                                 <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
                             ) : null}
                         </div>
                     </header>
+
+                    {isNextOfKin && (
+                        <p className="border-b border-slate-100 bg-amber-50 px-5 py-4 text-sm leading-relaxed text-amber-900">
+                            Requests filed by next of kin must be submitted through DMW staff. Please visit the DMW Region VII office for assistance.
+                        </p>
+                    )}
 
                     {hasCases ? (
                         <>
@@ -400,14 +422,14 @@ export default function Dashboard({ cases, caseStats }) {
                                 Showing {visibleCases.length} of {caseList.length} request{caseList.length === 1 ? '' : 's'} · Your records only
                             </p>
                         </>
-                    ) : (
+                    ) : !isNextOfKin ? (
                         <EmptyState
                             message="You have no requests yet."
                             href={fileCaseHref}
                             actionLabel="Request Assistance"
                             art
                         />
-                    )}
+                    ) : null}
                 </section>
 
                 <aside className="lg:sticky lg:top-24 lg:self-start">

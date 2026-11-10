@@ -2,7 +2,11 @@
 
 namespace Tests\Feature\Middleware;
 
+use App\Enums\UserRole;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Models\Client;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use PHPUnit\Framework\Attributes\Test;
 use Symfony\Component\HttpFoundation\Response;
@@ -10,6 +14,29 @@ use Tests\TestCase;
 
 class HandleInertiaRequestsTest extends TestCase
 {
+    use RefreshDatabase;
+
+    #[Test]
+    public function it_shares_persisted_client_type_without_exposing_client_fields(): void
+    {
+        $user = User::factory()->create(['role' => UserRole::OFW->value]);
+        $client = Client::factory()->create(['type' => 'NEXT_OF_KIN', 'user_id' => $user->id]);
+        $user->client_id = $client->id;
+        $user->save();
+
+        $request = Request::create('/');
+        $request->setLaravelSession(app('session')->driver());
+        $request->setUserResolver(fn () => $user);
+        $shared = (new HandleInertiaRequests)->share($request);
+        $this->assertSame('NEXT_OF_KIN', $shared['auth']['user']['type']);
+        $this->assertArrayNotHasKey('client', $shared['auth']['user']);
+
+        $guestRequest = Request::create('/');
+        $guestRequest->setLaravelSession(app('session')->driver());
+        $guest = (new HandleInertiaRequests)->share($guestRequest);
+        $this->assertNull($guest['auth']['user']);
+    }
+
     #[Test]
     public function it_returns_an_empty_asset_version_in_local_environment(): void
     {

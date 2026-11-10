@@ -5,6 +5,7 @@ namespace Tests\Feature\ReferralClientInbox;
 use App\Mail\ClientRequestMail;
 use App\Models\CaseNotification;
 use App\Notifications\ReferralClientRequestActivity;
+use App\Services\ReferralClientAccessService;
 use Illuminate\Contracts\Queue\ShouldBeEncrypted;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Support\Facades\Mail;
@@ -16,9 +17,15 @@ class NotificationMailSecrecyTest extends ReferralClientInboxTestCase
         $context = $this->context();
         Mail::fake();
 
-        $this->actingAsWithMfa($context['agencyUser'])
-            ->post(route('referrals.client-requests.access.reissue', $context['clientRequest']))
-            ->assertRedirect();
+        $oldIssue = $this->issue($context);
+        $oldLink = $oldIssue['link'];
+        $oldToken = $oldIssue['raw_token'];
+        $response = $this->actingAsWithMfa($context['agencyUser'])
+            ->post(route('referrals.client-requests.access.reissue', $context['clientRequest']));
+        $response->assertRedirect(route('referrals.show', $context['referral']));
+        $oldLink->refresh();
+        $this->assertNotNull($oldLink->revoked_at);
+        $this->assertNull(app(ReferralClientAccessService::class)->resolveUsableToken($oldToken));
 
         $delivery = CaseNotification::query()->where('type', 'client_request_delivery')->latest()->firstOrFail();
         $deliveryData = json_encode($delivery->toArray());

@@ -115,43 +115,21 @@ class NextOfKinFilingTest extends TestCase
 
     // ── tests ───────────────────────────────────────────────────────────────
 
-    public function test_nok_files_for_linked_ofw(): void
+    public function test_nok_cannot_file_for_linked_ofw_even_with_forged_client_selection(): void
     {
         ['filer' => $filer, 'linkedOfw' => $linkedOfw] = $this->buildNokWithLinkedOfw();
-        $category = CaseCategory::factory()->create();
-        $caseIssue = CaseIssue::create(['name' => 'Unpaid wages', 'is_active' => true]);
 
-        $response = $this->actingAsWithMfa($filer)->postJson(route('cases.store'), $this->basicFilingPayload([
-            'category_ids' => [$category->id],
-            'case_issue_id' => $caseIssue->id,
+        $this->actingAsWithMfa($filer)->postJson(route('cases.store'), $this->basicFilingPayload([
             'selected_client_id' => $linkedOfw->id,
-        ]));
+        ]))->assertForbidden();
 
-        if ($response->status() === 422) {
-            $this->fail('cases.store 422: '.json_encode($response->json('errors')));
-        }
-        $response->assertRedirect();
-
-        // NOK filer: case must belong to the selected linked OFW.
-        $case = CaseFile::where('client_id', $linkedOfw->id)
-            ->where('status', CaseFile::STATUS_PENDING_REVIEW)
-            ->latest()
-            ->first();
-
-        $this->assertNotNull($case);
-        $this->assertEquals($linkedOfw->id, $case->client_id);
-        $this->assertEquals(CaseFile::STATUS_PENDING_REVIEW, $case->status);
+        $this->assertSame(0, CaseFile::count());
     }
 
-    public function test_nok_inline_new_ofw_links_back_to_filer(): void
+    public function test_nok_cannot_file_inline_new_ofw(): void
     {
         ['filer' => $filer] = $this->buildNokWithLinkedOfw();
-        $category = CaseCategory::factory()->create();
-        $caseIssue = CaseIssue::create(['name' => 'Unpaid wages', 'is_active' => true]);
-
         $response = $this->actingAsWithMfa($filer)->postJson(route('cases.store'), $this->basicFilingPayload([
-            'category_ids' => [$category->id],
-            'case_issue_id' => $caseIssue->id,
             'new_ofw' => [
                 'first_name' => 'New',
                 'last_name' => 'OFW',
@@ -162,24 +140,48 @@ class NextOfKinFilingTest extends TestCase
             ],
         ]));
 
-        $response->assertRedirect();
+        $response->assertForbidden();
+        $this->assertSame(0, CaseFile::count());
+        $this->assertDatabaseMissing('clients', ['email' => 'newofw@example.test']);
+    }
 
-        // Inline OFW: case must belong to a NEW OFW client linked back to the filer.
-        $case = CaseFile::whereHas('client', fn ($q) => $q
-            ->where('type', 'OFW')
-            ->where('ofw_client_id', $filer->client_id))
-            ->where('status', CaseFile::STATUS_PENDING_REVIEW)
-            ->latest()
-            ->first();
+    public function test_nok_case_and_intake_get_redirect_to_dashboard_with_office_notice(): void
+    {
+        ['filer' => $filer] = $this->buildNokWithLinkedOfw();
+        $this->actingAsWithMfa($filer);
+        $message = 'Requests filed by next of kin must be submitted through DMW staff. Please visit the DMW Region VII office for assistance.';
 
-        $this->assertNotNull($case);
-        $this->assertEquals(CaseFile::STATUS_PENDING_REVIEW, $case->status);
+        $this->get(route('cases.create'))->assertRedirect(route('dashboard'))->assertSessionHas('error', $message);
+        $this->get(route('ofw.intake'))->assertRedirect(route('dashboard'))->assertSessionHas('error', $message);
+    }
 
-        // Inline OFW must be linked back to the filer's client via ofw_client_id.
-        $newOfw = Client::find($case->client_id);
-        $this->assertNotNull($newOfw);
-        $this->assertEquals('OFW', $newOfw->type);
-        $this->assertEquals($filer->client_id, $newOfw->ofw_client_id);
+    public function test_nok_cannot_submit_intake(): void
+    {
+        ['filer' => $filer] = $this->buildNokWithLinkedOfw();
+
+        $this->actingAsWithMfa($filer)->post(route('ofw.intake.store'), [
+            'summary' => 'Help needed',
+            'consent' => true,
+        ])->assertForbidden();
+
+        $this->assertSame(0, CaseFile::count());
+    }
+
+    public function test_staff_can_access_filing_pages_for_nok_and_ofw_client_types(): void
+    {
+        foreach ([UserRole::ADMIN, UserRole::CASE_MANAGER] as $role) {
+            foreach (['NEXT_OF_KIN', 'OFW'] as $type) {
+                $user = User::factory()->mfaEnabled()->create([
+                    'role' => $role->value,
+                    'mfa_secret' => 'JBSWY3DPEHPK3PXP',
+                ]);
+                $client = Client::factory()->create(['type' => $type, 'user_id' => $user->id]);
+                $user->client_id = $client->id;
+                $user->save();
+
+                $this->actingAsWithMfa($user)->get(route('cases.create'))->assertOk();
+            }
+        }
     }
 
     public function test_ofw_ignores_selected_client_id_and_uses_own(): void

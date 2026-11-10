@@ -16,25 +16,10 @@ import useClientValidation from '@/Hooks/useClientValidation';
 import { getTurnstileError } from '@/lib/turnstile';
 
 const STEPS = [
-    { id: 1, title: 'Your Account', description: 'Who is this account for, and your sign-in details.' },
+    { id: 1, title: 'Your Account', description: 'Your sign-in details.' },
     { id: 2, title: 'Personal Details', description: 'Your name, birth date, sex, and contact number.' },
     { id: 3, title: 'Address', description: 'Where you are based in the Philippines.' },
     { id: 4, title: 'Employment', description: 'Your overseas employment history. You will verify your email on the next screen.' },
-];
-
-const ROLE_CARDS = [
-    {
-        value: 'OFW',
-        icon: 'flight',
-        title: 'I am an OFW',
-        description: 'Request assistance and track your progress.',
-    },
-    {
-        value: 'NEXT_OF_KIN',
-        icon: 'family_restroom',
-        title: 'Requesting assistance for a family member',
-        description: 'You are requesting assistance on behalf of an OFW.',
-    },
 ];
 
 // Server-side error keys -> the step that owns them, so submit failures send
@@ -99,6 +84,7 @@ export default function Register({ initial = {} }) {
     const [currentStep, setCurrentStep] = useState(1);
     // Live duplicate-email probe: 'unknown' | 'checking' | 'taken' | 'available'.
     const [emailStatus, setEmailStatus] = useState('unknown');
+    const [emailTouched, setEmailTouched] = useState(false);
 
     const prefill = initial.profile ?? {};
     const creds = initial.credentials ?? {};
@@ -114,7 +100,7 @@ export default function Register({ initial = {} }) {
         password: '',
         password_confirmation: '',
         cf_turnstile_response: '',
-        type: prefill.type ?? 'OFW',
+        type: 'OFW',
         suffix: prefill.suffix ?? '',
         date_of_birth: prefill.date_of_birth ?? '',
         sex: prefill.sex ?? '',
@@ -148,8 +134,8 @@ export default function Register({ initial = {} }) {
     // check fails open — the server still re-checks at the review step.
     useEffect(() => {
         const email = data.email.trim();
-        // Anything below plain-email shape is left to the schema's field errors.
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        // Only check addresses accepted by the registration schema.
+        if (!schema.shape.email.safeParse(email).success) {
             setEmailStatus('unknown');
             return undefined;
         }
@@ -170,7 +156,7 @@ export default function Register({ initial = {} }) {
             clearTimeout(timer);
             controller.abort();
         };
-    }, [data.email]);
+    }, [data.email, schema]);
 
     // Occupation dropdown options — same curated DMW/PSA-based OFW list as
     // Case/Create.jsx (DEFAULT_OCCUPATIONS), shaped for SearchableSelect.
@@ -213,8 +199,7 @@ export default function Register({ initial = {} }) {
         switch (step) {
             case 1:
                 return (
-                    data.type.length > 0
-                    && schema.shape.email.safeParse(data.email.trim()).success
+                    schema.shape.email.safeParse(data.email.trim()).success
                     // A registered address cannot proceed past the account step.
                     && emailStatus !== 'taken'
                     && schema.shape.password.safeParse(data.password).success
@@ -373,42 +358,6 @@ export default function Register({ initial = {} }) {
 
                             {currentStep === 1 && (
                                 <>
-                                    {/* Who is this account for */}
-                                    <div>
-                                        <span className="mb-2 block text-xs font-bold uppercase tracking-widest text-on-surface-variant">
-                                            Who is this account for?
-                                        </span>
-                                        <div className="grid grid-cols-2 gap-3">
-                                            {ROLE_CARDS.map((role) => {
-                                                const selected = data.type === role.value;
-                                                return (
-                                                    <button
-                                                        key={role.value}
-                                                        type="button"
-                                                        onClick={() => setData('type', role.value)}
-                                                        aria-pressed={selected}
-                                                        className={`rounded-md border p-4 text-left transition-all ${
-                                                            selected
-                                                                ? 'border-primary bg-primary-fixed/40 ring-1 ring-primary'
-                                                                : 'border-outline-variant bg-surface-container hover:border-primary/50'
-                                                        }`}
-                                                    >
-                                                        <span className={`material-symbols-outlined block text-[24px] ${selected ? 'text-primary' : 'text-slate-400'}`}>
-                                                            {role.icon}
-                                                        </span>
-                                                        <span className="mt-2 block text-sm font-bold text-slate-900">
-                                                            {role.title}
-                                                        </span>
-                                                        <span className="mt-0.5 block text-xs text-slate-500">
-                                                            {role.description}
-                                                        </span>
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                        <FieldError message={errors.type} />
-                                    </div>
-
                                     {/* Email */}
                                     <div>
                                         <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-on-surface-variant">
@@ -421,16 +370,24 @@ export default function Register({ initial = {} }) {
                                             <input
                                                 type="email"
                                                 value={data.email}
-                                                onChange={(e) => setData('email', e.target.value)}
+                                                onChange={(e) => {
+                                                    setData('email', e.target.value);
+                                                    if (errors.email) clearErrors('email');
+                                                }}
+                                                onBlur={() => setEmailTouched(true)}
+                                                aria-invalid={Boolean(errors.email || (emailTouched && data.email.trim() && !schema.shape.email.safeParse(data.email.trim()).success))}
+                                                aria-describedby={errors.email ? 'email-error' : emailTouched && data.email.trim() && !schema.shape.email.safeParse(data.email.trim()).success ? 'email-format-error' : undefined}
                                                 className="w-full border border-outline-variant bg-surface-container px-4 py-3 pl-12 text-sm focus:border-primary focus:outline-none rounded-md"
                                                 autoComplete="username"
                                                 autoFocus
                                                 required
                                             />
                                         </div>
-                                        {errors.email && (
-                                            <p className="mt-1 text-xs text-red-600">{errors.email}</p>
-                                        )}
+                                        {errors.email ? (
+                                            <p id="email-error" className="mt-1 text-xs text-red-600">{errors.email}</p>
+                                        ) : emailTouched && data.email.trim() && !schema.shape.email.safeParse(data.email.trim()).success ? (
+                                            <p id="email-format-error" className="mt-1 text-xs text-red-600">Enter a valid email address.</p>
+                                        ) : null}
                                         {!errors.email && emailStatus === 'checking' && (
                                             <p className="mt-1 text-xs text-slate-500">Checking email availability…</p>
                                         )}

@@ -5,6 +5,7 @@ namespace App\Http\Requests;
 use App\Rules\EmploymentStartAtWorkingAge;
 use App\Rules\ServedRegion;
 use App\Rules\VulnerabilityRule;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -14,7 +15,16 @@ class StoreCaseRequest extends FormRequest
     {
         $user = $this->user();
 
-        return $user !== null && ($user->isAdmin() || $user->isCaseManager() || $user->isOfw());
+        return $user !== null && ($user->isAdmin() || $user->isCaseManager() || ($user->isOfw() && ! $user->isNextOfKin()));
+    }
+
+    protected function failedAuthorization(): void
+    {
+        if ($this->user()?->isOfw() && $this->user()->isNextOfKin()) {
+            throw new AuthorizationException('Requests filed by next of kin must be submitted through DMW staff. Please visit the DMW Region VII office for assistance.');
+        }
+
+        parent::failedAuthorization();
     }
 
     protected function prepareForValidation(): void

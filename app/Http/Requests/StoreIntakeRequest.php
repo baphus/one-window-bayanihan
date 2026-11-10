@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Rules\VulnerabilityRule;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -15,7 +16,16 @@ class StoreIntakeRequest extends FormRequest
     {
         $user = $this->user();
 
-        return $user !== null && ($user->isOfw() || $user->isAdmin() || $user->isCaseManager());
+        return $user !== null && (($user->isOfw() && ! $user->isNextOfKin()) || $user->isAdmin() || $user->isCaseManager());
+    }
+
+    protected function failedAuthorization(): void
+    {
+        if ($this->user()?->isOfw() && $this->user()->isNextOfKin()) {
+            throw new AuthorizationException('Requests filed by next of kin must be submitted through DMW staff. Please visit the DMW Region VII office for assistance.');
+        }
+
+        parent::failedAuthorization();
     }
 
     /**

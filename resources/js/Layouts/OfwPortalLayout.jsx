@@ -56,10 +56,10 @@ function SidebarContent({ currentPath, unreadCount, onNavigate }) {
             <nav aria-label="Citizen portal" className="grid gap-0.5 px-2">
                 {NAV_ITEMS.map((item) => {
                     const href = item.route ? safeRoute(item.route, undefined, item.href) : item.href;
-                    // Exact match for the dashboard; prefix match for the rest,
-                    // so /my-cases/profile lights Profile and not My Cases.
+                    // Let case detail routes stay under My Requests, but keep reserved portal pages exclusive.
                     const active = item.key === 'my-cases'
-                        ? currentPath === item.href
+                        ? (currentPath === item.href || currentPath.startsWith(`${item.href}/`))
+                            && !NAV_ITEMS.some((navItem) => navItem.key !== item.key && (currentPath === navItem.href || currentPath.startsWith(`${navItem.href}/`)))
                         : currentPath === item.href || currentPath.startsWith(`${item.href}/`);
 
                     return (

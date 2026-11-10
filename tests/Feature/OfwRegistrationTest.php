@@ -55,6 +55,40 @@ class OfwRegistrationTest extends TestCase
         $this->assertNull(User::where('email', 'juan@example.com')->first());
     }
 
+    public function test_registration_defaults_type_to_ofw_and_rejects_nok_or_invalid_type(): void
+    {
+        $payload = [
+            'first_name' => 'Juan', 'last_name' => 'Cruz', 'email' => 'juan@example.com',
+            'password' => 'Password123', 'password_confirmation' => 'Password123',
+            'date_of_birth' => '1995-03-15',
+            'address' => ['region' => '0700000000', 'city_municipality' => 'Cebu City', 'barangay' => 'Lahug'],
+            'employment' => ['employer_name' => 'Employer', 'start_date' => '2010-04-01', 'is_present' => true, 'last_country' => 'Philippines', 'last_position' => 'Worker', 'date_of_arrival' => '1995-05-01'],
+        ];
+
+        $this->post(route('register.store'), $payload)->assertRedirect(route('register.review'));
+        $this->assertSame('OFW', session('pending_registration.profile.type'));
+
+        foreach (['NEXT_OF_KIN', 'INVALID'] as $type) {
+            $this->post(route('register.store'), [...$payload, 'type' => $type])->assertSessionHasErrors('type');
+        }
+    }
+
+    public function test_stale_nok_registration_session_is_cleared_before_review_persistence(): void
+    {
+        $pending = [
+            'credentials' => ['first_name' => 'Nok', 'last_name' => 'Account', 'email' => 'nok@example.test', 'password' => bcrypt('Password123')],
+            'profile' => ['type' => 'NEXT_OF_KIN'],
+        ];
+
+        $response = $this->withSession(['pending_registration' => $pending])
+            ->post(route('register.review.store'), ['otp' => '123456']);
+
+        $response->assertRedirect(route('register'));
+        $response->assertSessionHasErrors('registration');
+        $response->assertSessionMissing('pending_registration');
+        $this->assertDatabaseMissing('users', ['email' => 'nok@example.test']);
+    }
+
     public function test_registration_accepts_a_duplicate_email_at_step_one(): void
     {
         // Duplicate emails are rejected at the review step, not step 1, so a

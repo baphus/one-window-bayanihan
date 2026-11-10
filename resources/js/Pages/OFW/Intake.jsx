@@ -31,6 +31,7 @@ function normalizeOptions(options) {
 export default function Intake({ profile: profileProp, client, vulnerabilityOptions }) {
     const { auth } = usePage().props;
     const profile = profileProp ?? client ?? null;
+    const isNextOfKin = auth?.user?.type === 'NEXT_OF_KIN';
     const options = normalizeOptions(vulnerabilityOptions);
     const toast = useToast();
 
@@ -73,6 +74,23 @@ export default function Intake({ profile: profileProp, client, vulnerabilityOpti
             onSuccess: () => toast.success('Request submitted successfully.'),
             onError: (errors) => toast.error(Object.values(errors)[0] || 'Unable to submit your request.'),
         });
+    }
+
+    if (isNextOfKin) {
+        return (
+            <OfwLayout title="My Requests">
+                <p className="mt-6 rounded-lg border border-amber-200 bg-amber-50 px-5 py-4 text-sm leading-relaxed text-amber-900">
+                    Requests filed by next of kin must be submitted through DMW staff. Please visit the DMW Region VII office for assistance.
+                </p>
+                <Link
+                    href={safeRoute('ofw.dashboard', undefined, '/my-cases')}
+                    className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-slate-600 hover:text-slate-900"
+                >
+                    <MaterialSymbol name="arrow_back" className="text-[18px]" />
+                    Back to My Requests
+                </Link>
+            </OfwLayout>
+        );
     }
 
     return (
