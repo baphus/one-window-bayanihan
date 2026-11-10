@@ -129,6 +129,7 @@ class HandleInertiaRequests extends Middleware
                         'office_location', 'bio', 'emergency_contact', 'timezone',
                         'profile_completed_at',
                     ]),
+                    'type' => $request->user()->client?->type,
                     'agency' => $this->getCachedUserAgency($request),
                 ] : null,
             ],

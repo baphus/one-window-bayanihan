@@ -24,6 +24,35 @@ vi.mock('@/Components/ui/RowContextMenu', () => ({
     RowContextMenuItem: () => null,
 }));
 
+describe('Referral Index case summary preview', () => {
+    it('limits long summaries to 120 characters and keeps full text in title', () => {
+        globalThis.route = vi.fn(() => '/referrals');
+        const summary = 'a'.repeat(120) + 'long ending';
+        render(<ReferralIndex
+            referrals={{ data: [{ id: 'ref-a', required_services: 'Service', status: 'PENDING', case_file: { summary } }], total: 1, from: 1, to: 1, current_page: 1, last_page: 1, per_page: 15 }}
+            filters={{}} stats={{}} agencies={[]} categories={[]} caseIssues={[]}
+        />);
+
+        const preview = screen.getByTitle(summary);
+        expect(preview).toHaveTextContent(`${'a'.repeat(119)}…`);
+        expect(preview.textContent).toHaveLength(120);
+    });
+
+    it('keeps short summaries and missing-value fallback intact', () => {
+        globalThis.route = vi.fn(() => '/referrals');
+        render(<ReferralIndex
+            referrals={{ data: [
+                { id: 'ref-a', required_services: 'Service', status: 'PENDING', case_file: { summary: 'Short summary' } },
+                { id: 'ref-b', required_services: 'Service', status: 'PENDING', case_file: {} },
+            ], total: 2, from: 1, to: 2, current_page: 1, last_page: 1, per_page: 15 }}
+            filters={{}} stats={{}} agencies={[]} categories={[]} caseIssues={[]}
+        />);
+
+        expect(screen.getByTitle('Short summary')).toHaveTextContent('Short summary');
+        expect(screen.getByTitle('N/A')).toHaveTextContent('N/A');
+    });
+});
+
 describe('Referral Index agency filtering', () => {
     it('resets a stale page to one when Rejected is selected and keeps another agency invisible', () => {
         globalThis.route = vi.fn(() => '/referrals');

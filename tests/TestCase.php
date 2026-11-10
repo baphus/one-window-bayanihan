@@ -33,6 +33,22 @@ abstract class TestCase extends BaseTestCase
         return $this;
     }
 
+    public function createApplication()
+    {
+        $app = parent::createApplication();
+        $connection = config('database.default');
+        $settings = config("database.connections.{$connection}", []);
+
+        if (config('app.env') !== 'testing'
+            || $connection !== 'pgsql'
+            || ($settings['database'] ?? null) !== 'bayanihan_test'
+            || ! empty($settings['url'])) {
+            throw new \RuntimeException('Refusing PHPUnit run: effective database must be pgsql/bayanihan_test with no DB_URL.');
+        }
+
+        return $app;
+    }
+
     protected function setUp(): void
     {
         parent::setUp();

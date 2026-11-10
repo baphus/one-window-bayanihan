@@ -13,6 +13,8 @@ use App\Models\ReferralClientRequest;
 use App\Models\ReferralClientRequestItem;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -80,6 +82,58 @@ class OfwClientRequestAccessTest extends TestCase
             ]))
             ->assertJsonMissingPath('props.clientRequestPanel.activeRequest.accessLinks')
             ->assertDontSee('token_hash');
+    }
+
+    #[Test]
+    public function owner_can_upload_checklist_document_with_reply(): void
+    {
+        config(['filesystems.default' => 'object-storage']);
+        Storage::fake('object-storage');
+        [$user, $case, $referral, $request] = $this->context();
+        $item = ReferralClientRequestItem::create(['request_id' => $request->id, 'label' => 'Passport', 'sort_order' => 0]);
+        $file = UploadedFile::fake()->createWithContent('passport.pdf', '%PDF-1.4 client document', 'application/pdf');
+
+        $this->actingAsWithMfa($user)->post(route('ofw.case.requests.messages.store', [
+            'case' => $case,
+            'referral' => $referral,
+            'request' => $request,
+        ]), [
+            'body' => 'Here is my passport.',
+            'attachments' => [$file],
+            'request_item_ids' => [$item->id],
+        ])->assertRedirect(route('ofw.case.requests.show', [
+            'case' => $case,
+            'referral' => $referral,
+            'request' => $request,
+        ]));
+
+        $message = ReferralClientMessage::where('request_id', $request->id)->firstOrFail();
+        $this->assertSame(ReferralClientMessage::SENDER_CLIENT_USER, $message->sender_kind);
+        $this->assertSame($user->id, $message->user_id);
+        $this->assertSame('Here is my passport.', $message->body);
+        $attachment = $message->attachments()->firstOrFail();
+        $this->assertSame($item->id, $attachment->request_item_id);
+        Storage::disk('object-storage')->assertExists($attachment->file_path);
+    }
+
+    #[Test]
+    public function another_client_cannot_upload_to_request(): void
+    {
+        config(['filesystems.default' => 'object-storage']);
+        Storage::fake('object-storage');
+        [, $case, $referral, $request] = $this->context();
+        $otherUser = User::factory()->create(['role' => UserRole::OFW->value, 'client_id' => Client::factory()->create()->id]);
+        $file = UploadedFile::fake()->createWithContent('passport.pdf', '%PDF-1.4 client document', 'application/pdf');
+
+        $this->actingAsWithMfa($otherUser)->post(route('ofw.case.requests.messages.store', [
+            'case' => $case,
+            'referral' => $referral,
+            'request' => $request,
+        ]), ['body' => 'Not mine', 'attachments' => [$file]])->assertForbidden();
+
+        $this->assertDatabaseCount('referral_client_messages', 0);
+        $this->assertDatabaseCount('referral_client_message_attachments', 0);
+        Storage::disk('object-storage')->assertDirectoryEmpty('client-request-attachments');
     }
 
     #[Test]

@@ -325,11 +325,17 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
                         return {
                             ...base,
                             sortable: false,
-                            render: (row) => (
-                                <span className="line-clamp-2 block max-w-sm text-[11px] leading-5 text-slate-600">
-                                    {row.case_file?.summary ?? 'N/A'}
-                                </span>
-                            ),
+                            render: (row) => {
+                                const summary = row.case_file?.summary ?? 'N/A';
+                                const preview = Array.from(summary).length > 120
+                                    ? `${Array.from(summary).slice(0, 119).join('')}…`
+                                    : summary;
+                                return (
+                                    <span title={summary} className="line-clamp-2 block max-w-sm text-[11px] leading-5 text-slate-600">
+                                        {preview}
+                                    </span>
+                                );
+                            },
                         };
                     case 'case_issue':
                         return {

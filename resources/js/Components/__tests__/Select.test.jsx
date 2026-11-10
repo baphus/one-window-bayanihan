@@ -44,6 +44,32 @@ describe('Select', () => {
         expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
     });
 
+    it('keeps highlight scrolling inside list and does not scroll on hover', () => {
+        render(<Select defaultValue="a"><option value="a">Alpha</option><option value="b">Bravo</option><option value="c">Charlie</option></Select>);
+        const control = screen.getByRole('combobox');
+        fireEvent.click(control);
+        const list = screen.getByRole('listbox');
+        const alpha = screen.getByRole('option', { name: 'Alpha' });
+        const bravo = screen.getByRole('option', { name: 'Bravo' });
+        const charlie = screen.getByRole('option', { name: 'Charlie' });
+        list.scrollTop = 0;
+        vi.spyOn(alpha, 'getBoundingClientRect').mockReturnValue({ top: 10, bottom: 30 });
+        vi.spyOn(bravo, 'getBoundingClientRect').mockReturnValue({ top: 30, bottom: 50 });
+        vi.spyOn(charlie, 'getBoundingClientRect').mockReturnValue({ top: 50, bottom: 70 });
+        vi.spyOn(list, 'getBoundingClientRect').mockReturnValue({ top: 10, bottom: 50 });
+        const scrollIntoView = vi.fn();
+        alpha.scrollIntoView = scrollIntoView;
+        charlie.scrollIntoView = scrollIntoView;
+        fireEvent.mouseEnter(charlie);
+        expect(list.scrollTop).toBe(0);
+        fireEvent.keyDown(control, { key: 'ArrowDown' });
+        fireEvent.keyDown(control, { key: 'ArrowDown' });
+        vi.spyOn(screen.getByRole('option', { name: 'Bravo' }), 'getBoundingClientRect').mockReturnValue({ top: 50, bottom: 70 });
+        fireEvent.keyDown(control, { key: 'ArrowUp' });
+        expect(list.scrollTop).toBe(20);
+        expect(scrollIntoView).not.toHaveBeenCalled();
+    });
+
     it('supports uncontrolled selection, reset and required validation focus', () => {
         const onChange = vi.fn();
         const { container } = render(<form><label htmlFor="kind">Kind</label><Select id="kind" name="kind" defaultValue="" required onChange={onChange}><option value="">Choose</option><option value="1">One</option></Select></form>);

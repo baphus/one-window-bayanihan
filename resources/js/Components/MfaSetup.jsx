@@ -10,6 +10,7 @@ import useMfaStatus from '@/Hooks/useMfaStatus';
 import { useToast } from '@/Hooks/useToast';
 import TextInput from '@/Components/TextInput';
 import OtpInput from '@/Components/OtpInput';
+import { router } from '@inertiajs/react';
 
 export default function MfaSetup({ mfaEnabled, mfaRequired = true }) {
     const [enabled, setEnabled] = useState(mfaEnabled);
@@ -107,6 +108,10 @@ export default function MfaSetup({ mfaEnabled, mfaRequired = true }) {
             if (!ok) {
                 setError(data.message || data.errors?.otp?.[0] || 'Invalid code. Please try again.');
                 toast.error(data.message || data.errors?.otp?.[0] || 'Invalid code. Please try again.');
+                return;
+            }
+            if (data.redirect_url) {
+                router.visit(data.redirect_url);
                 return;
             }
             setEnabled(true);

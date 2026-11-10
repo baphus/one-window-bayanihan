@@ -137,10 +137,18 @@ class MfaController extends Controller
             ->module(AuditModule::MFA)
             ->write();
 
-        return response()->json([
+        $response = [
             'message' => 'Two-factor authentication has been enabled.',
             'recovery_codes' => $codes,
-        ]);
+        ];
+
+        if ($user->isOfw()) {
+            $request->session()->flash('mfaRecoveryCodes', $codes);
+            $response['redirect_url'] = route('ofw.dashboard');
+            unset($response['recovery_codes']);
+        }
+
+        return response()->json($response);
     }
 
     public function disable(Request $request, MfaPendingState $pendingState, MfaService $mfa, MfaPolicyService $policy): JsonResponse

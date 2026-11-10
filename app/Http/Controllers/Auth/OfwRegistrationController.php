@@ -42,6 +42,10 @@ class OfwRegistrationController extends Controller
     public function create(Request $request)
     {
         $pending = $request->session()->get('pending_registration');
+        if (is_array($pending) && ($pending['profile']['type'] ?? null) === 'NEXT_OF_KIN') {
+            $request->session()->forget('pending_registration');
+            $pending = null;
+        }
         $credentials = is_array($pending) ? ($pending['credentials'] ?? []) : [];
         $profile = is_array($pending) ? ($pending['profile'] ?? []) : [];
 
@@ -69,6 +73,7 @@ class OfwRegistrationController extends Controller
      */
     public function store(Request $request)
     {
+        $request->merge(['type' => $request->input('type', 'OFW')]);
         $validated = $request->validate([
             'first_name' => 'required|string|max:255',
             'middle_name' => 'nullable|string|max:255',
@@ -113,7 +118,7 @@ class OfwRegistrationController extends Controller
         $dob = $dateOfBirth ?: '1900-01-01';
 
         return [
-            'type' => 'required|string|in:OFW,NEXT_OF_KIN',
+            'type' => 'required|string|in:OFW',
             'suffix' => 'nullable|string|max:50',
             'date_of_birth' => ['required', 'date', 'before_or_equal:'.now()->subYears(15)->toDateString(), 'after_or_equal:'.now()->subYears(100)->toDateString()],
             'sex' => 'nullable|string|max:50',
@@ -146,6 +151,13 @@ class OfwRegistrationController extends Controller
         $pending = $request->session()->get('pending_registration');
         $credentials = is_array($pending) ? ($pending['credentials'] ?? []) : [];
         $profile = is_array($pending) ? ($pending['profile'] ?? []) : [];
+        if (($profile['type'] ?? null) !== 'OFW') {
+            $request->session()->forget('pending_registration');
+
+            return redirect()->route('register')->withErrors([
+                'registration' => 'Next-of-kin registration is unavailable. Please restart as an OFW.',
+            ]);
+        }
 
         return Inertia::render('Auth/RegisterReview', [
             'pendingName' => [
@@ -168,6 +180,13 @@ class OfwRegistrationController extends Controller
 
         if (! is_array($pending) || empty($pending['credentials']['email'])) {
             return redirect()->route('register');
+        }
+        if (($pending['profile']['type'] ?? null) !== 'OFW') {
+            $request->session()->forget('pending_registration');
+
+            return redirect()->route('register')->withErrors([
+                'registration' => 'Next-of-kin registration is unavailable. Please restart as an OFW.',
+            ]);
         }
 
         $email = $pending['credentials']['email'];
@@ -221,6 +240,13 @@ class OfwRegistrationController extends Controller
         // Re-check the session copy rather than the request: the only input a
         // review submission may carry is the code.
         $profile = is_array($pending['profile'] ?? null) ? $pending['profile'] : [];
+        if (($profile['type'] ?? null) !== 'OFW') {
+            $request->session()->forget('pending_registration');
+
+            return redirect()->route('register')->withErrors([
+                'registration' => 'Next-of-kin registration is unavailable. Please restart as an OFW.',
+            ]);
+        }
 
         $validated = Validator::make(
             [...$profile, 'email' => $email],

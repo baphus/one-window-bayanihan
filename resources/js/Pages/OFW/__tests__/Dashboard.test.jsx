@@ -1,12 +1,14 @@
 import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const authUser = { name: 'Test OFW', type: 'OFW' };
 import Dashboard from '../Dashboard';
 
 vi.mock('@inertiajs/react', () => ({
     Head: ({ title }) => <title>{title}</title>,
     Link: ({ href, children, ...props }) => <a href={href} {...props}>{children}</a>,
-    usePage: () => ({ url: '/my-cases', props: { auth: { user: { name: 'Test OFW' } } } }),
+    usePage: () => ({ url: '/my-cases', props: { auth: { user: authUser } } }),
     router: { post: vi.fn(), reload: vi.fn(), visit: vi.fn() },
 }));
 
@@ -48,6 +50,7 @@ function renderDashboard(overrides = {}) {
         <Dashboard
             cases={overrides.cases ?? CASES}
             caseStats={overrides.caseStats ?? CASE_STATS}
+            mfaRecoveryCodes={overrides.mfaRecoveryCodes ?? []}
         />,
     );
 }
@@ -58,6 +61,22 @@ function layoutGroup() {
 
 beforeEach(() => {
     window.localStorage.clear();
+    authUser.type = 'OFW';
+});
+
+describe('OFW dashboard MFA recovery codes', () => {
+    it('shows supplied recovery codes and allows dismissing without persisting them', () => {
+        renderDashboard({ mfaRecoveryCodes: ['SAFE-ONE', 'SAFE-TWO'] });
+
+        const panel = screen.getByRole('region', { name: 'MFA recovery codes' });
+        expect(within(panel).getByText('SAFE-ONE')).toBeInTheDocument();
+        expect(within(panel).getByText('SAFE-TWO')).toBeInTheDocument();
+        expect(within(panel).getByText(/Each recovery code can be used once/)).toBeInTheDocument();
+        fireEvent.click(within(panel).getByRole('button', { name: 'Dismiss recovery codes' }));
+        expect(screen.queryByRole('region', { name: 'MFA recovery codes' })).not.toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: 'Your requests' })).toBeInTheDocument();
+        expect(window.localStorage.getItem('mfaRecoveryCodes')).toBeNull();
+    });
 });
 
 describe('OFW/Dashboard case view mode', () => {
@@ -102,6 +121,21 @@ describe('OFW/Dashboard case view mode', () => {
 
         expect(screen.getByText(/You have no requests yet/i)).toBeInTheDocument();
         expect(screen.queryByRole('group', { name: 'Request layout' })).not.toBeInTheDocument();
+    });
+
+    it.each([
+        ['with existing requests', CASES],
+        ['without requests', { data: [] }],
+    ])('shows next-of-kin guidance and hides request actions %s', (_description, cases) => {
+        authUser.type = 'NEXT_OF_KIN';
+        renderDashboard({ cases });
+
+        expect(screen.getByText('Requests filed by next of kin must be submitted through DMW staff. Please visit the DMW Region VII office for assistance.')).toBeInTheDocument();
+        expect(screen.queryByRole('link', { name: 'Request Assistance' })).not.toBeInTheDocument();
+        if (cases.data.length) {
+            expect(screen.getByRole('link', { name: 'TRK-AB12CD34' })).toBeInTheDocument();
+            expect(screen.getAllByRole('link', { name: 'View Request' })).toHaveLength(cases.data.length);
+        }
     });
 
     it('labels a pending-review case as Under Review in the grid', () => {

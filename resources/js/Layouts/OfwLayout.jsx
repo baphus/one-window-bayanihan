@@ -7,6 +7,7 @@ import { clearAllDraftBackups } from '@/Hooks/useLocalStorageDraft';
 export default function OfwLayout({ children, title }) {
     const { url, props } = usePage();
     const { auth } = props;
+    const isNextOfKin = auth?.user?.type === 'NEXT_OF_KIN';
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
     useEffect(() => {
@@ -55,12 +56,12 @@ export default function OfwLayout({ children, title }) {
                             >
                                 My Requests
                             </Link>
-                            <Link
+                            {!isNextOfKin && <Link
                                 href={safeRoute('ofw.intake', undefined, '/my-cases/intake')}
                                 className="inline-flex items-center justify-center gap-2 rounded-none bg-primary px-6 py-2.5 text-[14px] font-bold text-white transition-all hover:brightness-110 active:scale-95"
                             >
                                 Request Assistance
-                            </Link>
+                            </Link>}
                             <div className="flex items-center gap-4 border-l border-gray-200 pl-5">
                                 <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary">
                                     {auth?.user?.avatar_url ? (
@@ -176,12 +177,12 @@ export default function OfwLayout({ children, title }) {
                                     >
                                         Profile
                                     </Link>
-                                    <Link
+                                    {!isNextOfKin && <Link
                                         href={safeRoute('ofw.intake', undefined, '/my-cases/intake')}
                                         className="rounded-md border border-gray-200 px-4 py-3 text-left text-sm font-medium text-slate-600 transition hover:bg-slate-50 hover:text-primary"
                                     >
                                         Request Assistance
-                                    </Link>
+                                    </Link>}
                                     <button
                                         type="button"
                                         onClick={() => {

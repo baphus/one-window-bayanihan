@@ -110,6 +110,10 @@ class CaseController extends Controller
 
     public function create(Request $request)
     {
+        if ($request->user()->isOfw() && $request->user()->isNextOfKin()) {
+            return redirect()->route('dashboard')->with('error', 'Requests filed by next of kin must be submitted through DMW staff. Please visit the DMW Region VII office for assistance.');
+        }
+
         $client = null;
         if ($request->has('client_id')) {
             $client = Client::with(['addresses', 'employments', 'nextOfKin', 'caseFiles'])->find($request->client_id);
@@ -151,6 +155,10 @@ class CaseController extends Controller
     public function intake()
     {
         $user = auth()->user();
+
+        if ($user->isOfw() && $user->isNextOfKin()) {
+            return redirect()->route('dashboard')->with('error', 'Requests filed by next of kin must be submitted through DMW staff. Please visit the DMW Region VII office for assistance.');
+        }
 
         // Resolve linked client same way storeIntake does: OFW always files for
         // their own linked client. If no client yet, profile is empty so the

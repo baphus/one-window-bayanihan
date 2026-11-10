@@ -91,10 +91,18 @@ describe('Register', () => {
 
         expect(screen.getByText('Create your account')).toBeInTheDocument();
         expect(screen.getByText('Step 1 of 4')).toBeInTheDocument();
-        expect(screen.getByText('I am an OFW')).toBeInTheDocument();
+        expect(screen.queryByText('I am an OFW')).not.toBeInTheDocument();
+        expect(screen.queryByText('Requesting assistance for a family member')).not.toBeInTheDocument();
         expect(screen.getByText('Email Address')).toBeInTheDocument();
         // Branding panel is gone.
         expect(screen.queryByAltText('One Window Bayanihan Logo')).not.toBeInTheDocument();
+    });
+
+    it('forces OFW type even when legacy initial data contains NEXT_OF_KIN', () => {
+        render(<Register initial={{ profile: { type: 'NEXT_OF_KIN' } }} />);
+
+        expect(screen.queryByText(/family member/i)).not.toBeInTheDocument();
+        expect(screen.queryByText(/Who is this account for/i)).not.toBeInTheDocument();
     });
 
     it('keeps Continue disabled until account fields are filled', () => {
@@ -108,6 +116,22 @@ describe('Register', () => {
         fireEvent.change(screen.getByTestId('pw-Confirm Password'), { target: { value: 'Str0ng!Passphrase' } });
 
         expect(continueBtn).not.toBeDisabled();
+    });
+
+    it('shows malformed email feedback on blur and skips availability checks until corrected', async () => {
+        const { container } = render(<Register />);
+        const email = container.querySelector('input[type="email"]');
+
+        fireEvent.change(email, { target: { value: 'ofw.@gmail.com' } });
+        fireEvent.blur(email);
+        expect(screen.getByText('Enter a valid email address.')).toBeInTheDocument();
+        expect(email).toHaveAttribute('aria-invalid', 'true');
+        await new Promise((resolve) => setTimeout(resolve, 550));
+        expect(axios.get).not.toHaveBeenCalled();
+
+        fireEvent.change(email, { target: { value: 'valid@example.com' } });
+        expect(screen.queryByText('Enter a valid email address.')).not.toBeInTheDocument();
+        await waitFor(() => expect(axios.get).toHaveBeenCalled());
     });
 
     it('keeps Continue disabled for invalid email or mismatched passwords', () => {
