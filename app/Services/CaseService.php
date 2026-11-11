@@ -93,6 +93,7 @@ class CaseService
                 if ($filer->isOfw()) {
                     $attributes['intake_date'] = now(config('app.operating_timezone', 'Asia/Manila'))->toDateString();
                     $attributes['client_type'] = 'OFW';
+                    $attributes['email'] = $filer->email;
                     foreach (['nok_name', 'nok_relationship', 'nok_email', 'nok_contact_number', 'nok_vulnerability_indicator', 'staff_summary', 'missing_document_reasons'] as $field) {
                         unset($attributes[$field]);
                     }

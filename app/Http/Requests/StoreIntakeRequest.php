@@ -8,4 +8,10 @@ class StoreIntakeRequest extends StoreCaseRequest
     {
         return $this->user()?->isOfw() ?? false;
     }
+
+    protected function prepareForValidation(): void
+    {
+        parent::prepareForValidation();
+        $this->merge(['email' => $this->user()?->email]);
+    }
 }

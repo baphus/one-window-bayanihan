@@ -1,13 +1,17 @@
 <?php
 
-use App\Models\SystemSetting;
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
     public function up(): void
     {
-        SystemSetting::setValue('mfa_role_ofw_required', false);
+        // Migrations run without a cache service during deployment; avoid SystemSetting::setValue().
+        DB::table('system_settings')->where('key', 'mfa_role_ofw_required')->update([
+            'value' => 'false',
+            'updated_at' => now(),
+        ]);
     }
 
     public function down(): void
