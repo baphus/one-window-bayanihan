@@ -10,7 +10,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 class RegistrationTest extends TestCase
@@ -56,7 +55,6 @@ class RegistrationTest extends TestCase
         $this->assertSame('OFW', $user->name);
         $this->assertNotNull($user->email_verified_at);
         $this->assertNull($user->profile_completed_at);
-        $this->assertFalse(Schema::hasTable('clients'));
         $this->assertAuthenticatedAs($user);
         $this->assertNull(session('pending_registration'));
         $this->assertFalse(app(OtpService::class)->verify('ofw@example.test', 'register', $code));

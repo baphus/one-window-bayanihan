@@ -125,18 +125,16 @@ class NextOfKinFilingTest extends TestCase
     {
         $ofw = User::factory()->create(['role' => UserRole::OFW->value, 'email_verified_at' => now()]);
 
-        $payload = $this->basePayload([
-            'consent' => true,
-            'consent_method' => null,
-            'consent_evidence' => null,
-            'nok_name' => 'Maria Cruz',
-            'nok_relationship' => 'Spouse',
-            'nok_contact_number' => '+639180000001',
-            'nok_email' => 'nok@example.test',
-        ]);
-
         $this->actingAsWithMfa($ofw)
-            ->postJson(route('ofw.intake.store'), $payload)
+            ->postJson(route('ofw.intake.store'), $this->basePayload([
+                'consent' => true,
+                'consent_method' => null,
+                'consent_evidence' => null,
+                'nok_name' => 'Maria Cruz',
+                'nok_relationship' => 'Spouse',
+                'nok_contact_number' => '+639180000001',
+                'nok_email' => 'nok@example.test',
+            ]))
             ->assertStatus(422)
             ->assertJsonValidationErrors(['nok_name', 'nok_relationship', 'nok_contact_number', 'nok_email']);
     }

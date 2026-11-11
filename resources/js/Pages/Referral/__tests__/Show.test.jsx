@@ -38,7 +38,7 @@ vi.mock('@/Components/ui/StatusBadge', () => ({ default: ({ status }) => <span>{
 vi.mock('@/Components/ui/UserAvatar', () => ({ default: () => null, getAvatarColor: () => '' }));
 vi.mock('@/Components/PeerProfileModal', () => ({ default: () => null }));
 vi.mock('@/Components/AuditLogModal', () => ({ default: () => null }));
-vi.mock('@/Components/ui/ConfirmDialog', () => ({ default: () => null }));
+vi.mock('@/Components/ui/ConfirmDialog', () => ({ default: ({ open, title, message, confirmLabel, onConfirm, onCancel }) => open ? <div role="dialog" aria-label={title}><p>{message}</p><button type="button" onClick={onCancel}>Cancel</button><button type="button" onClick={onConfirm}>{confirmLabel}</button></div> : null }));
 vi.mock('@/lib/utils', () => ({ formatDisplayDateTime: () => 'Jan 1, 2026', formatDisplayDate: () => 'Jan 1, 2026' }));
 vi.mock('@/lib/relativeTime', () => ({ formatRelativeTime: () => 'today' }));
 vi.mock('@/lib/addressResolver', () => ({ formatResolvedAddress: () => 'N/A' }));
@@ -119,11 +119,22 @@ describe('Referral/Show client request permissions', () => {
     expect(icon.tagName).toBe('SPAN');
   });
 
-  it('shows the request-client creation control to the owning agency', () => {
-    renderReferral('AGENCY', { canCreate: true, canReply: true, canTransition: true, canRevokeAccess: true });
+  it('renders Request client modal in body portal and closes without changing its form', () => {
+    const { container } = renderReferral('AGENCY', { canCreate: true, canReply: true, canTransition: true, canRevokeAccess: true });
 
-    expect(screen.getByRole('button', { name: /Request client/i })).toBeInTheDocument();
-    expect(screen.getByText('Client question')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Request client/i }));
+    const modal = screen.getByText('Ask the client for information or documents needed by the agency.').parentElement.parentElement;
+    const backdrop = modal.parentElement;
+    expect(backdrop.parentElement).toBe(document.body);
+    expect(container).not.toContainElement(backdrop);
+    expect(backdrop).toHaveClass('fixed', 'inset-0');
+    expect(backdrop).not.toHaveClass('mt-');
+    expect(screen.getByLabelText('Title *')).toBeInTheDocument();
+    expect(screen.getByText('Checklist', { exact: false })).toBeInTheDocument();
+    expect(screen.getByText('Add at least one requirement.')).toBeInTheDocument();
+
+    fireEvent.click(within(backdrop).getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByText('Ask the client for information or documents needed by the agency.')).not.toBeInTheDocument();
   });
 
   it('hides the client requests section from case managers', () => {
@@ -281,6 +292,25 @@ describe('Referral/Show client request permissions', () => {
     expect(screen.getAllByText('Valid ID').length).toBeGreaterThan(0);
     expect(screen.getByText('Payslip')).toBeInTheDocument();
     expect(screen.getAllByRole('checkbox')).toHaveLength(3);
+  });
+
+  it('confirms removing an assigned service before deleting it', () => {
+    routerSpy.delete.mockClear();
+    render(<ReferralShow referral={{ ...referral, services: [{ id: 'service-1', name: 'Financial Aid' }], service_requirements: [{ id: 'req-1', name: 'Valid ID', service_id: 'service-1' }] }} clientRequestHistory={[]} clientRequestPermissions={{ canCreate: true, canReply: true, canTransition: true, canRevokeAccess: true }} timeline={[]} />);
+
+    fireEvent.click(screen.getByTitle('Remove Financial Aid'));
+    expect(screen.getByRole('dialog', { name: 'Remove assigned service?' })).toHaveTextContent('Financial Aid');
+    expect(screen.getByRole('dialog')).toHaveTextContent('referral-specific requirement checklist');
+    expect(screen.getByRole('dialog')).toHaveTextContent('service catalog will not be changed');
+    expect(routerSpy.delete).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(routerSpy.delete).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByTitle('Remove Financial Aid'));
+    fireEvent.click(screen.getByRole('button', { name: 'Remove service' }));
+    expect(routerSpy.delete).toHaveBeenCalledTimes(1);
+    expect(routerSpy.delete).toHaveBeenCalledWith('/referrals.services.remove/referral-1/service-1', { preserveScroll: true, onSuccess: expect.any(Function) });
   });
 
   it('shows feedback instead of silently ignoring blank service requirement add and edit', () => {

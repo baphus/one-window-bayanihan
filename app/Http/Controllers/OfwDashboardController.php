@@ -81,6 +81,7 @@ class OfwDashboardController extends Controller
         return Inertia::render('OFW/Dashboard', [
             'cases' => $cases->through(fn (CaseFile $case) => $this->ownerCasePayload($case)),
             'caseStats' => $caseStats,
+            'mfaRecoveryCodes' => request()->session()->pull('mfaRecoveryCodes'),
         ]);
     }
 

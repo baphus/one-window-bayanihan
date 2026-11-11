@@ -126,12 +126,14 @@ class HandleInertiaRequests extends Middleware
             'request_id' => LogContext::getRequestId() ?: ($request->attributes->get('correlation_id') ?? $request->header('X-Request-ID')),
             'auth' => [
                 'user' => $request->user() ? [
-                    ...$request->user()->only([
-                        'id', 'name', 'email', 'role', 'agcy_id', 'avatar_url',
-                        'is_active', 'contact_number', 'position', 'department',
-                        'office_location', 'bio', 'emergency_contact', 'timezone',
-                        'profile_completed_at',
-                    ]),
+                    ...$request->user()->only($request->user()->isOfw()
+                        ? ['id', 'name', 'email', 'role', 'avatar_url', 'is_active', 'contact_number']
+                        : [
+                            'id', 'name', 'email', 'role', 'agcy_id', 'avatar_url',
+                            'is_active', 'contact_number', 'position', 'department',
+                            'office_location', 'bio', 'emergency_contact', 'timezone',
+                            'profile_completed_at',
+                        ]),
                     'agency' => $this->getCachedUserAgency($request),
                 ] : null,
             ],

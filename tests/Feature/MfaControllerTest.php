@@ -61,6 +61,24 @@ class MfaControllerTest extends TestCase
         $this->assertNotEmpty(session('mfa_authenticated.credential_fingerprint'));
     }
 
+    public function test_ofw_enrollment_redirects_and_exposes_recovery_codes_once_on_dashboard(): void
+    {
+        $user = User::factory()->create(['role' => UserRole::OFW->value]);
+        $this->actingAs($user);
+
+        $secret = $this->postJson(route('profile.mfa.generate'))->json('secret');
+        $otp = app('pragmarx.google2fa')->getCurrentOtp($secret);
+
+        $this->postJson(route('profile.mfa.verify'), ['otp' => $otp])
+            ->assertOk()
+            ->assertJsonPath('redirect_url', route('ofw.dashboard'))
+            ->assertJsonMissingPath('recovery_codes');
+
+        $this->get(route('ofw.dashboard'))->assertOk()->assertInertia(fn ($page) => $page->has('mfaRecoveryCodes', 8)
+        );
+        $this->get(route('ofw.dashboard'))->assertInertia(fn ($page) => $page->where('mfaRecoveryCodes', null));
+    }
+
     public function test_verify_invalid_otp_rejected(): void
     {
         $user = User::factory()->create();

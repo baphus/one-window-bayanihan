@@ -19,6 +19,7 @@ const Select = forwardRef(function Select({ children, value, defaultValue, onCha
     const nativeRef = useRef(null);
     const buttonRef = useRef(null);
     const panelRef = useRef(null);
+    const keyboardNavigationRef = useRef(false);
     const [open, setOpen] = useState(false);
     const [active, setActive] = useState(-1);
     const [position, setPosition] = useState({});
@@ -56,7 +57,14 @@ const Select = forwardRef(function Select({ children, value, defaultValue, onCha
     }, [open]);
 
     useEffect(() => {
-        if (open) panelRef.current?.querySelector(`[data-index="${active}"]`)?.scrollIntoView?.({ block: 'nearest' });
+        if (!open || active < 0 || !keyboardNavigationRef.current) return;
+        const panel = panelRef.current;
+        const option = panel?.querySelector(`[data-index="${active}"]`);
+        if (!panel || !option) return;
+        const panelRect = panel.getBoundingClientRect();
+        const optionRect = option.getBoundingClientRect();
+        if (optionRect.top < panelRect.top) panel.scrollTop -= panelRect.top - optionRect.top;
+        else if (optionRect.bottom > panelRect.bottom) panel.scrollTop += optionRect.bottom - panelRect.bottom;
     }, [open, active]);
 
     useEffect(() => {
@@ -85,6 +93,7 @@ const Select = forwardRef(function Select({ children, value, defaultValue, onCha
         if (event.defaultPrevented) return;
         const index = enabled.indexOf(active);
         if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
+            keyboardNavigationRef.current = true;
             event.preventDefault();
             setOpen(true);
             const currentIndex = index >= 0 ? index : enabled.find((item) => selected.includes(options[item].value)) ?? -1;
@@ -146,7 +155,7 @@ const Select = forwardRef(function Select({ children, value, defaultValue, onCha
                     {options.map((option, index) => (
                         <li key={`${option.value}-${index}`} role="presentation">
                             {option.group && options[index - 1]?.group !== option.group && <div className="px-3 py-1 text-[11px] font-semibold text-slate-500">{option.group}</div>}
-                            <div id={`${listId}-${index}`} data-index={index} role="option" aria-selected={selected.includes(option.value)} aria-disabled={option.disabled || undefined} onMouseDown={(event) => { event.preventDefault(); choose(index); }} onMouseEnter={() => !option.disabled && setActive(index)} className={`flex items-center gap-2 px-3 py-1.5 text-[12px] ${option.disabled ? 'cursor-not-allowed text-slate-400' : selected.includes(option.value) ? 'cursor-pointer bg-indigo-50 font-semibold text-indigo-700' : index === active ? 'cursor-pointer bg-slate-100 text-slate-800' : 'cursor-pointer text-slate-700 hover:bg-slate-50'}`}>
+                            <div id={`${listId}-${index}`} data-index={index} role="option" aria-selected={selected.includes(option.value)} aria-disabled={option.disabled || undefined} onMouseDown={(event) => { event.preventDefault(); choose(index); }} onMouseEnter={() => { keyboardNavigationRef.current = false; if (!option.disabled) setActive(index); }} className={`flex items-center gap-2 px-3 py-1.5 text-[12px] ${option.disabled ? 'cursor-not-allowed text-slate-400' : selected.includes(option.value) ? 'cursor-pointer bg-indigo-50 font-semibold text-indigo-700' : index === active ? 'cursor-pointer bg-slate-100 text-slate-800' : 'cursor-pointer text-slate-700 hover:bg-slate-50'}`}>
                                 {multiple && <span aria-hidden="true" className="material-symbols-outlined text-[16px]">{selected.includes(option.value) ? 'check_box' : 'check_box_outline_blank'}</span>}
                                 {option.label}
                             </div>

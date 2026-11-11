@@ -77,7 +77,7 @@ export default function Intake(props) {
 
             <PageHeader
                 title="Request Assistance"
-                subtitle="A DMW Region VII case manager will review your request. Enter your details fresh — nothing is copied from earlier requests or your account settings."
+                subtitle="A DMW Region VII case manager will review your request. Enter your details fresh ΓÇö nothing is copied from earlier requests or your account settings."
             />
 
             <CaseIntakeForm

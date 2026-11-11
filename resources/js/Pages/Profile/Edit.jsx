@@ -1,7 +1,9 @@
 import Select from '@/Components/Select';
 import { useRef, useState } from 'react';
 import { Head, router, useForm, usePage } from '@inertiajs/react';
+import { route } from 'ziggy-js';
 import AppLayout from '@/Layouts/AppLayout';
+import OfwLayout from '@/Layouts/OfwLayout';
 import DashboardBanner from '@/Components/DashboardBanner';
 import ChangeEmailForm from '@/Pages/Profile/Partials/ChangeEmailForm';
 import DeleteUserForm from '@/Pages/Profile/Partials/DeleteUserForm';
@@ -54,25 +56,28 @@ const TIMEZONES = [
 export default function Edit({ mustVerifyEmail, status, mfaEnabled, mfaRequired, defaultAgency, notificationPrefs }) {
     const user = usePage().props.auth.user;
     const { email_change_step, email_change_hint } = usePage().props;
+    const isOfw = user.role === 'OFW';
 
     const buildInitialData = () => ({
         name: user.name,
         email: user.email,
-        position: user.position || '',
-        department: user.department || '',
-        office_location: user.office_location || '',
-        bio: user.bio || '',
+        ...(isOfw ? {} : {
+            position: user.position || '',
+            department: user.department || '',
+            office_location: user.office_location || '',
+            bio: user.bio || '',
+            emergency_contact: {
+                name: user.emergency_contact?.name || '',
+                relation: user.emergency_contact?.relation || '',
+                phone: user.emergency_contact?.phone || '',
+            },
+            notifications_config: { ...notificationPrefs },
+        }),
         timezone: user.timezone || 'Asia/Manila',
         contact_number: user.contact_number || '',
-        emergency_contact: {
-            name: user.emergency_contact?.name || '',
-            relation: user.emergency_contact?.relation || '',
-            phone: user.emergency_contact?.phone || '',
-        },
-        notifications_config: { ...notificationPrefs },
     });
 
-    const { data, setData, patch, errors, processing, setError, clearErrors } = useForm(buildInitialData());
+    const { data, setData, patch, transform, errors, processing, setError, clearErrors } = useForm(buildInitialData());
 
     const toast = useToast();
     const [avatarPreview, setAvatarPreview] = useState(null);
@@ -89,6 +94,7 @@ export default function Edit({ mustVerifyEmail, status, mfaEnabled, mfaRequired,
 
     const roleLabel = ROLE_LABELS[user.role] || user.role;
     const agency = user?.agency ?? defaultAgency ?? null;
+    const Layout = user.role === 'OFW' ? OfwLayout : AppLayout;
 
     /* ---------- Avatar ---------- */
 
@@ -168,6 +174,9 @@ export default function Edit({ mustVerifyEmail, status, mfaEnabled, mfaRequired,
         clearErrors();
         if (!validate()) return;
 
+        transform(() => isOfw
+            ? { name: data.name, email: data.email, contact_number: data.contact_number, timezone: data.timezone }
+            : data);
         patch(route('profile.update'), {
             preserveScroll: true,
             preserveState: true,
@@ -186,7 +195,7 @@ export default function Edit({ mustVerifyEmail, status, mfaEnabled, mfaRequired,
     }
 
     return (
-        <AppLayout title="Profile">
+        <Layout title="Profile">
             <Head title="Profile" />
 
             <p className="text-[12px] text-slate-500">Home / My Profile</p>
@@ -209,8 +218,8 @@ export default function Edit({ mustVerifyEmail, status, mfaEnabled, mfaRequired,
                     <ProfileCard>
                         {/* Account */}
                         <ProfileSection
-                            title="Account"
-                            description="Your photo and the details colleagues see on your records."
+                            title={isOfw ? 'Account information' : 'Account'}
+                            description={isOfw ? 'Your photo and account details.' : 'Your photo and the details colleagues see on your records.'}
                         >
                             <ProfileHeader
                                 onAvatarSelect={handleAvatarSelect}
@@ -261,17 +270,19 @@ export default function Edit({ mustVerifyEmail, status, mfaEnabled, mfaRequired,
                             ) : null}
 
                             <div className="mt-4 grid grid-cols-2 gap-4 border-t border-slate-100 pt-4 sm:grid-cols-4">
-                                <ProfileStaticField label="Role" value={roleLabel} />
-                                <ProfileStaticField label="Email" value={user.email} />
-                                <ProfileStaticField label="Agency" value={agency?.name} />
-                                <ProfileStaticField label="Office" value={data.office_location} />
+                                {!isOfw ? <>
+                                    <ProfileStaticField label="Role" value={roleLabel} />
+                                    <ProfileStaticField label="Email" value={user.email} />
+                                    <ProfileStaticField label="Agency" value={agency?.name} />
+                                    <ProfileStaticField label="Office" value={data.office_location} />
+                                </> : <ProfileStaticField label="Email" value={user.email} />}
                             </div>
                         </ProfileSection>
 
                         {/* Personal information */}
                         <ProfileSection
                             title="Personal information"
-                            description="Your name and role details. Email changes use the Security section below."
+                            description={isOfw ? 'Your name and contact details.' : 'Your name and role details. Email changes use the Security section below.'}
                         >
                             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                 <ProfileTextInput
@@ -283,30 +294,30 @@ export default function Edit({ mustVerifyEmail, status, mfaEnabled, mfaRequired,
                                     autoComplete="name"
                                     placeholder="e.g. Juan Dela Cruz"
                                 />
-                                <ProfileTextInput
+                                {!isOfw && <ProfileTextInput
                                     id="position"
                                     label="Occupation / Title"
                                     value={data.position}
                                     onChange={(v) => setData('position', v)}
                                     error={errors.position}
                                     placeholder="e.g. Case Management Officer"
-                                />
-                                <ProfileTextInput
+                                />}
+                                {!isOfw && <ProfileTextInput
                                     id="department"
                                     label="Department"
                                     value={data.department}
                                     onChange={(v) => setData('department', v)}
                                     error={errors.department}
                                     placeholder="e.g. Migrant Services"
-                                />
-                                <ProfileTextInput
+                                />}
+                                {!isOfw && <ProfileTextInput
                                     id="office_location"
                                     label="Office location"
                                     value={data.office_location}
                                     onChange={(v) => setData('office_location', v)}
                                     error={errors.office_location}
                                     placeholder="e.g. Cebu City"
-                                />
+                                />}
                                 <ProfileTextInput
                                     id="contact_number"
                                     label="Contact number"
@@ -329,7 +340,7 @@ export default function Edit({ mustVerifyEmail, status, mfaEnabled, mfaRequired,
                                         ))}
                                     </Select>
                                 </ProfileField>
-                                <div className="sm:col-span-2">
+                                {!isOfw && <div className="sm:col-span-2">
                                     <ProfileField label="Bio / About me" htmlFor="bio" error={errors.bio}>
                                         <textarea
                                             id="bio"
@@ -340,12 +351,12 @@ export default function Edit({ mustVerifyEmail, status, mfaEnabled, mfaRequired,
                                             placeholder="A brief description of your role and professional background."
                                         />
                                     </ProfileField>
-                                </div>
+                                </div>}
                             </div>
                         </ProfileSection>
 
                         {/* Emergency contact */}
-                        <ProfileSection
+                        {!isOfw && <ProfileSection
                             title="Emergency contact"
                             description="Who we should reach if something happens during duty."
                         >
@@ -376,10 +387,10 @@ export default function Edit({ mustVerifyEmail, status, mfaEnabled, mfaRequired,
                                     placeholder="e.g. +63 912 345 6789"
                                 />
                             </div>
-                        </ProfileSection>
+                        </ProfileSection>}
 
                         {/* Notification preferences */}
-                        <ProfileSection
+                        {!isOfw && <ProfileSection
                             title="Notifications"
                             description="Choose which updates reach you by email and in the app."
                         >
@@ -409,7 +420,7 @@ export default function Edit({ mustVerifyEmail, status, mfaEnabled, mfaRequired,
                                     description="Show notification badges and alerts within the application."
                                 />
                             </div>
-                        </ProfileSection>
+                        </ProfileSection>}
 
                         {/* The single Save / Discard bar for this card */}
                         <ProfileSaveBar
@@ -466,6 +477,6 @@ export default function Edit({ mustVerifyEmail, status, mfaEnabled, mfaRequired,
                 onCropComplete={handleCropComplete}
                 onCancel={handleCancelCrop}
             />
-        </AppLayout>
+        </Layout>
     );
 }

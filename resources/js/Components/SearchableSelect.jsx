@@ -58,6 +58,7 @@ export default function SearchableSelect({ value, onChange, options = [], placeh
     const wrapperRef = useRef(null);
     const inputRef = useRef(null);
     const listRef = useRef(null);
+    const keyboardNavigationRef = useRef(false);
     const listboxId = useId();
 
     const selectedOption = options.find((o) => o.value === value);
@@ -89,10 +90,14 @@ export default function SearchableSelect({ value, onChange, options = [], placeh
     }, []);
 
     useEffect(() => {
-        if (open && highlightedIndex >= 0 && listRef.current) {
-            const el = listRef.current.children[highlightedIndex];
-            if (el) el.scrollIntoView({ block: 'nearest' });
-        }
+        if (!open || highlightedIndex < 0 || !keyboardNavigationRef.current) return;
+        const list = listRef.current;
+        const option = list?.children[highlightedIndex];
+        if (!list || !option) return;
+        const listRect = list.getBoundingClientRect();
+        const optionRect = option.getBoundingClientRect();
+        if (optionRect.top < listRect.top) list.scrollTop -= listRect.top - optionRect.top;
+        else if (optionRect.bottom > listRect.bottom) list.scrollTop += optionRect.bottom - listRect.bottom;
     }, [highlightedIndex, open]);
 
     function handleSelect(optionValue) {
@@ -111,6 +116,7 @@ export default function SearchableSelect({ value, onChange, options = [], placeh
     }
 
     function handleInputChange(e) {
+        keyboardNavigationRef.current = false;
         setQuery(e.target.value);
         setHighlightedIndex(0);
         if (!open) setOpen(true);
@@ -119,6 +125,7 @@ export default function SearchableSelect({ value, onChange, options = [], placeh
     function handleKeyDown(e) {
         if (!open) {
             if (e.key === 'ArrowDown' || e.key === 'Enter') {
+                keyboardNavigationRef.current = true;
                 e.preventDefault();
                 setOpen(true);
                 setHighlightedIndex(0);
@@ -129,10 +136,12 @@ export default function SearchableSelect({ value, onChange, options = [], placeh
         switch (e.key) {
             case 'ArrowDown':
                 e.preventDefault();
+                keyboardNavigationRef.current = true;
                 setHighlightedIndex((i) => Math.min(i + 1, totalItems - 1));
                 break;
             case 'ArrowUp':
                 e.preventDefault();
+                keyboardNavigationRef.current = true;
                 setHighlightedIndex((i) => Math.max(i - 1, 0));
                 break;
             case 'Enter':
@@ -201,7 +210,7 @@ export default function SearchableSelect({ value, onChange, options = [], placeh
                                 role="option"
                                 aria-selected={option.value === value}
                                 onMouseDown={(e) => { e.preventDefault(); handleSelect(option.value); }}
-                                onMouseEnter={() => setHighlightedIndex(idx)}
+                                onMouseEnter={() => { keyboardNavigationRef.current = false; setHighlightedIndex(idx); }}
                                 className={`px-3 py-1.5 text-[12px] cursor-pointer transition-colors ${
                                     option.value === value
                                         ? 'bg-indigo-50 text-indigo-700 font-semibold'

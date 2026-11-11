@@ -17,7 +17,7 @@ class StoreCaseRequest extends FormRequest
     {
         $user = $this->user();
 
-        return $user && ($user->isAdmin() || $user->isCaseManager() || $user->isOfw());
+        return $user !== null && ($user->isAdmin() || $user->isCaseManager() || ($user->isOfw() && ! $user->isNextOfKin()));
     }
 
     protected function prepareForValidation(): void

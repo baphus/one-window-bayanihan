@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -40,6 +41,69 @@ class ProfileTest extends TestCase
 
         $this->assertSame('Test User', $user->name);
         $this->assertNotNull($user->email_verified_at);
+    }
+
+    public function test_ofw_can_update_contact_but_staff_and_identity_fields_are_rejected(): void
+    {
+        $user = User::factory()->create([
+            'role' => UserRole::OFW->value,
+            'position' => 'Existing staff title',
+            'department' => 'Existing department',
+            'office_location' => 'Existing office',
+            'bio' => 'Existing bio',
+            'emergency_contact' => ['name' => 'Existing contact', 'relation' => 'Sibling', 'phone' => '09170000000'],
+            'notifications_config' => ['email_on_case_assigned' => true],
+        ]);
+
+        $this->actingAsWithMfa($user)->patch('/profile', [
+            'name' => 'Updated OFW Name',
+            'email' => $user->email,
+            'timezone' => 'Asia/Manila',
+            'position' => 'Attacker title',
+            'department' => 'Attacker department',
+            'office_location' => 'Attacker office',
+            'bio' => 'Attacker bio',
+            'emergency_contact' => ['name' => 'Attacker', 'relation' => 'Other', 'phone' => '09999999999'],
+            'notifications_config' => ['email_on_case_assigned' => false],
+        ])->assertSessionHasErrors(['name', 'email', 'timezone', 'position', 'department', 'office_location', 'bio', 'emergency_contact', 'notifications_config']);
+
+        $this->actingAsWithMfa($user)->patch('/profile', ['contact_number' => '09181112222'])
+            ->assertRedirect(route('ofw.profile.edit'));
+
+        $user->refresh();
+        $this->assertNotSame('Updated OFW Name', $user->name);
+        $this->assertSame('09181112222', $user->contact_number);
+        $this->assertSame('Asia/Manila', $user->timezone);
+        $this->assertSame('Existing staff title', $user->position);
+        $this->assertSame('Existing department', $user->department);
+        $this->assertSame('Existing office', $user->office_location);
+        $this->assertSame('Existing bio', $user->bio);
+        $this->assertSame(['name' => 'Existing contact', 'relation' => 'Sibling', 'phone' => '09170000000'], $user->emergency_contact);
+        $this->assertSame(['email_on_case_assigned' => true], $user->notifications_config);
+    }
+
+    public function test_staff_can_update_staff_profile_fields(): void
+    {
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+
+        $this->actingAsWithMfa($user)->patch('/profile', [
+            'name' => 'Staff User',
+            'email' => $user->email,
+            'position' => 'Case Manager',
+            'department' => 'Operations',
+            'office_location' => 'Cebu',
+            'bio' => 'Staff bio',
+            'emergency_contact' => ['name' => 'Contact', 'relation' => 'Sibling', 'phone' => '09170000000'],
+            'notifications_config' => ['email_on_case_assigned' => false],
+        ])->assertSessionHasNoErrors()->assertRedirect('/profile');
+
+        $user->refresh();
+        $this->assertSame('Case Manager', $user->position);
+        $this->assertSame('Operations', $user->department);
+        $this->assertSame('Cebu', $user->office_location);
+        $this->assertSame('Staff bio', $user->bio);
+        $this->assertSame(['name' => 'Contact', 'relation' => 'Sibling', 'phone' => '09170000000'], $user->emergency_contact);
+        $this->assertSame(['email_on_case_assigned' => false], $user->notifications_config);
     }
 
     public function test_email_verification_status_is_unchanged_when_the_email_address_is_unchanged(): void

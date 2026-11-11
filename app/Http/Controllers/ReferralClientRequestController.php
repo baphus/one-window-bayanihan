@@ -281,7 +281,7 @@ class ReferralClientRequestController extends Controller
         $this->requestService->assertCanManage($clientRequest, $request->user());
         $delivery = $this->issueForClient($clientRequest, $request->user(), true);
 
-        return $this->flashDelivery(redirect()->back(), $delivery);
+        return $this->flashDelivery(redirect()->route('referrals.show', $clientRequest->referral_id), $delivery);
     }
 
     public function revoke(Request $request, ReferralClientAccessLink $accessLink): RedirectResponse

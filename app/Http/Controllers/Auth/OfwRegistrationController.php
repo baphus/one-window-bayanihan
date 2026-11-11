@@ -85,7 +85,6 @@ class OfwRegistrationController extends Controller
         }
 
         $validated = $request->validate(['otp' => 'required|string|size:6'] + $this->removedProfileRules());
-        // Reject pre-cutover pending sessions instead of retaining captured PII.
         if (array_diff(array_keys($pending), ['credentials']) || array_diff(array_keys($credentials), ['email', 'password'])) {
             $request->session()->forget('pending_registration');
 
@@ -103,7 +102,6 @@ class OfwRegistrationController extends Controller
         try {
             $user = DB::transaction(function () use ($credentials, $email) {
                 $user = User::create([
-                    // Account label, not the identity recorded on any case.
                     'name' => UserRole::OFW->value,
                     'email' => $email,
                     'password' => $credentials['password'],

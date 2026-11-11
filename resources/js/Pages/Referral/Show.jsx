@@ -2,6 +2,7 @@ import Select from '@/Components/Select';
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import PrimaryButton from '@/Components/PrimaryButton';
 import TextInput from '@/Components/TextInput';
 import InputLabel from '@/Components/InputLabel';
@@ -561,8 +562,8 @@ function ClientRequestsSection({ referral, requests, permissions, isReceivingAge
                 ) : <div className="flex flex-col items-center justify-center rounded-md border border-dashed border-slate-200 py-7 text-center"><span className="material-symbols-outlined text-[24px] text-slate-300">inbox</span><p className="mt-2 text-[11px] font-semibold text-slate-500">No client requests yet</p><p className="mt-1 text-[10px] text-slate-400">Requests created here will appear in this history.</p></div>}
             </CardSection>
 
-            {showCreate && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4" onClick={() => setShowCreate(false)}>
+            {showCreate && createPortal(
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/40 p-4" onClick={() => setShowCreate(false)}>
                     <div className="w-full max-w-lg rounded-lg border border-slate-200 bg-white shadow-lg owb-modal-animate" onClick={(event) => event.stopPropagation()}>
                         <div className="border-b border-slate-200 px-5 py-4"><h3 className="text-[16px] font-extrabold text-slate-900">Request client</h3><p className="mt-1 text-[12px] text-slate-500">Ask the client for information or documents needed by the agency.</p></div>
                         <form onSubmit={submitCreate}>
@@ -571,12 +572,13 @@ function ClientRequestsSection({ referral, requests, permissions, isReceivingAge
                                 <div><label htmlFor="client_request_title" className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-600">Title *</label><input id="client_request_title" value={createForm.data.title} onChange={(event) => createForm.setData('title', event.target.value)} className="h-10 w-full px-3 text-sm" /><InputError message={createForm.errors.title} className="mt-1" /></div>
                                 <div><label htmlFor="client_request_instructions" className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-600">Instructions *</label><textarea id="client_request_instructions" rows={3} value={createForm.data.instructions} onChange={(event) => createForm.setData('instructions', event.target.value)} className="w-full resize-none rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-700 focus:ring-1 focus:ring-blue-700" /><InputError message={createForm.errors.instructions} className="mt-1" /></div>
                                 <div><label htmlFor="client_request_due_at" className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-600">Due date <span className="font-normal normal-case text-slate-400">(optional)</span></label><input id="client_request_due_at" type="date" value={createForm.data.due_at} onChange={(event) => createForm.setData('due_at', event.target.value)} className="h-10 rounded border border-slate-300 px-3 text-sm text-slate-700 outline-none focus:border-blue-700 focus:ring-1 focus:ring-blue-700" /><InputError message={createForm.errors.due_at} className="mt-1" /></div>
-                                {createForm.data.type === 'DOCUMENT_REQUEST' && <div>{referralRequirements.length > 0 && <div className="mb-3 rounded border border-indigo-100 bg-indigo-50/40 p-2.5"><p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-indigo-700">Referral requirements</p><div className="space-y-1.5">{referralRequirements.map((item) => <label key={item.id} className="flex items-start gap-2 text-[11px] text-slate-700"><input type="checkbox" checked={selectedRequirements.some((selected) => selected.id === item.id)} onChange={(event) => setSelectedRequirements((current) => event.target.checked ? [...current, item] : current.filter((selected) => selected.id !== item.id))} /><span>{item.name}</span></label>)}</div></div>}<div><div className="mb-1.5 flex items-center justify-between"><label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600">Checklist</label><button type="button" onClick={() => createForm.setData('checklist', [...createForm.data.checklist, ''])} className="text-[10px] font-bold text-blue-900 hover:underline">+ Add item</button></div><div className="space-y-2">{createForm.data.checklist.map((item, index) => <div key={index} className="flex gap-2"><input aria-label={`Checklist item ${index + 1}`} value={item} onChange={(event) => { const next = [...createForm.data.checklist]; next[index] = event.target.value; createForm.setData('checklist', next); }} className="h-9 min-w-0 flex-1 rounded border border-slate-300 px-3 text-[12px] text-slate-700" placeholder="Document or item needed" />{createForm.data.checklist.length > 1 && <button type="button" onClick={() => createForm.setData('checklist', createForm.data.checklist.filter((_, itemIndex) => itemIndex !== index))} className="text-[18px] text-slate-400">×</button>}</div>)}<InputError message={Object.entries(createForm.errors).filter(([key]) => key.startsWith('checklist.')).map(([, message]) => message).join(' ')} className="mt-1" /></div></div></div>}
+                                {createForm.data.type === 'DOCUMENT_REQUEST' && <div>{referralRequirements.length > 0 && <div className="mb-3 rounded border border-indigo-100 bg-indigo-50/40 p-2.5"><p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-indigo-700">Referral requirements</p><div className="space-y-1.5">{referralRequirements.map((item) => <label key={item.id} className="flex items-start gap-2 text-[11px] text-slate-700"><input type="checkbox" checked={selectedRequirements.some((selected) => selected.id === item.id)} onChange={(event) => setSelectedRequirements((current) => event.target.checked ? [...current, item] : current.filter((selected) => selected.id !== item.id))} /><span>{item.name}</span></label>)}</div></div>}<div><div className="mb-1.5 flex items-center justify-between"><label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600">Checklist <span className="text-red-600">*</span></label><button type="button" onClick={() => createForm.setData('checklist', [...createForm.data.checklist, ''])} className="text-[10px] font-bold text-blue-900 hover:underline">+ Add item</button></div><p className="mb-1 text-[10px] text-slate-500">Add at least one requirement.</p><div className="space-y-2">{createForm.data.checklist.map((item, index) => <div key={index} className="flex gap-2"><input aria-label={`Checklist item ${index + 1}`} value={item} onChange={(event) => { const next = [...createForm.data.checklist]; next[index] = event.target.value; createForm.setData('checklist', next); }} className="h-9 min-w-0 flex-1 rounded border border-slate-300 px-3 text-[12px] text-slate-700" placeholder="Document or item needed" />{createForm.data.checklist.length > 1 && <button type="button" onClick={() => createForm.setData('checklist', createForm.data.checklist.filter((_, itemIndex) => itemIndex !== index))} className="text-[18px] text-slate-400">×</button>}</div>)}<InputError message={Object.entries(createForm.errors).filter(([key]) => key.startsWith('checklist.')).map(([, message]) => message).join(' ')} className="mt-1" /></div></div></div>}
                             </div>
                             <div className="flex justify-end gap-2 border-t border-slate-200 px-5 py-3"><button type="button" onClick={() => setShowCreate(false)} className="h-9 rounded border border-slate-300 bg-white px-4 text-xs font-bold text-slate-700 hover:bg-slate-50">Cancel</button><button type="submit" disabled={createForm.processing || !createForm.data.title.trim() || !createForm.data.instructions.trim()} className="h-9 rounded bg-blue-900 px-4 text-xs font-bold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50">{createForm.processing ? 'Creating…' : 'Create request'}</button></div>
                         </form>
                     </div>
-                </div>
+                </div>,
+                document.body,
             )}
         </>
     );
@@ -584,6 +586,7 @@ function ClientRequestsSection({ referral, requests, permissions, isReceivingAge
 
 function ServiceCard({ service, referral, isAgency, serviceRequirements }) {
     const [isExpanded, setIsExpanded] = useState(false);
+    const [removeConfirmationOpen, setRemoveConfirmationOpen] = useState(false);
     const [isAdding, setIsAdding] = useState(false);
     const [newRequirementName, setNewRequirementName] = useState('');
     const [editingId, setEditingId] = useState(null);
@@ -645,13 +648,7 @@ function ServiceCard({ service, referral, isAgency, serviceRequirements }) {
                 {canModify && (
                     <button
                         type="button"
-                        onClick={() => {
-                            if (confirm(`Remove "${service.name}" from this referral?`)) {
-                                router.delete(route('referrals.services.remove', [referral.id, service.id]), {
-                                    preserveScroll: true,
-                                });
-                            }
-                        }}
+                        onClick={() => setRemoveConfirmationOpen(true)}
                         className="flex h-5 w-5 items-center justify-center rounded-full text-slate-400 hover:bg-red-100 hover:text-red-600 transition-colors"
                         title={`Remove ${service.name}`}
                     >
@@ -659,6 +656,21 @@ function ServiceCard({ service, referral, isAgency, serviceRequirements }) {
                     </button>
                 )}
             </div>
+
+            <ConfirmDialog
+                open={removeConfirmationOpen}
+                title="Remove assigned service?"
+                message={`Remove ${service.name} and its referral-specific requirement checklist from this referral? The service catalog will not be changed.`}
+                confirmLabel="Remove service"
+                tone="danger"
+                onCancel={() => setRemoveConfirmationOpen(false)}
+                onConfirm={() => {
+                    router.delete(route('referrals.services.remove', [referral.id, service.id]), {
+                        preserveScroll: true,
+                        onSuccess: () => setRemoveConfirmationOpen(false),
+                    });
+                }}
+            />
 
             {isExpanded && (
                 <div className="border-t border-slate-200 px-3 py-2">
