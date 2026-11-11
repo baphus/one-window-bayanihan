@@ -11,9 +11,12 @@ use App\Models\CaseStatus;
 use App\Models\Referral;
 use App\Models\ReferralClientRequest;
 use App\Models\User;
+use App\Services\ReferenceDataService;
 use App\Services\Reports\CaseMetrics;
 use App\Services\ReportsService;
+use Database\Seeders\CaseStatusSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -179,7 +182,9 @@ class ReportsMetricsTest extends TestCase
     #[Test]
     public function reference_data_returns_active_ordered_statuses(): void
     {
-        // case_statuses is seeded by migration with the canonical referral statuses.
+        // Schema dumps omit reference rows; seed canonical statuses for this isolated test.
+        $this->seed(CaseStatusSeeder::class);
+        Cache::forget(ReferenceDataService::KEY_REFERRAL_STATUSES);
         $ref = $this->service->getReferenceData();
 
         $this->assertArrayHasKey('referralStatuses', $ref);

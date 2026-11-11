@@ -46,7 +46,7 @@ class MultiCasePerClientTest extends TestCase
     public function test_account_settings_do_not_propagate_into_historical_cases(): void
     {
         Storage::fake('object-storage');
-        $owner = User::factory()->create(['role' => UserRole::OFW->value]);
+        $owner = User::factory()->create(['role' => UserRole::OFW->value, 'email' => 'juan@example.test']);
         $case = $this->fileCase($owner);
         $owner->update(['name' => 'Changed account name', 'email' => 'changed@example.test']);
         $this->assertSame('Juan', $case->fresh()->first_name);

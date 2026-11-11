@@ -8,6 +8,8 @@ use App\Http\Middleware\SetPostgresSession;
 use App\Models\CaseFile;
 use App\Models\User;
 use App\Services\CaseService;
+use App\Services\ReferenceDataService;
+use Database\Seeders\CaseStatusSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Testing\TestResponse;
@@ -104,6 +106,8 @@ class CaseIndexContractTest extends TestCase
     public function test_client_type_filter_round_trips_in_the_echoed_filters(): void
     {
         ['admin' => $admin] = $this->seedCases();
+        $this->seed(CaseStatusSeeder::class);
+        Cache::forget(ReferenceDataService::KEY_CASE_STATUSES);
 
         // The chip, the select and the export dialog all read the echoed prop,
         // so a filter that is applied but not echoed silently resets on reload.
