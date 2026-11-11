@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { Head, Link, useForm } from '@inertiajs/react';
 import OfwLayout from '@/Layouts/OfwLayout';
 import CaseIntakeForm, { buildIntakePayload, emptyIntakeData } from '@/Components/CaseIntakeForm';
+import { emptyIdentity } from '@/Components/IdentityFields';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import { PageHeader } from '@/Components/Dashboard/primitives';
 import { useToast } from '@/Hooks/useToast';
@@ -27,7 +28,10 @@ export default function Intake(props) {
         auth,
     } = props;
 
-    const form = useForm(emptyIntakeData({ intakeDate: TODAY, consentTextVersion, email: auth?.user?.email || '' }));
+    const form = useForm({
+        ...emptyIntakeData({ intakeDate: TODAY, consentTextVersion, email: auth?.user?.email || '' }),
+        ...emptyIdentity(auth?.user),
+    });
     const { UnsavedModal, bypassNext } = useUnsavedChanges(form.isDirty);
     const toast = useToast();
     const options = useMemo(() => ({
@@ -77,7 +81,7 @@ export default function Intake(props) {
 
             <PageHeader
                 title="Request Assistance"
-                subtitle="A DMW Region VII case manager will review your request. Enter your details fresh; nothing is copied from earlier requests or your account settings."
+                subtitle="A DMW Region VII case manager will review your request. Your account details are prefilled — change anything that differs for this request."
             />
 
             <CaseIntakeForm

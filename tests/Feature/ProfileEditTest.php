@@ -43,7 +43,8 @@ class ProfileEditTest extends TestCase
 
         $this->actingAsWithMfa($user)
             ->patch(route('profile.update'), [
-                'name' => 'Updated Name',
+                'first_name' => 'Updated',
+                'last_name' => 'Name',
                 'email' => $user->email,
                 'position' => 'Senior Case Worker',
                 'department' => 'Field Operations',
@@ -89,10 +90,11 @@ class ProfileEditTest extends TestCase
 
         $this->actingAsWithMfa($user)
             ->patch(route('profile.update'), [
-                'name' => '',
+                'first_name' => '',
+                'last_name' => '',
                 'email' => 'not-an-email',
             ])
-            ->assertSessionHasErrors(['name', 'email']);
+            ->assertSessionHasErrors(['first_name', 'last_name', 'email']);
     }
 
     public function test_guest_cannot_access_profile(): void

@@ -29,7 +29,8 @@ class ProfileTest extends TestCase
         $response = $this
             ->actingAsWithMfa($user)
             ->patch('/profile', [
-                'name' => 'Test User',
+                'first_name' => 'Test',
+                'last_name' => 'User',
                 'email' => $user->email,
             ]);
 
@@ -65,7 +66,7 @@ class ProfileTest extends TestCase
             'bio' => 'Attacker bio',
             'emergency_contact' => ['name' => 'Attacker', 'relation' => 'Other', 'phone' => '09999999999'],
             'notifications_config' => ['email_on_case_assigned' => false],
-        ])->assertSessionHasErrors(['name', 'email', 'timezone', 'position', 'department', 'office_location', 'bio', 'emergency_contact', 'notifications_config']);
+        ])->assertSessionHasErrors(['email', 'timezone', 'position', 'department', 'office_location', 'bio', 'emergency_contact', 'notifications_config']);
 
         $this->actingAsWithMfa($user)->patch('/profile', ['contact_number' => '09181112222'])
             ->assertRedirect(route('ofw.profile.edit'));
@@ -113,7 +114,8 @@ class ProfileTest extends TestCase
         $response = $this
             ->actingAsWithMfa($user)
             ->patch('/profile', [
-                'name' => 'Test User',
+                'first_name' => 'Test',
+                'last_name' => 'User',
                 'email' => $user->email,
             ]);
 

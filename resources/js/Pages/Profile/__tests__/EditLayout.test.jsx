@@ -66,7 +66,7 @@ describe('Profile layout selection', () => {
         for (const heading of ['Emergency contact', 'Notifications']) {
             expect(screen.queryByRole('heading', { name: heading })).not.toBeInTheDocument();
         }
-        expect(screen.getByLabelText('Full name')).toBeInTheDocument();
+        expect(screen.getByLabelText(/first name/i)).toBeInTheDocument();
         expect(screen.getByLabelText('Contact number')).toBeInTheDocument();
     });
 
@@ -87,7 +87,17 @@ describe('Profile layout selection', () => {
         fireEvent.submit(screen.getByRole('button', { name: 'Save profile' }).closest('form'));
         expect(form.transform).toHaveBeenCalledOnce();
         const payload = transformCallback.current();
-        expect(payload).toEqual({ name: 'Updated User', email: 'test@example.com', contact_number: '', timezone: 'Asia/Manila' });
+        expect(payload).toEqual({
+            email: 'test@example.com',
+            contact_number: '',
+            timezone: 'Asia/Manila',
+            first_name: '',
+            middle_name: '',
+            last_name: '',
+            suffix: '',
+            date_of_birth: '',
+            sex: '',
+        });
         expect(payload).not.toHaveProperty('position');
         expect(payload).not.toHaveProperty('department');
         expect(payload).not.toHaveProperty('office_location');

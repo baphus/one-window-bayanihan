@@ -121,12 +121,14 @@ class HandleInertiaRequests extends Middleware
 
     public function share(Request $request): array
     {
+        $user = $request->user();
+
         return [
             ...parent::share($request),
             'request_id' => LogContext::getRequestId() ?: ($request->attributes->get('correlation_id') ?? $request->header('X-Request-ID')),
             'auth' => [
-                'user' => $request->user() ? [
-                    ...$request->user()->only($request->user()->isOfw()
+                'user' => $user ? [
+                    ...$user->only($user->isOfw()
                         ? ['id', 'name', 'email', 'role', 'avatar_url', 'is_active', 'contact_number']
                         : [
                             'id', 'name', 'email', 'role', 'agcy_id', 'avatar_url',
@@ -134,6 +136,12 @@ class HandleInertiaRequests extends Middleware
                             'office_location', 'bio', 'emergency_contact', 'timezone',
                             'profile_completed_at',
                         ]),
+                    'first_name' => $user->first_name,
+                    'middle_name' => $user->middle_name,
+                    'last_name' => $user->last_name,
+                    'suffix' => $user->suffix,
+                    'date_of_birth' => $user->date_of_birth?->toDateString(),
+                    'sex' => $user->sex,
                     'agency' => $this->getCachedUserAgency($request),
                 ] : null,
             ],

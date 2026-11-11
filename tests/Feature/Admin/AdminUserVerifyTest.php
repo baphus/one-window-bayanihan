@@ -142,7 +142,7 @@ class AdminUserVerifyTest extends TestCase
         $response = $this->actingAsWithMfa($this->admin)
             ->withSession(['verified_new_email_admin_'.$target->id => $newEmail])
             ->patch(route('admin.users.update', $target->id), [
-                'name' => $target->name,
+                'first_name' => $target->first_name, 'last_name' => $target->last_name,
                 'email' => $newEmail,
                 'role' => $target->role,
                 'is_active' => true,
@@ -163,7 +163,7 @@ class AdminUserVerifyTest extends TestCase
         $response = $this->actingAsWithMfa($this->admin)
             ->withSession(['verified_new_email_admin_'.$target->id => $verified])
             ->patch(route('admin.users.update', $target->id), [
-                'name' => $target->name,
+                'first_name' => $target->first_name, 'last_name' => $target->last_name,
                 'email' => $verified,
                 'role' => $target->role,
             ]);
@@ -184,7 +184,7 @@ class AdminUserVerifyTest extends TestCase
 
         $response = $this->actingAsWithMfa($this->admin)
             ->patch(route('admin.users.update', $target->id), [
-                'name' => $target->name,
+                'first_name' => $target->first_name, 'last_name' => $target->last_name,
                 'email' => $newEmail,
                 'role' => $target->role,
                 'is_active' => true,
@@ -203,7 +203,7 @@ class AdminUserVerifyTest extends TestCase
         $response = $this->actingAsWithMfa($this->admin)
             ->withSession(['verified_new_email_admin_'.$target->id => 'somebody-else@example.com'])
             ->patch(route('admin.users.update', $target->id), [
-                'name' => $target->name,
+                'first_name' => $target->first_name, 'last_name' => $target->last_name,
                 'email' => $newEmail,
                 'role' => $target->role,
             ]);

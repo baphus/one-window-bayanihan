@@ -39,7 +39,7 @@ class AdminUserCredentialGuardTest extends TestCase
     private function payload(User $target, array $overrides = []): array
     {
         return array_merge([
-            'name' => $target->name,
+            'first_name' => $target->first_name, 'last_name' => $target->last_name,
             'email' => $target->email,
             'role' => $target->role,
         ], $overrides);
@@ -105,7 +105,8 @@ class AdminUserCredentialGuardTest extends TestCase
 
         $response = $this->actingAsWithMfa($this->admin)
             ->patch(route('admin.users.update', $target->id), $this->payload($target, [
-                'name' => 'Renamed Without Otp',
+                'first_name' => 'Renamed',
+                'last_name' => 'Without Otp',
                 'position' => 'Focal Person',
             ]));
 
@@ -214,7 +215,8 @@ class AdminUserCredentialGuardTest extends TestCase
         for ($i = 0; $i < 12; $i++) {
             $this->actingAsWithMfa($this->admin)
                 ->patch(route('admin.users.update', $target->id), $this->payload($target, [
-                    'name' => 'Renamed '.$i,
+                    'first_name' => 'Renamed',
+                    'last_name' => (string) $i,
                 ]))
                 ->assertRedirect(route('admin.users.index'));
         }

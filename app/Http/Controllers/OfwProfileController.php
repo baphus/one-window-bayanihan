@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\AvatarUploadRequest;
+use App\Http\Requests\Concerns\ValidatesUserIdentity;
 use App\Services\CloudinaryAvatarService;
 use App\Services\MfaPolicyService;
 use App\Services\OfwProfileService;
@@ -20,6 +21,8 @@ use Inertia\Inertia;
 
 class OfwProfileController extends Controller
 {
+    use ValidatesUserIdentity;
+
     public function __construct(private readonly OfwProfileService $profileService) {}
 
     public function edit(Request $request)
@@ -27,7 +30,19 @@ class OfwProfileController extends Controller
         $user = $request->user();
 
         return Inertia::render('OFW/Profile', [
-            'user' => $user->only(['id', 'name', 'email', 'contact_number', 'avatar_url']),
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'contact_number' => $user->contact_number,
+                'avatar_url' => $user->avatar_url,
+                'first_name' => $user->first_name,
+                'middle_name' => $user->middle_name,
+                'last_name' => $user->last_name,
+                'suffix' => $user->suffix,
+                'date_of_birth' => $user->date_of_birth?->toDateString(),
+                'sex' => $user->sex,
+            ],
             'mfaEnabled' => $user->mfa_enabled_at !== null,
             'mfaRequired' => app(MfaPolicyService::class)->requiresEnrollment($user),
             'mustVerifyEmail' => $user instanceof MustVerifyEmail,
@@ -92,9 +107,10 @@ class OfwProfileController extends Controller
                 Rule::when(fn () => filled($request->input('password')), ['current_password']),
             ],
             'password' => ['nullable', 'confirmed', Password::defaults()],
+        ] + $this->identityRules(requireDemographics: true, partial: true) + [
             'contact_number' => ['sometimes', 'nullable', 'string', 'max:50'],
         ] + array_fill_keys([
-            'name', 'email', 'first_name', 'middle_name', 'last_name', 'date_of_birth', 'sex', 'suffix',
+            'name', 'email',
             'address', 'employment', 'next_of_kin', 'type', 'client_type', 'client_id', 'ofw_client_id',
             'nok_name', 'nok_relationship', 'nok_contact_number', 'nok_email', 'department', 'position',
             'office_location', 'bio', 'emergency_contact', 'notifications_config', 'timezone', 'avatar',

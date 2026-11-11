@@ -150,7 +150,7 @@ class MfaPolicyLifecycleTest extends TestCase
     public function override_requires_fresh_proof_and_reason_and_stays_across_role_changes(): void
     {
         $target = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-        $payload = ['name' => $target->name, 'email' => $target->email, 'role' => UserRole::CASE_MANAGER->value, 'mfa_requirement_override' => 'optional'];
+        $payload = ['first_name' => $target->first_name, 'last_name' => $target->last_name, 'email' => $target->email, 'role' => UserRole::CASE_MANAGER->value, 'mfa_requirement_override' => 'optional'];
 
         $this->withMfaMarker($this->admin);
         $this->actingAsWithMfa($this->admin)->patch(route('admin.users.update', $target->id), $payload)
@@ -164,7 +164,7 @@ class MfaPolicyLifecycleTest extends TestCase
 
         $this->withFreshConfirmation($this->admin);
         $this->patch(route('admin.users.update', $target->id), [
-            'name' => $target->name,
+            'first_name' => $target->first_name, 'last_name' => $target->last_name,
             'email' => $target->email,
             'role' => UserRole::AGENCY->value,
         ])->assertRedirect();

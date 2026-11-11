@@ -3,6 +3,7 @@ import OfwPortalLayout from '@/Layouts/OfwPortalLayout';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import ProfilePictureUpload from '@/Components/ProfilePictureUpload';
 import { ProfileCard, ProfileField, ProfileSaveBar, ProfileSection, ProfileStaticField, ProfileTextInput } from '@/Components/ui/ProfileCard';
+import IdentityFields, { emptyIdentity } from '@/Components/IdentityFields';
 import ChangeEmailForm from '@/Pages/Profile/Partials/ChangeEmailForm';
 import DeleteUserForm from '@/Pages/Profile/Partials/DeleteUserForm';
 import UpdatePasswordForm from '@/Pages/Profile/Partials/UpdatePasswordForm';
@@ -15,7 +16,7 @@ const TextInput = ProfileTextInput;
 
 export default function Profile({ user, mfaEnabled = false, mfaRequired = false, email_change_step, email_change_hint }) {
     const toast = useToast();
-    const form = useForm({ contact_number: user?.contact_number ?? '' });
+    const form = useForm({ ...emptyIdentity(user), contact_number: user?.contact_number ?? '' });
     const { UnsavedModal, bypassNext } = useUnsavedChanges(form.isDirty);
 
     function save(event) {
@@ -24,20 +25,22 @@ export default function Profile({ user, mfaEnabled = false, mfaRequired = false,
         bypassNext();
         form.put(safeRoute('ofw.profile.update', undefined, '/my-cases/profile'), {
             preserveScroll: true,
-            onSuccess: () => { toast.success('Contact number updated. Existing case records are unchanged.'); },
+            onSuccess: () => { toast.success('Profile updated. Existing case records are unchanged.'); },
             onError: (errors) => { const first = Object.values(errors)[0]; if (first) toast.error(String(first)); },
         });
     }
 
     return (
         <OfwPortalLayout>
-            <ProfileCard title="Account settings" description="Manage contact and sign-in details for your account.">
+            <ProfileCard title="Account settings" description="Manage your identity, contact and sign-in details.">
                 <form onSubmit={save}>
                     <ProfileSection title="Account" description="Your account identity and profile photo.">
                         <div className="grid gap-5 sm:grid-cols-2">
-                            <ProfileStaticField label="Name" value={user?.name || '—'} />
+                            <div className="sm:col-span-2">
+                                <IdentityFields data={form.data} setData={form.setData} errors={form.errors} requireDemographics />
+                            </div>
                             <ProfileStaticField label="Email" value={user?.email || '—'} />
-                            <p className="text-sm text-slate-600 sm:col-span-2">Changing account details does not change names, contact details, or other facts already recorded on your cases.</p>
+                            <p className="text-sm text-slate-600 sm:col-span-2">Editing these details updates your account only. Names and facts already recorded on your cases stay as filed.</p>
                             <div className="sm:col-span-2"><ProfilePictureUpload currentUrl={user?.avatar_url ?? null} uploadRoute={safeRoute('ofw.profile.avatar.store', undefined, '/my-cases/profile/avatar')} destroyRoute={safeRoute('ofw.profile.avatar.destroy', undefined, '/my-cases/profile/avatar')} /></div>
                         </div>
                     </ProfileSection>

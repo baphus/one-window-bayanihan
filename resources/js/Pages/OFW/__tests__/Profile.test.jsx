@@ -27,13 +27,28 @@ vi.mock('@/Pages/Profile/Partials/DeleteUserForm', () => ({ default: ({ descript
 
 import Profile from '../Profile';
 
-const user = { id: 'u-1', name: 'Juan Cruz', email: 'juan@example.com', contact_number: '09171234567', avatar_url: null };
+const user = {
+    id: 'u-1',
+    name: 'Juan Cruz',
+    first_name: 'Juan',
+    middle_name: '',
+    last_name: 'Cruz',
+    suffix: '',
+    date_of_birth: '1990-01-01',
+    sex: 'MALE',
+    email: 'juan@example.com',
+    contact_number: '09171234567',
+    avatar_url: null,
+};
 
 describe('OFW account settings', () => {
     it('shows six account sections and excludes staff-only profile fields', () => {
         render(<Profile user={user} />);
 
-        expect(screen.getByText('Juan Cruz')).toBeInTheDocument();
+        expect(screen.getByLabelText(/first name/i)).toHaveValue('Juan');
+        expect(screen.getByLabelText(/last name/i)).toHaveValue('Cruz');
+        expect(screen.getByLabelText(/date of birth/i)).toHaveValue('1990-01-01');
+        expect(screen.getByLabelText(/^sex/i)).toHaveValue('MALE');
         expect(screen.getByText('juan@example.com')).toBeInTheDocument();
         expect(screen.getByLabelText('Contact number')).toBeInTheDocument();
         expect(screen.getByText('New password')).toBeInTheDocument();
@@ -44,7 +59,7 @@ describe('OFW account settings', () => {
         expect(screen.getByRole('heading', { name: 'Two-Factor Authentication' })).toBeInTheDocument();
         expect(screen.getByRole('heading', { name: 'Delete Account' })).toBeInTheDocument();
         expect(screen.queryByText(/home address|employment|next of kin|position|department|office location|emergency contact/i)).not.toBeInTheDocument();
-        expect(screen.getByText(/account details does not change.*facts already recorded on your cases/i)).toBeInTheDocument();
+        expect(screen.getByText(/editing these details updates your account only/i)).toBeInTheDocument();
         expect(screen.getByText('MFA optional')).toBeInTheDocument();
         expect(screen.getByText(/deactivates access.*case, document, message, and audit records are retained/i)).toBeInTheDocument();
     });

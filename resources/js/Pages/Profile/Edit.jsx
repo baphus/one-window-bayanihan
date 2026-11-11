@@ -13,6 +13,7 @@ import CropImageModal from '@/Components/CropImageModal';
 import MfaSetup from '@/Components/MfaSetup';
 import ProfileHeader from '@/Components/ProfileHeader';
 import ToggleSwitch from '@/Components/ui/ToggleSwitch';
+import IdentityFields from '@/Components/IdentityFields';
 import {
     ProfileCard,
     ProfileField,
@@ -59,8 +60,13 @@ export default function Edit({ mustVerifyEmail, status, mfaEnabled, mfaRequired,
     const isOfw = user.role === 'OFW';
 
     const buildInitialData = () => ({
-        name: user.name,
         email: user.email,
+        first_name: user.first_name ?? '',
+        middle_name: user.middle_name ?? '',
+        last_name: user.last_name ?? '',
+        suffix: user.suffix ?? '',
+        date_of_birth: user.date_of_birth ?? '',
+        sex: user.sex ?? '',
         ...(isOfw ? {} : {
             position: user.position || '',
             department: user.department || '',
@@ -175,7 +181,17 @@ export default function Edit({ mustVerifyEmail, status, mfaEnabled, mfaRequired,
         if (!validate()) return;
 
         transform(() => isOfw
-            ? { name: data.name, email: data.email, contact_number: data.contact_number, timezone: data.timezone }
+            ? {
+                email: data.email,
+                contact_number: data.contact_number,
+                timezone: data.timezone,
+                first_name: data.first_name,
+                middle_name: data.middle_name,
+                last_name: data.last_name,
+                suffix: data.suffix,
+                date_of_birth: data.date_of_birth,
+                sex: data.sex,
+            }
             : data);
         patch(route('profile.update'), {
             preserveScroll: true,
@@ -285,15 +301,14 @@ export default function Edit({ mustVerifyEmail, status, mfaEnabled, mfaRequired,
                             description={isOfw ? 'Your name and contact details.' : 'Your name and role details. Email changes use the Security section below.'}
                         >
                             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                                <ProfileTextInput
-                                    id="name"
-                                    label="Full name"
-                                    value={data.name}
-                                    onChange={(v) => setData('name', v)}
-                                    error={errors.name}
-                                    autoComplete="name"
-                                    placeholder="e.g. Juan Dela Cruz"
-                                />
+                                <div className="sm:col-span-2">
+                                    <IdentityFields
+                                        data={data}
+                                        setData={setData}
+                                        errors={errors}
+                                        requireDemographics={isOfw}
+                                    />
+                                </div>
                                 {!isOfw && <ProfileTextInput
                                     id="position"
                                     label="Occupation / Title"

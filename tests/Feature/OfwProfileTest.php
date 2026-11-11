@@ -86,10 +86,25 @@ class OfwProfileTest extends TestCase
     public function test_settings_reject_case_identity_and_representative_fields(): void
     {
         $this->actingAsWithMfa($this->ofw())->put(route('ofw.profile.update'), [
-            'sex' => 'FEMALE', 'address' => ['street' => 'Changed'],
+            'address' => ['street' => 'Changed'],
             'employment' => ['employer_name' => 'Changed'], 'next_of_kin' => [['first_name' => 'Other']],
             'type' => 'NEXT_OF_KIN', 'email' => 'unverified@example.test',
-        ])->assertSessionHasErrors(['sex', 'address', 'employment', 'next_of_kin', 'type', 'email']);
+        ])->assertSessionHasErrors(['address', 'employment', 'next_of_kin', 'type', 'email']);
+    }
+
+    public function test_identity_edit_recomposes_the_display_name(): void
+    {
+        $user = $this->ofw();
+
+        $this->actingAsWithMfa($user)->put(route('ofw.profile.update'), [
+            'first_name' => 'Maria', 'middle_name' => 'Santos', 'last_name' => 'Cruz', 'suffix' => 'Jr.',
+            'date_of_birth' => '1990-01-01', 'sex' => 'FEMALE',
+        ])->assertRedirect(route('ofw.profile.edit'))->assertSessionHasNoErrors();
+
+        $fresh = $user->fresh();
+        $this->assertSame('Maria Santos Cruz, Jr.', $fresh->name);
+        $this->assertSame('FEMALE', $fresh->sex);
+        $this->assertSame('1990-01-01', $fresh->date_of_birth->toDateString());
     }
 
     public function test_password_change_invalidates_other_sessions_and_remember_token(): void

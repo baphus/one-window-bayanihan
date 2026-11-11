@@ -97,6 +97,19 @@ class CaseService
                     foreach (['nok_name', 'nok_relationship', 'nok_email', 'nok_contact_number', 'nok_vulnerability_indicator', 'staff_summary', 'missing_document_reasons'] as $field) {
                         unset($attributes[$field]);
                     }
+
+                    // The filer is the OFW: keep their account identity in step
+                    // with the snapshot they just confirmed. Case rows stay
+                    // authoritative and are never rewritten from here.
+                    $filer->fill([
+                        'first_name' => $data['first_name'] ?? null,
+                        'middle_name' => $data['middle_name'] ?? null,
+                        'last_name' => $data['last_name'] ?? null,
+                        'suffix' => $data['suffix'] ?? null,
+                        'date_of_birth' => $data['date_of_birth'] ?? null,
+                        'sex' => $data['sex'] ?? null,
+                        'contact_number' => $data['contact_number'] ?? null,
+                    ])->save();
                     if (empty($data['consent'])) {
                         throw ValidationException::withMessages(['consent' => 'Consent is required.']);
                     }

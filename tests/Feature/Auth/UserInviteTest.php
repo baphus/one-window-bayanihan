@@ -231,7 +231,8 @@ class UserInviteTest extends TestCase
 
         // Submit registration
         $storeResponse = $this->post(route('register-via-invite.store', $rawToken), [
-            'name' => 'New Invited User',
+            'first_name' => 'New',
+            'last_name' => 'Invited User',
             'password' => 'SecureP@ss1',
             'password_confirmation' => 'SecureP@ss1',
             'position' => 'Case Worker',
@@ -245,7 +246,8 @@ class UserInviteTest extends TestCase
         // Assert user was created
         $this->assertDatabaseHas('users', [
             'email' => 'register-via@example.com',
-            'name' => 'New Invited User',
+            'first_name' => 'New',
+            'last_name' => 'Invited User',
             'role' => UserRole::CASE_MANAGER->value,
             'agcy_id' => $this->agency->id,
             'position' => 'Case Worker',
@@ -276,7 +278,8 @@ class UserInviteTest extends TestCase
         ]);
 
         $response = $this->post(route('register-via-invite.store', $rawToken), [
-            'name' => 'Avatar User',
+            'first_name' => 'Avatar',
+            'last_name' => 'User',
             'password' => 'SecureP@ss1',
             'password_confirmation' => 'SecureP@ss1',
             'profile_picture' => UploadedFile::fake()->image('me.jpg', 160, 160),
@@ -303,7 +306,8 @@ class UserInviteTest extends TestCase
 
         // The photo is optional: omitting it must not block registration.
         $response = $this->post(route('register-via-invite.store', $rawToken), [
-            'name' => 'No Avatar User',
+            'first_name' => 'No Avatar',
+            'last_name' => 'User',
             'password' => 'SecureP@ss1',
             'password_confirmation' => 'SecureP@ss1',
         ]);
@@ -331,7 +335,8 @@ class UserInviteTest extends TestCase
         ]);
 
         $response = $this->post(route('register-via-invite.store', $rawToken), [
-            'name' => 'Bad Avatar User',
+            'first_name' => 'Bad Avatar',
+            'last_name' => 'User',
             'password' => 'SecureP@ss1',
             'password_confirmation' => 'SecureP@ss1',
             'profile_picture' => UploadedFile::fake()->createWithContent('fake.jpg', 'not an image'),
@@ -366,7 +371,8 @@ class UserInviteTest extends TestCase
         ]);
 
         $response = $this->post(route('register-via-invite.store', $rawToken), [
-            'name' => 'Resilient User',
+            'first_name' => 'Resilient',
+            'last_name' => 'User',
             'password' => 'SecureP@ss1',
             'password_confirmation' => 'SecureP@ss1',
             'profile_picture' => UploadedFile::fake()->image('me.jpg', 160, 160),

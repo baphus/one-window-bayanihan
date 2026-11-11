@@ -44,7 +44,13 @@ class UserService
     {
         return DB::transaction(function () use ($data, $actorId) {
             $user = User::create([
-                'name' => $data['name'],
+                'name' => $data['name'] ?? '',
+                'first_name' => $data['first_name'] ?? null,
+                'middle_name' => $data['middle_name'] ?? null,
+                'last_name' => $data['last_name'] ?? null,
+                'suffix' => $data['suffix'] ?? null,
+                'date_of_birth' => $data['date_of_birth'] ?? null,
+                'sex' => $data['sex'] ?? null,
                 'email' => $data['email'],
                 'password' => Hash::make($data['password']),
                 'role' => $data['role'],

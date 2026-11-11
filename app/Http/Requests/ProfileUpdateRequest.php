@@ -3,12 +3,15 @@
 namespace App\Http\Requests;
 
 use App\Enums\UserRole;
+use App\Http\Requests\Concerns\ValidatesUserIdentity;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class ProfileUpdateRequest extends FormRequest
 {
+    use ValidatesUserIdentity;
+
     /**
      * Get the validation rules that apply to the request.
      *
@@ -17,18 +20,17 @@ class ProfileUpdateRequest extends FormRequest
     public function rules(): array
     {
         if ($this->user()->isOfw()) {
-            return array_fill_keys([
-                'name', 'email', 'first_name', 'middle_name', 'last_name', 'date_of_birth', 'sex', 'suffix',
+            return $this->identityRules(requireDemographics: true, partial: true) + [
+                'contact_number' => ['sometimes', 'nullable', 'string', 'max:50'],
+            ] + array_fill_keys([
+                'name', 'email',
                 'address', 'employment', 'next_of_kin', 'type', 'client_type', 'client_id', 'ofw_client_id',
                 'nok_name', 'nok_relationship', 'nok_contact_number', 'nok_email', 'position', 'department',
                 'office_location', 'bio', 'emergency_contact', 'notifications_config', 'timezone', 'avatar',
-            ], ['prohibited']) + [
-                'contact_number' => ['sometimes', 'nullable', 'string', 'max:50'],
-            ];
+            ], ['prohibited']);
         }
 
         $rules = [
-            'name' => ['required', 'string', 'max:255'],
             'email' => [
                 'required',
                 'string',
@@ -40,7 +42,7 @@ class ProfileUpdateRequest extends FormRequest
             'avatar' => ['nullable', 'image', 'mimes:jpeg,png,webp', 'max:2048'],
             'contact_number' => ['nullable', 'string', 'max:50'],
             'timezone' => ['nullable', 'string', 'max:50'],
-        ];
+        ] + $this->identityRules(partial: true);
 
         if ($this->user()->role !== UserRole::OFW->value) {
             $rules += [

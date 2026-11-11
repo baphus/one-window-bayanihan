@@ -87,7 +87,7 @@ class AdminCrudLowsTest extends TestCase
 
         $response = $this->actingAsWithMfa($lastActiveAdmin)
             ->patch(route('admin.users.update', $lastActiveAdmin->id), [
-                'name' => $lastActiveAdmin->name,
+                'first_name' => $lastActiveAdmin->first_name, 'last_name' => $lastActiveAdmin->last_name,
                 'email' => $lastActiveAdmin->email,
                 'role' => UserRole::CASE_MANAGER->value,
             ]);
@@ -114,7 +114,7 @@ class AdminCrudLowsTest extends TestCase
 
         $response = $this->actingAsWithMfa($lastActiveAdmin)
             ->patch(route('admin.users.update', $lastActiveAdmin->id), [
-                'name' => $lastActiveAdmin->name,
+                'first_name' => $lastActiveAdmin->first_name, 'last_name' => $lastActiveAdmin->last_name,
                 'email' => $lastActiveAdmin->email,
                 'role' => UserRole::ADMIN->value,
                 'is_active' => false,
@@ -142,7 +142,7 @@ class AdminCrudLowsTest extends TestCase
 
         $response = $this->actingAsWithMfa($actingAdmin)
             ->patch(route('admin.users.update', $target->id), [
-                'name' => $target->name,
+                'first_name' => $target->first_name, 'last_name' => $target->last_name,
                 'email' => $target->email,
                 'role' => UserRole::CASE_MANAGER->value,
             ]);

@@ -124,7 +124,7 @@ class AuditCoverageGapsTest extends TestCase
         // users.update demands the acting admin re-enter their OWN password.
         $this->actingAsWithMfa($admin)
             ->patch(route('admin.users.update', $target->id), [
-                'name' => $target->name,
+                'first_name' => $target->first_name, 'last_name' => $target->last_name,
                 'email' => $target->email,
                 'role' => $target->role,
                 'password' => 'N3w!Passw0rd',

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Casts\EncryptedDate;
 use App\Enums\UserRole;
 use App\Models\Concerns\HasAvatar;
 use App\Models\Concerns\SoftDeleteFlag;
@@ -38,6 +39,12 @@ class User extends Authenticatable implements MustVerifyEmail
 
     protected $fillable = [
         'name',
+        'first_name',
+        'middle_name',
+        'last_name',
+        'suffix',
+        'date_of_birth',
+        'sex',
         'email',
         'password',
         'role',
@@ -78,6 +85,7 @@ class User extends Authenticatable implements MustVerifyEmail
     protected function casts(): array
     {
         return [
+            'date_of_birth' => EncryptedDate::class,
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_active' => 'boolean',
@@ -92,6 +100,41 @@ class User extends Authenticatable implements MustVerifyEmail
             'checklist_progress' => 'array',
             'profile_completed_at' => 'datetime',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        // An explicitly assigned display name wins (legacy rows and fixtures);
+        // otherwise `name` is derived from the parts here instead of at every
+        // call site.
+        static::saving(function (self $user): void {
+            if ($user->isDirty('name') && filled($user->name)) {
+                return;
+            }
+
+            $composed = self::composeName(
+                $user->first_name,
+                $user->middle_name,
+                $user->last_name,
+                $user->suffix,
+            );
+
+            if ($composed !== '') {
+                $user->name = $composed;
+            }
+        });
+    }
+
+    /**
+     * Legacy rows have only `name`; once parts exist they are the source.
+     */
+    public static function composeName(?string $first, ?string $middle = null, ?string $last = null, ?string $suffix = null): string
+    {
+        $given = trim(($first ?? '').' '.($middle ?? ''));
+        $base = trim($given.' '.($last ?? ''));
+        $suffix = trim((string) $suffix);
+
+        return $suffix === '' ? $base : $base.', '.$suffix;
     }
 
     public function agency()
