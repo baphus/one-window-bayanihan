@@ -3,7 +3,6 @@
 namespace App\Http\Requests;
 
 use App\Models\CaseFile;
-use App\Rules\EmploymentStartAtWorkingAge;
 use App\Rules\ServedRegion;
 use App\Rules\VulnerabilityRule;
 use App\Services\IntakeDocumentService;
@@ -59,10 +58,8 @@ class StoreCaseRequest extends FormRequest
             'employment_employer_address' => ['nullable', 'string', 'max:1000'],
             'employment_position' => ['nullable', 'string', 'max:255'],
             'employment_country' => ['nullable', 'string', 'max:255'],
-            'employment_last_country' => ['nullable', 'string', 'max:255'],
+            'employment_date_of_arrival' => ['nullable', 'date', 'after_or_equal:date_of_birth', 'before_or_equal:today'],
             'employment_last_position' => ['nullable', 'string', 'max:255'],
-            'employment_start_date' => ['nullable', 'date', 'after_or_equal:date_of_birth', 'before_or_equal:today', new EmploymentStartAtWorkingAge($this->input('date_of_birth'))],
-            'employment_end_date' => ['nullable', 'date', 'after_or_equal:employment_start_date', 'before_or_equal:today'],
             'employment_date_of_arrival' => ['nullable', 'date', 'after_or_equal:date_of_birth', 'before_or_equal:today'],
             'summary' => ['required', 'string', 'max:5000'],
             'vulnerability_indicator' => ['required', 'string', 'max:255', new VulnerabilityRule],

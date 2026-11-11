@@ -53,8 +53,8 @@
         <h2>Employment</h2>
         <table>
             <tr><td class="label">Employer</td><td colspan="3">{{ $short($case->employment_employer_name, $textLimit) }}</td></tr>
-            <tr><td class="label">Position</td><td class="value">{{ $short($case->employment_position ?: $case->employment_last_position, 100) }}</td><td class="label">Jobsite</td><td class="value">{{ $short($case->employment_country ?: $case->employment_last_country, 80) }}</td></tr>
-            <tr><td class="label">Period</td><td>{{ $date($case->employment_start_date) }} – {{ $case->employment_end_date ? $date($case->employment_end_date) : 'Present' }}</td><td class="label">Arrival</td><td>{{ $date($case->employment_date_of_arrival) }}</td></tr>
+            <tr><td class="label">Position</td><td class="value">{{ $short($case->employment_position ?: $case->employment_last_position, 100) }}</td><td class="label">Jobsite</td><td class="value">{{ $short($case->employment_country, 80) }}</td></tr>
+            <tr><td class="label">Arrival</td><td colspan="3">{{ $date($case->employment_date_of_arrival) }}</td></tr>
         </table>
     @endif
 

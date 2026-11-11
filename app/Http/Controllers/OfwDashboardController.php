@@ -129,7 +129,7 @@ class OfwDashboardController extends Controller
             'email', 'contact_number', 'civil_status', 'civil_status_other', 'deployment_mode', 'employment_status',
             'address_region', 'address_province', 'address_city_municipality', 'address_barangay', 'address_street',
             'employment_employer_name', 'employment_employer_address', 'employment_position', 'employment_country',
-            'employment_last_country', 'employment_last_position', 'employment_start_date', 'employment_end_date',
+            'employment_last_position',
             'employment_date_of_arrival', 'proposed_assessments', 'proposed_assessment_other', 'return_reason',
             'requested_document_slots', 'document_request_reason',
         ]);

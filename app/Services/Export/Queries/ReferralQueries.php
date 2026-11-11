@@ -98,7 +98,7 @@ class ReferralQueries
                 'c.address_region AS region',
                 // Case employment snapshot
                 'c.employment_date_of_arrival AS date_of_arrival',
-                'c.employment_country AS previous_country',
+                'c.employment_country AS employment_country',
                 'c.employment_position AS work_position',
                 // Representative recorded on this case
                 'c.nok_name AS nok_full_name',
@@ -191,8 +191,8 @@ class ReferralQueries
             // Address street is encrypted
             $row->street = EncryptedString::decrypt($row->street ?? null);
             // Employment subquery fields
-            if (isset($row->previous_country)) {
-                $row->previous_country = EncryptedString::decrypt($row->previous_country);
+            if (isset($row->employment_country)) {
+                $row->employment_country = EncryptedString::decrypt($row->employment_country);
             }
             if (isset($row->work_position)) {
                 $row->work_position = EncryptedString::decrypt($row->work_position);

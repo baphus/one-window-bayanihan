@@ -85,7 +85,7 @@ class CaseQueries
                 'c.address_region AS region',
                 // Case employment snapshot
                 'c.employment_date_of_arrival AS date_of_arrival',
-                'c.employment_country AS previous_country',
+                'c.employment_country AS employment_country',
                 'c.employment_position AS work_position',
                 // Case summary
                 'c.summary AS case_summary',
@@ -226,8 +226,8 @@ class CaseQueries
             $row->nok_contact_number = EncryptedString::decrypt($row->nok_contact_number ?? null);
             $row->nok_email = EncryptedString::decrypt($row->nok_email ?? null);
             // Employment subquery fields
-            if (isset($row->previous_country)) {
-                $row->previous_country = EncryptedString::decrypt($row->previous_country);
+            if (isset($row->employment_country)) {
+                $row->employment_country = EncryptedString::decrypt($row->employment_country);
             }
             if (isset($row->work_position)) {
                 $row->work_position = EncryptedString::decrypt($row->work_position);

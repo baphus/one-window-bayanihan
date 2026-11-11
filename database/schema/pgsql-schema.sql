@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict 0b0pulyjzPiuHbNUF8C3Hgq9i57lRYoRL5ABDrzXneoZ2HoyaxDuEcVuqZbTjBp
+\restrict pUQhgyWm6vrRPV9gjQtv1WuFm40cxfXqlihIeZtYC8IZ1xaCrHjhAM6SiHufmcG
 
 -- Dumped from database version 18.2
 -- Dumped by pg_dump version 18.2
@@ -411,10 +411,7 @@ CREATE TABLE public.cases (
     employment_employer_name text,
     employment_position text,
     employment_country text,
-    employment_last_country text,
     employment_last_position text,
-    employment_start_date date,
-    employment_end_date date,
     employment_date_of_arrival date,
     nok_name text,
     nok_relationship text,
@@ -3596,13 +3593,13 @@ CREATE POLICY referrals_agency_own ON public.referrals USING (((current_setting(
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 0b0pulyjzPiuHbNUF8C3Hgq9i57lRYoRL5ABDrzXneoZ2HoyaxDuEcVuqZbTjBp
+\unrestrict pUQhgyWm6vrRPV9gjQtv1WuFm40cxfXqlihIeZtYC8IZ1xaCrHjhAM6SiHufmcG
 
 --
 -- PostgreSQL database dump
 --
 
-\restrict FqIhnZIxPB99ZksvL61kROuw6SsdpxYQtkjQkPNN5R0VS6fdQ1HzPX7SJXIBUGo
+\restrict p57exiC5dV9Kw4hRdc8VbCPRfkZwdktZfI8wPlMXhupFQezwHuqsJsrcwu3ZDu0
 
 -- Dumped from database version 18.2
 -- Dumped by pg_dump version 18.2
@@ -3720,6 +3717,9 @@ COPY public.migrations (id, migration, batch) FROM stdin;
 94	2026_11_10_051000_add_referral_classification_and_category_agencies	2
 95	2026_11_10_060000_add_intake_compliance_to_cases	2
 96	2026_11_10_070000_drop_legacy_client_case_schema	3
+97	2026_11_10_080000_restore_canonical_status_reference_data	4
+98	2026_11_10_090000_make_ofw_mfa_enrollment_optional	5
+99	2026_11_11_120000_remove_redundant_employment_fields_from_cases_table	6
 \.
 
 
@@ -3727,11 +3727,11 @@ COPY public.migrations (id, migration, batch) FROM stdin;
 -- Name: migrations_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.migrations_id_seq', 96, true);
+SELECT pg_catalog.setval('public.migrations_id_seq', 99, true);
 
 
 --
 -- PostgreSQL database dump complete
 --
 
-\unrestrict FqIhnZIxPB99ZksvL61kROuw6SsdpxYQtkjQkPNN5R0VS6fdQ1HzPX7SJXIBUGo
+\unrestrict p57exiC5dV9Kw4hRdc8VbCPRfkZwdktZfI8wPlMXhupFQezwHuqsJsrcwu3ZDu0

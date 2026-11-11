@@ -3,7 +3,6 @@
 namespace App\Http\Requests;
 
 use App\Models\CaseFile;
-use App\Rules\EmploymentStartAtWorkingAge;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Carbon;
 
@@ -15,7 +14,7 @@ class UpdateCaseRequest extends FormRequest
         'address_region', 'address_province', 'address_city_municipality', 'address_barangay', 'address_street',
         'address_region_code', 'address_province_code', 'address_city_municipality_code', 'address_barangay_code',
         'employment_employer_name', 'employment_employer_address', 'employment_position', 'employment_country',
-        'employment_last_country', 'employment_last_position', 'employment_start_date', 'employment_end_date',
+        'employment_last_position',
         'employment_date_of_arrival', 'nok_name', 'nok_relationship', 'nok_contact_number', 'nok_email',
         'summary', 'vulnerability_indicator', 'nok_vulnerability_indicator',
     ];
@@ -40,14 +39,8 @@ class UpdateCaseRequest extends FormRequest
         }
         unset($rule);
         $dob = $this->input('date_of_birth', $case->date_of_birth?->toDateString());
-        $start = $this->input('employment_start_date', $case->employment_start_date?->toDateString());
         $rules['date_of_birth'] = ['sometimes', 'required', 'date_format:Y-m-d'];
-        $rules['employment_start_date'] = ['sometimes', 'nullable', 'date', 'before_or_equal:today', new EmploymentStartAtWorkingAge($dob)];
-        $rules['employment_end_date'] = ['sometimes', 'nullable', 'date', 'before_or_equal:today'];
         $rules['employment_date_of_arrival'] = ['sometimes', 'nullable', 'date', 'before_or_equal:today'];
-        if ($start) {
-            $rules['employment_end_date'][] = 'after_or_equal:'.$start;
-        }
         if ($dob) {
             $rules['employment_date_of_arrival'][] = 'after_or_equal:'.$dob;
         }

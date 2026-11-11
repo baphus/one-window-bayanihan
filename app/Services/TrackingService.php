@@ -205,9 +205,9 @@ class TrackingService
                 'contact' => $primaryNok->nok_contact_number ?? $primaryNok->nok_email,
             ] : null,
             'workHistory' => $lastEmployment ? [
-                'lastCountry' => $lastEmployment->employment_last_country ?? $lastEmployment->employment_country ?? '',
+                'lastCountry' => $lastEmployment->employment_country ?? '',
                 'lastPosition' => $lastEmployment->employment_last_position ?? $lastEmployment->employment_position ?? '',
-                'arrivalDate' => $lastEmployment->employment_date_of_arrival?->toDateString() ?? $lastEmployment->employment_end_date?->toDateString() ?? '',
+                'arrivalDate' => $lastEmployment->employment_date_of_arrival?->toDateString() ?? '',
             ] : null,
         ];
 

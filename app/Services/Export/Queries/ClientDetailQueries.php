@@ -56,9 +56,9 @@ class ClientDetailQueries
     {
         return $this->caseQuery($user)->get()->map(function ($case) {
             $row = ['case_id' => $case->id];
-            foreach (['employer_name', 'employer_address', 'position', 'last_position', 'country', 'last_country', 'start_date', 'end_date', 'date_of_arrival'] as $field) {
+            foreach (['employer_name', 'employer_address', 'position', 'last_position', 'country', 'date_of_arrival'] as $field) {
                 $value = $case->{'employment_'.$field};
-                $row[$field] = $value instanceof \DateTimeInterface ? $value->format('Y-m-d') : $value;
+                $row[$field === 'country' ? 'employment_country' : $field] = $value instanceof \DateTimeInterface ? $value->format('Y-m-d') : $value;
             }
 
             return (object) $row;

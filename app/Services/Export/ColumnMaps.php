@@ -137,10 +137,7 @@ class ColumnMaps
             ['key' => 'employer_name',   'label' => 'Employer Name',   'type' => 'string'],
             ['key' => 'position',        'label' => 'Occupation',        'type' => 'string'],
             ['key' => 'last_position',   'label' => 'Last Occupation',   'type' => 'string'],
-            ['key' => 'country',         'label' => 'Country',         'type' => 'string'],
-            ['key' => 'last_country',    'label' => 'Last Country',    'type' => 'string'],
-            ['key' => 'start_date',      'label' => 'Start Date',      'type' => 'date'],
-            ['key' => 'end_date',        'label' => 'End Date',        'type' => 'date'],
+            ['key' => 'employment_country', 'label' => 'Jobsite Country', 'type' => 'string'],
             ['key' => 'date_of_arrival', 'label' => 'Date of Arrival', 'type' => 'date'],
         ],
 

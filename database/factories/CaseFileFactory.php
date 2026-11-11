@@ -50,10 +50,7 @@ class CaseFileFactory extends Factory
             'return_reason' => 'OTHERS',
             'employment_position' => 'Engineer',
             'employment_country' => 'Japan',
-            'employment_last_country' => 'Japan',
             'employment_last_position' => 'Engineer',
-            'employment_start_date' => '2020-01-01',
-            'employment_end_date' => '2026-10-01',
             'employment_date_of_arrival' => '2026-10-02',
             'proposed_assessments' => ['LEGAL_ASSISTANCE'],
         ]);

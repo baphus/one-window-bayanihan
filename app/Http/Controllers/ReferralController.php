@@ -673,7 +673,7 @@ class ReferralController extends Controller
             // Employment
             ['key' => 'vulnerability',          'label' => 'Vulnerability',         'type' => 'string'],
             ['key' => 'date_of_arrival',        'label' => 'Date of Arrival in PH', 'type' => 'date'],
-            ['key' => 'previous_country',       'label' => 'Previous Country',      'type' => 'string'],
+            ['key' => 'employment_country',       'label' => 'Jobsite Country',      'type' => 'string'],
             ['key' => 'work_position',          'label' => 'Work Occupation',         'type' => 'string'],
             // NOK info
             ['key' => 'nok_full_name',          'label' => 'NOK Full Name',         'type' => 'string'],

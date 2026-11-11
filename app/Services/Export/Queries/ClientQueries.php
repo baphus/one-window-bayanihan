@@ -99,7 +99,7 @@ class ClientQueries
                 'vulnerability' => $case->vulnerability_indicator,
                 'full_address' => $resolver->format($case->address_street, $case->address_barangay, $case->address_city_municipality, $case->address_province, $case->address_region),
                 'date_of_arrival' => $case->employment_date_of_arrival?->toDateString(),
-                'previous_country' => $case->employment_country,
+                'employment_country' => $case->employment_country,
                 'work_position' => $case->employment_position,
                 'receiving_parties' => $case->referrals->pluck('agency.name')->filter()->unique()->implode(', '),
                 'nok_full_name' => $case->nok_name,

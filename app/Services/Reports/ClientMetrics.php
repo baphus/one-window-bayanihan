@@ -86,7 +86,7 @@ class ClientMetrics
         ?string $province = null,
         ?string $city = null,
     ): array {
-        // Use Eloquent so the EncryptedString cast decrypts last_country.
+        // Use Eloquent so the EncryptedString cast decrypts employment_country.
         // DB::table() bypasses casts and returns raw ciphertext for encrypted rows.
         $query = $this->employmentQuery($userId, $role, $agencyId, $fromDate, $toDate, $province, $city)
             ->whereNotNull('employment_country');
