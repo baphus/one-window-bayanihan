@@ -9,6 +9,8 @@ use App\Http\Requests\StoreCaseRequest;
 use App\Http\Requests\StoreIntakeRequest;
 use App\Http\Requests\UpdateCaseRequest;
 use App\Mail\IntakeReviewMail;
+use App\Models\Agency;
+use App\Models\CaseCategory;
 use App\Models\CaseFile;
 use App\Models\SystemSetting;
 use App\Models\User;
@@ -202,7 +204,23 @@ class CaseController extends Controller
             'filters' => (object) $request->only(['search']),
             'sort' => 'created_at',
             'direction' => $direction,
-            'categories' => $this->referenceData->getActiveCategories(),
+            'categories' => CaseCategory::where('is_active', true)
+                ->with(['suggestedAgencies' => fn ($query) => $query
+                    ->where('agencies.is_active', true)
+                    ->where('agencies.is_deleted', false)
+                    ->select('agencies.id', 'agencies.name', 'agencies.short')])
+                ->orderBy('sort_order')
+                ->get(['id', 'name', 'color'])
+                ->map(fn (CaseCategory $category) => [
+                    'id' => $category->id,
+                    'name' => $category->name,
+                    'color' => $category->color,
+                    'suggested_agency_ids' => $category->suggestedAgencies->pluck('id')->all(),
+                ]),
+            'agencies' => Agency::where('is_active', true)
+                ->where('is_deleted', false)
+                ->orderBy('name')
+                ->get(['id', 'name', 'short']),
         ]);
     }
 
@@ -523,7 +541,7 @@ class CaseController extends Controller
             ['key' => 'region', 'label' => 'Region', 'type' => 'string'],
             ['key' => 'vulnerability', 'label' => 'Vulnerability', 'type' => 'string'],
             ['key' => 'date_of_arrival', 'label' => 'Date of Arrival in PH', 'type' => 'date'],
-            ['key' => 'previous_country', 'label' => 'Previous Country', 'type' => 'string'],
+            ['key' => 'employment_country', 'label' => 'Jobsite Country', 'type' => 'string'],
             ['key' => 'work_position', 'label' => 'Work Occupation', 'type' => 'string'],
             ['key' => 'issue_concern', 'label' => 'Issues/Concern', 'type' => 'string'],
             ['key' => 'categories', 'label' => 'Categories', 'type' => 'string'],
