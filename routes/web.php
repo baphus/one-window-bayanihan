@@ -150,6 +150,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Role-gated: CASE_MANAGER + ADMIN only
     Route::middleware('role:CASE_MANAGER,ADMIN')->group(function () {
         Route::get('/cases', [CaseController::class, 'index'])->name('cases.index');
+        Route::get('/cases/ofw-lookup', [CaseController::class, 'lookupOfw'])->name('cases.ofw-lookup');
         Route::get('/cases/review-pending', [CaseController::class, 'reviewPending'])->name('cases.review-pending');
         Route::get('/cases/trash', [CaseController::class, 'trashIndex'])->name('cases.trash');
         Route::get('/cases/export-excel', [CaseController::class, 'exportExcel'])->name('cases.export-excel');

@@ -7,10 +7,12 @@ use App\Models\AuditLog;
 use App\Models\CaseDocument;
 use App\Models\CaseFile;
 use App\Models\User;
+use App\Notifications\CaseUpdated;
 use App\Services\CaseService;
 use App\Services\IntakeDocumentService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\HttpException;
@@ -91,21 +93,26 @@ class CaseIntakeWorkflowTest extends TestCase
         $this->assertSame('Private correction reason', $case->fresh()->last_correction_reason);
     }
 
-    public function test_assisted_missing_documents_remain_unapprovable_and_consent_is_not_online(): void
+    public function test_assisted_filing_without_documents_opens_case_with_for_compliance_requirements(): void
     {
+        Storage::fake('object-storage');
         $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $data = $this->payload();
-        unset($data['consent']);
         $data['documents'] = [];
-        $data['consent_method'] = 'WRITTEN';
-        $data['consent_evidence'] = 'Signed authority retained';
-        $data['missing_document_reasons'] = array_fill_keys(['passport_front_page', 'arrival_stamp', 'employment_evidence', 'sworn_affidavit'], 'Applicant obtaining copy');
+        $data['complied_onsite_slots'] = ['arrival_stamp'];
         $case = app(CaseService::class)->createCase($data, $manager->id);
+
         $this->assertNull($case->ofw_user_id);
         $this->assertSame($manager->id, $case->assigned_case_manager_id);
-        $this->assertSame('WRITTEN', $case->consent_method);
-        $this->expectException(ValidationException::class);
-        app(CaseService::class)->approveCase($case->id, $manager->id, ['confirmed_assessments' => ['LEGAL_ASSISTANCE'], 'reviewed_document_ids' => []]);
+        $this->assertSame('OPEN', $case->status);
+        $this->assertSame('STAFF_ATTESTED', $case->consent_method);
+        $this->assertNull($case->consent_evidence);
+        $this->assertSame([
+            'passport_front_page' => IntakeDocumentService::REQUIREMENT_FOR_COMPLIANCE,
+            'arrival_stamp' => IntakeDocumentService::REQUIREMENT_COMPLIED_ONSITE,
+            'sworn_affidavit' => IntakeDocumentService::REQUIREMENT_FOR_COMPLIANCE,
+            'employment_evidence' => IntakeDocumentService::REQUIREMENT_FOR_COMPLIANCE,
+        ], $case->document_requirements);
     }
 
     public function test_unassigned_manager_cannot_correct_facts(): void
@@ -120,13 +127,14 @@ class CaseIntakeWorkflowTest extends TestCase
     {
         Storage::fake('object-storage');
         $owner = User::factory()->create(['role' => UserRole::OFW->value]);
-        $case = CaseFile::factory()->withIntake()->pendingReview()->create(['ofw_user_id' => $owner->id, 'requested_document_slots' => ['arrival_stamp'], 'reviewed_document_ids' => ['old-review']]);
+        $case = CaseFile::factory()->withIntake()->pendingReview()->create(['ofw_user_id' => $owner->id, 'requested_document_slots' => ['arrival_stamp'], 'reviewed_document_ids' => ['old-review'], 'document_requirements' => ['arrival_stamp' => IntakeDocumentService::REQUIREMENT_FOR_COMPLIANCE]]);
         $old = CaseDocument::factory()->create(['case_id' => $case->id, 'category' => 'arrival_stamp', 'referral_id' => null]);
         $this->actingAsWithMfa($owner)->post(route('ofw.intake.documents.replace', $case), [
             'documents' => ['arrival_stamp' => UploadedFile::fake()->image('arrival.jpg')], 'first_name' => 'Forged rewrite',
         ])->assertRedirect();
         $this->assertSame('Juan', $case->fresh()->first_name);
         $this->assertSame(CaseFile::STATUS_PENDING_REVIEW, $case->fresh()->status);
+        $this->assertSame(IntakeDocumentService::REQUIREMENT_RECEIVED, $case->fresh()->document_requirements['arrival_stamp']);
         $this->assertNull($case->fresh()->requested_document_slots);
         $this->assertNull($case->fresh()->reviewed_document_ids);
         $this->assertSoftDeleted($old);
@@ -164,6 +172,7 @@ class CaseIntakeWorkflowTest extends TestCase
         $owner = User::factory()->create(['role' => UserRole::OFW->value]);
         $case = CaseFile::factory()->withIntake()->pendingReview()->create([
             'ofw_user_id' => $owner->id, 'requested_document_slots' => ['arrival_stamp'],
+            'document_requirements' => ['arrival_stamp' => IntakeDocumentService::REQUIREMENT_FOR_COMPLIANCE],
             'document_request_reason' => 'Unreadable', 'document_requested_by' => User::factory()->create()->id,
             'document_requested_at' => now(), 'reviewed_document_ids' => ['stale'],
         ]);
@@ -182,10 +191,73 @@ class CaseIntakeWorkflowTest extends TestCase
     {
         Storage::fake('object-storage');
         $owner = User::factory()->create(['role' => UserRole::OFW->value]);
-        $case = CaseFile::factory()->withIntake()->pendingReview()->create(['ofw_user_id' => $owner->id, 'requested_document_slots' => ['arrival_stamp']]);
+        $case = CaseFile::factory()->withIntake()->pendingReview()->create(['ofw_user_id' => $owner->id, 'requested_document_slots' => ['arrival_stamp'], 'document_requirements' => ['arrival_stamp' => IntakeDocumentService::REQUIREMENT_FOR_COMPLIANCE]]);
         $other = User::factory()->create(['role' => UserRole::OFW->value]);
         $this->actingAsWithMfa($other)->post(route('ofw.intake.documents.replace', $case), ['documents' => ['arrival_stamp' => UploadedFile::fake()->image('arrival.jpg')]])->assertForbidden();
         $this->actingAsWithMfa($owner)->post(route('ofw.intake.documents.replace', $case), ['documents' => ['oec' => UploadedFile::fake()->image('oec.jpg')]])->assertSessionHasErrors('documents.oec');
         $this->assertSame(['arrival_stamp'], $case->fresh()->requested_document_slots);
+    }
+
+    public function test_ofw_upload_marks_outstanding_requirement_received_and_notifies_manager(): void
+    {
+        Storage::fake('object-storage');
+        Notification::fake();
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $owner = User::factory()->create(['role' => UserRole::OFW->value]);
+        $case = CaseFile::factory()->withIntake()->open()->create([
+            'ofw_user_id' => $owner->id, 'assigned_case_manager_id' => $manager->id,
+            'document_requirements' => [
+                'passport_front_page' => IntakeDocumentService::REQUIREMENT_RECEIVED,
+                'arrival_stamp' => IntakeDocumentService::REQUIREMENT_FOR_COMPLIANCE,
+            ],
+        ]);
+        CaseDocument::factory()->create(['case_id' => $case->id, 'category' => 'passport_front_page', 'referral_id' => null]);
+
+        $this->actingAsWithMfa($owner)->post(route('ofw.intake.documents.replace', $case), [
+            'documents' => ['arrival_stamp' => UploadedFile::fake()->image('arrival.jpg')],
+        ])->assertRedirect();
+
+        $case->refresh();
+        $this->assertSame('OPEN', $case->status);
+        $this->assertSame(IntakeDocumentService::REQUIREMENT_RECEIVED, $case->document_requirements['arrival_stamp']);
+        $this->assertSame(IntakeDocumentService::REQUIREMENT_RECEIVED, $case->document_requirements['passport_front_page']);
+        Notification::assertSentTo($manager, CaseUpdated::class);
+    }
+
+    public function test_closed_case_offers_no_requirement_upload(): void
+    {
+        Storage::fake('object-storage');
+        $owner = User::factory()->create(['role' => UserRole::OFW->value]);
+        $case = CaseFile::factory()->withIntake()->open()->create([
+            'ofw_user_id' => $owner->id,
+            'status' => 'CLOSED',
+            'document_requirements' => ['arrival_stamp' => IntakeDocumentService::REQUIREMENT_FOR_COMPLIANCE],
+        ]);
+
+        $this->actingAsWithMfa($owner)->post(route('ofw.intake.documents.replace', $case), [
+            'documents' => ['arrival_stamp' => UploadedFile::fake()->image('arrival.jpg')],
+        ])->assertForbidden();
+
+        $this->assertSame(IntakeDocumentService::REQUIREMENT_FOR_COMPLIANCE, $case->fresh()->document_requirements['arrival_stamp']);
+    }
+
+    public function test_requirement_sync_downgrades_a_received_slot_when_its_document_is_removed(): void
+    {
+        $case = CaseFile::factory()->withIntake()->open()->create([
+            'document_requirements' => [
+                'passport_front_page' => IntakeDocumentService::REQUIREMENT_RECEIVED,
+                'arrival_stamp' => IntakeDocumentService::REQUIREMENT_FOR_COMPLIANCE,
+            ],
+        ]);
+        $document = CaseDocument::factory()->create(['case_id' => $case->id, 'category' => 'passport_front_page', 'referral_id' => null]);
+        $service = app(IntakeDocumentService::class);
+
+        $service->syncRequirements($case->fresh());
+        $this->assertSame(IntakeDocumentService::REQUIREMENT_RECEIVED, $case->fresh()->document_requirements['passport_front_page']);
+        $this->assertSame(IntakeDocumentService::REQUIREMENT_FOR_COMPLIANCE, $case->fresh()->document_requirements['arrival_stamp']);
+
+        $document->delete();
+        $service->syncRequirements($case->fresh());
+        $this->assertSame(IntakeDocumentService::REQUIREMENT_FOR_COMPLIANCE, $case->fresh()->document_requirements['passport_front_page']);
     }
 }

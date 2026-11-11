@@ -19,7 +19,7 @@ use Tests\TestCase;
 
 /**
  * DOB bounds (15–100 years) live in StoreCaseRequest and are exercised
- * through the authed filing path (POST /cases → PENDING_REVIEW).
+ * through the authed filing path (POST /cases → OPEN for staff filers).
  */
 class DateOfBirthBoundsTest extends TestCase
 {
@@ -48,7 +48,7 @@ class DateOfBirthBoundsTest extends TestCase
         $response = $this->actingAsWithMfa($this->filer)
             ->postJson(route('cases.store'), $this->validFilingData(now()->subYears(15)->toDateString()));
 
-        $case = CaseFile::where('status', CaseFile::STATUS_PENDING_REVIEW)->sole();
+        $case = CaseFile::where('status', 'OPEN')->sole();
         $response->assertRedirect(route('cases.show', $case));
         $this->assertSame(now()->subYears(15)->toDateString(), $case->date_of_birth->toDateString());
     }
@@ -111,9 +111,8 @@ class DateOfBirthBoundsTest extends TestCase
             'summary' => 'DOB bounds filing test.',
             'vulnerability_indicator' => 'None',
             'return_reason' => 'OTHERS',
+            'consent' => true,
             'consent_text_version' => IntakeDocumentService::CONSENT_VERSION,
-            'consent_method' => 'WRITTEN',
-            'consent_evidence' => 'Signed consent form on file',
             'documents' => collect(['passport_front_page', 'arrival_stamp', 'oec', 'sworn_affidavit'])
                 ->mapWithKeys(fn ($slot) => [$slot => UploadedFile::fake()->image($slot.'.jpg')])->all(),
         ];

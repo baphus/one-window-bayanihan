@@ -51,7 +51,7 @@ function IntakeReplacementPanel({ caseId, slots = [], reason = '' }) {
 
     return (
         <form onSubmit={submit} className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4">
-            <p className="text-[12px] font-bold text-amber-900">Replacement documents requested</p>
+            <p className="text-[12px] font-bold text-amber-900">Documents needed from you</p>
             {reason && <p className="mt-1 text-[12px] leading-relaxed text-amber-800">{reason}</p>}
             <div className="mt-3 space-y-2">
                 {slots.map((slot) => (
@@ -71,7 +71,7 @@ function IntakeReplacementPanel({ caseId, slots = [], reason = '' }) {
                 ))}
             </div>
             <button type="submit" disabled={form.processing || Object.values(files).every((file) => !file)} className="mt-3 inline-flex min-h-[38px] items-center rounded-md bg-primary px-4 text-[12px] font-bold text-white disabled:opacity-50">
-                {form.processing ? 'Uploading…' : 'Submit replacement documents'}
+                {form.processing ? 'Uploading…' : 'Submit documents'}
             </button>
         </form>
     );
@@ -292,6 +292,10 @@ export default function CaseDetail({
         ?? trackedCase?.requestedDocumentSlots
         ?? [];
     const requestedReason = caseFile?.document_request_reason ?? trackedCase?.documentRequestReason ?? '';
+    // Outstanding requirements (case-level) are owed by the OFW; a closed case keeps them readable but not uploadable.
+    const requirementSlots = (caseFile?.document_requirements ?? [])
+        .filter((requirement) => requirement.state === 'for_compliance')
+        .map((requirement) => requirement.slot);
     const totalAgencies = trackingAgencies.length;
     const completedAgencies = trackingAgencies.filter((a) => a.status === 'COMPLETED').length;
 
@@ -301,7 +305,7 @@ export default function CaseDetail({
     const submittedDocuments = [...documents, ...requestDocuments];
     const actionableRequests = requestAgencies.filter((agency) => agency.openRequest.status === 'OPEN');
     const requestsNeedAttention = actionableRequests.length > 0;
-    const [documentsTab, setDocumentsTab] = useState('requests');
+    const [documentsTab, setDocumentsTab] = useState(() => requirementSlots.length || requestedSlots.length ? 'documents' : 'requests');
 
     const statusLine = useMemo(
         () => buildCaseStatusLine({
@@ -362,6 +366,16 @@ export default function CaseDetail({
             );
         }
 
+        if (requirementSlots.length || requestedSlots.length) {
+            return (
+                <StatusBar
+                    tone="action"
+                    title="Documents are needed from you."
+                    detail="Open My Submitted Documents below to upload them."
+                />
+            );
+        }
+
         return (
             <StatusBar
                 tone="positive"
@@ -369,7 +383,7 @@ export default function CaseDetail({
                 detail="We will let you know here when a partner office needs something from you."
             />
         );
-    }, [kind, requestsNeedAttention]);
+    }, [kind, requestsNeedAttention, requirementSlots.length, requestedSlots.length]);
 
     const recordBadge = kind === 'closed'
         ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
@@ -695,7 +709,7 @@ export default function CaseDetail({
                             )
                         ) : (
                             <div className="px-5 py-5">
-                                <IntakeReplacementPanel caseId={trackedCase?.id} slots={requestedSlots} reason={requestedReason} />
+                                <IntakeReplacementPanel caseId={trackedCase?.id} slots={isClosed ? [] : [...new Set([...requestedSlots, ...requirementSlots])]} reason={requestedReason} />
                                 <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
                                     My submitted documents
                                     {submittedDocuments.length > 0 ? ` · ${submittedDocuments.length}` : ''}

@@ -33,7 +33,7 @@ function formatNokAddress(nok) {
   return formatResolvedAddress(nok, nok?.full_address || 'N/A');
 }
 
-export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTimeline = [], approver = null, lifecycle = [] }) {
+export default function CaseShow({ case: caseFile, documentRequirements = [], overdueDays = 7, milestoneTimeline = [], approver = null, lifecycle = [] }) {
   const EVENT_CONFIG = {
     case_opened:             { dot: 'bg-blue-50 border-blue-200 text-blue-600',       icon: 'folder' },
     referral_sent:           { dot: 'bg-purple-50 border-purple-200 text-purple-600',   icon: 'forward_to_inbox' },
@@ -114,7 +114,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
     setConfirmDeleteDoc(docId);
   }
 
-  function handleDocumentUpload(file) {
+  function handleDocumentUpload(file, category = null) {
     if (!file || uploadingDoc) return;
     setUploadingDoc(true);
 
@@ -123,6 +123,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
     // (and a 302 redirect on success replays as GET against a JSON endpoint).
     const formData = new FormData();
     formData.append('file', file);
+    if (category) formData.append('category', category);
 
     router.post(
       route('cases.documents.store', caseFile.id),
@@ -131,7 +132,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
         preserveScroll: true,
         forceFormData: true,
         onSuccess: () => {
-          router.reload({ only: ['case'] });
+          router.reload({ only: ['case', 'documentRequirements'] });
           toast.success('Document uploaded successfully.');
         },
         onError: (errors) => {
@@ -712,17 +713,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
 
           <section data-tour="case-documents" className="rounded-xl border border-[#dce3eb] bg-white shadow-[0_1px_3px_rgba(23,35,51,0.04)]">
             <CardHeader
-              title={
-                <>
-                  Documents
-                  <span className="group relative inline-flex align-middle">
-                    <span tabIndex={0} aria-label="Documents info" aria-describedby="document-visibility-info" className="material-symbols-outlined ml-1 cursor-help text-[16px] text-slate-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-700">info</span>
-                    <span id="document-visibility-info" role="tooltip" className="pointer-events-none absolute left-1/2 top-full z-20 mt-2 hidden w-64 -translate-x-1/2 rounded-md bg-slate-900 px-3 py-2 text-left text-[11px] font-normal leading-4 text-white shadow-lg group-hover:block group-focus-within:block">
-                      Everything uploaded to this section will be viewable to all referred agencies.
-                    </span>
-                  </span>
-                </>
-              }
+              title="Documents"
               meta={`${(caseFile.documents || []).length} documents`}
               actions={canManageCaseDocuments && (
                 <FileUpload
@@ -736,6 +727,45 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
               )}
             />
             <div className="space-y-4 px-5 pb-5">
+
+              {documentRequirements.length > 0 && (
+                <div className="space-y-2" data-testid="document-requirements">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-slate-500">Requirements</p>
+                  {documentRequirements.map((requirement) => {
+                    const tone = {
+                      received: 'bg-emerald-50 border-emerald-200 text-emerald-700',
+                      complied_onsite: 'bg-blue-50 border-blue-200 text-blue-700',
+                      for_compliance: 'bg-amber-50 border-amber-200 text-amber-800',
+                    }[requirement.state] ?? 'bg-slate-50 border-slate-200 text-slate-600';
+                    const label = { received: 'Received', complied_onsite: 'Complied onsite', for_compliance: 'For compliance' }[requirement.state] ?? requirement.state;
+                    return (
+                      <div key={requirement.slot} className="rounded-md border border-slate-200 px-3 py-2">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="text-[12px] font-semibold text-slate-700">{requirement.label}</p>
+                          <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${tone}`}>{label}</span>
+                        </div>
+                        {requirement.note && <p className="mt-1 text-[11px] text-slate-500">{requirement.note}</p>}
+                        {canManageCaseDocuments && requirement.state === 'for_compliance' && (
+                          <label className="mt-2 inline-flex cursor-pointer items-center gap-1 text-[11px] font-semibold text-blue-800">
+                            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">upload</span>
+                            Upload
+                            <input
+                              type="file"
+                              accept=".pdf,.jpg,.jpeg,.png,.webp"
+                              className="sr-only"
+                              disabled={uploadingDoc}
+                              onChange={(event) => {
+                                handleDocumentUpload(event.target.files?.[0] ?? null, requirement.slot);
+                                event.target.value = '';
+                              }}
+                            />
+                          </label>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
 
               {caseFile.documents?.length > 0 ? (
                 <div className="space-y-2">

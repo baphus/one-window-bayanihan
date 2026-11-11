@@ -52,8 +52,7 @@ class AddressCodeToTextIntegrationTest extends TestCase
             'address_province' => self::PROVINCE_CODE,
             'address_city_municipality' => self::CITY_CODE,
             'address_barangay' => self::BARANGAY_CODE,
-            'consent_method' => 'WRITTEN',
-            'consent_evidence' => 'Signed consent retained',
+            'consent' => true,
             'consent_text_version' => IntakeDocumentService::CONSENT_VERSION,
             'missing_document_reasons' => array_fill_keys(['passport_front_page', 'arrival_stamp', 'employment_evidence', 'sworn_affidavit'], 'Awaiting copy'),
         ]), $user->id);

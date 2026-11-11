@@ -71,11 +71,11 @@ class StoreCaseRequest extends FormRequest
             'documents' => ['nullable', 'array:'.implode(',', IntakeDocumentService::SLOTS)],
             'documents.*' => ['file', 'max:'.config('file-uploads.max_size', 20480), 'mimes:pdf,jpg,jpeg,png,webp'],
             'consent_text_version' => ['required', Rule::in([IntakeDocumentService::CONSENT_VERSION])],
-            'consent' => $public ? ['required', 'accepted'] : ['prohibited'],
-            'consent_method' => $public ? ['prohibited'] : ['required', Rule::in(['WRITTEN', 'RECORDED'])],
-            'consent_evidence' => $public ? ['prohibited'] : ['required', 'string', 'max:2000'],
-            'missing_document_reasons' => $public ? ['prohibited'] : ['nullable', 'array:passport_front_page,arrival_stamp,employment_evidence,distress_certificate,termination_letter,sworn_affidavit'],
-            'missing_document_reasons.*' => ['required', 'string', 'max:1000'],
+            'consent' => ['required', 'accepted'],
+            'complied_onsite_slots' => $public ? ['prohibited'] : ['nullable', 'array'],
+            'complied_onsite_slots.*' => ['required', 'distinct', Rule::in(IntakeDocumentService::REQUIREMENT_KEYS)],
+            'missing_document_reasons' => $public ? ['prohibited'] : ['nullable', 'array:'.implode(',', IntakeDocumentService::REQUIREMENT_KEYS)],
+            'missing_document_reasons.*' => ['nullable', 'string', 'max:1000'],
             'staff_summary' => $public ? ['prohibited'] : ['nullable', 'string', 'max:5000'],
         ];
         foreach (['nok_name', 'nok_relationship', 'nok_contact_number', 'nok_email'] as $field) {
@@ -84,7 +84,7 @@ class StoreCaseRequest extends FormRequest
         foreach (['region', 'province', 'city_municipality', 'barangay'] as $part) {
             $rules['address_'.$part.'_code'] = ['nullable', 'string', 'max:20'];
         }
-        foreach (['assigned_case_manager_id', 'last_correction_reason', 'document_requested_by', 'document_requested_at', 'requested_document_slots', 'reviewed_document_ids', 'ofw_user_id', 'user_id', 'client_id', 'selected_client_id', 'new_ofw', 'next_of_kin', 'client', 'category_id', 'category_ids', 'case_issue_id', 'confirmed_assessments', 'confirmed_assessment_by', 'confirmed_assessment_at', 'proposed_assessment_by', 'proposed_assessment_at', 'consent_accepted_by', 'consent_given_at', 'reviewed_by', 'reviewed_at'] as $field) {
+        foreach (['assigned_case_manager_id', 'last_correction_reason', 'document_requested_by', 'document_requested_at', 'requested_document_slots', 'reviewed_document_ids', 'ofw_user_id', 'user_id', 'client_id', 'selected_client_id', 'new_ofw', 'next_of_kin', 'client', 'category_id', 'category_ids', 'case_issue_id', 'confirmed_assessments', 'confirmed_assessment_by', 'confirmed_assessment_at', 'proposed_assessment_by', 'proposed_assessment_at', 'consent_accepted_by', 'consent_given_at', 'consent_method', 'consent_evidence', 'document_requirements', 'reviewed_by', 'reviewed_at'] as $field) {
             $rules[$field] = ['prohibited'];
         }
 
@@ -103,10 +103,10 @@ class StoreCaseRequest extends FormRequest
                     $validator->errors()->add('date_of_birth', 'Age at intake must be between 15 and 100.');
                 }
             }
-            $slots = array_keys($this->file('documents', []));
-            foreach (IntakeDocumentService::missingSlots($slots, (string) $this->input('return_reason')) as $slot) {
-                if ($this->user()?->isOfw() || ! $this->filled('missing_document_reasons.'.$slot)) {
-                    $validator->errors()->add('documents.'.$slot, 'Required document missing. Assisted intake requires a missing-document reason.');
+            // Self-service filings still need the standard set; assisted filings record requirements instead.
+            if ($this->user()?->isOfw()) {
+                foreach (IntakeDocumentService::missingSlots(array_keys($this->file('documents', [])), (string) $this->input('return_reason')) as $slot) {
+                    $validator->errors()->add('documents.'.$slot, 'Required document missing.');
                 }
             }
         });

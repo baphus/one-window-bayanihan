@@ -45,7 +45,7 @@ class CaseServiceTest extends TestCase
         $result = $service->createCase(array_merge($data, [
             'client_type' => 'OFW',
             'address_region_code' => '0700000000', 'address_province_code' => '0702200000',
-            'consent_method' => 'WRITTEN', 'consent_evidence' => 'Signed consent retained',
+            'consent' => true,
             'consent_text_version' => IntakeDocumentService::CONSENT_VERSION,
             'missing_document_reasons' => array_fill_keys(['passport_front_page', 'arrival_stamp', 'employment_evidence', 'sworn_affidavit'], 'Awaiting copy'),
         ]), $user->id);

@@ -342,7 +342,7 @@ class CaseDocumentTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_agency_sees_general_case_and_own_referral_documents_only(): void
+    public function test_agency_sees_only_its_own_referral_documents(): void
     {
         $ownAgency = Agency::create(['id' => fake()->uuid(), 'name' => 'Own', 'short' => 'OW', 'slug' => 'own-visibility']);
         $otherAgency = Agency::create(['id' => fake()->uuid(), 'name' => 'Other', 'short' => 'OT', 'slug' => 'other-visibility']);
@@ -355,7 +355,7 @@ class CaseDocumentTest extends TestCase
             'case_id' => $this->case->id, 'agcy_id' => $otherAgency->id,
         ]);
 
-        // (b) General case file — no referral link.
+        // (b) General case file — no referral link: case-manager and OFW only.
         $generalDoc = $this->createDocument();
         // (a) Manager-uploaded document on the agency's own referral.
         $ownReferralDoc = $this->createDocument();
@@ -366,22 +366,22 @@ class CaseDocumentTest extends TestCase
 
         $agencyUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $ownAgency->id]);
 
-        // Index returns general case files + own-referral docs, never the other agency's.
+        // Index returns own-referral docs only, never case-level files or another agency's.
         $response = $this->actingAsWithMfa($agencyUser)->getJson(route('cases.documents.index', $this->case->id));
-        $response->assertOk()->assertJsonCount(2);
+        $response->assertOk()->assertJsonCount(1);
         $listedIds = collect($response->json())->pluck('id');
-        $this->assertContains($generalDoc->id, $listedIds);
         $this->assertContains($ownReferralDoc->id, $listedIds);
+        $this->assertNotContains($generalDoc->id, $listedIds);
         $this->assertNotContains($otherReferralDoc->id, $listedIds);
 
-        // Direct download: general case file and own-referral doc are allowed.
+        // Direct download: own-referral doc is allowed; case-level file is refused.
         $storage = $this->createMock(StorageService::class);
-        $storage->expects($this->exactly(2))->method('temporaryUrl')->willReturn('https://storage.test/document.pdf');
+        $storage->expects($this->once())->method('temporaryUrl')->willReturn('https://storage.test/document.pdf');
         $this->app->instance(StorageService::class, $storage);
 
         $this->actingAsWithMfa($agencyUser)
             ->get(route('cases.documents.download', [$this->case->id, $generalDoc->id]))
-            ->assertRedirect('https://storage.test/document.pdf');
+            ->assertForbidden();
         $this->actingAsWithMfa($agencyUser)
             ->get(route('cases.documents.download', [$this->case->id, $ownReferralDoc->id]))
             ->assertRedirect('https://storage.test/document.pdf');
@@ -427,8 +427,9 @@ class CaseDocumentTest extends TestCase
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Case/Show')
-                ->has('case.documents', 2)
-                ->where('case.documents', fn ($docs) => collect($docs)->pluck('id')->contains($otherReferralDoc->id) === false)
+                ->has('case.documents', 1)
+                ->where('case.documents', fn ($docs) => collect($docs)->pluck('id')->all() === [$ownReferralDoc->id])
+                ->where('documentRequirements', [])
                 ->where('case.referrals', function ($referrals) use ($ownReferral, $otherReferral) {
                     $own = collect($referrals)->firstWhere('id', $ownReferral->id);
                     $other = collect($referrals)->firstWhere('id', $otherReferral->id);

@@ -13,13 +13,16 @@ class ReplaceIntakeDocumentsRequest extends FormRequest
         $case = $this->route('case');
         $case = $case instanceof CaseFile ? $case : CaseFile::find($case);
 
-        return $case && $this->user()?->isOfw() && $case->ofw_user_id === $this->user()->id && $case->status === CaseFile::STATUS_PENDING_REVIEW;
+        return $case && $this->user()?->isOfw()
+            && $case->ofw_user_id === $this->user()->id
+            && ! in_array($case->status, ['CLOSED', 'ARCHIVED'], true)
+            && IntakeDocumentService::outstandingSlots($case->document_requirements) !== [];
     }
 
     public function rules(): array
     {
         return [
-            'documents' => ['required', 'array:'.implode(',', IntakeDocumentService::SLOTS), 'min:1'],
+            'documents' => ['required', 'array:'.implode(',', IntakeDocumentService::REQUIREMENT_KEYS), 'min:1'],
             'documents.*' => ['required', 'file', 'max:'.config('file-uploads.max_size', 20480), 'mimes:pdf,jpg,jpeg,png,webp'],
         ];
     }

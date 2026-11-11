@@ -156,6 +156,7 @@ class CaseFile extends Model
         'deletion_reason',
         'reviewed_by',
         'reviewed_at',
+        'document_requirements',
     ];
 
     protected $casts = [
@@ -172,6 +173,7 @@ class CaseFile extends Model
         'document_request_reason' => EncryptedString::class,
         'last_correction_reason' => EncryptedString::class,
         'requested_document_slots' => 'array',
+        'document_requirements' => 'array',
         'reviewed_document_ids' => 'array',
         'document_requested_at' => 'datetime',
         'employment_position' => EncryptedString::class,

@@ -26,6 +26,7 @@ class CaseOwnedPortalReadersTest extends TestCase
             'first_name' => 'Historical', 'last_name' => 'Applicant',
             'staff_summary' => 'PRIVATE STAFF SUMMARY', 'consent_evidence' => 'PRIVATE CONSENT',
             'requested_document_slots' => ['passport_front_page'], 'document_request_reason' => 'Unreadable passport',
+            'document_requirements' => ['passport_front_page' => 'for_compliance'],
         ]);
         $unlinked = CaseFile::factory()->open()->create(['ofw_user_id' => null, 'email' => $owner->email]);
         $document = CaseDocument::factory()->create(['case_id' => $case->id, 'category' => 'passport_front_page']);
@@ -38,12 +39,31 @@ class CaseOwnedPortalReadersTest extends TestCase
         $response->assertJsonPath('props.case.first_name', 'Historical')
             ->assertJsonPath('props.case.requested_document_slots', ['passport_front_page'])
             ->assertJsonPath('props.case.document_request_reason', 'Unreadable passport')
+            ->assertJsonPath('props.case.document_requirements.0.slot', 'passport_front_page')
+            ->assertJsonPath('props.case.document_requirements.0.state', 'for_compliance')
             ->assertJsonCount(1, 'props.case.documents')
             ->assertJsonPath('props.case.documents.0.id', $document->id);
         $this->assertArrayNotHasKey('staff_summary', $response->json('props.case'));
         $this->assertArrayNotHasKey('consent_evidence', $response->json('props.case'));
         $this->assertArrayNotHasKey('file_path', $response->json('props.case.documents.0'));
         $this->actingAsWithMfa($owner)->get(route('ofw.case.show', $unlinked->id))->assertForbidden();
+    }
+
+    public function test_portal_lists_uploaded_employment_evidence_without_exposing_unrelated_documents(): void
+    {
+        $this->withoutMiddleware(HandleInertiaRequests::class);
+        $owner = User::factory()->create(['role' => UserRole::OFW->value]);
+        $case = CaseFile::factory()->open()->create([
+            'ofw_user_id' => $owner->id,
+            'document_requirements' => ['employment_evidence' => 'received'],
+        ]);
+        $evidence = CaseDocument::factory()->create(['case_id' => $case->id, 'category' => 'employment_evidence']);
+        CaseDocument::factory()->create(['case_id' => $case->id, 'category' => 'consent_evidence']);
+
+        $this->actingAsWithMfa($owner)->withHeader('X-Inertia', 'true')
+            ->get(route('ofw.case.show', $case->id))->assertOk()
+            ->assertJsonCount(1, 'props.case.documents')
+            ->assertJsonPath('props.case.documents.0.id', $evidence->id);
     }
 
     public function test_notifications_follow_case_owner_not_current_or_matching_email(): void

@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
-import CaseIntakeForm from '../CaseIntakeForm';
+import CaseIntakeForm, { buildIntakePayload } from '../CaseIntakeForm';
 
 vi.mock('@inertiajs/react', () => ({
     router: { get: vi.fn() },
@@ -39,8 +39,7 @@ function createMockForm(data = {}) {
             documents: {},
             consent_text_version: 'case-intake-v1',
             consent: false,
-            consent_method: '',
-            consent_evidence: '',
+            complied_onsite_slots: [],
             staff_summary: '',
             nok_name: '',
             nok_relationship: '',
@@ -68,6 +67,13 @@ describe('CaseIntakeForm email field', () => {
         expect(screen.getByText(/Your registered account email/i)).toBeInTheDocument();
     });
 
+    it('sex picker uses values accepted by case filing', () => {
+        render(<CaseIntakeForm form={createMockForm()} mode="staff" onSubmit={vi.fn()} />);
+        const sex = document.querySelector('select[aria-hidden="true"]:has(option[value="MALE"])');
+        expect(sex).not.toBeNull();
+        expect([...sex.options].map((option) => option.value)).toEqual(['', 'MALE', 'FEMALE']);
+    });
+
     it('email is editable in staff mode', () => {
         const form = createMockForm({ email: '' });
         render(<CaseIntakeForm form={form} mode="staff" onSubmit={vi.fn()} />);
@@ -84,5 +90,29 @@ describe('CaseIntakeForm email field', () => {
         const emailInput = screen.getByLabelText(/Email/i);
         expect(emailInput.className).toContain('bg-slate-50');
         expect(emailInput.className).toContain('cursor-not-allowed');
+    });
+});
+
+describe('buildIntakePayload consent contract', () => {
+    it('staff payload carries consent and onsite slots, not consent method or evidence', () => {
+        const data = { ...createMockForm().data, consent: true, complied_onsite_slots: ['arrival_stamp'] };
+
+        const payload = buildIntakePayload(data, 'staff');
+
+        expect(payload.consent).toBe(true);
+        expect(payload.complied_onsite_slots).toEqual(['arrival_stamp']);
+        expect(payload).not.toHaveProperty('consent_method');
+        expect(payload).not.toHaveProperty('consent_evidence');
+    });
+
+    it('public payload carries consent only', () => {
+        const data = { ...createMockForm().data, consent: true };
+
+        const payload = buildIntakePayload(data, 'public');
+
+        expect(payload.consent).toBe(true);
+        expect(payload).not.toHaveProperty('consent_method');
+        expect(payload).not.toHaveProperty('consent_evidence');
+        expect(payload).not.toHaveProperty('complied_onsite_slots');
     });
 });

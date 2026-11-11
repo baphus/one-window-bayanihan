@@ -9,6 +9,7 @@ use App\Services\IntakeDocumentService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
 class CaseIntakeHttpTest extends TestCase
@@ -113,5 +114,85 @@ class CaseIntakeHttpTest extends TestCase
         $case = CaseFile::factory()->withIntake()->create(['assigned_case_manager_id' => $manager->id]);
         $this->actingAsWithMfa($manager)->patch(route('cases.update', $case), ['first_name' => 'Nope'])->assertSessionHasErrors('correction_reason');
         $this->assertSame('Juan', $case->fresh()->first_name);
+    }
+
+    public function test_staff_filing_opens_case_and_records_requirement_map(): void
+    {
+        Storage::fake('object-storage');
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $data = $this->payload();
+        $data['documents'] = ['passport_front_page' => UploadedFile::fake()->image('passport.jpg')];
+        $data['complied_onsite_slots'] = ['arrival_stamp'];
+        $data['missing_document_reasons'] = ['sworn_affidavit' => 'To follow'];
+
+        $this->actingAsWithMfa($manager)->post(route('cases.store'), $data)->assertRedirect();
+
+        $case = CaseFile::sole();
+        $this->assertSame('OPEN', $case->status);
+        $this->assertSame('STAFF_ATTESTED', $case->consent_method);
+        $this->assertSame($manager->id, $case->assigned_case_manager_id);
+        $this->assertEquals([
+            'passport_front_page' => IntakeDocumentService::REQUIREMENT_RECEIVED,
+            'arrival_stamp' => IntakeDocumentService::REQUIREMENT_COMPLIED_ONSITE,
+            'sworn_affidavit' => IntakeDocumentService::REQUIREMENT_FOR_COMPLIANCE,
+            'employment_evidence' => IntakeDocumentService::REQUIREMENT_FOR_COMPLIANCE,
+        ], $case->document_requirements);
+
+        $this->actingAsWithMfa($manager)->get(route('cases.show', $case))
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('documentRequirements', 4)
+                ->where('documentRequirements', fn ($requirements) => collect($requirements)->contains(
+                    fn ($requirement) => $requirement['slot'] === 'sworn_affidavit' && $requirement['note'] === 'To follow'
+                )));
+    }
+
+    public function test_staff_filing_links_active_ofw_account_by_email(): void
+    {
+        Storage::fake('object-storage');
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $ofw = User::factory()->create(['role' => UserRole::OFW->value, 'email' => 'linked@example.test']);
+        $data = $this->payload();
+        $data['email'] = 'linked@example.test';
+
+        $this->actingAsWithMfa($manager)->post(route('cases.store'), $data)->assertRedirect();
+
+        $this->assertSame($ofw->id, CaseFile::sole()->ofw_user_id);
+    }
+
+    public function test_staff_filing_ignores_non_ofw_and_inactive_email_matches(): void
+    {
+        Storage::fake('object-storage');
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        User::factory()->create(['role' => UserRole::ADMIN->value, 'email' => 'admin@example.test']);
+        User::factory()->create(['role' => UserRole::OFW->value, 'email' => 'inactive@example.test', 'is_active' => false]);
+
+        foreach (['admin@example.test', 'inactive@example.test'] as $email) {
+            $data = $this->payload();
+            $data['email'] = $email;
+            $this->actingAsWithMfa($manager)->post(route('cases.store'), $data)->assertRedirect();
+        }
+
+        $this->assertSame([null, null], CaseFile::orderBy('case_number')->pluck('ofw_user_id')->all());
+    }
+
+    public function test_ofw_lookup_returns_only_the_matched_active_ofw_name(): void
+    {
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $ofw = User::factory()->create([
+            'role' => UserRole::OFW->value, 'email' => 'lookup@example.test',
+            'first_name' => 'Maria', 'last_name' => 'Cruz',
+        ]);
+
+        $this->actingAsWithMfa($manager)
+            ->getJson(route('cases.ofw-lookup', ['email' => 'lookup@example.test']))
+            ->assertOk()->assertExactJson(['name' => $ofw->name]);
+
+        $this->actingAsWithMfa($manager)
+            ->getJson(route('cases.ofw-lookup', ['email' => 'nobody@example.test']))
+            ->assertOk()->assertExactJson(['name' => null]);
+
+        $this->actingAsWithMfa($ofw)
+            ->getJson(route('cases.ofw-lookup', ['email' => 'lookup@example.test']))
+            ->assertForbidden();
     }
 }

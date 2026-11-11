@@ -52,7 +52,7 @@ class DateOfEmploymentValidationTest extends TestCase
     public function publish_accepts_valid_arrival_date_and_does_not_persist_retired_employment_fields(): void
     {
         $response = $this->actingAsWithMfa($this->user)->post(route('cases.store'), $this->validPublishData('2024-01-15'));
-        $case = CaseFile::where('status', CaseFile::STATUS_PENDING_REVIEW)->firstOrFail();
+        $case = CaseFile::where('status', 'OPEN')->firstOrFail();
 
         $response->assertRedirect(route('cases.show', $case));
         $this->assertSame('2024-01-15', $case->fresh()->employment_date_of_arrival->toDateString());
@@ -84,9 +84,8 @@ class DateOfEmploymentValidationTest extends TestCase
             'summary' => 'Employment date validation test',
             'vulnerability_indicator' => 'None',
             'return_reason' => 'OTHERS',
+            'consent' => true,
             'consent_text_version' => IntakeDocumentService::CONSENT_VERSION,
-            'consent_method' => 'WRITTEN',
-            'consent_evidence' => 'Signed consent form on file',
             'documents' => collect(['passport_front_page', 'arrival_stamp', 'oec', 'sworn_affidavit'])
                 ->mapWithKeys(fn ($slot) => [$slot => UploadedFile::fake()->image($slot.'.jpg')])->all(),
         ];

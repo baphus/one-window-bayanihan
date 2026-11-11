@@ -115,8 +115,12 @@ class CaseService
                     }
                     $attributes['consent_method'] = 'ONLINE';
                     $attributes['consent_evidence'] = null;
-                } elseif (! in_array($data['consent_method'] ?? null, ['WRITTEN', 'RECORDED'], true) || empty($data['consent_evidence'])) {
-                    throw ValidationException::withMessages(['consent_evidence' => 'Staff-assisted consent evidence is required.']);
+                } else {
+                    if (empty($data['consent'])) {
+                        throw ValidationException::withMessages(['consent' => 'Consent is required.']);
+                    }
+                    $attributes['consent_method'] = 'STAFF_ATTESTED';
+                    $attributes['consent_evidence'] = null;
                 }
                 Validator::make($data, [
                     'return_reason' => ['required', Rule::in(IntakeDocumentService::RETURN_REASONS)],
@@ -126,22 +130,35 @@ class CaseService
                     'proposed_assessment_other' => [Rule::requiredIf(in_array('OTHER', $data['proposed_assessments'] ?? [], true)), 'nullable', 'string', 'max:2000'],
                 ])->validate();
                 $missing = IntakeDocumentService::missingSlots(array_keys($data['documents'] ?? []), $data['return_reason'] ?? '');
-                foreach ($missing as $slot) {
-                    if ($filer->isOfw() || empty($data['missing_document_reasons'][$slot])) {
+                if ($filer->isOfw()) {
+                    foreach ($missing as $slot) {
                         throw ValidationException::withMessages(['documents.'.$slot => 'Required document missing.']);
                     }
                 }
+                $linkedOfwId = $filer->isOfw() ? $userId : User::query()
+                    ->where('email', $attributes['email'] ?? null)
+                    ->where('role', UserRole::OFW->value)
+                    ->where('is_active', true)
+                    ->value('id');
                 $case = CaseFile::create(array_merge($attributes, [
                     'case_number' => $this->generateCaseNumber(), 'tracker_number' => $this->generateTrackerNumber(),
-                    'status' => CaseFile::STATUS_PENDING_REVIEW, 'user_id' => $userId,
-                    'ofw_user_id' => $filer->isOfw() ? $userId : null,
+                    'status' => $filer->isOfw() ? CaseFile::STATUS_PENDING_REVIEW : 'OPEN', 'user_id' => $userId,
+                    'ofw_user_id' => $linkedOfwId,
                     'assigned_case_manager_id' => $filer->isCaseManager() ? $userId : null,
                     'consent_given_at' => now(), 'consent_accepted_by' => $userId,
                     'consent_text_version' => IntakeDocumentService::CONSENT_VERSION,
                     'proposed_assessment_by' => ! empty($attributes['proposed_assessments']) ? $userId : null,
                     'proposed_assessment_at' => ! empty($attributes['proposed_assessments']) ? now() : null,
+                    'document_requirements' => IntakeDocumentService::buildRequirements(
+                        array_keys($data['documents'] ?? []),
+                        (array) ($data['complied_onsite_slots'] ?? []),
+                        $data['return_reason'] ?? '',
+                    ),
                 ]));
                 app(IntakeDocumentService::class)->store($case, $data['documents'] ?? [], $userId, $paths);
+                if (! $filer->isOfw()) {
+                    $this->eventRecorder->caseOpened($case, $userId);
+                }
 
                 return $case;
             });
@@ -208,6 +225,7 @@ class CaseService
                 'confirmed_assessment_by' => $userId, 'confirmed_assessment_at' => now(),
                 'assigned_case_manager_id' => $actor->isCaseManager() ? $userId : $case->assigned_case_manager_id,
                 'missing_document_reasons' => null,
+                'document_requirements' => null,
             ]));
             $this->eventRecorder->caseOpened($case, $userId);
             AuditLogger::approve()->byId($userId)->forEntity($case, $case->case_number)

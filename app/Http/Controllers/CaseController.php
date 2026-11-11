@@ -128,6 +128,21 @@ class CaseController extends Controller
         return Inertia::render('Case/Create', $this->intakeProps());
     }
 
+    /**
+     * Which active OFW account, if any, a typed email belongs to.
+     * Name only: the filer needs to confirm who they are filing for.
+     */
+    public function lookupOfw(Request $request)
+    {
+        $data = $request->validate(['email' => ['required', 'email', 'max:255']]);
+
+        return response()->json(['name' => User::query()
+            ->where('email', $data['email'])
+            ->where('role', UserRole::OFW->value)
+            ->where('is_active', true)
+            ->value('name')]);
+    }
+
     public function store(StoreCaseRequest $request)
     {
         $validated = $request->validated();
@@ -297,6 +312,9 @@ class CaseController extends Controller
 
         return Inertia::render('Case/Show', [
             'case' => $this->authorizedIntakePayload($case),
+            'documentRequirements' => $request->user()->isAgency()
+                ? []
+                : IntakeDocumentService::requirementList($case),
             ...$this->intakeProps(),
             'overdueDays' => $overdueDays,
             'milestoneTimeline' => $milestonesForViewer,
@@ -557,7 +575,10 @@ class CaseController extends Controller
     private function authorizedIntakePayload(CaseFile $case): array
     {
         $payload = $case->toArray();
-        $staffOnly = ['staff_summary', 'consent_evidence', 'consent_accepted_by', 'missing_document_reasons', 'last_correction_reason', 'document_request_reason', 'document_requested_by', 'document_requested_at', 'reviewed_document_ids', 'proposed_assessment_by', 'proposed_assessment_at', 'confirmed_assessment_by', 'confirmed_assessment_at', 'assigned_case_manager_id'];
+        if (auth()->user()?->isAgency()) {
+            unset($payload['document_requirements']);
+        }
+        $staffOnly = ['staff_summary', 'consent_evidence', 'consent_accepted_by', 'missing_document_reasons', 'last_correction_reason', 'document_request_reason', 'document_requested_by', 'document_requested_at', 'reviewed_document_ids', 'proposed_assessment_by', 'proposed_assessment_at', 'confirmed_assessment_by', 'confirmed_assessment_at', 'assigned_case_manager_id', 'document_requirements'];
         $fields = auth()->user()?->isAgency()
             ? array_diff(CaseFile::INTAKE_FIELDS, $staffOnly)
             : array_values(array_diff(CaseFile::INTAKE_FIELDS, ['ofw_user_id', 'last_correction_reason']));

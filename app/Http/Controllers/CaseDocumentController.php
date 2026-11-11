@@ -8,8 +8,11 @@ use App\Http\Requests\StoreCaseDocumentRequest;
 use App\Models\CaseDocument;
 use App\Models\CaseFile;
 use App\Models\Referral;
+use App\Models\User;
+use App\Notifications\CaseUpdated;
 use App\Services\AuditLogger;
 use App\Services\IntakeDocumentService;
+use App\Services\NotificationService;
 use App\Services\StorageService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -43,11 +46,12 @@ class CaseDocumentController extends Controller
         $paths = [];
         try {
             DB::transaction(function () use ($case, $request, &$paths) {
-                $locked = CaseFile::where('status', CaseFile::STATUS_PENDING_REVIEW)->lockForUpdate()->findOrFail($case->id);
+                $locked = CaseFile::lockForUpdate()->findOrFail($case->id);
                 abort_unless($locked->ofw_user_id === $request->user()->id, 403);
+                $outstanding = IntakeDocumentService::outstandingSlots($locked->document_requirements);
                 $files = $request->file('documents');
                 foreach (array_keys($files) as $slot) {
-                    if (! in_array($slot, $locked->requested_document_slots ?? [], true)) {
+                    if (! in_array($slot, $outstanding, true)) {
                         throw ValidationException::withMessages(['documents.'.$slot => 'This document was not requested.']);
                     }
                 }
@@ -56,6 +60,7 @@ class CaseDocumentController extends Controller
                 foreach ($old as $document) {
                     $document->delete();
                 }
+                app(IntakeDocumentService::class)->syncRequirements($locked);
                 $remaining = array_values(array_diff($locked->requested_document_slots ?? [], array_keys($files)));
                 $locked->update([
                     'requested_document_slots' => $remaining === [] ? null : $remaining,
@@ -65,6 +70,7 @@ class CaseDocumentController extends Controller
                     'reviewed_document_ids' => null,
                 ]);
             });
+            $this->notifyManagerOfOfwUpload($case, $request->user());
         } catch (\Throwable $exception) {
             app(IntakeDocumentService::class)->cleanup($paths);
             throw $exception;
@@ -161,6 +167,8 @@ class CaseDocumentController extends Controller
             'user_id' => $request->user()->id,
         ]);
 
+        app(IntakeDocumentService::class)->syncRequirements($case);
+
         if ($isInertia) {
             return back()->with('success', 'Document uploaded successfully.');
         }
@@ -232,7 +240,23 @@ class CaseDocumentController extends Controller
             'deleted_by' => $request->user()->id,
         ]);
 
+        app(IntakeDocumentService::class)->syncRequirements($case);
+
         return response()->json(['message' => 'Document deleted successfully.']);
+    }
+
+    private function notifyManagerOfOfwUpload(CaseFile $case, User $ofw): void
+    {
+        $manager = $case->assigned_case_manager_id ? User::find($case->assigned_case_manager_id) : null;
+        if (! $manager) {
+            return;
+        }
+
+        app(NotificationService::class)->notifyUsers([$manager], new CaseUpdated(
+            $case,
+            $ofw->name,
+            ['documents' => 'The OFW uploaded a document for this case.'],
+        ));
     }
 
     private function authorizeAccess(CaseFile $case, $user)
@@ -278,11 +302,11 @@ class CaseDocumentController extends Controller
             return;
         }
 
-        // Agency users: general case files plus files on a referral to their
-        // own agency. Never another agency's referral documents; a null
-        // agcy_id must never match, even against a null referral agcy_id.
-        if ($user->isAgency() && ($document->referral_id === null
-            || ($user->agcy_id && $document->referral && $document->referral->agcy_id === $user->agcy_id))) {
+        // Agency users: only files on a referral to their own agency. Never
+        // another agency's referral documents, and never case-level files; a
+        // null agcy_id must never match, even against a null referral agcy_id.
+        if ($user->isAgency() && $document->referral_id !== null
+            && $user->agcy_id && $document->referral && $document->referral->agcy_id === $user->agcy_id) {
             return;
         }
 

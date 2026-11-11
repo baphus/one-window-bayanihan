@@ -51,9 +51,8 @@ class NextOfKinFilingTest extends TestCase
             'summary' => 'NOK filing test',
             'vulnerability_indicator' => 'None',
             'return_reason' => 'OTHERS',
+            'consent' => true,
             'consent_text_version' => IntakeDocumentService::CONSENT_VERSION,
-            'consent_method' => 'WRITTEN',
-            'consent_evidence' => 'Signed form on file',
             'documents' => collect(['passport_front_page', 'arrival_stamp', 'oec', 'sworn_affidavit'])
                 ->mapWithKeys(fn ($slot) => [$slot => UploadedFile::fake()->image($slot.'.jpg')])->all(),
         ], $overrides);
@@ -76,7 +75,7 @@ class NextOfKinFilingTest extends TestCase
         }
         $response->assertRedirect();
 
-        $case = CaseFile::where('status', CaseFile::STATUS_PENDING_REVIEW)->latest()->firstOrFail();
+        $case = CaseFile::where('status', 'OPEN')->latest()->firstOrFail();
         $this->assertSame('NEXT_OF_KIN', $case->client_type);
         $this->assertSame('Maria Cruz', $case->nok_name);
         $this->assertSame('Spouse', $case->nok_relationship);

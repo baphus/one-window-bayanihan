@@ -1,9 +1,10 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import AddressDropdowns from '@/Components/AddressDropdowns';
 import CountrySelect from '@/Components/CountrySelect';
 import InputError from '@/Components/InputError';
 import Select from '@/Components/Select';
 import { addressCodesToNames } from '@/data/philippine-addresses';
+import safeRoute from '@/utils/safeRoute';
 
 export const CIVIL_STATUS_LABELS = {
     SINGLE: 'Single',
@@ -54,6 +55,7 @@ export const DOCUMENT_SLOT_LABELS = {
     distress_certificate: 'Distress certificate',
     termination_letter: 'Termination letter',
     sworn_affidavit: 'Notarized sworn affidavit stating the reason for return',
+    employment_evidence: 'Employment evidence (contract, OEC, or work visa)',
 };
 
 export const EMPLOYMENT_EVIDENCE_SLOTS = ['employment_contract', 'oec', 'work_visa'];
@@ -95,8 +97,7 @@ export function emptyIntakeData({ clientType = 'OFW', consentTextVersion = 'case
         documents: {},
         consent_text_version: consentTextVersion,
         consent: false,
-        consent_method: '',
-        consent_evidence: '',
+        complied_onsite_slots: [],
         staff_summary: '',
         nok_name: '',
         nok_relationship: '',
@@ -158,8 +159,8 @@ export function buildIntakePayload(data, mode) {
     if (mode === 'public') {
         payload.consent = data.consent;
     } else {
-        payload.consent_method = data.consent_method;
-        payload.consent_evidence = data.consent_evidence.trim();
+        payload.consent = data.consent;
+        payload.complied_onsite_slots = data.complied_onsite_slots ?? [];
         payload.staff_summary = data.staff_summary.trim();
         payload.nok_vulnerability_indicator = data.nok_vulnerability_indicator || 'None';
         payload.missing_document_reasons = Object.fromEntries(
@@ -240,6 +241,28 @@ export default function CaseIntakeForm({ form, mode = 'public', options = {}, on
     const employmentEvidenceSelected = EMPLOYMENT_EVIDENCE_SLOTS.some((slot) => Boolean(data.documents?.[slot]));
     const reasonSlot = data.return_reason ? requiredReasonSlot(data.return_reason) : null;
 
+    const [matchedOfw, setMatchedOfw] = useState(null);
+
+    async function lookupOfw(email) {
+        if (!isStaff || !email) {
+            setMatchedOfw(null);
+            return;
+        }
+        try {
+            const response = await fetch(safeRoute('cases.ofw-lookup', { email }, `/cases/ofw-lookup?email=${encodeURIComponent(email)}`), {
+                headers: { Accept: 'application/json' },
+            });
+            if (!response.ok) {
+                setMatchedOfw(null);
+                return;
+            }
+            const body = await response.json();
+            setMatchedOfw(body.name ?? '');
+        } catch {
+            setMatchedOfw(null);
+        }
+    }
+
     function setDocument(slot, file) {
         setData('documents', { ...(data.documents ?? {}), [slot]: file ?? null });
     }
@@ -258,13 +281,34 @@ export default function CaseIntakeForm({ form, mode = 'public', options = {}, on
         setData(field, next.length ? next.join(', ') : 'None');
     }
 
+    function toggleOnsite(key) {
+        const current = data.complied_onsite_slots ?? [];
+        setData('complied_onsite_slots', current.includes(key)
+            ? current.filter((item) => item !== key)
+            : [...current, key]);
+    }
+
+    function onsiteCheckbox(key, label) {
+        return (
+            <label className="mt-2 flex items-center gap-2 text-[11px] font-semibold text-emerald-800">
+                <input
+                    type="checkbox"
+                    checked={(data.complied_onsite_slots ?? []).includes(key)}
+                    onChange={() => toggleOnsite(key)}
+                    className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500/40"
+                />
+                {label}
+            </label>
+        );
+    }
+
     function renderDocumentInput(slot, required) {
         const file = data.documents?.[slot];
         const missingReason = data.missing_document_reasons?.[slot] ?? '';
         return (
             <div key={slot} className="rounded-lg border border-slate-200 p-3">
                 <label htmlFor={`intake-doc-${slot}`} className="block text-[12px] font-bold text-slate-700">
-                    {DOCUMENT_SLOT_LABELS[slot]}{required ? <span className="text-red-600"> *</span> : null}
+                    {DOCUMENT_SLOT_LABELS[slot]}{!isStaff && required ? <span className="text-red-600"> *</span> : null}
                 </label>
                 <input
                     id={`intake-doc-${slot}`}
@@ -275,10 +319,11 @@ export default function CaseIntakeForm({ form, mode = 'public', options = {}, on
                 />
                 {file && <p className="mt-1 truncate text-[11px] text-emerald-700">{file.name}</p>}
                 <InputError message={errors[`documents.${slot}`]} className="mt-1" />
+                {isStaff && !file && onsiteCheckbox(slot, 'Complied onsite')}
                 {isStaff && !file && (
                     <div className="mt-2">
-                        <label htmlFor={`intake-missing-${slot}`} className="block text-[11px] font-semibold text-amber-800">
-                            Missing-document reason
+                        <label htmlFor={`intake-missing-${slot}`} className="block text-[11px] font-semibold text-slate-600">
+                            Note (optional)
                         </label>
                         <input
                             id={`intake-missing-${slot}`}
@@ -289,7 +334,7 @@ export default function CaseIntakeForm({ form, mode = 'public', options = {}, on
                                 ...(data.missing_document_reasons ?? {}),
                                 [slot]: event.target.value,
                             })}
-                            placeholder="Required when this document cannot be provided."
+                            placeholder="Anything the case manager needs to remember about this document."
                             className={`${INPUT} mt-1`}
                         />
                         <InputError message={errors[`missing_document_reasons.${slot}`]} className="mt-1" />
@@ -338,12 +383,17 @@ export default function CaseIntakeForm({ form, mode = 'public', options = {}, on
                     <Field label="Sex" htmlFor="intake-sex" required error={errors.sex}>
                         <Select id="intake-sex" value={data.sex} onChange={(e) => setData('sex', e.target.value)} className="h-10 w-full px-3 text-[13px]">
                             <option value="">Select…</option>
-                            <option value="Male">Male</option>
-                            <option value="Female">Female</option>
+                            <option value="MALE">Male</option>
+                            <option value="FEMALE">Female</option>
                         </Select>
                     </Field>
                     <Field label="Email" htmlFor="intake-email" required error={errors.email} hint={mode === 'public' ? 'Your registered account email. This cannot be changed here.' : undefined}>
-                        <input id="intake-email" type="email" value={data.email} onChange={(e) => setData('email', e.target.value)} className={`${INPUT} ${mode === 'public' ? 'bg-slate-50 cursor-not-allowed' : ''}`} autoComplete="email" maxLength={255} readOnly={mode === 'public'} aria-readonly={mode === 'public'} />
+                        <input id="intake-email" type="email" value={data.email} onChange={(e) => setData('email', e.target.value)} onBlur={(e) => lookupOfw(e.target.value.trim())} className={`${INPUT} ${mode === 'public' ? 'bg-slate-50 cursor-not-allowed' : ''}`} autoComplete="email" maxLength={255} readOnly={mode === 'public'} aria-readonly={mode === 'public'} />
+                        {isStaff && matchedOfw !== null && (
+                            <p className={`mt-1 text-[11px] ${matchedOfw ? 'text-emerald-700' : 'text-amber-700'}`}>
+                                {matchedOfw ? `This case will be linked to the OFW account: ${matchedOfw}` : 'No active OFW account found. The case will be created unlinked and requirements stay staff-managed.'}
+                            </p>
+                        )}
                     </Field>
                     <Field label="Contact number" htmlFor="intake-contact" required error={errors.contact_number}>
                         <input id="intake-contact" type="tel" value={data.contact_number} onChange={(e) => setData('contact_number', e.target.value)} className={INPUT} autoComplete="tel" maxLength={50} />
@@ -506,7 +556,7 @@ export default function CaseIntakeForm({ form, mode = 'public', options = {}, on
                 )}
             </Section>
 
-            <Section title="Return reason and documents" description="Passport front page, BI arrival stamp, one employment document and the reason evidence are required to submit.">
+            <Section title="Return reason and documents" description={isStaff ? 'Upload what the OFW brought. Leave the rest for compliance or tick that it was complied onsite.' : 'Passport front page, BI arrival stamp, one employment document and the reason evidence are required to submit.'}>
                 <Field label="Reason for return" htmlFor="intake-return-reason" required error={errors.return_reason}>
                     <Select id="intake-return-reason" value={data.return_reason} onChange={(e) => setData('return_reason', e.target.value)} className="h-10 w-full px-3 text-[13px]">
                         <option value="">Select…</option>
@@ -517,45 +567,27 @@ export default function CaseIntakeForm({ form, mode = 'public', options = {}, on
                     {renderDocumentInput('passport_front_page', true)}
                     {renderDocumentInput('arrival_stamp', true)}
                     <div className="rounded-lg border border-dashed border-slate-300 p-3">
-                        <p className="text-[12px] font-bold text-slate-700">Employment evidence <span className="text-red-600">*</span></p>
+                        <p className="text-[12px] font-bold text-slate-700">Employment evidence {!isStaff && <span className="text-red-600">*</span>}</p>
                         <p className="mt-1 text-[11px] text-slate-500">Upload any one of these: employment contract, OEC, or work visa.</p>
                         <div className="mt-2 space-y-2">
                             {EMPLOYMENT_EVIDENCE_SLOTS.map((slot) => renderDocumentInput(slot, false))}
                         </div>
-                        {!employmentEvidenceSelected && <p className="mt-2 text-[11px] text-amber-700">At least one employment document is required.</p>}
+                        {!isStaff && !employmentEvidenceSelected && <p className="mt-2 text-[11px] text-amber-700">At least one employment document is required.</p>}
+                        {isStaff && !employmentEvidenceSelected && onsiteCheckbox('employment_evidence', 'Employment evidence complied onsite')}
                     </div>
                     {reasonSlot && renderDocumentInput(reasonSlot, true)}
                 </div>
             </Section>
 
             <Section title="Consent">
-                {isStaff ? (
-                    <>
-                        <p className="text-[12px] leading-relaxed text-slate-600">
-                            Record the consent actually obtained from the OFW or authorised representative. Assisted intake cannot be approved while required documents are missing.
-                        </p>
-                        <div className="grid gap-4 sm:grid-cols-2">
-                            <Field label="Consent method" htmlFor="intake-consent-method" required error={errors.consent_method}>
-                                <Select id="intake-consent-method" value={data.consent_method} onChange={(e) => setData('consent_method', e.target.value)} className="h-10 w-full px-3 text-[13px]">
-                                    <option value="">Select…</option>
-                                    <option value="WRITTEN">Written</option>
-                                    <option value="RECORDED">Recorded</option>
-                                </Select>
-                            </Field>
-                            <Field label="Consent evidence" htmlFor="intake-consent-evidence" required error={errors.consent_evidence} hint="Reference the signed form or recording held on file.">
-                                <input id="intake-consent-evidence" value={data.consent_evidence} onChange={(e) => setData('consent_evidence', e.target.value)} className={INPUT} maxLength={2000} />
-                            </Field>
-                        </div>
-                        <p className="text-[11px] text-slate-500">Consent text version: {data.consent_text_version}</p>
-                    </>
-                ) : (
-                    <label htmlFor="intake-consent" className="flex items-start gap-3 text-[13px] leading-relaxed text-slate-700">
-                        <input id="intake-consent" type="checkbox" checked={data.consent} onChange={(e) => setData('consent', e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary/40" />
-                        <span>
-                            I consent to the collection, use, and sharing of these details and documents with authorised partner agencies to provide assistance and manage my case, under consent version {data.consent_text_version}. <span className="text-red-600">*</span>
-                        </span>
-                    </label>
-                )}
+                <label htmlFor="intake-consent" className="flex items-start gap-3 text-[13px] leading-relaxed text-slate-700">
+                    <input id="intake-consent" type="checkbox" checked={data.consent} onChange={(e) => setData('consent', e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary/40" />
+                    <span>
+                        {isStaff
+                            ? `The OFW consents to the collection, use, and sharing of these details and documents with authorised partner agencies to provide assistance and manage their case, under consent version ${data.consent_text_version}.`
+                            : `I consent to the collection, use, and sharing of these details and documents with authorised partner agencies to provide assistance and manage my case, under consent version ${data.consent_text_version}.`} <span className="text-red-600">*</span>
+                    </span>
+                </label>
                 <InputError message={errors.consent} />
             </Section>
 

@@ -26,3 +26,26 @@ describe('Case details identity', () => {
     expect(screen.getByText('Ari Example')).toBeInTheDocument();
   });
 });
+
+describe('Case documents section', () => {
+  it('no longer claims documents are viewable to all referred agencies', () => {
+    render(<CaseShow case={{ first_name: 'Ari', last_name: 'Example', documents: [] }} />);
+    expect(screen.queryByText(/viewable to all referred agencies/i)).not.toBeInTheDocument();
+  });
+
+  it('lists document requirements with their state and note', () => {
+    render(<CaseShow
+      case={{ first_name: 'Ari', last_name: 'Example', documents: [] }}
+      documentRequirements={[
+        { slot: 'arrival_stamp', state: 'for_compliance', label: 'BI arrival stamp', note: 'To follow' },
+        { slot: 'passport_front_page', state: 'received', label: 'Passport front page', note: null },
+      ]}
+    />);
+
+    expect(screen.getByTestId('document-requirements')).toBeInTheDocument();
+    expect(screen.getByText('BI arrival stamp')).toBeInTheDocument();
+    expect(screen.getByText('For compliance')).toBeInTheDocument();
+    expect(screen.getByText('Received')).toBeInTheDocument();
+    expect(screen.getByText('To follow')).toBeInTheDocument();
+  });
+});

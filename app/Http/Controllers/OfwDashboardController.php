@@ -134,11 +134,12 @@ class OfwDashboardController extends Controller
             'requested_document_slots', 'document_request_reason',
         ]);
         $payload['age_at_intake'] = $case->age_at_intake;
+        $payload['document_requirements'] = IntakeDocumentService::requirementList($case);
         $payload['categories'] = $case->referrals->pluck('category')->filter()->unique('id')
             ->map(fn ($category) => $category->only(['id', 'name', 'color']))->values();
         if ($withDocuments) {
             $payload['documents'] = $case->documents()
-                ->whereIn('category', IntakeDocumentService::SLOTS)
+                ->whereIn('category', IntakeDocumentService::REQUIREMENT_KEYS)
                 ->where('is_deleted', false)->get()
                 ->map(fn ($document) => [
                     'id' => $document->id, 'file_name' => $document->file_name,
