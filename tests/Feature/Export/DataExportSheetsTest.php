@@ -119,7 +119,7 @@ class DataExportSheetsTest extends TestCase
         $queries = new DataExportQueries;
         $rows = $queries->getClientsExport($admin);
         $this->assertCount(2, $rows);
-        $this->assertEqualsCanonicalizing(['Japan', 'Canada'], $rows->pluck('previous_country')->all());
+        $this->assertEqualsCanonicalizing(['Japan', 'Canada'], $rows->pluck('employment_country')->all());
         $this->assertSame([35, 35], $rows->pluck('age')->all());
         $this->assertStringContainsString('Private street', $rows->first()->full_address);
         $this->assertSame('Single unsplit representative', $queries->getNextOfKins($admin)->first()->name);

@@ -19,8 +19,7 @@ class CaseSummaryPdfTest extends TestCase
             'address_street' => '123 Main Street', 'address_barangay' => 'Central',
             'address_city_municipality' => 'Cebu City', 'address_province' => 'Cebu', 'address_region' => 'Region VII',
             'employment_employer_name' => 'Overseas Employer', 'employment_position' => 'Caregiver',
-            'employment_country' => 'Japan', 'employment_start_date' => '2020-01-01',
-            'employment_end_date' => null, 'employment_date_of_arrival' => '2026-01-01',
+            'employment_country' => 'Japan', 'employment_date_of_arrival' => '2026-01-01',
             'vulnerability_indicator' => 'Displaced worker',
             'summary' => str_repeat('Client requests assistance with unpaid wages. ', 200),
         ];

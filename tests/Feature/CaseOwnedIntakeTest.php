@@ -8,6 +8,7 @@ use App\Models\User;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
@@ -33,7 +34,6 @@ class CaseOwnedIntakeTest extends TestCase
             'employment_employer_name' => 'Example Employer',
             'employment_position' => 'Engineer',
             'employment_country' => 'Japan',
-            'employment_last_country' => 'Japan',
             'employment_last_position' => 'Engineer',
             'nok_contact_number' => '09179876543',
             'nok_email' => 'relative@example.test',
@@ -54,6 +54,9 @@ class CaseOwnedIntakeTest extends TestCase
         }
         $this->assertSame('OFW', $payload['client_type']);
         $this->assertSame($case->case_number, $audit->new_value['case_number']);
+        $this->assertArrayNotHasKey('employment_last_country', $case->getAttributes());
+        $this->assertArrayNotHasKey('employment_start_date', $case->getAttributes());
+        $this->assertArrayNotHasKey('employment_end_date', $case->getAttributes());
 
         $case->update(['staff_summary' => 'Changed private assessment']);
 
@@ -87,6 +90,15 @@ class CaseOwnedIntakeTest extends TestCase
 
         $this->expectException(\InvalidArgumentException::class);
         $case->save();
+    }
+
+    public function test_schema_has_no_duplicate_employment_country_or_period_columns(): void
+    {
+        foreach (['employment_last_country', 'employment_start_date', 'employment_end_date'] as $column) {
+            $this->assertFalse(Schema::hasColumn('cases', $column));
+        }
+        $this->assertTrue(Schema::hasColumn('cases', 'employment_country'));
+        $this->assertTrue(Schema::hasColumn('cases', 'employment_date_of_arrival'));
     }
 
     public function test_public_owner_is_nullable_and_separate_from_creator(): void

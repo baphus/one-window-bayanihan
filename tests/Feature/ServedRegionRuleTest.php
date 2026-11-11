@@ -136,8 +136,6 @@ class ServedRegionRuleTest extends TestCase
             'address_barangay' => 'Lahug',
             'employment_employer_name' => 'Gulf Construction Co.',
             'employment_country' => 'Saudi Arabia',
-            'employment_start_date' => '2020-03-01',
-            'employment_last_country' => 'Saudi Arabia',
             'employment_last_position' => 'Welder',
             'employment_date_of_arrival' => '2020-03-01',
             'summary' => 'Region validation filing test.',

@@ -63,7 +63,7 @@ class OfwIntakeReviewNotificationTest extends TestCase
         $response->assertRedirect(route('ofw.dashboard'));
         $this->assertDatabaseHas('cases', [
             'ofw_user_id' => $ofw->id,
-            'email' => 'juan@example.test',
+            'email' => $ofw->email,
             'status' => CaseFile::STATUS_PENDING_REVIEW,
         ]);
         Mail::assertQueued(IntakeReviewMail::class, $activeManagerEmails->count() + 1);

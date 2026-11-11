@@ -388,7 +388,7 @@ class ReportsExportServiceTest extends TestCase
         foreach ([[$owned, 'Canada', 'Welder'], [$otherCase, 'Japan', 'Engineer']] as [$case, $country, $position]) {
             $case->update([
                 'employment_country' => $country, 'employment_position' => $position,
-                'employment_last_country' => $country, 'employment_last_position' => $position,
+                'employment_last_position' => $position,
             ]);
         }
 

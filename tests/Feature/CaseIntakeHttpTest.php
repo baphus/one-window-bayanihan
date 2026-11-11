@@ -41,8 +41,25 @@ class CaseIntakeHttpTest extends TestCase
         $this->assertSame(route('ofw.dashboard'), $response->headers->get('Location'));
         $case = CaseFile::where('ofw_user_id', $owner->id)->sole();
         $this->assertSame(now(config('app.operating_timezone', 'Asia/Manila'))->toDateString(), $case->intake_date->toDateString());
+        $this->assertSame($owner->email, $case->email);
         $this->assertSame('ONLINE', $case->consent_method);
         $this->assertSame($owner->id, $case->consent_accepted_by);
+    }
+
+    public function test_public_email_is_stamped_from_verified_account_and_keeps_historical_snapshot(): void
+    {
+        Storage::fake('object-storage');
+        $owner = User::factory()->create(['role' => UserRole::OFW->value, 'email' => 'account@example.test']);
+        $data = $this->payload();
+        $data['email'] = 'forged@example.test';
+
+        $this->actingAsWithMfa($owner)->post(route('ofw.intake.store'), $data)
+            ->assertRedirect(route('ofw.dashboard'));
+
+        $case = CaseFile::where('ofw_user_id', $owner->id)->sole();
+        $this->assertSame('account@example.test', $case->email);
+        $owner->update(['email' => 'new-verified@example.test']);
+        $this->assertSame('account@example.test', $case->fresh()->email);
     }
 
     public function test_unverified_account_cannot_submit_public_intake(): void

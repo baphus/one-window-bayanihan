@@ -24,8 +24,6 @@ class TestingSeederTest extends TestCase
         $existing = CaseFile::factory()->withIntake()->create([
             'case_number' => $generator->nextCaseNumber(),
             'intake_date' => '2026-10-15',
-            'employment_start_date' => '2020-01-01',
-            'employment_end_date' => '2026-10-01',
             'employment_date_of_arrival' => '2026-10-02',
             'status' => 'OPEN',
             'consent_text_version' => 'case-intake-v1',

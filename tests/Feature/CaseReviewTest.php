@@ -4,6 +4,8 @@ namespace Tests\Feature;
 
 use App\Enums\UserRole;
 use App\Mail\ClientUpdateMail;
+use App\Models\Agency;
+use App\Models\CaseCategory;
 use App\Models\CaseDocument;
 use App\Models\CaseFile;
 use App\Models\User;
@@ -44,6 +46,31 @@ class CaseReviewTest extends TestCase
         }
 
         return ['confirmed_assessments' => ['LEGAL_ASSISTANCE'], 'reviewed_document_ids' => $ids];
+    }
+
+    public function test_case_manager_pending_review_gets_suggestions_and_active_agencies(): void
+    {
+        $filer = User::factory()->create(['role' => UserRole::OFW->value]);
+        $this->createPendingCase($filer);
+        $cm = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $agency = Agency::factory()->create(['is_active' => true, 'is_deleted' => false]);
+        $inactive = Agency::factory()->create(['is_active' => false, 'is_deleted' => false]);
+        $deleted = Agency::factory()->create(['is_active' => true, 'is_deleted' => true]);
+        $category = CaseCategory::factory()->create();
+        $category->suggestedAgencies()->attach([$agency->id, $inactive->id, $deleted->id]);
+
+        $response = $this->actingAsWithMfa($cm)->get(route('cases.review-pending'));
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->component('Case/ReviewPending')
+            ->where('categories.0.id', $category->id)
+            ->where('categories.0.suggested_agency_ids', [$agency->id])
+            ->where('agencies', [[
+                'id' => $agency->id,
+                'name' => $agency->name,
+                'short' => $agency->short,
+            ]])
+        );
     }
 
     public function test_cm_approve_sets_open_and_reviewed_fields(): void

@@ -88,7 +88,6 @@ class DateOfBirthBoundsTest extends TestCase
 
     private function validFilingData(string $dob): array
     {
-        $employStart = now()->parse($dob)->addYears(15)->toDateString();
 
         return [
             'client_type' => 'OFW',
@@ -108,7 +107,6 @@ class DateOfBirthBoundsTest extends TestCase
             'employment_employer_name' => 'Gulf Construction Co.',
             'employment_position' => 'Welder',
             'employment_country' => 'Saudi Arabia',
-            'employment_start_date' => $employStart,
             'employment_date_of_arrival' => now()->toDateString(),
             'summary' => 'DOB bounds filing test.',
             'vulnerability_indicator' => 'None',
