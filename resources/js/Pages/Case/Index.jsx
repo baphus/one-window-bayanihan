@@ -212,7 +212,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
   // change when a response arrives, but a filter clicked while a search is still
   // pending has not round-tripped yet, so params sent while a search timer is
   // live are remembered and the timer merges into them. When no search is
-  // pending the props are authoritative and nothing needs tracking ΓÇö tracking
+  // pending the props are authoritative and nothing needs tracking — tracking
   // them unconditionally would let a mount-time filter restore shadow the props.
   const filtersRef = useRef(filters);
   filtersRef.current = filters;
@@ -221,7 +221,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
   // Params of a navigation sent while a search timer is live. A filter clicked
   // during the 400ms window issues its own request before the server has sent
   // the new props back, so the timer cannot read them from `filters`. This must
-  // be captured by whoever issues the request while the timer is armed ΓÇö the
+  // be captured by whoever issues the request while the timer is armed — the
   // timer clears its own id before calling updateTable, so updateTable itself
   // can no longer tell that a search is pending.
   const trackPending = (clean) => {
@@ -389,7 +389,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
               sortAccessor: (row) => row.user?.name ?? '',
               render: (row) => {
                 const user = row.user;
-                if (!user) return <span className="text-slate-400">ΓÇö</span>;
+                if (!user) return <span className="text-slate-400">—</span>;
                 return (
                   <div className="flex items-center gap-2">
                     <span className="inline-flex shrink-0 overflow-hidden rounded-full">
