@@ -27,7 +27,7 @@ export default function Intake(props) {
         auth,
     } = props;
 
-    const form = useForm(emptyIntakeData({ intakeDate: TODAY, consentTextVersion }));
+    const form = useForm(emptyIntakeData({ intakeDate: TODAY, consentTextVersion, email: auth?.user?.email || '' }));
     const { UnsavedModal, bypassNext } = useUnsavedChanges(form.isDirty);
     const toast = useToast();
     const options = useMemo(() => ({

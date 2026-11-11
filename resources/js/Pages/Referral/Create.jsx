@@ -47,7 +47,7 @@ function formatFileSize(bytes) {    if (!bytes) return '';
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 }
 
-export default function ReferralCreate({ case_id, agencies, cases: paginatedCases, categories = [], filters = {} }) {
+export default function ReferralCreate({ case_id, agencies = [], cases: paginatedCases, categories = [], filters = {} }) {
     const cases = paginatedCases.data || [];
     const { current_page: currentPage, last_page: lastPage, from, to, total } = paginatedCases || {};
     const { data, setData, post, processing, errors, setError, clearErrors, transform } = useForm({
@@ -702,6 +702,29 @@ export default function ReferralCreate({ case_id, agencies, cases: paginatedCase
                                             <h3 className="text-[12px] font-bold uppercase tracking-wider text-slate-500">Concern for this referral</h3>
                                             <p className="mt-2 text-[13px] text-slate-500">Describe the specific assistance needed from {selectedAgency?.name ?? 'the receiving agency'}.</p>
                                             <div className="mt-4">
+                                                <div className="mb-3">
+                                                    <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.08em] text-slate-600">Quick presets</p>
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {[
+                                                            'Workplace discrimination',
+                                                            'Repatriation',
+                                                            'Local job placement',
+                                                            'Medical assistance',
+                                                            'Skills training',
+                                                            'Legal assistance',
+                                                        ].map((preset) => (
+                                                            <button
+                                                                key={preset}
+                                                                type="button"
+                                                                onClick={() => setConcernValue(preset)}
+                                                                className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-[12px] font-medium text-slate-700 transition-colors hover:border-indigo-400 hover:bg-indigo-50"
+                                                            >
+                                                                {preset}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                    <p className="mt-1.5 text-[11px] text-slate-500">Click a preset to fill the concern field. You can edit it after.</p>
+                                                </div>
                                                 <label htmlFor="referral-concern" className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-slate-600">Concern *</label>
                                                 <textarea
                                                     id="referral-concern"

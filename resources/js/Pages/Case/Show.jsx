@@ -147,7 +147,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
 
   const primaryAddress = { region: caseFile.address_region, province: caseFile.address_province, city_municipality: caseFile.address_city_municipality, barangay: caseFile.address_barangay, street: caseFile.address_street };
   const hasAddress = Object.values(primaryAddress).some(Boolean);
-  const primaryEmployment = { employer_name: caseFile.employment_employer_name, position: caseFile.employment_position, country: caseFile.employment_country, last_country: caseFile.employment_last_country, last_position: caseFile.employment_last_position, date_of_arrival: caseFile.employment_date_of_arrival, start_date: caseFile.employment_start_date, end_date: caseFile.employment_end_date };
+  const primaryEmployment = { employer_name: caseFile.employment_employer_name, position: caseFile.employment_position, country: caseFile.employment_country, last_position: caseFile.employment_last_position, date_of_arrival: caseFile.employment_date_of_arrival };
   const hasEmployment = Object.values(primaryEmployment).some(Boolean);
   const canManageCaseDocuments = auth.user?.role === roles.CASE_MANAGER;
   const canManageReferrals = auth.user?.role === roles.CASE_MANAGER || auth.user?.role === roles.ADMIN;
@@ -701,7 +701,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
                   <div className="grid grid-cols-2 gap-3">
                     <InfoField
                       label="Work history"
-                      value={`${primaryEmployment.last_country || primaryEmployment.country || 'N/A'} · ${primaryEmployment.last_position || primaryEmployment.position || 'N/A'}`}
+                      value={`${primaryEmployment.country || 'N/A'} · ${primaryEmployment.last_position || primaryEmployment.position || 'N/A'}`}
                     />
                     <InfoField label="Arrival date" value={primaryEmployment.date_of_arrival ? formatDisplayDate(primaryEmployment.date_of_arrival) : null} />
                   </div>

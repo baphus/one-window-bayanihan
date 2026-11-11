@@ -58,13 +58,14 @@ function InfoGrid({ fields }) {
   );
 }
 
-function ReviewDetail({ caseFile, assessmentOptions = [], onClose }) {
+function ReviewDetail({ caseFile, assessmentOptions = [], agencies = [], categories = [], onClose }) {
   const [confirmed, setConfirmed] = useState(caseFile.confirmed_assessments ?? []);
   const [confirmedOther, setConfirmedOther] = useState(caseFile.confirmed_assessment_other ?? '');
   const [staffSummary, setStaffSummary] = useState(caseFile.staff_summary ?? '');
   const [rejectReason, setRejectReason] = useState('');
   const [rejectOpen, setRejectOpen] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const [previewCategoryId, setPreviewCategoryId] = useState('');
 
   const documents = useMemo(() => (caseFile.documents ?? []).filter((doc) => !doc.referral_id), [caseFile.documents]);
   const [reviewedIds, setReviewedIds] = useState(caseFile.reviewed_document_ids ?? []);
@@ -177,9 +178,8 @@ function ReviewDetail({ caseFile, assessmentOptions = [], onClose }) {
                 ['Employer', caseFile.employment_employer_name],
                 ['Employer address', caseFile.employment_employer_address],
                 ['Position', caseFile.employment_position],
-                ['Jobsite country', caseFile.employment_country],
-                ['Last occupation / country', [caseFile.employment_last_position, caseFile.employment_last_country].filter(Boolean).join(' · ')],
-                ['Employment dates', [caseFile.employment_start_date, caseFile.employment_end_date].filter(Boolean).join(' → ')],
+                ['Jobsite country or territory', caseFile.employment_country],
+                ['Last occupation', caseFile.employment_last_position],
                 ['Arrival in PH', caseFile.employment_date_of_arrival],
                 ['Deployment / status', [caseFile.deployment_mode, caseFile.employment_status].filter(Boolean).join(' · ')],
               ]} />
@@ -228,6 +228,47 @@ function ReviewDetail({ caseFile, assessmentOptions = [], onClose }) {
           </div>
 
           <div className="space-y-4 lg:sticky lg:top-0 lg:self-start">
+            {categories.length > 0 && (
+              <InfoCard title="Referral category preview">
+                <p className="text-[12px] text-slate-600 mb-3">Preview suggested agencies for a category. This is for reference only and does not create or save a referral.</p>
+                <div className="space-y-2">
+                  <label htmlFor="preview-category" className="text-[11px] font-bold uppercase tracking-wide text-slate-600">Category</label>
+                  <select
+                    id="preview-category"
+                    value={previewCategoryId}
+                    onChange={(e) => setPreviewCategoryId(e.target.value)}
+                    className="h-9 w-full rounded-md border border-slate-300 px-2 text-[13px] text-slate-700"
+                  >
+                    <option value="">Select a category to preview</option>
+                    {categories.map((cat) => (
+                      <option key={cat.id} value={cat.id}>{cat.name}</option>
+                    ))}
+                  </select>
+                </div>
+                {previewCategoryId && (() => {
+                  const selectedCategory = categories.find((c) => c.id === previewCategoryId);
+                  const suggestedIds = new Set((selectedCategory?.suggested_agency_ids ?? []).map(String));
+                  const suggested = agencies.filter((a) => suggestedIds.has(String(a.id)));
+                  return suggested.length > 0 ? (
+                    <div className="mt-3 rounded-md border border-emerald-200 bg-emerald-50 p-3">
+                      <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-800 mb-2">Suggested agencies</p>
+                      <ul className="space-y-1.5">
+                        {suggested.map((agency) => (
+                          <li key={agency.id} className="flex items-center gap-2 text-[12px] text-emerald-900">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-600 shrink-0" aria-hidden="true" />
+                            <span className="font-medium">{agency.name}</span>
+                            {agency.short && <span className="text-emerald-700">({agency.short})</span>}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : (
+                    <p className="mt-3 rounded-md bg-slate-100 px-3 py-2 text-[12px] text-slate-600">No suggested agencies for this category.</p>
+                  );
+                })()}
+                <p className="mt-3 text-[11px] text-slate-500">After approval, the case manager creates referrals from the open case page.</p>
+              </InfoCard>
+            )}
             <InfoCard title="Confirm assessment">
               <div className="space-y-2">
                 {assessmentOptions.map((value) => (
@@ -326,7 +367,7 @@ function ReviewDetail({ caseFile, assessmentOptions = [], onClose }) {
   );
 }
 
-export default function ReviewPending({ cases, filters, sort = 'created_at', direction = 'asc', assessmentOptions = [] }) {
+export default function ReviewPending({ cases, filters, sort = 'created_at', direction = 'asc', assessmentOptions = [], agencies = [], categories = [] }) {
   usePage();
   const [selected, setSelected] = useState(null);
   const rows = useMemo(() => cases?.data ?? [], [cases]);
@@ -422,7 +463,7 @@ export default function ReviewPending({ cases, filters, sort = 'created_at', dir
         )}
       </SectionCard>
 
-      {selected && <ReviewDetail caseFile={selected} assessmentOptions={assessmentOptions} onClose={() => setSelected(null)} />}
+      {selected && <ReviewDetail caseFile={selected} assessmentOptions={assessmentOptions} agencies={agencies} categories={categories} onClose={() => setSelected(null)} />}
     </AppLayout>
   );
 }

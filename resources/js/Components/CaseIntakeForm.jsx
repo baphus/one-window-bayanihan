@@ -64,7 +64,7 @@ export function requiredReasonSlot(returnReason) {
     return 'sworn_affidavit';
 }
 
-export function emptyIntakeData({ clientType = 'OFW', consentTextVersion = 'case-intake-v1', intakeDate = '' } = {}) {
+export function emptyIntakeData({ clientType = 'OFW', consentTextVersion = 'case-intake-v1', intakeDate = '', email = '' } = {}) {
     return {
         client_type: clientType,
         intake_date: intakeDate,
@@ -74,7 +74,7 @@ export function emptyIntakeData({ clientType = 'OFW', consentTextVersion = 'case
         suffix: '',
         date_of_birth: '',
         sex: '',
-        email: '',
+        email,
         contact_number: '',
         civil_status: '',
         civil_status_other: '',
@@ -85,10 +85,7 @@ export function emptyIntakeData({ clientType = 'OFW', consentTextVersion = 'case
         employment_employer_address: '',
         employment_position: '',
         employment_country: '',
-        employment_last_country: '',
         employment_last_position: '',
-        employment_start_date: '',
-        employment_end_date: '',
         employment_date_of_arrival: '',
         vulnerability_indicator: 'None',
         summary: '',
@@ -147,10 +144,7 @@ export function buildIntakePayload(data, mode) {
         employment_employer_address: data.employment_employer_address.trim(),
         employment_position: data.employment_position.trim(),
         employment_country: data.employment_country,
-        employment_last_country: data.employment_last_country,
         employment_last_position: data.employment_last_position.trim(),
-        employment_start_date: data.employment_start_date,
-        employment_end_date: data.employment_end_date,
         employment_date_of_arrival: data.employment_date_of_arrival,
         vulnerability_indicator: data.vulnerability_indicator || 'None',
         summary: data.summary.trim(),
@@ -348,8 +342,8 @@ export default function CaseIntakeForm({ form, mode = 'public', options = {}, on
                             <option value="Female">Female</option>
                         </Select>
                     </Field>
-                    <Field label="Email" htmlFor="intake-email" required error={errors.email}>
-                        <input id="intake-email" type="email" value={data.email} onChange={(e) => setData('email', e.target.value)} className={INPUT} autoComplete="email" maxLength={255} />
+                    <Field label="Email" htmlFor="intake-email" required error={errors.email} hint={mode === 'public' ? 'Your registered account email. This cannot be changed here.' : undefined}>
+                        <input id="intake-email" type="email" value={data.email} onChange={(e) => setData('email', e.target.value)} className={`${INPUT} ${mode === 'public' ? 'bg-slate-50 cursor-not-allowed' : ''}`} autoComplete="email" maxLength={255} readOnly={mode === 'public'} aria-readonly={mode === 'public'} />
                     </Field>
                     <Field label="Contact number" htmlFor="intake-contact" required error={errors.contact_number}>
                         <input id="intake-contact" type="tel" value={data.contact_number} onChange={(e) => setData('contact_number', e.target.value)} className={INPUT} autoComplete="tel" maxLength={50} />
@@ -423,11 +417,8 @@ export default function CaseIntakeForm({ form, mode = 'public', options = {}, on
                             <input id="intake-employer-address" value={data.employment_employer_address} onChange={(e) => setData('employment_employer_address', e.target.value)} className={INPUT} maxLength={1000} />
                         </Field>
                     </div>
-                    <Field label="Jobsite country / territory" htmlFor="intake-country" error={errors.employment_country}>
+                    <Field label="Jobsite country or territory" htmlFor="intake-country" error={errors.employment_country}>
                         <CountrySelect value={data.employment_country} onChange={(value) => setData('employment_country', value)} placeholder="Select jobsite country" />
-                    </Field>
-                    <Field label="Last country of employment" htmlFor="intake-last-country" error={errors.employment_last_country}>
-                        <CountrySelect value={data.employment_last_country} onChange={(value) => setData('employment_last_country', value)} placeholder="Select last country" />
                     </Field>
                     <Field label="Last occupation" htmlFor="intake-last-position" error={errors.employment_last_position}>
                         <input id="intake-last-position" list="intake-occupations" value={data.employment_last_position} onChange={(e) => setData('employment_last_position', e.target.value)} className={INPUT} maxLength={255} />
@@ -437,12 +428,6 @@ export default function CaseIntakeForm({ form, mode = 'public', options = {}, on
                                 return value ? <option key={value} value={value} /> : null;
                             })}
                         </datalist>
-                    </Field>
-                    <Field label="Employment start date" htmlFor="intake-start-date" error={errors.employment_start_date}>
-                        <input id="intake-start-date" type="date" value={data.employment_start_date} onChange={(e) => setData('employment_start_date', e.target.value)} min={data.date_of_birth || undefined} className={INPUT} />
-                    </Field>
-                    <Field label="Employment end date" htmlFor="intake-end-date" error={errors.employment_end_date}>
-                        <input id="intake-end-date" type="date" value={data.employment_end_date} onChange={(e) => setData('employment_end_date', e.target.value)} min={data.employment_start_date || undefined} className={INPUT} />
                     </Field>
                     <Field label="Date of arrival in the Philippines" htmlFor="intake-arrival" error={errors.employment_date_of_arrival}>
                         <input id="intake-arrival" type="date" value={data.employment_date_of_arrival} onChange={(e) => setData('employment_date_of_arrival', e.target.value)} min={data.date_of_birth || undefined} className={INPUT} />
