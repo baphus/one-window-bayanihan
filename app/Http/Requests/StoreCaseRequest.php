@@ -107,7 +107,7 @@ class StoreCaseRequest extends FormRequest
             'client.email' => ['required', 'email', 'max:255'],
             'client.contact_number' => ['required', 'string', 'max:50'],
 
-            'next_of_kin' => ['required_if:client_type,NEXT_OF_KIN', 'nullable', 'array', 'min:1'],
+            'next_of_kin' => ['required_if:client_type,NEXT_OF_KIN', 'nullable', 'array', Rule::when($this->input('client_type') === 'NEXT_OF_KIN', ['min:1'])],
             'next_of_kin.*.first_name' => ['required_with:next_of_kin', 'string', 'max:255'],
             'next_of_kin.*.middle_name' => ['nullable', 'string', 'max:255'],
             'next_of_kin.*.last_name' => ['required_with:next_of_kin', 'string', 'max:255'],
