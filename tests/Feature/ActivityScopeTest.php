@@ -46,8 +46,11 @@ class ActivityScopeTest extends TestCase
             ->all();
     }
 
-    public function test_case_manager_sees_only_owned_case_and_referral_events(): void
+    public function test_case_manager_sees_all_case_and_referral_events(): void
     {
+        // Case managers have system-wide awareness: they see activity across all
+        // cases and referrals regardless of who owns them, so they can track who
+        // referred what case to which agency, approvals by other managers, etc.
         $managerA = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $managerB = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $agencyA = Agency::factory()->create();
@@ -64,19 +67,23 @@ class ActivityScopeTest extends TestCase
 
         $descriptions = $this->activityDescriptions($managerA);
 
+        // Manager A sees their own activity.
         $this->assertContains('CM-A CASE', $descriptions);
         $this->assertContains('CM-A REFERRAL', $descriptions);
-        $this->assertNotContains('CM-B CASE', $descriptions);
-        $this->assertNotContains('CM-B REFERRAL', $descriptions);
+        // Manager A also sees Manager B's activity — cross-manager visibility is intentional.
+        $this->assertContains('CM-B CASE', $descriptions);
+        $this->assertContains('CM-B REFERRAL', $descriptions);
     }
 
-    public function test_case_without_owner_is_invisible_to_case_manager(): void
+    public function test_case_manager_sees_unowned_case_events(): void
     {
+        // Cases with no assigned manager (e.g. OFW self-filed, not yet reviewed)
+        // are still visible to all case managers so the queue can be monitored.
         $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $case = CaseFile::factory()->create(['user_id' => null]);
         $this->log('case', 'CLOSE', $case->id, 'UNOWNED CASE');
 
-        $this->assertNotContains('UNOWNED CASE', $this->activityDescriptions($manager));
+        $this->assertContains('UNOWNED CASE', $this->activityDescriptions($manager));
     }
 
     public function test_agency_sees_only_its_referral_events(): void
