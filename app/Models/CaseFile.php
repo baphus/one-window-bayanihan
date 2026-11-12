@@ -66,6 +66,10 @@ class CaseFile extends Model
      */
     public function getClientTypeAttribute(): ?string
     {
+        if ($this->filing_client_type !== null) {
+            return $this->filing_client_type;
+        }
+
         if (! $this->client_id) {
             return null;
         }
@@ -145,7 +149,13 @@ class CaseFile extends Model
             return $query;
         }
 
-        return $query->whereHas('client', fn (Builder $c) => $c->whereIn('type', $types));
+        return $query->where(function (Builder $q) use ($types) {
+            $q->whereIn('cases.filing_client_type', $types)
+                ->orWhere(function (Builder $legacy) use ($types) {
+                    $legacy->whereNull('cases.filing_client_type')
+                        ->whereHas('client', fn (Builder $c) => $c->whereIn('type', $types));
+                });
+        });
     }
 
     /**
@@ -164,6 +174,7 @@ class CaseFile extends Model
 
     protected $fillable = [
         'case_number',
+        'filing_client_type',
         'vulnerability_indicator',
         'nok_vulnerability_indicator',
         'tracker_number',

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\UserRole;
 use App\Http\Middleware\VerifyTurnstile;
+use App\Http\Requests\StoreCaseRequest;
 use App\Models\CaseCategory;
 use App\Models\CaseFile;
 use App\Models\CaseIssue;
@@ -31,6 +32,21 @@ class ServedRegionRuleTest extends TestCase
             PreventRequestForgery::class,
             ThrottleRequests::class,
         ]);
+    }
+
+    #[Test]
+    public function empty_nok_contacts_are_allowed_only_for_ofw_filings(): void
+    {
+        foreach (['OFW' => true, 'NEXT_OF_KIN' => false] as $type => $expected) {
+            $request = new StoreCaseRequest;
+            $request->merge(['client_type' => $type]);
+            $rules = $request->rules();
+            $validator = Validator::make(
+                ['client_type' => $type, 'next_of_kin' => []],
+                ['next_of_kin' => $rules['next_of_kin']],
+            );
+            $this->assertSame($expected, $validator->passes(), $type);
+        }
     }
 
     private function passes(string $region): bool

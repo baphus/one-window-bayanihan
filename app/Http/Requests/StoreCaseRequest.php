@@ -89,6 +89,7 @@ class StoreCaseRequest extends FormRequest
         $dobMin = now()->subYears(100)->toDateString();
 
         return [
+            'client_type' => ['sometimes', 'required', Rule::in(['OFW', 'NEXT_OF_KIN'])],
             'vulnerability_indicator' => ['required', 'string', 'max:255', new VulnerabilityRule],
             'nok_vulnerability_indicator' => ['nullable', 'string', 'max:255', new VulnerabilityRule],
             'summary' => ['nullable', 'string', 'max:5000'],
@@ -106,7 +107,7 @@ class StoreCaseRequest extends FormRequest
             'client.email' => ['required', 'email', 'max:255'],
             'client.contact_number' => ['required', 'string', 'max:50'],
 
-            'next_of_kin' => ['nullable', 'array'],
+            'next_of_kin' => ['required_if:client_type,NEXT_OF_KIN', 'nullable', 'array', Rule::when($this->input('client_type') === 'NEXT_OF_KIN', ['min:1'])],
             'next_of_kin.*.first_name' => ['required_with:next_of_kin', 'string', 'max:255'],
             'next_of_kin.*.middle_name' => ['nullable', 'string', 'max:255'],
             'next_of_kin.*.last_name' => ['required_with:next_of_kin', 'string', 'max:255'],

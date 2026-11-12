@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\CaseCategory;
+use App\Models\CaseFile;
 use App\Models\Client;
 use App\Models\User;
 use App\Services\CaseService;
@@ -44,6 +45,29 @@ class MultiCasePerClientTest extends TestCase
 
         $this->assertEquals(2, $client->caseFiles()->count());
         $this->assertDatabaseHas('cases', ['id' => $case2->id, 'client_id' => $client->id]);
+    }
+
+    public function test_nok_filing_preserves_ofw_identity_and_loads_contact(): void
+    {
+        $client = Client::factory()->create(['type' => 'OFW']);
+        $case = $this->service->createCase([
+            'selected_client_id' => $client->id,
+            'client_type' => 'NEXT_OF_KIN',
+            'next_of_kin' => [[
+                'first_name' => 'Maria',
+                'last_name' => 'Santos',
+                'relationship' => 'Spouse',
+                'email' => 'maria@example.com',
+                'phone_number' => '09171234567',
+            ]],
+        ], $this->user->id);
+
+        $loaded = $this->service->getCase($case->id);
+        $this->assertSame('NEXT_OF_KIN', $loaded->client_type);
+        $this->assertSame('OFW', $client->fresh()->type);
+        $this->assertSame('Maria', $loaded->toArray()['client']['next_of_kin'][0]['first_name']);
+        $this->assertTrue(CaseFile::ofClientType('NEXT_OF_KIN')->whereKey($case->id)->exists());
+        $this->assertFalse(CaseFile::ofClientType('OFW')->whereKey($case->id)->exists());
     }
 
     public function test_new_case_does_not_overwrite_client_name(): void
