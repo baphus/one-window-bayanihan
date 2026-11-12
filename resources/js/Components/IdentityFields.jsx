@@ -42,8 +42,8 @@ export default function IdentityFields({ data, setData, errors = {}, requireDemo
         onChange={(event) => setData(name, event.target.value)}
         className={input}
         required={required}
-        maxLength={name === 'suffix' ? 50 : 255}
-        autoComplete={name === 'first_name' ? 'given-name' : name === 'middle_name' ? 'additional-name' : name === 'last_name' ? 'family-name' : name === 'suffix' ? 'honorific-suffix' : 'off'}
+        maxLength={255}
+        autoComplete={name === 'first_name' ? 'given-name' : name === 'middle_name' ? 'additional-name' : name === 'last_name' ? 'family-name' : 'off'}
       />
       {error(name)}
     </div>
@@ -54,7 +54,27 @@ export default function IdentityFields({ data, setData, errors = {}, requireDemo
       {field('first_name', 'First name', true)}
       {field('middle_name', 'Middle name')}
       {field('last_name', 'Last name', true)}
-      {field('suffix', 'Suffix')}
+      <div>
+        <label className={label} htmlFor="identity-suffix">
+          Suffix
+        </label>
+        <select
+          id="identity-suffix"
+          value={data.suffix ?? ''}
+          onChange={(event) => setData('suffix', event.target.value)}
+          className={input}
+          autoComplete="honorific-suffix"
+        >
+          <option value="">None</option>
+          <option value="Jr.">Jr.</option>
+          <option value="Sr.">Sr.</option>
+          <option value="II">II</option>
+          <option value="III">III</option>
+          <option value="IV">IV</option>
+          <option value="V">V</option>
+        </select>
+        {error('suffix')}
+      </div>
       <div>
         <label className={label} htmlFor="identity-date_of_birth">
           Date of birth{requireDemographics && <span className="text-red-500"> *</span>}
