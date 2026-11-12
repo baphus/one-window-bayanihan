@@ -23,7 +23,6 @@ const SUFFIX_OPTIONS = ['', 'Jr', 'Sr', 'II', 'III', 'IV', 'V'];
 // from the same lazily-loaded module via a cached ref.
 const AddressDropdowns = lazy(() => import('@/Components/AddressDropdowns'));
 // Same dataset chain via lib/addressResolver — only needed for the confirm modal.
-const ClientProfileSummaryModal = lazy(() => import('@/Components/ClientProfileSummaryModal'));
 
 function AddressLoadingFallback() {
     return <p className="text-xs text-slate-400">Loading address options…</p>;
@@ -396,8 +395,7 @@ function CaseSummaryModal({ show, data, caseId, trackingId, categories, caseIssu
 
 export default function CaseCreate() {
     const { client, categories = [], caseIssues = [], occupationOptions = [] } = usePage().props;
-    // Filer's own linked client (OFW flow passes ?client_id=...). Only an OFW
-    // record pre-fills — a NEXT_OF_KIN filer picks an existing OFW below.
+    // Public OFW self-filing pre-fills the filer's linked client record.
     const isOwnClientFiler = client?.type === 'OFW' && !!client?.id;
 
     // Merge curated defaults with previously entered occupations from the backend,
@@ -464,14 +462,9 @@ export default function CaseCreate() {
     const [currentStep, setCurrentStep] = useState(1);
     const [caseId] = useState(PENDING_IDENTIFIER);
     const [trackingId] = useState(PENDING_IDENTIFIER);
-    // 'existing' = file for a picked client; 'new' = inline new OFW details.
-    // NEXT_OF_KIN filers pick an existing OFW or toggle "Add new OFW".
-    const [clientSource, setClientSource] = useState(client?.id ? 'existing' : 'new');
-    const [selectedClient, setSelectedClient] = useState(null);
-    const [viewMode, setViewMode] = useState('list');
-    const [searchQuery, setSearchQuery] = useState('');
-    const [debouncedSearch, setDebouncedSearch] = useState('');
-    const searchDebounceRef = useRef(null);
+    // Keep linked OFW self-filing prefill and payload behavior intact.
+    const clientSource = isOwnClientFiler ? 'existing' : 'new';
+
     // Lazily-loaded PSGC module cache for regionRequiresProvince (see above).
     const addressDataRef = useRef(null);
     // Lazily-loaded address resolver for the confirm modal (see above).
@@ -489,10 +482,6 @@ export default function CaseCreate() {
     // Guards the existing-client prefill below so it fires exactly once,
     // when the late `client` prop arrives — never re-running on edits.
     const clientPrefillRef = useRef(false);
-    const [searchResults, setSearchResults] = useState([]);
-    const [searchLoading, setSearchLoading] = useState(false);
-    const [emailDupClient, setEmailDupClient] = useState(null);
-    const [emailDupChecking, setEmailDupChecking] = useState(false);
     const [showAddIssue, setShowAddIssue] = useState(false);
     const [newIssueName, setNewIssueName] = useState('');
     const [addingIssue, setAddingIssue] = useState(false);
@@ -518,56 +507,10 @@ export default function CaseCreate() {
         }
     }
 
-    // Fetch clients from API — loads recent clients on mount and filters on search
-    useEffect(() => {
-        let cancelled = false;
-        setSearchLoading(true);
-        const params = {};
-        const q = debouncedSearch.trim();
-        if (q) params.q = q;
-        window.axios.get(route('api.clients.index'), { params })
-            .then((res) => {
-                if (!cancelled) {
-                    const mapped = (res.data.data || []).map((c) => ({
-                        ...c,
-                        full_name: [c.first_name, c.middle_name, c.last_name, c.suffix].filter(Boolean).join(' '),
-                        has_case: c.case_files_count > 0,
-                        case_count: c.case_files_count || 0,
-                    }));
-                    setSearchResults(mapped);
-                    setSearchLoading(false);
-                }
-            })
-            .catch(() => {
-                if (!cancelled) setSearchLoading(false);
-            });
-        return () => { cancelled = true; };
-    }, [debouncedSearch]);
-
-    function checkEmailDuplicate(email) {
-        const val = (email || '').trim();
-        if (!val || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
-            setEmailDupClient(null);
-            return;
-        }
-        setEmailDupChecking(true);
-        window.axios.get(route('api.clients.email-check'), { params: { email: val } })
-            .then((res) => {
-                if (res.data?.duplicate && res.data?.client) {
-                    setEmailDupClient(res.data.client);
-                } else {
-                    setEmailDupClient(null);
-                }
-            })
-            .catch(() => setEmailDupClient(null))
-            .finally(() => setEmailDupChecking(false));
-    }
-
     // Own-client prefill: an OFW filer arrives with their linked client.
     useEffect(() => {
         if (!isOwnClientFiler || clientPrefillRef.current) return;
         clientPrefillRef.current = true;
-        setClientSource('existing');
         fillFromClient(client);
         setCurrentStep(2);
     }, [client]);
@@ -614,6 +557,7 @@ export default function CaseCreate() {
 
         if (picked.nextOfKin?.length) {
             setData('next_of_kin', picked.nextOfKin.map((nok) => ({
+
                 id: nok.id,
                 first_name: nok.first_name || '',
                 middle_name: nok.middle_name || '',
@@ -633,32 +577,12 @@ export default function CaseCreate() {
             })));
         }
 
-        setSelectedClient(null);
     }
-
 
     function handleClientChange(field, value) {
         setData('client', { ...data.client, [field]: value });
         if (errors['client.' + field]) {
             setError('client.' + field, '');
-        }
-    }
-
-    async function handleClientSelect(client) {
-        if (!client?.id) return;
-        setSelectedClient(null);
-        try {
-            const res = await window.axios.get(route('api.clients.show', client.id));
-            const data = res.data.data;
-            const mapped = {
-                ...data,
-                full_name: [data.first_name, data.middle_name, data.last_name, data.suffix].filter(Boolean).join(' '),
-                has_case: !!data.case_file,
-                case_count: data.case_file ? 1 : 0,
-            };
-            setSelectedClient(mapped);
-        } catch {
-            toast.error('Failed to load client details.');
         }
     }
 
@@ -680,34 +604,6 @@ export default function CaseCreate() {
         setData('employment', { ...data.employment, [field]: value });
     }
 
-    function addNok() {
-        setData('next_of_kin', [
-            ...data.next_of_kin,
-            {
-                id: null,
-                first_name: '',
-                middle_name: '',
-                last_name: '',
-                is_primary: data.next_of_kin.length === 0,
-                relationship: '',
-                phone_number: '',
-                email: '',
-                full_address: '',
-                nok_address: {
-                    region: '', province: '', city_municipality: '', barangay: '', street: '',
-                },
-            },
-        ]);
-    }
-
-    function removeNok(idx) {
-        const updated = data.next_of_kin.filter((_, i) => i !== idx);
-        if (data.next_of_kin[idx]?.is_primary && updated.length > 0) {
-            updated[0].is_primary = true;
-        }
-        setData('next_of_kin', updated);
-    }
-
     function updateNokField(idx, field, value) {
         const updated = data.next_of_kin.map((nok, i) =>
             i === idx ? { ...nok, [field]: value } : nok
@@ -719,13 +615,6 @@ export default function CaseCreate() {
         const updated = data.next_of_kin.map((nok, i) =>
             i === idx ? { ...nok, nok_address: { ...(nok.nok_address || {}), ...address } } : nok
         );
-        setData('next_of_kin', updated);
-    }
-
-    function setPrimaryNok(idx) {
-        const updated = data.next_of_kin.map((n, i) => ({
-            ...n, is_primary: i === idx
-        }));
         setData('next_of_kin', updated);
     }
 
@@ -754,25 +643,25 @@ export default function CaseCreate() {
 
     function canProceed() {
         if (currentStep === 1) {
-            const clientOk = data.client.first_name.trim().length > 0
+            const clientOk = (data.client.first_name.trim().length > 0
                 && data.client.last_name.trim().length > 0
                 && data.client.date_of_birth.length > 0
                 && data.client.sex.length > 0
                 && data.client.contact_number.trim().length > 0
-                && data.client.email.trim().length > 0;
+                && data.client.email.trim().length > 0);
 
-            const addressOk = data.address.region.length > 0
+            const addressOk = (data.address.region.length > 0
                 && (!regionRequiresProvince(data.address.region) || data.address.province.length > 0)
                 && data.address.city_municipality.length > 0
-                && data.address.barangay.length > 0;
+                && data.address.barangay.length > 0);
 
-            const employmentOk = data.employment.employer_name.trim().length > 0
+            const employmentOk = (data.employment.employer_name.trim().length > 0
                 && data.employment.last_country.length > 0
                 && data.employment.last_position.trim().length > 0
-                && data.employment.date_of_arrival.length > 0;
+                && data.employment.date_of_arrival.length > 0);
 
             // NOK fields required only if NOK entries exist
-            const nokOk = data.next_of_kin.length === 0 || data.next_of_kin.every(nok =>
+            const nokOk = data.client_type !== 'NEXT_OF_KIN' || (data.next_of_kin.length === 1 && data.next_of_kin.every(nok =>
                 nok.first_name.trim().length > 0
                 && nok.last_name.trim().length > 0
                 && nok.relationship.length > 0
@@ -782,7 +671,7 @@ export default function CaseCreate() {
                 && (!regionRequiresProvince(nok.nok_address?.region || '') || (nok.nok_address?.province || '').length > 0)
                 && (nok.nok_address?.city_municipality || '').length > 0
                 && (nok.nok_address?.barangay || '').length > 0
-            );
+            ));
 
             return clientOk && addressOk && employmentOk && nokOk;
         }
@@ -815,7 +704,7 @@ export default function CaseCreate() {
             if (!data.employment.last_country) missing.push('Last Country of Employment');
             if (!data.employment.last_position.trim()) missing.push('Last Occupation');
             if (!data.employment.date_of_arrival) missing.push('Arrival Date');
-            data.next_of_kin.forEach((nok, idx) => {
+            if (data.client_type === 'NEXT_OF_KIN') data.next_of_kin.slice(0, 1).forEach((nok, idx) => {
                 if (!nok.first_name.trim()) missing.push(`NOK #${idx + 1} First Name`);
                 if (!nok.last_name.trim()) missing.push(`NOK #${idx + 1} Last Name`);
                 if (!nok.relationship) missing.push(`NOK #${idx + 1} Relationship`);
@@ -960,7 +849,7 @@ export default function CaseCreate() {
                 missing.push('Employment End Date (future)');
             }
 
-            data.next_of_kin.forEach((nok, idx) => {
+            if (data.client_type === 'NEXT_OF_KIN') data.next_of_kin.slice(0, 1).forEach((nok, idx) => {
                 if (!nok.first_name.trim()) {
                     setError(`next_of_kin.${idx}.first_name`, 'First name is required.');
                     isValid = false;
@@ -1034,12 +923,6 @@ export default function CaseCreate() {
                 missing.push('Vulnerability Status');
             }
             if (data.client_type === 'NEXT_OF_KIN') {
-                if (data.selected_nok_index === '') {
-                    setError('selected_nok_index', 'Please select the next of kin receiving case notifications.');
-                    isValid = false;
-                    missing.push('Selected Next of Kin');
-                }
-
                 if (!selectedNok?.email?.trim()) {
                     setError('next_of_kin.email', 'The selected next of kin email is required.');
                     isValid = false;
@@ -1105,7 +988,8 @@ export default function CaseCreate() {
         // Inertia useForm.post(url, options) sends the form's data — extra
         // fields must ride via transform, not spread into options.
         transform((formData) => {
-            const extra = {};
+            const nextOfKin = formData.client_type === 'NEXT_OF_KIN' ? formData.next_of_kin.slice(0, 1).map(nok => ({ ...nok, is_primary: true })) : [];
+            const extra = { next_of_kin: nextOfKin, selected_nok_index: formData.client_type === 'NEXT_OF_KIN' ? '0' : '' };
             if (clientSource === 'existing' && formData.selected_client_id) {
                 extra.selected_client_id = formData.selected_client_id;
             } else if (clientSource === 'new') {
@@ -1120,7 +1004,7 @@ export default function CaseCreate() {
                     contact_number: formData.client.contact_number || null,
                     address: formData.address,
                     employment: formData.employment,
-                    next_of_kin: formData.next_of_kin,
+                    next_of_kin: nextOfKin,
                 };
             }
             return { ...formData, ...extra };
@@ -1141,28 +1025,9 @@ export default function CaseCreate() {
         return name.charAt(0).toUpperCase();
     }
 
-    // "Add new OFW" inline: clear the pick and let the Step 1 fields
-    // below become the new_ofw payload on submit.
-    function handleSwitchToNew() {
-        setClientSource('new');
-        setData('selected_client_id', '');
-        setSelectedClient(null);
-        setSearchQuery('');
-        setDebouncedSearch('');
-    }
 
-    function handleSwitchToExisting() {
-        setClientSource('existing');
-    }
 
-function handleConfirmClient(picked) {
-    if (!picked) return;
-    setClientSource('existing');
-    fillFromClient(picked);
-    setCurrentStep(2);
-}
-
-    const selectedNokIndex = data.selected_nok_index !== '' ? Number(data.selected_nok_index) : null;
+    const selectedNokIndex = data.client_type === 'NEXT_OF_KIN' ? 0 : null;
     const selectedNok = selectedNokIndex !== null ? data.next_of_kin[selectedNokIndex] : null;
     const notificationEmail = data.client_type === 'NEXT_OF_KIN'
         ? (selectedNok?.email || '')
@@ -1299,173 +1164,29 @@ function handleConfirmClient(picked) {
                                 {currentStep === 1 && (
                                     <div className="space-y-6">
                                         <div data-tour="case-create-client-selection" className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-                                            <Subsection title="Client Selection">
-                                                <p className="mb-3 text-[13px] text-slate-500">
-                                                    Choose an existing client record to pre-fill information, or create a new client.
-                                                </p>
-                                                <div className="mb-6">
-                                                    <div className="inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1">
-                                                        <label className={`flex cursor-pointer items-center justify-center rounded-md px-6 py-1.5 text-[13px] font-bold transition-all ${clientSource === 'existing' ? 'bg-white text-primary shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>
-                                                            <input type="radio" name="client-source" className="sr-only" checked={clientSource === 'existing'} onChange={handleSwitchToExisting} /> Existing Clients
+                                            <Subsection title="Client Type">
+                                                <p className="mb-3 text-[13px] text-slate-500">Choose whether this case is for an overseas Filipino worker or their next of kin.</p>
+                                                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                                    {[{ value: 'OFW', label: 'Overseas Filipino Worker' }, { value: 'NEXT_OF_KIN', label: 'Next of Kin' }].map((type) => (
+                                                        <label key={type.value} className={`flex cursor-pointer items-center gap-3 rounded-lg border p-4 text-[13px] font-semibold transition ${data.client_type === type.value ? 'border-primary bg-primary-fixed text-primary' : 'border-slate-200 text-slate-700 hover:border-primary/50'}`}>
+                                                            <input type="radio" name="client-type" value={type.value} checked={data.client_type === type.value} onChange={() => {
+                                                                setData((previous) => ({
+                                                                    ...previous,
+                                                                    client_type: type.value,
+                                                                    selected_nok_index: type.value === 'NEXT_OF_KIN' ? '0' : '',
+                                                                    next_of_kin: type.value === 'NEXT_OF_KIN'
+                                                                        ? [previous.next_of_kin[0] || { first_name: '', middle_name: '', last_name: '', relationship: '', phone_number: '', email: '', is_primary: true, nok_address: { region: '', province: '', city_municipality: '', barangay: '', street: '' } }]
+                                                                        : [],
+                                                                }));
+                                                                clearErrors();
+                                                            }} />
+                                                            {type.label}
                                                         </label>
-                                                        <label className={`flex cursor-pointer items-center justify-center rounded-md px-6 py-1.5 text-[13px] font-bold transition-all ${clientSource === 'new' ? 'bg-white text-primary shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-700'}`}>
-                                                            <input type="radio" name="client-source" className="sr-only" checked={clientSource === 'new'} onChange={handleSwitchToNew} /> New Client
-                                                        </label>
-                                                    </div>
+                                                    ))}
                                                 </div>
-
-                                                {clientSource === 'existing' && (
-                                                    <div>
-                                                        <div className="mb-4">
-                                                            <input
-                                                                type="text"
-                                                                value={searchQuery}
-                                                                onChange={(e) => {
-                                                                    const value = e.target.value;
-                                                                    setSearchQuery(value);
-                                                                    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
-                                                                    searchDebounceRef.current = setTimeout(() => {
-                                                                        setDebouncedSearch(value);
-                                                                    }, 300);
-                                                                }}
-                                                                placeholder="Search clients by name..."
-                                                                className="h-10 w-full px-3 py-2 text-[13px]"
-                                                            />
-                                                        </div>
-
-                                                        <div className="mb-4 flex items-center justify-between">
-                                                            <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-slate-500">
-                                                                {debouncedSearch.trim()
-                                                                    ? `${searchLoading ? 'Searching...' : `${searchResults.length} client(s) found`}`
-                                                                    : searchResults.length > 0
-                                                                        ? `Recent clients (${searchResults.length})`
-                                                                        : 'Type to search clients'}
-                                                            </span>
-                                                            <div className="hidden">
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => setViewMode('grid')}
-                                                                    className={`flex items-center justify-center rounded-md px-3 py-1 text-[12px] font-bold transition-all ${viewMode === 'grid' ? 'bg-white text-primary shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-700'}`}
-                                                                >
-                                                                    <span className="material-symbols-outlined text-[16px]">grid_view</span>
-                                                                </button>
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => setViewMode('list')}
-                                                                    className={`flex items-center justify-center rounded-md px-3 py-1 text-[12px] font-bold transition-all ${viewMode === 'list' ? 'bg-white text-primary shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-700'}`}
-                                                                >
-                                                                    <span className="material-symbols-outlined text-[16px]">list</span>
-                                                                </button>
-                                                            </div>
-                                                        </div>
-
-                                                        {searchLoading && searchResults.length === 0 ? (
-                                                            <div className="flex flex-col items-center justify-center py-12 text-slate-400">
-                                                                <span className="material-symbols-outlined text-[40px] mb-3 animate-pulse">search</span>
-                                                                <p className="text-[14px] font-medium text-slate-500">Loading clients...</p>
-                                                            </div>
-                                                        ) : searchResults.length === 0 && debouncedSearch.trim() ? (
-                                                            <div className="flex flex-col items-center justify-center py-12 text-slate-400">
-                                                                <span className="material-symbols-outlined text-[40px] mb-3">person_search</span>
-                                                                <p className="text-[14px] font-medium text-slate-500">No clients found</p>
-                                                                <p className="text-[12px] text-slate-400 mt-1">Try a different search term or create a new client.</p>
-                                                            </div>
-                                                        ) : searchResults.length === 0 ? (
-                                                            <div className="flex flex-col items-center justify-center py-12 text-slate-400">
-                                                                <span className="material-symbols-outlined text-[40px] mb-3">search</span>
-                                                                <p className="text-[14px] font-medium text-slate-500">No clients available</p>
-                                                                <p className="text-[12px] text-slate-400 mt-1">Create a new client to get started.</p>
-                                                            </div>
-                                                        ) : viewMode === 'list' ? (
-                                                            <div className="space-y-1">
-                                                                {searchResults.map((c) => (
-                                                                    <button
-                                                                        key={c.id}
-                                                                        type="button"
-                                                                        onClick={() => handleClientSelect(c)}
-                                                                        className="flex w-full items-center gap-4 rounded-lg border border-slate-200 bg-white px-4 py-3 text-left shadow-sm transition-all hover:border-primary hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary/40"
-                                                                    >
-                                                                        <div className="h-10 w-10 shrink-0 rounded-full overflow-hidden flex items-center justify-center bg-primary-fixed">
-                                                                            <span className="text-sm font-semibold text-primary select-none">
-                                                                                {getInitial(c.first_name)}
-                                                                            </span>
-                                                                        </div>
-                                                                        <div className="min-w-0 flex-1 grid grid-cols-6 gap-2 text-[13px]">
-                                                                            <div className="col-span-2">
-                                                                                <p className="font-bold text-slate-900 truncate">{c.full_name}</p>
-                                                                            </div>
-                                                                            <div>
-                                                                                <span className="text-slate-400 text-[11px]">Sex:</span>{' '}
-                                                                                <span className="text-slate-700">{c.sex || '-'}</span>
-                                                                            </div>
-                                                                            <div>
-                                                                                <span className="text-slate-400 text-[11px]">DOB:</span>{' '}
-                                                                                <span className="text-slate-700">{c.date_of_birth || '-'}</span>
-                                                                            </div>
-                                                                            <div>
-                                                                                <span className="text-slate-400 text-[11px]">Email:</span>{' '}
-                                                                                <span className="text-slate-700 truncate block">{c.email || '-'}</span>
-                                                                            </div>
-                                                                            <div>
-                                                                                <span className="text-slate-400 text-[11px]">Contact:</span>{' '}
-                                                                                <span className="text-slate-700">{c.contact_number || '-'}</span>
-                                                                            </div>
-                                                                        </div>
-                                                                        <div className="shrink-0 text-right text-[12px]">
-                                                                            {c.case_count > 0 ? (
-                                                                                <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-3 py-0.5 text-amber-700 font-medium">
-                                                                                    <span className="material-symbols-outlined text-[14px]">description</span>
-                                                                                    {c.case_count} {c.case_count === 1 ? 'case' : 'cases'}
-                                                                                </span>
-                                                                            ) : (
-                                                                                <span className="text-slate-400">No cases</span>
-                                                                            )}
-                                                                        </div>
-                                                                    </button>
-                                                                ))}
-                                                            </div>
-                                                        ) : viewMode === 'grid' ? (
-                                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                                                {searchResults.map((c) => (
-                                                                    <button
-                                                                        key={c.id}
-                                                                        type="button"
-                                                                        onClick={() => handleClientSelect(c)}
-                                                                        className="flex w-full items-start gap-4 rounded-lg border border-slate-200 bg-white p-4 text-left shadow-sm transition-all hover:border-primary hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary/40"
-                                                                    >
-                                                                        <div className="h-12 w-12 shrink-0 rounded-full overflow-hidden flex items-center justify-center bg-primary-fixed">
-                                                                            <span className="text-sm font-semibold text-primary select-none">
-                                                                                {getInitial(c.first_name)}
-                                                                            </span>
-                                                                        </div>
-                                                                        <div className="min-w-0 flex-1">
-                                                                            <p className="text-[14px] font-bold text-slate-900 truncate">{c.full_name}</p>
-                                                                            <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-slate-500">
-                                                                                {c.case_count > 0 ? (
-                                                                                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-amber-700 font-medium text-[11px]">
-                                                                                        <span className="material-symbols-outlined text-[13px]">description</span>
-                                                                                        {c.case_count} {c.case_count === 1 ? 'case' : 'cases'}
-                                                                                    </span>
-                                                                                ) : (
-                                                                                    <span className="text-slate-400">No cases</span>
-                                                                                )}
-                                                                                {c.sex && <span>Sex: <span className="font-medium text-slate-700">{c.sex}</span></span>}
-                                                                                {c.date_of_birth && <span>DOB: <span className="font-medium text-slate-700">{c.date_of_birth}</span></span>}
-                                                                                {c.email && <span className="truncate max-w-full">Email: <span className="font-medium text-slate-700">{c.email}</span></span>}
-                                                                            </div>
-                                                                        </div>
-                                                                    </button>
-                                                                ))}
-                                                            </div>
-                                                        ) : null}
-
-                                                        <p className="mt-3 text-[11px] text-slate-400 text-center">Type to search existing clients. Showing up to 20 matching results.</p>
-                                                    </div>
-                                                )}
                                             </Subsection>
                                         </div>
 
-                                    {clientSource === 'new' && (
                                         <>
                                         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
                                             <Subsection title="Client Information">
@@ -1497,23 +1218,13 @@ function handleConfirmClient(picked) {
                                                         <Input
                                                             type="email"
                                                             value={data.client.email}
-                                                            onChange={(e) => {
-                                                                handleClientChange('email', e.target.value);
-                                                                if (emailDupClient) setEmailDupClient(null);
-                                                            }}
+                                                            onChange={(e) => handleClientChange('email', e.target.value)}
                                                             onBlur={() => {
                                                                 const val = data.client.email.trim();
                                                                 if (val && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
                                                                     setError('client.email', 'Please provide a valid OFW email address.');
-                                                                    toast.error('Please provide a valid OFW email address.');
-                                                                    setEmailDupClient(null);
                                                                 } else {
                                                                     clearErrors('client.email');
-                                                                    if (val && !data.selected_client_id) {
-                                                                        checkEmailDuplicate(val);
-                                                                    } else {
-                                                                        setEmailDupClient(null);
-                                                                    }
                                                                 }
                                                             }}
                                                             placeholder="ofw@email.com"
@@ -1521,43 +1232,6 @@ function handleConfirmClient(picked) {
                                                             maxLength={255}
                                                         />
                                                         <InputError message={errors['client.email']} className="mt-1" />
-                                                        {emailDupChecking && (
-                                                            <p className="mt-1 text-xs text-slate-400">Checking for existing client records…</p>
-                                                        )}
-                                                        {emailDupClient && (
-                                                            <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3">
-                                                                <p className="text-sm font-medium text-amber-800">
-                                                                    A client record already exists for this email: {[emailDupClient.first_name, emailDupClient.middle_name, emailDupClient.last_name].filter(Boolean).join(' ')}
-                                                                    {emailDupClient.case_file ? ` (Case ${emailDupClient.case_file.case_number})` : ''}
-                                                                </p>
-                                                                <p className="mt-1 text-xs text-amber-700">
-                                                                    Linking the existing record avoids creating a duplicate client.
-                                                                </p>
-                                                                <div className="mt-2 flex flex-wrap gap-2">
-                                                                <button
-                                                                type="button"
-                                                                onClick={() => {
-                                                                    // Full-detail fetch + profile review (same path as the
-                                                                    // search picker) so the CM verifies before linking.
-                                                                    handleClientSelect(emailDupClient);
-                                                                    setEmailDupClient(null);
-                                                                }}
-                                                                className="inline-flex items-center rounded-md bg-warning px-3 py-1.5 text-xs font-semibold text-white hover:bg-on-warning-container"
-                                                            >
-                                                                Link existing client
-                                                            </button>
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => {
-                                                                            setEmailDupClient(null);
-                                                                        }}
-                                                                        className="inline-flex items-center rounded-md border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100"
-                                                                    >
-                                                                        Create new record anyway
-                                                                    </button>
-                                                                </div>
-                                                            </div>
-                                                        )}
                                                     </Field>
                                                 </div>
                                             </Subsection>
@@ -1640,48 +1314,16 @@ function handleConfirmClient(picked) {
                                             </Subsection>
                                         </div>
 
+                                        {data.client_type === 'NEXT_OF_KIN' && (
                                         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
                                             <Subsection title="Next of Kin Information">
-                                                <p className="mb-3 text-[13px] text-slate-500">Optional — add one or more next of kin contacts when available. Each added contact must be complete, and the first entry is auto-selected as primary.</p>
-
-                                                {data.next_of_kin.length === 0 && (
-                                                    <p className="mb-4 text-[13px] text-slate-400">No next of kin added. You may leave this section empty or click "Add Next of Kin" to add one.</p>
-                                                )}
-
-                                                {data.next_of_kin.map((nok, idx) => (
+                                                <p className="mb-3 text-[13px] text-slate-500">Complete required details for one next of kin contact.</p>
+                                                {data.next_of_kin.slice(0, 1).map((nok, idx) => (
                                                     <div key={nok.id ?? `pending-${idx}`} className="mb-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
                                                         <div className="mb-4 flex items-center justify-between">
                                                             <h4 className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-slate-700">
                                                                 Next of Kin #{idx + 1}
                                                             </h4>
-                                                            <div className="flex items-center gap-3">
-                                                                <label className="flex cursor-pointer items-center gap-1.5 text-[11px] font-bold text-slate-600">
-                                                                    <input
-                                                                        type="radio"
-                                                                        name="primary-nok"
-                                                                        checked={nok.is_primary}
-                                                                        onChange={() => setPrimaryNok(idx)}
-                                                                        className="h-3.5 w-3.5 border-outline-variant text-primary focus:ring-primary/40"
-                                                                    />
-                                                                    Primary
-                                                                </label>
-                                                                {data.next_of_kin.length > 0 && (
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => removeNok(idx)}
-                                                                        className="text-red-400 hover:text-red-600 transition-colors"
-                                                                        title="Remove"
-                                                                    >
-                                                                        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                                            <polyline points="3 6 5 6 21 6" />
-                                                                            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                                                                            <path d="M10 11v6" />
-                                                                            <path d="M14 11v6" />
-                                                                            <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-                                                                        </svg>
-                                                                    </button>
-                                                                )}
-                                                            </div>
                                                         </div>
 
                                                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -1734,19 +1376,10 @@ function handleConfirmClient(picked) {
                                                     </div>
                                                 ))}
 
-                                                <button
-                                                    type="button"
-                                                    onClick={addNok}
-                                                    className="inline-flex items-center gap-2 rounded-md border border-dashed border-outline-variant bg-white px-4 py-2 text-[13px] font-bold text-slate-500 transition hover:border-primary hover:text-primary hover:bg-primary-fixed"
-                                                >
-                                                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                        <line x1="12" y1="5" x2="12" y2="19" />
-                                                        <line x1="5" y1="12" x2="19" y2="12" />
-                                                    </svg>
-                                                    Add Next of Kin
-                                                </button>
                                             </Subsection>
                                         </div>
+
+                                        )}
 
                                         {clientSource === 'new' && (
                                             <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-6 shadow-sm">
@@ -1764,7 +1397,6 @@ function handleConfirmClient(picked) {
                                             </div>
                                         )}
                                     </>
-                                    )}
                                     </div>
                                 )}
 
@@ -1787,17 +1419,6 @@ function handleConfirmClient(picked) {
                                             <h3 className="text-[12px] font-bold uppercase tracking-wider text-slate-500">Who is this case for?</h3>
                                             <p className="mt-2 text-[13px] text-slate-500">Pick the client category to tailor the next steps.</p>
                                             <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-5">
-                                                <Field label="Client Type" required>
-                                                    <NativeSelect
-                                                        value={data.client_type}
-                                                        onChange={(e) => setData('client_type', e.target.value)}
-                                                        className="h-10 w-full px-3 py-2 text-[13px]"
-                                                        required
-                                                    >
-                                                        <option value="OFW">Overseas Filipino Worker</option>
-                                                        <option value="NEXT_OF_KIN">Next of Kin</option>
-                                                    </NativeSelect>
-                                                </Field>
                                                 <Field label="Category" required>
                                                     <CategoryCheckboxDropdown
                                                         categories={categories}
@@ -1808,38 +1429,9 @@ function handleConfirmClient(picked) {
                                                     <InputError message={errors.category_ids} className="mt-1" />
                                                 </Field>
                                             </div>
-                                            {data.client_type === 'NEXT_OF_KIN' && (
-                                                <div className="mt-4 pt-4 border-t border-slate-200">
-                                                    {data.next_of_kin.length > 0 ? (
-                                                        <Field label="Select Next of Kin" required>
-                                                            <NativeSelect
-                                                                value={data.selected_nok_index}
-                                                                onChange={(e) => {
-                                                                    setData('selected_nok_index', e.target.value);
-                                                                    clearErrors('selected_nok_index', 'next_of_kin.email');
-                                                                }}
-                                                                className="h-10 w-full px-3 py-2 text-[13px]"
-                                                                required
-                                                            >
-                                                                <option value="">Select next of kin...</option>
-                                                                {data.next_of_kin.map((nok, idx) => (
-                                                                    <option key={idx} value={String(idx)}>
-                                                                        {[nok.first_name, nok.last_name].filter(Boolean).join(' ')}
-                                                                    </option>
-                                                                ))}
-                                                            </NativeSelect>
-                                                            <InputError message={errors.selected_nok_index} className="mt-1" />
-                                                        </Field>
-                                                    ) : (
-                                                        <p className="text-[13px] text-amber-600 bg-amber-50 rounded-md px-4 py-3 border border-amber-200">
-                                                            Please add Next of Kin entries in Step 1 first.
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            )}
                                             <div className="mt-5 pt-5 border-t border-slate-200">
                                                 {data.client_type === 'NEXT_OF_KIN' ? (
-                                                    <Field label="Selected Next of Kin Email Address" required>
+                                                    <Field label="Next of Kin Email Address" required>
                                                         <div className="flex h-10 w-full items-center rounded-md border border-outline-variant bg-slate-50 px-3 text-[13px] text-slate-700">
                                                             {selectedNok?.email || 'Select a next of kin with an email address'}
                                                         </div>
@@ -2100,9 +1692,6 @@ function handleConfirmClient(picked) {
                     </div>
                 </section>
             </form>
-            <Suspense fallback={null}>
-            <ClientProfileSummaryModal show={!!selectedClient} client={selectedClient} onConfirm={handleConfirmClient} onClose={() => setSelectedClient(null)} />
-            </Suspense>
             <CaseSummaryModal
                 show={showCreateModal}
                 data={data}

@@ -19,6 +19,8 @@ import { formatDisplayDateTime, formatDisplayDate } from '@/lib/utils';
 import { formatRelativeTime } from '@/lib/relativeTime';
 import { formatResolvedAddress } from '@/lib/addressResolver';
 import UnifiedTimeline from '@/Components/Timeline';
+import PresenceRoster from '@/Components/PresenceRoster';
+import { canShowReferralPresence } from '@/Components/presencePolicy';
 
 const TIMELINE_EVENT_CONFIG = {
   referral_sent:   { dot: 'bg-purple-50 border-purple-200 text-purple-600', icon: 'forward_to_inbox' },
@@ -831,6 +833,7 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
     const clientAddress = client?.addresses?.[0] ?? client?.address ?? null;
     const receivingAgencyName = referral.agency?.name ?? 'the receiving agency';
     const isReceivingAgency = isAgency && auth.user.agcy_id && auth.user.agcy_id === referral.agcy_id;
+    const canViewPresence = canShowReferralPresence(auth.user, referral, roles);
     const showMilestoneAgencyWarning = canAddMilestone && !isReceivingAgency;
     const refMilestones = referral.milestones || [];
     const latestMilestone = refMilestones.length > 0
@@ -1062,9 +1065,12 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                 </Link>
             </div>
 
-            <div className="mx-auto mb-5 max-w-[1440px]">
-                <h1 className="text-[28px] font-extrabold leading-tight tracking-[-0.02em] text-[#172333]">Referral Details</h1>
-                <p className="mt-2 text-[11px] leading-5 text-[#607080]">Referral Information, linked case and supporting records</p>
+            <div className="mx-auto mb-5 flex max-w-[1440px] flex-wrap items-end justify-between gap-3">
+                <div>
+                    <h1 className="text-[28px] font-extrabold leading-tight tracking-[-0.02em] text-[#172333]">Referral Details</h1>
+                    <p className="mt-2 text-[11px] leading-5 text-[#607080]">Referral Information, linked case and supporting records</p>
+                </div>
+                {canViewPresence && <PresenceRoster url={`/referrals/${encodeURIComponent(referral.id)}/presence`} currentUserId={auth.user?.id} />}
             </div>
 
             <div className="mx-auto grid max-w-[1440px] grid-cols-1 gap-4 xl:grid-cols-12">

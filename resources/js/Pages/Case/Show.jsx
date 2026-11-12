@@ -17,6 +17,8 @@ import { formatDisplayDateTime, formatDisplayDate, formatDisplayTime } from '@/l
 import { formatResolvedAddress } from '@/lib/addressResolver';
 import AuditLogModal from '@/Components/AuditLogModal';
 import UnifiedTimeline from '@/Components/Timeline';
+import PresenceRoster from '@/Components/PresenceRoster';
+import { canShowCasePresence } from '@/Components/presencePolicy';
 
 const vulnConfig = {
   'PWD': { icon: 'accessibility', className: 'bg-purple-100 text-purple-800 border-purple-200' },
@@ -230,7 +232,7 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
 
   const primaryAddress = client?.addresses?.[0] || null;
   const primaryEmployment = client?.employments?.[0] || null;
-  const primaryNok = client?.nextOfKin?.find(n => n.is_primary) || client?.nextOfKin?.[0] || null;
+  const primaryNok = client?.next_of_kin?.find(n => n.is_primary) || client?.next_of_kin?.[0] || null;
 
   const canManageCaseDocuments = auth.user?.role === roles.CASE_MANAGER;
   const canManageReferrals = auth.user?.role === roles.CASE_MANAGER || auth.user?.role === roles.ADMIN;
@@ -503,7 +505,11 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
             <h1 className="text-[28px] font-extrabold leading-tight tracking-[-0.02em] text-[#172333]">Case Details</h1>
             <p className="mt-2 text-[11px] leading-5 text-[#607080]">Case information, referrals and supporting records</p>
           </div>
-          <div data-tour="case-actions" className="flex items-center gap-2 shrink-0">
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            {canShowCasePresence(auth.user?.role, roles) && (
+              <PresenceRoster url={`/cases/${encodeURIComponent(caseFile.id)}/presence`} currentUserId={auth.user?.id} />
+            )}
+            <div data-tour="case-actions" className="flex items-center gap-2 shrink-0">
             <a
             href={route('cases.export-pdf', caseFile.id)}
             target="_blank"
@@ -574,8 +580,9 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
               Archive Case
             </button>
           ) : null}
+            </div>
+          </div>
         </div>
-      </div>
       </div>
 
       <div className="mx-auto grid max-w-[1440px] grid-cols-1 gap-4 xl:grid-cols-12">
@@ -803,6 +810,18 @@ export default function CaseShow({ case: caseFile, overdueDays = 7, milestoneTim
                 <InfoField label="Email" value={client?.email} />
                 <InfoField label="Contact no." value={client?.contact_number} />
               </div>
+
+              {primaryNok && (
+                <div className="space-y-3 border-t border-slate-200 pt-4">
+                  <InfoField label="Next of kin" value={[primaryNok.first_name, primaryNok.middle_name, primaryNok.last_name].filter(Boolean).join(' ')} />
+                  <InfoField label="Relationship" value={primaryNok.relationship} />
+                  <div className="grid grid-cols-2 gap-3">
+                    <InfoField label="NOK email" value={primaryNok.email} />
+                    <InfoField label="NOK contact no." value={primaryNok.phone_number} />
+                  </div>
+                  <InfoField label="NOK address" value={formatNokAddress(primaryNok)} />
+                </div>
+              )}
 
               {/* Vulnerability */}
               {(() => {

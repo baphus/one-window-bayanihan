@@ -77,6 +77,7 @@ class CaseService
             $case = CaseFile::create([
                 'case_number' => $this->generateCaseNumber(),
                 'tracker_number' => $this->generateTrackerNumber(),
+                'filing_client_type' => $filer->isOfw() ? 'OFW' : ($data['client_type'] ?? $client->type),
                 'vulnerability_indicator' => $data['vulnerability_indicator'] ?? null,
                 'nok_vulnerability_indicator' => $data['nok_vulnerability_indicator'] ?? null,
                 'summary' => $data['summary'] ?? null,
