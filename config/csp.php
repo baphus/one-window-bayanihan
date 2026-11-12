@@ -26,4 +26,17 @@ return [
     |
     */
     'vite_dev_server_url' => env('VITE_DEV_SERVER_URL', 'http://127.0.0.1:5173'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | WebSocket server origin (production connect-src)
+    |--------------------------------------------------------------------------
+    |
+    | Explicit WSS origin added to connect-src in the production CSP.
+    | Use the full origin, e.g. "wss://ws-mt1.pusher.com" or your Reverb host.
+    | Leave empty to omit WebSocket origins from the production policy.
+    | The bare "wss:" wildcard must NOT be used here — scope to the real host.
+    |
+    */
+    'websocket_url' => env('CSP_WEBSOCKET_URL', ''),
 ];

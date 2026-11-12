@@ -25,6 +25,9 @@ class ScannerHardeningTest extends TestCase
         $this->assertStringNotContainsString("'unsafe-eval'", $matches[1]);
         $this->assertStringContainsString("frame-ancestors 'none'", $policy);
         $this->assertStringContainsString("worker-src 'self'", $policy);
+        // style-src must use a nonce, not 'unsafe-inline'
+        $this->assertStringNotContainsString("style-src 'self' 'unsafe-inline'", $policy);
+        $this->assertStringContainsString("style-src 'self' 'nonce-", $policy);
         $this->assertStringContainsString('report-to csp', $policy);
         $this->assertStringContainsString('report-uri /api/csp/report', $policy);
         $this->assertSame('csp="'.url('/api/csp/report').'"', $response->headers->get('Reporting-Endpoints'));
