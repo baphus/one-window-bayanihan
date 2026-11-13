@@ -248,23 +248,19 @@ class CaseMetrics
         ?string $province = null,
         ?string $city = null,
     ): array {
-        // Category analytics reads referral-owned classification. A case is
-        // counted once per category however many referrals it has there;
-        // referral totals stay separate. Deleted, draft and archived cases and
-        // deleted referrals are excluded from both counts and percentages.
+        // Case-owned categories count each case once per category; referral
+        // totals stay separate. Deleted, draft and archived cases are excluded.
         //
         // The date and geography filters were previously missing here, so this
         // was the one panel on the report that silently reported all-time,
         // unfiltered figures while every other panel honoured the active
         // filters. Reconciling an exported category count against the
         // dashboard did not add up.
-        $query = DB::table('referrals AS assignments')
+        $query = DB::table('case_file_case_category AS assignments')
             ->join('cases', 'cases.id', '=', 'assignments.case_id')
-            ->join('case_categories', 'case_categories.id', '=', 'assignments.category_id')
+            ->join('case_categories', 'case_categories.id', '=', 'assignments.case_category_id')
             ->where('cases.is_deleted', false)
             ->whereNull('cases.deleted_at')
-            ->where('assignments.is_deleted', false)
-            ->whereNull('assignments.deleted_at')
             ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
             ->select('case_categories.name', 'case_categories.color', DB::raw('count(DISTINCT cases.id) as total'))
             ->groupBy('case_categories.name', 'case_categories.color')
@@ -278,7 +274,7 @@ class CaseMetrics
             $query->whereRaw('1 = 0');
         }
         if ($agencyId) {
-            $query->where('assignments.agcy_id', $agencyId);
+            $query->whereExists(fn ($referrals) => $referrals->selectRaw('1')->from('referrals')->whereColumn('referrals.case_id', 'cases.id')->where('referrals.agcy_id', $agencyId)->where('referrals.is_deleted', false)->whereNull('referrals.deleted_at'));
         }
 
         $results = $query->get();

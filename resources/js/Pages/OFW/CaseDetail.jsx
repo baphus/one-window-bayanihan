@@ -8,6 +8,7 @@ import CitizenTimeline from '@/Components/CitizenTimeline';
 import { AgencyCard, DocumentRow, StatusBar } from '@/Components/CitizenStatus';
 import InputError from '@/Components/InputError';
 import { DOCUMENT_SLOT_LABELS } from '@/Components/CaseIntakeForm';
+import { humanizeStatus } from '@/lib/statusLabels';
 import { buildCaseStatusLine } from '@/lib/caseStatusLine';
 import safeRoute from '@/utils/safeRoute';
 
@@ -27,7 +28,7 @@ const REQUEST_STATUS = {
 };
 
 function formatRequestStatus(status) {
-    return REQUEST_STATUS[status] ?? String(status ?? 'Unknown').replace(/_/g, ' ');
+    return REQUEST_STATUS[status] ?? (humanizeStatus(status) || 'Unknown');
 }
 
 /** Owner-side upload for exactly the slots staff requested on this pending case. */
@@ -99,7 +100,7 @@ const REFERRAL_STATUS = {
         note: 'This office recorded that assistance for its referral was completed.',
     },
     REJECTED: {
-        label: 'Unable to assist',
+        label: 'Declined',
         badge: 'border-rose-200 bg-rose-50 text-rose-700',
         note: 'This office was unable to process the referral. Your case manager will advise you on the next steps.',
     },
@@ -116,11 +117,15 @@ function formatLongDate(dateStr) {
 
 function formatShortDate(dateStr) {
     if (!dateStr) return '—';
-    return new Date(dateStr).toLocaleDateString('en-PH', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-    });
+    const match = String(dateStr).match(/^(\\d{4})-(\\d{2})-(\\d{2})$/);
+    const date = match ? new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3])) : new Date(dateStr);
+    return Number.isNaN(date.getTime()) ? String(dateStr) : date.toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+function displayAnswer(value) {
+    if (value === null || value === undefined || value === '') return 'Not provided';
+    if (typeof value === 'object') return Array.isArray(value) ? value.map(displayAnswer).join(', ') : Object.entries(value).map(([key, item]) => `${key.replace(/[_-]/g, ' ')}: ${displayAnswer(item)}`).join('; ');
+    return String(value);
 }
 
 /** Lightweight toast for the copy-tracking-number affordance. */
@@ -151,11 +156,13 @@ function useCaseState(trackedCase, trackingAgencies) {
     return useMemo(() => {
         const actionAgencies = trackingAgencies.filter((a) => a.status === 'FOR_COMPLIANCE');
         const normalized = String(trackedCase?.status ?? '').toUpperCase();
-        const isClosed = normalized === 'CLOSED' || normalized === 'ARCHIVED' || normalized === 'RESOLVED';
+        const isDeclined = normalized === 'REJECTED';
+        const isClosed = normalized === 'CLOSED' || normalized === 'ARCHIVED' || normalized === 'RESOLVED' || isDeclined;
 
         if (actionAgencies.length > 0) return { kind: 'action', actionAgencies, isClosed };
-        if (isClosed) return { kind: 'closed', actionAgencies, isClosed };
-        return { kind: 'progress', actionAgencies, isClosed };
+        if (isDeclined) return { kind: 'declined', actionAgencies, isClosed, isDeclined };
+        if (isClosed) return { kind: 'closed', actionAgencies, isClosed, isDeclined };
+        return { kind: 'progress', actionAgencies, isClosed, isDeclined };
     }, [trackedCase, trackingAgencies]);
 }
 
@@ -287,6 +294,7 @@ export default function CaseDetail({
     documents = [],
     requestDocuments = [],
     case: caseFile,
+    intakeAnswers = {},
 }) {
     const requestedSlots = caseFile?.requested_document_slots
         ?? trackedCase?.requestedDocumentSlots
@@ -300,9 +308,10 @@ export default function CaseDetail({
     const completedAgencies = trackingAgencies.filter((a) => a.status === 'COMPLETED').length;
 
     const { toast, copy } = useCopyToast();
-    const { kind, actionAgencies, isClosed } = useCaseState(trackedCase, trackingAgencies);
+    const { kind, actionAgencies, isClosed, isDeclined } = useCaseState(trackedCase, trackingAgencies);
     const requestAgencies = trackingAgencies.filter((agency) => agency.openRequest);
-    const submittedDocuments = [...documents, ...requestDocuments];
+    const submittedDocuments = caseFile?.documents ?? documents;
+    const intakeFields = caseFile ?? trackedCase ?? {};
     const actionableRequests = requestAgencies.filter((agency) => agency.openRequest.status === 'OPEN');
     const requestsNeedAttention = actionableRequests.length > 0;
     const [documentsTab, setDocumentsTab] = useState(() => requirementSlots.length || requestedSlots.length ? 'documents' : 'requests');
@@ -336,6 +345,10 @@ export default function CaseDetail({
     }, [milestoneTimeline]);
 
     const statusBar = useMemo(() => {
+        if (isDeclined) {
+            return <StatusBar tone="negative" title="This request was declined." detail="Submit a fresh intake to request assistance. This will create a new case." />;
+        }
+
         if (requestsNeedAttention) {
             return (
                 <StatusBar
@@ -383,13 +396,13 @@ export default function CaseDetail({
                 detail="We will let you know here when a partner office needs something from you."
             />
         );
-    }, [kind, requestsNeedAttention, requirementSlots.length, requestedSlots.length]);
+    }, [kind, isDeclined, requestsNeedAttention, requirementSlots.length, requestedSlots.length]);
 
     const recordBadge = kind === 'closed'
         ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
         : 'border-primary/25 bg-primary/10 text-primary';
 
-    const recordBadgeLabel = kind === 'closed' ? 'Request Closed' : 'Open — In Progress';
+    const recordBadgeLabel = kind === 'declined' ? 'Declined' : kind === 'closed' ? 'Request Closed' : 'Open — In Progress';
 
     return (
         <OfwPortalLayout title={trackingId ? `Request — ${trackingId}` : 'Request Details'}>
@@ -464,7 +477,16 @@ export default function CaseDetail({
                 </div>
             ) : null}
 
-            {kind === 'closed' ? (
+            {kind === 'declined' ? (
+                <div className="mt-5 flex items-start gap-3 rounded-lg border border-rose-200 bg-rose-50 px-5 py-4">
+                    <span aria-hidden="true" className="material-symbols-outlined mt-px shrink-0 text-[18px] leading-none text-rose-600">cancel</span>
+                    <div>
+                        <p className="text-[13px] font-bold text-rose-800">Request Declined</p>
+                        <p className="mt-0.5 text-[12px] text-rose-700">Submit a fresh intake to request assistance. You will receive a new case number; information from this case will not be copied.</p>
+                        <Link href={safeRoute('ofw.intake', undefined, '/my-cases/intake')} className="mt-3 inline-flex min-h-[36px] items-center rounded-md bg-primary px-3.5 text-[12px] font-bold text-white hover:bg-primary-container">Submit a fresh intake</Link>
+                    </div>
+                </div>
+            ) : kind === 'closed' ? (
                 <div className="mt-5 flex items-start gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-5 py-4">
                     <span
                         aria-hidden="true"
@@ -548,14 +570,39 @@ export default function CaseDetail({
                 ) : null}
             </section>
 
-            {caseOverview?.narrative ? (
-                <section className="mt-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-                    <header className="border-b border-slate-100 px-5 py-4">
-                        <h2 className="font-headline text-[15px] font-extrabold tracking-tight text-slate-900">Details of Your Request</h2>
-                    </header>
-                    <p className="whitespace-pre-wrap px-5 py-5 text-[13px] leading-relaxed text-slate-700">{caseOverview.narrative}</p>
-                </section>
-            ) : null}
+            <section className="mt-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                <header className="border-b border-slate-100 px-5 py-4">
+                    <h2 className="font-headline text-[15px] font-extrabold tracking-tight text-slate-900">Your submitted intake</h2>
+                    <p className="mt-1 text-[12px] text-slate-500">Latest submitted version · Answers not provided at submission are shown below.</p>
+                </header>
+                <div className="space-y-5 px-5 py-5">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                        {[
+                            ['OFW details', [['First name', intakeFields.first_name], ['Middle name', intakeFields.middle_name], ['Last name', intakeFields.last_name], ['Suffix', intakeFields.suffix], ['Client type', intakeFields.client_type], ['Date of birth', intakeFields.date_of_birth], ['Age at intake', intakeFields.age_at_intake], ['Sex', intakeFields.sex], ['Email', intakeFields.email], ['Contact number', intakeFields.contact_number], ['Civil status', intakeFields.civil_status === 'OTHER' ? intakeFields.civil_status_other : intakeFields.civil_status], ['Vulnerability', intakeFields.vulnerability_indicator]]],
+                            ['Home address', [['Street', intakeFields.address_street], ['Barangay', intakeFields.address_barangay], ['City / municipality', intakeFields.address_city_municipality], ['Province', intakeFields.address_province], ['Region', intakeFields.address_region]]],
+                            ['Employment and return', [['Employer', intakeFields.employment_employer_name], ['Employer address', intakeFields.employment_employer_address], ['Position', intakeFields.employment_position], ['Jobsite country or territory', intakeFields.employment_country], ['Last occupation', intakeFields.employment_last_position], ['Arrival in Philippines', intakeFields.employment_date_of_arrival], ['Deployment mode', intakeFields.deployment_mode], ['Employment status', intakeFields.employment_status], ['Return reason', intakeFields.return_reason]]],
+                            ...(intakeFields.client_type === 'NEXT_OF_KIN' ? [['Next of kin', [['Name', intakeFields.nok_name], ['Relationship', intakeFields.nok_relationship], ['Contact number', intakeFields.nok_contact_number], ['Email', intakeFields.nok_email]]]] : []),
+                            ['Your statement and requested assistance', [['Statement', intakeFields.summary ?? caseOverview?.narrative], ['Assistance selected', (intakeFields.proposed_assessments ?? []).map((value) => value.replace(/_/g, ' '))], ['Other assistance', intakeFields.proposed_assessment_other]]],
+                        ].map(([section, fields]) => <section key={section} className="rounded-lg border border-slate-100 p-3">
+                            <h3 className="mb-2 text-[11px] font-bold uppercase tracking-wide text-slate-500">{section}</h3>
+                            <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">{fields.map(([label, value]) => <div key={label} className="min-w-0"><dt className="text-[11px] font-semibold text-slate-500">{label}</dt><dd className="mt-1 break-words whitespace-pre-wrap text-[13px] text-slate-800">{label.toLowerCase().includes('date') || label.startsWith('Arrival') ? (value ? formatShortDate(value) : 'Not provided') : displayAnswer(value)}</dd></div>)}</dl>
+                        </section>)}
+                    </div>
+                    {submittedDocuments.length > 0 && <section className="border-t border-slate-100 pt-4">
+                        <h3 className="mb-3 text-[11px] font-bold uppercase tracking-wide text-slate-500">Submitted documents</h3>
+                        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            {submittedDocuments.map((doc) => {
+                                const url = doc.download_url ?? doc.url;
+                                const label = doc.requirement_label ?? doc.display_name ?? DOCUMENT_SLOT_LABELS[doc.category ?? doc.slot] ?? 'Submitted document';
+                                return <li key={doc.id ?? doc.category ?? doc.slot ?? label} className="min-w-0 rounded-lg border border-slate-200 p-3">
+                                    <p className="text-[12px] font-semibold text-slate-800">{label}</p>
+                                    {url && <a href={url} aria-label={`Download ${label}`} className="mt-2 inline-flex items-center gap-1 text-[12px] font-bold text-primary underline"><span className="material-symbols-outlined text-[15px]" aria-hidden="true">download</span>Download document</a>}
+                                </li>;
+                            })}
+                        </ul>
+                    </section>}
+                </div>
+            </section>
 
             {/* Timeline + aside */}
             <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
@@ -709,7 +756,7 @@ export default function CaseDetail({
                             )
                         ) : (
                             <div className="px-5 py-5">
-                                <IntakeReplacementPanel caseId={trackedCase?.id} slots={isClosed ? [] : [...new Set([...requestedSlots, ...requirementSlots])]} reason={requestedReason} />
+                                {!isDeclined && <IntakeReplacementPanel caseId={trackedCase?.id} slots={isClosed ? [] : [...new Set([...requestedSlots, ...requirementSlots])]} reason={requestedReason} />}
                                 <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
                                     My submitted documents
                                     {submittedDocuments.length > 0 ? ` · ${submittedDocuments.length}` : ''}
@@ -718,7 +765,7 @@ export default function CaseDetail({
                                     <div className="mt-2 divide-y divide-slate-100">
                                         {submittedDocuments.map((doc) => {
                                             const row = <DocumentRow
-                                                name={doc.name ?? doc.original_name}
+                                                name={doc.requirement_label ?? doc.display_name ?? DOCUMENT_SLOT_LABELS[doc.category ?? doc.slot] ?? 'Submitted document'}
                                                 meta={doc.meta}
                                                 statusLabel={doc.statusLabel ?? 'Received'}
                                             />;

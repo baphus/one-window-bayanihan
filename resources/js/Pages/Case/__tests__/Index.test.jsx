@@ -163,12 +163,12 @@ describe('Case Index register columns', () => {
     expect(screen.queryByRole('columnheader', { name: /^Age at intake$/ })).not.toBeInTheDocument();
   });
 
-  it('shows referral-scoped categories without case-wide issue text', () => {
+  it('shows case-owned categories without case-wide issue text', () => {
     renderIndex({
       cases: page({
         data: [{
           ...caseRow,
-          referrals: [{ category: { id: 'c1', name: 'Employment' } }],
+          categories: [{ id: 'c1', name: 'Employment' }],
         }],
       }),
     });
@@ -226,7 +226,26 @@ describe('Case Index row actions', () => {
   });
 });
 
+describe('Case Index quick status tabs', () => {
+  it('shows Declined count and filters cases by REJECTED', () => {
+    renderIndex({ stats: { declined_cases: 3 } });
+
+    const declinedTab = screen.getByRole('button', { name: 'Declined' });
+    expect(declinedTab).toHaveTextContent('3');
+    expect(declinedTab).toHaveAttribute('aria-pressed', 'false');
+    fireEvent.click(declinedTab);
+
+    expect(routerGet.mock.calls.at(-1)[1]).toMatchObject({ status: 'REJECTED' });
+  });
+});
+
 describe('Case Index advanced filter panel', () => {
+  it('offers Declined status filter even when status comes from local options', () => {
+    renderIndex();
+    fireEvent.click(screen.getByRole('button', { name: /filters/i }));
+    const panel = screen.getByRole('dialog', { name: /filters/i });
+    expect(within(panel).getByRole('checkbox', { name: 'Declined' })).toBeInTheDocument();
+  });
   function openFilters() {
     fireEvent.click(screen.getByRole('button', { name: /^Filters/ }));
   }

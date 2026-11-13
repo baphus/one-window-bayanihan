@@ -7,6 +7,7 @@ use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\SetPostgresSession;
 use App\Models\Agency;
 use App\Models\AuditLog;
+use App\Models\CaseCategory;
 use App\Models\CaseDocument;
 use App\Models\CaseFile;
 use App\Models\Milestone;
@@ -40,6 +41,7 @@ class AuthorizationGapTest extends TestCase
 
         $response = $this->actingAsWithMfa($manager)->post(route('cases.review-approve', $case), [
             'confirmed_assessments' => ['LEGAL_ASSISTANCE'], 'reviewed_document_ids' => $reviewedIds,
+            'category_ids' => [CaseCategory::factory()->create()->id],
         ]);
 
         // Successful approve redirects to review-pending

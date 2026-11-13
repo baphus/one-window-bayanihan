@@ -32,6 +32,7 @@ class CategoryAnalyticsAuditHardeningTest extends TestCase
         $secondary = CaseCategory::factory()->create(['name' => 'Secondary']);
         $excluded = CaseCategory::factory()->create(['name' => 'Excluded']);
         $case = CaseFile::factory()->create(['status' => 'OPEN', 'user_id' => $manager->id]);
+        $case->categories()->attach([$primary->id, $secondary->id]);
         Referral::factory()->create(['case_id' => $case->id, 'agcy_id' => $agency->id, 'category_id' => $primary->id]);
         Referral::factory()->create(['case_id' => $case->id, 'agcy_id' => Agency::factory()->create()->id, 'category_id' => $primary->id]);
         Referral::factory()->create(['case_id' => $case->id, 'agcy_id' => $agency->id, 'category_id' => $secondary->id]);
@@ -58,6 +59,7 @@ class CategoryAnalyticsAuditHardeningTest extends TestCase
         $otherAgency = Agency::factory()->create();
         $category = CaseCategory::factory()->create(['name' => 'Agency only']);
         $case = CaseFile::factory()->create(['status' => 'OPEN']);
+        $case->categories()->attach($category->id);
         Referral::factory()->create(['case_id' => $case->id, 'agcy_id' => $agency->id, 'category_id' => $category->id]);
         Referral::factory()->create(['case_id' => $case->id, 'agcy_id' => $otherAgency->id, 'category_id' => null]);
 
@@ -76,7 +78,9 @@ class CategoryAnalyticsAuditHardeningTest extends TestCase
             $documentIds[] = CaseDocument::factory()->create(['case_id' => $case->id, 'category' => $slot, 'referral_id' => null])->id;
         }
 
+        $category = CaseCategory::factory()->create();
         $approved = app(CaseService::class)->approveCase($case->id, $manager->id, [
+            'category_ids' => [$category->id],
             'confirmed_assessments' => ['LEGAL_ASSISTANCE'],
             'reviewed_document_ids' => $documentIds,
         ]);

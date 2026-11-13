@@ -30,7 +30,7 @@ class CategoryIntegrityHardeningTest extends TestCase
         return $ids;
     }
 
-    public function test_category_classification_exists_only_on_referrals_and_case_input_is_prohibited(): void
+    public function test_case_and_referral_category_filters_are_independent_and_case_input_is_prohibited(): void
     {
         $rules = (new StoreCaseRequest)->rules();
         $this->assertSame(['prohibited'], $rules['category_id']);
@@ -41,6 +41,7 @@ class CategoryIntegrityHardeningTest extends TestCase
         $other = CaseCategory::factory()->create();
         $agency = Agency::factory()->create();
         $case = CaseFile::factory()->create(['status' => 'OPEN']);
+        $case->categories()->attach($target->id);
         $matching = Referral::factory()->create(['case_id' => $case->id, 'agcy_id' => $agency->id, 'category_id' => $target->id]);
         Referral::factory()->create(['case_id' => $case->id, 'agcy_id' => Agency::factory()->create()->id, 'category_id' => $other->id]);
         $this->actingAsWithMfa($manager);
@@ -77,21 +78,23 @@ class CategoryIntegrityHardeningTest extends TestCase
         $this->assertSame($category->id, $referral->fresh()->category_id);
     }
 
-    public function test_approval_requires_confirmation_and_documents_not_category_assignment(): void
+    public function test_approval_requires_confirmation_documents_and_a_category(): void
     {
         $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $case = CaseFile::factory()->withIntake()->pendingReview()->create(['return_reason' => 'OTHERS', 'assigned_case_manager_id' => $manager->id]);
         $ids = $this->reviewDocuments($case);
+        $categories = [CaseCategory::factory()->create()->id];
         try {
-            app(CaseService::class)->approveCase($case->id, $manager->id, ['confirmed_assessments' => [], 'reviewed_document_ids' => $ids]);
+            app(CaseService::class)->approveCase($case->id, $manager->id, ['confirmed_assessments' => [], 'reviewed_document_ids' => $ids, 'category_ids' => $categories]);
             $this->fail('Approval requires at least one confirmed assessment.');
         } catch (ValidationException) {
             $this->addToAssertionCount(1);
         }
         $this->assertSame(CaseFile::STATUS_PENDING_REVIEW, $case->fresh()->status);
         $this->assertSame('OPEN', app(CaseService::class)->approveCase($case->id, $manager->id, [
-            'confirmed_assessments' => ['LEGAL_ASSISTANCE'], 'reviewed_document_ids' => $ids,
+            'confirmed_assessments' => ['LEGAL_ASSISTANCE'], 'reviewed_document_ids' => $ids, 'category_ids' => $categories,
         ])->status);
+        $this->assertSame($categories, $case->fresh()->categories()->pluck('case_categories.id')->all());
     }
 
     public function test_referral_category_reference_is_validated_independently(): void

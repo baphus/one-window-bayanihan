@@ -40,6 +40,21 @@ class OfwCaseDetailTest extends TestCase
     }
 
     #[Test]
+    public function test_declined_case_detail_reports_declined_status(): void
+    {
+        $ofw = User::factory()->create(['role' => UserRole::OFW->value]);
+        $case = CaseFile::factory()->create(['ofw_user_id' => $ofw->id, 'status' => 'REJECTED', 'deletion_reason' => 'Unreadable documents']);
+
+        $response = $this->actingAsWithMfa($ofw)
+            ->withHeader('X-Inertia', 'true')
+            ->get(route('ofw.case.show', $case));
+
+        $response->assertOk();
+        $response->assertJsonPath('props.trackedCase.status', 'REJECTED');
+        $response->assertJsonPath('props.trackedCase.rejectionReason', 'Unreadable documents');
+    }
+
+    #[Test]
     public function test_ofw_case_detail_links_to_authenticated_milestones_route(): void
     {
         $ofwUser = User::factory()->create(['role' => UserRole::OFW->value]);

@@ -22,6 +22,8 @@ class ApproveIntakeRequest extends FormRequest
             'staff_summary' => ['nullable', 'string', 'max:5000'],
             'reviewed_document_ids' => ['required', 'array', 'min:4'],
             'reviewed_document_ids.*' => ['required', 'uuid', 'distinct'],
+            'category_ids' => ['required', 'array', 'min:1'],
+            'category_ids.*' => ['required', 'uuid', 'distinct', Rule::exists('case_categories', 'id')->where('is_active', true)],
         ];
     }
 }

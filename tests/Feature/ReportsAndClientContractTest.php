@@ -63,6 +63,7 @@ class ReportsAndClientContractTest extends TestCase
         $owner = User::factory()->create(['role' => UserRole::OFW->value]);
         $case = CaseFile::factory()->create(['status' => 'OPEN', 'ofw_user_id' => $owner->id, 'client_type' => 'OFW']);
         $category = CaseCategory::factory()->create();
+        $case->categories()->attach($category->id);
         Referral::factory()->count(2)->create(['case_id' => $case->id, 'agcy_id' => $agency->id, 'category_id' => $category->id]);
 
         $this->actingAsWithMfa($manager)->get(route('reports.index'))->assertOk();

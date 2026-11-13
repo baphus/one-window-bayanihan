@@ -127,10 +127,10 @@ class DashboardService
         $casesByCategory = CacheHelper::safeRemember('dashboard:cm_cases_by_category', 300, function () {
             $rows = DB::select('
                 SELECT cc.name, cc.color, COUNT(DISTINCT c.id) AS count
-                FROM referrals r
-                JOIN cases c ON c.id = r.case_id AND c.is_deleted = false
-                JOIN case_categories cc ON cc.id = r.category_id
-                WHERE r.is_deleted = false AND c.status NOT IN (\'DRAFT\', \'ARCHIVED\')
+                FROM case_file_case_category ccc
+                JOIN cases c ON c.id = ccc.case_id AND c.is_deleted = false
+                JOIN case_categories cc ON cc.id = ccc.case_category_id
+                WHERE c.status NOT IN (\'DRAFT\', \'ARCHIVED\')
                 GROUP BY cc.name, cc.color
                 ORDER BY count DESC
             ');
@@ -1015,10 +1015,10 @@ class DashboardService
         $casesByCategory = CacheHelper::safeRemember('dashboard:admin_cases_by_category', 300, function () {
             $rows = DB::select('
                 SELECT cc.name, cc.color, COUNT(DISTINCT c.id) AS count
-                FROM referrals r
-                JOIN cases c ON c.id = r.case_id AND c.is_deleted = false
-                JOIN case_categories cc ON cc.id = r.category_id
-                WHERE r.is_deleted = false AND c.status NOT IN (\'DRAFT\', \'ARCHIVED\')
+                FROM case_file_case_category ccc
+                JOIN cases c ON c.id = ccc.case_id AND c.is_deleted = false
+                JOIN case_categories cc ON cc.id = ccc.case_category_id
+                WHERE c.status NOT IN (\'DRAFT\', \'ARCHIVED\')
                 GROUP BY cc.name, cc.color
                 ORDER BY count DESC
             ');

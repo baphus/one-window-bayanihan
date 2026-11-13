@@ -16,31 +16,11 @@ use App\Services\NotificationService;
 use App\Services\StorageService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 class CaseDocumentController extends Controller
 {
-    public function requestReplacement(Request $request, CaseFile $case)
-    {
-        $data = $request->validate([
-            'slots' => ['required', 'array', 'min:1'],
-            'slots.*' => ['required', 'distinct', Rule::in(IntakeDocumentService::SLOTS)],
-            'reason' => ['required', 'string', 'max:1000'],
-        ]);
-        DB::transaction(function () use ($case, $request, $data) {
-            $locked = CaseFile::where('status', CaseFile::STATUS_PENDING_REVIEW)->lockForUpdate()->findOrFail($case->id);
-            abort_unless($request->user()->isAdmin() || ($request->user()->isCaseManager() && $locked->assigned_case_manager_id === $request->user()->id), 403);
-            $locked->update([
-                'requested_document_slots' => array_values(array_unique(array_merge($locked->requested_document_slots ?? [], $data['slots']))),
-                'document_request_reason' => $data['reason'], 'document_requested_by' => $request->user()->id,
-                'document_requested_at' => now(), 'reviewed_document_ids' => null,
-            ]);
-        });
-
-        return back()->with('success', 'Replacement documents requested.');
-    }
-
     public function replace(ReplaceIntakeDocumentsRequest $request, CaseFile $case)
     {
         $paths = [];
@@ -180,6 +160,69 @@ class CaseDocumentController extends Controller
         return back()->with('success', 'Document uploaded successfully.');
     }
 
+    public function downloadIntakeArchive(Request $request, string $caseId)
+    {
+        abort_unless($request->user()->isCaseManager(), 403);
+
+        $case = CaseFile::query()
+            ->whereKey($caseId)
+            ->where('is_deleted', false)
+            ->firstOrFail();
+        $documents = $case->documents()
+            ->whereNull('referral_id')
+            ->where('is_deleted', false)
+            ->whereDoesntHave('referral', fn ($referrals) => $referrals->onlyTrashed())
+            ->orderBy('category')
+            ->get();
+        abort_if($documents->isEmpty(), 404, 'No case documents are available for this case.');
+
+        $temporaryFile = tempnam(sys_get_temp_dir(), 'case-intake-zip-');
+        abort_if($temporaryFile === false, 500, 'Unable to prepare document archive.');
+
+        try {
+            $zip = new \ZipArchive;
+            abort_unless($zip->open($temporaryFile, \ZipArchive::OVERWRITE) === true, 500, 'Unable to create document archive.');
+            $disk = Storage::disk(app(StorageService::class)->diskName());
+            $names = [];
+
+            foreach ($documents as $document) {
+                $storagePath = ltrim($document->file_path, '/');
+                abort_unless($disk->exists($storagePath), 404, 'A case document is missing from storage.');
+                $contents = $disk->get($storagePath);
+
+                $name = $this->intakeDownloadName($case, $document);
+                $base = pathinfo($name, PATHINFO_FILENAME);
+                $extension = pathinfo($name, PATHINFO_EXTENSION);
+                $candidate = $name;
+                for ($suffix = 2; isset($names[$candidate]); $suffix++) {
+                    $candidate = $base.' ('.$suffix.')'.($extension === '' ? '' : '.'.$extension);
+                }
+                $names[$candidate] = true;
+                abort_unless($zip->addFromString($candidate, $contents), 500, 'Unable to add document to archive.');
+            }
+
+            abort_unless($zip->close(), 500, 'Unable to finalize document archive.');
+            $caseLabel = $this->caseDownloadLabel($case);
+            AuditLogger::download()
+                ->by($request->user())
+                ->forEntity($case, $case->case_number)
+                ->module(AuditModule::CASE_DOCUMENT)
+                ->context(null, ['format' => 'zip', 'scope' => 'case_documents', 'count' => $documents->count()])
+                ->write();
+
+            return response()->download($temporaryFile, $caseLabel.'_case-documents.zip', [
+                'Content-Type' => 'application/zip',
+                'Cache-Control' => 'private, no-store',
+            ])->deleteFileAfterSend(true);
+        } catch (\Throwable $exception) {
+            if (isset($zip) && $zip instanceof \ZipArchive) {
+                $zip->close();
+            }
+            @unlink($temporaryFile);
+            throw $exception;
+        }
+    }
+
     public function show(Request $request, string $caseId, string $documentId)
     {
         $case = CaseFile::findOrFail($caseId);
@@ -207,17 +250,22 @@ class CaseDocumentController extends Controller
 
         $this->authorizeDocumentAccess($document, $request->user());
 
-        $url = app(StorageService::class)->temporaryUrl($document->file_path, 24);
-
-        if (! $url) {
-            abort(404, 'File not found or unavailable.');
-        }
-
         AuditLogger::download()
             ->by($request->user())
             ->forEntity($document, $document->file_name)
             ->module(AuditModule::CASE_DOCUMENT)
             ->write();
+
+        if ($document->referral_id === null && in_array($document->category, IntakeDocumentService::REQUIREMENT_KEYS, true)) {
+            $disk = Storage::disk(app(StorageService::class)->diskName());
+            $path = ltrim($document->file_path, '/');
+            abort_unless($disk->exists($path), 404, 'File not found or unavailable.');
+
+            return $disk->download($path, $this->intakeDownloadName($case, $document));
+        }
+
+        $url = app(StorageService::class)->temporaryUrl($document->file_path, 24);
+        abort_unless($url, 404, 'File not found or unavailable.');
 
         return redirect()->away($url);
     }
@@ -243,6 +291,40 @@ class CaseDocumentController extends Controller
         app(IntakeDocumentService::class)->syncRequirements($case);
 
         return response()->json(['message' => 'Document deleted successfully.']);
+    }
+
+    private function intakeDownloadName(CaseFile $case, CaseDocument $document): string
+    {
+        $client = trim(implode(' ', array_filter([
+            $case->first_name, $case->middle_name, $case->last_name, $case->suffix,
+        ])));
+        $requirement = IntakeDocumentService::REQUIREMENT_LABELS[$document->category] ?? $document->category;
+        $extension = pathinfo($document->file_name, PATHINFO_EXTENSION);
+
+        return implode('_', array_map(fn ($part) => $this->safeFilenamePart($part), [
+            $case->case_number ?: $case->tracker_number ?: 'case',
+            $client ?: 'client',
+            $requirement ?: 'document',
+        ])).($extension === '' ? '' : '.'.$extension);
+    }
+
+    private function caseDownloadLabel(CaseFile $case): string
+    {
+        $client = trim(implode(' ', array_filter([
+            $case->first_name, $case->middle_name, $case->last_name, $case->suffix,
+        ])));
+
+        return implode('_', array_map(fn ($part) => $this->safeFilenamePart($part), [
+            $case->case_number ?: $case->tracker_number ?: 'case', $client ?: 'client',
+        ]));
+    }
+
+    private function safeFilenamePart(string $part): string
+    {
+        $part = preg_replace('/[\x00-\x1F\x7F]+/u', '-', str_replace(['\\', '/'], '-', $part)) ?? '';
+        $part = trim(preg_replace('/\.{2,}/', '.', $part) ?? '', ' .-_');
+
+        return $part === '' ? 'unknown' : $part;
     }
 
     private function notifyManagerOfOfwUpload(CaseFile $case, User $ofw): void

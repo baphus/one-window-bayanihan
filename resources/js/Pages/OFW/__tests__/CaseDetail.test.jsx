@@ -75,6 +75,25 @@ describe('OFW/CaseDetail status line', () => {
         expect(screen.getByText(/Due/)).toBeInTheDocument();
     });
 
+    it('shows grouped intake fields and requirement-labeled downloadable documents without previews', () => {
+        renderCase('IN_PROGRESS', { caseFile: { first_name: 'Ana', last_name: 'Santos', date_of_birth: '2026-10-12', vulnerability_indicator: 'PWD', summary: 'My statement', documents: [
+            { id: 'img', file_name: 'passport.jpg', category: 'passport_front_page', requirement_label: 'Passport front page', download_url: '/files/passport' },
+            { id: 'pdf', file_name: 'contract.pdf', category: 'employment_contract', requirement_label: 'Employment contract', download_url: '/files/contract' },
+        ] }, requestDocuments: [{ id: 'other', file_name: 'referral.png', download_url: '/files/referral' }] });
+        fireEvent.click(screen.getByRole('tab', { name: 'My Submitted Documents' }));
+        expect(screen.getByText('First name')).toBeInTheDocument();
+        expect(screen.getByText('Ana')).toBeInTheDocument();
+        expect(screen.getByText('October 12, 2026')).toBeInTheDocument();
+        expect(screen.getByText('My statement')).toBeInTheDocument();
+        expect(screen.queryByRole('img')).not.toBeInTheDocument();
+        expect(screen.queryByRole('iframe')).not.toBeInTheDocument();
+        expect(screen.getAllByRole('link', { name: /^Download / }).map((link) => link.getAttribute('href'))).toEqual(['/files/passport', '/files/contract']);
+        expect(screen.getAllByText('Passport front page').length).toBeGreaterThan(0);
+        expect(screen.getAllByText('Employment contract').length).toBeGreaterThan(0);
+        expect(screen.queryByText(/passport\.jpg|contract\.pdf/)).not.toBeInTheDocument();
+        expect(screen.queryByText('referral.png')).not.toBeInTheDocument();
+    });
+
     it('shows a request in progress without labeling it as action required', () => {
         renderCase('IN_PROGRESS', { trackingAgencies: [{
             referralId: 'r1', name: 'OWWA', status: 'PROCESSING',
@@ -95,6 +114,18 @@ describe('OFW/CaseDetail status line', () => {
         expect(screen.getAllByText(/No linked response request is available/).length).toBeGreaterThan(0);
         expect(screen.queryByText('No action is needed from you right now.')).not.toBeInTheDocument();
         expect(screen.queryByRole('link', { name: 'View Request and Respond' })).not.toBeInTheDocument();
+    });
+
+    it('shows declined status without implying the case is open or in progress', () => {
+        renderCase('REJECTED');
+
+        expect(screen.getByText('Declined')).toBeInTheDocument();
+        expect(screen.getByText('This request was declined. Submit a fresh intake to request assistance.')).toBeInTheDocument();
+        expect(screen.getByText('Request Declined')).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: 'Submit a fresh intake' })).toBeInTheDocument();
+        expect(screen.queryByText('Open — In Progress')).not.toBeInTheDocument();
+        expect(screen.queryByText(NEUTRAL_STATUS_LINE)).not.toBeInTheDocument();
+        expect(screen.queryByText('Documents needed from you')).not.toBeInTheDocument();
     });
 
     it('confirms a resolved case', () => {

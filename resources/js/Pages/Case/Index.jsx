@@ -17,6 +17,7 @@ import usePersistedColumns from '@/Hooks/usePersistedColumns';
 import { usePersistedViewMode, usePersistedFilters } from '@/Hooks/usePersistedViewState';
 import useTableVisitLoading from '@/Hooks/useTableVisitLoading';
 import ConfirmDialog from '@/Components/ui/ConfirmDialog';
+import { humanizeStatus } from '@/lib/statusLabels';
 
 const vulnStyles = {
   'PWD': 'bg-purple-100 text-purple-800',
@@ -167,7 +168,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
     };
 
     if (toFilterList(filters?.status).length) chips.push({ label: 'Status', value: labelList(filters.status, [
-      { value: 'OPEN', label: 'Open' }, { value: 'CLOSED', label: 'Closed' }, { value: 'ARCHIVED', label: 'Archived' },
+      { value: 'OPEN', label: 'Open' }, { value: 'CLOSED', label: 'Closed' }, { value: 'ARCHIVED', label: 'Archived' }, { value: 'REJECTED', label: 'Declined' },
     ]) });
     if (toFilterList(filters?.client_type).length) chips.push({ label: 'Client Type', value: labelList(filters.client_type, [
       { value: 'OFW', label: 'OFW' }, { value: 'NEXT_OF_KIN', label: 'Next of Kin' },
@@ -438,7 +439,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
               ...base,
               sortable: false,
               render: (row) => {
-                const names = [...new Set((row.referrals ?? []).map((referral) => referral.category?.name).filter(Boolean))];
+                const names = (row.categories ?? []).map((category) => category.name);
                 return names.length ? names.join(', ') : <span className="text-slate-400">—</span>;
               },
             };
@@ -455,7 +456,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
             return {
               ...base,
               render: (row) => (
-                <StatusBadge status={row.status} />
+                <StatusBadge status={row.status} label={row.status === 'REJECTED' ? humanizeStatus(row.status) : undefined} />
               ),
             };
           case 'approval':
@@ -546,6 +547,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
           { value: 'OPEN', label: 'Open' },
           { value: 'CLOSED', label: 'Closed' },
           { value: 'ARCHIVED', label: 'Archived' },
+          { value: 'REJECTED', label: 'Declined' },
         ],
       },
       {
@@ -681,6 +683,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
       { key: 'open', label: 'Open', value: 'OPEN', count: stats?.open_cases },
       { key: 'closed', label: 'Closed', value: 'CLOSED', count: stats?.closed_cases },
       { key: 'archived', label: 'Archived', value: 'ARCHIVED', count: stats?.archived_cases },
+      { key: 'declined', label: 'Declined', value: 'REJECTED', count: stats?.declined_cases },
     ];
 
     return (
@@ -737,7 +740,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
 
       <div data-tour="cases-filter">
         <section className="grid grid-cols-2 gap-3 mb-6 lg:grid-cols-4">
-          <KpiCard label="Total cases" value={stats?.total_cases} hint={`${stats?.open_cases ?? 0} open ┬╖ ${stats?.closed_cases ?? 0} closed`} icon="folder_open" />
+          <KpiCard label="Total cases" value={stats?.total_cases} hint={`${stats?.open_cases ?? 0} open · ${stats?.closed_cases ?? 0} closed`} icon="folder_open" />
           <KpiCard label="Active cases" value={stats?.open_cases} hint={stats?.total_cases > 0 ? `${((stats.open_cases / stats.total_cases) * 100).toFixed(0)}% of total` : 'No cases'} icon="schedule" />
           <KpiCard label="Client types" value={stats?.ofw_cases} hint={`${stats?.nok_cases ?? 0} Next of Kin`} icon="groups" />
           <KpiCard label="Total referrals" value={stats?.total_referrals} hint="Across all cases" icon="sync_alt" />

@@ -68,6 +68,9 @@ export function buildCaseStatusLine({
         case 'ARCHIVED':
             return 'This request has been archived.';
 
+        case 'REJECTED':
+            return 'This request was declined. Submit a fresh intake to request assistance.';
+
         case 'IN_PROGRESS':
             // No referrals yet: the case manager has the request but has not sent
             // it to any partner office, so progress bars would be meaningless.

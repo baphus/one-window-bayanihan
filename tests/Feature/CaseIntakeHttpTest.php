@@ -32,6 +32,76 @@ class CaseIntakeHttpTest extends TestCase
         ];
     }
 
+    public function test_ofw_case_detail_includes_current_intake_answers_and_only_live_case_documents(): void
+    {
+        Storage::fake('object-storage');
+        $owner = User::factory()->create(['role' => UserRole::OFW->value]);
+        $otherOwner = User::factory()->create(['role' => UserRole::OFW->value]);
+        $case = CaseFile::factory()->withIntake()->create([
+            'ofw_user_id' => $owner->id,
+            'staff_summary' => 'Staff-only summary',
+            'consent_evidence' => 'Private evidence',
+            'nok_name' => 'Relative name',
+            'employment_employer_name' => 'Current employer',
+        ]);
+        $ownDocument = $case->documents()->create([
+            'file_name' => 'passport.pdf', 'file_path' => 'case/passport.pdf',
+            'file_type' => 'application/pdf', 'category' => 'passport_front_page',
+            'size' => 10, 'user_id' => $owner->id,
+        ]);
+        $case->documents()->create([
+            'file_name' => 'deleted.pdf', 'file_path' => 'case/deleted.pdf',
+            'file_type' => 'application/pdf', 'category' => 'oec', 'size' => 10,
+            'user_id' => $owner->id, 'is_deleted' => true,
+        ]);
+        $otherCase = CaseFile::factory()->withIntake()->create(['ofw_user_id' => $otherOwner->id]);
+        $otherCase->documents()->create([
+            'file_name' => 'other.pdf', 'file_path' => 'case/other.pdf',
+            'file_type' => 'application/pdf', 'category' => 'oec', 'size' => 10,
+            'user_id' => $otherOwner->id,
+        ]);
+
+        $this->actingAsWithMfa($otherOwner)->get(route('ofw.case.show', $case))->assertForbidden();
+
+        $this->actingAsWithMfa($owner)->get(route('ofw.case.show', $case))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('case.nok_name', 'Relative name')
+                ->where('case.employment_employer_name', 'Current employer')
+                ->missing('case.staff_summary')
+                ->missing('case.consent_evidence')
+                ->has('case.documents', 1)
+                ->where('case.documents.0.id', $ownDocument->id)
+                ->where('case.documents.0.download_url', route('cases.documents.download', [$case->id, $ownDocument->id]))
+            );
+    }
+
+    public function test_case_manager_review_has_intake_answers_and_only_case_level_live_documents(): void
+    {
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $case = CaseFile::factory()->withIntake()->create([
+            'status' => CaseFile::STATUS_PENDING_REVIEW,
+            'assigned_case_manager_id' => $manager->id,
+            'staff_summary' => 'Private staff note',
+            'nok_name' => 'Relative name',
+        ]);
+        $document = $case->documents()->create([
+            'file_name' => 'passport.pdf', 'file_path' => 'case/passport.pdf',
+            'file_type' => 'application/pdf', 'category' => 'passport_front_page',
+            'size' => 10, 'user_id' => $manager->id,
+        ]);
+
+        $this->actingAsWithMfa($manager)->get(route('cases.review-pending'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('cases.data.0.nok_name', 'Relative name')
+                ->where('cases.data.0.staff_summary', 'Private staff note')
+                ->has('cases.data.0.documents', 1)
+                ->where('cases.data.0.documents.0.id', $document->id)
+                ->where('cases.data.0.documents.0.download_url', route('cases.documents.download', [$case->id, $document->id]))
+            );
+    }
+
     public function test_public_submission_succeeds_with_server_date_and_no_client_profile(): void
     {
         Storage::fake('object-storage');

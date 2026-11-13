@@ -239,6 +239,11 @@ class CaseFile extends Model
         return $this->hasMany(Referral::class, 'case_id');
     }
 
+    public function categories()
+    {
+        return $this->belongsToMany(CaseCategory::class, 'case_file_case_category', 'case_id', 'case_category_id')->withTimestamps();
+    }
+
     public function documents()
     {
         return $this->hasMany(CaseDocument::class, 'case_id');

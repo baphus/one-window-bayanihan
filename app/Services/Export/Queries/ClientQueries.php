@@ -43,7 +43,7 @@ class ClientQueries
             $value = '%'.$filters['vulnerability_indicator'].'%';
             $query->where(fn ($q) => $q->where('vulnerability_indicator', 'LIKE', $value)->orWhere('nok_vulnerability_indicator', 'LIKE', $value));
         }
-        $this->applyCategoryFilter($query, 'cases', $filters, $user);
+        $this->applyCategoryFilter($query, 'cases', $filters);
         if (! empty($filters['agcy_id'])) {
             $query->whereHas('referrals', fn ($q) => $q->where('agcy_id', $filters['agcy_id']));
         }

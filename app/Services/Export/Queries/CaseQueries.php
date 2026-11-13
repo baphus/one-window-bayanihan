@@ -38,7 +38,7 @@ class CaseQueries
                 'user_id',
                 'ofw_user_id',
                 'client_type',
-                DB::raw($this->categoryNamesExpression('cases', $user).' AS categories'),
+                DB::raw($this->categoryNamesExpression('cases').' AS categories'),
                 'created_at',
                 'updated_at',
             ])
@@ -89,7 +89,7 @@ class CaseQueries
                 'c.employment_position AS work_position',
                 // Case summary
                 'c.summary AS case_summary',
-                DB::raw($this->categoryNamesExpression('c', $user).' AS categories'),
+                DB::raw($this->categoryNamesExpression('c').' AS categories'),
                 // Intake date supplies stable age-at-intake interpretation.
                 'c.intake_date',
                 // Receiving parties — comma-separated agency names from referrals (COALESCE handles empty)
@@ -181,7 +181,7 @@ class CaseQueries
                     ->whereNull('deleted_at');
             });
         }
-        $this->applyCategoryFilter($query, 'c', $filters, $user);
+        $this->applyCategoryFilter($query, 'c', $filters);
 
         if (! empty($filters['date_from'])) {
             $query->whereDate('c.created_at', '>=', $filters['date_from']);

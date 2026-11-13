@@ -31,7 +31,7 @@ function formatAddress(addr) {
   return formatResolvedAddress(addr, '');
 }
 
-export default function CaseShow({ case: caseFile, documentRequirements = [], overdueDays = 7, milestoneTimeline = [], approver = null, lifecycle = [] }) {
+export default function CaseShow({ case: caseFile, case_categories = [], recommended_agencies = [], documentRequirements = [], overdueDays = 7, milestoneTimeline = [], approver = null, lifecycle = [] }) {
   const EVENT_CONFIG = {
     case_opened:             { dot: 'bg-blue-50 border-blue-200 text-blue-600',       icon: 'folder' },
     referral_sent:           { dot: 'bg-purple-50 border-purple-200 text-purple-600',   icon: 'forward_to_inbox' },
@@ -147,7 +147,21 @@ export default function CaseShow({ case: caseFile, documentRequirements = [], ov
   const primaryAddress = { region: caseFile.address_region, province: caseFile.address_province, city_municipality: caseFile.address_city_municipality, barangay: caseFile.address_barangay, street: caseFile.address_street };
   const hasAddress = Object.values(primaryAddress).some(Boolean);
   const primaryEmployment = { employer_name: caseFile.employment_employer_name, position: caseFile.employment_position, country: caseFile.employment_country, last_position: caseFile.employment_last_position, date_of_arrival: caseFile.employment_date_of_arrival };
-  const hasEmployment = Object.values(primaryEmployment).some(Boolean);
+  const hasEmployment = Object.values(primaryEmployment).some(Boolean) || Boolean(caseFile.employment_employer_address);
+  const categoryOptions = page.props.categories ?? [];
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState(case_categories.map((category) => String(category.id)));
+
+  function saveCategories() {
+    if (selectedCategoryIds.length === 0) {
+      toast.error('Select at least one case category.');
+      return;
+    }
+    router.put(route('cases.categories.update', caseFile.id), { category_ids: selectedCategoryIds }, {
+      preserveScroll: true,
+      onSuccess: () => toast.success('Case categories updated.'),
+      onError: () => toast.error('Could not update case categories.'),
+    });
+  }
   const canManageCaseDocuments = auth.user?.role === roles.CASE_MANAGER;
   const canManageReferrals = auth.user?.role === roles.CASE_MANAGER || auth.user?.role === roles.ADMIN;
   const clientTypeLabel = caseFile.client_type === 'OFW' ? 'Overseas Filipino Worker' : 'Next of Kin';
@@ -466,7 +480,13 @@ export default function CaseShow({ case: caseFile, documentRequirements = [], ov
               <InfoCell label="Client type" value={clientTypeLabel} />
               <InfoCell label="Age at intake" value={caseFile.age_at_intake ?? '\u2014'} />
               <InfoCell label="Status" value={<StatusBadge status={caseFile.status} size="sm" />} />
+              <InfoCell label="Intake date" value={caseFile.intake_date ? formatDisplayDate(caseFile.intake_date) : '-'} />
+              <InfoCell label="Civil status" value={caseFile.civil_status === 'OTHER' ? caseFile.civil_status_other : caseFile.civil_status} />
+              <InfoCell label="Deployment mode" value={caseFile.deployment_mode} />
+              <InfoCell label="Employment status" value={caseFile.employment_status} />
               <InfoCell label="Return reason" value={caseFile.return_reason ? (RETURN_REASON_LABELS[caseFile.return_reason] ?? caseFile.return_reason) : '-'} />
+              <InfoCell label="Proposed assessments" value={(caseFile.proposed_assessments ?? []).map((item) => item.replace(/_/g, ' ').toLowerCase()).join(', ') || '-'} />
+              <InfoCell label="Case categories" value={case_categories.map((category) => category.name).join(', ') || '-'} />
               <InfoCell label="Case narrative" value={caseFile.summary || '-'} />
               <InfoCell label="Opened by" value={caseFile.user?.name || '-'} />
               <InfoCell
@@ -483,6 +503,22 @@ export default function CaseShow({ case: caseFile, documentRequirements = [], ov
           </section>
 
           {/* Referrals table */}
+          {canManageCaseDocuments && categoryOptions.length > 0 && (
+            <section className="rounded-xl border border-[#dce3eb] bg-white shadow-[0_1px_3px_rgba(23,35,51,0.04)]">
+              <CardHeader title="Case categories" />
+              <div className="space-y-3 px-5 pb-5">
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {categoryOptions.map((category) => (
+                    <label key={category.id} className="flex items-center gap-2 text-[12px] text-slate-700">
+                      <input type="checkbox" checked={selectedCategoryIds.includes(String(category.id))} onChange={() => setSelectedCategoryIds((ids) => ids.includes(String(category.id)) ? ids.filter((id) => id !== String(category.id)) : [...ids, String(category.id)])} className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary/40" />
+                      {category.name}
+                    </label>
+                  ))}
+                </div>
+                <button type="button" onClick={saveCategories} className="min-h-[34px] rounded-md bg-blue-900 px-3 text-[12px] font-bold text-white hover:bg-blue-800">Save categories</button>
+              </div>
+            </section>
+          )}
           <section data-tour="case-referrals" className="rounded-xl border border-[#dce3eb] bg-white shadow-[0_1px_3px_rgba(23,35,51,0.04)]">
             <CardHeader
               title="Referrals"
@@ -656,6 +692,10 @@ export default function CaseShow({ case: caseFile, documentRequirements = [], ov
                 );
               })()}
 
+              <InfoField label="Intake date" value={caseFile.intake_date ? formatDisplayDate(caseFile.intake_date) : null} />
+              <InfoField label="Civil status" value={caseFile.civil_status === 'OTHER' ? caseFile.civil_status_other : caseFile.civil_status} />
+              <InfoField label="Deployment mode" value={caseFile.deployment_mode} />
+              <InfoField label="Employment status" value={caseFile.employment_status} />
               <InfoField label="Full name" value={clientFullName} />
 
               <InfoField label="Date of birth" value={caseFile.date_of_birth ? formatDisplayDate(caseFile.date_of_birth) : null} />
@@ -713,6 +753,8 @@ export default function CaseShow({ case: caseFile, documentRequirements = [], ov
               {hasEmployment && (
                 <>
                   <hr className="border-slate-200" />
+                  <InfoField label="Employer" value={primaryEmployment.employer_name} />
+                  <InfoField label="Employer address" value={caseFile.employment_employer_address} />
                   <div className="grid grid-cols-2 gap-3">
                     <InfoField
                       label="Work history"
@@ -725,19 +767,38 @@ export default function CaseShow({ case: caseFile, documentRequirements = [], ov
             </div>
           </section>
 
+          {canManageCaseDocuments && recommended_agencies.length > 0 && (
+            <section className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+              <h2 className="text-[12px] font-bold text-emerald-900">Recommended agencies</h2>
+              <ul className="mt-2 space-y-1 text-[12px] text-emerald-900">
+                {[...new Map(recommended_agencies.map((agency) => [agency.id, agency])).values()].map((agency) => <li key={agency.id}>{agency.name}{agency.short ? ` (${agency.short})` : ''}</li>)}
+              </ul>
+            </section>
+          )}
           <section data-tour="case-documents" className="rounded-xl border border-[#dce3eb] bg-white shadow-[0_1px_3px_rgba(23,35,51,0.04)]">
             <CardHeader
               title="Documents"
               meta={`${(caseFile.documents || []).length} documents`}
               actions={canManageCaseDocuments && (
-                <FileUpload
-                  variant="button"
-                  accept=".pdf,.jpg,.jpeg,.png,.webp"
-                  maxSize={10 * 1024 * 1024}
-                  label={uploadingDoc ? 'Uploading...' : 'Upload New File'}
-                  disabled={uploadingDoc}
-                  onFilesSelected={handleDocumentUpload}
-                />
+                <div className="flex items-center gap-2">
+                  {(caseFile.documents || []).length > 0 && (
+                    <a
+                      href={route('cases.intake-documents.archive', caseFile.id)}
+                      aria-label="Download all case documents as ZIP"
+                      className="inline-flex min-h-[34px] items-center rounded-md border border-slate-200 bg-white px-3 text-[12px] font-bold text-[#233f82] transition-colors hover:bg-slate-50"
+                    >
+                      Download all
+                    </a>
+                  )}
+                  <FileUpload
+                    variant="button"
+                    accept=".pdf,.jpg,.jpeg,.png,.webp"
+                    maxSize={10 * 1024 * 1024}
+                    label={uploadingDoc ? 'Uploading...' : 'Upload New File'}
+                    disabled={uploadingDoc}
+                    onFilesSelected={handleDocumentUpload}
+                  />
+                </div>
               )}
             />
             <div className="space-y-4 px-5 pb-5">
@@ -790,7 +851,7 @@ export default function CaseShow({ case: caseFile, documentRequirements = [], ov
                         <div className="min-w-0">
                           <p className="text-[12px] font-semibold text-slate-700 truncate">{doc.file_name}</p>
                           <p className="text-[10px] text-slate-500">
-                            {doc.user?.name || 'Unknown'} &middot; {doc.created_at ? formatDisplayDateTime(doc.created_at) : ''}
+                            {doc.user || 'Unknown'} &middot; {doc.created_at ? formatDisplayDateTime(doc.created_at) : ''}
                             {doc.size ? ` \u00b7 ${(doc.size / 1024).toFixed(1)} KB` : ''}
                           </p>
                         </div>
@@ -799,17 +860,19 @@ export default function CaseShow({ case: caseFile, documentRequirements = [], ov
                             href={route('cases.documents.download', { case: caseFile.id, document: doc.id })}
                             target="_blank"
                             rel="noopener noreferrer"
+                            aria-label={`View document ${doc.file_name}`}
                             className="text-slate-500 hover:text-blue-900"
                           >
-                            <Eye className="h-4 w-4" />
+                            <Eye aria-hidden="true" className="h-4 w-4" />
                           </a>
                           {canDelete && (
                             <button
                               type="button"
                               onClick={() => handleDocumentDelete(doc.id)}
+                              aria-label={`Delete document ${doc.file_name}`}
                               className="text-slate-400 hover:text-red-500 transition-colors"
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Trash2 aria-hidden="true" className="h-4 w-4" />
                             </button>
                           )}
                         </div>

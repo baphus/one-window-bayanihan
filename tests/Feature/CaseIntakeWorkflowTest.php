@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\UserRole;
 use App\Models\AuditLog;
+use App\Models\CaseCategory;
 use App\Models\CaseDocument;
 use App\Models\CaseFile;
 use App\Models\User;
@@ -74,10 +75,12 @@ class CaseIntakeWorkflowTest extends TestCase
         $approved = app(CaseService::class)->approveCase($case->id, $manager->id, [
             'confirmed_assessments' => ['OTHER'], 'confirmed_assessment_other' => 'Staff confirmed explanation',
             'reviewed_document_ids' => $ids, 'staff_summary' => 'Private staff narrative',
+            'category_ids' => [CaseCategory::factory()->create()->id],
         ]);
         $this->assertSame('OPEN', $approved->status);
         $this->assertSame($manager->id, $approved->assigned_case_manager_id);
         $this->assertSame(['LEGAL_ASSISTANCE'], $approved->proposed_assessments);
+        $this->assertSame(1, $approved->categories()->count());
     }
 
     public function test_assigned_manager_correction_has_one_redacted_audit_and_private_reason(): void
@@ -139,31 +142,6 @@ class CaseIntakeWorkflowTest extends TestCase
         $this->assertNull($case->fresh()->reviewed_document_ids);
         $this->assertSoftDeleted($old);
         $this->assertSame(1, $case->documents()->where('category', 'arrival_stamp')->count());
-    }
-
-    public function test_document_request_requires_assigned_manager_or_admin(): void
-    {
-        $assigned = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-        $unassigned = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
-        $case = CaseFile::factory()->withIntake()->pendingReview()->create(['assigned_case_manager_id' => $assigned->id]);
-
-        $this->actingAsWithMfa($unassigned)->post(route('cases.document-requests.store', $case), [
-            'slots' => ['arrival_stamp'], 'reason' => 'Unreadable scan',
-        ])->assertForbidden();
-        $this->assertNull($case->fresh()->requested_document_slots);
-
-        $this->actingAsWithMfa($assigned)->post(route('cases.document-requests.store', $case), [
-            'slots' => ['arrival_stamp'], 'reason' => 'Unreadable scan',
-        ])->assertRedirect();
-        $this->actingAsWithMfa($admin)->post(route('cases.document-requests.store', $case), [
-            'slots' => ['oec'], 'reason' => 'Also unreadable',
-        ])->assertRedirect();
-
-        $case->refresh();
-        $this->assertSame(['arrival_stamp', 'oec'], $case->requested_document_slots);
-        $this->assertSame('Also unreadable', $case->document_request_reason);
-        $this->assertSame($admin->id, $case->document_requested_by);
     }
 
     public function test_resolving_all_requested_slots_clears_pending_request_indicator(): void

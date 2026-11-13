@@ -125,6 +125,7 @@ class CaseEventRecordingTest extends TestCase
         }
         app(CaseService::class)->approveCase($case->id, $user->id, [
             'confirmed_assessments' => ['LEGAL_ASSISTANCE'], 'reviewed_document_ids' => $ids,
+            'category_ids' => [CaseCategory::factory()->create()->id],
         ]);
 
         $event = CaseEvent::where('case_id', $case->id)

@@ -29,32 +29,29 @@ class MultiCategoryCaseSupportTest extends TestCase
         $this->assertNotContains('category_id', UpdateCaseRequest::EDITABLE_FIELDS);
     }
 
-    public function test_case_list_category_filter_reads_referral_categories(): void
+    public function test_case_list_category_filter_reads_case_categories(): void
     {
         $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $matching = CaseFile::factory()->create(['status' => 'OPEN']);
         CaseFile::factory()->create(['status' => 'OPEN']);
         $category = CaseCategory::factory()->create();
-        $agency = Agency::factory()->create();
-        Referral::factory()->create(['case_id' => $matching->id, 'category_id' => $category->id, 'agcy_id' => $agency->id]);
+        $matching->categories()->attach($category->id);
 
         $this->actingAsWithMfa($admin);
         $results = app(CaseService::class)->getCases(['category_ids' => [$category->id]], 'created_at', 'asc');
         $this->assertSame([$matching->id], $results->getCollection()->pluck('id')->all());
     }
 
-    public function test_case_export_filters_on_referral_category_without_duplicate_cases(): void
+    public function test_case_export_filters_on_case_category_without_duplicate_cases(): void
     {
         $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
-        $agency = Agency::factory()->create();
         $target = CaseCategory::factory()->create(['name' => 'Target']);
         $sibling = CaseCategory::factory()->create(['name' => 'Sibling']);
         $unrelated = CaseCategory::factory()->create();
         $matching = CaseFile::factory()->create(['status' => 'OPEN']);
         $other = CaseFile::factory()->create(['status' => 'OPEN']);
-        Referral::factory()->create(['case_id' => $matching->id, 'category_id' => $target->id, 'agcy_id' => $agency->id]);
-        Referral::factory()->create(['case_id' => $matching->id, 'category_id' => $sibling->id, 'agcy_id' => Agency::factory()->create()->id]);
-        Referral::factory()->create(['case_id' => $other->id, 'category_id' => $unrelated->id, 'agcy_id' => $agency->id]);
+        $matching->categories()->attach([$target->id, $sibling->id]);
+        $other->categories()->attach($unrelated->id);
 
         $queries = app(DataExportQueries::class);
         $rows = $queries->getCasesExport($admin, ['category_ids' => [$target->id]]);

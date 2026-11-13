@@ -508,21 +508,22 @@ class ReportsMetricsTest extends TestCase
     }
 
     #[Test]
-    public function category_cases_reached_deduplicate_referrals_and_exclude_sibling_agency_categories(): void
+    public function category_cases_reached_deduplicate_referrals_and_show_case_categories_to_referred_agency(): void
     {
         $owner = User::factory()->create(['role' => UserRole::OFW->value]);
         $category = CaseCategory::factory()->create();
         $otherCategory = CaseCategory::factory()->create();
         $otherAgency = Agency::factory()->create();
         $case = CaseFile::factory()->create(['status' => 'OPEN', 'ofw_user_id' => $owner->id]);
+        $case->categories()->attach([$category->id, $otherCategory->id]);
         CaseFile::factory()->create(['status' => 'OPEN', 'ofw_user_id' => $owner->id]);
         Referral::factory()->count(2)->create(['case_id' => $case->id, 'agcy_id' => $this->agency->id, 'category_id' => $category->id]);
         Referral::factory()->create(['case_id' => $case->id, 'agcy_id' => $otherAgency->id, 'category_id' => $otherCategory->id]);
 
         $metrics = app(CaseMetrics::class);
         $rows = $metrics->categoryDistribution(null, UserRole::AGENCY->value, $this->agency->id);
-        $this->assertCount(1, $rows);
-        $this->assertSame($category->name, $rows[0]['name']);
+        $this->assertCount(2, $rows);
+        $this->assertEqualsCanonicalizing([$category->name, $otherCategory->name], array_column($rows, 'name'));
         $this->assertSame(1, $rows[0]['count']);
         $this->assertSame(2, $this->service->getReferralKpis(null, UserRole::AGENCY->value, agencyId: $this->agency->id)['totalReferrals']);
         $stats = $metrics->getReopenedStats();

@@ -102,6 +102,7 @@ class OfwDashboardTest extends TestCase
         CaseFile::factory()->closed()->create(['ofw_user_id' => $ofwUser->id]);
         CaseFile::factory()->closed()->create(['ofw_user_id' => $ofwUser->id]);
         CaseFile::factory()->archived()->create(['ofw_user_id' => $ofwUser->id]);
+        CaseFile::factory()->create(['ofw_user_id' => $ofwUser->id, 'status' => 'REJECTED']);
 
         // A draft of the same account: clientVisible() excludes it, so it must
         // not inflate the total and leave the buckets short.
@@ -122,13 +123,12 @@ class OfwDashboardTest extends TestCase
         // (total, under_review, in_progress, completed) — no extra bucket may
         // appear and none may go missing.
         $this->assertSame(['total', 'under_review', 'in_progress', 'completed'], array_keys($stats));
-        $this->assertSame(6, $stats['total']);
+        $this->assertSame(7, $stats['total']);
         $this->assertSame(0, $stats['total'] - ($stats['under_review'] + $stats['in_progress'] + $stats['completed']));
         $this->assertSame(2, $stats['under_review']);
         $this->assertSame(1, $stats['in_progress']);
-        // Archived cases remain client-visible and count as completed, so the
-        // completed bucket keeps every finalized case in exactly one bucket.
-        $this->assertSame(3, $stats['completed']);
+        // Archived and declined cases remain visible in the Closed filter.
+        $this->assertSame(4, $stats['completed']);
     }
 
     #[Test]

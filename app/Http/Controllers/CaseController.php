@@ -7,6 +7,7 @@ use App\Enums\UserRole;
 use App\Http\Requests\ApproveIntakeRequest;
 use App\Http\Requests\StoreCaseRequest;
 use App\Http\Requests\StoreIntakeRequest;
+use App\Http\Requests\UpdateCaseCategoriesRequest;
 use App\Http\Requests\UpdateCaseRequest;
 use App\Mail\IntakeReviewMail;
 use App\Models\Agency;
@@ -48,7 +49,7 @@ class CaseController extends Controller
 
         // Filter options come from the reference tables, so a value the page
         // offers is always a value the database actually holds.
-        $caseStatusOptions = array_column($this->referenceData->getCaseStatusOptions(), 'value');
+        $caseStatusOptions = array_values(array_unique([...array_column($this->referenceData->getCaseStatusOptions(), 'value'), 'REJECTED']));
         $clientTypeOptions = ['OFW', 'NEXT_OF_KIN'];
         $vulnerabilityOptions = array_column($this->referenceData->getVulnerabilityOptions(), 'value');
 
@@ -204,7 +205,9 @@ class CaseController extends Controller
         ]);
         $direction = $listing['direction'] ?? 'asc';
 
-        $cases = CaseFile::with('documents')
+        $cases = CaseFile::with(['documents' => fn ($query) => $query
+            ->whereNull('referral_id')
+            ->where('is_deleted', false)])
             ->where('status', CaseFile::STATUS_PENDING_REVIEW)
             ->where('is_deleted', false)
             ->when($request->user()->isAgency() && $request->user()->agcy_id, function ($query) use ($request) {
@@ -258,11 +261,16 @@ class CaseController extends Controller
             'reason' => ['required', 'string', 'max:1000'],
         ]);
 
-        $this->caseService->rejectCase($case->id, $validated['reason'], $user->id);
+        $slots = $request->validate([
+            'slots' => ['sometimes', 'array', 'min:1', 'required_with:slots.*'],
+            'slots.*' => ['required', 'distinct', Rule::in(IntakeDocumentService::REQUIREMENT_KEYS)],
+        ])['slots'] ?? [];
+
+        $this->caseService->rejectCase($case->id, $validated['reason'], $user->id, $slots);
 
         return redirect()
             ->route('cases.review-pending')
-            ->with('success', 'Case rejected.');
+            ->with('success', 'Case declined.');
     }
 
     public function show(string $id, Request $request)
@@ -310,17 +318,31 @@ class CaseController extends Controller
             'at' => $case->reviewed_at?->toISOString(),
         ] : null;
 
+        $case->load('categories:id,name');
+        $caseCategories = $case->categories->map(fn (CaseCategory $category) => ['id' => $category->id, 'name' => $category->name])->values();
+        $managerView = $request->user()->isCaseManager();
+
         return Inertia::render('Case/Show', [
             'case' => $this->authorizedIntakePayload($case),
+            'case_categories' => $caseCategories,
+            'recommended_agencies' => $managerView ? $case->categories->load('suggestedAgencies:id,name,short,is_active,is_deleted')->flatMap(fn (CaseCategory $category) => $category->suggestedAgencies)->filter(fn ($agency) => $agency->is_active && ! $agency->is_deleted)->unique('id')->values()->map(fn ($agency) => ['id' => $agency->id, 'name' => $agency->name, 'short' => $agency->short]) : null,
             'documentRequirements' => $request->user()->isAgency()
                 ? []
                 : IntakeDocumentService::requirementList($case),
             ...$this->intakeProps(),
+            'categories' => $managerView ? $this->referenceData->getActiveCategories() : [],
             'overdueDays' => $overdueDays,
             'milestoneTimeline' => $milestonesForViewer,
             'approver' => $approver,
             'lifecycle' => $this->caseService->getCaseLifecycle($case),
         ]);
+    }
+
+    public function updateCategories(UpdateCaseCategoriesRequest $request, CaseFile $case)
+    {
+        $case->categories()->sync($request->validated('category_ids'));
+
+        return back()->with('success', 'Case categories updated.');
     }
 
     public function update(UpdateCaseRequest $request, string $id)
@@ -575,8 +597,17 @@ class CaseController extends Controller
     private function authorizedIntakePayload(CaseFile $case): array
     {
         $payload = $case->toArray();
+        unset($payload['documents']);
         if (auth()->user()?->isAgency()) {
             unset($payload['document_requirements']);
+            $payload['documents'] = $case->documents
+                ->map(fn ($document) => [
+                    'id' => $document->id,
+                    'file_name' => $document->file_name,
+                    'file_type' => $document->file_type,
+                    'category' => $document->category,
+                    'size' => $document->size,
+                ])->values()->all();
         }
         $staffOnly = ['staff_summary', 'consent_evidence', 'consent_accepted_by', 'missing_document_reasons', 'last_correction_reason', 'document_request_reason', 'document_requested_by', 'document_requested_at', 'reviewed_document_ids', 'proposed_assessment_by', 'proposed_assessment_at', 'confirmed_assessment_by', 'confirmed_assessment_at', 'assigned_case_manager_id', 'document_requirements'];
         $fields = auth()->user()?->isAgency()
@@ -587,6 +618,23 @@ class CaseController extends Controller
             $payload[$field] = $value instanceof \DateTimeInterface ? $value->format(str_ends_with($field, '_at') ? DATE_ATOM : 'Y-m-d') : $value;
         }
         $payload['age_at_intake'] = $case->age_at_intake;
+        if (! auth()->user()?->isAgency()) {
+            $payload['documents'] = $case->documents()
+                ->whereNull('referral_id')
+                ->where('is_deleted', false)
+                ->get()
+                ->map(fn ($document) => [
+                    'id' => $document->id,
+                    'file_name' => IntakeDocumentService::REQUIREMENT_LABELS[$document->category] ?? $document->file_name,
+                    'extension' => pathinfo($document->file_name, PATHINFO_EXTENSION),
+                    'file_type' => $document->file_type,
+                    'category' => $document->category,
+                    'size' => $document->size,
+                    'user' => $document->user?->name,
+                    'created_at' => $document->created_at?->toISOString(),
+                    'download_url' => route('cases.documents.download', ['case' => $case->id, 'document' => $document->id]),
+                ])->values()->all();
+        }
 
         return $payload;
     }

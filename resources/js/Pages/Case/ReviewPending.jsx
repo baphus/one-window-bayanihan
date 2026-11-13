@@ -5,6 +5,7 @@ import { PageHeader, SectionCard, MaterialSymbol } from '@/Components/Dashboard/
 import StatusBadge from '@/Components/ui/StatusBadge';
 import ConfirmDialog from '@/Components/ui/ConfirmDialog';
 import InputError from '@/Components/InputError';
+import Select from '@/Components/Select';
 import { ASSESSMENT_LABELS, DOCUMENT_SLOT_LABELS, RETURN_REASON_LABELS, requiredReasonSlot } from '@/Components/CaseIntakeForm';
 import { formatDisplayDate, formatDisplayTime } from '@/lib/utils';
 import safeRoute from '@/utils/safeRoute';
@@ -36,13 +37,25 @@ function excerpt(text, len = 140) {
   return text.length > len ? `${text.slice(0, len).trim()}…` : text;
 }
 
-function InfoCard({ title, children }) {
+function InfoCard({ title, action, children }) {
   return (
     <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <h3 className="mb-3 text-sm font-bold text-slate-900">{title}</h3>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-sm font-bold text-slate-900">{title}</h3>
+        {action}
+      </div>
       {children}
     </section>
   );
+}
+
+function displayValue(value) {
+  if (value === null || value === undefined || value === '') return 'Not provided';
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const [year, month, day] = value.split('-').map(Number);
+    return new Date(year, month - 1, day).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  }
+  return Array.isArray(value) ? value.map(displayValue).join(', ') : typeof value === 'object' ? Object.entries(value).map(([key, item]) => `${key.replace(/[_-]/g, ' ')}: ${displayValue(item)}`).join('; ') : String(value);
 }
 
 function InfoGrid({ fields }) {
@@ -51,7 +64,7 @@ function InfoGrid({ fields }) {
       {fields.map(([label, value]) => (
         <div key={label} className="min-w-0">
           <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</dt>
-          <dd className="mt-1 break-words text-[13px] text-slate-800">{value || 'Not provided'}</dd>
+          <dd className="mt-1 break-words text-[13px] text-slate-800">{displayValue(value)}</dd>
         </div>
       ))}
     </dl>
@@ -59,16 +72,17 @@ function InfoGrid({ fields }) {
 }
 
 function ReviewDetail({ caseFile, assessmentOptions = [], agencies = [], categories = [], onClose }) {
-  const [confirmed, setConfirmed] = useState(caseFile.confirmed_assessments ?? []);
+  const [confirmed, setConfirmed] = useState(() => caseFile.confirmed_assessments?.length ? caseFile.confirmed_assessments : (caseFile.proposed_assessments ?? []));
   const [confirmedOther, setConfirmedOther] = useState(caseFile.confirmed_assessment_other ?? '');
   const [staffSummary, setStaffSummary] = useState(caseFile.staff_summary ?? '');
   const [rejectReason, setRejectReason] = useState('');
   const [rejectOpen, setRejectOpen] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [previewCategoryId, setPreviewCategoryId] = useState('');
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState(() => (caseFile.case_categories ?? []).map((category) => String(category.id)));
 
   const documents = useMemo(() => (caseFile.documents ?? []).filter((doc) => !doc.referral_id), [caseFile.documents]);
-  const [reviewedIds, setReviewedIds] = useState(caseFile.reviewed_document_ids ?? []);
+  const [reviewedIds, setReviewedIds] = useState(() => caseFile.reviewed_document_ids ?? []);
   const requiredSlots = ['passport_front_page', 'arrival_stamp', requiredReasonSlot(caseFile.return_reason)];
   const missingSlots = requiredSlots.filter((slot) => !documents.some((doc) => doc.category === slot));
   const hasEmploymentEvidence = documents.some((doc) => ['employment_contract', 'oec', 'work_visa'].includes(doc.category));
@@ -86,13 +100,14 @@ function ReviewDetail({ caseFile, assessmentOptions = [], agencies = [], categor
   }
 
   function handleApprove() {
-    if (confirmed.length === 0) return;
+    if (confirmed.length === 0 || selectedCategoryIds.length === 0) return;
     if (needsReplacement) return;
     setProcessing(true);
     router.post(
       safeRoute('cases.review-approve', caseFile.id, `/cases/${caseFile.id}/review-approve`),
       {
         confirmed_assessments: confirmed,
+        category_ids: selectedCategoryIds,
         confirmed_assessment_other: confirmed.includes('OTHER') ? confirmedOther.trim() : '',
         staff_summary: staffSummary.trim(),
         reviewed_document_ids: reviewedIds,
@@ -105,12 +120,12 @@ function ReviewDetail({ caseFile, assessmentOptions = [], agencies = [], categor
     );
   }
 
-  function handleRequestReplacement() {
+  function handleDeclineForNewFiling() {
     if (requestSlots.length === 0 || !requestReason.trim()) return;
     setProcessing(true);
     router.post(
-      safeRoute('cases.document-requests.store', caseFile.id, `/cases/${caseFile.id}/document-requests`),
-      { slots: requestSlots, reason: requestReason.trim() },
+      safeRoute('cases.review-reject', caseFile.id, `/cases/${caseFile.id}/review-reject`),
+      { reason: requestReason.trim(), slots: requestSlots },
       {
         preserveScroll: true,
         onSuccess: () => { setRequestSlots([]); setRequestReason(''); onClose(); },
@@ -133,7 +148,7 @@ function ReviewDetail({ caseFile, assessmentOptions = [], agencies = [], categor
     );
   }
 
-  const canApprove = confirmed.length > 0 && !needsReplacement && reviewedIds.length > 0 && (!confirmed.includes('OTHER') || confirmedOther.trim());
+  const canApprove = confirmed.length > 0 && selectedCategoryIds.length > 0 && !needsReplacement && reviewedIds.length > 0 && (!confirmed.includes('OTHER') || confirmedOther.trim());
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" onClick={onClose}>
@@ -157,74 +172,34 @@ function ReviewDetail({ caseFile, assessmentOptions = [], agencies = [], categor
 
         <div className="grid grid-cols-1 gap-4 px-6 py-5 lg:grid-cols-[minmax(0,1fr)_24rem]">
           <div className="space-y-4">
-            <InfoCard title="OFW details">
+          <InfoCard title="Latest submitted intake answers">
+            <p className="mb-3 text-[12px] text-slate-500">Current submitted record · Blank answers are marked Not provided.</p>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              {[
+                ['OFW details', [['Intake date', caseFile.intake_date], ['Client type', caseFile.client_type], ['First name', caseFile.first_name], ['Middle name', caseFile.middle_name], ['Last name', caseFile.last_name], ['Suffix', caseFile.suffix], ['Date of birth', caseFile.date_of_birth], ['Age at intake', caseFile.age_at_intake], ['Sex', caseFile.sex], ['Email', caseFile.email], ['Contact number', caseFile.contact_number], ['Civil status', caseFile.civil_status === 'OTHER' ? caseFile.civil_status_other : caseFile.civil_status], ['Vulnerability', caseFile.vulnerability_indicator]]],
+                ['Address', [['Street', caseFile.address_street], ['Barangay', caseFile.address_barangay], ['City / municipality', caseFile.address_city_municipality], ['Province', caseFile.address_province], ['Region', caseFile.address_region]]],
+                ['Employment', [['Employer', caseFile.employment_employer_name], ['Employer address', caseFile.employment_employer_address], ['Position', caseFile.employment_position], ['Jobsite country or territory', caseFile.employment_country], ['Last occupation', caseFile.employment_last_position], ['Arrival in Philippines', caseFile.employment_date_of_arrival], ['Deployment mode', caseFile.deployment_mode], ['Employment status', caseFile.employment_status], ['Return reason', RETURN_REASON_LABELS[caseFile.return_reason] ?? caseFile.return_reason]]],
+                ...(caseFile.client_type === 'NEXT_OF_KIN' ? [['Next of kin', [['Name', caseFile.nok_name], ['Relationship', caseFile.nok_relationship], ['Contact number', caseFile.nok_contact_number], ['Email', caseFile.nok_email]]]] : []),
+                ['Statement and requested assistance', [['Statement', caseFile.summary], ['Other assistance', caseFile.proposed_assessment_other], ['Assistance selected', (caseFile.proposed_assessments ?? []).map((item) => ASSESSMENT_LABELS[item] ?? item)]]],
+              ].map(([section, fields]) => (
+                <section key={section} className="min-w-0 rounded-lg border border-slate-100 p-3">
+                  <h3 className="mb-2 text-[11px] font-bold uppercase tracking-wide text-slate-500">{section}</h3>
+                  <InfoGrid fields={fields} />
+                </section>
+              ))}
+            </div>
+          </InfoCard>
+            <InfoCard title="Additional case details">
               <InfoGrid fields={[
                 ['Case number', caseFile.case_number],
-                ['Client type', caseFile.client_type],
-                ['Date of birth', caseFile.date_of_birth],
-                ['Age at intake', caseFile.age_at_intake],
-                ['Sex', caseFile.sex],
-                ['Email', caseFile.email],
-                ['Contact number', caseFile.contact_number],
-                ['Civil status', caseFile.civil_status === 'OTHER' ? caseFile.civil_status_other : caseFile.civil_status],
-                ['Vulnerability', caseFile.vulnerability_indicator],
+                ['Home address', addressOf(caseFile)],
               ]} />
             </InfoCard>
-            <InfoCard title="Address">
-              <InfoGrid fields={[['Home address', addressOf(caseFile)]]} />
-            </InfoCard>
-            <InfoCard title="Employment">
-              <InfoGrid fields={[
-                ['Employer', caseFile.employment_employer_name],
-                ['Employer address', caseFile.employment_employer_address],
-                ['Position', caseFile.employment_position],
-                ['Jobsite country or territory', caseFile.employment_country],
-                ['Last occupation', caseFile.employment_last_position],
-                ['Arrival in PH', caseFile.employment_date_of_arrival],
-                ['Deployment / status', [caseFile.deployment_mode, caseFile.employment_status].filter(Boolean).join(' · ')],
-              ]} />
-            </InfoCard>
-            {caseFile.client_type === 'NEXT_OF_KIN' && (
-              <InfoCard title="Next of kin">
-                <InfoGrid fields={[
-                  ['Name', caseFile.nok_name],
-                  ['Relationship', caseFile.nok_relationship],
-                  ['Contact number', caseFile.nok_contact_number],
-                  ['Email', caseFile.nok_email],
-                ]} />
-              </InfoCard>
+            {caseFile.missing_document_reasons && Object.keys(caseFile.missing_document_reasons).length > 0 && (
+              <div className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-[12px] text-amber-800">
+                Missing-document reasons recorded. Missing documents still block approval.
+              </div>
             )}
-            <InfoCard title="Statements">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">OFW statement</p>
-              <p className="mt-1 whitespace-pre-wrap text-[13px] leading-relaxed text-slate-800">{caseFile.summary || 'Not provided'}</p>
-              {caseFile.staff_summary && (
-                <>
-                  <p className="mt-4 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Staff summary</p>
-                  <p className="mt-1 whitespace-pre-wrap text-[13px] leading-relaxed text-slate-800">{caseFile.staff_summary}</p>
-                </>
-              )}
-            </InfoCard>
-            <InfoCard title="Proposed assistance (OFW)">
-              {caseFile.proposed_assessments?.length ? (
-                <ul className="list-disc space-y-1 pl-5 text-[13px] text-slate-800">
-                  {caseFile.proposed_assessments.map((value) => <li key={value}>{ASSESSMENT_LABELS[value] ?? value}</li>)}
-                </ul>
-              ) : <p className="text-[13px] text-slate-500">No assistance selected.</p>}
-              {caseFile.proposed_assessment_other && <p className="mt-2 text-[13px] text-slate-700">Other: {caseFile.proposed_assessment_other}</p>}
-            </InfoCard>
-            <InfoCard title="Consent and return reason">
-              <InfoGrid fields={[
-                ['Return reason', RETURN_REASON_LABELS[caseFile.return_reason] ?? caseFile.return_reason],
-                ['Consent version', caseFile.consent_text_version],
-                ['Consent method', caseFile.consent_method],
-                ['Consent evidence', caseFile.consent_evidence],
-              ]} />
-              {caseFile.missing_document_reasons && Object.keys(caseFile.missing_document_reasons).length > 0 && (
-                <div className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-[12px] text-amber-800">
-                  Missing-document reasons recorded. Missing documents still block approval.
-                </div>
-              )}
-            </InfoCard>
           </div>
 
           <div className="space-y-4 lg:sticky lg:top-0 lg:self-start">
@@ -233,7 +208,7 @@ function ReviewDetail({ caseFile, assessmentOptions = [], agencies = [], categor
                 <p className="text-[12px] text-slate-600 mb-3">Preview suggested agencies for a category. This is for reference only and does not create or save a referral.</p>
                 <div className="space-y-2">
                   <label htmlFor="preview-category" className="text-[11px] font-bold uppercase tracking-wide text-slate-600">Category</label>
-                  <select
+                  <Select
                     id="preview-category"
                     value={previewCategoryId}
                     onChange={(e) => setPreviewCategoryId(e.target.value)}
@@ -243,7 +218,7 @@ function ReviewDetail({ caseFile, assessmentOptions = [], agencies = [], categor
                     {categories.map((cat) => (
                       <option key={cat.id} value={cat.id}>{cat.name}</option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
                 {previewCategoryId && (() => {
                   const selectedCategory = categories.find((c) => c.id === previewCategoryId);
@@ -270,6 +245,21 @@ function ReviewDetail({ caseFile, assessmentOptions = [], agencies = [], categor
               </InfoCard>
             )}
             <InfoCard title="Confirm assessment">
+              {categories.length > 0 && (
+                <div className="mb-4 border-b border-slate-200 pb-4">
+                  <h3 className="mb-2 text-[11px] font-bold uppercase tracking-wide text-slate-600">Case categories *</h3>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {categories.map((category) => (
+                      <label key={category.id} className="flex items-center gap-2 text-[13px] text-slate-700">
+                        <input type="checkbox" checked={selectedCategoryIds.includes(String(category.id))} onChange={() => setSelectedCategoryIds((ids) => ids.includes(String(category.id)) ? ids.filter((id) => id !== String(category.id)) : [...ids, String(category.id)])} className="h-4 w-4 rounded border-slate-300 text-blue-900 focus:ring-blue-900" />
+                        {category.name}
+                      </label>
+                    ))}
+                  </div>
+                  {selectedCategoryIds.length === 0 && <p role="alert" className="mt-2 text-[12px] text-amber-700">Select at least one case category before approving.</p>}
+                  <InputError message={selectedCategoryIds.length === 0 ? 'Select at least one case category.' : ''} className="mt-1" />
+                </div>
+              )}
               <div className="space-y-2">
                 {assessmentOptions.map((value) => (
                   <label key={value} className="flex items-center gap-2 text-[13px] text-slate-700">
@@ -292,23 +282,26 @@ function ReviewDetail({ caseFile, assessmentOptions = [], agencies = [], categor
               </div>
             </InfoCard>
 
-            <InfoCard title="Document review">
+            <InfoCard title="Document review" action={documents.length > 0 && <a href={safeRoute('cases.intake-documents.archive', caseFile.id, `/cases/${caseFile.id}/intake-documents/archive`)} className="inline-flex min-h-[34px] items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 text-[12px] font-bold text-blue-900 hover:bg-slate-50"><MaterialSymbol name="folder_zip" className="text-[16px]" />Download all</a>}>
               {documents.length === 0 ? (
                 <p className="text-[12px] text-amber-700">No intake documents uploaded.</p>
               ) : (
+                <>
                 <ul className="space-y-2">
                   {documents.map((doc) => (
                     <li key={doc.id} className="flex items-start gap-2 text-[12px]">
-                      <input id={`review-doc-${doc.id}`} type="checkbox" checked={reviewedIds.includes(doc.id)} onChange={() => toggleReviewed(doc.id)} className="mt-0.5 h-4 w-4 rounded border-slate-300 text-blue-900 focus:ring-blue-900" />
+                      <input id={`review-doc-${doc.id}`} type="checkbox" aria-label={`Reviewed document ${DOCUMENT_SLOT_LABELS[doc.category] ?? doc.category}`} checked={reviewedIds.includes(doc.id)} onChange={() => toggleReviewed(doc.id)} className="mt-0.5 h-4 w-4 rounded border-slate-300 text-blue-900 focus:ring-blue-900" />
                       <label htmlFor={`review-doc-${doc.id}`} className="min-w-0 flex-1">
                         <span className="block font-semibold text-slate-800">{DOCUMENT_SLOT_LABELS[doc.category] ?? doc.category}</span>
-                        <a href={safeRoute('cases.documents.download', { case: caseFile.id, document: doc.id }, `/cases/${caseFile.id}/documents/${doc.id}/download`)} className="block truncate text-blue-900 hover:underline">
-                          {doc.file_name ?? doc.original_name ?? 'View document'}
-                        </a>
+                        {(() => {
+                          const url = safeRoute('cases.documents.download', { case: caseFile.id, document: doc.id }, `/cases/${caseFile.id}/documents/${doc.id}/download`);
+                          return <a href={url} aria-label={`Download ${DOCUMENT_SLOT_LABELS[doc.category] ?? doc.category}`} className="mt-1 inline-flex items-center gap-1 text-blue-900 hover:underline"><MaterialSymbol name="download" className="text-[15px]" />Download</a>;
+                        })()}
                       </label>
                     </li>
                   ))}
                 </ul>
+                </>
               )}
               {(!hasEmploymentEvidence || missingSlots.length > 0) && (
                 <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-[12px] text-amber-800">
@@ -319,7 +312,7 @@ function ReviewDetail({ caseFile, assessmentOptions = [], agencies = [], categor
               <InputError message={confirmed.length > 0 && reviewedIds.length === 0 ? 'Tick each reviewed document before approving.' : ''} className="mt-2" />
 
               <details className="mt-4 rounded-md border border-slate-200 p-3">
-                <summary className="cursor-pointer text-[12px] font-bold text-slate-700">Request document replacement</summary>
+                <summary className="cursor-pointer text-[12px] font-bold text-red-700">Decline and request new filing</summary>
                 <div className="mt-3 space-y-2">
                   {Object.entries(DOCUMENT_SLOT_LABELS).map(([slot, label]) => (
                     <label key={slot} className="flex items-center gap-2 text-[12px] text-slate-700">
@@ -327,9 +320,10 @@ function ReviewDetail({ caseFile, assessmentOptions = [], agencies = [], categor
                       {label}
                     </label>
                   ))}
-                  <textarea rows={2} maxLength={1000} value={requestReason} onChange={(event) => setRequestReason(event.target.value)} placeholder="Reason for the replacement request" className="w-full rounded-md border border-slate-300 px-3 py-2 text-[12px]" />
-                  <button type="button" onClick={handleRequestReplacement} disabled={processing || requestSlots.length === 0 || !requestReason.trim()} className="inline-flex min-h-[34px] items-center rounded-md bg-amber-600 px-3 text-[12px] font-bold text-white disabled:opacity-50">
-                    Send replacement request
+                  <p className="rounded-md bg-red-50 px-3 py-2 text-[12px] leading-relaxed text-red-800">This permanently declines the current case. The OFW must complete a fresh intake, which creates a new case number.</p>
+                  <textarea rows={2} maxLength={1000} value={requestReason} onChange={(event) => setRequestReason(event.target.value)} placeholder="Required reason for declining and requesting a new filing" className="w-full rounded-md border border-slate-300 px-3 py-2 text-[12px]" />
+                  <button type="button" onClick={handleDeclineForNewFiling} disabled={processing || requestSlots.length === 0 || !requestReason.trim()} className="inline-flex min-h-[34px] items-center rounded-md bg-red-700 px-3 text-[12px] font-bold text-white disabled:opacity-50">
+                    Decline and request new filing
                   </button>
                 </div>
               </details>
@@ -340,7 +334,7 @@ function ReviewDetail({ caseFile, assessmentOptions = [], agencies = [], categor
         <div className="flex flex-wrap justify-end gap-2 border-t border-slate-200 bg-white px-6 py-4">
           <button type="button" onClick={() => setRejectOpen(true)} className="inline-flex min-h-[36px] items-center gap-1.5 rounded-md border border-red-200 bg-white px-4 text-[12px] font-bold text-red-700 transition-colors hover:bg-red-50">
             <span className="material-symbols-outlined text-[15px]">cancel</span>
-            Reject
+            Decline
           </button>
           <button type="button" onClick={handleApprove} disabled={processing || !canApprove} className="inline-flex min-h-[36px] items-center gap-1.5 rounded-md bg-blue-900 px-4 text-[12px] font-bold text-white transition-colors hover:bg-blue-800 disabled:opacity-50">
             <span className="material-symbols-outlined text-[15px]">check_circle</span>
@@ -351,15 +345,15 @@ function ReviewDetail({ caseFile, assessmentOptions = [], agencies = [], categor
 
       <ConfirmDialog
         open={rejectOpen}
-        title="Reject case request"
-        confirmLabel="Reject case"
+        title="Decline case request"
+        confirmLabel="Decline case"
         cancelLabel="Keep reviewing"
         tone="danger"
         onConfirm={handleRejectConfirm}
         onCancel={() => setRejectOpen(false)}
       >
-        <p className="text-[13px] leading-relaxed text-slate-600">Reject the case request from {caseName(caseFile)}? Give a short reason so the record is clear.</p>
-        <label htmlFor="review-reject-reason" className="mb-1.5 mt-3 block text-[11px] font-bold uppercase tracking-widest text-slate-600">Reason for rejection</label>
+        <p className="text-[13px] leading-relaxed text-slate-600">Decline the case request from {caseName(caseFile)}? Give a short reason so the record is clear.</p>
+        <label htmlFor="review-reject-reason" className="mb-1.5 mt-3 block text-[11px] font-bold uppercase tracking-widest text-slate-600">Reason for decline</label>
         <textarea id="review-reject-reason" rows={3} value={rejectReason} onChange={(event) => setRejectReason(event.target.value)} className="w-full rounded-md border border-slate-300 px-3 py-2 text-[13px] text-slate-700 outline-none focus:ring-1 focus:ring-blue-900" />
         {!rejectReason.trim() && <p className="mt-1 text-[11px] text-slate-500">Reason is required.</p>}
       </ConfirmDialog>

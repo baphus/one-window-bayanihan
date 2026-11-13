@@ -33,6 +33,20 @@ describe('Case documents section', () => {
     expect(screen.queryByText(/viewable to all referred agencies/i)).not.toBeInTheDocument();
   });
 
+  it('offers a case-manager ZIP download only when case documents exist', () => {
+    globalThis.route = vi.fn((name) => `/${name}`);
+    const { rerender } = render(<CaseShow
+      case={{ id: 'case-1', first_name: 'Ari', last_name: 'Example', documents: [{ id: 'doc-1', file_name: 'passport.pdf' }] }}
+    />);
+
+    expect(screen.getByRole('link', { name: 'Download all case documents as ZIP' })).toHaveAttribute('href', '/cases.intake-documents.archive');
+    expect(screen.getByRole('link', { name: 'View document passport.pdf' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Delete document passport.pdf' })).toBeInTheDocument();
+
+    rerender(<CaseShow case={{ id: 'case-1', first_name: 'Ari', last_name: 'Example', documents: [] }} />);
+    expect(screen.queryByRole('link', { name: 'Download all case documents as ZIP' })).not.toBeInTheDocument();
+  });
+
   it('lists document requirements with their state and note', () => {
     render(<CaseShow
       case={{ first_name: 'Ari', last_name: 'Example', documents: [] }}

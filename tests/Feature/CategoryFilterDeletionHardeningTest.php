@@ -50,7 +50,7 @@ class CategoryFilterDeletionHardeningTest extends TestCase
         }
     }
 
-    public function test_scalar_and_array_category_filters_use_referral_classification(): void
+    public function test_scalar_and_array_category_filters_use_case_categories_for_cases(): void
     {
         $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
         $agency = Agency::factory()->create();
@@ -58,6 +58,8 @@ class CategoryFilterDeletionHardeningTest extends TestCase
         $second = CaseCategory::factory()->create();
         $firstCase = CaseFile::factory()->create(['status' => 'OPEN']);
         $secondCase = CaseFile::factory()->create(['status' => 'OPEN']);
+        $firstCase->categories()->attach($first->id);
+        $secondCase->categories()->attach($second->id);
         $firstReferral = Referral::factory()->create(['case_id' => $firstCase->id, 'agcy_id' => $agency->id, 'category_id' => $first->id]);
         $secondReferral = Referral::factory()->create(['case_id' => $secondCase->id, 'agcy_id' => $agency->id, 'category_id' => $second->id]);
 

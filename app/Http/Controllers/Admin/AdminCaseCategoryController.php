@@ -90,7 +90,7 @@ class AdminCaseCategoryController extends Controller
 
         DB::transaction(function () use ($request, $id, &$usageCount) {
             $category = CaseCategory::whereKey($id)->lockForUpdate()->firstOrFail();
-            $usageCount = $category->referrals()->withTrashed()->distinct('case_id')->count('case_id');
+            $usageCount = $category->referrals()->withTrashed()->distinct('case_id')->count('case_id') + $category->cases()->count();
 
             if ($usageCount > 0) {
                 return;
@@ -153,14 +153,11 @@ class AdminCaseCategoryController extends Controller
 
     private function categoryUsageCount(string $categoryId): int
     {
-        return DB::table('referrals')
-            ->join('cases', 'cases.id', '=', 'referrals.case_id')
-            ->where('referrals.category_id', $categoryId)
-            ->where('referrals.is_deleted', false)
-            ->whereNull('referrals.deleted_at')
+        return DB::table('case_file_case_category')
+            ->join('cases', 'cases.id', '=', 'case_file_case_category.case_id')
+            ->where('case_file_case_category.case_category_id', $categoryId)
             ->where('cases.is_deleted', false)
             ->whereNull('cases.deleted_at')
-            ->distinct('referrals.case_id')
-            ->count('referrals.case_id');
+            ->count();
     }
 }

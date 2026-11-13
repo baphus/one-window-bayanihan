@@ -36,20 +36,21 @@ function formatDate(dateStr) {
  */
 function caseBucket(status) {
     const normalized = String(status ?? '').toUpperCase();
-    if (normalized === 'CLOSED' || normalized === 'ARCHIVED') return 'closed';
+    if (normalized === 'CLOSED' || normalized === 'ARCHIVED' || normalized === 'REJECTED' || normalized === 'RESOLVED') return 'closed';
     return 'open';
 }
 
 function statusBadge(status) {
     const normalized = String(status ?? '').toUpperCase();
     const isUnderReview = normalized === 'PENDING_REVIEW';
+    const isDeclined = normalized === 'REJECTED';
 
     return (
         <StatusBadge
             variant="pill"
             status={status}
             showIcon={isUnderReview}
-            label={isUnderReview ? 'Under Review' : undefined}
+            label={isUnderReview ? 'Under Review' : isDeclined ? 'Declined' : undefined}
             icon={isUnderReview ? Hourglass : undefined}
         />
     );

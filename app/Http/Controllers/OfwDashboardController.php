@@ -37,7 +37,7 @@ class OfwDashboardController extends Controller
                 'CLOSED',
                 'ARCHIVED',
             ])
-            ->with(['referrals.category', 'referrals.agency'])
+            ->with(['categories:id,name', 'referrals.category', 'referrals.agency'])
             ->orderBy('created_at', 'desc')
             ->paginate(15);
 
@@ -64,7 +64,7 @@ class OfwDashboardController extends Controller
             ->selectRaw('count(*) as total')
             ->selectRaw("count(*) filter (where status = '".CaseFile::STATUS_PENDING_REVIEW."') as under_review")
             ->selectRaw("count(*) filter (where status = 'OPEN') as in_progress")
-            ->selectRaw("count(*) filter (where status in ('CLOSED', 'ARCHIVED')) as completed")
+            ->selectRaw("count(*) filter (where status in ('CLOSED', 'ARCHIVED', 'REJECTED')) as completed")
             ->first();
 
         // Map to an explicit array instead of passing the Eloquent row through:
@@ -135,18 +135,29 @@ class OfwDashboardController extends Controller
         ]);
         $payload['age_at_intake'] = $case->age_at_intake;
         $payload['document_requirements'] = IntakeDocumentService::requirementList($case);
-        $payload['categories'] = $case->referrals->pluck('category')->filter()->unique('id')
-            ->map(fn ($category) => $category->only(['id', 'name', 'color']))->values();
+        foreach (array_diff(CaseFile::INTAKE_FIELDS, [
+            'ofw_user_id', 'staff_summary', 'consent_evidence', 'consent_accepted_by',
+            'missing_document_reasons', 'last_correction_reason', 'document_request_reason',
+            'document_requested_by', 'document_requested_at', 'reviewed_document_ids',
+            'proposed_assessment_by', 'proposed_assessment_at', 'confirmed_assessments',
+            'confirmed_assessment_other', 'confirmed_assessment_by', 'confirmed_assessment_at',
+            'assigned_case_manager_id',
+        ]) as $field) {
+            $payload[$field] = $case->getAttribute($field);
+        }
+        $payload['case_categories'] = $case->categories()->get(['case_categories.id', 'case_categories.name'])
+            ->map(fn ($category) => ['id' => $category->id, 'name' => $category->name])->values();
         if ($withDocuments) {
             $payload['documents'] = $case->documents()
+                ->whereNull('referral_id')
                 ->whereIn('category', IntakeDocumentService::REQUIREMENT_KEYS)
                 ->where('is_deleted', false)->get()
                 ->map(fn ($document) => [
-                    'id' => $document->id, 'file_name' => $document->file_name,
+                    'id' => $document->id,
+                    'file_name' => IntakeDocumentService::REQUIREMENT_LABELS[$document->category] ?? $document->file_name,
+                    'extension' => pathinfo($document->file_name, PATHINFO_EXTENSION),
                     'file_type' => $document->file_type, 'category' => $document->category, 'size' => $document->size,
-                    'download_url' => Route::has('ofw.case.documents.download')
-                        ? route('ofw.case.documents.download', ['case' => $case->id, 'document' => $document->id])
-                        : null,
+                    'download_url' => route('cases.documents.download', ['case' => $case->id, 'document' => $document->id]),
                 ])->values();
         }
 

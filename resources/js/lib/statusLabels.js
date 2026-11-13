@@ -14,6 +14,7 @@ const CASE_STATUS_LABELS = {
     FOR_REFERRAL: 'For referral',
     CLOSED: 'Closed',
     ARCHIVED: 'Archived',
+    REJECTED: 'Declined',
 };
 
 const REFERRAL_STATUS_LABELS = {

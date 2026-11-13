@@ -215,11 +215,15 @@ class CaseService
                 'confirmed_assessment_other' => [Rule::requiredIf(in_array('OTHER', $review['confirmed_assessments'] ?? [], true)), 'nullable', 'string', 'max:2000'],
                 'staff_summary' => ['nullable', 'string', 'max:5000'],
                 'reviewed_document_ids' => ['required', 'array'],
+                'category_ids' => ['required', 'array', 'min:1'],
+                'category_ids.*' => ['required', 'distinct', Rule::exists('case_categories', 'id')->where('is_active', true)],
             ])->validate();
             if (! $actor->isCaseManager() && ! $case->assigned_case_manager_id) {
                 throw ValidationException::withMessages(['assigned_case_manager_id' => 'An unassigned case must first be approved by a case manager.']);
             }
             app(IntakeDocumentService::class)->assertCompliant($case, $validated['reviewed_document_ids']);
+            $case->categories()->sync($validated['category_ids']);
+            unset($validated['category_ids']);
             $case->update(array_merge($validated, [
                 'status' => 'OPEN', 'reviewed_by' => $userId, 'reviewed_at' => now(),
                 'confirmed_assessment_by' => $userId, 'confirmed_assessment_at' => now(),
@@ -235,18 +239,16 @@ class CaseService
         });
     }
 
-    /**
-     * Reject a pending filing: soft-delete with a reason. Kept on CaseService
-     * (not a generic delete) so the review outcome stays auditable.
-     */
-    public function rejectCase(string $id, string $reason, string $userId): CaseFile
+    /** Reject a pending filing without removing it from manager case listings. */
+    public function rejectCase(string $id, string $reason, string $userId, array $slots = []): CaseFile
     {
-        return DB::transaction(function () use ($id, $reason, $userId) {
+        return DB::transaction(function () use ($id, $reason, $userId, $slots) {
             // Same lock as approveCase: the two transitions must serialize. Without
             // it a concurrent approve can commit status=OPEN between this read and
             // the soft-delete below, and the rejection would then land on an
             // already-published case (categories detached, "rejected" audit entry).
             $case = CaseFile::where('status', CaseFile::STATUS_PENDING_REVIEW)
+                ->where('is_deleted', false)
                 ->lockForUpdate()
                 ->findOrFail($id);
 
@@ -258,14 +260,18 @@ class CaseService
             $case->loadMissing('ofwUser');
             $clientEmail = $this->resolveClientNotificationEmail($case);
             if ($clientEmail) {
+                $slotLabels = collect($slots)->map(fn ($slot) => IntakeDocumentService::REQUIREMENT_LABELS[$slot] ?? $slot)->all();
+                $message = $slots === []
+                    ? "Your assistance request {$case->case_number} was declined. {$reason} Submit a new request at ".route('ofw.intake')
+                    : "Your assistance request {$case->case_number} was declined. Missing requirements: ".implode(', ', $slotLabels).". {$reason} Submit a new request at ".route('ofw.intake');
                 $this->notificationService->notifyOfw(
                     $case,
                     $clientEmail,
                     'case_rejected',
-                    "Case {$case->case_number} was not approved",
-                    'Your assistance request was not approved. The review team will contact you with next steps.',
+                    "Case {$case->case_number} was declined",
+                    $message,
                     ['status' => 'REJECTED'],
-                    route('ofw.case.show', $case->id),
+                    route('ofw.intake'),
                 );
             }
 
@@ -273,7 +279,7 @@ class CaseService
                 ->byId($userId)
                 ->forEntity($case, $case->case_number)
                 ->module(AuditModule::CASE)
-                ->context(['status' => CaseFile::STATUS_PENDING_REVIEW], ['is_deleted' => true, 'deletion_reason' => $reason])
+                ->context(['status' => CaseFile::STATUS_PENDING_REVIEW], ['status' => 'REJECTED', 'deletion_reason' => $reason, 'requested_slots' => $slots])
                 ->write();
 
             return $case;
@@ -316,7 +322,7 @@ class CaseService
     {
         $sortSpec = self::SORT_KEYS[$sort] ?? self::SORT_KEYS['created_at'];
 
-        $query = CaseFile::with(['user', 'reviewer:id,name,role', 'referrals.category', 'referrals.agency', 'referrals.milestones']);
+        $query = CaseFile::with(['user', 'reviewer:id,name,role', 'categories:id,name', 'referrals.category', 'referrals.agency', 'referrals.milestones']);
 
         // A sort that reads a related table needs it joined. The join exists
         // only to ORDER BY, so it is added only for that sort and always with
@@ -331,7 +337,8 @@ class CaseService
         // clients/users joins that table in, and several of these names
         // (status, user_id, created_at, case_number) exist on more than one
         // side of such a join.
-        $query->whereNotIn('cases.status', [CaseFile::STATUS_PENDING_REVIEW]);
+        $query->where('cases.is_deleted', false)
+            ->whereNotIn('cases.status', [CaseFile::STATUS_PENDING_REVIEW]);
 
         // Status and client type accept either the legacy scalar form or the
         // filter panel's array form.
@@ -384,7 +391,7 @@ class CaseService
 
         $categoryIds = MultiSelectFilter::ids($filters['category_ids'] ?? $filters['category_id'] ?? null);
         if ($categoryIds !== []) {
-            $query->whereHas('referrals', fn ($referrals) => $referrals->whereIn('category_id', $categoryIds));
+            $query->whereHas('categories', fn ($categories) => $categories->whereIn('case_categories.id', $categoryIds));
         }
 
         $agencyIds = MultiSelectFilter::ids($filters['agcy_id'] ?? null);
@@ -864,6 +871,7 @@ class CaseService
                     COUNT(*) FILTER (WHERE cases.status = 'OPEN') AS open,
                     COUNT(*) FILTER (WHERE cases.status = 'CLOSED') AS closed,
                     COUNT(*) FILTER (WHERE cases.status = 'ARCHIVED') AS archived,
+                    COUNT(*) FILTER (WHERE cases.status = 'REJECTED') AS declined,
                     COUNT(*) FILTER (WHERE cases.status = 'PENDING_REVIEW') AS pending_review,
                     COUNT(*) FILTER (WHERE cases.status NOT IN ('DRAFT','ARCHIVED','PENDING_REVIEW') AND cases.client_type = 'OFW') AS ofw_cases,
                     COUNT(*) FILTER (WHERE cases.status NOT IN ('DRAFT','ARCHIVED','PENDING_REVIEW') AND cases.client_type = 'NEXT_OF_KIN') AS nok_cases
@@ -878,10 +886,8 @@ class CaseService
 
             // Category breakdown — scoped
             $categoryBreakdown = (clone $caseQuery)
-                ->join('referrals as classified_referrals', 'cases.id', '=', 'classified_referrals.case_id')
-                ->join('case_categories as pivot_categories', 'classified_referrals.category_id', '=', 'pivot_categories.id')
-                ->whereNull('classified_referrals.deleted_at')
-                ->when($user?->isAgency(), fn ($q) => $q->where('classified_referrals.agcy_id', $user->agcy_id))
+                ->join('case_file_case_category as classified_cases', 'cases.id', '=', 'classified_cases.case_id')
+                ->join('case_categories as pivot_categories', 'classified_cases.case_category_id', '=', 'pivot_categories.id')
                 ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
                 ->where('cases.is_deleted', false)
                 ->select('pivot_categories.id', 'pivot_categories.name', 'pivot_categories.color', DB::raw('COUNT(DISTINCT cases.id) as count'))
@@ -894,6 +900,7 @@ class CaseService
                 'open_cases' => (int) $counts->open,
                 'closed_cases' => (int) $counts->closed,
                 'archived_cases' => (int) $counts->archived,
+                'declined_cases' => (int) $counts->declined,
                 'pending_review_cases' => (int) $counts->pending_review,
                 'ofw_cases' => (int) $counts->ofw_cases,
                 'nok_cases' => (int) $counts->nok_cases,

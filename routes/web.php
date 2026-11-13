@@ -158,13 +158,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/cases/export-count', [CaseController::class, 'exportCount'])->name('cases.export-count');
         Route::get('/cases/{case}/export-pdf', [CaseController::class, 'exportPdf'])->name('cases.export-pdf');
         Route::post('/cases/{case}/review-approve', [CaseController::class, 'reviewApprove'])->name('cases.review-approve');
-        Route::post('/cases/{case}/document-requests', [CaseDocumentController::class, 'requestReplacement'])->name('cases.document-requests.store');
         Route::post('/cases/{case}/review-reject', [CaseController::class, 'reviewReject'])->name('cases.review-reject');
         Route::post('/cases/{case}/archive', [CaseController::class, 'archive'])->name('cases.archive');
         Route::post('/cases/{case}/unarchive', [CaseController::class, 'unarchive'])->name('cases.unarchive');
         Route::delete('/cases/{case}/delete-archived', [CaseController::class, 'deleteArchived'])->name('cases.delete-archived');
         Route::post('/cases/{case}/restore', [CaseController::class, 'restore'])->name('cases.restore');
         Route::patch('/cases/{case}', [CaseController::class, 'update'])->name('cases.update');
+        Route::put('/cases/{case}/categories', [CaseController::class, 'updateCategories'])->name('cases.categories.update');
         Route::post('/cases/{case}/toggle-status', [CaseController::class, 'toggleStatus'])->name('cases.toggle-status');
 
         Route::get('/stakeholders', [StakeholderController::class, 'index'])->name('stakeholders.index');
@@ -204,6 +204,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/cases/{case}/documents', [CaseDocumentController::class, 'index'])->name('cases.documents.index');
         Route::get('/cases/{case}/documents/{document}', [CaseDocumentController::class, 'show'])->name('cases.documents.show');
         Route::get('/cases/{case}/documents/{document}/download', [CaseDocumentController::class, 'download'])->name('cases.documents.download');
+        Route::get('/cases/{case}/intake-documents/archive', [CaseDocumentController::class, 'downloadIntakeArchive'])->name('cases.intake-documents.archive');
     });
 
     Route::middleware('role:CASE_MANAGER,ADMIN')->group(function () {

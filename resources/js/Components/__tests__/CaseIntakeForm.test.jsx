@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import CaseIntakeForm, { buildIntakePayload } from '../CaseIntakeForm';
 
@@ -90,6 +90,30 @@ describe('CaseIntakeForm email field', () => {
         const emailInput = screen.getByLabelText(/Email/i);
         expect(emailInput.className).toContain('bg-slate-50');
         expect(emailInput.className).toContain('cursor-not-allowed');
+    });
+});
+
+describe('case intake choices', () => {
+    it.each(['public', 'staff'])('offers common occupations and custom entry in %s mode', (mode) => {
+        const form = createMockForm();
+        render(<CaseIntakeForm form={form} mode={mode} onSubmit={vi.fn()} />);
+        expect(screen.getByText('Domestic Helper / Household Service Worker')).toBeInTheDocument();
+        expect(screen.getByText('Nurse (Registered Nurse)')).toBeInTheDocument();
+        const occupation = document.querySelector('#intake-last-position + select');
+        expect(occupation?.lastElementChild).toHaveValue('OTHER');
+        fireEvent.change(occupation, { target: { value: 'OTHER' } });
+        expect(form.setData).toHaveBeenCalledWith('employment_last_position', '');
+        expect(screen.getByLabelText('Specify last occupation')).toBeInTheDocument();
+    });
+
+    it('shows one upload only after evidence selection and clears previous evidence on change', () => {
+        const form = createMockForm({ documents: { passport_front_page: new File(['passport'], 'passport.pdf') } });
+        render(<CaseIntakeForm form={form} mode="public" onSubmit={vi.fn()} />);
+        expect(screen.queryByLabelText('Employment contract abroad')).not.toBeInTheDocument();
+        const evidence = document.querySelector('select[aria-hidden="true"]:has(option[value="employment_contract"])');
+        fireEvent.change(evidence, { target: { value: 'employment_contract' } });
+        expect(screen.getByLabelText('Employment contract abroad')).toBeInTheDocument();
+        expect(form.setData).toHaveBeenCalledWith('documents', { passport_front_page: form.data.documents.passport_front_page });
     });
 });
 

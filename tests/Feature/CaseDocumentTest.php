@@ -114,6 +114,121 @@ class CaseDocumentTest extends TestCase
             ->assertRedirect('https://storage.test/document.pdf');
     }
 
+    public function test_case_manager_can_download_complete_intake_document_zip(): void
+    {
+        Storage::fake('object-storage');
+        config(['filesystems.default' => 'object-storage']);
+        $this->case->update(['status' => CaseFile::STATUS_PENDING_REVIEW, 'first_name' => 'Client', 'last_name' => 'One']);
+        $one = $this->createDocument();
+        $one->update(['file_name' => 'passport.pdf', 'file_path' => 'case/passport.pdf', 'category' => 'passport_front_page']);
+        $two = $this->createDocument();
+        $two->update(['file_name' => '../passport.pdf', 'file_path' => 'case/arrival.pdf', 'category' => 'arrival_stamp']);
+        Storage::disk('object-storage')->put(ltrim($one->file_path, '/'), 'passport-content');
+        Storage::disk('object-storage')->put(ltrim($two->file_path, '/'), 'arrival-content');
+
+        $response = $this->actingAsWithMfa($this->caseManager)
+            ->get(route('cases.intake-documents.archive', $this->case));
+
+        $response->assertOk()->assertHeader('Content-Type', 'application/zip');
+        $archivePath = tempnam(sys_get_temp_dir(), 'case-intake-test-');
+        try {
+            ob_start();
+            $response->baseResponse->sendContent();
+            $bytes = ob_get_clean();
+            file_put_contents($archivePath, $bytes);
+
+            $this->assertSame('PK', substr($bytes, 0, 2));
+            $archive = new \ZipArchive;
+            $this->assertSame(true, $archive->open($archivePath));
+            $this->assertSame('arrival-content', $archive->getFromName($this->case->case_number.'_Client One_BI arrival stamp.pdf'));
+            $this->assertSame('passport-content', $archive->getFromName($this->case->case_number.'_Client One_Passport front page.pdf'));
+            $archive->close();
+        } finally {
+            if (ob_get_level() > 0) {
+                ob_end_clean();
+            }
+            @unlink($archivePath);
+        }
+    }
+
+    public function test_intake_document_download_uses_case_client_and_requirement_name(): void
+    {
+        Storage::fake('object-storage');
+        config(['filesystems.default' => 'object-storage']);
+        $this->case->update(['first_name' => 'Ana', 'middle_name' => 'Maria', 'last_name' => 'Santos', 'suffix' => 'Jr.']);
+        $document = $this->createDocument();
+        $document->update(['category' => 'passport_front_page', 'file_name' => 'private-upload.pdf', 'file_path' => 'case/passport.pdf']);
+        Storage::disk('object-storage')->put('case/passport.pdf', '%PDF-test');
+
+        $this->actingAsWithMfa($this->caseManager)
+            ->get(route('cases.documents.download', [$this->case->id, $document->id]))
+            ->assertOk()
+            ->assertHeader('Content-Disposition', 'attachment; filename="'.$this->case->case_number.'_Ana Maria Santos Jr_Passport front page.pdf"');
+    }
+
+    public function test_preview_route_is_removed(): void
+    {
+        $this->assertFalse(app('router')->has('cases.documents.preview'));
+    }
+
+    public function test_case_document_archive_is_available_for_live_case_statuses_and_excludes_referral_documents(): void
+    {
+        Storage::fake('object-storage');
+        config(['filesystems.default' => 'object-storage']);
+        $this->case->update(['status' => 'CLOSED']);
+        $document = $this->createDocument();
+        $document->update(['category' => 'General', 'file_path' => 'case/general.pdf']);
+        Storage::disk('object-storage')->put('case/general.pdf', 'case-level-content');
+        $agency = Agency::create(['id' => fake()->uuid(), 'name' => 'Test Agency', 'short' => 'TA', 'slug' => 'archive-exclude']);
+        $referral = Referral::create(['id' => fake()->uuid(), 'required_services' => 'Service', 'status' => 'PENDING', 'case_id' => $this->case->id, 'agcy_id' => $agency->id]);
+        $referralDocument = $this->createDocument();
+        $referralDocument->update(['referral_id' => $referral->id, 'file_path' => 'case/referral.pdf']);
+        Storage::disk('object-storage')->put('case/referral.pdf', 'referral-content');
+
+        $response = $this->actingAsWithMfa($this->caseManager)->get(route('cases.intake-documents.archive', $this->case));
+        $response->assertOk();
+        $archivePath = tempnam(sys_get_temp_dir(), 'case-archive-test-');
+        try {
+            ob_start();
+            $response->baseResponse->sendContent();
+            $bytes = ob_get_clean();
+            file_put_contents($archivePath, $bytes);
+            $archive = new \ZipArchive;
+            $this->assertSame(true, $archive->open($archivePath));
+            $this->assertSame('case-level-content', $archive->getFromIndex(0));
+            $this->assertSame(1, $archive->numFiles);
+            $archive->close();
+        } finally {
+            @unlink($archivePath);
+        }
+
+        $this->case->delete();
+        $this->actingAsWithMfa($this->caseManager)
+            ->get(route('cases.intake-documents.archive', $this->case))
+            ->assertNotFound();
+    }
+
+    public function test_intake_document_archive_denies_ofw_and_agency_and_returns_404_without_files(): void
+    {
+        $this->case->update(['status' => CaseFile::STATUS_PENDING_REVIEW]);
+        $ofw = User::factory()->create(['role' => UserRole::OFW->value, 'id' => fake()->uuid()]);
+        $this->actingAsWithMfa($ofw)->get(route('cases.intake-documents.archive', $this->case))->assertForbidden();
+        $agency = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => null]);
+        $this->actingAsWithMfa($agency)->get(route('cases.intake-documents.archive', $this->case))->assertForbidden();
+        $this->actingAsWithMfa($this->caseManager)->get(route('cases.intake-documents.archive', $this->case))->assertNotFound();
+    }
+
+    public function test_intake_document_archive_fails_if_any_storage_object_is_missing(): void
+    {
+        Storage::fake('object-storage');
+        $document = $this->createDocument();
+        $document->update(['category' => 'passport_front_page']);
+
+        $this->actingAsWithMfa($this->caseManager)
+            ->get(route('cases.intake-documents.archive', $this->case))
+            ->assertNotFound();
+    }
+
     public function test_document_soft_delete()
     {
         $doc = $this->createDocument();
@@ -390,6 +505,19 @@ class CaseDocumentTest extends TestCase
         $this->actingAsWithMfa($agencyUser)
             ->get(route('cases.documents.download', [$this->case->id, $otherReferralDoc->id]))
             ->assertForbidden();
+    }
+
+    public function test_case_manager_case_payload_includes_case_document_uploader_and_upload_time(): void
+    {
+        $document = $this->createDocument();
+        $document->update(['file_path' => 'case/metadata.pdf']);
+
+        $this->actingAsWithMfa($this->caseManager)
+            ->get(route('cases.show', $this->case->id))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('case.documents.0.user', $this->caseManager->name)
+                ->where('case.documents.0.created_at', $document->created_at->toISOString()));
     }
 
     public function test_agency_case_show_payload_scopes_documents_and_attachments(): void

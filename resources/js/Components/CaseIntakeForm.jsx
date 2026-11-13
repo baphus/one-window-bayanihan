@@ -4,6 +4,7 @@ import CountrySelect from '@/Components/CountrySelect';
 import InputError from '@/Components/InputError';
 import Select from '@/Components/Select';
 import { addressCodesToNames } from '@/data/philippine-addresses';
+import { DEFAULT_OCCUPATIONS } from '@/data/defaultOccupations';
 import safeRoute from '@/utils/safeRoute';
 
 export const CIVIL_STATUS_LABELS = {
@@ -238,7 +239,11 @@ export default function CaseIntakeForm({ form, mode = 'public', options = {}, on
         return age;
     }, [data.date_of_birth, data.intake_date]);
 
+    const [employmentEvidenceSlot, setEmploymentEvidenceSlot] = useState(() => EMPLOYMENT_EVIDENCE_SLOTS.find((slot) => data.documents?.[slot]) ?? '');
+    const [occupationOther, setOccupationOther] = useState(false);
     const employmentEvidenceSelected = EMPLOYMENT_EVIDENCE_SLOTS.some((slot) => Boolean(data.documents?.[slot]));
+    const occupations = [...new Set([...DEFAULT_OCCUPATIONS, ...occupationOptions.map((option) => typeof option === 'string' ? option : option?.value ?? option?.label).filter(Boolean)])];
+    const lastOccupationIsOther = occupationOther || (data.employment_last_position && !occupations.includes(data.employment_last_position));
     const reasonSlot = data.return_reason ? requiredReasonSlot(data.return_reason) : null;
 
     const [matchedOfw, setMatchedOfw] = useState(null);
@@ -471,16 +476,17 @@ export default function CaseIntakeForm({ form, mode = 'public', options = {}, on
                         <CountrySelect value={data.employment_country} onChange={(value) => setData('employment_country', value)} placeholder="Select jobsite country" />
                     </Field>
                     <Field label="Last occupation" htmlFor="intake-last-position" error={errors.employment_last_position}>
-                        <input id="intake-last-position" list="intake-occupations" value={data.employment_last_position} onChange={(e) => setData('employment_last_position', e.target.value)} className={INPUT} maxLength={255} />
-                        <datalist id="intake-occupations">
-                            {occupationOptions.map((option) => {
-                                const value = typeof option === 'string' ? option : option?.value ?? option?.label;
-                                return value ? <option key={value} value={value} /> : null;
-                            })}
-                        </datalist>
+                        <Select id="intake-last-position" value={lastOccupationIsOther ? 'OTHER' : data.employment_last_position} onChange={(e) => { setOccupationOther(e.target.value === 'OTHER'); setData('employment_last_position', e.target.value === 'OTHER' ? '' : e.target.value); }} className="h-10 w-full px-3 text-[13px]">
+                            <option value="">Select occupation…</option>
+                            {occupations.map((value) => <option key={value} value={value}>{value}</option>)}
+                            <option value="OTHER">Others</option>
+                        </Select>
+                        {lastOccupationIsOther && (
+                            <input aria-label="Specify last occupation" value={data.employment_last_position} onChange={(e) => setData('employment_last_position', e.target.value)} placeholder="Specify last occupation" className={`${INPUT} mt-2`} maxLength={255} />
+                        )}
                     </Field>
                     <Field label="Date of arrival in the Philippines" htmlFor="intake-arrival" error={errors.employment_date_of_arrival}>
-                        <input id="intake-arrival" type="date" value={data.employment_date_of_arrival} onChange={(e) => setData('employment_date_of_arrival', e.target.value)} min={data.date_of_birth || undefined} className={INPUT} />
+                        <input id="intake-arrival" type="date" value={data.employment_date_of_arrival} onChange={(e) => setData('employment_date_of_arrival', e.target.value)} min={data.date_of_birth || undefined} max={new Date().toLocaleDateString('en-CA')} className={INPUT} />
                     </Field>
                 </div>
             </Section>
@@ -568,10 +574,20 @@ export default function CaseIntakeForm({ form, mode = 'public', options = {}, on
                     {renderDocumentInput('arrival_stamp', true)}
                     <div className="rounded-lg border border-dashed border-slate-300 p-3">
                         <p className="text-[12px] font-bold text-slate-700">Employment evidence {!isStaff && <span className="text-red-600">*</span>}</p>
-                        <p className="mt-1 text-[11px] text-slate-500">Upload any one of these: employment contract, OEC, or work visa.</p>
-                        <div className="mt-2 space-y-2">
-                            {EMPLOYMENT_EVIDENCE_SLOTS.map((slot) => renderDocumentInput(slot, false))}
-                        </div>
+                        <label htmlFor="intake-evidence-type" className="mt-2 block text-[12px] font-semibold text-slate-700">Evidence type</label>
+                        <Select id="intake-evidence-type" value={employmentEvidenceSlot} onChange={(e) => {
+                            const nextSlot = e.target.value;
+                            if (employmentEvidenceSelected && nextSlot !== employmentEvidenceSlot && !window.confirm('Changing evidence type will remove the selected file. Continue?')) {
+                                e.target.value = employmentEvidenceSlot;
+                                return;
+                            }
+                            setEmploymentEvidenceSlot(nextSlot);
+                            setData('documents', Object.fromEntries(Object.entries(data.documents ?? {}).filter(([slot]) => !EMPLOYMENT_EVIDENCE_SLOTS.includes(slot))));
+                        }} className="mt-1 h-10 w-full px-3 text-[13px]">
+                            <option value="">Select employment evidence…</option>
+                            {EMPLOYMENT_EVIDENCE_SLOTS.map((slot) => <option key={slot} value={slot}>{DOCUMENT_SLOT_LABELS[slot]}</option>)}
+                        </Select>
+                        {employmentEvidenceSlot && <div className="mt-2">{renderDocumentInput(employmentEvidenceSlot, false)}</div>}
                         {!isStaff && !employmentEvidenceSelected && <p className="mt-2 text-[11px] text-amber-700">At least one employment document is required.</p>}
                         {isStaff && !employmentEvidenceSelected && onsiteCheckbox('employment_evidence', 'Employment evidence complied onsite')}
                     </div>
@@ -583,9 +599,9 @@ export default function CaseIntakeForm({ form, mode = 'public', options = {}, on
                 <label htmlFor="intake-consent" className="flex items-start gap-3 text-[13px] leading-relaxed text-slate-700">
                     <input id="intake-consent" type="checkbox" checked={data.consent} onChange={(e) => setData('consent', e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary/40" />
                     <span>
-                        {isStaff
-                            ? `The OFW consents to the collection, use, and sharing of these details and documents with authorised partner agencies to provide assistance and manage their case, under consent version ${data.consent_text_version}.`
-                            : `I consent to the collection, use, and sharing of these details and documents with authorised partner agencies to provide assistance and manage my case, under consent version ${data.consent_text_version}.`} <span className="text-red-600">*</span>
+                        {isStaff ? 'The OFW agrees' : 'I agree'} to the collection and processing of personal information in accordance with the Data Privacy Act of 2012, this system’s{' '}
+                        <a href={safeRoute('terms', undefined, '/terms')} target="_blank" rel="noopener noreferrer" className="text-primary underline">Terms of Service</a> and{' '}
+                        <a href={safeRoute('privacy', undefined, '/privacy')} target="_blank" rel="noopener noreferrer" className="text-primary underline">Privacy Policy</a>. <span className="text-red-600">*</span>
                     </span>
                 </label>
                 <InputError message={errors.consent} />
