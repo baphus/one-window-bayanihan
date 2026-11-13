@@ -26,6 +26,7 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OfwDashboardController;
 use App\Http\Controllers\OfwProfileController;
 use App\Http\Controllers\OnboardingController;
+use App\Http\Controllers\PresenceController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PublicSurveyController;
 use App\Http\Controllers\ReferralClientRequestController;
@@ -191,6 +192,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/api/referrals/{referral}/activity', [ActivityController::class, 'referralActivity'])
             ->name('api.referrals.activity')->middleware('throttle:api-global');
     });
+
+    Route::post('/cases/{case}/presence', [PresenceController::class, 'case'])->name('cases.presence')->middleware('role:CASE_MANAGER,ADMIN,AGENCY');
+    Route::post('/referrals/{referral}/presence', [PresenceController::class, 'referral'])->name('referrals.presence')->middleware('role:CASE_MANAGER,ADMIN,AGENCY');
 
     // Case show: AGENCY can view cases with active referrals (authorized in controller)
     Route::get('/cases/{case}', [CaseController::class, 'show'])->name('cases.show')

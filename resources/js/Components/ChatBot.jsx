@@ -517,19 +517,6 @@ function ChatBotSession() {
 
     return (
         <>
-            <style>{`
-                @keyframes chat-panel-in {
-                    from { opacity: 0; transform: translateY(12px) scale(0.98); }
-                    to   { opacity: 1; transform: translateY(0) scale(1); }
-                }
-                .chat-panel-in {
-                    animation: chat-panel-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
-                }
-                .chat-panel-in::-webkit-resizer {
-                    background: linear-gradient(135deg, transparent 35%, rgba(0,0,0,0.08) 35%, rgba(0,0,0,0.08) 45%, transparent 45%, transparent 70%, rgba(0,0,0,0.08) 70%);
-                    border-radius: 0 0 0.5rem 0;
-                }
-            `}</style>
 
             {/* ── Trigger button ── */}
             {!open && (

@@ -47,6 +47,15 @@ class CaseIntakeHttpTest extends TestCase
         $this->assertSame($owner->id, $case->consent_accepted_by);
     }
 
+    public function test_ofw_can_submit_through_the_staff_store_route(): void
+    {
+        Storage::fake('object-storage');
+        $owner = User::factory()->create(['role' => UserRole::OFW->value]);
+
+        $this->actingAsWithMfa($owner)->post(route('cases.store'), $this->payload())->assertRedirect();
+        $this->assertTrue(CaseFile::where('ofw_user_id', $owner->id)->exists());
+    }
+
     public function test_public_email_is_stamped_from_verified_account_and_keeps_historical_snapshot(): void
     {
         Storage::fake('object-storage');

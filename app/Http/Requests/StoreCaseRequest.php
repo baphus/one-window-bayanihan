@@ -16,7 +16,8 @@ class StoreCaseRequest extends FormRequest
     {
         $user = $this->user();
 
-        return $user !== null && ($user->isAdmin() || $user->isCaseManager() || ($user->isOfw() && ! $user->isNextOfKin()));
+        // Next of kin are no longer a user role: NOK details live on the case.
+        return $user !== null && ($user->isAdmin() || $user->isCaseManager() || $user->isOfw());
     }
 
     protected function prepareForValidation(): void

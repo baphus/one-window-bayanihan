@@ -17,6 +17,8 @@ import { RETURN_REASON_LABELS } from '@/Components/CaseIntakeForm';
 import { formatResolvedAddress } from '@/lib/addressResolver';
 import AuditLogModal from '@/Components/AuditLogModal';
 import UnifiedTimeline from '@/Components/Timeline';
+import PresenceRoster from '@/Components/PresenceRoster';
+import { canShowCasePresence } from '@/Components/presencePolicy';
 
 const vulnConfig = {
   'PWD': { icon: 'accessibility', className: 'bg-purple-100 text-purple-800 border-purple-200' },
@@ -27,10 +29,6 @@ const vulnConfig = {
 
 function formatAddress(addr) {
   return formatResolvedAddress(addr, '');
-}
-
-function formatNokAddress(nok) {
-  return formatResolvedAddress(nok, nok?.full_address || 'N/A');
 }
 
 export default function CaseShow({ case: caseFile, documentRequirements = [], overdueDays = 7, milestoneTimeline = [], approver = null, lifecycle = [] }) {
@@ -369,6 +367,10 @@ export default function CaseShow({ case: caseFile, documentRequirements = [], ov
             <h1 className="text-[28px] font-extrabold leading-tight tracking-[-0.02em] text-[#172333]">Case Details</h1>
             <p className="mt-2 text-[11px] leading-5 text-[#607080]">Case information, referrals and supporting records</p>
           </div>
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            {canShowCasePresence(auth.user?.role, roles) && (
+              <PresenceRoster url={`/cases/${encodeURIComponent(caseFile.id)}/presence`} currentUserId={auth.user?.id} />
+            )}
           <div data-tour="case-actions" className="flex items-center gap-2 shrink-0">
             <a
             href={route('cases.export-pdf', caseFile.id)}
@@ -440,6 +442,7 @@ export default function CaseShow({ case: caseFile, documentRequirements = [], ov
             </button>
           ) : null}
         </div>
+          </div>
       </div>
       </div>
 
@@ -666,6 +669,17 @@ export default function CaseShow({ case: caseFile, documentRequirements = [], ov
                 <InfoField label="Email" value={caseFile.email} />
                 <InfoField label="Contact no." value={caseFile.contact_number} />
               </div>
+
+              {caseFile.nok_name && (
+                <div className="space-y-3 border-t border-slate-200 pt-4">
+                  <InfoField label="Next of kin" value={caseFile.nok_name} />
+                  <InfoField label="Relationship" value={caseFile.nok_relationship} />
+                  <div className="grid grid-cols-2 gap-3">
+                    <InfoField label="NOK email" value={caseFile.nok_email} />
+                    <InfoField label="NOK contact no." value={caseFile.nok_contact_number} />
+                  </div>
+                </div>
+              )}
 
               {/* Vulnerability */}
               {(() => {

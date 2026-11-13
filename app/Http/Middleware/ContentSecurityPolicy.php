@@ -64,14 +64,27 @@ class ContentSecurityPolicy
     }
 
     /**
-     * Enforced policy for production/staging — nonce-based script-src.
+     * Enforced policy for production/staging — nonce-based script-src and style-src.
      *
-     * Remove `'unsafe-eval'` from prod script-src (React prod build does not need it).
-     * Style `'unsafe-inline'` kept as acceptable tradeoff with Tailwind JIT/MUI.
+     * `'unsafe-inline'` is intentionally absent from style-src. The production
+     * Tailwind/Vite build emits a static CSS file (no runtime injection), and
+     * react-easy-crop's stylesheet is bundled by Vite as well. Any server-rendered
+     * <style> block (e.g. the 503 error page) must carry this nonce attribute.
+     * React style={{ }} props use the DOM .style API and are not governed by
+     * style-src at all, so they are unaffected.
      */
     private function getPolicy(string $nonce): string
     {
         $reportUri = config('csp.report_uri', '');
+
+        // Explicit WebSocket origin for connect-src. Intentionally not "wss:"
+        // (wildcard) — that permits connections to any WSS host and is flagged
+        // as a medium-risk CSP misconfiguration. Configure CSP_WEBSOCKET_URL to
+        // the specific WSS origin your broadcast server uses (e.g. Pusher or
+        // Reverb). If unset, no WebSocket origin is added to the policy.
+        $websocketOrigin = (string) config('csp.websocket_url', '');
+        $connectSrc = "'self' https://challenges.cloudflare.com"
+            .($websocketOrigin !== '' ? " {$websocketOrigin}" : '');
 
         $policy = "default-src 'self'; "
             // Trust nonce-bearing entry points and the scripts they load (Vite
@@ -79,15 +92,22 @@ class ContentSecurityPolicy
             ."script-src 'nonce-{$nonce}' 'strict-dynamic' https://challenges.cloudflare.com; "
             ."script-src-attr 'none'; "
             ."worker-src 'self'; "
-            ."style-src 'self' 'unsafe-inline' https://fonts.bunny.net https://fonts.googleapis.com; "
+            // Nonce covers any server-rendered <style> blocks (e.g. the 503 page).
+            // 'unsafe-inline' is deliberately omitted — the production CSS build
+            // is a static file; no runtime stylesheet injection occurs.
+            // Material Symbols Outlined is loaded via Google Fonts CDN (too large
+            // to self-host without subsetting tooling); all other fonts are self-hosted.
+            ."style-src 'self' 'nonce-{$nonce}' https://fonts.googleapis.com; "
             ."img-src 'self' data: blob: https://res.cloudinary.com; "
-            ."connect-src 'self' wss: https://challenges.cloudflare.com; "
+            ."connect-src {$connectSrc}; "
             ."frame-src 'self' https://challenges.cloudflare.com https://www.google.com https://maps.google.com; "
             ."object-src 'none'; "
             ."base-uri 'none'; "
             ."frame-ancestors 'none'; "
             ."form-action 'self'; "
-            ."font-src 'self' data: https://fonts.bunny.net https://fonts.gstatic.com https://fonts.googleapis.com";
+            // data: covers base64 inline fonts in PDF/print views.
+            // fonts.gstatic.com serves the Material Symbols WOFF2 binary.
+            ."font-src 'self' data: https://fonts.gstatic.com";
 
         if ($reportUri) {
             // Keep report-uri for browsers without Reporting API support.
@@ -115,7 +135,7 @@ class ContentSecurityPolicy
 
         return "default-src 'self'; "
             ."script-src 'self' 'unsafe-inline' 'unsafe-eval' {$viteOrigin} https://challenges.cloudflare.com; "
-            ."style-src 'self' 'unsafe-inline' https://fonts.bunny.net https://fonts.googleapis.com; "
+            ."style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
             ."img-src 'self' data: blob: https://res.cloudinary.com; "
             ."connect-src 'self' {$appOrigin} {$devConnectOrigins} https://challenges.cloudflare.com; "
             ."worker-src 'self' blob:; "
@@ -123,6 +143,6 @@ class ContentSecurityPolicy
             ."object-src 'none'; "
             ."base-uri 'self'; "
             ."form-action 'self'; "
-            ."font-src 'self' data: https://fonts.bunny.net https://fonts.gstatic.com https://fonts.googleapis.com";
+            ."font-src 'self' data: https://fonts.gstatic.com";
     }
 }

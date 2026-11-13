@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\CaseDocument;
-use App\Models\CaseFile;
 use App\Models\Milestone;
 use App\Models\Referral;
 use App\Models\ReferralAttachment;
@@ -28,13 +27,12 @@ final class ActivityScope
             return [];
         }
 
-        // Empty entity IDs mean "no filter" only for ADMIN; scoped roles need the sentinel to deny access.
+        // Case managers see all case/referral activity system-wide — the purpose
+        // is awareness across the whole caseload (who referred what, to whom, etc.).
+        // Module + action visibility rules (audit_visibility.php) already restrict
+        // them to case/referral data; no entity-level filter is needed here.
         if ($user->isCaseManager()) {
-            $caseIds = CaseFile::where('user_id', $user->id)->pluck('id');
-            $referralIds = Referral::whereIn('case_id', $caseIds)->pluck('id');
-            $entityIds = self::expandReferralIds($caseIds, $referralIds, true);
-
-            return $entityIds === [] ? [self::SENTINEL] : $entityIds;
+            return [];
         }
 
         if ($user->isAgency()) {

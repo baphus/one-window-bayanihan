@@ -1,0 +1,154 @@
+name: Weekly Security Audit
+
+on:
+  schedule:
+    # Every Monday at 02:00 UTC
+    - cron: '0 2 * * 1'
+  # Allow triggering manually from the Actions tab
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  # Needed to open/update issues via the gh CLI
+  issues: write
+
+jobs:
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2
+        with:
+          php-version: '8.4'
+          extensions: pdo, pdo_pgsql, sockets
+          coverage: none
+
+      - name: Setup Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: '24'
+
+      - name: Setup Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version: '1.27.x'
+
+      - name: Get Composer Cache Directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+      - name: Cache Composer Dependencies
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install PHP Dependencies
+        run: composer install --no-interaction --no-progress
+
+      - name: Cache Node Dependencies
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: ${{ runner.os }}-node-
+
+      - name: Install Node Dependencies
+        run: npm ci
+
+      # ── PHP ────────────────────────────────────────────────────────────────
+
+      - name: Run Composer Audit
+        id: composer-audit
+        # continue so later steps still run; failure is surfaced via the issue
+        continue-on-error: true
+        run: composer audit
+
+      # ── JavaScript ────────────────────────────────────────────────────────
+
+      - name: Run NPM Audit (filtered gate)
+        id: npm-audit
+        # Same filtered gate as CI: braces GHSA-vfj7-8cjw-p6xm is allowlisted
+        # (unpatchable on Tailwind v3, build-time-only). Any other high/critical
+        # advisory still fails.
+        continue-on-error: true
+        run: node scripts/npm-audit-filter.mjs
+
+      # ── Static security scan ───────────────────────────────────────────────
+
+      - name: Install Ward
+        run: |
+          go install github.com/eljakani/ward@v0.4.2
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Run Ward security scan
+        id: ward-scan
+        continue-on-error: true
+        run: ward scan . --output json,sarif --baseline .ward-baseline.json --fail-on high
+
+      # ── Report ─────────────────────────────────────────────────────────────
+
+      - name: Summarise results
+        # Always run so the summary is written even when earlier steps failed
+        if: always()
+        run: |
+          {
+            echo "## Weekly Security Audit — $(date -u '+%Y-%m-%d')"
+            echo ""
+            echo "| Check | Result |"
+            echo "|---|---|"
+            echo "| Composer Audit | ${{ steps.composer-audit.outcome == 'success' && '✅ passed' || '❌ failed' }} |"
+            echo "| NPM Audit (filtered) | ${{ steps.npm-audit.outcome == 'success' && '✅ passed' || '❌ failed' }} |"
+            echo "| Ward scan | ${{ steps.ward-scan.outcome == 'success' && '✅ passed' || '❌ failed' }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Open or update GitHub issue on failure
+        if: |
+          always() &&
+          (
+            steps.composer-audit.outcome == 'failure' ||
+            steps.npm-audit.outcome    == 'failure' ||
+            steps.ward-scan.outcome    == 'failure'
+          )
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          TITLE="[Security Audit] Vulnerabilities detected — $(date -u '+%Y-%m-%d')"
+
+          BODY="## Automated weekly security audit failed
+
+          **Run:** ${RUN_URL}
+          **Date:** $(date -u '+%Y-%m-%d %H:%M UTC')
+
+          | Check | Result |
+          |---|---|
+          | Composer Audit | ${{ steps.composer-audit.outcome == 'success' && '✅ passed' || '❌ failed' }} |
+          | NPM Audit (filtered) | ${{ steps.npm-audit.outcome == 'success' && '✅ passed' || '❌ failed' }} |
+          | Ward scan | ${{ steps.ward-scan.outcome == 'success' && '✅ passed' || '❌ failed' }} |
+
+          Review the run logs above and update \`.ward-baseline.json\` or dependency versions as appropriate."
+
+          # Look for an existing open issue with the same label to avoid spam
+          EXISTING=$(gh issue list \
+            --label "security-audit" \
+            --state open \
+            --json number \
+            --jq '.[0].number' 2>/dev/null || echo "")
+
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body "$BODY"
+            echo "Updated existing issue #${EXISTING}"
+          else
+            gh issue create \
+              --title "$TITLE" \
+              --body "$BODY" \
+              --label "security-audit"
+            echo "Created new issue"
+          fi

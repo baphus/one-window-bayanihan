@@ -24,6 +24,5 @@ export default function PrintReport(props) {
     {props.agencyId && <p className="mb-3 text-sm">Agency scope: {props.agencyId}</p>}
     {props.suppression?.applied && <p className="mb-4 rounded-md border border-slate-300 p-3 text-sm">Privacy protection applied: small groups and complementary values withheld. Missing values are not zero.</p>}
     <ReportsDashboard {...props} printMode />
-    <style>{`@page { size: A4 landscape; margin: 12mm; } @media print { html, body { background: white !important; color: #0f172a; } * { print-color-adjust: exact; -webkit-print-color-adjust: exact; } canvas { max-width: 100% !important; } h2, h3 { break-after: avoid; } section { box-shadow: none !important; } .overflow-y-auto { overflow: visible !important; max-height: none !important; } }`}</style>
   </main>;
 }
