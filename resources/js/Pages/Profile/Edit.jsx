@@ -58,6 +58,7 @@ export default function Edit({ mustVerifyEmail, status, mfaEnabled, mfaRequired,
     const user = usePage().props.auth.user;
     const { email_change_step, email_change_hint } = usePage().props;
     const isOfw = user.role === 'OFW';
+    const enrollmentBlocked = mfaRequired && !mfaEnabled;
 
     const buildInitialData = () => ({
         email: user.email,
@@ -174,7 +175,7 @@ export default function Edit({ mustVerifyEmail, status, mfaEnabled, mfaRequired,
 
     function handleSubmit(e) {
         e.preventDefault();
-        if (!isDirty || processing) return;
+        if (!isDirty || processing || enrollmentBlocked) return;
 
         bypassNext();
         clearErrors();
@@ -227,6 +228,12 @@ export default function Edit({ mustVerifyEmail, status, mfaEnabled, mfaRequired,
                 onSkip={() => { bypassNext(); router.post(route('onboarding.skip-profile'), {}, { preserveState: true, preserveScroll: true }); }}
                 onDismiss={() => { bypassNext(); router.post(route('onboarding.skip-profile'), {}, { preserveState: true, preserveScroll: true }); }}
             />
+
+            {enrollmentBlocked && (
+                <p role="alert" className="mt-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] font-medium text-amber-900">
+                    Enable two-factor authentication before saving profile changes. Use the Two-factor authentication section below.
+                </p>
+            )}
 
             <form onSubmit={handleSubmit} className="mt-5 space-y-6">
                 <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
@@ -440,8 +447,9 @@ export default function Edit({ mustVerifyEmail, status, mfaEnabled, mfaRequired,
                         {/* The single Save / Discard bar for this card */}
                         <ProfileSaveBar
                             dirty={isDirty}
-                            processing={processing}
+                            processing={processing || enrollmentBlocked}
                             onDiscard={handleDiscard}
+                            note={enrollmentBlocked ? 'Enable two-factor authentication to save changes.' : undefined}
                         />
                     </ProfileCard>
 

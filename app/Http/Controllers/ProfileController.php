@@ -9,6 +9,7 @@ use App\Models\ReferralClientAccessLink;
 use App\Services\AuditCategory;
 use App\Services\AuditLogger;
 use App\Services\CloudinaryAvatarService;
+use App\Services\MfaPolicyService;
 use App\Services\OnboardingService;
 use App\Services\ReferenceDataService;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
@@ -56,6 +57,7 @@ class ProfileController extends Controller
             'mustVerifyEmail' => $user instanceof MustVerifyEmail,
             'status' => session('status'),
             'mfaEnabled' => $user->mfa_enabled_at !== null,
+            'mfaRequired' => app(MfaPolicyService::class)->requiresEnrollment($user),
             'defaultAgency' => app(ReferenceDataService::class)->getDefaultAgency(),
             'notificationPrefs' => $user->notifications_config ?? [
                 'email_on_case_assigned' => true,
