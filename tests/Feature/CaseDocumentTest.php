@@ -130,12 +130,11 @@ class CaseDocumentTest extends TestCase
             ->get(route('cases.intake-documents.archive', $this->case));
 
         $response->assertOk()->assertHeader('Content-Type', 'application/zip');
-        $archivePath = tempnam(sys_get_temp_dir(), 'case-intake-test-');
+        // The archive is a BinaryFileResponse; read its temp file directly so
+        // the test never sends the response through PHP's output buffers.
+        $archivePath = $response->baseResponse->getFile()->getPathname();
         try {
-            ob_start();
-            $response->baseResponse->sendContent();
-            $bytes = ob_get_clean();
-            file_put_contents($archivePath, $bytes);
+            $bytes = file_get_contents($archivePath);
 
             $this->assertSame('PK', substr($bytes, 0, 2));
             $archive = new \ZipArchive;
@@ -144,9 +143,6 @@ class CaseDocumentTest extends TestCase
             $this->assertSame('passport-content', $archive->getFromName($this->case->case_number.'_Client One_Passport front page.pdf'));
             $archive->close();
         } finally {
-            if (ob_get_level() > 0) {
-                ob_end_clean();
-            }
             @unlink($archivePath);
         }
     }
@@ -573,7 +569,7 @@ class CaseDocumentTest extends TestCase
     {
         Storage::fake('object-storage');
 
-        $storage = $this->createMock(StorageService::class);
+        $storage = $this->createStub(StorageService::class);
         $storage->method('validate')->willReturn([]);
         $storage->method('temporaryUrl')->willReturn('https://example.com/file.pdf');
         $storage->method('store')->willReturn(new FileStoreResult(
@@ -622,7 +618,7 @@ class CaseDocumentTest extends TestCase
 
         // Mock StorageService to bypass deep MIME inspection (empty-content
         // fake uploads are detected as application/x-empty)
-        $storage = $this->createMock(StorageService::class);
+        $storage = $this->createStub(StorageService::class);
         $storage->method('validate')->willReturn([]);
         $storage->method('temporaryUrl')->willReturn('https://example.com/file.pdf');
         $storage->method('store')->willReturn(new FileStoreResult(
