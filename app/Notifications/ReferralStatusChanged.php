@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\Referral;
+use App\Services\NotificationService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -29,6 +30,11 @@ class ReferralStatusChanged extends Notification implements ShouldQueue
         }
 
         return $channels;
+    }
+
+    public function shouldSend(object $notifiable, string $channel): bool
+    {
+        return app(NotificationService::class)->mayReceiveReferral($notifiable, $this->referral->id);
     }
 
     public function viaQueues(): array

@@ -2,11 +2,14 @@
 
 namespace App\Services;
 
+use App\Enums\UserRole;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Mail\ClientUpdateMail;
 use App\Models\CaseFile;
 use App\Models\CaseNotification;
+use App\Models\Referral;
 use App\Models\User;
+use App\Notifications\PeerReferralCreated;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -125,7 +128,7 @@ class NotificationService
             return false;
         }
 
-        $notification = $notifiable->notifications()
+        $notification = $this->visibleUserNotifications($notifiable)
             ->where('id', $notificationId)
             ->whereNull('read_at')
             ->first();
@@ -159,7 +162,7 @@ class NotificationService
                 ->update(['read_at' => now()]);
         }
 
-        $count = $notifiable->unreadNotifications()->update(['read_at' => now()]);
+        $count = $this->visibleUserNotifications($notifiable)->whereNull('read_at')->update(['read_at' => now()]);
 
         // Invalidate cached unread count for this user
         if ($count > 0 && method_exists($notifiable, 'getKey')) {
@@ -183,7 +186,7 @@ class NotificationService
                 ->count();
         }
 
-        return $notifiable->unreadNotifications()->count();
+        return $this->visibleUserNotifications($notifiable)->whereNull('read_at')->count();
     }
 
     /**
@@ -201,9 +204,46 @@ class NotificationService
                 ->paginate($perPage);
         }
 
-        return $notifiable->notifications()
+        return $this->visibleUserNotifications($notifiable)
             ->orderBy('created_at', 'desc')
             ->paginate($perPage);
+    }
+
+    public function mayReceiveReferral(object $notifiable, string $referralId, bool $agencyOnly = false): bool
+    {
+        if (! $notifiable instanceof User) {
+            return false;
+        }
+
+        $user = User::find($notifiable->id);
+        if (! $user || ! $user->is_active) {
+            return false;
+        }
+
+        if ($user->role !== UserRole::AGENCY->value) {
+            return ! $agencyOnly && in_array($user->role, [UserRole::ADMIN->value, UserRole::CASE_MANAGER->value, UserRole::OFW->value], true);
+        }
+
+        return (bool) $user->agcy_id && Referral::whereKey($referralId)->where('agcy_id', $user->agcy_id)->exists();
+    }
+
+    private function visibleUserNotifications(User $user): Builder
+    {
+        $query = $user->notifications()->getQuery();
+        if ($user->role === UserRole::AGENCY->value) {
+            $query->where('type', '!=', PeerReferralCreated::class)
+                ->where(function (Builder $query) use ($user) {
+                    $query->whereRaw("notifications.data::jsonb->>'referral_id' is null")
+                        ->orWhereExists(function ($referrals) use ($user) {
+                            $referrals->selectRaw('1')->from('referrals')
+                                ->whereRaw("referrals.id::text = (notifications.data::jsonb->>'referral_id')")
+                                ->where('referrals.agcy_id', $user->agcy_id)
+                                ->whereNotNull('referrals.agcy_id');
+                        });
+                });
+        }
+
+        return $query;
     }
 
     private function ownedCaseNotifications(mixed $owner): Builder

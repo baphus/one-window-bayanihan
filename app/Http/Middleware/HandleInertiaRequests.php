@@ -74,12 +74,16 @@ class HandleInertiaRequests extends Middleware
             return 0;
         }
 
+        if ($user->role === UserRole::AGENCY->value) {
+            return app(NotificationService::class)->getUnreadCount($user, 'user');
+        }
+
         return (int) CacheHelper::safeRemember(
             "notifications:unread:{$user->id}",
             60,
             fn () => $user->role === UserRole::OFW->value
                 ? app(NotificationService::class)->getUnreadCount($user, 'ofw')
-                : $user->unreadNotifications()->count(),
+                : app(NotificationService::class)->getUnreadCount($user, 'user'),
         );
     }
 

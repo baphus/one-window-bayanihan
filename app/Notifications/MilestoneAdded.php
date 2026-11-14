@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use App\Models\Milestone;
 use App\Models\Referral;
+use App\Services\NotificationService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -22,6 +23,11 @@ class MilestoneAdded extends Notification implements ShouldQueue
     public function via(object $notifiable): array
     {
         return ['database', 'mail'];
+    }
+
+    public function shouldSend(object $notifiable, string $channel): bool
+    {
+        return app(NotificationService::class)->mayReceiveReferral($notifiable, $this->referral->id);
     }
 
     public function viaQueues(): array

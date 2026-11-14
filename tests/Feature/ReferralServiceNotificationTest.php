@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Enums\UserRole;
+use App\Http\Middleware\CheckMfaEnrolled;
+use App\Http\Middleware\EnsureMfaSession;
 use App\Mail\ClientUpdateMail;
 use App\Models\Agency;
 use App\Models\CaseCategory;
@@ -13,10 +15,12 @@ use App\Notifications\MilestoneAdded;
 use App\Notifications\PeerReferralCreated;
 use App\Notifications\ReferralCreated;
 use App\Notifications\ReferralStatusChanged;
+use App\Services\NotificationService;
 use App\Services\ReferralService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class ReferralServiceNotificationTest extends TestCase
@@ -278,7 +282,7 @@ class ReferralServiceNotificationTest extends TestCase
         ]);
     }
 
-    public function test_creating_referral_notifies_peer_agencies_on_same_case(): void
+    public function test_creating_referral_does_not_notify_peer_agencies_on_same_case(): void
     {
         Notification::fake();
 
@@ -303,7 +307,7 @@ class ReferralServiceNotificationTest extends TestCase
 
         Notification::fake();
 
-        // Second referral on the same case → agencyA users should get PeerReferralCreated
+        // Second referral on the same case must not notify the other agency.
         $agencyB = Agency::factory()->create();
         $this->service->createReferral([
             'category_id' => CaseCategory::factory()->create()->id,
@@ -313,7 +317,7 @@ class ReferralServiceNotificationTest extends TestCase
             'agcy_id' => $agencyB->id,
         ], $caseManager->id);
 
-        Notification::assertSentTo($agencyAUser, PeerReferralCreated::class);
+        Notification::assertNotSentTo($agencyAUser, PeerReferralCreated::class);
     }
 
     public function test_peer_notification_not_sent_to_receiving_agency(): void
@@ -521,6 +525,35 @@ class ReferralServiceNotificationTest extends TestCase
 
         $this->assertSame('COMPLETED', $updated->status);
         $this->assertNull($updated->rejection_reason);
+    }
+
+    public function test_agency_inbox_and_queued_delivery_exclude_other_agency_referrals(): void
+    {
+        $agency = Agency::factory()->create();
+        $otherAgency = Agency::factory()->create();
+        $user = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id, 'is_active' => true]);
+        $own = Referral::factory()->create(['agcy_id' => $agency->id]);
+        $other = Referral::factory()->create(['agcy_id' => $otherAgency->id, 'case_id' => $own->case_id]);
+        $ownNotice = $user->notifications()->create(['id' => (string) Str::uuid(), 'type' => ReferralStatusChanged::class, 'data' => ['referral_id' => $own->id]]);
+        $otherNotice = $user->notifications()->create(['id' => (string) Str::uuid(), 'type' => ReferralStatusChanged::class, 'data' => ['referral_id' => $other->id]]);
+        $peerNotice = $user->notifications()->create(['id' => (string) Str::uuid(), 'type' => PeerReferralCreated::class, 'data' => ['referral_id' => $own->id]]);
+        $service = app(NotificationService::class);
+
+        $this->withoutMiddleware([CheckMfaEnrolled::class, EnsureMfaSession::class]);
+        $this->actingAs($user)->getJson(route('notifications.index'))->assertOk()->assertJsonCount(1, 'data');
+        $this->actingAs($user)->getJson(route('notifications.unread-count'))->assertOk()->assertJsonPath('count', 1);
+        $this->actingAs($user)->patchJson(route('notifications.mark-as-read', $otherNotice->id))->assertNotFound();
+        $this->assertSame(1, $service->getUnreadCount($user));
+        $this->assertSame([$ownNotice->id], array_column($service->getNotifications($user)->items(), 'id'));
+        $this->assertFalse($service->markAsRead($otherNotice->id, 'user', $user));
+        $this->actingAs($user)->patchJson(route('notifications.mark-all-read'))->assertOk()->assertJsonPath('count', 1);
+        $this->assertNull($otherNotice->fresh()->read_at);
+        $this->assertNull($peerNotice->fresh()->read_at);
+        $notice = new ReferralCreated($own, 'Case Manager');
+        $this->assertStringContainsString('assign services', $notice->toDatabase($user)['message']);
+        $this->assertTrue($notice->shouldSend($user, 'mail'));
+        $user->update(['agcy_id' => $otherAgency->id]);
+        $this->assertFalse($notice->shouldSend($user, 'mail'));
     }
 
     private function createUser(string $role): User

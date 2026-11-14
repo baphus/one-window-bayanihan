@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\Referral;
+use App\Services\NotificationService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Notification;
@@ -20,6 +21,11 @@ class OverdueReferralNotification extends Notification implements ShouldQueue
     public function via(object $notifiable): array
     {
         return ['database'];
+    }
+
+    public function shouldSend(object $notifiable, string $channel): bool
+    {
+        return app(NotificationService::class)->mayReceiveReferral($notifiable, $this->referral->id);
     }
 
     public function viaQueues(): array
