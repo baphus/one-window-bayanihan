@@ -90,10 +90,15 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
     // preview, so the count shown always matches the export that will run.
     const buildExportQuery = useCallback(({ dateFrom, dateTo }) => {
         const params = new URLSearchParams();
-        if (filters.status) params.set('status', filters.status);
+        const appendList = (key, value) => {
+            toFilterList(value).forEach((item) => params.append(`${key}[]`, item));
+        };
+        appendList('status', filters.status);
         if (filters.search) params.set('search', filters.search);
-        if (filters.agcy_id) params.set('agcy_id', filters.agcy_id);
-        if (filters.category_id) params.set('category_id', filters.category_id);
+        appendList('agcy_id', filters.agcy_id);
+        if (toFilterList(filters.category_ids).length) appendList('category_ids', filters.category_ids);
+        else appendList('category_id', filters.category_id);
+        if (filters.case_id) params.set('case_id', filters.case_id);
         if (filters.age_min_days) params.set('age_min_days', filters.age_min_days);
         if (filters.age_max_days) params.set('age_max_days', filters.age_max_days);
         if (dateFrom) params.set('date_from', dateFrom);

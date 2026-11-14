@@ -14,7 +14,7 @@ describe('ExportDialog live row count', () => {
         vi.unstubAllGlobals();
     });
 
-    it('fetches the live count on open and shows the approximate row text', async () => {
+    it('fetches the live count on open and shows the exact matching row count', async () => {
         const fetchMock = vi.fn().mockResolvedValue({
             ok: true,
             json: () => Promise.resolve({ count: 42 }),
@@ -34,7 +34,7 @@ describe('ExportDialog live row count', () => {
             />,
         );
 
-        expect(await screen.findByText(/Approximately 42 rows will be exported/)).toBeInTheDocument();
+        expect(await screen.findByText(/42 rows match the selected filters and date range/)).toBeInTheDocument();
         expect(fetchMock).toHaveBeenCalledTimes(1);
         expect(countUrlBuilder).toHaveBeenCalledTimes(1);
     });
@@ -58,13 +58,38 @@ describe('ExportDialog live row count', () => {
             />,
         );
 
-        expect(await screen.findByText(/Approximately 10 rows will be exported/)).toBeInTheDocument();
+        expect(await screen.findByText(/10 rows match/)).toBeInTheDocument();
 
         const dateInputs = container.querySelectorAll('input[type="date"]');
         fireEvent.change(dateInputs[0], { target: { value: '2026-01-01' } });
 
-        expect(await screen.findByText(/Approximately 3 rows will be exported/)).toBeInTheDocument();
+        expect(await screen.findByText(/3 rows match/)).toBeInTheDocument();
         expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    it('blocks exports above 10,000 rows and explains how to reduce the result', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+            ok: true,
+            json: () => Promise.resolve({ count: 10001 }),
+        }));
+        const onExport = vi.fn();
+
+        render(
+            <ExportDialog
+                open
+                onClose={() => {}}
+                title="Export Referrals"
+                activeFilters={[]}
+                countUrlBuilder={() => '/referrals/export-count'}
+                onExport={onExport}
+            />,
+        );
+
+        expect(await screen.findByText(/exceeds the 10,000-row limit/i)).toBeInTheDocument();
+        const exportButton = screen.getByRole('button', { name: /Export/ });
+        expect(exportButton).toBeDisabled();
+        fireEvent.click(exportButton);
+        expect(onExport).not.toHaveBeenCalled();
     });
 
     it('uses singular row text for a count of one', async () => {
@@ -84,7 +109,7 @@ describe('ExportDialog live row count', () => {
             />,
         );
 
-        expect(await screen.findByText(/Approximately 1 row will be exported/)).toBeInTheDocument();
+        expect(await screen.findByText(/1 row matches/)).toBeInTheDocument();
     });
 
     it('always shows the active date range as a chip, even with no page filters', async () => {
@@ -106,7 +131,7 @@ describe('ExportDialog live row count', () => {
 
         expect(await screen.findByText(/Date range:/)).toBeInTheDocument();
         expect(screen.queryByText('All records')).not.toBeInTheDocument();
-        expect(await screen.findByText(/59 rows will be exported for the selected date range/)).toBeInTheDocument();
+        expect(await screen.findByText(/59 rows match the selected filters and date range/)).toBeInTheDocument();
     });
 
     it('shows a fallback message when the count request fails but still allows export', async () => {
@@ -131,6 +156,7 @@ describe('ExportDialog live row count', () => {
         from.setDate(from.getDate() - 30);
         const dateFrom = from.toISOString().slice(0, 10);
         fireEvent.change(screen.getAllByDisplayValue(new RegExp('^\\d{4}-\\d{2}-\\d{2}$'))[0], { target: { value: '2026-01-01' } });
+        await screen.findByText(/Could not load the row count/);
         fireEvent.click(screen.getByRole('button', { name: /Export/ }));
 
         await waitFor(() => {

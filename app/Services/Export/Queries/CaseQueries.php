@@ -98,9 +98,8 @@ class CaseQueries
                     : "COALESCE((SELECT STRING_AGG(a.name, ', ') FROM referrals r JOIN agencies a ON r.agcy_id = a.id WHERE r.case_id = c.id AND r.is_deleted = false AND r.deleted_at IS NULL), '') AS receiving_parties"),
                 // Case representative
                 'c.nok_name AS nok_full_name',
-
-                'c.nok_contact_number AS nok_contact_number',
-                'c.nok_email AS nok_email',
+                'c.nok_relationship AS nok_relationship',
+                'c.employment_status AS employment_status',
             ])
             ->where('c.is_deleted', false)->whereNull('c.deleted_at')
             ->whereNotIn('c.status', [CaseFile::STATUS_PENDING_REVIEW])
@@ -156,7 +155,7 @@ class CaseQueries
         }
 
         $userIds = MultiSelectFilter::ids($filters['user_id'] ?? null);
-        if ($userIds !== []) {
+        if ($userIds !== [] && in_array($user?->role, [UserRole::ADMIN->value, UserRole::CASE_MANAGER->value], true)) {
             $query->whereIn('c.user_id', $userIds);
         }
 
@@ -195,7 +194,8 @@ class CaseQueries
                 $q->where('c.case_number', 'ilike', "%{$search}%")
                     ->orWhere('c.tracker_number', 'ilike', "%{$search}%")
                     ->orWhere('c.first_name', 'ilike', "%{$search}%")
-                    ->orWhere('c.last_name', 'ilike', "%{$search}%");
+                    ->orWhere('c.last_name', 'ilike', "%{$search}%")
+                    ->orWhere('c.middle_name', 'ilike', "%{$search}%");
             });
         }
 
@@ -223,8 +223,6 @@ class CaseQueries
             $row->ofw_date_of_birth = EncryptedString::decrypt($row->ofw_date_of_birth ?? null);
             $row->ofw_contact_number = EncryptedString::decrypt($row->ofw_contact_number ?? null);
             $row->ofw_email = EncryptedString::decrypt($row->ofw_email ?? null);
-            $row->nok_contact_number = EncryptedString::decrypt($row->nok_contact_number ?? null);
-            $row->nok_email = EncryptedString::decrypt($row->nok_email ?? null);
             // Employment subquery fields
             if (isset($row->employment_country)) {
                 $row->employment_country = EncryptedString::decrypt($row->employment_country);

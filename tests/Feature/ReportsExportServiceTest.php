@@ -379,7 +379,7 @@ class ReportsExportServiceTest extends TestCase
     }
 
     #[Test]
-    public function all_client_case_and_referral_workbooks_have_decrypted_employment_fields_and_unscoped_case_manager(): void
+    public function case_client_and_referral_queries_keep_allowed_employment_fields_decrypted_and_unscoped(): void
     {
         $other = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $owned = $this->makeCaseWithReferral($this->manager);
@@ -410,10 +410,15 @@ class ReportsExportServiceTest extends TestCase
             $otherJson = json_encode($otherData->toArray());
 
             $this->assertStringContainsString('Canada', $ownedJson, $method);
-            $this->assertStringContainsString('Welder', $ownedJson, $method);
+            if ($method !== 'getReferralsExport') {
+                $this->assertStringContainsString('Welder', $ownedJson, $method);
+                $this->assertStringContainsString('Engineer', $otherJson, $method);
+            } else {
+                $this->assertStringNotContainsString('Welder', $ownedJson);
+                $this->assertStringNotContainsString('Engineer', $otherJson);
+            }
             $this->assertStringContainsString('Japan', $ownedJson, $method);
             $this->assertStringContainsString('Japan', $otherJson, $method);
-            $this->assertStringContainsString('Engineer', $otherJson, $method);
             $this->assertStringContainsString('Canada', $otherJson, $method);
         }
     }

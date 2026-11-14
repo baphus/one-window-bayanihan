@@ -585,11 +585,13 @@ class ReferralController extends Controller
         // that are legitimately 0 (e.g. age_min_days).
         $filters = array_filter(array_merge($request->only([
             'status', 'search', 'age_min_days', 'age_max_days',
-            'date_from', 'date_to', 'agcy_id', 'category_id', 'category_ids',
+            'date_from', 'date_to', 'agcy_id', 'category_id', 'category_ids', 'case_id',
         ]), CategoryFilter::fromRequest($request)->toArray()), fn ($value) => $value !== null);
 
         $queries = $this->exportQueries;
         $exportService = $this->exportService;
+
+        abort_if($queries->countReferralsExport($user, $filters) > 10000, 422, 'More than 10,000 referrals match. Narrow filters before exporting.');
 
         $data = $queries->getReferralsExport($user, $filters);
 
@@ -610,7 +612,7 @@ class ReferralController extends Controller
 
         return $exportService->generateSingleSheet(
             'Referrals',
-            self::referralsExportColumnMap(),
+            self::referralsExportColumnMap($user->isAgency()),
             $data,
             $filename
         );
@@ -629,7 +631,7 @@ class ReferralController extends Controller
         // that are legitimately 0 (e.g. age_max_days).
         $filters = array_filter(array_merge($request->only([
             'status', 'search', 'age_min_days', 'age_max_days',
-            'date_from', 'date_to', 'agcy_id', 'category_id', 'category_ids',
+            'date_from', 'date_to', 'agcy_id', 'category_id', 'category_ids', 'case_id',
         ]), CategoryFilter::fromRequest($request)->toArray()), fn ($value) => $value !== null);
 
         $count = $this->exportQueries->countReferralsExport($user, $filters);
@@ -641,48 +643,32 @@ class ReferralController extends Controller
      * Merged business-export column map — case + referral data in one row per referral.
      * No IDs or system fields. The referrals export is replaced by this richer view.
      */
-    public static function referralsExportColumnMap(): array
+    public static function referralsExportColumnMap(bool $agency = false): array
     {
-        return [
-            // Primary columns (aligned with Referrals page table)
-            ['key' => 'case_number',           'label' => 'Case No',               'type' => 'string'],
-            ['key' => 'client_full_name',       'label' => 'Client',                'type' => 'string'],
-            ['key' => 'client_contact_number',  'label' => 'Client Contact No.',    'type' => 'string'],
-            ['key' => 'client_email',           'label' => 'Client Email',          'type' => 'string'],
-            ['key' => 'case_summary',           'label' => 'Case Summary',          'type' => 'string'],
-            ['key' => 'issue_concern',          'label' => 'Issue / Concern',       'type' => 'string'],
-            ['key' => 'referred_agency',        'label' => 'Agency',                'type' => 'string'],
-            ['key' => 'required_services',      'label' => 'Service',               'type' => 'string'],
-            ['key' => 'referral_status',        'label' => 'Status',                'type' => 'status'],
-            ['key' => 'latest_update',          'label' => 'Latest Update',         'type' => 'string'],
-            ['key' => 'date_referred',          'label' => 'Date Referred',         'type' => 'date'],
-            // Case details
-            ['key' => 'case_status',            'label' => 'Case Status',           'type' => 'status'],
-            ['key' => 'tracker_number',         'label' => 'Case Tracking ID',      'type' => 'string'],
-            ['key' => 'client_type',            'label' => 'Client Type',           'type' => 'string'],
-            // Client demographics
-            ['key' => 'sex',                    'label' => 'Gender',                'type' => 'string'],
-            ['key' => 'client_date_of_birth',   'label' => 'Date of Birth',         'type' => 'date'],
-            ['key' => 'client_age',             'label' => 'Age',                   'type' => 'string'],
-            // Address
-            ['key' => 'client_full_address',    'label' => 'Full Address',          'type' => 'string'],
-            ['key' => 'barangay',               'label' => 'Barangay',              'type' => 'string'],
-            ['key' => 'municipality',           'label' => 'Municipality',          'type' => 'string'],
-            ['key' => 'province',               'label' => 'Province',              'type' => 'string'],
-            ['key' => 'region',                 'label' => 'Region',                'type' => 'string'],
-            // Employment
-            ['key' => 'vulnerability',          'label' => 'Vulnerability',         'type' => 'string'],
-            ['key' => 'date_of_arrival',        'label' => 'Date of Arrival in PH', 'type' => 'date'],
-            ['key' => 'employment_country',       'label' => 'Jobsite Country',      'type' => 'string'],
-            ['key' => 'work_position',          'label' => 'Work Occupation',         'type' => 'string'],
-            // NOK info
-            ['key' => 'nok_full_name',          'label' => 'NOK Full Name',         'type' => 'string'],
-            ['key' => 'nok_relationship',       'label' => 'NOK Relationship',      'type' => 'string'],
-            ['key' => 'nok_contact_number',     'label' => 'NOK Contact No.',       'type' => 'string'],
-            ['key' => 'nok_email',              'label' => 'NOK Email',             'type' => 'string'],
-            // Footer
-            ['key' => 'exported_at',            'label' => 'Exported At',           'type' => 'string'],
+        $columns = [
+            ['key' => 'case_number', 'label' => 'Case Number', 'type' => 'string'],
+            ['key' => 'client_full_name', 'label' => 'OFW Name', 'type' => 'string'],
+            ['key' => 'client_contact_number', 'label' => 'OFW Phone', 'type' => 'string'],
         ];
+
+        if (! $agency) {
+            array_push($columns,
+                ['key' => 'client_type', 'label' => 'Intake Type', 'type' => 'string'],
+                ['key' => 'vulnerability', 'label' => 'Vulnerability', 'type' => 'string'],
+                ['key' => 'employment_country', 'label' => 'Jobsite Country', 'type' => 'string'],
+                ['key' => 'case_summary', 'label' => 'Case Summary', 'type' => 'string'],
+            );
+        }
+
+        return array_merge($columns, [
+            ['key' => 'referred_agency', 'label' => 'Referred Agency', 'type' => 'string'],
+            ...($agency ? [] : [['key' => 'category', 'label' => 'Referral Category', 'type' => 'string']]),
+            ['key' => 'issue_concern', 'label' => 'Referral Concern', 'type' => 'string'],
+            ['key' => 'required_services', 'label' => 'Required Services', 'type' => 'string'],
+            ['key' => 'referral_status', 'label' => 'Referral Status', 'type' => 'status'],
+            ['key' => 'date_referred', 'label' => 'Date Referred', 'type' => 'date'],
+            ['key' => 'latest_update', 'label' => 'Latest Update', 'type' => 'string'],
+        ]);
     }
 
     private function authorizeReferralAccess($referral, $user)

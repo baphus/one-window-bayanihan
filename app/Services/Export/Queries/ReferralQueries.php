@@ -7,9 +7,7 @@ use App\Enums\UserRole;
 use App\Models\User;
 use App\Services\Export\Queries\Concerns\FiltersCaseCategories;
 use App\Services\Export\Queries\Concerns\ScopesForExportUser;
-use App\Services\PhilippineAddressService;
-use App\Support\CategoryFilter;
-use Carbon\CarbonImmutable;
+use App\Support\MultiSelectFilter;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -60,52 +58,19 @@ class ReferralQueries
      * Joins each referral to its case snapshot, category and agency to produce
      * a flat export suitable for business reporting.
      */
-    public function getReferralsExport(?User $user = null, array $filters = []): Collection
+    private function referralsExportQuery(?User $user = null, array $filters = [])
     {
-        if ($user?->role === UserRole::AGENCY->value && ! $user->agcy_id) {
-            return collect();
-        }
-
+        $agency = $user?->role === UserRole::AGENCY->value;
         $query = DB::table('referrals AS r')
-            ->select([
+            ->select(array_merge([
                 // Case info
                 'c.case_number',
-                'c.intake_date',
-                'cc.name AS category',
-                'r.override_reason',
-                'c.status AS case_status',
-                'c.tracker_number',
-                'c.client_type AS client_type',
-                DB::raw("CASE
-                    WHEN c.client_type = 'NEXT_OF_KIN'
-                        THEN COALESCE(NULLIF(c.nok_vulnerability_indicator, 'None'), NULLIF(c.vulnerability_indicator, 'None'), 'None')
-                    ELSE COALESCE(NULLIF(c.vulnerability_indicator, 'None'), NULLIF(c.nok_vulnerability_indicator, 'None'), 'None')
-                END AS vulnerability"),
-                'c.summary AS case_summary',
+
                 // Case intake facts
                 'c.first_name AS client_first_name',
                 'c.last_name AS client_last_name',
                 'c.middle_name AS client_middle_name',
-                'c.date_of_birth AS client_date_of_birth',
-                'c.sex',
-                'c.email AS client_email',
                 'c.contact_number AS client_contact_number',
-                // Case address snapshot
-                'c.address_street AS street',
-                'c.address_barangay AS barangay',
-                'c.address_city_municipality AS municipality',
-                'c.address_province AS province',
-                'c.address_region AS region',
-                // Case employment snapshot
-                'c.employment_date_of_arrival AS date_of_arrival',
-                'c.employment_country AS employment_country',
-                'c.employment_position AS work_position',
-                // Representative recorded on this case
-                'c.nok_name AS nok_full_name',
-
-                'c.nok_relationship AS nok_relationship',
-                'c.nok_contact_number AS nok_contact_number',
-                'c.nok_email AS nok_email',
                 // Agency
                 'a.name AS referred_agency',
                 // Referral info
@@ -118,11 +83,17 @@ class ReferralQueries
                 'r.updated_at AS referral_updated_at',
                 // Issue/Concern
                 'r.concern AS issue_concern',
-            ])
+            ], $agency ? [] : [
+                'c.client_type AS client_type',
+                'c.vulnerability_indicator AS vulnerability',
+                'c.nok_vulnerability_indicator AS nok_vulnerability',
+                'c.employment_country AS employment_country',
+                'c.summary AS case_summary',
+                'cc.name AS category',
+            ]))
             ->join('cases AS c', function ($join) {
                 $join->on('r.case_id', '=', 'c.id')
-                    ->where('c.is_deleted', false)
-                    ->where('c.status', '!=', 'ARCHIVED');
+                    ->where('c.is_deleted', false);
             })
             ->leftJoin('agencies AS a', function ($join) {
                 $join->on('r.agcy_id', '=', 'a.id')
@@ -134,14 +105,22 @@ class ReferralQueries
             ->orderBy('r.created_at', 'desc');
 
         // --- Apply optional filters ---
-        if (! empty($filters['status'])) {
-            $query->where('r.status', $filters['status']);
+        $statuses = MultiSelectFilter::ids($filters['status'] ?? null);
+        if ($statuses !== []) {
+            $query->whereIn('r.status', $statuses);
+        }
+        $agencyIds = MultiSelectFilter::ids($filters['agcy_id'] ?? null);
+        if ($agencyIds !== []) {
+            $query->whereIn('r.agcy_id', $agencyIds);
+        }
+        if (! empty($filters['case_id'])) {
+            $query->where('r.case_id', $filters['case_id']);
         }
         if (! empty($filters['age_min_days']) && is_numeric($filters['age_min_days'])) {
-            $query->where('r.created_at', '<=', now()->subDays((int) $filters['age_min_days']));
+            $query->where('r.created_at', '<=', now()->subDays((int) $filters['age_min_days'])->endOfDay());
         }
         if (! empty($filters['age_max_days']) && is_numeric($filters['age_max_days'])) {
-            $query->where('r.created_at', '>=', now()->subDays((int) $filters['age_max_days']));
+            $query->where('r.created_at', '>=', now()->subDays((int) $filters['age_max_days'])->startOfDay());
         }
         if (! empty($filters['date_from'])) {
             $query->whereDate('r.created_at', '>=', $filters['date_from']);
@@ -152,50 +131,55 @@ class ReferralQueries
         if (! empty($filters['search'])) {
             $search = $filters['search'];
             $query->where(function ($q) use ($search) {
-                $q->where('c.case_number', 'ilike', "%{$search}%")
+                $q->whereRaw('r.id::text ILIKE ?', ["%{$search}%"])
+                    ->orWhereExists(function ($services) use ($search) {
+                        $services->selectRaw('1')->from('referral_services AS rs')
+                            ->join('services AS s', 's.id', '=', 'rs.service_id')
+                            ->whereColumn('rs.referral_id', 'r.id')
+                            ->where('s.name', 'ilike', "%{$search}%");
+                    })
+                    ->orWhere('c.case_number', 'ilike', "%{$search}%")
                     ->orWhere('c.first_name', 'ilike', "%{$search}%")
                     ->orWhere('c.last_name', 'ilike', "%{$search}%")
-                    ->orWhere('a.name', 'ilike', "%{$search}%")
-                    ->orWhere('r.required_services', 'ilike', "%{$search}%");
+                    ->orWhere('c.middle_name', 'ilike', "%{$search}%")
+                    ->orWhere('a.name', 'ilike', "%{$search}%");
             });
         }
 
-        $categoryIds = CategoryFilter::fromArray($filters)->ids();
+        $categoryIds = $filters['category_ids'] ?? [];
+        if (! is_array($categoryIds) || empty($categoryIds)) {
+            $categoryIds = ! empty($filters['category_id']) ? [$filters['category_id']] : [];
+        }
         if ($categoryIds) {
             $query->whereIn('r.category_id', $categoryIds);
         }
 
         // ADMIN/CASE_MANAGER: all referrals. AGENCY: own agency referrals only.
         // Fail closed: any other role (including OFW) or missing user sees nothing.
-        if ($user?->role === UserRole::AGENCY->value && $user->agcy_id) {
+        if ($agency && $user->agcy_id) {
             $query->where('r.agcy_id', $user->agcy_id);
-        } elseif ($user?->role !== UserRole::ADMIN->value && $user?->role !== UserRole::CASE_MANAGER->value) {
+        } elseif ($agency || ! in_array($user?->role, [UserRole::ADMIN->value, UserRole::CASE_MANAGER->value], true)) {
             $query->whereRaw('1 = 0');
         }
 
-        // Safety cap — prevents memory exhaustion on unbounded exports.
-        // The DataExportService should eventually support streaming for larger sets.
-        $query->limit(10000);
+        return $query;
+    }
 
-        return $query->get()->map(function ($row) {
+    public function getReferralsExport(?User $user = null, array $filters = []): Collection
+    {
+        return $this->referralsExportQuery($user, $filters)->limit(10000)->get()->map(function ($row) {
             $row = (object) $row;
 
             $row->issue_concern = EncryptedString::decrypt($row->issue_concern);
-            $row->override_reason = EncryptedString::decrypt($row->override_reason);
-
-            $row->client_date_of_birth = EncryptedString::decrypt($row->client_date_of_birth ?? null);
             $row->client_contact_number = EncryptedString::decrypt($row->client_contact_number ?? null);
-            $row->client_email = EncryptedString::decrypt($row->client_email ?? null);
-            $row->nok_contact_number = EncryptedString::decrypt($row->nok_contact_number ?? null);
-            $row->nok_email = EncryptedString::decrypt($row->nok_email ?? null);
-            // Address street is encrypted
-            $row->street = EncryptedString::decrypt($row->street ?? null);
-            // Employment subquery fields
             if (isset($row->employment_country)) {
                 $row->employment_country = EncryptedString::decrypt($row->employment_country);
             }
-            if (isset($row->work_position)) {
-                $row->work_position = EncryptedString::decrypt($row->work_position);
+            if (isset($row->vulnerability)) {
+                $row->vulnerability = $row->client_type === 'NEXT_OF_KIN'
+                    ? ($row->nok_vulnerability ?: $row->vulnerability)
+                    : ($row->vulnerability ?: $row->nok_vulnerability);
+                unset($row->nok_vulnerability);
             }
 
             // --- Client Full Name: "Last, First Middle" ---
@@ -204,29 +188,10 @@ class ReferralQueries
             $middleInitial = $row->client_middle_name ?? '';
             $row->client_full_name = trim($lastName.($firstName ? ', '.$firstName : '').($middleInitial ? ' '.$middleInitial : ''));
 
-            // --- Client Age ---
-            $row->client_age = '';
-            if (! empty($row->client_date_of_birth)) {
-                try {
-                    $dob = new \DateTimeImmutable($row->client_date_of_birth);
-                    $row->client_age = (string) (int) CarbonImmutable::parse($dob)->diffInYears(CarbonImmutable::parse($row->intake_date), true);
-                } catch (\Exception) {
-                    $row->client_age = '';
-                }
-            }
-
             // --- Client Type display label ---
-            $row->client_type = $row->client_type === 'NEXT_OF_KIN' ? 'Next of Kin' : 'OFW';
-
-            // --- Client Full Address ---
-            $addressResolver = app(PhilippineAddressService::class);
-            $row->client_full_address = $addressResolver->format(
-                $row->street ?? null,
-                $row->barangay ?? null,
-                $row->municipality ?? null,
-                $row->province ?? null,
-                $row->region ?? null,
-            );
+            if (isset($row->client_type)) {
+                $row->client_type = $row->client_type === 'NEXT_OF_KIN' ? 'Next of Kin' : 'OFW';
+            }
 
             // --- Date Referred display ---
             $row->date_referred = $row->date_referred instanceof \DateTimeInterface
@@ -279,13 +244,7 @@ class ReferralQueries
                 $row->client_first_name,
                 $row->client_last_name,
                 $row->client_middle_name,
-                $row->street,
             );
-
-            $row->barangay = $addressResolver->resolve($row->barangay ?? null);
-            $row->municipality = $addressResolver->resolve($row->municipality ?? null);
-            $row->province = $addressResolver->resolve($row->province ?? null);
-            $row->region = $addressResolver->resolve($row->region ?? null);
 
             return $row;
         });
@@ -293,6 +252,6 @@ class ReferralQueries
 
     public function countReferralsExport(?User $user = null, array $filters = []): int
     {
-        return (int) $this->getReferralsExport($user, $filters)->count();
+        return (int) $this->referralsExportQuery($user, $filters)->count();
     }
 }

@@ -438,6 +438,8 @@ class CaseController extends Controller
         $queries = $this->exportQueries;
         $exportService = $this->exportService;
 
+        abort_if($queries->countCasesExport($user, $filters) > 10000, 422, 'More than 10,000 cases match. Narrow filters before exporting.');
+
         $data = $queries->getCasesExport($user, $filters);
 
         $now = now()->format('Y-m-d H:i:s');
@@ -641,7 +643,8 @@ class CaseController extends Controller
             ['key' => 'tracker_number', 'label' => 'Case Tracking ID', 'type' => 'string'],
             ['key' => 'ofw_full_name', 'label' => 'OFW Full Name', 'type' => 'string'],
             ['key' => 'ofw_sex', 'label' => 'OFW Sex/Gender', 'type' => 'string'],
-            ['key' => 'ofw_date_of_birth', 'label' => 'OFW Date of Birth', 'type' => 'date'],
+            ['key' => 'intake_date', 'label' => 'Intake Date', 'type' => 'date'],
+            ['key' => 'client_type', 'label' => 'Intake Type', 'type' => 'string'],
             ['key' => 'ofw_contact_number', 'label' => 'OFW Contact No.', 'type' => 'string'],
             ['key' => 'ofw_email', 'label' => 'OFW Email Address', 'type' => 'string'],
             ['key' => 'ofw_age', 'label' => 'OFW Age', 'type' => 'string'],
@@ -650,16 +653,15 @@ class CaseController extends Controller
             ['key' => 'province', 'label' => 'Province', 'type' => 'string'],
             ['key' => 'region', 'label' => 'Region', 'type' => 'string'],
             ['key' => 'vulnerability', 'label' => 'Vulnerability', 'type' => 'string'],
+            ['key' => 'employment_status', 'label' => 'Employment Status', 'type' => 'string'],
             ['key' => 'date_of_arrival', 'label' => 'Date of Arrival in PH', 'type' => 'date'],
             ['key' => 'employment_country', 'label' => 'Jobsite Country', 'type' => 'string'],
             ['key' => 'work_position', 'label' => 'Work Occupation', 'type' => 'string'],
-            ['key' => 'issue_concern', 'label' => 'Issues/Concern', 'type' => 'string'],
             ['key' => 'categories', 'label' => 'Categories', 'type' => 'string'],
             ['key' => 'case_summary', 'label' => 'Case Summary', 'type' => 'string'],
             ['key' => 'receiving_parties', 'label' => 'Receiving Party/s', 'type' => 'string'],
             ['key' => 'nok_full_name', 'label' => 'NOK Full Name', 'type' => 'string'],
-            ['key' => 'nok_contact_number', 'label' => 'NOK Contact No.', 'type' => 'string'],
-            ['key' => 'nok_email', 'label' => 'NOK Email', 'type' => 'string'],
+            ['key' => 'nok_relationship', 'label' => 'NOK Relationship', 'type' => 'string'],
             ['key' => 'exported_at', 'label' => 'Exported At', 'type' => 'string'],
         ];
     }

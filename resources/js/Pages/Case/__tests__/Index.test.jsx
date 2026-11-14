@@ -24,7 +24,7 @@ vi.mock('@inertiajs/react', () => ({
 }));
 
 vi.mock('@/Layouts/AppLayout', () => ({ default: ({ children }) => <main>{children}</main> }));
-vi.mock('@/Components/ExportDialog', () => ({ default: () => null }));
+vi.mock('@/Components/ExportDialog', () => ({ default: ({ countUrlBuilder }) => <output data-testid="case-export-count-url">{countUrlBuilder('2026-01-01', '2026-01-31')}</output> }));
 vi.mock('@/Components/ExportExcelButton', () => ({ default: () => null }));
 vi.mock('@/Components/ui/RowContextMenu', () => ({
   RowContextMenu: ({ children }) => <div>{children}</div>,
@@ -63,6 +63,13 @@ function renderIndex(props = {}) {
     />,
   );
 }
+
+it('includes selected case categories in export count query', () => {
+  renderIndex({ filters: { category_ids: ['cat-a', 'cat-b'], status: ['ARCHIVED'] } });
+  const url = new URL(screen.getByTestId('case-export-count-url').textContent, 'http://localhost');
+  expect(url.searchParams.getAll('category_ids[]')).toEqual(['cat-a', 'cat-b']);
+  expect(url.searchParams.getAll('status[]')).toEqual(['ARCHIVED']);
+});
 
 function lastVisitOptions() {
   return routerGet.mock.calls[routerGet.mock.calls.length - 1][2];

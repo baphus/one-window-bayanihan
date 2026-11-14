@@ -139,6 +139,8 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
     appendList('vulnerability_indicator', filters.vulnerability_indicator);
     appendList('user_id', filters.user_id);
     appendList('agcy_id', filters.agcy_id);
+    if (toFilterList(filters.category_ids).length) appendList('category_ids', filters.category_ids);
+    else appendList('category_id', filters.category_id);
     if (filters.age_min_days) params.set('age_min_days', filters.age_min_days);
     if (filters.referral_state) params.set('referral_state', filters.referral_state);
     if (dateFrom) params.set('date_from', dateFrom);
