@@ -62,6 +62,14 @@ class ReferralClientRequestHistoryTest extends TestCase
                 ->where('caseIdentity.first_name', 'Alicia')
                 ->where('caseIdentity.email', 'alicia@example.test')
                 ->where('caseIdentity.id', $case->id)
+                ->where('caseIdentity.date_of_birth', '1975-04-03')
+                ->where('caseIdentity.address', [
+                    'region' => 'Central Visayas',
+                    'province' => null,
+                    'city_municipality' => 'Cebu City',
+                    'barangay' => 'Lahug',
+                    'street' => '123 Example Street',
+                ])
                 ->missing('referral.case_file.client')
                 ->missing('referral.case_file.client_id')
                 ->missing('referral.case_file.client.email')
@@ -70,7 +78,6 @@ class ReferralClientRequestHistoryTest extends TestCase
                 ->missing('caseIdentity.client_id')
                 ->missing('referral.case_file.consent_evidence')
                 ->missing('referral.case_file.password')
-                ->missing('caseIdentity.date_of_birth')
                 ->missing('caseIdentity.password')
                 ->where('clientRequestPermissions', [
                     'canCreate' => true,
