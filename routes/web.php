@@ -17,6 +17,7 @@ use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\CaseController;
 use App\Http\Controllers\CaseDocumentController;
 use App\Http\Controllers\ChatbotController;
+use App\Http\Controllers\ClientDirectoryController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\HelpdeskArticleFeedbackController;
@@ -150,6 +151,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Role-gated: CASE_MANAGER + ADMIN only
     Route::middleware('role:CASE_MANAGER,ADMIN')->group(function () {
+        Route::get('/clients', [ClientDirectoryController::class, 'index'])->name('clients.index');
+        Route::get('/clients/{kind}/{id}', [ClientDirectoryController::class, 'show'])->name('clients.show')->whereIn('kind', ['account', 'case'])->whereUuid('id');
+
         Route::get('/cases', [CaseController::class, 'index'])->name('cases.index');
         Route::get('/cases/ofw-lookup', [CaseController::class, 'lookupOfw'])->name('cases.ofw-lookup');
         Route::get('/cases/review-pending', [CaseController::class, 'reviewPending'])->name('cases.review-pending');

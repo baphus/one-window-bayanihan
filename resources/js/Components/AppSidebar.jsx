@@ -16,6 +16,7 @@ export const navByRole = {
     ]},
     { label: 'Management', items: [
       { name: 'Cases', href: '/cases', route: 'cases.index', icon: 'folder' },
+      { name: 'Clients', href: '/clients', route: 'clients.index', icon: 'people' },
       { name: 'Pending Reviews', href: '/cases/review-pending', route: 'cases.review-pending', icon: 'pending_actions', badge: 'pendingReviewCount' },
       { name: 'Case Trash', href: '/cases/trash', route: 'cases.trash', icon: 'delete_outline' },
       { name: 'Referrals', href: '/referrals', route: 'referrals.index', icon: 'send' },
@@ -67,6 +68,7 @@ export const navByRole = {
     ]},
     { label: 'Case Operations', items: [
       { name: 'Cases', href: '/cases', route: 'cases.index', icon: 'folder' },
+      { name: 'Clients', href: '/clients', route: 'clients.index', icon: 'people' },
       { name: 'Pending Reviews', href: '/cases/review-pending', route: 'cases.review-pending', icon: 'pending_actions', badge: 'pendingReviewCount' },
       { name: 'Case Trash', href: '/cases/trash', route: 'cases.trash', icon: 'delete_outline' },
       { name: 'Referrals', href: '/referrals', route: 'referrals.index', icon: 'send' },
@@ -198,6 +200,7 @@ export default function AppSidebar() {
     if (href === '/dashboard') return url === '/dashboard';
     if (href === '/cases') return url.startsWith('/cases') && !url.startsWith('/cases/trash') && !url.startsWith('/cases/review-pending');
     if (href === '/cases/review-pending') return url.startsWith('/cases/review-pending');
+    if (href === '/clients') return url.startsWith('/clients');
     return url.startsWith(href);
   };
 

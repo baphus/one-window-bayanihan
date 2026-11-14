@@ -52,7 +52,7 @@ class CaseIndexAndPurgeLowsTest extends TestCase
 
     public function test_retired_client_and_case_issue_routes_are_absent(): void
     {
-        foreach (['clients.index', 'clients.export-excel', 'clients.export-count', 'clients.show', 'clients.avatar.store', 'clients.avatar.destroy', 'api.clients.index', 'api.clients.email-check', 'api.clients.show', 'api.my-linked-ofws', 'case-issues.quick', 'admin.case-issues.index', 'admin.case-issues.store', 'admin.case-issues.update', 'admin.case-issues.destroy', 'admin.case-issues.reactivate'] as $route) {
+        foreach (['clients.export-excel', 'clients.export-count', 'clients.avatar.store', 'clients.avatar.destroy', 'api.clients.index', 'api.clients.email-check', 'api.clients.show', 'api.my-linked-ofws', 'case-issues.quick', 'admin.case-issues.index', 'admin.case-issues.store', 'admin.case-issues.update', 'admin.case-issues.destroy', 'admin.case-issues.reactivate'] as $route) {
             $this->assertFalse(Route::has($route), $route.' remains registered.');
         }
     }
