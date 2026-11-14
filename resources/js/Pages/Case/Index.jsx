@@ -13,6 +13,8 @@ import { formatDisplayDate, formatDisplayTime } from '@/lib/utils';
 import { RowContextMenu, RowContextMenuItem } from '@/Components/ui/RowContextMenu';
 import ExportDialog from '@/Components/ExportDialog';
 import ExportExcelButton from '@/Components/ExportExcelButton';
+import { downloadExport } from '@/lib/downloadExport';
+import { useToast } from '@/Hooks/useToast';
 import usePersistedColumns from '@/Hooks/usePersistedColumns';
 import { usePersistedViewMode, usePersistedFilters } from '@/Hooks/usePersistedViewState';
 import useTableVisitLoading from '@/Hooks/useTableVisitLoading';
@@ -98,6 +100,7 @@ const COLUMN_DEFS = [
 
 export default function CaseIndex({ cases, filters: rawFilters, stats, users = [], agencies = [] }) {
   const { auth, roles } = usePage().props;
+  const toast = useToast();
   const canCreate = auth.user.role === roles.CASE_MANAGER || auth.user.role === roles.ADMIN;
   const filters = rawFilters && !Array.isArray(rawFilters) ? rawFilters : {};
 
@@ -153,8 +156,8 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
     const url = route('cases.export-excel') + (qs ? '?' + qs : '');
 
     setExportDialogOpen(false);
-    window.location.href = url;
-  }, [buildExportQuery]);
+    downloadExport(url).catch((error) => toast.error(error.message));
+  }, [buildExportQuery, toast]);
 
   const countUrlBuilder = useCallback((dateFrom, dateTo) => {
     const qs = buildExportQuery({ dateFrom, dateTo });

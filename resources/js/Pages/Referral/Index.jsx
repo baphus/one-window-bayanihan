@@ -10,6 +10,8 @@ import { formatResolvedAddress } from '@/lib/addressResolver';
 import { ArrowRightLeft, Clock, Loader, ClipboardCheck, CheckCircle2, XCircle } from 'lucide-react';
 import KpiCard from '@/Components/ui/KpiCard';
 import ExportDialog from '@/Components/ExportDialog';
+import { downloadExport } from '@/lib/downloadExport';
+import { useToast } from '@/Hooks/useToast';
 import ExportExcelButton from '@/Components/ExportExcelButton';
 import InputError from '@/Components/InputError';
 import usePersistedColumns from '@/Hooks/usePersistedColumns';
@@ -57,6 +59,7 @@ const REJECTION_REASONS = [
 
 export default function ReferralIndex({ referrals, filters: rawFilters, stats, agencies = [], categories = [], statuses = [] }) {
     const { auth, roles, errors } = usePage().props;
+    const toast = useToast();
     const isAgency = auth.user.role === roles.AGENCY;
     const canCreate = auth.user.role === roles.CASE_MANAGER || auth.user.role === roles.ADMIN;
     const filters = rawFilters && !Array.isArray(rawFilters) ? rawFilters : {};
@@ -111,8 +114,8 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
         const url = route('referrals.export-excel') + (qs ? '?' + qs : '');
 
         setExportDialogOpen(false);
-        window.location.href = url;
-    }, [buildExportQuery]);
+        downloadExport(url).catch((error) => toast.error(error.message));
+    }, [buildExportQuery, toast]);
 
     const countUrlBuilder = useCallback((dateFrom, dateTo) => {
         const qs = buildExportQuery({ dateFrom, dateTo });

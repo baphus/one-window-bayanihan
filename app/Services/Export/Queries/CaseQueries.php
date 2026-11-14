@@ -100,7 +100,16 @@ class CaseQueries
                 'c.nok_name AS nok_full_name',
                 'c.nok_relationship AS nok_relationship',
                 'c.employment_status AS employment_status',
+                'c.civil_status',
+                'c.civil_status_other',
+                'c.deployment_mode',
+                'c.return_reason',
+                'c.proposed_assessments',
+                'c.proposed_assessment_other',
+                'creator.name AS creator_name',
+                'creator.role AS creator_role',
             ])
+            ->leftJoin('users AS creator', 'creator.id', '=', 'c.user_id')
             ->where('c.is_deleted', false)->whereNull('c.deleted_at')
             ->whereNotIn('c.status', [CaseFile::STATUS_PENDING_REVIEW])
             ->orderBy('c.created_at', 'desc');
@@ -230,6 +239,34 @@ class CaseQueries
             if (isset($row->work_position)) {
                 $row->work_position = EncryptedString::decrypt($row->work_position);
             }
+
+            $civilLabels = ['SINGLE' => 'Single', 'MARRIED' => 'Married', 'WIDOWED' => 'Widowed', 'SEPARATED' => 'Separated', 'ANNULLED' => 'Annulled', 'OTHER' => 'Other'];
+            $deploymentLabels = ['AGENCY_HIRED' => 'Agency hired', 'DIRECT_HIRED' => 'Direct hired', 'TOURIST_VISIT' => 'Tourist / visit', 'BUSINESS' => 'Business', 'INVITATION' => 'Invitation'];
+            $employmentLabels = ['ON_SITE' => 'On-site / currently abroad', 'FOR_DEPLOYMENT' => 'For deployment (pre-departure)', 'RETURNED' => 'Returned (reintegration)'];
+            $reasonLabels = ['DISTRESSED_WORKER' => 'Distressed worker', 'TERMINATION' => 'Termination', 'OTHERS' => 'Others'];
+            $assessmentLabels = ['DISTRESSED_OFW' => 'Distressed OFW', 'MEDICALLY_REPATRIATED' => 'Medically repatriated', 'BURIAL_ASSISTANCE_CONCERN' => 'Burial assistance concern', 'POSSIBLE_LOCAL_EMPLOYMENT' => 'Possible local employment', 'PSYCHOSOCIAL_MEDICAL_INTERVENTION' => 'Psychosocial / medical intervention', 'SKILLS_ENHANCEMENT_TRAINING' => 'Skills enhancement training', 'LEGAL_ASSISTANCE' => 'Legal assistance', 'OTHER' => 'Other'];
+            $row->civil_status = $civilLabels[$row->civil_status ?? ''] ?? '';
+            if ($row->civil_status === 'Other') {
+                $detail = EncryptedString::decrypt($row->civil_status_other ?? null);
+                $row->civil_status .= $detail ? ' ('.$detail.')' : '';
+            }
+            $row->deployment_mode = $deploymentLabels[$row->deployment_mode ?? ''] ?? '';
+            $row->employment_status = $employmentLabels[$row->employment_status ?? ''] ?? '';
+            $row->return_reason = $reasonLabels[$row->return_reason ?? ''] ?? '';
+            $assessments = json_decode($row->proposed_assessments ?? '[]', true) ?: [];
+            $row->proposed_assessments = implode(', ', array_map(function ($code) use ($assessmentLabels, $row) {
+                $label = $assessmentLabels[$code] ?? $code;
+                if ($code === 'OTHER') {
+                    $detail = EncryptedString::decrypt($row->proposed_assessment_other ?? null);
+                    $label .= $detail ? ' ('.$detail.')' : '';
+                }
+
+                return $label;
+            }, $assessments));
+            $row->opened_by = $row->creator_name
+                ? $row->creator_name.' ('.(UserRole::tryFrom($row->creator_role ?? '')?->label() ?? $row->creator_role).')'
+                : 'Account unavailable';
+            unset($row->civil_status_other, $row->proposed_assessment_other, $row->creator_name, $row->creator_role);
 
             // --- OFW Full Name: "Last, First Middle" ---
             $firstName = $row->client_first_name ?? '';
