@@ -15,8 +15,11 @@ class EnsurePendingRegistration
         $credentials = is_array($pending) ? ($pending['credentials'] ?? null) : null;
         if (! is_array($credentials) || ! is_string($credentials['email'] ?? null) || $credentials['email'] === ''
             || ! is_string($credentials['password'] ?? null) || $credentials['password'] === ''
-            || array_diff(array_keys($pending), ['credentials'])
-            || array_diff(array_keys($credentials), ['email', 'password'])) {
+            || array_diff(array_keys($pending), ['credentials', 'photo_key'])
+            || (isset($pending['photo_key']) && (! is_string($pending['photo_key']) || ! str_starts_with($pending['photo_key'], 'registration-photo:')))
+            || array_diff(array_keys($credentials), [
+                'email', 'password', 'first_name', 'middle_name', 'last_name', 'suffix', 'date_of_birth', 'sex',
+            ])) {
             $request->session()->forget('pending_registration');
 
             return redirect()->route('register');

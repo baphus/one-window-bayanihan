@@ -27,6 +27,21 @@ class OfwProfileTest extends TestCase
         return User::factory()->create(['role' => UserRole::OFW->value, 'profile_completed_at' => null]);
     }
 
+    public function test_incomplete_identity_blocks_new_intake_but_not_dashboard_or_profile(): void
+    {
+        $user = $this->ofw();
+        $this->actingAsWithMfa($user)->get(route('ofw.intake'))->assertRedirect(route('ofw.profile.edit'));
+        $this->get(route('ofw.dashboard'))->assertOk();
+        $this->get(route('ofw.profile.edit'))->assertOk();
+
+        $this->put(route('ofw.profile.update'), [
+            'first_name' => 'Maria', 'last_name' => 'Cruz',
+            'date_of_birth' => '1990-01-01', 'sex' => 'FEMALE',
+        ])->assertSessionHasNoErrors();
+        $this->get(route('ofw.intake'))->assertOk();
+        $this->assertNull($user->fresh()->avatar_url);
+    }
+
     public function test_settings_expose_account_without_client_profile(): void
     {
         $user = $this->ofw();

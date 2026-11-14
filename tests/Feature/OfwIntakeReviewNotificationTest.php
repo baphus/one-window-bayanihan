@@ -17,6 +17,15 @@ class OfwIntakeReviewNotificationTest extends TestCase
 {
     use RefreshDatabase;
 
+    private function ofw(): User
+    {
+        return User::factory()->create([
+            'role' => UserRole::OFW->value,
+            'date_of_birth' => '1990-06-15',
+            'sex' => 'MALE',
+        ]);
+    }
+
     private function payload(): array
     {
         return [
@@ -49,7 +58,7 @@ class OfwIntakeReviewNotificationTest extends TestCase
     {
         Storage::fake('object-storage');
         Mail::fake();
-        $ofw = User::factory()->create(['role' => UserRole::OFW->value]);
+        $ofw = $this->ofw();
         User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $inactiveManager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value, 'is_active' => false]);
         $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
@@ -85,7 +94,7 @@ class OfwIntakeReviewNotificationTest extends TestCase
     public function test_invalid_intake_does_not_send_review_email(): void
     {
         Mail::fake();
-        $ofw = User::factory()->create(['role' => UserRole::OFW->value]);
+        $ofw = $this->ofw();
         $payload = $this->payload();
         $payload['summary'] = '';
 
@@ -96,7 +105,7 @@ class OfwIntakeReviewNotificationTest extends TestCase
     public function test_intake_rejects_an_empty_vulnerability_status_without_sending_mail(): void
     {
         Mail::fake();
-        $ofw = User::factory()->create(['role' => UserRole::OFW->value]);
+        $ofw = $this->ofw();
         $payload = $this->payload();
         $payload['vulnerability_indicator'] = '';
 
@@ -110,7 +119,7 @@ class OfwIntakeReviewNotificationTest extends TestCase
     {
         Storage::fake('object-storage');
         Mail::fake();
-        $ofw = User::factory()->create(['role' => UserRole::OFW->value]);
+        $ofw = $this->ofw();
 
         $this->actingAsWithMfa($ofw)->post(route('ofw.intake.store'), $this->payload())
             ->assertRedirect(route('ofw.dashboard'));

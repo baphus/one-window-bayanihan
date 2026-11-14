@@ -35,7 +35,7 @@ class OfwRegistrationTest extends TestCase
             'password_confirmation' => 'StrongPass123',
             'first_name' => 'Juan',
             'type' => 'NEXT_OF_KIN',
-        ])->assertSessionHasErrors(['first_name', 'type']);
+        ])->assertSessionHasErrors(['last_name', 'date_of_birth', 'sex', 'type']);
         $this->assertNull(session('pending_registration'));
         $this->assertDatabaseMissing('users', ['email' => 'ofw@example.test']);
     }

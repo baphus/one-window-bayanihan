@@ -40,7 +40,10 @@ class CaseIndexAndPurgeLowsTest extends TestCase
 
     public function test_ofw_intake_sends_no_profile_or_classification_props(): void
     {
-        $ofw = User::factory()->create(['role' => UserRole::OFW->value]);
+        $ofw = User::factory()->create([
+            'role' => UserRole::OFW->value, 'first_name' => 'Maria', 'last_name' => 'Cruz',
+            'date_of_birth' => '1990-01-01', 'sex' => 'FEMALE',
+        ]);
         $this->withoutMiddleware(HandleInertiaRequests::class);
         $this->withoutMiddleware(SetPostgresSession::class);
         $props = $this->actingAsWithMfa($ofw)->get(route('ofw.intake'))->assertOk()->viewData('page')['props'];
