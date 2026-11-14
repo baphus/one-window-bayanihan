@@ -129,6 +129,10 @@ class CaseController extends Controller
 
     public function create(Request $request)
     {
+        if ($request->user()->isOfw() && ! $request->user()->hasCompleteOfwIdentity()) {
+            return redirect()->route('ofw.profile.edit')->with('warning', 'Complete your name, birth date and sex before filing a case.');
+        }
+
         return Inertia::render('Case/Create', $this->intakeProps());
     }
 
@@ -149,6 +153,10 @@ class CaseController extends Controller
 
     public function store(StoreCaseRequest $request)
     {
+        if ($request->user()->isOfw() && ! $request->user()->hasCompleteOfwIdentity()) {
+            return redirect()->route('ofw.profile.edit')->with('warning', 'Complete your name, birth date and sex before filing a case.');
+        }
+
         $validated = $request->validated();
 
         $case = $this->caseService->createCase(
@@ -164,13 +172,20 @@ class CaseController extends Controller
             ->with('success', 'Case created successfully.');
     }
 
-    public function intake()
+    public function intake(Request $request)
     {
+        if (! $request->user()->hasCompleteOfwIdentity()) {
+            return redirect()->route('ofw.profile.edit')->with('warning', 'Complete your name, birth date and sex before filing a case.');
+        }
+
         return Inertia::render('OFW/Intake', $this->intakeProps());
     }
 
     public function storeIntake(StoreIntakeRequest $request)
     {
+        if (! $request->user()->hasCompleteOfwIdentity()) {
+            return redirect()->route('ofw.profile.edit')->with('warning', 'Complete your name, birth date and sex before filing a case.');
+        }
         $validated = $request->validated();
 
         $user = $request->user();

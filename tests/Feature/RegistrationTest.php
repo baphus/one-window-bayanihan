@@ -5,8 +5,10 @@ namespace Tests\Feature;
 use App\Enums\UserRole;
 use App\Mail\OtpMail;
 use App\Models\User;
+use App\Services\CloudinaryAvatarService;
 use App\Services\OtpService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
@@ -24,14 +26,17 @@ class RegistrationTest extends TestCase
 
     private function credentials(): array
     {
-        return ['email' => 'ofw@example.test', 'password' => 'Str0ngPass!123', 'password_confirmation' => 'Str0ngPass!123'];
+        return [
+            'email' => 'ofw@example.test', 'password' => 'Str0ngPass!123', 'password_confirmation' => 'Str0ngPass!123',
+            'first_name' => 'Maria', 'last_name' => 'Cruz', 'date_of_birth' => '1990-01-01', 'sex' => 'FEMALE',
+        ];
     }
 
     public function test_credentials_are_pending_and_password_is_hashed_until_otp_success(): void
     {
         $this->post(route('register.store'), $this->credentials())->assertRedirect(route('register.review'));
         $this->assertSame(['credentials'], array_keys(session('pending_registration')));
-        $this->assertSame(['email', 'password'], array_keys(session('pending_registration.credentials')));
+        $this->assertSame(['email', 'password', 'first_name', 'last_name', 'date_of_birth', 'sex'], array_keys(session('pending_registration.credentials')));
         $this->assertTrue(Hash::check('Str0ngPass!123', session('pending_registration.credentials.password')));
         $this->assertDatabaseMissing('users', ['email' => 'ofw@example.test']);
         $this->assertGuest();
@@ -42,7 +47,7 @@ class RegistrationTest extends TestCase
     {
         $this->post(route('register.store'), $this->credentials());
         $this->get(route('register.review'))->assertInertia(fn ($page) => $page
-            ->component('Auth/RegisterReview')->where('pending', ['email' => 'ofw@example.test'])->missing('pendingName'));
+            ->component('Auth/RegisterReview')->where('pending', ['email' => 'ofw@example.test', 'has_photo' => false])->missing('pendingName'));
     }
 
     public function test_verified_registration_creates_only_an_account_and_consumes_code(): void
@@ -52,11 +57,58 @@ class RegistrationTest extends TestCase
         $this->post(route('register.review.store'), ['otp' => $code])->assertRedirect(route('ofw.intake'));
         $user = User::where('email', 'ofw@example.test')->firstOrFail();
         $this->assertSame(UserRole::OFW->value, $user->role);
-        $this->assertSame('OFW', $user->name);
+        $this->assertSame('Maria Cruz', $user->name);
         $this->assertNotNull($user->email_verified_at);
         $this->assertNull($user->profile_completed_at);
         $this->assertAuthenticatedAs($user);
         $this->assertNull(session('pending_registration'));
+        $this->assertFalse(app(OtpService::class)->verify('ofw@example.test', 'register', $code));
+    }
+
+    public function test_optional_photo_is_staged_until_otp_and_promoted_to_account_avatar(): void
+    {
+        $this->post(route('register.store'), $this->credentials() + [
+            'profile_picture' => UploadedFile::fake()->image('face.jpg', 100, 100),
+        ])->assertRedirect(route('register.review'));
+        $key = session('pending_registration.photo_key');
+        $this->assertStringStartsWith('registration-photo:', $key);
+        $this->assertTrue(Cache::has($key));
+        $this->get(route('register.review'))->assertInertia(fn ($page) => $page->where('pending.has_photo', true));
+        $this->assertDatabaseMissing('users', ['email' => 'ofw@example.test']);
+
+        $code = app(OtpService::class)->generate('ofw@example.test', 'register');
+        $this->post(route('register.review.store'), ['otp' => $code])->assertRedirect(route('ofw.intake'));
+        $this->assertStringContainsString('/avatars/user-', User::where('email', 'ofw@example.test')->sole()->avatar_url);
+        $this->assertFalse(Cache::has($key));
+    }
+
+    public function test_invalid_photo_rejected_before_pending_registration(): void
+    {
+        $this->post(route('register.store'), $this->credentials() + [
+            'profile_picture' => UploadedFile::fake()->create('face.txt', 10, 'text/plain'),
+        ])->assertSessionHasErrors('profile_picture');
+        $this->assertNull(session('pending_registration'));
+    }
+
+    public function test_photo_upload_failure_leaves_no_account_and_consumes_code(): void
+    {
+        $this->post(route('register.store'), $this->credentials() + [
+            'profile_picture' => UploadedFile::fake()->image('face.png', 100, 100),
+        ])->assertRedirect(route('register.review'));
+        $this->app->bind(CloudinaryAvatarService::class, fn () => new class extends CloudinaryAvatarService
+        {
+            public function __construct() {}
+
+            public function validateImageFile(UploadedFile $file): void {}
+
+            public function uploadImage(UploadedFile $file, string $folder, string $publicId): string
+            {
+                throw new \RuntimeException('Provider secret must not be shown');
+            }
+        });
+        $code = app(OtpService::class)->generate('ofw@example.test', 'register');
+        $this->post(route('register.review.store'), ['otp' => $code])->assertSessionHasErrors('registration');
+        $this->assertDatabaseMissing('users', ['email' => 'ofw@example.test']);
         $this->assertFalse(app(OtpService::class)->verify('ofw@example.test', 'register', $code));
     }
 

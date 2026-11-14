@@ -16,6 +16,14 @@ class CaseIntakeHttpTest extends TestCase
 {
     use RefreshDatabase;
 
+    private function ofw(array $attributes = []): User
+    {
+        return User::factory()->create(array_merge([
+            'role' => UserRole::OFW->value, 'first_name' => 'Account', 'last_name' => 'Owner',
+            'date_of_birth' => '1990-06-15', 'sex' => 'MALE',
+        ], $attributes));
+    }
+
     private function payload(): array
     {
         return [
@@ -35,7 +43,7 @@ class CaseIntakeHttpTest extends TestCase
     public function test_ofw_case_detail_includes_current_intake_answers_and_only_live_case_documents(): void
     {
         Storage::fake('object-storage');
-        $owner = User::factory()->create(['role' => UserRole::OFW->value]);
+        $owner = $this->ofw([]);
         $otherOwner = User::factory()->create(['role' => UserRole::OFW->value]);
         $case = CaseFile::factory()->withIntake()->create([
             'ofw_user_id' => $owner->id,
@@ -105,7 +113,7 @@ class CaseIntakeHttpTest extends TestCase
     public function test_public_submission_succeeds_with_server_date_and_no_client_profile(): void
     {
         Storage::fake('object-storage');
-        $owner = User::factory()->create(['role' => UserRole::OFW->value, 'profile_completed_at' => null]);
+        $owner = $this->ofw(['profile_completed_at' => null]);
         $data = $this->payload();
         $response = $this->actingAsWithMfa($owner)->post(route('ofw.intake.store'), $data);
         $this->assertNotSame(url('/'), $response->headers->get('Location'), $response->getContent());
@@ -120,7 +128,7 @@ class CaseIntakeHttpTest extends TestCase
     public function test_ofw_can_submit_through_the_staff_store_route(): void
     {
         Storage::fake('object-storage');
-        $owner = User::factory()->create(['role' => UserRole::OFW->value]);
+        $owner = $this->ofw([]);
 
         $this->actingAsWithMfa($owner)->post(route('cases.store'), $this->payload())->assertRedirect();
         $this->assertTrue(CaseFile::where('ofw_user_id', $owner->id)->exists());
@@ -129,7 +137,7 @@ class CaseIntakeHttpTest extends TestCase
     public function test_public_email_is_stamped_from_verified_account_and_keeps_historical_snapshot(): void
     {
         Storage::fake('object-storage');
-        $owner = User::factory()->create(['role' => UserRole::OFW->value, 'email' => 'account@example.test']);
+        $owner = $this->ofw(['email' => 'account@example.test']);
         $data = $this->payload();
         $data['email'] = 'forged@example.test';
 
@@ -144,14 +152,14 @@ class CaseIntakeHttpTest extends TestCase
 
     public function test_unverified_account_cannot_submit_public_intake(): void
     {
-        $owner = User::factory()->create(['role' => UserRole::OFW->value, 'email_verified_at' => null]);
+        $owner = $this->ofw(['email_verified_at' => null]);
         $this->actingAsWithMfa($owner)->post(route('ofw.intake.store'), $this->payload())->assertRedirect(route('verification.notice'));
         $this->assertSame(0, CaseFile::count());
     }
 
     public function test_public_submission_rejects_nok_and_provenance_fields(): void
     {
-        $owner = User::factory()->create(['role' => UserRole::OFW->value]);
+        $owner = $this->ofw([]);
         foreach ([
             ['client_type' => 'NEXT_OF_KIN', 'nok_name' => 'Relative'],
             ['ofw_user_id' => User::factory()->create()->id],
@@ -167,7 +175,7 @@ class CaseIntakeHttpTest extends TestCase
 
     public function test_public_submission_without_consent_or_required_documents_fails(): void
     {
-        $owner = User::factory()->create(['role' => UserRole::OFW->value]);
+        $owner = $this->ofw([]);
         $data = $this->payload();
         unset($data['consent']);
         $this->actingAsWithMfa($owner)->post(route('ofw.intake.store'), $data)->assertSessionHasErrors('consent');

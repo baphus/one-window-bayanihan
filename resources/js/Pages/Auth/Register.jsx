@@ -4,6 +4,7 @@ import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import AppFooter from '@/Components/landing/AppFooter';
 import AppHeader from '@/Components/landing/AppHeader';
 import PasswordInput from '@/Components/PasswordInput';
+import IdentityFields, { emptyIdentity } from '@/Components/IdentityFields';
 import TurnstileWidget from '@/Components/TurnstileWidget';
 import { makeRegisterSchema } from '@/Schemas/authSchemas';
 import useClientValidation from '@/Hooks/useClientValidation';
@@ -16,9 +17,11 @@ export default function Register({ initial = {} }) {
     const [emailStatus, setEmailStatus] = useState('unknown');
     const credentials = initial.credentials ?? {};
     const { data, setData, post, processing, errors } = useForm({
+        ...emptyIdentity(credentials),
         email: credentials.email ?? '',
         password: '',
         password_confirmation: '',
+        profile_picture: null,
         cf_turnstile_response: '',
     });
     const schema = useMemo(() => makeRegisterSchema(passwordRules), [passwordRules]);
@@ -44,6 +47,7 @@ export default function Register({ initial = {} }) {
         event.preventDefault();
         if (emailStatus === 'taken' || !validate()) return;
         post(route('register.store'), {
+            forceFormData: true,
             onError: () => {},
         });
     }
@@ -63,12 +67,23 @@ export default function Register({ initial = {} }) {
                             <p className="mt-2 text-sm text-slate-600">Use your email and password to get started. We'll ask you to verify your email next.</p>
                         </div>
                         <form onSubmit={submit} className="space-y-5 rounded-lg border border-outline-variant bg-white p-5 sm:p-7">
+                            <section aria-labelledby="registration-identity-heading" className="space-y-3">
+                                <h2 id="registration-identity-heading" className="text-sm font-bold text-slate-900">Your details</h2>
+                                <p className="text-xs text-slate-600">Enter your legal identity details. These will help prefill your case forms.</p>
+                                <IdentityFields data={data} setData={setData} errors={errors} requireDemographics variant="brand" />
+                            </section>
                             <div>
                                 <label htmlFor="register-email" className="mb-2 block text-xs font-bold uppercase tracking-widest text-on-surface-variant">Email address</label>
                                 <input id="register-email" type="email" value={data.email} onChange={(event) => setData('email', event.target.value)} className={inputClass} autoComplete="email" autoFocus required aria-invalid={Boolean(errors.email)} aria-describedby={errors.email ? 'register-email-error' : undefined} />
                                 {errors.email && <p id="register-email-error" className="mt-1 text-xs text-red-600">{errors.email}</p>}
                                 {!errors.email && emailStatus === 'checking' && <p className="mt-1 text-xs text-slate-500" role="status">Checking email availability...</p>}
                                 {emailStatus === 'taken' && <p className="mt-1 text-xs text-red-600" role="alert">This email is already registered. <Link href={route('login')} className="font-semibold underline">Sign in instead</Link>.</p>}
+                            </div>
+                            <div>
+                                <label htmlFor="register-profile-picture" className="mb-2 block text-xs font-bold uppercase tracking-widest text-on-surface-variant">Profile photo <span className="font-normal normal-case tracking-normal">(optional)</span></label>
+                                <input id="register-profile-picture" type="file" accept="image/jpeg,image/png" onChange={(event) => setData('profile_picture', event.target.files?.[0] ?? null)} className="block w-full rounded-md border border-outline-variant bg-surface-container px-3 py-2 text-sm file:mr-3 file:rounded file:border-0 file:bg-primary file:px-3 file:py-2 file:text-sm file:font-semibold file:text-on-primary focus:outline-none focus:ring-2 focus:ring-primary" aria-describedby={errors.profile_picture ? 'register-profile-picture-error' : 'register-profile-picture-help'} />
+                                <p id="register-profile-picture-help" className="mt-1 text-xs text-slate-500">Add a photo to your account now, or skip it and add one later in account settings.</p>
+                                {errors.profile_picture && <p id="register-profile-picture-error" className="mt-1 text-xs text-red-600" role="alert">{errors.profile_picture}</p>}
                             </div>
                             <PasswordInput id="register-password" label="Password" value={data.password} onChange={(value) => setData('password', value)} error={errors.password} autoComplete="new-password" showStrengthMeter rules={passwordRules} confirmation={data.password_confirmation} />
                             <PasswordInput id="register-password-confirm" label="Confirm password" value={data.password_confirmation} onChange={(value) => setData('password_confirmation', value)} error={errors.password_confirmation} autoComplete="new-password" />

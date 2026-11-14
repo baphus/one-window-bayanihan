@@ -162,6 +162,12 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasRole(UserRole::OFW);
     }
 
+    public function hasCompleteOfwIdentity(): bool
+    {
+        return filled($this->first_name) && filled($this->last_name)
+            && $this->date_of_birth !== null && filled($this->sex);
+    }
+
     public function isInMfaEnforcedRole(): bool
     {
         return app(MfaPolicyService::class)->requiresEnrollment($this);
