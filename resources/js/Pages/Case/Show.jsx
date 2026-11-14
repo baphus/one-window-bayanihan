@@ -671,9 +671,9 @@ export default function CaseShow({ case: caseFile, case_categories = [], recomme
               />
               <div className="px-5 pb-5">
                 {/* Filter results count */}
-                {milestoneTimeline && milestoneTimeline.length > 0 && (
+                {timelineEventCount > 0 && (
                   <p className="mb-2 text-[11px] font-medium text-slate-400">
-                    Showing {filteredTimeline.length} of {milestoneTimeline.length} events
+                    Showing {filteredTimeline.length} of {timelineEventCount} events
                   </p>
                 )}
 

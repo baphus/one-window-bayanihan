@@ -44,6 +44,18 @@ describe('Case details identity', () => {
   });
 });
 
+describe('Case activity count', () => {
+  it('counts lifecycle events alongside referral milestones', () => {
+    render(<CaseShow
+      case={{ id: 'case-1', first_name: 'Ari', last_name: 'Example', documents: [] }}
+      milestoneTimeline={[{ type: 'referral_sent', title: 'Referral sent', date: '2026-11-14' }]}
+      lifecycle={[{ label: 'Case opened', at: '2026-11-14' }, { label: 'Case reviewed', at: '2026-11-14' }]}
+    />);
+
+    expect(screen.getByText('Showing 3 of 3 events')).toBeInTheDocument();
+  });
+});
+
 describe('Case documents section', () => {
   it('no longer claims documents are viewable to all referred agencies', () => {
     render(<CaseShow case={{ first_name: 'Ari', last_name: 'Example', documents: [] }} />);
