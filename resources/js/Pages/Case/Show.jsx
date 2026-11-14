@@ -107,6 +107,35 @@ export default function CaseShow({ case: caseFile, case_categories = [], recomme
   const [deletionReasonError, setDeletionReasonError] = useState('');
   const [deletingArchived, setDeletingArchived] = useState(false);
   const [uploadingDoc, setUploadingDoc] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
+
+  async function handleExportPdf() {
+    if (exportingPdf) return;
+    setExportingPdf(true);
+    try {
+      const response = await fetch(route('cases.export-pdf', caseFile.id), { credentials: 'same-origin' });
+      const contentType = response.headers.get('content-type') || '';
+      const bytes = await response.arrayBuffer();
+      const signature = new Uint8Array(bytes).subarray(0, 5);
+      const isPdf = signature.length === 5 && signature.every((byte, index) => byte === [0x25, 0x50, 0x44, 0x46, 0x2d][index]);
+
+      if (!response.ok || !contentType.toLowerCase().includes('application/pdf') || !isPdf) {
+        toast.error('Could not export PDF. Your session may have expired; sign in again and retry.');
+        return;
+      }
+
+      const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `case-${caseFile.case_number}.pdf`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error('Could not export PDF. Check your connection and try again.');
+    } finally {
+      setExportingPdf(false);
+    }
+  }
 
   function handleDocumentDelete(docId) {
     setConfirmDeleteDoc(docId);
@@ -386,14 +415,16 @@ export default function CaseShow({ case: caseFile, case_categories = [], recomme
               <PresenceRoster url={`/cases/${encodeURIComponent(caseFile.id)}/presence`} currentUserId={auth.user?.id} />
             )}
           <div data-tour="case-actions" className="flex items-center gap-2 shrink-0">
-            <a
-            href={route('cases.export-pdf', caseFile.id)}
-            target="_blank"
-            className="px-3.5 min-h-[34px] bg-white text-[12px] font-bold text-[#233f82] border border-slate-200 rounded-md hover:bg-slate-50 transition-colors inline-flex items-center gap-1.5"
+            {canManageReferrals && <button
+            type="button"
+            onClick={handleExportPdf}
+            disabled={exportingPdf}
+            aria-busy={exportingPdf}
+            className="px-3.5 min-h-[34px] bg-white text-[12px] font-bold text-[#233f82] border border-slate-200 rounded-md hover:bg-slate-50 transition-colors inline-flex items-center gap-1.5 disabled:cursor-wait disabled:opacity-60"
           >
-            <span className="material-symbols-outlined text-[15px]">picture_as_pdf</span>
-            Export PDF
-          </a>
+            <span aria-hidden="true" className="material-symbols-outlined text-[15px]">picture_as_pdf</span>
+            {exportingPdf ? 'Preparing PDF…' : 'Export PDF'}
+          </button>}
           {canManageReferrals && caseFile.status === 'PENDING_REVIEW' && (
             <Link
               href={route('cases.review-pending')}

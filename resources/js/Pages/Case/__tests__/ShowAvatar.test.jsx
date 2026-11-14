@@ -1,8 +1,8 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import CaseShow from '../Show';
 
-vi.mock('@inertiajs/react', () => ({ Head: () => null, Link: ({ children, ...props }) => <a {...props}>{children}</a>, router: {}, usePage: () => ({ props: { roles: {}, auth: { user: {} } } }), useForm: () => ({ data: {}, setData: vi.fn(), post: vi.fn(), processing: false, errors: {} }) }));
+vi.mock('@inertiajs/react', () => ({ Head: () => null, Link: ({ children, ...props }) => <a {...props}>{children}</a>, router: {}, usePage: () => ({ props: { roles: { CASE_MANAGER: 'CASE_MANAGER', ADMIN: 'ADMIN' }, auth: { user: { role: 'CASE_MANAGER' } } } }), useForm: () => ({ data: {}, setData: vi.fn(), post: vi.fn(), processing: false, errors: {} }) }));
 vi.mock('@/Layouts/AppLayout', () => ({ default: ({ children }) => <div>{children}</div> }));
 vi.mock('@/Components/ui/StatusBadge', () => ({ default: () => null }));
 vi.mock('@/Components/ui/UserAvatar', () => ({ default: () => null, getAvatarColor: () => '' }));
@@ -16,8 +16,25 @@ vi.mock('@/Components/FileUpload', () => ({ default: () => null }));
 vi.mock('@/Components/AuditLogModal', () => ({ default: () => null }));
 vi.mock('@/Components/Timeline', () => ({ default: () => null }));
 vi.mock('@/Components/ui/ConfirmDialog', () => ({ default: () => null }));
-vi.mock('@/Hooks/useToast', () => ({ useToast: () => ({ success: vi.fn(), error: vi.fn() }) }));
+const { toastError } = vi.hoisted(() => ({ toastError: vi.fn() }));
+vi.mock('@/Hooks/useToast', () => ({ useToast: () => ({ success: vi.fn(), error: toastError }) }));
 globalThis.route = () => '/';
+
+describe('Case PDF export', () => {
+  it('does not save login HTML returned after session expiration', async () => {
+    const html = '<!DOCTYPE html><html><body>Sign in</body></html>';
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(html, { headers: { 'content-type': 'text/html' } }));
+    const createObjectURL = vi.spyOn(URL, 'createObjectURL');
+    render(<CaseShow case={{ id: 'case-1', case_number: 'OWB-1', first_name: 'Ari', last_name: 'Example', documents: [] }} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Export PDF' }));
+    await waitFor(() => expect(toastError).toHaveBeenCalledWith(expect.stringContaining('sign in again')));
+    expect(fetchMock).toHaveBeenCalledWith(expect.any(String), { credentials: 'same-origin' });
+    expect(createObjectURL).not.toHaveBeenCalled();
+    fetchMock.mockRestore();
+    createObjectURL.mockRestore();
+  });
+});
 
 describe('Case details identity', () => {
   it('renders independent case identity without legacy client relations', () => {

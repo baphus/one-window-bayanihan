@@ -23,14 +23,17 @@ use App\Services\Export\DataExportService;
 use App\Services\IntakeDocumentService;
 use App\Services\OnboardingService;
 use App\Services\ReferenceDataService;
+use App\Services\StorageService;
 use App\Services\TrackingService;
 use App\Support\CategoryFilter;
 use App\Support\MultiSelectFilter;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
+use setasign\Fpdi\Fpdi;
 
 class CaseController extends Controller
 {
@@ -478,44 +481,111 @@ class CaseController extends Controller
 
     public function exportPdf(string $id, Request $request)
     {
-        $case = CaseFile::with(['referrals.category', 'referrals.agency'])->findOrFail($id);
+        abort_unless($request->user()->isCaseManager() || $request->user()->isAdmin(), 403);
+        $case = CaseFile::with(['user', 'reviewer', 'categories', 'caseEvents', 'referrals.category', 'referrals.agency', 'documents' => fn ($query) => $query->whereNull('referral_id')->where('is_deleted', false)->orderBy('created_at')])->findOrFail($id);
         $this->authorizeCaseAccess($case, $request->user());
-        $latestEvent = $case->caseEvents()->latest('occurred_at')->latest('created_at')->first();
-        $data = [
+        $documents = $case->documents->filter(fn ($document) => in_array($document->category, IntakeDocumentService::SLOTS, true))->values();
+        $annexes = $documents->map(fn ($document) => [
+            'name' => IntakeDocumentService::REQUIREMENT_LABELS[$document->category],
+            'type' => $document->file_type,
+            'created_at' => $document->created_at,
+            'file_name' => $document->file_name,
+            'included' => in_array($document->file_type, ['application/pdf', 'image/jpeg', 'image/png'], true),
+        ])->all();
+        $pdf = Pdf::loadView('pdf.case-report', [
             'case' => $case,
             'referrals' => $case->referrals,
-            'latestEvent' => $latestEvent,
+            'latestEvent' => $case->caseEvents->sortByDesc('occurred_at')->first(),
+            'documentAnnexes' => $annexes,
             'exportedAt' => now(config('app.operating_timezone', 'Asia/Manila'))->format('M d, Y h:i A'),
-        ];
+        ])->setPaper('a4', 'portrait');
 
-        // Shorten narrative, never shrink text or silently discard agency rows.
-        foreach ([500, 240, 100] as $textLimit) {
-            $pdf = Pdf::loadView('pdf.case-report', $data + ['textLimit' => $textLimit])
-                ->setPaper('a4', 'portrait');
-            $pdf->render();
+        $merged = new Fpdi;
+        $streams = [];
+        try {
+            $base = fopen('php://temp', 'w+b');
+            $streams[] = $base;
+            fwrite($base, $pdf->output());
+            rewind($base);
+            $this->appendPdfPages($merged, $base);
 
-            if ($pdf->getDomPDF()->getCanvas()->get_page_count() === 1) {
-                break;
+            $disk = Storage::disk(app(StorageService::class)->diskName());
+            foreach ($documents as $document) {
+                $name = IntakeDocumentService::REQUIREMENT_LABELS[$document->category];
+                $mime = strtolower((string) $document->file_type);
+                if (! in_array($mime, ['application/pdf', 'image/jpeg', 'image/png'], true)) {
+                    continue;
+                }
+                try {
+                    $stream = $disk->readStream(ltrim($document->file_path, '/'));
+                } catch (\Throwable $e) {
+                    abort(422, "Required annex unavailable: {$name}.");
+                }
+                abort_unless(is_resource($stream), 422, "Required annex unavailable: {$name}.");
+                $streams[] = $stream;
+                if ($mime === 'application/pdf') {
+                    try {
+                        $this->appendPdfPages($merged, $stream, $name);
+                    } catch (\Throwable $e) {
+                        abort(422, "Required PDF annex cannot be imported: {$name}.");
+                    }
+                } elseif (in_array($mime, ['image/jpeg', 'image/png'], true)) {
+                    $bytes = stream_get_contents($stream);
+                    $dimensions = $bytes === false ? false : @getimagesizefromstring($bytes);
+                    abort_if($dimensions === false, 422, "Required image annex cannot be read: {$name}.");
+                    $image = tempnam(sys_get_temp_dir(), 'case-annex-');
+                    abort_if($image === false, 422, "Required image annex cannot be prepared: {$name}.");
+                    try {
+                        file_put_contents($image, $bytes);
+                        $merged->AddPage('P', 'A4');
+                        $merged->SetFont('Arial', 'B', 11);
+                        $merged->Cell(0, 12, iconv('UTF-8', 'ISO-8859-1//TRANSLIT', $name) ?: 'Required document', 0, 1);
+                        [$width, $height] = $dimensions;
+                        $scale = min(185 / $width, 260 / $height);
+                        $merged->Image($image, 12, 26, $width * $scale, $height * $scale, $mime === 'image/jpeg' ? 'JPG' : 'PNG');
+                    } catch (\Throwable $e) {
+                        abort(422, "Required image annex cannot be imported: {$name}.");
+                    } finally {
+                        unlink($image);
+                    }
+                }
+            }
+            $output = $merged->Output('S');
+        } finally {
+            foreach ($streams as $stream) {
+                if (is_resource($stream)) {
+                    fclose($stream);
+                }
             }
         }
 
-        abort_if($pdf->getDomPDF()->getCanvas()->get_page_count() !== 1, 422,
-            'This case has too much agency or profile information for a readable one-page summary. No details were silently omitted.');
-
         $filename = 'case-report-'.$case->case_number.'-'.now(config('app.operating_timezone', 'Asia/Manila'))->format('Ymd-His').'.pdf';
+        AuditLogger::export()->by($request->user())->module(AuditModule::DATA_EXPORT)
+            ->context(null, ['format' => 'pdf', 'scope' => 'case'])->write();
 
-        AuditLogger::export()
-            ->by($request->user())
-            ->module(AuditModule::DATA_EXPORT)
-            ->context(null, ['format' => 'pdf', 'scope' => 'case'])
-            ->write();
-
-        return response()->streamDownload(function () use ($pdf) {
-            echo $pdf->output();
-        }, $filename, [
+        return response($output, 200, [
             'Content-Type' => 'application/pdf',
-            'Cache-Control' => 'max-age=0',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+            'Cache-Control' => 'no-store, private',
         ]);
+    }
+
+    private function appendPdfPages(Fpdi $merged, $stream, ?string $name = null): void
+    {
+        rewind($stream);
+        $count = $merged->setSourceFile($stream);
+        abort_if($count < 1, 422, 'Required PDF annex has no pages.');
+        for ($page = 1; $page <= $count; $page++) {
+            $template = $merged->importPage($page);
+            $size = $merged->getTemplateSize($template);
+            $heading = $name === null ? 0 : 16;
+            $merged->AddPage($size['orientation'], [$size['width'], $size['height'] + $heading]);
+            if ($name !== null) {
+                $merged->SetFont('Arial', 'B', 10);
+                $merged->Cell(0, 12, iconv('UTF-8', 'ISO-8859-1//TRANSLIT', $name) ?: 'Required document', 0, 1);
+            }
+            $merged->useTemplate($template, 0, $heading, $size['width'], $size['height']);
+        }
     }
 
     public function trashIndex(Request $request)
