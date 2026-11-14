@@ -275,9 +275,9 @@ class ReferralStatusChangedMailTest extends TestCase
         $this->assertStringContainsString('For Compliance', $data['message']);
     }
 
-    // ── Integration: acceptance triggers mail to case manager ────
+    // ── Integration: actor does not receive their own acceptance mail ────
 
-    public function test_accepting_referral_sends_mail_to_case_manager(): void
+    public function test_case_manager_actor_does_not_receive_their_own_acceptance_notification(): void
     {
         Mail::fake();
 
@@ -306,7 +306,7 @@ class ReferralStatusChangedMailTest extends TestCase
 
         $referralService->updateStatus($referral->id, 'PROCESSING', 'ACCEPT', null, $caseManager->id);
 
-        Notification::assertSentTo($caseManager, ReferralStatusChanged::class);
+        Notification::assertNotSentTo($caseManager, ReferralStatusChanged::class);
     }
 
     // ── Integration: acceptance sends ClientUpdateMail to OFW ────
@@ -445,7 +445,7 @@ class ReferralStatusChangedMailTest extends TestCase
         // Duplicate should be idempotent — no additional notifications.
         $referralService->updateStatus($referral->id, 'PROCESSING', 'ACCEPT', null, $caseManager->id);
 
-        Notification::assertSentTimes(ReferralStatusChanged::class, 1);
+        Notification::assertNothingSent();
         Mail::assertQueued(ClientUpdateMail::class, 1);
     }
 

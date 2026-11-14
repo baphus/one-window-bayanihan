@@ -174,8 +174,8 @@ class NotificationDispatchAfterCommitTest extends TestCase
 
         $this->service->addMilestone($referral->id, 'Committed milestone', 'Description', $caseManager->id);
 
-        // Deferring to after commit must not swallow the notification.
-        Notification::assertSentTo($caseManager, MilestoneAdded::class);
+        // The actor is excluded, but the client still gets the update after commit.
+        Notification::assertNotSentTo($caseManager, MilestoneAdded::class);
         Mail::assertQueued(ClientUpdateMail::class);
         $this->assertDatabaseHas('case_notifications', [
             'client_email' => 'ofw@example.com',
@@ -210,6 +210,7 @@ class NotificationDispatchAfterCommitTest extends TestCase
         $caseManager = $this->createUser(UserRole::CASE_MANAGER->value);
         $case = $this->createCase($caseManager);
         $agency = Agency::factory()->create();
+        $agencyUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id, 'is_active' => true]);
         $referral = $this->service->createReferral([
             'category_id' => CaseCategory::factory()->create()->id,
             'concern' => 'Assistance requested',
@@ -222,7 +223,8 @@ class NotificationDispatchAfterCommitTest extends TestCase
 
         $this->service->updateStatus($referral->id, 'PROCESSING', 'ACCEPT', null, $caseManager->id);
 
-        Notification::assertSentTo($caseManager, ReferralStatusChanged::class);
+        Notification::assertNotSentTo($caseManager, ReferralStatusChanged::class);
+        Notification::assertSentTo($agencyUser, ReferralStatusChanged::class);
     }
 
     /**

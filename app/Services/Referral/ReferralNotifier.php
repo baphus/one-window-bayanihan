@@ -105,12 +105,13 @@ class ReferralNotifier
             $statusNotification = new ReferralStatusChanged($referral, $oldStatus, $status, $actorName, $reason);
 
             $caseManager = User::find($referral->caseFile->user_id);
-            if ($caseManager) {
+            if ($caseManager && ($caseManager->id !== $userId || $status === 'COMPLETED')) {
                 $this->afterCommit($referral, fn () => Notification::send([$caseManager], $statusNotification));
             }
 
             $agencyUsers = User::where('agcy_id', $referral->agcy_id)
                 ->where('is_active', true)
+                ->where('id', '!=', $userId)
                 ->when($caseManager, fn ($query) => $query->where('id', '!=', $caseManager->id))
                 ->get();
             if ($agencyUsers->isNotEmpty()) {
@@ -155,11 +156,13 @@ class ReferralNotifier
                 ->get();
 
             $notifyUsers = collect();
-            if ($caseManager) {
+            if ($caseManager && $caseManager->id !== $userId) {
                 $notifyUsers->push($caseManager);
             }
             foreach ($agencyUsers as $au) {
-                $notifyUsers->push($au);
+                if ($au->id !== $userId) {
+                    $notifyUsers->push($au);
+                }
             }
 
             $clientEmail = $referral->caseFile->email ?? '';
