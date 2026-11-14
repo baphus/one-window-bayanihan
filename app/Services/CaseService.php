@@ -143,6 +143,8 @@ class CaseService
                 $case = CaseFile::create(array_merge($attributes, [
                     'case_number' => $this->generateCaseNumber(), 'tracker_number' => $this->generateTrackerNumber(),
                     'status' => $filer->isOfw() ? CaseFile::STATUS_PENDING_REVIEW : 'OPEN', 'user_id' => $userId,
+                    'reviewed_by' => $filer->isOfw() ? null : $userId,
+                    'reviewed_at' => $filer->isOfw() ? null : now(),
                     'ofw_user_id' => $linkedOfwId,
                     'assigned_case_manager_id' => $filer->isCaseManager() ? $userId : null,
                     'consent_given_at' => now(), 'consent_accepted_by' => $userId,

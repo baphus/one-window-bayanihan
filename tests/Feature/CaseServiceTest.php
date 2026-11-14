@@ -53,5 +53,23 @@ class CaseServiceTest extends TestCase
         $this->assertEquals('Region VII (Central Visayas)', $result->address_region);
         $this->assertEquals('Cebu', $result->address_province);
         $this->assertNull($result->client_id);
+        $this->assertSame($user->id, $result->reviewed_by);
+        $this->assertNotNull($result->reviewed_at);
+    }
+
+    public function test_admin_created_case_records_creator_as_final_approver(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $data = CaseFile::factory()->withIntake()->make()->only(CaseFile::INTAKE_FIELDS);
+
+        $case = app(CaseService::class)->createCase(array_merge($data, [
+            'consent' => true,
+            'consent_text_version' => IntakeDocumentService::CONSENT_VERSION,
+            'missing_document_reasons' => array_fill_keys(['passport_front_page', 'arrival_stamp', 'employment_evidence', 'sworn_affidavit'], 'Awaiting copy'),
+        ]), $admin->id);
+
+        $this->assertSame('OPEN', $case->status);
+        $this->assertSame($admin->id, $case->reviewed_by);
+        $this->assertNotNull($case->reviewed_at);
     }
 }

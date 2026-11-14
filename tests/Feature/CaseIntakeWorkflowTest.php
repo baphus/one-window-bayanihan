@@ -49,6 +49,8 @@ class CaseIntakeWorkflowTest extends TestCase
         $this->assertSame($owner->id, $first->ofw_user_id);
         $this->assertNull($first->client_id);
         $this->assertNull($first->assigned_case_manager_id);
+        $this->assertNull($first->reviewed_by);
+        $this->assertNull($first->reviewed_at);
         $this->assertSame('Juan', $first->fresh()->first_name);
         $this->assertSame('Independent', $second->first_name);
         $this->assertCount(4, $first->documents);
