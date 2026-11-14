@@ -97,6 +97,7 @@ class TrackingCacheInvalidationTest extends TestCase
 
         // The case manager creates a new referral.
         $agency = Agency::factory()->create();
+        $case->categories()->attach(CaseCategory::factory()->create());
         app(ReferralService::class)->createReferral([
             'category_id' => CaseCategory::factory()->create()->id,
             'concern' => 'Assistance requested',

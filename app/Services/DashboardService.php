@@ -441,7 +441,8 @@ class DashboardService
                     COUNT(DISTINCT c.id) AS cases_reached
                 FROM referrals r
                 JOIN cases c ON c.id = r.case_id AND c.is_deleted = false
-                LEFT JOIN case_categories cc ON cc.id = r.category_id
+                LEFT JOIN referral_case_category rc ON rc.referral_id = r.id
+                LEFT JOIN case_categories cc ON cc.id = COALESCE(rc.case_category_id, r.category_id)
                 WHERE r.is_deleted = false AND r.agcy_id = ?
                 GROUP BY cc.name
                 ORDER BY total DESC

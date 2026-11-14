@@ -9,14 +9,16 @@ class UpdateCaseCategoriesRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->isCaseManager() ?? false;
+        $case = $this->route('case');
+
+        return $this->user()?->isCaseManager() && $case?->assigned_case_manager_id === $this->user()->id;
     }
 
     public function rules(): array
     {
         return [
             'category_ids' => ['required', 'array', 'min:1'],
-            'category_ids.*' => ['required', 'uuid', 'distinct', Rule::exists('case_categories', 'id')->where('is_active', true)],
+            'category_ids.*' => ['required', 'uuid', 'distinct', Rule::exists('case_categories', 'id')->where('is_active', true)->where('is_deleted', false)->whereNull('deleted_at')],
         ];
     }
 }

@@ -188,6 +188,7 @@ class CaseReviewTest extends TestCase
         $filer = User::factory()->create(['role' => UserRole::OFW->value]);
         $case = CaseFile::factory()->withIntake()->create(['user_id' => $filer->id, 'ofw_user_id' => $filer->id]);
         $cm = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $case->update(['assigned_case_manager_id' => $cm->id]);
         $agency = Agency::factory()->create(['is_active' => true, 'is_deleted' => false]);
         $categories = CaseCategory::factory()->count(2)->create();
         $categories[0]->suggestedAgencies()->attach($agency);

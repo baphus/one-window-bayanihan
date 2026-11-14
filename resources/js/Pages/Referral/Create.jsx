@@ -5,8 +5,7 @@ import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 
 import { formatDisplayDate, formatDisplayTime } from '@/lib/utils';
 import InputError from '@/Components/InputError';
-import { referralSchema } from '@/Schemas/referralSchema';
-import useClientValidation from '@/Hooks/useClientValidation';
+import Modal from '@/Components/Modal';
 import { useToast } from '@/Hooks/useToast';
 
 const STEPS = [
@@ -47,20 +46,19 @@ function formatFileSize(bytes) {    if (!bytes) return '';
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 }
 
-export default function ReferralCreate({ case_id, agencies = [], cases: paginatedCases, categories = [], filters = {} }) {
+export default function ReferralCreate({ case_id, agencies = [], cases: paginatedCases, selected_case = null, categories = [], filters = {} }) {
     const cases = paginatedCases.data || [];
     const { current_page: currentPage, last_page: lastPage, from, to, total } = paginatedCases || {};
-    const { data, setData, post, processing, errors, setError, clearErrors, transform } = useForm({
+    const { data, setData, post, processing, errors, clearErrors, transform } = useForm({
         case_id: case_id || '',
-        category_id: '',
-        agcy_id: '',
+        agcy_ids: [],
         concern: '',
         override_reason: '',
         notes: '',
         documents: [],
     });
 
-    const { validate } = useClientValidation(referralSchema, data, setError);
+    const [showConfirmation, setShowConfirmation] = useState(false);
 
     const toast = useToast();
 
@@ -96,28 +94,25 @@ export default function ReferralCreate({ case_id, agencies = [], cases: paginate
         return [...list].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
     }, [agencies, agencyDebouncedSearch]);
 
-    const initialFormRef = useRef({ case_id: data.case_id, agcy_id: '' });
+    const initialFormRef = useRef({ case_id: data.case_id });
     const hasDirty = useMemo(() => (
         data.case_id !== initialFormRef.current.case_id
-        || data.agcy_id !== initialFormRef.current.agcy_id
-        || Boolean(data.category_id)
+        || data.agcy_ids.length > 0
         || concernValue !== ''
         || Boolean(data.override_reason)
         || notesValue !== ''
         || data.documents.length > 0
-    ), [data.case_id, data.agcy_id, data.category_id, data.override_reason, concernValue, notesValue, data.documents.length]);
+    ), [data.case_id, data.agcy_ids, data.override_reason, concernValue, notesValue, data.documents.length]);
     const { UnsavedModal, bypassNext } = useUnsavedChanges(hasDirty);
     const selectedCase = useMemo(() => {
         if (!data.case_id) return null;
-        return cases.find((c) => c.id === data.case_id) || selectedCaseRef.current;
-    }, [cases, data.case_id]);
-    const selectedAgency = agencies.find((item) => item.id === data.agcy_id);
-    const selectedCategory = categories.find((item) => String(item.id) === String(data.category_id));
-    const suggestedAgencyIds = useMemo(
-        () => new Set((selectedCategory?.suggested_agency_ids ?? []).map(String)),
-        [selectedCategory],
-    );
-    const isOverride = Boolean(data.agcy_id) && !suggestedAgencyIds.has(String(data.agcy_id));
+        return cases.find((c) => c.id === data.case_id) || (selected_case?.id === data.case_id ? selected_case : null) || selectedCaseRef.current;
+    }, [cases, data.case_id, selected_case]);
+    const caseCategories = selectedCase?.categories ?? selectedCase?.case_categories ?? [];
+    const selectedCategories = categories.filter((category) => caseCategories.some((item) => String(item.id) === String(category.id)));
+    const suggestedAgencyIds = new Set(selectedCategories.flatMap((category) => (category.suggested_agency_ids ?? []).map(String)));
+    const isOverride = data.agcy_ids.some((id) => !suggestedAgencyIds.has(String(id)));
+    const selectedAgencies = agencies.filter((agency) => data.agcy_ids.map(String).includes(String(agency.id)));
 
     useEffect(() => {
         if (case_id) {
@@ -143,9 +138,9 @@ export default function ReferralCreate({ case_id, agencies = [], cases: paginate
     }, [debouncedSearch]);
 
     const isStepOneValid = Boolean(selectedCase);
-    const isStepTwoValid = Boolean(data.category_id && data.agcy_id);
+    const isStepTwoValid = Boolean(selectedCase && selectedCategories.length && selectedCategories.length === caseCategories.length && data.agcy_ids.length);
     const isStepThreeValid = Boolean(
-        data.case_id && data.category_id && data.agcy_id
+        isStepTwoValid && data.case_id
         && concernValue.trim()
         && (!isOverride || data.override_reason.trim()),
     );
@@ -165,14 +160,11 @@ export default function ReferralCreate({ case_id, agencies = [], cases: paginate
     function submitReferral(e) {
         if (e) e.preventDefault();
         clearErrors();
-        if (!validate()) {
-            toast.error('Please fix the highlighted errors before submitting.');
-            return;
-        }
         if (!isStepThreeValid) {
-            toast.error('Please pick a case, category and agency, then describe the concern.');
+            toast.error('Select a case with active categories and agencies, then describe the concern.');
             return;
         }
+        setShowConfirmation(false);
 
         bypassNext();
 
@@ -335,7 +327,7 @@ export default function ReferralCreate({ case_id, agencies = [], cases: paginate
                                                                         type="button"
                                                                         onClick={() => {
                                                                             setData('case_id', item.id);
-                                                                            setData('agcy_id', '');
+                                                                            setData('agcy_ids', []);
                                                                             setData('notes', '');
                                                                             setNotesValue('');
                                                                         }}
@@ -507,39 +499,9 @@ export default function ReferralCreate({ case_id, agencies = [], cases: paginate
                                 {createStep === 2 && (
                                     <div className="space-y-5">
                                         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-                                            <h3 className="text-[12px] font-bold uppercase tracking-wider text-slate-500">Referral category</h3>
-                                            <p className="mt-2 text-[13px] text-slate-500">Pick one category for this referral. It only applies to this referral, not the whole case.</p>
-                                            <div className="mt-4">
-                                                {categories.length === 0 ? (
-                                                    <p className="rounded-md bg-amber-50 px-3 py-2 text-[12px] text-amber-800">No referral categories are available. Ask an admin to add one first.</p>
-                                                ) : (
-                                                    <div className="flex flex-wrap gap-2">
-                                                        {categories.map((category) => {
-                                                            const checked = String(category.id) === String(data.category_id);
-                                                            return (
-                                                                <button
-                                                                    key={category.id}
-                                                                    type="button"
-                                                                    aria-pressed={checked}
-                                                                    onClick={() => {
-                                                                        setData('category_id', checked ? '' : category.id);
-                                                                        setData('agcy_id', '');
-                                                                        setData('override_reason', '');
-                                                                    }}
-                                                                    className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-[12px] font-semibold transition ${checked ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-slate-300 bg-white text-slate-700 hover:border-indigo-400'}`}
-                                                                >
-                                                                    {category.color && <span className="h-2 w-2 rounded-full" style={{ backgroundColor: category.color }} aria-hidden="true" />}
-                                                                    {category.name}
-                                                                </button>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                )}
-                                                <InputError message={errors.category_id} className="mt-2" />
-                                                {selectedCategory && selectedCategory.suggested_agency_ids?.length > 0 && (
-                                                    <p className="mt-3 text-[12px] text-slate-500">Suggested agencies for {selectedCategory.name} are marked below.</p>
-                                                )}
-                                            </div>
+                                            <h3 className="text-[12px] font-bold uppercase tracking-wider text-slate-500">Case categories</h3>
+                                            <p className="mt-2 text-[13px] text-slate-600">{caseCategories.map((category) => category.name).join(', ') || 'No categories assigned.'}</p>
+                                            {(!selectedCase || !selectedCategories.length || selectedCategories.length !== caseCategories.length) && <p role="alert" className="mt-3 text-[12px] text-amber-800">Assign active categories before referring. {selectedCase && <Link className="underline font-bold" href={route('cases.show', selectedCase.id)}>Edit case categories</Link>}</p>}
                                         </div>
 
                                         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -577,14 +539,10 @@ export default function ReferralCreate({ case_id, agencies = [], cases: paginate
                                                                         <button
                                                                             key={agency.id}
                                                                             type="button"
-                                                                            onClick={() => {
-                                                                                setData('agcy_id', agency.id);
-                                                                                if (!suggestedAgencyIds.has(String(agency.id))) return;
-                                                                                setData('override_reason', '');
-                                                                            }}
-                                                                            aria-pressed={agency.id === data.agcy_id}
+                                                                            onClick={() => setData('agcy_ids', data.agcy_ids.map(String).includes(String(agency.id)) ? data.agcy_ids.filter((id) => String(id) !== String(agency.id)) : [...data.agcy_ids, agency.id])}
+                                                                            aria-pressed={data.agcy_ids.map(String).includes(String(agency.id))}
                                                                             className={`flex w-full flex-col gap-2 rounded-lg border p-4 text-left shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
-                                                                                agency.id === data.agcy_id
+                                                                                data.agcy_ids.map(String).includes(String(agency.id))
                                                                                     ? 'ring-2 ring-indigo-500 border-indigo-500 bg-indigo-50/30'
                                                                                     : 'border-slate-200 bg-white hover:border-indigo-400 hover:shadow-md'
                                                                             }`}
@@ -623,7 +581,7 @@ export default function ReferralCreate({ case_id, agencies = [], cases: paginate
                                                                                 </span>
                                                                                 {suggested && (
                                                                                     <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700">
-                                                                                        Suggested
+                                                                                        Suggested: {selectedCategories.filter((category) => (category.suggested_agency_ids ?? []).map(String).includes(String(agency.id))).map((category) => category.name).join(', ')}
                                                                                     </span>
                                                                                 )}
                                                                             </div>
@@ -645,7 +603,7 @@ export default function ReferralCreate({ case_id, agencies = [], cases: paginate
                                                 {isOverride && (
                                                     <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3">
                                                         <label htmlFor="referral-override-reason" className="mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-amber-800">
-                                                            Reason for choosing {selectedAgency?.name ?? 'this agency'} *
+                                                            Reason for choosing agencies outside suggestions *
                                                         </label>
                                                         <textarea
                                                             id="referral-override-reason"
@@ -656,11 +614,11 @@ export default function ReferralCreate({ case_id, agencies = [], cases: paginate
                                                             placeholder="Explain why this agency is a better fit than the suggested ones."
                                                             className="w-full rounded-md border border-amber-300 px-3 py-2 text-[13px] text-slate-700 outline-none focus:ring-1 focus:ring-amber-500"
                                                         />
-                                                        <p className="mt-1 text-[11px] text-amber-700">This agency is not one of the suggested destinations for the selected category.</p>
+                                                        <p className="mt-1 text-[11px] text-amber-700">At least one selected agency is not suggested for any case category.</p>
                                                         <InputError message={errors.override_reason} className="mt-1" />
                                                     </div>
                                                 )}
-                                                <InputError message={errors.agcy_id} className="mt-1" />
+                                                <InputError message={errors.agcy_ids || Object.entries(errors).find(([key]) => key.startsWith('agcy_ids.'))?.[1]} className="mt-1" />
                                             </div>
                                         </div>
 
@@ -700,7 +658,7 @@ export default function ReferralCreate({ case_id, agencies = [], cases: paginate
                                     <div className="space-y-5">
                                         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
                                             <h3 className="text-[12px] font-bold uppercase tracking-wider text-slate-500">Concern for this referral</h3>
-                                            <p className="mt-2 text-[13px] text-slate-500">Describe the specific assistance needed from {selectedAgency?.name ?? 'the receiving agency'}.</p>
+                                            <p className="mt-2 text-[13px] text-slate-500">Describe the specific assistance needed from the receiving agencies.</p>
                                             <div className="mt-4">
                                                 <div className="mb-3">
                                                     <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.08em] text-slate-600">Quick presets</p>
@@ -813,15 +771,24 @@ export default function ReferralCreate({ case_id, agencies = [], cases: paginate
                                     Next <span className="material-symbols-outlined text-[18px]">chevron_right</span>
                                 </button>
                             ) : (
-                                <button type="button" onClick={submitReferral} disabled={processing || !isStepThreeValid}
+                                <button type="button" onClick={() => setShowConfirmation(true)} disabled={processing || !isStepThreeValid}
                                     className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-6 py-2.5 text-[13px] font-bold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50">
-                                    {processing ? 'Submitting...' : 'Submit Referral'}
+                                    {processing ? 'Submitting...' : 'Review referrals'}
                                 </button>
                             )}
                         </div>
                     </div>
                 </section>
             </form>
+            <Modal show={showConfirmation} onClose={() => setShowConfirmation(false)}>
+                <div className="space-y-4 p-6">
+                    <h2 className="text-lg font-bold text-slate-900">Confirm referrals</h2>
+                    <p className="text-sm text-slate-600">Each agency will receive a separate referral with the same concern, remarks and documents.</p>
+                    <div><h3 className="text-sm font-bold text-slate-800">Recipients</h3><ul className="mt-1 list-inside list-disc text-sm text-slate-700">{selectedAgencies.map((agency) => <li key={agency.id}>{agency.name}</li>)}</ul></div>
+                    <div><h3 className="text-sm font-bold text-slate-800">Shared documents</h3>{data.documents.length ? <ul className="mt-1 list-inside list-disc text-sm text-slate-700">{data.documents.map((file, index) => <li key={index}>{file.name}</li>)}</ul> : <p className="text-sm text-slate-600">No documents attached.</p>}</div>
+                    <div className="flex gap-3"><button type="button" disabled={processing} onClick={submitReferral} className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">Send referrals</button><button type="button" onClick={() => setShowConfirmation(false)} className="text-sm font-bold text-slate-600">Cancel</button></div>
+                </div>
+            </Modal>
             {UnsavedModal}
         </AppLayout>
     );

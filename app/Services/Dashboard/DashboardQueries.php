@@ -322,7 +322,7 @@ class DashboardQueries
             SELECT
                 r.case_id,
                 COUNT(*)::int AS referral_count,
-                MIN(cc.name) AS category_name,
+                STRING_AGG(DISTINCT COALESCE(snapshot.names, cc.name), ', ' ORDER BY COALESCE(snapshot.names, cc.name)) AS category_name,
                 COUNT(*) FILTER (WHERE r.status IN ('PENDING','PROCESSING','FOR_COMPLIANCE'))::int AS active_referral_count,
                 COUNT(*) FILTER (WHERE r.status IN ('PENDING','PROCESSING','FOR_COMPLIANCE') AND r.created_at < ?)::int AS overdue_referral_count,
                 MAX(CASE WHEN r.status IN ('PENDING','PROCESSING','FOR_COMPLIANCE')
@@ -338,6 +338,7 @@ class DashboardQueries
                 END) AS worst_severity
             FROM referrals r
             LEFT JOIN case_categories cc ON cc.id = r.category_id
+            LEFT JOIN LATERAL (SELECT STRING_AGG(sc.name, ', ' ORDER BY sc.name) AS names FROM referral_case_category rc JOIN case_categories sc ON sc.id = rc.case_category_id WHERE rc.referral_id = r.id) snapshot ON true
             WHERE r.case_id IN ({$placeholders}) AND r.is_deleted = false
             GROUP BY r.case_id
         ", array_merge([$overdueThreshold], $caseIds));

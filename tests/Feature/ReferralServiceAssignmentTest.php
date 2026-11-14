@@ -56,15 +56,15 @@ class ReferralServiceAssignmentTest extends TestCase
 
     public function test_case_manager_creates_referral_with_no_services(): void
     {
+        $this->case->categories()->attach(CaseCategory::factory()->create());
         $response = $this->actingAsWithMfa($this->caseManager)->post(route('referrals.store'), [
-            'category_id' => CaseCategory::factory()->create()->id,
             'concern' => 'Assistance requested',
             'override_reason' => 'Agency selected for this assistance',
             'case_id' => $this->case->id,
-            'agcy_id' => $this->agency->id,
+            'agcy_ids' => [$this->agency->id],
         ]);
 
-        $response->assertRedirect();
+        $response->assertRedirect()->assertSessionHasNoErrors();
 
         $referral = Referral::where('case_id', $this->case->id)->first();
         $this->assertNotNull($referral);

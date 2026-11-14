@@ -5,7 +5,6 @@ import { PageHeader, SectionCard, MaterialSymbol } from '@/Components/Dashboard/
 import StatusBadge from '@/Components/ui/StatusBadge';
 import ConfirmDialog from '@/Components/ui/ConfirmDialog';
 import InputError from '@/Components/InputError';
-import Select from '@/Components/Select';
 import { ASSESSMENT_LABELS, DOCUMENT_SLOT_LABELS, RETURN_REASON_LABELS, requiredReasonSlot } from '@/Components/CaseIntakeForm';
 import { formatDisplayDate, formatDisplayTime } from '@/lib/utils';
 import safeRoute from '@/utils/safeRoute';
@@ -78,7 +77,6 @@ function ReviewDetail({ caseFile, assessmentOptions = [], agencies = [], categor
   const [rejectReason, setRejectReason] = useState('');
   const [rejectOpen, setRejectOpen] = useState(false);
   const [processing, setProcessing] = useState(false);
-  const [previewCategoryId, setPreviewCategoryId] = useState('');
   const [selectedCategoryIds, setSelectedCategoryIds] = useState(() => (caseFile.case_categories ?? []).map((category) => String(category.id)));
 
   const documents = useMemo(() => (caseFile.documents ?? []).filter((doc) => !doc.referral_id), [caseFile.documents]);
@@ -203,47 +201,16 @@ function ReviewDetail({ caseFile, assessmentOptions = [], agencies = [], categor
           </div>
 
           <div className="space-y-4 lg:sticky lg:top-0 lg:self-start">
-            {categories.length > 0 && (
-              <InfoCard title="Referral category preview">
-                <p className="text-[12px] text-slate-600 mb-3">Preview suggested agencies for a category. This is for reference only and does not create or save a referral.</p>
-                <div className="space-y-2">
-                  <label htmlFor="preview-category" className="text-[11px] font-bold uppercase tracking-wide text-slate-600">Category</label>
-                  <Select
-                    id="preview-category"
-                    value={previewCategoryId}
-                    onChange={(e) => setPreviewCategoryId(e.target.value)}
-                    className="h-9 w-full rounded-md border border-slate-300 px-2 text-[13px] text-slate-700"
-                  >
-                    <option value="">Select a category to preview</option>
-                    {categories.map((cat) => (
-                      <option key={cat.id} value={cat.id}>{cat.name}</option>
-                    ))}
-                  </Select>
+            <InfoCard title="Suggested agencies">
+              <p className="mb-3 text-[12px] text-slate-600">Based on selected case categories. Reviewing suggestions does not send referrals.</p>
+              {agencies.filter((agency) => categories.some((category) => selectedCategoryIds.includes(String(category.id)) && (category.suggested_agency_ids ?? []).map(String).includes(String(agency.id)))).map((agency) => (
+                <div key={agency.id} className="mb-2 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-[12px] text-emerald-900">
+                  <p className="font-bold">{agency.name}{agency.short ? ` (${agency.short})` : ''}</p>
+                  <p className="mt-1 text-emerald-700">{categories.filter((category) => selectedCategoryIds.includes(String(category.id)) && (category.suggested_agency_ids ?? []).map(String).includes(String(agency.id))).map((category) => category.name).join(', ')}</p>
                 </div>
-                {previewCategoryId && (() => {
-                  const selectedCategory = categories.find((c) => c.id === previewCategoryId);
-                  const suggestedIds = new Set((selectedCategory?.suggested_agency_ids ?? []).map(String));
-                  const suggested = agencies.filter((a) => suggestedIds.has(String(a.id)));
-                  return suggested.length > 0 ? (
-                    <div className="mt-3 rounded-md border border-emerald-200 bg-emerald-50 p-3">
-                      <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-800 mb-2">Suggested agencies</p>
-                      <ul className="space-y-1.5">
-                        {suggested.map((agency) => (
-                          <li key={agency.id} className="flex items-center gap-2 text-[12px] text-emerald-900">
-                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-600 shrink-0" aria-hidden="true" />
-                            <span className="font-medium">{agency.name}</span>
-                            {agency.short && <span className="text-emerald-700">({agency.short})</span>}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ) : (
-                    <p className="mt-3 rounded-md bg-slate-100 px-3 py-2 text-[12px] text-slate-600">No suggested agencies for this category.</p>
-                  );
-                })()}
-                <p className="mt-3 text-[11px] text-slate-500">After approval, the case manager creates referrals from the open case page.</p>
-              </InfoCard>
-            )}
+              ))}
+              {!agencies.some((agency) => categories.some((category) => selectedCategoryIds.includes(String(category.id)) && (category.suggested_agency_ids ?? []).map(String).includes(String(agency.id)))) && <p className="text-[12px] text-slate-500">No suggested agencies for selected categories.</p>}
+            </InfoCard>
             <InfoCard title="Confirm assessment">
               {categories.length > 0 && (
                 <div className="mb-4 border-b border-slate-200 pb-4">

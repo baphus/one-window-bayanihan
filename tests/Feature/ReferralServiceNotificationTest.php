@@ -452,10 +452,13 @@ class ReferralServiceNotificationTest extends TestCase
 
     private function createCase(User $user): CaseFile
     {
-        return CaseFile::factory()->withIntake()->create([
+        $case = CaseFile::factory()->withIntake()->create([
             'user_id' => $user->id,
             'email' => 'ofw@example.com',
             'status' => 'OPEN',
         ]);
+        $case->categories()->attach(CaseCategory::factory()->create());
+
+        return $case;
     }
 }

@@ -455,6 +455,8 @@ class CaseService
             // timeline and agency steps; without these each referral costs
             // two extra queries on every render.
             'referrals.services',
+            'referrals.category',
+            'referrals.categories',
             'referrals.milestones.user',
             'referrals.agency',
             'referrals.attachments.user',
@@ -524,6 +526,12 @@ class CaseService
             $old = $case->toArray();
             $case->fill($attributes);
             $fields = array_keys($case->getDirty());
+            if (array_key_exists('category_ids', $data)) {
+                $changes = $case->categories()->sync($data['category_ids']);
+                if ($changes['attached'] || $changes['detached']) {
+                    $fields[] = 'category_ids';
+                }
+            }
             if ($fields) {
                 $case->last_correction_reason = $data['correction_reason'];
                 $case->saveQuietly();
@@ -656,9 +664,9 @@ class CaseService
         ];
     }
 
-    public function toggleCaseStatus(string $id, string $userId): CaseFile
+    public function toggleCaseStatus(string $id, string $userId, bool $forceClose = false): CaseFile
     {
-        $case = DB::transaction(function () use ($id, $userId) {
+        $case = DB::transaction(function () use ($id, $userId, $forceClose) {
             $case = CaseFile::lockForUpdate()->findOrFail($id);
             $old = $case->toArray();
 
@@ -671,7 +679,7 @@ class CaseService
 
             if ($case->status === 'OPEN') {
                 $canClose = $this->canClose($id);
-                if (! $canClose['can_close']) {
+                if (! $canClose['can_close'] && ! $forceClose) {
                     abort(422, $canClose['reason']);
                 }
             }
@@ -692,7 +700,7 @@ class CaseService
                     ->byId($userId)
                     ->forEntity($case, $case->case_number)
                     ->module(AuditModule::CASE)
-                    ->context(['status' => $oldStatus], ['status' => 'CLOSED'])
+                    ->context(['status' => $oldStatus], ['status' => 'CLOSED', 'force_close' => $forceClose && ! $canClose['can_close']])
                     ->write();
             } else {
                 $this->eventRecorder->caseReopened($case, $userId);

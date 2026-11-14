@@ -89,7 +89,7 @@ class ReferralQueries
                 'c.nok_vulnerability_indicator AS nok_vulnerability',
                 'c.employment_country AS employment_country',
                 'c.summary AS case_summary',
-                'cc.name AS category',
+                DB::raw("COALESCE((SELECT string_agg(sc.name, ', ' ORDER BY sc.name) FROM referral_case_category rc JOIN case_categories sc ON sc.id = rc.case_category_id WHERE rc.referral_id = r.id), cc.name) AS category"),
             ]))
             ->join('cases AS c', function ($join) {
                 $join->on('r.case_id', '=', 'c.id')
@@ -151,7 +151,13 @@ class ReferralQueries
             $categoryIds = ! empty($filters['category_id']) ? [$filters['category_id']] : [];
         }
         if ($categoryIds) {
-            $query->whereIn('r.category_id', $categoryIds);
+            $query->where(function ($q) use ($categoryIds) {
+                $q->whereExists(fn ($snapshot) => $snapshot->selectRaw('1')->from('referral_case_category AS rc')->whereColumn('rc.referral_id', 'r.id')->whereIn('rc.case_category_id', $categoryIds))
+                    ->orWhere(function ($legacy) use ($categoryIds) {
+                        $legacy->whereNotExists(fn ($snapshot) => $snapshot->selectRaw('1')->from('referral_case_category AS rc')->whereColumn('rc.referral_id', 'r.id'))
+                            ->whereIn('r.category_id', $categoryIds);
+                    });
+            });
         }
 
         // ADMIN/CASE_MANAGER: all referrals. AGENCY: own agency referrals only.

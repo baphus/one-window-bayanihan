@@ -1,7 +1,9 @@
 import AppLayout from '@/Layouts/AppLayout';
 import Select from '@/Components/Select';
+import Modal from '@/Components/Modal';
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
+import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import ConfirmDialog from '@/Components/ui/ConfirmDialog';
 
 import { useToast } from '@/Hooks/useToast';
@@ -178,19 +180,42 @@ export default function CaseShow({ case: caseFile, case_categories = [], recomme
   const primaryEmployment = { employer_name: caseFile.employment_employer_name, position: caseFile.employment_position, country: caseFile.employment_country, last_position: caseFile.employment_last_position, date_of_arrival: caseFile.employment_date_of_arrival };
   const hasEmployment = Object.values(primaryEmployment).some(Boolean) || Boolean(caseFile.employment_employer_address);
   const categoryOptions = page.props.categories ?? [];
+  const [showEdit, setShowEdit] = useState(false);
+  const [correction, setCorrection] = useState({});
+  const [correctionReason, setCorrectionReason] = useState('');
   const [selectedCategoryIds, setSelectedCategoryIds] = useState(case_categories.map((category) => String(category.id)));
+  const [editProcessing, setEditProcessing] = useState(false);
+  const editPending = useRef(false);
+  const [editErrors, setEditErrors] = useState({});
+  const [confirmDiscardEdit, setConfirmDiscardEdit] = useState(false);
+  const editDirty = showEdit && (Object.keys(correction).some((key) => correction[key] !== (caseFile[key] ?? '')) || correctionReason !== '' || selectedCategoryIds.length !== case_categories.length || selectedCategoryIds.some((id) => !case_categories.some((category) => String(category.id) === id)));
+  const { UnsavedModal, bypassNext } = useUnsavedChanges(editDirty);
 
-  function saveCategories() {
-    if (selectedCategoryIds.length === 0) {
-      toast.error('Select at least one case category.');
+  function closeEdit() {
+    if (editPending.current) return;
+    if (editDirty) setConfirmDiscardEdit(true);
+    else setShowEdit(false);
+  }
+
+  function submitEdit(event) {
+    event.preventDefault();
+    if (editPending.current) return;
+    if (!selectedCategoryIds.length || !correctionReason.trim()) {
+      setEditErrors({ form: !selectedCategoryIds.length ? 'Select at least one case category.' : 'Enter a reason for correction.' });
       return;
     }
-    router.put(route('cases.categories.update', caseFile.id), { category_ids: selectedCategoryIds }, {
+    editPending.current = true;
+    setEditProcessing(true);
+    setEditErrors({});
+    bypassNext();
+    router.patch(route('cases.update', caseFile.id), { ...correction, correction_reason: correctionReason.trim(), category_ids: selectedCategoryIds }, {
       preserveScroll: true,
-      onSuccess: () => toast.success('Case categories updated.'),
-      onError: () => toast.error('Could not update case categories.'),
+      onSuccess: () => setShowEdit(false),
+      onError: (errors) => setEditErrors(errors),
+      onFinish: () => { editPending.current = false; setEditProcessing(false); },
     });
   }
+
   const canManageCaseDocuments = auth.user?.role === roles.CASE_MANAGER;
   const canManageReferrals = auth.user?.role === roles.CASE_MANAGER || auth.user?.role === roles.ADMIN;
   const clientTypeLabel = caseFile.client_type === 'OFW' ? 'Overseas Filipino Worker' : 'Next of Kin';
@@ -307,24 +332,10 @@ export default function CaseShow({ case: caseFile, case_categories = [], recomme
     },
   ];
 
-  /**
-   * Legacy case categories/issues are gone: classification belongs to each
-   * referral and confirmed assessment belongs to review. Nothing case-wide to
-   * edit from this page.
-   */
-
   function handleToggleStatus() {
-    if (caseFile.status === 'OPEN' && hasActiveReferrals) {
-      toast.error('Cannot close case: One or more referrals are still pending or in progress.');
-      return;
-    }
-
-    router.post(route('cases.toggle-status', caseFile.id), {}, {
+    router.post(route('cases.toggle-status', caseFile.id), { force_close: caseFile.status === 'OPEN' && hasActiveReferrals }, {
       preserveScroll: true,
-      onError: (errors) => {
-        const msg = errors?.message || 'An error occurred while updating case status.';
-        toast.error(msg);
-      },
+      onError: (errors) => toast.error(errors?.message || Object.values(errors || {})[0] || 'An error occurred while updating case status.'),
     });
   }
 
@@ -442,21 +453,6 @@ export default function CaseShow({ case: caseFile, case_categories = [], recomme
             <span className="material-symbols-outlined text-[16px]">history</span>
             Audit Log
           </button>
-          {(caseFile.status === 'OPEN' || caseFile.status === 'CLOSED' || caseFile.status === 'ARCHIVED') && (
-            <button
-              type="button"
-              onClick={() => setConfirmToggleStatus(true)}
-              disabled={caseFile.status === 'OPEN' && hasActiveReferrals}
-              title={caseFile.status === 'OPEN' && hasActiveReferrals ? 'Resolve all referrals before closing this case.' : ''}
-              className={`px-3 min-h-[34px] text-[12px] font-bold rounded-md transition-colors border hidden ${
-                caseFile.status === 'OPEN' && hasActiveReferrals
-                  ? 'bg-gray-200 text-gray-500 border-gray-300 cursor-not-allowed'
-                  : 'bg-blue-900 text-white hover:bg-blue-800 border-blue-900'
-              }`}
-            >
-              {caseFile.status === 'OPEN' ? 'Close Case' : 'Reopen Case'}
-            </button>
-          )}
           {caseFile.status === 'ARCHIVED' ? (
             <>
               <button
@@ -497,10 +493,16 @@ export default function CaseShow({ case: caseFile, case_categories = [], recomme
             <CardHeader
               title="Case Summary"
               actions={(
-                <button type="button" onClick={() => setConfirmToggleStatus(true)} disabled={caseFile.status === 'OPEN' && hasActiveReferrals} className="inline-flex min-h-[34px] items-center gap-1.5 rounded-md bg-slate-100 px-3.5 text-[12px] font-bold text-slate-500 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:hover:bg-slate-100">
-                  <span className="material-symbols-outlined text-[15px]">lock</span>
-                  {caseFile.status === 'OPEN' ? 'Close Case' : 'Reopen Case'}
-                </button>
+                <div className="flex flex-wrap gap-2">
+                  {canManageCaseDocuments && <button type="button" onClick={() => { setSelectedCategoryIds(case_categories.map((category) => String(category.id))); setCorrection({}); setCorrectionReason(''); setEditErrors({}); setShowEdit(true); }} className="min-h-[34px] rounded-md border border-slate-300 px-3 text-[12px] font-bold text-slate-700 hover:bg-slate-50">Edit Case</button>}
+                  {canManageReferrals && ['OPEN', 'CLOSED'].includes(caseFile.status) && <>
+                    <button type="button" onClick={() => setConfirmToggleStatus(true)} disabled={caseFile.status === 'OPEN' && hasActiveReferrals} className="inline-flex min-h-[34px] items-center gap-1.5 rounded-md bg-blue-900 px-3.5 text-[12px] font-bold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500">
+                      {caseFile.status === 'OPEN' && hasActiveReferrals && <span aria-hidden="true" className="material-symbols-outlined text-[15px]">lock</span>}
+                      {caseFile.status === 'OPEN' ? 'Close Case' : 'Reopen Case'}
+                    </button>
+                    {caseFile.status === 'OPEN' && hasActiveReferrals && <button type="button" onClick={() => setConfirmToggleStatus(true)} className="min-h-[34px] rounded-md border border-amber-300 px-3 text-[12px] font-bold text-amber-800 hover:bg-amber-50">Force close case</button>}
+                  </>}
+                </div>
               )}
             />
             {/* [&>div]:border-0 strips InfoCell's border-b/border-r dividers for this grid only */}
@@ -530,26 +532,10 @@ export default function CaseShow({ case: caseFile, case_categories = [], recomme
                 ) : '-'}
               />
             </div>
-            <p className="border-t border-[#dce3eb] px-5 py-3 text-center text-[11px] text-slate-400">Close Case is unavailable while referrals are active. All referrals must be completed or rejected.</p>
+            {caseFile.status === 'OPEN' && hasActiveReferrals && <p className="border-t border-[#dce3eb] px-5 py-3 text-center text-[11px] text-slate-500">Referrals are still processing. Complete or reject them before closing, or explicitly force close.</p>}
           </section>
 
           {/* Referrals table */}
-          {canManageCaseDocuments && categoryOptions.length > 0 && (
-            <section className="rounded-xl border border-[#dce3eb] bg-white shadow-[0_1px_3px_rgba(23,35,51,0.04)]">
-              <CardHeader title="Case categories" />
-              <div className="space-y-3 px-5 pb-5">
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {categoryOptions.map((category) => (
-                    <label key={category.id} className="flex items-center gap-2 text-[12px] text-slate-700">
-                      <input type="checkbox" checked={selectedCategoryIds.includes(String(category.id))} onChange={() => setSelectedCategoryIds((ids) => ids.includes(String(category.id)) ? ids.filter((id) => id !== String(category.id)) : [...ids, String(category.id)])} className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary/40" />
-                      {category.name}
-                    </label>
-                  ))}
-                </div>
-                <button type="button" onClick={saveCategories} className="min-h-[34px] rounded-md bg-blue-900 px-3 text-[12px] font-bold text-white hover:bg-blue-800">Save categories</button>
-              </div>
-            </section>
-          )}
           <section data-tour="case-referrals" className="rounded-xl border border-[#dce3eb] bg-white shadow-[0_1px_3px_rgba(23,35,51,0.04)]">
             <CardHeader
               title="Referrals"
@@ -570,7 +556,7 @@ export default function CaseShow({ case: caseFile, case_categories = [], recomme
                       {showReferralBlockingInfo && (
                         <div id="referral-closure-requirement" className="absolute right-0 top-full z-20 mt-1 w-64 max-w-[calc(100vw-3rem)] rounded-md border border-amber-200 bg-amber-50 px-3 py-2 shadow-md">
                           <p className="text-[11px] leading-5 text-amber-800">
-                            This case cannot be closed until all referrals are completed or rejected. Resolve the active referrals below first.
+                            Referrals are still processing. Resolve them first or use Force close case.
                           </p>
                         </div>
                       )}
@@ -798,11 +784,11 @@ export default function CaseShow({ case: caseFile, case_categories = [], recomme
             </div>
           </section>
 
-          {canManageCaseDocuments && recommended_agencies.length > 0 && (
+          {canManageCaseDocuments && recommended_agencies?.length > 0 && (
             <section className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
               <h2 className="text-[12px] font-bold text-emerald-900">Recommended agencies</h2>
               <ul className="mt-2 space-y-1 text-[12px] text-emerald-900">
-                {[...new Map(recommended_agencies.map((agency) => [agency.id, agency])).values()].map((agency) => <li key={agency.id}>{agency.name}{agency.short ? ` (${agency.short})` : ''}</li>)}
+                {[...new Map(recommended_agencies.map((agency) => [agency.id, agency])).values()].map((agency) => <li key={agency.id}>{agency.name}{agency.short ? ` (${agency.short})` : ''}{agency.matching_categories?.length > 0 && <span className="block text-emerald-700">{agency.matching_categories.map((category) => category.name).join(', ')}</span>}</li>)}
               </ul>
             </section>
           )}
@@ -932,6 +918,21 @@ export default function CaseShow({ case: caseFile, case_categories = [], recomme
         </aside>
       </div>
 
+      <Modal show={showEdit} closeable={!editProcessing} onClose={closeEdit}>
+        <form className="space-y-5 p-6" onSubmit={submitEdit}>
+          {Object.keys(editErrors).length > 0 && <div role="alert" className="rounded-md bg-red-50 p-3 text-sm text-red-700"><p className="font-bold">Could not save changes:</p><ul className="list-inside list-disc">{Object.entries(editErrors).map(([field, message]) => <li key={field}>{message}</li>)}</ul></div>}
+          <div><h2 className="text-lg font-bold text-slate-900">Edit Case</h2><p className="mt-1 text-sm text-slate-500">Update case details and categories.</p></div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {[["first_name", "First name"], ["middle_name", "Middle name"], ["last_name", "Last name"], ["suffix", "Suffix"], ["email", "Email"], ["contact_number", "Contact number"], ["employment_employer_name", "Employer"], ["employment_position", "Position"], ["employment_country", "Employment country"], ["nok_name", "Next of kin"], ["nok_relationship", "Relationship"], ["nok_contact_number", "Next of kin contact"], ["nok_email", "Next of kin email"], ["address_street", "Street address"]].map(([field, label]) => <label key={field} className="text-[12px] font-semibold text-slate-700">{label}<input value={correction[field] ?? caseFile[field] ?? ''} onChange={(event) => setCorrection((current) => ({ ...current, [field]: event.target.value }))} className="mt-1 w-full rounded-md border-slate-300 text-sm" /></label>)}
+          </div>
+          <label className="block text-[12px] font-semibold text-slate-700">Case narrative<textarea value={correction.summary ?? caseFile.summary ?? ''} onChange={(event) => setCorrection((current) => ({ ...current, summary: event.target.value }))} className="mt-1 w-full rounded-md border-slate-300 text-sm" /></label>
+          <fieldset className="border-t border-slate-200 pt-4"><legend className="text-sm font-bold text-slate-800">Case categories *</legend><div className="mt-3 grid gap-2 sm:grid-cols-2">{categoryOptions.map((category) => <label key={category.id} className="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={selectedCategoryIds.includes(String(category.id))} onChange={() => setSelectedCategoryIds((ids) => ids.includes(String(category.id)) ? ids.filter((id) => id !== String(category.id)) : [...ids, String(category.id)])} />{category.name}</label>)}</div></fieldset>
+          <label className="block text-[12px] font-semibold text-slate-700">Reason for correction *<textarea required maxLength={1000} value={correctionReason} onChange={(event) => setCorrectionReason(event.target.value)} className="mt-1 w-full rounded-md border-slate-300 text-sm" /></label>
+          <div className="flex gap-3"><button type="submit" disabled={editProcessing} className="rounded-md bg-blue-900 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">{editProcessing ? 'Saving…' : 'Save changes'}</button><button type="button" disabled={editProcessing} onClick={closeEdit} className="text-sm font-bold text-slate-600 disabled:opacity-50">Cancel</button></div>
+        </form>
+      </Modal>
+      {UnsavedModal}
+      <ConfirmDialog open={confirmDiscardEdit} title="Discard changes?" message="Your case edits have not been saved." confirmLabel="Discard changes" tone="danger" onConfirm={() => { setConfirmDiscardEdit(false); setShowEdit(false); }} onCancel={() => setConfirmDiscardEdit(false)} />
       <AuditLogModal
         show={showAuditLog}
         onClose={() => setShowAuditLog(false)}
@@ -966,13 +967,13 @@ export default function CaseShow({ case: caseFile, case_categories = [], recomme
       />
       <ConfirmDialog
         open={confirmToggleStatus}
-        title={caseFile.status === 'OPEN' ? 'Close Case' : 'Reopen Case'}
+        title={caseFile.status === 'OPEN' && hasActiveReferrals ? 'Force close case' : caseFile.status === 'OPEN' ? 'Close Case' : 'Reopen Case'}
         message={
           caseFile.status === 'OPEN'
-            ? `Are you sure you want to close case ${caseFile.case_number}? It will be marked as resolved and no longer accept updates.`
+            ? hasActiveReferrals ? `Referrals are still processing. Force close case ${caseFile.case_number} anyway?` : `Are you sure you want to close case ${caseFile.case_number}? It will be marked as resolved and no longer accept updates.`
             : `Are you sure you want to reopen case ${caseFile.case_number}?`
         }
-        confirmLabel={caseFile.status === 'OPEN' ? 'Close Case' : 'Reopen Case'}
+        confirmLabel={caseFile.status === 'OPEN' && hasActiveReferrals ? 'Force close case' : caseFile.status === 'OPEN' ? 'Close Case' : 'Reopen Case'}
         tone={caseFile.status === 'OPEN' ? 'danger' : 'info'}
         onConfirm={() => {
           handleToggleStatus();

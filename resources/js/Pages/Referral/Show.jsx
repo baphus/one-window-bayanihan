@@ -1187,10 +1187,10 @@ export default function ReferralShow({ referral, caseIdentity: caseIdentityProp 
                                     serviceRequirements={serviceRequirements}
                                 />
                             )}
-                            {referral.category && (
+                            {(referral.categories?.length > 0 || referral.category) && (
                                 <div>
                                     <p className="text-[12px] font-medium text-slate-500">Referral category</p>
-                                    <p className="mt-0.5 text-[13px] font-semibold text-slate-800">{referral.category.name ?? referral.category.title}</p>
+                                    <p className="mt-0.5 text-[13px] font-semibold text-slate-800">{(referral.categories?.length ? referral.categories : [referral.category]).map((category) => category.name ?? category.title).join(', ')}</p>
                                 </div>
                             )}
                             {referral.concern && (
@@ -1240,7 +1240,7 @@ export default function ReferralShow({ referral, caseIdentity: caseIdentityProp 
                                 <InfoCell label="Tracker number" value={caseFile?.tracker_number ?? 'N/A'} />
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-3 [&>div]:border-0">
-                                <InfoCell label="Referral category" value={referral.category?.name ?? referral.category?.title ?? 'N/A'} />
+                                <InfoCell label="Referral category" value={(referral.categories?.length ? referral.categories : referral.category ? [referral.category] : []).map((category) => category.name ?? category.title).join(', ') || 'N/A'} />
                                 <InfoCell label="Concern" value={referral.concern ?? 'N/A'} />
                             </div>
                             <div>

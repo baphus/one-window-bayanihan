@@ -79,7 +79,7 @@ class ReferralController extends Controller
     {
         $agencies = $this->referenceData->getAgenciesWithServices();
 
-        $casesQuery = CaseFile::with('ofwUser:id,avatar_url')
+        $casesQuery = CaseFile::with(['ofwUser:id,avatar_url', 'categories:id,name'])
             ->where('status', 'OPEN')
             ->orderBy('created_at', 'desc');
 
@@ -106,8 +106,13 @@ class ReferralController extends Controller
 
         $cases->getCollection()->each->makeVisible(['first_name', 'middle_name', 'last_name', 'suffix', 'email', 'contact_number', 'client_type']);
 
+        $selectedCase = CaseFile::with(['ofwUser:id,avatar_url', 'categories:id,name'])
+            ->where('status', 'OPEN')->find($request->query('case_id'));
+        $selectedCase?->makeVisible(['first_name', 'middle_name', 'last_name', 'suffix', 'email', 'contact_number', 'client_type']);
+
         return Inertia::render('Referral/Create', [
             'case_id' => $request->query('case_id'),
+            'selected_case' => $selectedCase,
             'agencies' => $agencies,
             'cases' => $cases,
             'categories' => $categories,
@@ -118,7 +123,7 @@ class ReferralController extends Controller
     public function store(StoreReferralRequest $request, StorageService $storage)
     {
         try {
-            $referral = $this->referralService->createReferralWithDocuments(
+            $referrals = $this->referralService->createReferralsWithDocuments(
                 $request->validated(),
                 $request->user()->id,
                 $request->hasFile('documents') ? $request->file('documents') : [],
@@ -132,8 +137,8 @@ class ReferralController extends Controller
             ->markChecklistItemQuietly($request->user(), 'send-first-referral');
 
         return redirect()
-            ->route('referrals.show', $referral)
-            ->with('success', 'Referral created successfully.');
+            ->route('referrals.show', $referrals[0])
+            ->with('success', count($referrals).' referral(s) created successfully.');
     }
 
     public function show(Request $request, string $id)

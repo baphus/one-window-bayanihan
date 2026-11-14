@@ -56,6 +56,7 @@ class ReferralServiceTransactionScopeTest extends TestCase
         // RefreshDatabase wraps each test in a transaction, so compare against
         // the ambient level: the upload must not add any nesting on top.
         $baselineLevel = DB::transactionLevel();
+        $case->categories()->attach(CaseCategory::factory()->create());
 
         $referral = app(ReferralService::class)->createReferralWithDocuments(
             [

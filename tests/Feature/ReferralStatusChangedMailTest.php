@@ -294,6 +294,7 @@ class ReferralStatusChangedMailTest extends TestCase
 
         $referralService = app(ReferralService::class);
         $category = CaseCategory::factory()->create();
+        $case->categories()->attach($category);
         $referral = $referralService->createReferral([
             'category_id' => $category->id,
             'concern' => 'Assistance requested',
@@ -328,6 +329,7 @@ class ReferralStatusChangedMailTest extends TestCase
 
         $referralService = app(ReferralService::class);
         $category = CaseCategory::factory()->create();
+        $case->categories()->attach($category);
         $referral = $referralService->createReferral([
             'category_id' => $category->id,
             'concern' => 'Assistance requested',
@@ -360,6 +362,7 @@ class ReferralStatusChangedMailTest extends TestCase
 
         $referralService = app(ReferralService::class);
         $category = CaseCategory::factory()->create();
+        $case->categories()->attach($category);
         $referral = $referralService->createReferral([
             'category_id' => $category->id,
             'concern' => 'Assistance requested',
@@ -397,6 +400,7 @@ class ReferralStatusChangedMailTest extends TestCase
 
         $referralService = app(ReferralService::class);
         $category = CaseCategory::factory()->create();
+        $case->categories()->attach($category);
         $referral = $referralService->createReferral([
             'category_id' => $category->id,
             'concern' => 'Assistance requested',
@@ -430,6 +434,7 @@ class ReferralStatusChangedMailTest extends TestCase
 
         $referralService = app(ReferralService::class);
         $category = CaseCategory::factory()->create();
+        $case->categories()->attach($category);
         $referral = $referralService->createReferral([
             'category_id' => $category->id,
             'concern' => 'Assistance requested',

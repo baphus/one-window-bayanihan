@@ -343,7 +343,7 @@ class CaseController extends Controller
         return Inertia::render('Case/Show', [
             'case' => $this->authorizedIntakePayload($case),
             'case_categories' => $caseCategories,
-            'recommended_agencies' => $managerView ? $case->categories->load('suggestedAgencies:id,name,short,is_active,is_deleted')->flatMap(fn (CaseCategory $category) => $category->suggestedAgencies)->filter(fn ($agency) => $agency->is_active && ! $agency->is_deleted)->unique('id')->values()->map(fn ($agency) => ['id' => $agency->id, 'name' => $agency->name, 'short' => $agency->short]) : null,
+            'recommended_agencies' => $managerView ? $case->categories->load('suggestedAgencies:id,name,short,is_active,is_deleted')->flatMap(fn (CaseCategory $category) => $category->suggestedAgencies)->filter(fn ($agency) => $agency->is_active && ! $agency->is_deleted)->unique('id')->values()->map(fn ($agency) => ['id' => $agency->id, 'name' => $agency->name, 'short' => $agency->short, 'matching_categories' => $case->categories->filter(fn ($category) => $category->suggestedAgencies->contains('id', $agency->id))->map(fn ($category) => ['id' => $category->id, 'name' => $category->name])->values()]) : null,
             'documentRequirements' => $request->user()->isAgency()
                 ? []
                 : IntakeDocumentService::requirementList($case),
@@ -382,7 +382,8 @@ class CaseController extends Controller
     {
         $case = $this->caseService->getCase($id);
         $this->authorizeCaseAccess($case, $request->user());
-        $case = $this->caseService->toggleCaseStatus($id, $request->user()->id);
+        $validated = $request->validate(['force_close' => ['sometimes', 'boolean']]);
+        $case = $this->caseService->toggleCaseStatus($id, $request->user()->id, (bool) ($validated['force_close'] ?? false));
 
         return redirect()
             ->route('cases.show', $case)

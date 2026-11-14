@@ -75,49 +75,17 @@ describe('Review pending category preview', () => {
     expect(screen.getByRole('link', { name: 'Download Passport front page' })).toHaveAttribute('href', '/mocked/cases.documents.download');
     expect(screen.getByRole('link', { name: 'Download all' })).toHaveTextContent('folder_zip');
   });
-  it('shows category preview card in modal', () => {
+  it('updates suggestions from all selected categories without sending referrals', () => {
     openReview();
-    expect(screen.getByText('Referral category preview')).toBeInTheDocument();
-    expect(screen.getByText(/This is for reference only and does not create or save a referral/i)).toBeInTheDocument();
-  });
-
-  it('lists all categories in preview dropdown', () => {
-    openReview();
-    const select = screen.getByRole('combobox', { name: /category/i });
-    fireEvent.click(select);
-    expect(screen.getByRole('option', { name: 'Legal' })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: 'Skills Development' })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: 'Other' })).toBeInTheDocument();
-  });
-
-  it('shows suggested agencies when category selected', () => {
-    openReview();
-    const select = screen.getByRole('combobox', { name: /category/i });
-    fireEvent.click(select);
-    fireEvent.mouseDown(screen.getByRole('option', { name: 'Legal' }));
-    
     expect(screen.getByText('Suggested agencies')).toBeInTheDocument();
-    expect(screen.getByText('DOLE Region VII')).toBeInTheDocument();
-    expect(screen.getByText('(DOLE)')).toBeInTheDocument();
-  });
-
-  it('shows different suggestions for different categories', () => {
-    openReview();
-    const select = screen.getByRole('combobox', { name: /category/i });
-    fireEvent.click(select);
-    fireEvent.mouseDown(screen.getByRole('option', { name: 'Skills Development' }));
-    
-    expect(screen.getByText('TESDA')).toBeInTheDocument();
-    expect(screen.queryByText('DOLE Region VII')).not.toBeInTheDocument();
-  });
-
-  it('shows no agencies message when category has no suggestions', () => {
-    openReview();
-    const select = screen.getByRole('combobox', { name: /category/i });
-    fireEvent.click(select);
-    fireEvent.mouseDown(screen.getByRole('option', { name: 'Other' }));
-    
-    expect(screen.getByText('No suggested agencies for this category.')).toBeInTheDocument();
+    expect(screen.getByText('No suggested agencies for selected categories.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Legal' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Skills Development' }));
+    expect(screen.getByText(/DOLE Region VII/)).toBeInTheDocument();
+    expect(screen.getByText(/TESDA/)).toBeInTheDocument();
+    expect(router.post).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Legal' }));
+    expect(screen.queryByText(/DOLE Region VII/)).not.toBeInTheDocument();
   });
 
   it('requires categories, then submits all selected category IDs with approval', () => {
@@ -137,16 +105,4 @@ describe('Review pending category preview', () => {
     expect(router.post).toHaveBeenCalledWith('/mocked/cases.review-approve', expect.objectContaining({ category_ids: ['cat-1', 'cat-2'] }), expect.any(Object));
   });
 
-  it('does not block approval when category preview used', () => {
-    openReview();
-    const select = screen.getByLabelText(/category/i);
-    fireEvent.change(select, { target: { value: 'cat-1' } });
-    
-    fireEvent.click(screen.getByRole('checkbox', { name: /legal assistance/i }));
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Legal' }));
-    screen.getAllByRole('checkbox', { name: /reviewed document/i }).forEach((checkbox) => { if (!checkbox.checked) fireEvent.click(checkbox); });
-
-    const approve = screen.getByRole('button', { name: /approve case/i });
-    expect(approve).not.toBeDisabled();
-  });
 });
