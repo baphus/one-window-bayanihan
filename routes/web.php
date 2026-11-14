@@ -494,6 +494,7 @@ Route::middleware(['auth', 'role:OFW'])->prefix('my-cases')->name('ofw.')->group
         Route::get('/intake', [CaseController::class, 'intake'])->name('intake');
         Route::post('/intake', [CaseController::class, 'storeIntake'])->name('intake.store');
         Route::post('/{case}/intake-documents', [CaseDocumentController::class, 'replace'])->name('intake.documents.replace');
+        Route::get('/{case}/documents/{document}/download', [CaseDocumentController::class, 'download'])->name('case.documents.download');
     });
     Route::get('/{case}/agencies/{referral}/milestones', [OfwDashboardController::class, 'agencyMilestones'])->name('case.milestones');
     Route::get('/{case}/agencies/{referral}/requests/{request}', [ReferralClientRequestController::class, 'ownerShow'])->name('case.requests.show');

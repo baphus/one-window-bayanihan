@@ -162,7 +162,7 @@ class CaseDocumentController extends Controller
 
     public function downloadIntakeArchive(Request $request, string $caseId)
     {
-        abort_unless($request->user()->isCaseManager(), 403);
+        abort_unless($request->user()->isCaseManager() || $request->user()->isAdmin(), 403);
 
         $case = CaseFile::query()
             ->whereKey($caseId)
@@ -248,7 +248,7 @@ class CaseDocumentController extends Controller
             ->where('is_deleted', false)
             ->firstOrFail();
 
-        $this->authorizeDocumentAccess($document, $request->user());
+        $this->authorizeDocumentAccess($document, $request->user(), $case);
 
         AuditLogger::download()
             ->by($request->user())
@@ -373,14 +373,14 @@ class CaseDocumentController extends Controller
         }
     }
 
-    private function authorizeDocumentAccess(CaseDocument $document, $user)
+    private function authorizeDocumentAccess(CaseDocument $document, $user, ?CaseFile $case = null)
     {
         // ADMIN and CASE_MANAGER: full access to all documents
         if ($user->isAdmin() || $user->isCaseManager()) {
             return;
         }
 
-        if ($user->isOfw() && $document->referral_id === null && $document->caseFile->ofw_user_id === $user->id) {
+        if ($user->isOfw() && $document->referral_id === null && ($case ?? $document->caseFile)?->ofw_user_id === $user->id) {
             return;
         }
 
