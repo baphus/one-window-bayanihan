@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\UserRole;
+use App\Mail\ClientUpdateMail;
 use App\Models\Agency;
 use App\Models\CaseCategory;
 use App\Models\CaseFile;
@@ -76,13 +77,14 @@ class ReferralServiceNotificationTest extends TestCase
         ]);
     }
 
-    public function test_updating_referral_status_dispatches_notification_to_case_manager(): void
+    public function test_case_manager_status_change_notifies_agency_but_not_the_actor(): void
     {
         Notification::fake();
 
         $caseManager = $this->createUser(UserRole::CASE_MANAGER->value);
         $case = $this->createCase($caseManager);
         $agency = Agency::factory()->create();
+        $agencyUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id, 'is_active' => true]);
 
         $referral = $this->service->createReferral([
             'category_id' => CaseCategory::factory()->create()->id,
@@ -96,7 +98,68 @@ class ReferralServiceNotificationTest extends TestCase
 
         $this->service->updateStatus($referral->id, 'PROCESSING', null, null, $caseManager->id);
 
+        Notification::assertNotSentTo($caseManager, ReferralStatusChanged::class);
+        Notification::assertSentTo($agencyUser, ReferralStatusChanged::class);
+    }
+
+    public function test_agency_actor_does_not_receive_their_own_status_change_but_colleagues_and_case_manager_do(): void
+    {
+        Notification::fake();
+
+        $caseManager = $this->createUser(UserRole::CASE_MANAGER->value);
+        $case = $this->createCase($caseManager);
+        $agency = Agency::factory()->create();
+        $actor = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id, 'is_active' => true]);
+        $colleague = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id, 'is_active' => true]);
+        $referral = Referral::factory()->create(['case_id' => $case->id, 'agcy_id' => $agency->id]);
+
+        $this->service->updateStatus($referral->id, 'PROCESSING', 'ACCEPT', null, $actor->id);
+        $this->service->updateStatus($referral->id, 'COMPLETED', null, null, $actor->id);
+
+        Notification::assertNotSentTo($actor, ReferralStatusChanged::class);
+        Notification::assertSentToTimes($colleague, ReferralStatusChanged::class, 2);
+        Notification::assertSentToTimes($caseManager, ReferralStatusChanged::class, 2);
+    }
+
+    public function test_completed_referral_notifies_case_manager_and_ofw_but_not_acting_agency_user(): void
+    {
+        Notification::fake();
+
+        $caseManager = $this->createUser(UserRole::CASE_MANAGER->value);
+        $case = $this->createCase($caseManager);
+        $agency = Agency::factory()->create();
+        $actor = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id, 'is_active' => true]);
+        $referral = Referral::factory()->processing()->create(['case_id' => $case->id, 'agcy_id' => $agency->id]);
+
+        $this->service->updateStatus($referral->id, 'COMPLETED', null, null, $actor->id);
+
+        Notification::assertSentTo($caseManager, ReferralStatusChanged::class, function (ReferralStatusChanged $notification) use ($caseManager): bool {
+            return $notification->newStatus === 'COMPLETED'
+                && in_array('database', $notification->via($caseManager), true)
+                && in_array('mail', $notification->via($caseManager), true);
+        });
+        Notification::assertNotSentTo($actor, ReferralStatusChanged::class);
+        $this->assertDatabaseHas('case_notifications', [
+            'case_id' => $case->id,
+            'type' => 'referral_status_changed',
+            'client_email' => 'ofw@example.com',
+        ]);
+        Mail::assertQueued(ClientUpdateMail::class);
+    }
+
+    public function test_case_manager_receives_completion_even_when_they_complete_the_referral(): void
+    {
+        Notification::fake();
+
+        $caseManager = $this->createUser(UserRole::CASE_MANAGER->value);
+        $case = $this->createCase($caseManager);
+        $referral = Referral::factory()->processing()->create(['case_id' => $case->id]);
+
+        $this->service->updateStatus($referral->id, 'COMPLETED', null, null, $caseManager->id);
+
         Notification::assertSentTo($caseManager, ReferralStatusChanged::class);
+        $this->assertDatabaseHas('case_notifications', ['case_id' => $case->id, 'type' => 'referral_status_changed']);
+        Mail::assertQueued(ClientUpdateMail::class);
     }
 
     public function test_updating_referral_status_creates_ofw_notification(): void
@@ -143,17 +206,17 @@ class ReferralServiceNotificationTest extends TestCase
         // Duplicate request for the same status must be an idempotent no-op.
         $this->service->updateStatus($referral->id, 'PROCESSING', null, null, $caseManager->id);
 
-        Notification::assertSentTimes(ReferralStatusChanged::class, 1);
+        Notification::assertNothingSent();
     }
 
-    public function test_adding_milestone_dispatches_notification(): void
+    public function test_case_manager_milestone_notifies_agency_but_not_the_actor(): void
     {
         Notification::fake();
 
         $caseManager = $this->createUser(UserRole::CASE_MANAGER->value);
         $case = $this->createCase($caseManager);
         $agency = Agency::factory()->create();
-        User::factory()->create([
+        $agencyUser = User::factory()->create([
             'agcy_id' => $agency->id,
             'role' => UserRole::AGENCY->value,
             'is_active' => true,
@@ -171,6 +234,25 @@ class ReferralServiceNotificationTest extends TestCase
 
         $this->service->addMilestone($referral->id, 'First Milestone', 'Description', $caseManager->id);
 
+        Notification::assertNotSentTo($caseManager, MilestoneAdded::class);
+        Notification::assertSentTo($agencyUser, MilestoneAdded::class);
+    }
+
+    public function test_agency_actor_does_not_receive_their_own_milestone_but_colleagues_and_case_manager_do(): void
+    {
+        Notification::fake();
+
+        $caseManager = $this->createUser(UserRole::CASE_MANAGER->value);
+        $case = $this->createCase($caseManager);
+        $agency = Agency::factory()->create();
+        $actor = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id, 'is_active' => true]);
+        $colleague = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id, 'is_active' => true]);
+        $referral = Referral::factory()->create(['case_id' => $case->id, 'agcy_id' => $agency->id]);
+
+        $this->service->addMilestone($referral->id, 'Documents verified', null, $actor->id);
+
+        Notification::assertNotSentTo($actor, MilestoneAdded::class);
+        Notification::assertSentTo($colleague, MilestoneAdded::class);
         Notification::assertSentTo($caseManager, MilestoneAdded::class);
     }
 
