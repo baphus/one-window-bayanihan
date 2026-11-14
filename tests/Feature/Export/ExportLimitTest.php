@@ -29,7 +29,7 @@ class ExportLimitTest extends TestCase
         $case = CaseFile::factory()->create(['status' => 'OPEN']);
         DB::statement('INSERT INTO cases (id, case_number, tracker_number, status, is_deleted, created_at, updated_at) SELECT gen_random_uuid(), ? || n, ? || n, ?, false, now(), now() FROM generate_series(1, 10000) n', ['bulk-case-', 'bulk-track-', 'OPEN']);
         $this->actingAsWithMfa($user)->getJson(route('cases.export-count'))->assertJsonPath('count', 10001);
-        $this->get(route('cases.export-excel'))->assertStatus(422)->assertSee('Narrow filters');
+        $this->getJson(route('cases.export-excel'))->assertStatus(422)->assertJsonPath('message', 'More than 10,000 cases match. Narrow filters before exporting.');
     }
 
     #[Test]
@@ -40,6 +40,6 @@ class ExportLimitTest extends TestCase
         $agency = Agency::factory()->create();
         DB::statement("INSERT INTO referrals (id, case_id, agcy_id, required_services, status, is_deleted, created_at, updated_at) SELECT gen_random_uuid(), ?, ?, 'Assistance', 'PENDING', false, now(), now() FROM generate_series(1, 10001)", [$case->id, $agency->id]);
         $this->actingAsWithMfa($user)->getJson(route('referrals.export-count'))->assertJsonPath('count', 10001);
-        $this->get(route('referrals.export-excel'))->assertStatus(422)->assertSee('Narrow filters');
+        $this->getJson(route('referrals.export-excel'))->assertStatus(422)->assertJsonPath('message', 'More than 10,000 referrals match. Narrow filters before exporting.');
     }
 }
