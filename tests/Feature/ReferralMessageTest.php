@@ -74,6 +74,7 @@ class ReferralMessageTest extends TestCase
 
         // Y messages X via X's card; X replies via Y's card.
         $this->actingAsWithMfa($f['yUser'])->postJson(route('referrals.messages.store', $f['referralX']), ['body' => 'First update.']);
+        $this->travel(1)->second();
         $this->actingAsWithMfa($f['xUser'])->postJson(route('referrals.messages.store', $f['referralY']), ['body' => 'Second update.']);
 
         // Y listing via X's card sees both messages (oldest first).
