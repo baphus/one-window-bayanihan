@@ -2,11 +2,11 @@
 
 namespace App\Services\Referral;
 
+use App\Enums\UserRole;
 use App\Models\Milestone;
 use App\Models\Referral;
 use App\Models\User;
 use App\Notifications\MilestoneAdded;
-use App\Notifications\PeerReferralCreated;
 use App\Notifications\ReferralCreated;
 use App\Notifications\ReferralStatusChanged;
 use App\Services\NotificationService;
@@ -37,6 +37,7 @@ class ReferralNotifier
 
         // Notify agency users about the new referral
         $agencyUsers = User::where('agcy_id', $referral->agcy_id)
+            ->where('role', UserRole::AGENCY->value)
             ->where('is_active', true)
             ->get();
 
@@ -46,27 +47,6 @@ class ReferralNotifier
         // notify agencies (and mail them) about a referral that later rolls
         // back — e.g. when a case-document row fails to insert.
         $this->afterCommit($referral, fn () => Notification::send($agencyUsers, new ReferralCreated($referral, $actorName)));
-
-        // Notify peer agencies already involved in this case
-        $peerReferrals = Referral::where('case_id', $referral->case_id)
-            ->where('id', '!=', $referral->id)
-            ->where('is_deleted', false)
-            ->where('agcy_id', '!=', $referral->agcy_id)
-            ->whereIn('status', ['PENDING', 'PROCESSING', 'FOR_COMPLIANCE'])
-            ->get();
-
-        if ($peerReferrals->isNotEmpty()) {
-            $peerAgencyIds = $peerReferrals->pluck('agcy_id')->unique()->values();
-            $peerUsers = User::whereIn('agcy_id', $peerAgencyIds)
-                ->where('is_active', true)
-                ->get();
-
-            if ($peerUsers->isNotEmpty()) {
-                $peerReferral = $peerReferrals->first();
-
-                $this->afterCommit($referral, fn () => Notification::send($peerUsers, new PeerReferralCreated($referral, $peerReferral, $actorName)));
-            }
-        }
 
         // Also create OFW notification for the case client (plain language, no status codes).
         // Deferred until after commit: notifyOfw queues the client email,
@@ -110,6 +90,7 @@ class ReferralNotifier
             }
 
             $agencyUsers = User::where('agcy_id', $referral->agcy_id)
+                ->where('role', UserRole::AGENCY->value)
                 ->where('is_active', true)
                 ->where('id', '!=', $userId)
                 ->when($caseManager, fn ($query) => $query->where('id', '!=', $caseManager->id))
@@ -152,6 +133,7 @@ class ReferralNotifier
         if ($referral && $referral->caseFile) {
             $caseManager = User::find($referral->caseFile->user_id);
             $agencyUsers = User::where('agcy_id', $referral->agcy_id)
+                ->where('role', UserRole::AGENCY->value)
                 ->where('is_active', true)
                 ->get();
 

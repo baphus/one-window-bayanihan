@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\Referral;
+use App\Services\NotificationService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -28,6 +29,11 @@ class ReferralCreated extends Notification implements ShouldQueue
         return $channels;
     }
 
+    public function shouldSend(object $notifiable, string $channel): bool
+    {
+        return app(NotificationService::class)->mayReceiveReferral($notifiable, $this->referral->id, true);
+    }
+
     public function viaQueues(): array
     {
         return [
@@ -49,6 +55,7 @@ class ReferralCreated extends Notification implements ShouldQueue
             ->subject("New referral for case {$caseNumber}")
             ->markdown('emails.notifications.referral-created', [
                 'referral' => $this->referral,
+                'actorName' => $this->actorName,
                 'url' => url("/referrals/{$this->referral->id}"),
             ]);
     }
@@ -81,6 +88,8 @@ class ReferralCreated extends Notification implements ShouldQueue
         if ($clientName !== null) {
             $message .= " — client {$clientName}";
         }
+
+        $message .= '. Your agency focal should review the referral and assign services.';
 
         return [
             'type' => 'referral_created',

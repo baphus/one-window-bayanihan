@@ -4,14 +4,14 @@
 # New Referral Assigned
 
 <p style="font-size: 15px; line-height: 1.7; color: #3f3f46; margin: 0 0 24px 0;">
-A referral has been assigned to your agency. Please review the details and respond within 5 business days.
+A referral has been assigned to your agency. Please review the details, assign services, and respond within 5 business days.
 </p>
 
 <x-mail::detail-table :rows="[
 ['label' => 'Client', 'value' => trim(($referral->caseFile?->first_name ?? '') . ' ' . ($referral->caseFile?->last_name ?? '')) ?: 'N/A'],
 ['label' => 'Category', 'value' => $referral->category?->name ?? 'N/A'],
 ['label' => 'Services', 'value' => $referral->required_services ?: 'N/A'],
-['label' => 'From', 'value' => $referral->caseFile?->user?->name ?? 'DMW Region VII'],
+['label' => 'Referred by', 'value' => $actorName ?? 'DMW Region VII'],
 ['label' => 'Referred', 'value' => $referral->created_at->format('M d, Y')],
 ['label' => 'Response Due', 'value' => $referral->created_at->copy()->addDays(5)->format('M d, Y')],
 ]" />
