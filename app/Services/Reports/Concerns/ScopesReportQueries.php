@@ -4,7 +4,6 @@ namespace App\Services\Reports\Concerns;
 
 use App\Enums\UserRole;
 use App\Models\CaseFile;
-use App\Models\ClientEmployment;
 use App\Models\Referral;
 use App\Support\ReportCalendar;
 use Illuminate\Support\Carbon;
@@ -53,7 +52,7 @@ trait ScopesReportQueries
 
     private function caseQuery(?string $userId = null, ?string $role = null, ?string $agencyId = null, string $dateScope = 'case_created_at')
     {
-        $query = CaseFile::whereNotIn('cases.status', ['DRAFT', 'ARCHIVED']);
+        $query = CaseFile::where('cases.is_deleted', false)->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED']);
         if (! $this->hasRequiredRoleScope($userId, $role, $agencyId)) {
             return $query->whereRaw('1 = 0');
         }
@@ -100,22 +99,17 @@ trait ScopesReportQueries
     }
 
     /**
-     * Apply geographic filter (province/city) to a query builder.
-     * For referral-based queries, uses a subquery on cases->clients->client_addresses.
-     * For case-based queries, uses a subquery to avoid duplicate counts.
-     */
-    /**
      * Restrict a `cases`-based query to the active reporting window.
      *
-     * Five panels — client type, vulnerability, case status, and both
+     * Five panels — intake type, vulnerability, case status, and both
      * employment breakdowns — previously ignored the date and geography
      * filters entirely and reported all-time figures beside panels that
      * honoured them. Exporting those sections would have printed numbers that
      * contradict the date range on the same page.
      *
-     * Geography is applied as a subquery rather than the JOIN used by
-     * applyGeoFilter(): a client with more than one address would otherwise be
-     * counted once per address and inflate every count(*) here.
+     * Geography is applied as a subquery rather than a JOIN: a repeated
+     * applicant's cases each carry one address, so there is no address fan-out,
+     * but the subquery keeps every count keyed to one case row.
      */
     private function applyCaseWindow($query, ?string $fromDate, ?string $toDate, ?string $province, ?string $city): void
     {
@@ -125,21 +119,7 @@ trait ScopesReportQueries
             return;
         }
 
-        $query->whereIn('cases.id', function ($q) use ($province, $city) {
-            $q->select('cases.id')->from('cases')
-                ->join('clients', 'clients.id', '=', 'cases.client_id')
-                ->join('client_addresses', function ($join) {
-                    $join->on('client_addresses.client_id', '=', 'clients.id')
-                        ->where('client_addresses.is_deleted', false)
-                        ->whereNull('client_addresses.deleted_at');
-                });
-            if ($province) {
-                $q->where('client_addresses.province', $province);
-            }
-            if ($city) {
-                $q->where('client_addresses.city_municipality', $city);
-            }
-        });
+        $this->applyGeoFilter($query, $province, $city, 'cases');
     }
 
     /**
@@ -172,77 +152,24 @@ trait ScopesReportQueries
             return;
         }
 
-        if ($baseTable === 'referrals') {
-            $query->whereIn('referrals.case_id', function ($q) use ($province, $city) {
-                $q->select('cases.id')->from('cases')
-                    ->join('clients', 'clients.id', '=', 'cases.client_id')
-                    ->join('client_addresses', function ($join) {
-                        $join->on('client_addresses.client_id', '=', 'clients.id')
-                            ->where('client_addresses.is_deleted', false)
-                            ->whereNull('client_addresses.deleted_at');
-                    });
-                if ($province) {
-                    $q->where('client_addresses.province', $province);
-                }
-                if ($city) {
-                    $q->where('client_addresses.city_municipality', $city);
-                }
-            });
-        } else {
-            $query->whereIn('cases.id', function ($q) use ($province, $city) {
-                $q->select('cases.id')->from('cases')
-                    ->join('clients', 'clients.id', '=', 'cases.client_id')
-                    ->join('client_addresses', function ($join) {
-                        $join->on('client_addresses.client_id', '=', 'clients.id')
-                            ->where('client_addresses.is_deleted', false)
-                            ->whereNull('client_addresses.deleted_at');
-                    });
-                if ($province) {
-                    $q->where('client_addresses.province', $province);
-                }
-                if ($city) {
-                    $q->where('client_addresses.city_municipality', $city);
-                }
-            });
-        }
+        $column = $baseTable === 'referrals' ? 'referrals.case_id' : 'cases.id';
+        $query->whereIn($column, function ($q) use ($province, $city) {
+            $q->select('cases.id')->from('cases')->whereNull('cases.deleted_at')->where('cases.is_deleted', false);
+            if ($province) {
+                $q->where('cases.address_province', $province);
+            }
+            if ($city) {
+                $q->where('cases.address_city_municipality', $city);
+            }
+        });
     }
 
-    /**
-     * Subquery of client IDs whose cases match the active date/role/geo filters.
-     * Lets client-level distributions (gender/age) respect the same filters as
-     * the rest of the report instead of counting the whole clients table.
-     */
-    private function filteredClientIds(?string $userId, ?string $role, ?string $fromDate, ?string $toDate, ?string $province, ?string $city, ?string $agencyId = null)
+    private function filteredCaseIds(?string $userId, ?string $role, ?string $fromDate, ?string $toDate, ?string $province, ?string $city, ?string $agencyId = null)
     {
-        $q = CaseFile::query()
-            ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
-            ->whereNull('cases.deleted_at');
+        $query = $this->caseQuery($userId, $role, $agencyId);
+        $this->applyCaseWindow($query, $fromDate, $toDate, $province, $city);
 
-        if ($agencyId) {
-            $q->whereIn('cases.id', function ($q) use ($agencyId) {
-                $q->select('case_id')->from('referrals')
-                    ->where('agcy_id', $agencyId)
-                    ->whereNull('deleted_at');
-            });
-        }
-        if ($fromDate || $toDate) {
-            $this->applyLocalDateWindow($q, 'cases.created_at', $fromDate, $toDate);
-        }
-        if ($province || $city) {
-            $q->whereIn('cases.client_id', function ($addresses) use ($province, $city) {
-                $addresses->select('client_addresses.client_id')->from('client_addresses')
-                    ->where('client_addresses.is_deleted', false)
-                    ->whereNull('client_addresses.deleted_at');
-                if ($province) {
-                    $addresses->where('client_addresses.province', $province);
-                }
-                if ($city) {
-                    $addresses->where('client_addresses.city_municipality', $city);
-                }
-            });
-        }
-
-        return $q->select('cases.client_id');
+        return $query->select('cases.id');
     }
 
     /**
@@ -261,8 +188,8 @@ trait ScopesReportQueries
     }
 
     /**
-     * Build the encrypted employment query with the same fail-closed role
-     * guards used by the shared case/referral query helpers.
+     * Build the case query used by employment panels. Encrypted employment
+     * values must be grouped in PHP through Eloquent casts, never in SQL.
      */
     private function employmentQuery(
         ?string $userId,
@@ -273,38 +200,8 @@ trait ScopesReportQueries
         ?string $province = null,
         ?string $city = null,
     ) {
-        $query = ClientEmployment::query()
-            ->where('client_employments.is_deleted', false)
-            ->whereNull('client_employments.deleted_at');
-
-        if (! $this->hasRequiredRoleScope($userId, $role, $agencyId)) {
-            return $query->whereRaw('1 = 0');
-        }
-
-        $needsCaseScope = $agencyId || $fromDate || $toDate || $province || $city;
-
-        // Employment rows hang off the client, so the reporting window reaches
-        // them through the client's cases. Without this the employment panels
-        // reported every client on record regardless of the selected dates.
-        if ($needsCaseScope) {
-            $query->whereIn('client_id', function ($q) use ($agencyId, $fromDate, $toDate, $province, $city) {
-                $q->select('client_id')->from('cases')
-                    ->where('is_deleted', false)
-                    ->whereNull('deleted_at')
-                    ->whereNotIn('status', ['DRAFT', 'ARCHIVED']);
-
-                if ($agencyId) {
-                    $q->whereIn('cases.id', function ($q2) use ($agencyId) {
-                        $q2->select('case_id')->from('referrals')
-                            ->where('agcy_id', $agencyId)
-                            ->where('is_deleted', false)
-                            ->whereNull('deleted_at');
-                    });
-                }
-
-                $this->applyCaseWindow($q, $fromDate, $toDate, $province, $city);
-            });
-        }
+        $query = $this->caseQuery($userId, $role, $agencyId);
+        $this->applyCaseWindow($query, $fromDate, $toDate, $province, $city);
 
         return $query;
     }

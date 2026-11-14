@@ -4,7 +4,6 @@ namespace Tests\Feature\Middleware;
 
 use App\Enums\UserRole;
 use App\Http\Middleware\HandleInertiaRequests;
-use App\Models\Client;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
@@ -17,19 +16,26 @@ class HandleInertiaRequestsTest extends TestCase
     use RefreshDatabase;
 
     #[Test]
-    public function it_shares_persisted_client_type_without_exposing_client_fields(): void
+    public function it_shares_only_account_fields_for_ofw_and_preserves_staff_profile_fields(): void
     {
-        $user = User::factory()->create(['role' => UserRole::OFW->value]);
-        $client = Client::factory()->create(['type' => 'NEXT_OF_KIN', 'user_id' => $user->id]);
-        $user->client_id = $client->id;
-        $user->save();
+        $user = User::factory()->create([
+            'role' => UserRole::OFW->value,
+            'department' => 'Private staff-only field',
+            'bio' => 'Private staff-only biography',
+        ]);
 
         $request = Request::create('/');
         $request->setLaravelSession(app('session')->driver());
         $request->setUserResolver(fn () => $user);
         $shared = (new HandleInertiaRequests)->share($request);
-        $this->assertSame('NEXT_OF_KIN', $shared['auth']['user']['type']);
-        $this->assertArrayNotHasKey('client', $shared['auth']['user']);
+        $this->assertSame($user->email, $shared['auth']['user']['email']);
+        foreach (['client', 'type', 'department', 'position', 'office_location', 'bio', 'emergency_contact', 'timezone', 'profile_completed_at'] as $field) {
+            $this->assertArrayNotHasKey($field, $shared['auth']['user']);
+        }
+
+        $staff = User::factory()->create(['role' => UserRole::CASE_MANAGER->value, 'department' => 'Casework']);
+        $request->setUserResolver(fn () => $staff);
+        $this->assertSame('Casework', (new HandleInertiaRequests)->share($request)['auth']['user']['department']);
 
         $guestRequest = Request::create('/');
         $guestRequest->setLaravelSession(app('session')->driver());

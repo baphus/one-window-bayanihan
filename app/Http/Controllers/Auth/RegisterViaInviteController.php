@@ -49,7 +49,12 @@ class RegisterViaInviteController extends Controller
         }
 
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
+            'first_name' => 'required|string|max:255',
+            'middle_name' => 'nullable|string|max:255',
+            'last_name' => 'required|string|max:255',
+            'suffix' => 'nullable|string|max:50',
+            'date_of_birth' => 'nullable|date_format:Y-m-d|before:today',
+            'sex' => 'nullable|in:MALE,FEMALE',
             'password' => ['required', 'string', Password::min(8)->mixedCase()->numbers()->symbols()],
             'password_confirmation' => 'required|string',
             'position' => 'nullable|string|max:255',
@@ -77,7 +82,12 @@ class RegisterViaInviteController extends Controller
             }
 
             $user = User::create([
-                'name' => $validated['name'],
+                'first_name' => $validated['first_name'],
+                'middle_name' => $validated['middle_name'] ?? null,
+                'last_name' => $validated['last_name'],
+                'suffix' => $validated['suffix'] ?? null,
+                'date_of_birth' => $validated['date_of_birth'] ?? null,
+                'sex' => $validated['sex'] ?? null,
                 'email' => $lockedInvite->email,
                 'password' => Hash::make($validated['password']),
                 'role' => $lockedInvite->role,

@@ -2,7 +2,6 @@
 
 use App\Http\Controllers\ActivityController;
 use App\Http\Controllers\Admin\AdminCaseCategoryController;
-use App\Http\Controllers\Admin\AdminCaseIssueController;
 use App\Http\Controllers\Admin\AdminCaseStatusController;
 use App\Http\Controllers\Admin\EmailLogController;
 use App\Http\Controllers\Admin\FailedJobController;
@@ -14,13 +13,11 @@ use App\Http\Controllers\AdminAgencyController;
 use App\Http\Controllers\AdminServiceController;
 use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\AgencyServiceController;
-use App\Http\Controllers\Api\ClientSelectController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\CaseController;
 use App\Http\Controllers\CaseDocumentController;
-use App\Http\Controllers\CaseIssueController;
 use App\Http\Controllers\ChatbotController;
-use App\Http\Controllers\ClientController;
+use App\Http\Controllers\ClientDirectoryController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\HelpdeskArticleFeedbackController;
@@ -154,7 +151,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Role-gated: CASE_MANAGER + ADMIN only
     Route::middleware('role:CASE_MANAGER,ADMIN')->group(function () {
+        Route::get('/clients', [ClientDirectoryController::class, 'index'])->name('clients.index');
+        Route::get('/clients/{kind}/{id}', [ClientDirectoryController::class, 'show'])->name('clients.show')->whereIn('kind', ['account', 'case'])->whereUuid('id');
+
         Route::get('/cases', [CaseController::class, 'index'])->name('cases.index');
+        Route::get('/cases/ofw-lookup', [CaseController::class, 'lookupOfw'])->name('cases.ofw-lookup');
         Route::get('/cases/review-pending', [CaseController::class, 'reviewPending'])->name('cases.review-pending');
         Route::get('/cases/trash', [CaseController::class, 'trashIndex'])->name('cases.trash');
         Route::get('/cases/export-excel', [CaseController::class, 'exportExcel'])->name('cases.export-excel');
@@ -167,9 +168,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('/cases/{case}/delete-archived', [CaseController::class, 'deleteArchived'])->name('cases.delete-archived');
         Route::post('/cases/{case}/restore', [CaseController::class, 'restore'])->name('cases.restore');
         Route::patch('/cases/{case}', [CaseController::class, 'update'])->name('cases.update');
+        Route::put('/cases/{case}/categories', [CaseController::class, 'updateCategories'])->name('cases.categories.update');
         Route::post('/cases/{case}/toggle-status', [CaseController::class, 'toggleStatus'])->name('cases.toggle-status');
-
-        Route::post('/case-issues/quick', [CaseIssueController::class, 'quickStore'])->name('case-issues.quick');
 
         Route::get('/stakeholders', [StakeholderController::class, 'index'])->name('stakeholders.index');
         Route::get('/stakeholders/{stakeholder}', [StakeholderController::class, 'show'])->name('stakeholders.show');
@@ -208,21 +208,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/cases/{case}/documents', [CaseDocumentController::class, 'index'])->name('cases.documents.index');
         Route::get('/cases/{case}/documents/{document}', [CaseDocumentController::class, 'show'])->name('cases.documents.show');
         Route::get('/cases/{case}/documents/{document}/download', [CaseDocumentController::class, 'download'])->name('cases.documents.download');
+        Route::get('/cases/{case}/intake-documents/archive', [CaseDocumentController::class, 'downloadIntakeArchive'])->name('cases.intake-documents.archive');
     });
 
     Route::middleware('role:CASE_MANAGER,ADMIN')->group(function () {
         Route::post('/cases/{case}/documents', [CaseDocumentController::class, 'store'])->name('cases.documents.store');
         Route::delete('/cases/{case}/documents/{document}', [CaseDocumentController::class, 'destroy'])->name('cases.documents.destroy');
-    });
-
-    // Client routes: accessible to CASE_MANAGER, ADMIN, and AGENCY (controller handles per-role authorization)
-    Route::middleware('role:CASE_MANAGER,ADMIN,AGENCY')->group(function () {
-        Route::get('/clients', [ClientController::class, 'index'])->name('clients.index');
-        Route::get('/clients/export-excel', [ClientController::class, 'exportExcel'])->name('clients.export-excel');
-        Route::get('/clients/export-count', [ClientController::class, 'exportCount'])->name('clients.export-count');
-        Route::get('/clients/{client}', [ClientController::class, 'show'])->name('clients.show');
-        Route::post('/clients/{client}/avatar', [ClientController::class, 'storeAvatar'])->name('clients.avatar.store');
-        Route::delete('/clients/{client}/avatar', [ClientController::class, 'destroyAvatar'])->name('clients.avatar.destroy');
     });
 
     Route::middleware('role:AGENCY')->group(function () {
@@ -336,12 +327,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/case-statuses', [AdminCaseStatusController::class, 'store'])->name('case-statuses.store');
         Route::patch('/case-statuses/{caseStatus}', [AdminCaseStatusController::class, 'update'])->name('case-statuses.update');
         Route::delete('/case-statuses/{caseStatus}', [AdminCaseStatusController::class, 'destroy'])->name('case-statuses.destroy');
-
-        Route::get('/case-issues', [AdminCaseIssueController::class, 'index'])->name('case-issues.index');
-        Route::post('/case-issues', [AdminCaseIssueController::class, 'store'])->name('case-issues.store');
-        Route::patch('/case-issues/{caseIssue}', [AdminCaseIssueController::class, 'update'])->name('case-issues.update');
-        Route::delete('/case-issues/{caseIssue}', [AdminCaseIssueController::class, 'destroy'])->name('case-issues.destroy');
-        Route::patch('/case-issues/{caseIssue}/reactivate', [AdminCaseIssueController::class, 'reactivate'])->name('case-issues.reactivate');
 
         Route::prefix('system')->name('system.')->group(function () {
             Route::get('/maintenance', [MaintenanceController::class, 'index'])->name('maintenance');
@@ -493,23 +478,8 @@ Route::get('/files/temp/{disk}/{path}', TemporaryFileController::class)
     ->where('path', '.*')
     ->middleware(['signed', 'throttle:60,1']);
 
-// API routes (authenticated via web session) — in web.php for session middleware support
-// Client picker PII: staff only. OFW self-file resolves filer->client
-// server-side; NOK picks from the scoped my-linked-ofws endpoint below.
-Route::middleware(['auth', 'verified', 'throttle:api-global', 'role:CASE_MANAGER,ADMIN'])->prefix('api')->group(function () {
-    // Client selection for case creation form
-    Route::get('/clients', [ClientSelectController::class, 'search'])->name('api.clients.index');
-    Route::get('/clients/email-check', [ClientSelectController::class, 'checkEmail'])->name('api.clients.email-check');
-    Route::get('/clients/{client}', [ClientSelectController::class, 'show'])->name('api.clients.show');
-
-});
-
-// NEXT_OF_KIN scoped dropdown: only OFW clients linked via ofw_client_id to
-// the filer's own client. Empty when nothing linked yet — inline create is
-// then the primary path.
-Route::middleware(['auth', 'verified', 'throttle:api-global', 'role:OFW'])->prefix('api')->group(function () {
-    Route::get('/my-linked-ofws', [ClientSelectController::class, 'linkedOfws'])->name('api.my-linked-ofws');
-});
+// Client picker and linked-person lookup routes were retired with shared-client
+// intake. Case creation uses fresh explicit case-owned fields only.
 
 Route::post('/chatbot/message', [ChatbotController::class, 'message'])
     ->name('chatbot.message')
@@ -520,8 +490,11 @@ Route::middleware(['auth', 'role:OFW'])->prefix('my-cases')->name('ofw.')->group
     Route::get('/', [OfwDashboardController::class, 'index'])->name('dashboard');
     Route::get('/notifications', [OfwDashboardController::class, 'notifications'])->name('notifications');
     Route::patch('/notifications/{id}/read', [OfwDashboardController::class, 'markNotificationAsRead'])->name('notifications.mark-as-read');
-    Route::get('/intake', [CaseController::class, 'intake'])->name('intake');
-    Route::post('/intake', [CaseController::class, 'storeIntake'])->name('intake.store');
+    Route::middleware('verified')->group(function () {
+        Route::get('/intake', [CaseController::class, 'intake'])->name('intake');
+        Route::post('/intake', [CaseController::class, 'storeIntake'])->name('intake.store');
+        Route::post('/{case}/intake-documents', [CaseDocumentController::class, 'replace'])->name('intake.documents.replace');
+    });
     Route::get('/{case}/agencies/{referral}/milestones', [OfwDashboardController::class, 'agencyMilestones'])->name('case.milestones');
     Route::get('/{case}/agencies/{referral}/requests/{request}', [ReferralClientRequestController::class, 'ownerShow'])->name('case.requests.show');
     Route::post('/{case}/agencies/{referral}/requests/{request}/messages', [ReferralClientRequestController::class, 'ownerMessage'])->name('case.requests.messages.store')->middleware('throttle:track-request-message');

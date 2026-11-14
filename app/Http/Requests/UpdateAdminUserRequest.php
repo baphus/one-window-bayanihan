@@ -3,10 +3,13 @@
 namespace App\Http\Requests;
 
 use App\Enums\UserRole;
+use App\Http\Requests\Concerns\ValidatesUserIdentity;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateAdminUserRequest extends FormRequest
 {
+    use ValidatesUserIdentity;
+
     public function authorize(): bool
     {
         return $this->user() !== null && $this->user()->isAdmin();
@@ -14,8 +17,7 @@ class UpdateAdminUserRequest extends FormRequest
 
     public function rules(): array
     {
-        return [
-            'name' => ['required', 'string', 'max:255'],
+        return $this->identityRules(partial: true) + [
             'email' => ['required', 'email', 'unique:users,email,'.$this->route('user', $this->route('id'))],
             'role' => ['required', 'in:'.implode(',', UserRole::staffValues())],
             'mfa_requirement_override' => ['sometimes', 'in:inherit,required,optional'],

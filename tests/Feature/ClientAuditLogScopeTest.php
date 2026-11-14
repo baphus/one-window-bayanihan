@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Enums\UserRole;
 use App\Models\AuditLog;
 use App\Models\CaseFile;
-use App\Models\Client;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -23,31 +22,25 @@ class ClientAuditLogScopeTest extends TestCase
 
     private User $user;
 
-    private Client $client;
+    private CaseFile $case;
 
     protected function setUp(): void
     {
         parent::setUp();
 
         $this->user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-        $this->client = Client::factory()->create();
-
-        CaseFile::factory()->create([
-            'client_id' => $this->client->id,
-            'user_id' => $this->user->id,
-        ]);
-
+        $this->case = CaseFile::factory()->create(['user_id' => $this->user->id]);
         AuditLog::truncate();
     }
 
-    public function test_scope_returns_client_audit_logs(): void
+    public function test_historical_client_module_rows_remain_distinct_audit_data(): void
     {
         AuditLog::create([
             'user_id' => $this->user->id,
             'action' => 'UPDATE',
             'module' => 'clients',
-            'entity_id' => $this->client->id,
-            'description' => 'Updated client contact info',
+            'entity_id' => '00000000-0000-0000-0000-000000000101',
+            'description' => 'Historical client contact update',
             'timestamp' => now(),
         ]);
 
@@ -55,20 +48,20 @@ class ClientAuditLogScopeTest extends TestCase
             'user_id' => $this->user->id,
             'action' => 'UPDATE',
             'module' => 'referrals',
-            'entity_id' => '00000000-0000-0000-0000-000000000000',
-            'description' => 'Some other update',
+            'entity_id' => '00000000-0000-0000-0000-000000000101',
+            'description' => 'Unrelated module',
             'timestamp' => now(),
         ]);
 
-        $logs = AuditLog::forClient($this->client->id)->get();
+        $logs = AuditLog::forClient('00000000-0000-0000-0000-000000000101')->get();
 
         $this->assertCount(1, $logs);
-        $this->assertEquals('clients', $logs->first()->module);
+        $this->assertSame('clients', $logs->first()->module);
     }
 
     public function test_scope_returns_case_logs_when_case_id_given(): void
     {
-        $caseId = $this->client->case_id;
+        $caseId = $this->case->id;
 
         AuditLog::create([
             'user_id' => $this->user->id,
@@ -88,7 +81,7 @@ class ClientAuditLogScopeTest extends TestCase
             'timestamp' => now(),
         ]);
 
-        $logs = AuditLog::forClient($this->client->id, $caseId)->get();
+        $logs = AuditLog::forClient('00000000-0000-0000-0000-000000000101', $caseId)->get();
 
         $this->assertCount(2, $logs);
         $modules = $logs->pluck('module')->sort()->values()->toArray();
@@ -118,7 +111,7 @@ class ClientAuditLogScopeTest extends TestCase
             'timestamp' => now(),
         ]);
 
-        $logs = AuditLog::forClient($this->client->id, null, [$referralId])->get();
+        $logs = AuditLog::forClient('00000000-0000-0000-0000-000000000101', null, [$referralId])->get();
 
         $this->assertCount(2, $logs);
         $modules = $logs->pluck('module')->sort()->values()->toArray();
@@ -132,25 +125,25 @@ class ClientAuditLogScopeTest extends TestCase
             'user_id' => $this->user->id,
             'action' => 'UPDATE',
             'module' => 'clients',
-            'entity_id' => $this->client->id,
+            'entity_id' => '00000000-0000-0000-0000-000000000101',
             'description' => 'Our client update',
             'timestamp' => now(),
         ]);
 
-        $otherClient = Client::factory()->create();
+        $otherClientId = '00000000-0000-0000-0000-000000000102';
         AuditLog::create([
             'user_id' => $this->user->id,
             'action' => 'UPDATE',
             'module' => 'clients',
-            'entity_id' => $otherClient->id,
+            'entity_id' => $otherClientId,
             'description' => 'Other client update',
             'timestamp' => now(),
         ]);
 
-        $logs = AuditLog::forClient($this->client->id)->get();
+        $logs = AuditLog::forClient('00000000-0000-0000-0000-000000000101')->get();
 
         $this->assertCount(1, $logs);
-        $this->assertEquals($this->client->id, $logs->first()->entity_id);
+        $this->assertEquals('00000000-0000-0000-0000-000000000101', $logs->first()->entity_id);
     }
 
     public function test_scope_orders_by_timestamp_descending(): void
@@ -159,7 +152,7 @@ class ClientAuditLogScopeTest extends TestCase
             'user_id' => $this->user->id,
             'action' => 'UPDATE',
             'module' => 'clients',
-            'entity_id' => $this->client->id,
+            'entity_id' => '00000000-0000-0000-0000-000000000101',
             'description' => 'Second action',
             'timestamp' => now()->subHour(),
         ]);
@@ -168,7 +161,7 @@ class ClientAuditLogScopeTest extends TestCase
             'user_id' => $this->user->id,
             'action' => 'CREATE',
             'module' => 'clients',
-            'entity_id' => $this->client->id,
+            'entity_id' => '00000000-0000-0000-0000-000000000101',
             'description' => 'First action',
             'timestamp' => now()->subHours(2),
         ]);
@@ -177,12 +170,12 @@ class ClientAuditLogScopeTest extends TestCase
             'user_id' => $this->user->id,
             'action' => 'CREATE',
             'module' => 'clients',
-            'entity_id' => $this->client->id,
+            'entity_id' => '00000000-0000-0000-0000-000000000101',
             'description' => 'Most recent action',
             'timestamp' => now(),
         ]);
 
-        $logs = AuditLog::forClient($this->client->id)->get();
+        $logs = AuditLog::forClient('00000000-0000-0000-0000-000000000101')->get();
 
         $this->assertCount(3, $logs);
         $this->assertEquals('Most recent action', $logs[0]->description);
@@ -197,61 +190,57 @@ class ClientAuditLogScopeTest extends TestCase
                 'user_id' => $this->user->id,
                 'action' => 'UPDATE',
                 'module' => 'clients',
-                'entity_id' => $this->client->id,
+                'entity_id' => '00000000-0000-0000-0000-000000000101',
                 'description' => "Log entry {$i}",
                 'timestamp' => now()->subMinutes(55 - $i),
             ]);
         }
 
-        $logs = AuditLog::forClient($this->client->id)->get();
+        $logs = AuditLog::forClient('00000000-0000-0000-0000-000000000101')->get();
 
         $this->assertCount(55, $logs);
     }
 
-    public function test_client_related_audit_logs_applies_its_own_limit(): void
+    public function test_case_related_audit_query_has_no_hidden_limit(): void
     {
         for ($i = 0; $i < 55; $i++) {
             AuditLog::create([
                 'user_id' => $this->user->id,
                 'action' => 'UPDATE',
-                'module' => 'clients',
-                'entity_id' => $this->client->id,
+                'module' => 'case',
+                'entity_id' => $this->case->id,
                 'description' => "Log entry {$i}",
                 'timestamp' => now()->subMinutes(55 - $i),
             ]);
         }
 
-        // The scope no longer truncates — the rendering path decides how many
-        // rows it shows. A limit hidden in a scope looked like a complete list.
-        $logs = $this->client->relatedAuditLogs();
+        $logs = AuditLog::forClient('00000000-0000-0000-0000-000000000101', $this->case->id)->get();
 
-        $this->assertCount(Client::RELATED_AUDIT_LOG_LIMIT, $logs);
+        $this->assertCount(55, $logs);
     }
 
-    public function test_client_related_audit_logs_includes_client_case_and_referral(): void
+    public function test_case_audit_scope_includes_historical_client_and_case_rows(): void
     {
-        $caseId = $this->client->case_id;
-        $referralId = '00000000-0000-0000-0000-000000000002';
+        $caseId = $this->case->id;
 
         AuditLog::create([
             'user_id' => $this->user->id,
             'action' => 'UPDATE',
             'module' => 'clients',
-            'entity_id' => $this->client->id,
-            'description' => 'Client updated',
+            'entity_id' => '00000000-0000-0000-0000-000000000101',
+            'description' => 'Historical client update',
             'timestamp' => now()->subMinutes(10),
         ]);
-
         AuditLog::create([
             'user_id' => $this->user->id,
             'action' => 'UPDATE',
-            'module' => 'CASE',
+            'module' => 'case',
             'entity_id' => $caseId,
             'description' => 'Case updated',
             'timestamp' => now()->subMinutes(5),
         ]);
 
-        $logs = $this->client->relatedAuditLogs();
+        $logs = AuditLog::forClient('00000000-0000-0000-0000-000000000101', $caseId)->get();
 
         $this->assertCount(2, $logs);
     }
@@ -262,12 +251,12 @@ class ClientAuditLogScopeTest extends TestCase
             'user_id' => $this->user->id,
             'action' => 'UPDATE',
             'module' => 'client',
-            'entity_id' => $this->client->id,
+            'entity_id' => '00000000-0000-0000-0000-000000000101',
             'description' => 'Client audit log with new module name',
             'timestamp' => now(),
         ]);
 
-        $logs = AuditLog::forClient($this->client->id)->get();
+        $logs = AuditLog::forClient('00000000-0000-0000-0000-000000000101')->get();
 
         $this->assertCount(1, $logs);
         $this->assertEquals('client', $logs->first()->module);
@@ -275,7 +264,7 @@ class ClientAuditLogScopeTest extends TestCase
 
     public function test_scope_returns_case_logs_with_new_module_name(): void
     {
-        $caseId = $this->client->case_id;
+        $caseId = $this->case->id;
 
         AuditLog::create([
             'user_id' => $this->user->id,
@@ -286,7 +275,7 @@ class ClientAuditLogScopeTest extends TestCase
             'timestamp' => now(),
         ]);
 
-        $logs = AuditLog::forClient($this->client->id, $caseId)->get();
+        $logs = AuditLog::forClient('00000000-0000-0000-0000-000000000101', $caseId)->get();
 
         $this->assertCount(1, $logs);
         $this->assertEquals('case', $logs->first()->module);
@@ -305,7 +294,7 @@ class ClientAuditLogScopeTest extends TestCase
             'timestamp' => now(),
         ]);
 
-        $logs = AuditLog::forClient($this->client->id, null, [$referralId])->get();
+        $logs = AuditLog::forClient('00000000-0000-0000-0000-000000000101', null, [$referralId])->get();
 
         $this->assertCount(1, $logs);
         $this->assertEquals('referral', $logs->first()->module);
@@ -313,7 +302,7 @@ class ClientAuditLogScopeTest extends TestCase
 
     public function test_returns_empty_when_no_matching_logs(): void
     {
-        $logs = AuditLog::forClient('00000000-0000-0000-0000-000000000000')->get();
+        $logs = AuditLog::forClient('00000000-0000-0000-0000-000000000103')->get();
 
         $this->assertCount(0, $logs);
     }

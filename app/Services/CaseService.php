@@ -6,11 +6,10 @@ use App\Enums\AuditAction;
 use App\Enums\AuditModule;
 use App\Enums\UserRole;
 use App\Helpers\CacheHelper;
+use App\Http\Requests\UpdateCaseRequest;
 use App\Models\AuditLog;
-use App\Models\CaseCategory;
 use App\Models\CaseDocument;
 use App\Models\CaseFile;
-use App\Models\Client;
 use App\Models\Milestone;
 use App\Models\Referral;
 use App\Models\ReferralAttachment;
@@ -27,10 +26,13 @@ use App\Support\MultiSelectFilter;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class CaseService
@@ -40,7 +42,6 @@ class CaseService
         private readonly PhilippineAddressService $addressService,
         private readonly CaseEventRecorder $eventRecorder,
         private readonly CaseNumberGenerator $caseNumbers,
-        private readonly ClientProfileService $clientProfiles,
     ) {}
 
     public function createCase(array $data, string $userId): CaseFile
@@ -66,115 +67,107 @@ class CaseService
 
     private function createCaseInternal(array $data, string $userId): CaseFile
     {
-        return DB::transaction(function () use ($data, $userId) {
-            $categoryMutation = $this->resolveCategoryMutation($data);
-            $categoryIds = $categoryMutation['ids'] ?? [];
-            $this->lockActiveCategories($categoryIds);
+        $paths = [];
+        try {
+            return DB::transaction(function () use ($data, $userId, &$paths) {
+                $filer = User::findOrFail($userId);
+                abort_unless($filer->isOfw() || $filer->isCaseManager() || $filer->isAdmin(), 403);
+                abort_if(($data['client_type'] ?? 'OFW') === 'NEXT_OF_KIN' && ! $filer->isCaseManager(), 403);
+                if (($data['client_type'] ?? 'OFW') === 'NEXT_OF_KIN') {
+                    Validator::make($data, [
+                        'nok_name' => ['required', 'string', 'max:255'],
+                        'nok_relationship' => ['required', 'string', 'max:255'],
+                        'nok_contact_number' => ['required', 'string', 'max:255'],
+                        'nok_email' => ['required', 'email', 'max:255'],
+                    ])->validate();
+                }
+                $allowed = array_diff(CaseFile::INTAKE_FIELDS, ['ofw_user_id', 'proposed_assessment_by', 'proposed_assessment_at', 'confirmed_assessments', 'confirmed_assessment_other', 'confirmed_assessment_by', 'confirmed_assessment_at', 'consent_accepted_by', 'requested_document_slots', 'document_request_reason', 'document_requested_by', 'document_requested_at', 'reviewed_document_ids', 'assigned_case_manager_id', 'last_correction_reason']);
+                $attributes = Arr::only($data, [...$allowed, 'client_type', 'summary', 'vulnerability_indicator', 'nok_vulnerability_indicator']);
+                foreach (['region', 'province', 'city_municipality', 'barangay'] as $part) {
+                    $field = 'address_'.$part;
+                    $value = $attributes[$field.'_code'] ?? $attributes[$field] ?? null;
+                    if ($value !== null) {
+                        $attributes[$field] = $this->addressService->resolve($value);
+                    }
+                }
+                if ($filer->isOfw()) {
+                    $attributes['intake_date'] = now(config('app.operating_timezone', 'Asia/Manila'))->toDateString();
+                    $attributes['client_type'] = 'OFW';
+                    $attributes['email'] = $filer->email;
+                    foreach (['nok_name', 'nok_relationship', 'nok_email', 'nok_contact_number', 'nok_vulnerability_indicator', 'staff_summary', 'missing_document_reasons'] as $field) {
+                        unset($attributes[$field]);
+                    }
 
-            $filer = User::with('client')->findOrFail($userId);
-            $client = $this->resolveFilingClient($data, $filer);
+                    // The filer is the OFW: keep their account identity in step
+                    // with the snapshot they just confirmed. Case rows stay
+                    // authoritative and are never rewritten from here.
+                    $filer->fill([
+                        'first_name' => $data['first_name'] ?? null,
+                        'middle_name' => $data['middle_name'] ?? null,
+                        'last_name' => $data['last_name'] ?? null,
+                        'suffix' => $data['suffix'] ?? null,
+                        'date_of_birth' => $data['date_of_birth'] ?? null,
+                        'sex' => $data['sex'] ?? null,
+                        'contact_number' => $data['contact_number'] ?? null,
+                    ])->save();
+                    if (empty($data['consent'])) {
+                        throw ValidationException::withMessages(['consent' => 'Consent is required.']);
+                    }
+                    $attributes['consent_method'] = 'ONLINE';
+                    $attributes['consent_evidence'] = null;
+                } else {
+                    if (empty($data['consent'])) {
+                        throw ValidationException::withMessages(['consent' => 'Consent is required.']);
+                    }
+                    $attributes['consent_method'] = 'STAFF_ATTESTED';
+                    $attributes['consent_evidence'] = null;
+                }
+                Validator::make($data, [
+                    'return_reason' => ['required', Rule::in(IntakeDocumentService::RETURN_REASONS)],
+                    'consent_text_version' => ['required', Rule::in([IntakeDocumentService::CONSENT_VERSION])],
+                    'proposed_assessments' => ['nullable', 'array', 'max:8'],
+                    'proposed_assessments.*' => ['required', 'distinct', Rule::in(CaseFile::ASSESSMENTS)],
+                    'proposed_assessment_other' => [Rule::requiredIf(in_array('OTHER', $data['proposed_assessments'] ?? [], true)), 'nullable', 'string', 'max:2000'],
+                ])->validate();
+                $missing = IntakeDocumentService::missingSlots(array_keys($data['documents'] ?? []), $data['return_reason'] ?? '');
+                if ($filer->isOfw()) {
+                    foreach ($missing as $slot) {
+                        throw ValidationException::withMessages(['documents.'.$slot => 'Required document missing.']);
+                    }
+                }
+                $linkedOfwId = $filer->isOfw() ? $userId : User::query()
+                    ->where('email', $attributes['email'] ?? null)
+                    ->where('role', UserRole::OFW->value)
+                    ->where('is_active', true)
+                    ->value('id');
+                $case = CaseFile::create(array_merge($attributes, [
+                    'case_number' => $this->generateCaseNumber(), 'tracker_number' => $this->generateTrackerNumber(),
+                    'status' => $filer->isOfw() ? CaseFile::STATUS_PENDING_REVIEW : 'OPEN', 'user_id' => $userId,
+                    'reviewed_by' => $filer->isOfw() ? null : $userId,
+                    'reviewed_at' => $filer->isOfw() ? null : now(),
+                    'ofw_user_id' => $linkedOfwId,
+                    'assigned_case_manager_id' => $filer->isCaseManager() ? $userId : null,
+                    'consent_given_at' => now(), 'consent_accepted_by' => $userId,
+                    'consent_text_version' => IntakeDocumentService::CONSENT_VERSION,
+                    'proposed_assessment_by' => ! empty($attributes['proposed_assessments']) ? $userId : null,
+                    'proposed_assessment_at' => ! empty($attributes['proposed_assessments']) ? now() : null,
+                    'document_requirements' => IntakeDocumentService::buildRequirements(
+                        array_keys($data['documents'] ?? []),
+                        (array) ($data['complied_onsite_slots'] ?? []),
+                        $data['return_reason'] ?? '',
+                    ),
+                ]));
+                app(IntakeDocumentService::class)->store($case, $data['documents'] ?? [], $userId, $paths);
+                if (! $filer->isOfw()) {
+                    $this->eventRecorder->caseOpened($case, $userId);
+                }
 
-            $case = CaseFile::create([
-                'case_number' => $this->generateCaseNumber(),
-                'tracker_number' => $this->generateTrackerNumber(),
-                'filing_client_type' => $filer->isOfw() ? 'OFW' : ($data['client_type'] ?? $client->type),
-                'vulnerability_indicator' => $data['vulnerability_indicator'] ?? null,
-                'nok_vulnerability_indicator' => $data['nok_vulnerability_indicator'] ?? null,
-                'summary' => $data['summary'] ?? null,
-                'status' => CaseFile::STATUS_PENDING_REVIEW,
-                'consent_given_at' => ! empty($data['consent']) ? now() : null,
-                'user_id' => $userId,
-                'client_id' => $client->id,
-                'category_id' => $this->primaryCategoryId($categoryIds, null, $categoryMutation['legacy'] ?? false),
-                'case_issue_id' => $data['case_issue_id'] ?? null,
-            ]);
-            $this->syncCaseCategories($case, $categoryIds);
-
-            $this->clientProfiles->syncAddress($client, $data['address'] ?? null);
-            $this->clientProfiles->syncEmployment($client, $data['employment'] ?? null);
-            $this->clientProfiles->syncNextOfKin($client, $data['next_of_kin'] ?? null);
-
-            return $case->load(['client.addresses', 'client.employments', 'client.nextOfKin', 'user', 'category', 'categories', 'caseIssue']);
-        });
-    }
-
-    /**
-     * Resolve which client a new case belongs to. OFW filers always file for
-     * their own linked client — any selected_client_id/new_ofw they send is
-     * ignored so one OFW cannot file against another's record (IDOR).
-     * NEXT_OF_KIN filers may pick an OFW linked to them via ofw_client_id or
-     * inline-create one (linked back below). Staff keep the full picker.
-     */
-    private function resolveFilingClient(array $data, User $filer): Client
-    {
-        // NOK filers share users.role=OFW (role lands on clients.type), so
-        // exclude them from the OFW self-file shortcut — they file via
-        // selected_client_id/new_ofw below.
-        if ($filer->isOfw() && ! $filer->isNextOfKin()) {
-            if ($filer->client) {
-                return $filer->client;
-            }
-
-            throw ValidationException::withMessages([
-                'client' => 'No client to file for. Select a client or provide new OFW details.',
-            ]);
+                return $case;
+            });
+        } catch (\Throwable $exception) {
+            app(IntakeDocumentService::class)->cleanup($paths);
+            throw $exception;
         }
-
-        if (! empty($data['selected_client_id'])) {
-            $picked = Client::findOrFail($data['selected_client_id']);
-
-            if ($filer->isNextOfKin()) {
-                abort_unless(
-                    $filer->client && $picked->ofw_client_id === $filer->client->id && $picked->type === 'OFW',
-                    403,
-                    'You may only file for an OFW linked to your account.'
-                );
-            }
-
-            return $picked;
-        }
-
-        if (! empty($data['new_ofw'])) {
-            $client = $this->clientProfiles->createClient($data['new_ofw'], null, 'OFW');
-
-            // Inline OFW filed by a NEXT_OF_KIN filer: link back to the filer's
-            // own client so the relationship survives without a user row.
-            if ($filer->isNextOfKin() && $filer->client) {
-                $client->ofw_client_id = $filer->client->id;
-                $client->save();
-            }
-
-            return $client;
-        }
-
-        if ($filer->client) {
-            return $filer->client;
-        }
-
-        throw ValidationException::withMessages([
-            'client' => 'No client to file for. Select a client or provide new OFW details.',
-        ]);
-    }
-
-    /**
-     * OFW clients linked to a NEXT_OF_KIN filer's own client via ofw_client_id.
-     * Feeds the scoped NOK dropdown — no broad PII search needed.
-     *
-     * @return Collection<int, Client>
-     */
-    public function linkedOfwClients(User $filer)
-    {
-        if (! $filer->client) {
-            return collect();
-        }
-
-        return Client::where('is_deleted', false)
-            ->where('type', 'OFW')
-            ->where('ofw_client_id', $filer->client->id)
-            ->orderBy('first_name')
-            ->orderBy('last_name')
-            ->limit(50)
-            ->get(['id', 'first_name', 'middle_name', 'last_name', 'suffix', 'email']);
     }
 
     /**
@@ -182,7 +175,7 @@ class CaseService
      */
     public function getReviewQueue(array $filters = [], int $perPage = 15): LengthAwarePaginator
     {
-        $query = CaseFile::with('client', 'category', 'categories')
+        $query = CaseFile::query()
             ->where('status', CaseFile::STATUS_PENDING_REVIEW)
             ->where('is_deleted', false);
 
@@ -190,11 +183,9 @@ class CaseService
             $search = $filters['search'];
             $query->where(function ($q) use ($search) {
                 $q->where('case_number', 'ilike', "%{$search}%")
-                    ->orWhereHas('client', function ($q) use ($search) {
-                        $q->where('first_name', 'ilike', "%{$search}%")
-                            ->orWhere('last_name', 'ilike', "%{$search}%")
-                            ->orWhereRaw("CONCAT(first_name, ' ', last_name) ILIKE ?", ["%{$search}%"]);
-                    });
+                    ->orWhere('cases.first_name', 'ilike', "%{$search}%")
+                    ->orWhere('cases.last_name', 'ilike', "%{$search}%")
+                    ->orWhere('cases.middle_name', 'ilike', "%{$search}%");
             });
         }
 
@@ -212,64 +203,54 @@ class CaseService
     /**
      * Approve a pending filing: stamp the reviewer and open the case.
      *
-     * Optionally sync category_ids and case_issue_id before flipping to OPEN.
-     * For backward compat: staff-created cases already have categories so
-     * these may be omitted and the existing categories will be revalidated.
+     * Requires confirmed assessment and reviewed document compliance.
      */
-    public function approveCase(string $id, string $userId, array $categoryIds = [], ?string $caseIssueId = null): CaseFile
+    public function approveCase(string $id, string $userId, array $review = []): CaseFile
     {
-        return DB::transaction(function () use ($id, $userId, $categoryIds, $caseIssueId) {
-            $case = CaseFile::where('status', CaseFile::STATUS_PENDING_REVIEW)
-                ->lockForUpdate()
-                ->findOrFail($id);
-
-            // If category_ids were provided, sync them before revalidation
-            if (! empty($categoryIds)) {
-                $this->lockActiveCategories($categoryIds);
-                $this->syncCaseCategories($case, $categoryIds);
+        return DB::transaction(function () use ($id, $userId, $review) {
+            $actor = User::findOrFail($userId);
+            abort_unless($actor->isAdmin() || $actor->isCaseManager(), 403);
+            $case = CaseFile::where('status', CaseFile::STATUS_PENDING_REVIEW)->lockForUpdate()->findOrFail($id);
+            $validated = Validator::make($review, [
+                'confirmed_assessments' => ['required', 'array', 'min:1'],
+                'confirmed_assessments.*' => ['required', 'distinct', Rule::in(CaseFile::ASSESSMENTS)],
+                'confirmed_assessment_other' => [Rule::requiredIf(in_array('OTHER', $review['confirmed_assessments'] ?? [], true)), 'nullable', 'string', 'max:2000'],
+                'staff_summary' => ['nullable', 'string', 'max:5000'],
+                'reviewed_document_ids' => ['required', 'array'],
+                'category_ids' => ['required', 'array', 'min:1'],
+                'category_ids.*' => ['required', 'distinct', Rule::exists('case_categories', 'id')->where('is_active', true)],
+            ])->validate();
+            if (! $actor->isCaseManager() && ! $case->assigned_case_manager_id) {
+                throw ValidationException::withMessages(['assigned_case_manager_id' => 'An unassigned case must first be approved by a case manager.']);
             }
-
-            $this->revalidatePublishedCategories($case);
-
-            $updateData = [
-                'status' => 'OPEN',
-                'reviewed_by' => $userId,
-                'reviewed_at' => now(),
-            ];
-
-            // Override case_issue_id if provided at approve time
-            if (! is_null($caseIssueId)) {
-                $updateData['case_issue_id'] = $caseIssueId;
-            }
-
-            $case->update($updateData);
-
+            app(IntakeDocumentService::class)->assertCompliant($case, $validated['reviewed_document_ids']);
+            $case->categories()->sync($validated['category_ids']);
+            unset($validated['category_ids']);
+            $case->update(array_merge($validated, [
+                'status' => 'OPEN', 'reviewed_by' => $userId, 'reviewed_at' => now(),
+                'confirmed_assessment_by' => $userId, 'confirmed_assessment_at' => now(),
+                'assigned_case_manager_id' => $actor->isCaseManager() ? $userId : $case->assigned_case_manager_id,
+                'missing_document_reasons' => null,
+                'document_requirements' => null,
+            ]));
             $this->eventRecorder->caseOpened($case, $userId);
+            AuditLogger::approve()->byId($userId)->forEntity($case, $case->case_number)
+                ->module(AuditModule::CASE)->context(['status' => CaseFile::STATUS_PENDING_REVIEW], ['status' => 'OPEN'])->write();
 
-            AuditLogger::approve()
-                ->byId($userId)
-                ->forEntity($case, $case->case_number)
-                ->module(AuditModule::CASE)
-                ->context(['status' => CaseFile::STATUS_PENDING_REVIEW], ['status' => 'OPEN'])
-                ->description('Case '.$case->case_number.' approved'.(! empty($case->summary) ? ' — '.$case->summary : ''))
-                ->write();
-
-            return $case->load(['client.addresses', 'client.employments', 'client.nextOfKin', 'user', 'category', 'categories', 'caseIssue']);
+            return $case;
         });
     }
 
-    /**
-     * Reject a pending filing: soft-delete with a reason. Kept on CaseService
-     * (not a generic delete) so the review outcome stays auditable.
-     */
-    public function rejectCase(string $id, string $reason, string $userId): CaseFile
+    /** Reject a pending filing without removing it from manager case listings. */
+    public function rejectCase(string $id, string $reason, string $userId, array $slots = []): CaseFile
     {
-        return DB::transaction(function () use ($id, $reason, $userId) {
+        return DB::transaction(function () use ($id, $reason, $userId, $slots) {
             // Same lock as approveCase: the two transitions must serialize. Without
             // it a concurrent approve can commit status=OPEN between this read and
             // the soft-delete below, and the rejection would then land on an
             // already-published case (categories detached, "rejected" audit entry).
             $case = CaseFile::where('status', CaseFile::STATUS_PENDING_REVIEW)
+                ->where('is_deleted', false)
                 ->lockForUpdate()
                 ->findOrFail($id);
 
@@ -278,17 +259,21 @@ class CaseService
             $case->deleted_by = null;
             $case->saveQuietly();
 
-            $case->loadMissing('client', 'user');
+            $case->loadMissing('ofwUser');
             $clientEmail = $this->resolveClientNotificationEmail($case);
             if ($clientEmail) {
+                $slotLabels = collect($slots)->map(fn ($slot) => IntakeDocumentService::REQUIREMENT_LABELS[$slot] ?? $slot)->all();
+                $message = $slots === []
+                    ? "Your assistance request {$case->case_number} was declined. {$reason} Submit a new request at ".route('ofw.intake')
+                    : "Your assistance request {$case->case_number} was declined. Missing requirements: ".implode(', ', $slotLabels).". {$reason} Submit a new request at ".route('ofw.intake');
                 $this->notificationService->notifyOfw(
                     $case,
                     $clientEmail,
                     'case_rejected',
-                    "Case {$case->case_number} was not approved",
-                    "Your assistance request was not approved. Reason: {$reason}",
-                    ['reason' => $reason, 'status' => 'REJECTED'],
-                    route('ofw.case.show', $case->id),
+                    "Case {$case->case_number} was declined",
+                    $message,
+                    ['status' => 'REJECTED'],
+                    route('ofw.intake'),
                 );
             }
 
@@ -296,117 +281,11 @@ class CaseService
                 ->byId($userId)
                 ->forEntity($case, $case->case_number)
                 ->module(AuditModule::CASE)
-                ->context(['status' => CaseFile::STATUS_PENDING_REVIEW], ['is_deleted' => true, 'deletion_reason' => $reason])
+                ->context(['status' => CaseFile::STATUS_PENDING_REVIEW], ['status' => 'REJECTED', 'deletion_reason' => $reason, 'requested_slots' => $slots])
                 ->write();
 
             return $case;
         });
-    }
-
-    private function resolveCategoryMutation(array $data): ?array
-    {
-        $hasScalar = array_key_exists('category_id', $data);
-        $hasArray = array_key_exists('category_ids', $data);
-
-        if ($hasScalar && $hasArray) {
-            throw ValidationException::withMessages(['category_ids' => 'Use either category_id or category_ids, not both.']);
-        }
-
-        if (! $hasScalar && ! $hasArray) {
-            return null;
-        }
-
-        $ids = $hasArray ? ($data['category_ids'] ?? []) : (($data['category_id'] ?? null) ? [$data['category_id']] : []);
-        $ids = array_values(array_unique(array_filter($ids)));
-
-        return ['ids' => $ids, 'legacy' => $hasScalar];
-    }
-
-    private function lockActiveCategories(array $ids): void
-    {
-        $categories = CaseCategory::whereIn('id', $ids)->where('is_active', true)
-            ->orderBy('sort_order')->orderBy('name')->orderBy('id')->lockForUpdate()->get();
-        if ($categories->count() !== count($ids)) {
-            throw ValidationException::withMessages(['category_ids' => 'All selected categories must be active.']);
-        }
-    }
-
-    private function syncCaseCategories(CaseFile $case, array $categoryIds): void
-    {
-        $changes = $case->categories()->sync($categoryIds);
-
-        if (array_filter($changes, fn ($items) => ! empty($items))) {
-            $this->invalidateCategoryCaches($case);
-        }
-    }
-
-    private function invalidateCategoryCaches(CaseFile $case): void
-    {
-        Cache::forget('stats:cases');
-        Cache::forget('dashboard:cm_cases_by_category');
-        Cache::forget('dashboard:admin_cases_by_category');
-        ReportsService::invalidateAll();
-    }
-
-    private function recordCategoryMutation(
-        CaseFile $case,
-        array $oldCategoryIds,
-        array $newCategoryIds,
-        string $userId,
-        string $action = AuditAction::UPDATE->value,
-        bool $force = false,
-    ): void {
-        $oldCategoryIds = $this->sortedCategoryIds($oldCategoryIds);
-        $newCategoryIds = $this->sortedCategoryIds($newCategoryIds);
-
-        if (! $force && $oldCategoryIds === $newCategoryIds) {
-            return;
-        }
-
-        AuditLogger::log(AuditAction::from($action))
-            ->byId($userId)
-            ->forEntity($case, $case->case_number)
-            ->module(AuditModule::CASE)
-            ->context(['category_ids' => $oldCategoryIds], ['category_ids' => $newCategoryIds])
-            ->description('Case category assignments changed.')
-            ->write();
-    }
-
-    private function sortedCategoryIds(array $categoryIds): array
-    {
-        $categoryIds = array_values(array_unique(array_filter($categoryIds)));
-        sort($categoryIds, SORT_STRING);
-
-        return $categoryIds;
-    }
-
-    private function primaryCategoryId(array $ids, ?string $current, bool $legacy): ?string
-    {
-        if (empty($ids)) {
-            return null;
-        }
-        if ($legacy) {
-            return $ids[0];
-        }
-        if ($current !== null && in_array($current, $ids, true)) {
-            return $current;
-        }
-
-        return CaseCategory::whereIn('id', $ids)->where('is_active', true)
-            ->orderBy('sort_order')->orderBy('name')->orderBy('id')->value('id');
-    }
-
-    private function revalidatePublishedCategories(CaseFile $case): void
-    {
-        $ids = $case->categories()->pluck('case_categories.id')->all();
-        if (empty($ids)) {
-            throw ValidationException::withMessages(['category_ids' => 'At least one active category is required to publish.']);
-        }
-        $this->lockActiveCategories($ids);
-        if (! in_array($case->category_id, $ids, true)) {
-            $case->category_id = $this->primaryCategoryId($ids, $case->category_id, false);
-            $case->save();
-        }
     }
 
     /**
@@ -430,8 +309,8 @@ class CaseService
         'tracker_number' => ['columns' => ['cases.tracker_number']],
         'status' => ['columns' => ['cases.status']],
         'created_at' => ['columns' => ['cases.created_at']],
-        'client_type' => ['columns' => ['clients.type'], 'join' => 'clients', 'foreign_key' => 'client_id'],
-        'client_name' => ['columns' => ['clients.last_name', 'clients.first_name'], 'join' => 'clients', 'foreign_key' => 'client_id'],
+        'client_type' => ['columns' => ['cases.client_type']],
+        'client_name' => ['columns' => ['cases.last_name', 'cases.first_name']],
         'author' => ['columns' => ['users.name'], 'join' => 'users', 'foreign_key' => 'user_id'],
     ];
 
@@ -445,7 +324,7 @@ class CaseService
     {
         $sortSpec = self::SORT_KEYS[$sort] ?? self::SORT_KEYS['created_at'];
 
-        $query = CaseFile::with(['client', 'user', 'reviewer:id,name,role', 'category', 'categories', 'caseIssue', 'referrals.agency', 'referrals.milestones']);
+        $query = CaseFile::with(['user', 'reviewer:id,name,role', 'categories:id,name', 'referrals.category', 'referrals.agency', 'referrals.milestones']);
 
         // A sort that reads a related table needs it joined. The join exists
         // only to ORDER BY, so it is added only for that sort and always with
@@ -460,7 +339,8 @@ class CaseService
         // clients/users joins that table in, and several of these names
         // (status, user_id, created_at, case_number) exist on more than one
         // side of such a join.
-        $query->whereNotIn('cases.status', [CaseFile::STATUS_PENDING_REVIEW]);
+        $query->where('cases.is_deleted', false)
+            ->whereNotIn('cases.status', [CaseFile::STATUS_PENDING_REVIEW]);
 
         // Status and client type accept either the legacy scalar form or the
         // filter panel's array form.
@@ -473,7 +353,7 @@ class CaseService
 
         $clientTypes = MultiSelectFilter::ids($filters['client_type'] ?? null);
         if ($clientTypes !== []) {
-            $query->ofClientType($clientTypes);
+            $query->whereIn('cases.client_type', $clientTypes);
         }
 
         // Role-based scoping — restrict which cases the current user can see
@@ -511,25 +391,9 @@ class CaseService
             });
         }
 
-        if (! empty($filters['category_ids']) && is_array($filters['category_ids'])) {
-            $query->where(function ($q) use ($filters) {
-                $q->whereIn('cases.category_id', $filters['category_ids'])
-                    ->orWhereHas('categories', function ($categoryQuery) use ($filters) {
-                        $categoryQuery->whereIn('case_categories.id', $filters['category_ids']);
-                    });
-            });
-        } elseif (! empty($filters['category_id'])) {
-            $query->where(function ($q) use ($filters) {
-                $q->where('cases.category_id', $filters['category_id'])
-                    ->orWhereHas('categories', function ($categoryQuery) use ($filters) {
-                        $categoryQuery->where('case_categories.id', $filters['category_id']);
-                    });
-            });
-        }
-
-        $issueIds = MultiSelectFilter::ids($filters['case_issue_id'] ?? null);
-        if ($issueIds !== []) {
-            $query->whereIn('cases.case_issue_id', $issueIds);
+        $categoryIds = MultiSelectFilter::ids($filters['category_ids'] ?? $filters['category_id'] ?? null);
+        if ($categoryIds !== []) {
+            $query->whereHas('categories', fn ($categories) => $categories->whereIn('case_categories.id', $categoryIds));
         }
 
         $agencyIds = MultiSelectFilter::ids($filters['agcy_id'] ?? null);
@@ -561,13 +425,9 @@ class CaseService
             $query->where(function ($q) use ($search) {
                 $q->where('cases.case_number', 'ilike', "%{$search}%")
                     ->orWhere('cases.tracker_number', 'ilike', "%{$search}%")
-                    ->orWhereHas('client', function ($q) use ($search) {
-                        $q->where('first_name', 'ilike', "%{$search}%")
-                            ->orWhere('last_name', 'ilike', "%{$search}%")
-                            ->orWhere('middle_name', 'ilike', "%{$search}%")
-                            ->orWhereRaw("CONCAT(first_name, ' ', last_name) ILIKE ?", ["%{$search}%"])
-                            ->orWhereRaw("CONCAT(first_name, ' ', middle_name, ' ', last_name) ILIKE ?", ["%{$search}%"]);
-                    });
+                    ->orWhere('cases.first_name', 'ilike', "%{$search}%")
+                    ->orWhere('cases.last_name', 'ilike', "%{$search}%")
+                    ->orWhere('cases.middle_name', 'ilike', "%{$search}%");
             });
         }
 
@@ -582,13 +442,14 @@ class CaseService
         return $query->paginate(min(max($perPage, 10), 100));
     }
 
+    public function caseListPayload(CaseFile $case): array
+    {
+        return array_merge($case->toArray(), $case->only(['first_name', 'middle_name', 'last_name', 'suffix', 'employment_country', 'employment_status', 'intake_date', 'assigned_case_manager_id']));
+    }
+
     public function getCase(string $id): CaseFile
     {
         return CaseFile::with([
-            'client.addresses',
-            'client.employments',
-            'client.nextOfKin',
-            'client.user:id,avatar_url',
             'referrals.milestones',
             // Read by TrackingService::buildTrackingData() for the case page
             // timeline and agency steps; without these each referral costs
@@ -599,9 +460,6 @@ class CaseService
             'referrals.attachments.user',
             'user',
             'reviewer:id,name,role',
-            'category',
-            'categories',
-            'caseIssue',
             'documents' => fn ($q) => $q->where('is_deleted', false),
         ])->findOrFail($id);
     }
@@ -657,108 +515,31 @@ class CaseService
     {
         return DB::transaction(function () use ($id, $data, $userId) {
             $case = CaseFile::lockForUpdate()->findOrFail($id);
-            $categoryMutation = $this->resolveCategoryMutation($data);
-            $categoryIds = $categoryMutation['ids'] ?? [];
-            $oldCategoryIds = $case->categories()->pluck('case_categories.id')->all();
-            $newStatus = $data['status'] ?? $case->status;
-            if ($categoryMutation !== null && empty($categoryIds)) {
-                throw ValidationException::withMessages(['category_ids' => 'At least one category is required.']);
+            $actor = User::findOrFail($userId);
+            abort_unless($actor->isAdmin() || ($actor->isCaseManager() && $case->assigned_case_manager_id === $userId), 403);
+            if (empty(trim($data['correction_reason'] ?? ''))) {
+                throw ValidationException::withMessages(['correction_reason' => 'A correction reason is required.']);
             }
-            if ($categoryMutation !== null) {
-                $this->lockActiveCategories($categoryIds);
-            }
+            $attributes = Arr::only($data, UpdateCaseRequest::EDITABLE_FIELDS);
             $old = $case->toArray();
-            $oldStatus = $case->status;
-
-            if ($newStatus !== $case->status) {
-                $this->assertStatusTransitionAllowed($case->status, $newStatus);
-
-                if (in_array($newStatus, ['CLOSED', 'ARCHIVED'], true)) {
-                    $canClose = $this->canClose($id);
-                    if (! $canClose['can_close']) {
-                        abort(422, $canClose['reason']);
+            $case->fill($attributes);
+            $fields = array_keys($case->getDirty());
+            if ($fields) {
+                $case->last_correction_reason = $data['correction_reason'];
+                $case->saveQuietly();
+                AuditLogger::log(AuditAction::UPDATE)->byId($userId)->forEntity($case, $case->case_number)
+                    ->module(AuditModule::CASE)->context(null, ['corrected_fields' => $fields, 'reason_recorded' => true])
+                    ->description('Factual intake correction; reason retained privately.')->write();
+                DB::afterCommit(function () use ($case, $old, $userId) {
+                    try {
+                        $this->dispatchCaseUpdateNotification($case, $old, $userId);
+                    } catch (\Throwable $exception) {
+                        report($exception);
                     }
-                }
+                });
             }
 
-            $updateData = ['status' => $newStatus];
-
-            // Partial edits: every field is optional, so only the keys actually
-            // present in the payload are written. Writing them unconditionally
-            // meant a status-only save (e.g. `{status: 'CLOSED'}`) nulled the
-            // case's vulnerability markers, summary and issue.
-            foreach (['vulnerability_indicator', 'nok_vulnerability_indicator', 'summary', 'case_issue_id'] as $field) {
-                if (array_key_exists($field, $data)) {
-                    $updateData[$field] = $data[$field];
-                }
-            }
-
-            $updateData['category_id'] = $categoryMutation === null ? $case->category_id : $this->primaryCategoryId($categoryIds, $case->category_id, $categoryMutation['legacy']);
-
-            if ($newStatus === 'CLOSED' && $case->status !== 'CLOSED') {
-                $updateData['closed_at'] = now();
-            } elseif ($newStatus === 'ARCHIVED' && $case->status !== 'CLOSED') {
-                $updateData['closed_at'] = $case->closed_at ?? now();
-            } elseif ($newStatus === 'OPEN' && $case->status === 'CLOSED') {
-                $updateData['closed_at'] = null;
-            }
-
-            $case->update($updateData);
-
-            if ($categoryMutation !== null) {
-                $this->syncCaseCategories($case, $categoryIds);
-                $this->recordCategoryMutation($case, $oldCategoryIds, $categoryIds, $userId);
-            }
-
-            // Field-level audit logging is handled by AuditObserver::updated();
-            // the close decision below is written as its own purposeful entry.
-
-            if ($case->wasChanged('status')) {
-                // Case edits can close or reopen a case just like toggleCaseStatus —
-                // record the same client-facing events. (Archive transitions are
-                // administrative and intentionally not client-visible.)
-                if ($case->status === 'CLOSED') {
-                    $this->eventRecorder->caseClosed($case, $userId);
-
-                    AuditLogger::close()
-                        ->byId($userId)
-                        ->forEntity($case, $case->case_number)
-                        ->module(AuditModule::CASE)
-                        ->context(['status' => $oldStatus], ['status' => 'CLOSED'])
-                        ->write();
-                } elseif ($case->status === 'OPEN' && $oldStatus === 'CLOSED') {
-                    $this->eventRecorder->caseReopened($case, $userId);
-                }
-            }
-
-            $updateCase = $case;
-            $updateOld = $old;
-            $updateUserId = $userId;
-            $updateOldStatus = $oldStatus;
-            $updateStatusChanged = $case->wasChanged('status');
-            DB::afterCommit(function () use ($updateCase, $updateOld, $updateUserId, $updateOldStatus, $updateStatusChanged) {
-                try {
-                    if ($updateStatusChanged) {
-                        $this->dispatchStatusChangeNotification($updateCase, $updateOldStatus ?? 'UNKNOWN', $updateCase->status, $updateUserId);
-                    }
-                    $this->dispatchCaseUpdateNotification($updateCase, $updateOld, $updateUserId);
-                } catch (\Throwable $e) {
-                    report($e, ['context' => 'Failed to send case update notification']);
-                }
-            });
-
-            return $case->load([
-                'client.addresses',
-                'client.employments',
-                'client.nextOfKin',
-                'referrals.milestones',
-                'referrals.agency',
-                'referrals.attachments.user',
-                'user',
-                'category',
-                'categories',
-                'caseIssue',
-            ]);
+            return $case;
         });
     }
 
@@ -813,16 +594,10 @@ class CaseService
                 ->write();
 
             return $case->load([
-                'client.addresses',
-                'client.employments',
-                'client.nextOfKin',
                 'referrals.milestones',
                 'referrals.agency',
                 'referrals.attachments.user',
                 'user',
-                'category',
-                'categories',
-                'caseIssue',
             ]);
         });
     }
@@ -852,16 +627,10 @@ class CaseService
                 ->write();
 
             return $case->load([
-                'client.addresses',
-                'client.employments',
-                'client.nextOfKin',
                 'referrals.milestones',
                 'referrals.agency',
                 'referrals.attachments.user',
                 'user',
-                'category',
-                'categories',
-                'caseIssue',
             ]);
         });
     }
@@ -941,16 +710,10 @@ class CaseService
             });
 
             return $case->load([
-                'client.addresses',
-                'client.employments',
-                'client.nextOfKin',
                 'referrals.milestones',
                 'referrals.agency',
                 'referrals.attachments.user',
                 'user',
-                'category',
-                'categories',
-                'caseIssue',
             ]);
         });
 
@@ -961,7 +724,7 @@ class CaseService
     {
         $user = User::find($userId);
         $updatedBy = $user?->name ?? 'Unknown';
-        $case->loadMissing('client.nextOfKin');
+        $case->loadMissing('ofwUser');
 
         $changes = [];
         $meaningfulFields = ['vulnerability_indicator', 'nok_vulnerability_indicator', 'summary'];
@@ -979,7 +742,7 @@ class CaseService
             return;
         }
 
-        $caseManager = User::find($case->user_id);
+        $caseManager = User::find($case->assigned_case_manager_id);
         $notifyUsers = $caseManager ? [$caseManager] : [];
 
         $clientEmail = $this->resolveClientNotificationEmail($case) ?? '';
@@ -1004,9 +767,9 @@ class CaseService
     {
         $user = User::find($userId);
         $updatedBy = $user?->name ?? 'Unknown';
-        $case->loadMissing('client.nextOfKin');
+        $case->loadMissing('ofwUser');
 
-        $caseManager = User::find($case->user_id);
+        $caseManager = User::find($case->assigned_case_manager_id);
         $notifyUsers = $caseManager ? [$caseManager] : [];
 
         $clientEmail = $this->resolveClientNotificationEmail($case) ?? '';
@@ -1062,7 +825,7 @@ class CaseService
 
     private function resolveClientNotificationEmail(CaseFile $case): ?string
     {
-        return $case->client?->email ?? $case->user?->email;
+        return $case->email;
     }
 
     /**
@@ -1090,7 +853,6 @@ class CaseService
 
         return CacheHelper::safeRemember($cacheKey, 120, function () use ($user) {
             // Build the scoped case query — same role logic as getCases()
-            // Qualify is_deleted to avoid ambiguity when joining case_categories (which also has is_deleted via SoftDeleteFlag)
             $caseQuery = CaseFile::where('cases.is_deleted', false);
 
             if ($user && $user->role === UserRole::AGENCY->value) {
@@ -1103,22 +865,18 @@ class CaseService
                 }
             }
 
-            // Aggregate counts via PostgreSQL FILTER clauses. Client-type
-            // counts now read clients.type through the case's client, since
-            // cases no longer carry client_type.
-            // The client-type tile uses the same population as total_cases
-            // (everything outside DRAFT/ARCHIVED), matching the ofw/nok tiles
-            // getClientDirectoryStats() already reports.
+            // Type counts use each case's saved classification, not account profile state.
             $counts = (clone $caseQuery)
-                ->leftJoin('clients as stat_clients', 'stat_clients.id', '=', 'cases.client_id')
+
                 ->selectRaw("
                     COUNT(*) FILTER (WHERE cases.status NOT IN ('DRAFT','ARCHIVED','PENDING_REVIEW')) AS active,
                     COUNT(*) FILTER (WHERE cases.status = 'OPEN') AS open,
                     COUNT(*) FILTER (WHERE cases.status = 'CLOSED') AS closed,
                     COUNT(*) FILTER (WHERE cases.status = 'ARCHIVED') AS archived,
+                    COUNT(*) FILTER (WHERE cases.status = 'REJECTED') AS declined,
                     COUNT(*) FILTER (WHERE cases.status = 'PENDING_REVIEW') AS pending_review,
-                    COUNT(*) FILTER (WHERE cases.status NOT IN ('DRAFT','ARCHIVED','PENDING_REVIEW') AND stat_clients.type = 'OFW') AS ofw_cases,
-                    COUNT(*) FILTER (WHERE cases.status NOT IN ('DRAFT','ARCHIVED','PENDING_REVIEW') AND stat_clients.type = 'NEXT_OF_KIN') AS nok_cases
+                    COUNT(*) FILTER (WHERE cases.status NOT IN ('DRAFT','ARCHIVED','PENDING_REVIEW') AND cases.client_type = 'OFW') AS ofw_cases,
+                    COUNT(*) FILTER (WHERE cases.status NOT IN ('DRAFT','ARCHIVED','PENDING_REVIEW') AND cases.client_type = 'NEXT_OF_KIN') AS nok_cases
                 ")->first();
 
             // Total referrals — ADMIN and CASE_MANAGER see all; AGENCY sees own only
@@ -1130,8 +888,8 @@ class CaseService
 
             // Category breakdown — scoped
             $categoryBreakdown = (clone $caseQuery)
-                ->join('case_category', 'cases.id', '=', 'case_category.case_id')
-                ->join('case_categories as pivot_categories', 'case_category.case_category_id', '=', 'pivot_categories.id')
+                ->join('case_file_case_category as classified_cases', 'cases.id', '=', 'classified_cases.case_id')
+                ->join('case_categories as pivot_categories', 'classified_cases.case_category_id', '=', 'pivot_categories.id')
                 ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
                 ->where('cases.is_deleted', false)
                 ->select('pivot_categories.id', 'pivot_categories.name', 'pivot_categories.color', DB::raw('COUNT(DISTINCT cases.id) as count'))
@@ -1144,6 +902,7 @@ class CaseService
                 'open_cases' => (int) $counts->open,
                 'closed_cases' => (int) $counts->closed,
                 'archived_cases' => (int) $counts->archived,
+                'declined_cases' => (int) $counts->declined,
                 'pending_review_cases' => (int) $counts->pending_review,
                 'ofw_cases' => (int) $counts->ofw_cases,
                 'nok_cases' => (int) $counts->nok_cases,
@@ -1157,103 +916,32 @@ class CaseService
      * Client directory stats (Task 2.2).
      *
      * Eloquent/query-builder replacement for the two DB::selectOne raw queries
-     * previously in ClientController::getClientStats. Same result shape:
+     * previously in the retired client-directory controller. Same result shape:
      * total/ofw/nok clients, per-marker vulnerability counts, open-case
      * client count, and total referrals. All constraints are bound parameters.
      */
     public function getClientDirectoryStats(?User $user): array
     {
-        if ($user?->isAgency() && ! $user->agcy_id) {
-            return [
-                'total_clients' => 0,
-                'ofw_clients' => 0,
-                'nok_clients' => 0,
-                'vulnerability_counts' => ['PWD' => 0, 'Senior Citizen' => 0, 'Solo Parent' => 0, 'Indigenous Person' => 0],
-                'clients_with_open_cases' => 0,
-                'clients_with_closed_cases' => 0,
-                'total_referrals' => 0,
-            ];
+        $query = CaseFile::query()->live()->withVisibleStatus();
+        if ($user?->isAgency()) {
+            $user->agcy_id ? $query->forAgency($user->agcy_id) : $query->whereRaw('1=0');
         }
-
-        $agencyId = ($user?->isAgency() && $user->agcy_id) ? $user->agcy_id : null;
-
-        $totalClients = $user?->isAgency()
-            ? $this->countDistinctClientsWithCases($agencyId, fn ($q) => $q->withVisibleStatus())
-            : Client::where('clients.is_deleted', false)->count();
-
-        $typeCounts = Client::query()
-            ->where('clients.is_deleted', false)
-            ->when($user?->isAgency(), function ($query) use ($agencyId) {
-                $query->whereHas('caseFiles', function ($cases) use ($agencyId) {
-                    $cases->live()->forAgency($agencyId);
-                });
-            })
-            ->selectRaw('type, COUNT(*) as aggregate')
-            ->groupBy('type')
-            ->pluck('aggregate', 'type');
-
-        $ofwClients = (int) ($typeCounts['OFW'] ?? 0);
-        $nokClients = (int) ($typeCounts['NEXT_OF_KIN'] ?? 0);
-
-        $vulnerabilityCounts = [];
+        $vulnerabilities = [];
         foreach (['PWD', 'Senior Citizen', 'Solo Parent', 'Indigenous Person'] as $marker) {
-            $vulnerabilityCounts[$marker] = $this->countDistinctClientsWithCases($agencyId, function ($q) use ($marker) {
-                $q->withVisibleStatus()->withVulnerabilityMarker($marker);
-            });
+            $vulnerabilities[$marker] = (clone $query)->withVulnerabilityMarker($marker)->count();
         }
-
-        $clientsWithOpenCases = $this->countDistinctClientsWithCases($agencyId, function ($q) {
-            $q->withOpenStatus();
-        });
-
-        $clientsWithClosedCases = $this->countDistinctClientsWithCases($agencyId, function ($q) {
-            $q->where('cases.status', 'CLOSED');
-        });
-
-        $totalReferrals = Referral::where('is_deleted', false)
-            ->whereHas('caseFile', function ($q) {
-                $q->live();
-            })
-            ->when($agencyId, function ($q) use ($agencyId) {
-                $q->where('agcy_id', $agencyId);
-            })
-            ->count();
 
         return [
-            'total_clients' => (int) $totalClients,
-            'ofw_clients' => (int) $ofwClients,
-            'nok_clients' => (int) $nokClients,
-            'vulnerability_counts' => [
-                'PWD' => (int) $vulnerabilityCounts['PWD'],
-                'Senior Citizen' => (int) $vulnerabilityCounts['Senior Citizen'],
-                'Solo Parent' => (int) $vulnerabilityCounts['Solo Parent'],
-                'Indigenous Person' => (int) $vulnerabilityCounts['Indigenous Person'],
-            ],
-            'clients_with_open_cases' => (int) $clientsWithOpenCases,
-            'clients_with_closed_cases' => (int) $clientsWithClosedCases,
-            'total_referrals' => (int) $totalReferrals,
+            'total_cases' => (clone $query)->count(),
+            'ofw_cases' => (clone $query)->where('client_type', 'OFW')->count(),
+            'nok_cases' => (clone $query)->where('client_type', 'NEXT_OF_KIN')->count(),
+            'linked_accounts' => (clone $query)->distinct()->count('ofw_user_id'),
+            'vulnerability_counts' => $vulnerabilities,
+            'open_cases' => (clone $query)->withOpenStatus()->count(),
+            'closed_cases' => (clone $query)->where('status', 'CLOSED')->count(),
+            'total_referrals' => Referral::whereHas('caseFile', fn ($cases) => $cases->whereIn('cases.id', (clone $query)->select('cases.id')))
+                ->when($user?->isAgency(), fn ($q) => $q->where('agcy_id', $user->agcy_id))->count(),
         ];
-    }
-
-    /**
-     * Distinct clients having at least one live case matching the given
-     * constraints (plus agency scope). Equivalent to
-     * COUNT(DISTINCT CASE WHEN ... THEN cl.id END) over the clients/cases join.
-     */
-    private function countDistinctClientsWithCases(?string $agencyId, callable $constraints, ?callable $clientConstraints = null): int
-    {
-        $clients = Client::where('clients.is_deleted', false);
-
-        if ($clientConstraints !== null) {
-            $clientConstraints($clients);
-        }
-
-        return $clients
-            ->whereHas('caseFiles', function ($q) use ($agencyId, $constraints) {
-                $q->live()->forAgency($agencyId);
-                $constraints($q);
-            })
-            ->count();
     }
 
     // -------------------------------------------------------------------------
@@ -1341,16 +1029,10 @@ class CaseService
             $case->update(['status' => 'ARCHIVED', 'deletion_reason' => null]);
 
             return $case->load([
-                'client.addresses',
-                'client.employments',
-                'client.nextOfKin',
                 'referrals.milestones',
                 'referrals.agency',
                 'referrals.attachments.user',
                 'user',
-                'category',
-                'categories',
-                'caseIssue',
             ]);
         });
     }
@@ -1380,7 +1062,7 @@ class CaseService
     {
         $query = $this->scopeToTrashOwner(
             CaseFile::onlyTrashed()
-                ->with(['client', 'user'])
+                ->with('user')
                 ->orderBy('deleted_at', 'desc'),
             $user
         );
@@ -1389,11 +1071,9 @@ class CaseService
             $search = $filters['search'];
             $query->where(function ($q) use ($search) {
                 $q->where('case_number', 'ilike', "%{$search}%")
-                    ->orWhereHas('client', function ($q) use ($search) {
-                        $q->where('first_name', 'ilike', "%{$search}%")
-                            ->orWhere('last_name', 'ilike', "%{$search}%")
-                            ->orWhereRaw("CONCAT(first_name, ' ', last_name) ILIKE ?", ["%{$search}%"]);
-                    });
+                    ->orWhere('cases.first_name', 'ilike', "%{$search}%")
+                    ->orWhere('cases.last_name', 'ilike', "%{$search}%")
+                    ->orWhere('cases.middle_name', 'ilike', "%{$search}%");
             });
         }
 

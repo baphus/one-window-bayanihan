@@ -36,8 +36,8 @@ class CaseQueries
                 'closed_at',
                 'consent_given_at',
                 'user_id',
-                'client_id',
-                'category_id',
+                'ofw_user_id',
+                'client_type',
                 DB::raw($this->categoryNamesExpression('cases').' AS categories'),
                 'created_at',
                 'updated_at',
@@ -45,18 +45,15 @@ class CaseQueries
             ->where('is_deleted', false);
 
         if (! $this->isAdmin($user)) {
-            $query->where('user_id', $user->id);
+            if ($user->role !== UserRole::AGENCY->value || ! $user->agcy_id) {
+                return collect();
+            }
+            $query->whereIn('cases.id', function ($q) use ($user) {
+                $q->select('case_id')->from('referrals')->where('agcy_id', $user->agcy_id)->where('is_deleted', false)->whereNull('deleted_at');
+            });
         }
 
-        $addressResolver = app(PhilippineAddressService::class);
-
-        return $query->get()->map(function ($row) use ($addressResolver) {
-            foreach (['region', 'province', 'city_municipality', 'barangay'] as $field) {
-                $row->{$field} = $addressResolver->resolve($row->{$field} ?? null);
-            }
-
-            return $row;
-        });
+        return $query->whereNull('deleted_at')->get();
     }
 
     private function casesExportQuery(?User $user = null, array $filters = [])
@@ -66,50 +63,54 @@ class CaseQueries
                 'c.case_number',
                 'c.status',
                 'c.tracker_number',
-                'cl.type AS client_type',
+                'c.client_type AS client_type',
                 // Vulnerability — combine both indicators; prefer the one matching client type
                 DB::raw("CASE
-                    WHEN cl.type = 'NEXT_OF_KIN'
+                    WHEN c.client_type = 'NEXT_OF_KIN'
                         THEN COALESCE(NULLIF(c.nok_vulnerability_indicator, 'None'), NULLIF(c.vulnerability_indicator, 'None'), 'None')
                     ELSE COALESCE(NULLIF(c.vulnerability_indicator, 'None'), NULLIF(c.nok_vulnerability_indicator, 'None'), 'None')
                 END AS vulnerability"),
                 // Client (to-one via FK)
-                'cl.first_name AS client_first_name',
-                'cl.last_name AS client_last_name',
-                'cl.middle_name AS client_middle_name',
-                'cl.sex AS ofw_sex',
-                'cl.date_of_birth AS ofw_date_of_birth',
-                'cl.contact_number AS ofw_contact_number',
-                'cl.email AS ofw_email',
-                // Address — to-many, take first row
-                DB::raw('(SELECT ca.barangay FROM client_addresses ca WHERE ca.client_id = c.client_id AND ca.is_deleted = false LIMIT 1) AS barangay'),
-                DB::raw('(SELECT ca.city_municipality FROM client_addresses ca WHERE ca.client_id = c.client_id AND ca.is_deleted = false LIMIT 1) AS municipality'),
-                DB::raw('(SELECT ca.province FROM client_addresses ca WHERE ca.client_id = c.client_id AND ca.is_deleted = false LIMIT 1) AS province'),
-                DB::raw('(SELECT ca.region FROM client_addresses ca WHERE ca.client_id = c.client_id AND ca.is_deleted = false LIMIT 1) AS region'),
-                // Employment — to-many, take most recent
-                DB::raw('(SELECT ce.date_of_arrival FROM client_employments ce WHERE ce.client_id = c.client_id AND ce.is_deleted = false ORDER BY ce.created_at DESC LIMIT 1) AS date_of_arrival'),
-                DB::raw('(SELECT ce.country FROM client_employments ce WHERE ce.client_id = c.client_id AND ce.is_deleted = false ORDER BY ce.created_at DESC LIMIT 1) AS previous_country'),
-                DB::raw('(SELECT ce.position FROM client_employments ce WHERE ce.client_id = c.client_id AND ce.is_deleted = false ORDER BY ce.created_at DESC LIMIT 1) AS work_position'),
+                'c.first_name AS client_first_name',
+                'c.last_name AS client_last_name',
+                'c.middle_name AS client_middle_name',
+                'c.sex AS ofw_sex',
+                'c.date_of_birth AS ofw_date_of_birth',
+                'c.contact_number AS ofw_contact_number',
+                'c.email AS ofw_email',
+                // Case address snapshot
+                'c.address_barangay AS barangay',
+                'c.address_city_municipality AS municipality',
+                'c.address_province AS province',
+                'c.address_region AS region',
+                // Case employment snapshot
+                'c.employment_date_of_arrival AS date_of_arrival',
+                'c.employment_country AS employment_country',
+                'c.employment_position AS work_position',
                 // Case summary
                 'c.summary AS case_summary',
                 DB::raw($this->categoryNamesExpression('c').' AS categories'),
-                // Case issue (to-one)
-                DB::raw("COALESCE(ci.name, '—') AS issue_concern"),
+                // Intake date supplies stable age-at-intake interpretation.
+                'c.intake_date',
                 // Receiving parties — comma-separated agency names from referrals (COALESCE handles empty)
-                DB::raw("COALESCE((SELECT STRING_AGG(a.name, ', ') FROM referrals r JOIN agencies a ON r.agcy_id = a.id WHERE r.case_id = c.id AND r.is_deleted = false), '') AS receiving_parties"),
-                // Next-of-kin — to-many, take primary first, then by sort_order
-                DB::raw('(SELECT nok.first_name FROM next_of_kin nok WHERE nok.client_id = c.client_id AND nok.is_deleted = false ORDER BY nok.is_primary DESC, nok.sort_order ASC LIMIT 1) AS nok_first_name'),
-                DB::raw('(SELECT nok.last_name FROM next_of_kin nok WHERE nok.client_id = c.client_id AND nok.is_deleted = false ORDER BY nok.is_primary DESC, nok.sort_order ASC LIMIT 1) AS nok_last_name'),
-                DB::raw('(SELECT nok.middle_name FROM next_of_kin nok WHERE nok.client_id = c.client_id AND nok.is_deleted = false ORDER BY nok.is_primary DESC, nok.sort_order ASC LIMIT 1) AS nok_middle_name'),
-                DB::raw('(SELECT nok.phone_number FROM next_of_kin nok WHERE nok.client_id = c.client_id AND nok.is_deleted = false ORDER BY nok.is_primary DESC, nok.sort_order ASC LIMIT 1) AS nok_contact_number'),
-                DB::raw('(SELECT nok.email FROM next_of_kin nok WHERE nok.client_id = c.client_id AND nok.is_deleted = false ORDER BY nok.is_primary DESC, nok.sort_order ASC LIMIT 1) AS nok_email'),
+                DB::raw($user?->role === UserRole::AGENCY->value
+                    ? "'' AS receiving_parties"
+                    : "COALESCE((SELECT STRING_AGG(a.name, ', ') FROM referrals r JOIN agencies a ON r.agcy_id = a.id WHERE r.case_id = c.id AND r.is_deleted = false AND r.deleted_at IS NULL), '') AS receiving_parties"),
+                // Case representative
+                'c.nok_name AS nok_full_name',
+                'c.nok_relationship AS nok_relationship',
+                'c.employment_status AS employment_status',
+                'c.civil_status',
+                'c.civil_status_other',
+                'c.deployment_mode',
+                'c.return_reason',
+                'c.proposed_assessments',
+                'c.proposed_assessment_other',
+                'creator.name AS creator_name',
+                'creator.role AS creator_role',
             ])
-            ->leftJoin('clients AS cl', function ($join) {
-                $join->on('c.client_id', '=', 'cl.id')
-                    ->where('cl.is_deleted', false);
-            })
-            ->leftJoin('case_issues AS ci', 'c.case_issue_id', '=', 'ci.id')
-            ->where('c.is_deleted', false)
+            ->leftJoin('users AS creator', 'creator.id', '=', 'c.user_id')
+            ->where('c.is_deleted', false)->whereNull('c.deleted_at')
             ->whereNotIn('c.status', [CaseFile::STATUS_PENDING_REVIEW])
             ->orderBy('c.created_at', 'desc');
 
@@ -120,11 +121,16 @@ class CaseQueries
                     $q->select('case_id')
                         ->from('referrals')
                         ->where('agcy_id', $user->agcy_id)
-                        ->where('is_deleted', false);
+                        ->where('is_deleted', false)
+                        ->whereNull('deleted_at');
                 });
             } else {
                 $query->whereRaw('1=0');
             }
+        }
+
+        if ($user !== null && ! in_array($user->role, [UserRole::ADMIN->value, UserRole::CASE_MANAGER->value, UserRole::AGENCY->value], true)) {
+            $query->whereRaw('1 = 0');
         }
 
         // --- Apply optional filters ---
@@ -142,7 +148,7 @@ class CaseQueries
 
         $clientTypes = MultiSelectFilter::ids($filters['client_type'] ?? null);
         if ($clientTypes !== []) {
-            $query->whereIn('cl.type', $clientTypes);
+            $query->whereIn('c.client_type', $clientTypes);
         }
 
         $vulnerabilities = MultiSelectFilter::ids($filters['vulnerability_indicator'] ?? null);
@@ -158,7 +164,7 @@ class CaseQueries
         }
 
         $userIds = MultiSelectFilter::ids($filters['user_id'] ?? null);
-        if ($userIds !== []) {
+        if ($userIds !== [] && in_array($user?->role, [UserRole::ADMIN->value, UserRole::CASE_MANAGER->value], true)) {
             $query->whereIn('c.user_id', $userIds);
         }
 
@@ -168,7 +174,8 @@ class CaseQueries
                 $q->select('case_id')
                     ->from('referrals')
                     ->whereIn('agcy_id', $agencyIds)
-                    ->where('is_deleted', false);
+                    ->where('is_deleted', false)
+                    ->whereNull('deleted_at');
             });
         }
         if (! empty($filters['age_min_days']) && is_numeric($filters['age_min_days'])) {
@@ -178,15 +185,12 @@ class CaseQueries
             $query->whereNotIn('c.id', function ($q) {
                 $q->select('case_id')
                     ->from('referrals')
-                    ->where('is_deleted', false);
+                    ->where('is_deleted', false)
+                    ->whereNull('deleted_at');
             });
         }
         $this->applyCategoryFilter($query, 'c', $filters);
 
-        $issueIds = MultiSelectFilter::ids($filters['case_issue_id'] ?? null);
-        if ($issueIds !== []) {
-            $query->whereIn('c.case_issue_id', $issueIds);
-        }
         if (! empty($filters['date_from'])) {
             $query->whereDate('c.created_at', '>=', $filters['date_from']);
         }
@@ -198,8 +202,9 @@ class CaseQueries
             $query->where(function ($q) use ($search) {
                 $q->where('c.case_number', 'ilike', "%{$search}%")
                     ->orWhere('c.tracker_number', 'ilike', "%{$search}%")
-                    ->orWhere('cl.first_name', 'ilike', "%{$search}%")
-                    ->orWhere('cl.last_name', 'ilike', "%{$search}%");
+                    ->orWhere('c.first_name', 'ilike', "%{$search}%")
+                    ->orWhere('c.last_name', 'ilike', "%{$search}%")
+                    ->orWhere('c.middle_name', 'ilike', "%{$search}%");
             });
         }
 
@@ -207,12 +212,12 @@ class CaseQueries
     }
 
     /**
-     * Get enriched cases for business export — joins related client data,
-     * addresses, employments, next-of-kin, case issues, and referral parties.
+     * Get enriched case intake records for business export, with referral
+     * categories, case address/employment snapshots and agency parties.
      * No IDs or system fields. ADMIN/CASE_MANAGER see all; AGENCY sees own.
      *
      * @param  array  $filters  Optional: status, search, client_type, vulnerability_indicator,
-     *                          user_id, agcy_id, category_id/category_ids, case_issue_id,
+     *                          user_id, agcy_id, category_id/category_ids,
      *                          age_min_days, referral_state
      */
     public function getCasesExport(?User $user = null, array $filters = []): Collection
@@ -227,15 +232,41 @@ class CaseQueries
             $row->ofw_date_of_birth = EncryptedString::decrypt($row->ofw_date_of_birth ?? null);
             $row->ofw_contact_number = EncryptedString::decrypt($row->ofw_contact_number ?? null);
             $row->ofw_email = EncryptedString::decrypt($row->ofw_email ?? null);
-            $row->nok_contact_number = EncryptedString::decrypt($row->nok_contact_number ?? null);
-            $row->nok_email = EncryptedString::decrypt($row->nok_email ?? null);
             // Employment subquery fields
-            if (isset($row->previous_country)) {
-                $row->previous_country = EncryptedString::decrypt($row->previous_country);
+            if (isset($row->employment_country)) {
+                $row->employment_country = EncryptedString::decrypt($row->employment_country);
             }
             if (isset($row->work_position)) {
                 $row->work_position = EncryptedString::decrypt($row->work_position);
             }
+
+            $civilLabels = ['SINGLE' => 'Single', 'MARRIED' => 'Married', 'WIDOWED' => 'Widowed', 'SEPARATED' => 'Separated', 'ANNULLED' => 'Annulled', 'OTHER' => 'Other'];
+            $deploymentLabels = ['AGENCY_HIRED' => 'Agency hired', 'DIRECT_HIRED' => 'Direct hired', 'TOURIST_VISIT' => 'Tourist / visit', 'BUSINESS' => 'Business', 'INVITATION' => 'Invitation'];
+            $employmentLabels = ['ON_SITE' => 'On-site / currently abroad', 'FOR_DEPLOYMENT' => 'For deployment (pre-departure)', 'RETURNED' => 'Returned (reintegration)'];
+            $reasonLabels = ['DISTRESSED_WORKER' => 'Distressed worker', 'TERMINATION' => 'Termination', 'OTHERS' => 'Others'];
+            $assessmentLabels = ['DISTRESSED_OFW' => 'Distressed OFW', 'MEDICALLY_REPATRIATED' => 'Medically repatriated', 'BURIAL_ASSISTANCE_CONCERN' => 'Burial assistance concern', 'POSSIBLE_LOCAL_EMPLOYMENT' => 'Possible local employment', 'PSYCHOSOCIAL_MEDICAL_INTERVENTION' => 'Psychosocial / medical intervention', 'SKILLS_ENHANCEMENT_TRAINING' => 'Skills enhancement training', 'LEGAL_ASSISTANCE' => 'Legal assistance', 'OTHER' => 'Other'];
+            $row->civil_status = $civilLabels[$row->civil_status ?? ''] ?? '';
+            if ($row->civil_status === 'Other') {
+                $detail = EncryptedString::decrypt($row->civil_status_other ?? null);
+                $row->civil_status .= $detail ? ' ('.$detail.')' : '';
+            }
+            $row->deployment_mode = $deploymentLabels[$row->deployment_mode ?? ''] ?? '';
+            $row->employment_status = $employmentLabels[$row->employment_status ?? ''] ?? '';
+            $row->return_reason = $reasonLabels[$row->return_reason ?? ''] ?? '';
+            $assessments = json_decode($row->proposed_assessments ?? '[]', true) ?: [];
+            $row->proposed_assessments = implode(', ', array_map(function ($code) use ($assessmentLabels, $row) {
+                $label = $assessmentLabels[$code] ?? $code;
+                if ($code === 'OTHER') {
+                    $detail = EncryptedString::decrypt($row->proposed_assessment_other ?? null);
+                    $label .= $detail ? ' ('.$detail.')' : '';
+                }
+
+                return $label;
+            }, $assessments));
+            $row->opened_by = $row->creator_name
+                ? $row->creator_name.' ('.(UserRole::tryFrom($row->creator_role ?? '')?->label() ?? $row->creator_role).')'
+                : 'Account unavailable';
+            unset($row->civil_status_other, $row->proposed_assessment_other, $row->creator_name, $row->creator_role);
 
             // --- OFW Full Name: "Last, First Middle" ---
             $firstName = $row->client_first_name ?? '';
@@ -248,11 +279,10 @@ class CaseQueries
             if (! empty($row->ofw_date_of_birth)) {
                 try {
                     $dob = new \DateTimeImmutable($row->ofw_date_of_birth);
-                    $row->ofw_age = (string) CarbonImmutable::parse($dob)->age;
+                    $row->ofw_age = (string) (int) CarbonImmutable::parse($dob)->diffInYears(CarbonImmutable::parse($row->intake_date), true);
                 } catch (\Exception $e) {
                     Log::debug('DataExportQueries: unparseable date of birth in export', [
-                        'value' => $row->ofw_date_of_birth,
-                        'exception' => $e->getMessage(),
+                        'case_number' => $row->case_number,
                     ]);
                     $row->ofw_age = '';
                 }
@@ -261,20 +291,11 @@ class CaseQueries
             // --- Client Type display label ---
             $row->client_type = $row->client_type === 'NEXT_OF_KIN' ? 'Next of Kin' : 'OFW';
 
-            // --- NOK Full Name: "Last, First M." ---
-            $nokFirstName = $row->nok_first_name ?? '';
-            $nokLastName = $row->nok_last_name ?? '';
-            $nokMiddle = $row->nok_middle_name ?? '';
-            $row->nok_full_name = trim($nokLastName.($nokFirstName ? ', '.$nokFirstName : '').($nokMiddle ? ' '.$nokMiddle : ''));
-
             // --- Strip raw intermediate fields ---
             unset(
                 $row->client_first_name,
                 $row->client_last_name,
                 $row->client_middle_name,
-                $row->nok_first_name,
-                $row->nok_last_name,
-                $row->nok_middle_name,
             );
 
             $addressResolver = app(PhilippineAddressService::class);

@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\CaseFile;
-use App\Models\Client;
 use App\Models\Milestone;
 use App\Models\Referral;
 use App\Models\ReferralServiceRequirement;
@@ -38,10 +37,9 @@ class ReferralServiceAddMilestoneTest extends TestCase
         parent::setUp();
 
         $this->caseManager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-        $client = Client::factory()->create(['email' => 'ofw@example.com']);
-        $this->case = CaseFile::factory()->create([
+        $this->case = CaseFile::factory()->withIntake()->create([
             'user_id' => $this->caseManager->id,
-            'client_id' => $client->id,
+            'email' => 'ofw@example.com',
             'status' => 'OPEN',
         ]);
 

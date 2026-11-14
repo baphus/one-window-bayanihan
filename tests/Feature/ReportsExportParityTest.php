@@ -5,8 +5,6 @@ namespace Tests\Feature;
 use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\CaseFile;
-use App\Models\Client;
-use App\Models\ClientAddress;
 use App\Models\Referral;
 use App\Models\User;
 use App\Services\Reports\ReportsExportService;
@@ -57,7 +55,6 @@ class ReportsExportParityTest extends TestCase
     {
         $case = CaseFile::factory()->create(array_merge([
             'user_id' => $owner->id,
-            'client_id' => Client::factory()->create()->id,
             'status' => 'OPEN',
         ], $caseAttributes));
         Referral::factory()->create(array_merge([
@@ -77,16 +74,10 @@ class ReportsExportParityTest extends TestCase
         $live = $this->seedCase($manager, $agency);
         $deleted = $this->seedCase($manager, $agency);
         $flagged = $this->seedCase($manager, $agency);
-        foreach ([$live, $deleted, $flagged] as $case) {
-            $address = ClientAddress::create([
-                'client_id' => $case->client_id, 'province' => 'Cebu', 'city_municipality' => 'Cebu City',
-            ]);
-            if ($case->id === $deleted->id) {
-                $address->delete();
-            } elseif ($case->id === $flagged->id) {
-                $address->forceFill(['is_deleted' => true])->saveQuietly();
-            }
-        }
+        $live->update(['address_province' => 'Cebu', 'address_city_municipality' => 'Cebu City']);
+        $deleted->update(['address_province' => 'Cebu', 'address_city_municipality' => 'Cebu City']);
+        $deleted->delete();
+        $flagged->forceFill(['address_province' => 'Cebu', 'address_city_municipality' => 'Cebu City', 'is_deleted' => true])->saveQuietly();
 
         $sheets = $this->exports->buildExcelSheetsFromCriteria($this->criteriaFor($manager, ['province' => 'Cebu']));
 
@@ -146,12 +137,9 @@ class ReportsExportParityTest extends TestCase
             ['case' => '2025-12-10 08:00:00', 'days' => 60, 'province' => 'Cebu'],
             ['case' => '2026-03-12 08:00:00', 'days' => 90, 'province' => 'Bohol'],
         ] as $row) {
-            $case = $this->seedCase($manager, $agency,
-                ['created_at' => $row['case'], 'updated_at' => $row['case']],
+            $this->seedCase($manager, $agency,
+                ['created_at' => $row['case'], 'updated_at' => $row['case'], 'address_province' => $row['province'], 'address_city_municipality' => 'Test City'],
                 ['status' => 'COMPLETED', 'created_at' => $row['case'], 'updated_at' => Carbon::parse($row['case'])->addDays($row['days'])]);
-            ClientAddress::create([
-                'client_id' => $case->client_id, 'province' => $row['province'], 'city_municipality' => 'Test City',
-            ]);
         }
 
         $criteria = $this->criteriaFor($manager, ['from' => '2026-03-01', 'to' => '2026-03-31', 'province' => 'Cebu']);

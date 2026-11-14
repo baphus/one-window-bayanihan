@@ -4,9 +4,9 @@ namespace Tests\Feature;
 
 use App\Enums\UserRole;
 use App\Models\Agency;
+use App\Models\CaseCategory;
 use App\Models\CaseFile;
 use App\Models\CaseNotification;
-use App\Models\Client;
 use App\Models\Milestone;
 use App\Models\Referral;
 use App\Models\User;
@@ -76,6 +76,9 @@ class NotificationPayloadEnrichmentTest extends TestCase
 
         $service = app(ReferralService::class);
         $referral = $service->createReferral([
+            'category_id' => CaseCategory::factory()->create()->id,
+            'concern' => 'Assistance requested',
+            'override_reason' => 'Agency selected for this assistance',
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
         ], $caseManager->id);
@@ -104,6 +107,9 @@ class NotificationPayloadEnrichmentTest extends TestCase
 
         $service = app(ReferralService::class);
         $referral = $service->createReferral([
+            'category_id' => CaseCategory::factory()->create()->id,
+            'concern' => 'Assistance requested',
+            'override_reason' => 'Agency selected for this assistance',
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
         ], $caseManager->id);
@@ -177,18 +183,20 @@ class NotificationPayloadEnrichmentTest extends TestCase
             $this->assertArrayHasKey('client_name', $payload);
         }
 
-        $expected = trim(($case->client->first_name ?? '').' '.($case->client->last_name ?? ''));
+        $expected = trim(($case->first_name ?? '').' '.($case->last_name ?? ''));
+        $this->assertSame('Snapshot Applicant', $expected);
         $this->assertSame($expected, $payloads[0]['client_name']);
         $this->assertStringContainsString($expected, $payloads[0]['message']);
     }
 
     private function createCase(User $user): CaseFile
     {
-        $client = Client::factory()->create(['email' => 'ofw@example.com']);
-
-        return CaseFile::factory()->create([
+        return CaseFile::factory()->withIntake()->create([
             'user_id' => $user->id,
-            'client_id' => $client->id,
+            'email' => 'ofw@example.com',
+            'first_name' => 'Snapshot',
+            'last_name' => 'Applicant',
+            'email' => 'snapshot@example.test',
             'status' => 'OPEN',
         ]);
     }

@@ -5,17 +5,19 @@ namespace App\Http\Controllers\Admin;
 use App\Enums\AuditAction;
 use App\Enums\AuditModule;
 use App\Http\Controllers\Controller;
+use App\Models\Agency;
 use App\Models\CaseCategory;
 use App\Services\AuditLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
 class AdminCaseCategoryController extends Controller
 {
     public function index(Request $request)
     {
-        $query = CaseCategory::orderBy('sort_order')->orderBy('name');
+        $query = CaseCategory::with('suggestedAgencies:id,name,short,is_active')->withCount('referrals')->orderBy('sort_order')->orderBy('name');
 
         if ($request->boolean('show_deleted')) {
             $query->withTrashed();
@@ -27,6 +29,7 @@ class AdminCaseCategoryController extends Controller
 
         return Inertia::render('Admin/CaseCategory/Index', [
             'categories' => $categories,
+            'agencies' => Agency::where('is_active', true)->orderBy('name')->get(['id', 'name', 'short']),
             'filters' => $request->only(['show_deleted']),
         ]);
     }
@@ -39,9 +42,16 @@ class AdminCaseCategoryController extends Controller
             'color' => 'nullable|string|max:7',
             'sort_order' => 'nullable|integer|min:0',
             'is_active' => 'boolean',
+            'suggested_agency_ids' => 'sometimes|array',
+            'suggested_agency_ids.*' => ['required', 'uuid', 'distinct', Rule::exists('agencies', 'id')->where(fn ($query) => $query->where('is_active', true)->where('is_deleted', false)->whereNull('deleted_at'))],
         ]);
 
-        CaseCategory::create($validated);
+        DB::transaction(function () use ($validated) {
+            $agencyIds = $validated['suggested_agency_ids'] ?? [];
+            unset($validated['suggested_agency_ids']);
+            $category = CaseCategory::create($validated);
+            $this->syncSuggestedAgencies($category, $agencyIds);
+        });
 
         return redirect()->route('admin.case-categories.index')
             ->with('success', 'Category created successfully.');
@@ -57,9 +67,18 @@ class AdminCaseCategoryController extends Controller
             'color' => 'nullable|string|max:7',
             'sort_order' => 'nullable|integer|min:0',
             'is_active' => 'boolean',
+            'suggested_agency_ids' => 'sometimes|array',
+            'suggested_agency_ids.*' => ['required', 'uuid', 'distinct', Rule::exists('agencies', 'id')->where(fn ($query) => $query->where('is_active', true)->where('is_deleted', false)->whereNull('deleted_at'))],
         ]);
 
-        $category->update($validated);
+        DB::transaction(function () use ($category, $validated) {
+            $agencyIds = $validated['suggested_agency_ids'] ?? null;
+            unset($validated['suggested_agency_ids']);
+            $category->update($validated);
+            if ($agencyIds !== null) {
+                $this->syncSuggestedAgencies($category, $agencyIds);
+            }
+        });
 
         return redirect()->route('admin.case-categories.index')
             ->with('success', 'Category updated successfully.');
@@ -70,20 +89,8 @@ class AdminCaseCategoryController extends Controller
         $usageCount = 0;
 
         DB::transaction(function () use ($request, $id, &$usageCount) {
-            // Case mutations lock cases before categories. Keep the same
-            // order here to avoid deadlocks with concurrent assignments.
-            $caseIds = $this->categoryCaseIds($id);
-
-            if ($caseIds->isNotEmpty()) {
-                DB::table('cases AS c')
-                    ->whereIn('c.id', $caseIds)
-                    ->orderBy('c.id')
-                    ->lockForUpdate()
-                    ->get(['c.id']);
-            }
-
             $category = CaseCategory::whereKey($id)->lockForUpdate()->firstOrFail();
-            $usageCount = $this->categoryUsageCount($category->id);
+            $usageCount = $category->referrals()->withTrashed()->distinct('case_id')->count('case_id') + $category->cases()->count();
 
             if ($usageCount > 0) {
                 return;
@@ -96,7 +103,7 @@ class AdminCaseCategoryController extends Controller
 
         if ($usageCount > 0) {
             return redirect()->route('admin.case-categories.index')
-                ->with('error', 'Cannot delete category: '.$usageCount.' case(s) are using it.');
+                ->with('error', 'Cannot delete category: '.$usageCount.' case(s) or referral(s) are using it.');
         }
 
         return redirect()->route('admin.case-categories.index')
@@ -128,23 +135,29 @@ class AdminCaseCategoryController extends Controller
             ->with('success', 'Category reactivated successfully.');
     }
 
-    private function categoryUsageCount(string $categoryId): int
+    private function syncSuggestedAgencies(CaseCategory $category, array $agencyIds): void
     {
-        return (int) DB::table('case_category AS cc')
-            ->join('cases AS c', 'c.id', '=', 'cc.case_id')
-            ->where('cc.case_category_id', $categoryId)
-            ->where('c.is_deleted', false)
-            ->distinct()
-            ->count('cc.case_id');
+        $before = $category->suggestedAgencies()->pluck('agencies.id')->sort()->values()->all();
+        $changes = $category->suggestedAgencies()->sync($agencyIds);
+
+        if ($changes['attached'] !== [] || $changes['detached'] !== []) {
+            sort($agencyIds);
+            AuditLogger::log(AuditAction::UPDATE)
+                ->byId(auth()->id())
+                ->forEntity($category, $category->name)
+                ->module(AuditModule::CASE_CATEGORY)
+                ->context(['suggested_agency_ids' => $before], ['suggested_agency_ids' => $agencyIds])
+                ->write();
+        }
     }
 
-    private function categoryCaseIds(string $categoryId)
+    private function categoryUsageCount(string $categoryId): int
     {
-        return DB::table('case_category AS cc')
-            ->where('cc.case_category_id', $categoryId)
-            ->orderBy('cc.case_id')
-            ->pluck('cc.case_id')
-            ->unique()
-            ->values();
+        return DB::table('case_file_case_category')
+            ->join('cases', 'cases.id', '=', 'case_file_case_category.case_id')
+            ->where('case_file_case_category.case_category_id', $categoryId)
+            ->where('cases.is_deleted', false)
+            ->whereNull('cases.deleted_at')
+            ->count();
     }
 }

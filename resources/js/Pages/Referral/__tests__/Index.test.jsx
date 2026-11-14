@@ -18,11 +18,33 @@ vi.mock('@inertiajs/react', () => ({
 vi.mock('@/Layouts/AppLayout', () => ({ default: ({ children }) => <main>{children}</main> }));
 vi.mock('@/Hooks/useToast', () => ({ useToast: () => ({ info: vi.fn() }) }));
 vi.mock('@/Components/ui/StatusBadge', () => ({ default: ({ status }) => <span>{status}</span> }));
-vi.mock('@/Components/ExportDialog', () => ({ default: () => null }));
+vi.mock('@/Components/ExportDialog', () => ({
+    default: ({ countUrlBuilder }) => <output data-testid="export-count-url">{countUrlBuilder('2026-01-01', '2026-01-31')}</output>,
+}));
 vi.mock('@/Components/ui/RowContextMenu', () => ({
     RowContextMenu: ({ children }) => <div>{children}</div>,
     RowContextMenuItem: () => null,
 }));
+
+describe('Referral Index export filters', () => {
+    const referrals = { data: [], total: 0, from: null, to: null, current_page: 1, last_page: 1, per_page: 15 };
+
+    it.each([
+        [{ status: ['PENDING', 'ACCEPTED'], agcy_id: ['agency-a', 'agency-b'], category_id: ['cat-a', 'cat-b'], category_ids: ['cat-c', 'cat-d'], case_id: 'case-a' },
+            { 'status[]': ['PENDING', 'ACCEPTED'], 'agcy_id[]': ['agency-a', 'agency-b'], 'category_id[]': [], 'category_ids[]': ['cat-c', 'cat-d'], case_id: ['case-a'] }],
+        [{ status: 'PENDING', agcy_id: 'agency-a', category_id: 'cat-a' },
+            { 'status[]': ['PENDING'], 'agcy_id[]': ['agency-a'], 'category_id[]': ['cat-a'], 'category_ids[]': [], case_id: [] }],
+    ])('includes selected filters in export count query', (filters, expected) => {
+        globalThis.route = vi.fn((name) => `/${name}`);
+        render(<ReferralIndex referrals={referrals} filters={filters} stats={{}} agencies={[]} categories={[]} />);
+
+        const url = new URL(screen.getByTestId('export-count-url').textContent, 'http://localhost');
+        expect(url.pathname).toBe('/referrals.export-count');
+        Object.entries(expected).forEach(([key, values]) => expect(url.searchParams.getAll(key)).toEqual(values));
+        expect(url.searchParams.get('date_from')).toBe('2026-01-01');
+        expect(url.searchParams.get('date_to')).toBe('2026-01-31');
+    });
+});
 
 describe('Referral Index case summary preview', () => {
     it('limits long summaries to 120 characters and keeps full text in title', () => {

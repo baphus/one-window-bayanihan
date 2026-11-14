@@ -8,12 +8,8 @@ import useTableVisitLoading from '@/Hooks/useTableVisitLoading';
 import { useToast } from '@/Hooks/useToast';
 import { formatDisplayDate, formatDisplayDateTime } from '@/lib/utils';
 
-function getClientName(caseFile) {
-  if (caseFile.client) {
-    const parts = [caseFile.client.first_name, caseFile.client.last_name].filter(Boolean);
-    return parts.join(' ') || '\u2014';
-  }
-  return '\u2014';
+function getCaseName(caseFile) {
+  return [caseFile.first_name, caseFile.last_name].filter(Boolean).join(' ') || '\u2014';
 }
 
 function getDeletedByName(caseFile) {
@@ -155,7 +151,7 @@ export default function CaseTrash({ cases, filters: initialFilters = {} }) {
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-300">
                       <th className="px-5 py-4 text-[12px] font-extrabold uppercase tracking-widest text-slate-500">Case #</th>
-                      <th className="px-5 py-4 text-[12px] font-extrabold uppercase tracking-widest text-slate-500">Client</th>
+                      <th className="px-5 py-4 text-[12px] font-extrabold uppercase tracking-widest text-slate-500">OFW</th>
                       <th className="px-5 py-4 text-[12px] font-extrabold uppercase tracking-widest text-slate-500">Deleted</th>
                       <th className="px-5 py-4 text-[12px] font-extrabold uppercase tracking-widest text-slate-500">Deleted By</th>
                       <th className="px-5 py-4 text-[12px] font-extrabold uppercase tracking-widest text-slate-500">Reason</th>
@@ -172,7 +168,7 @@ export default function CaseTrash({ cases, filters: initialFilters = {} }) {
                           </div>
                         </td>
                         <td className="px-5 py-4 text-xs text-slate-700">
-                          {getClientName(caseFile)}
+                          {getCaseName(caseFile)}
                         </td>
                         <td className="px-5 py-4 text-xs text-slate-500">
                           {caseFile.deleted_at ? formatDisplayDateTime(caseFile.deleted_at) : '—'}

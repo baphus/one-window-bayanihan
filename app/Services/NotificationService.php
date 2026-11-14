@@ -6,7 +6,9 @@ use App\Http\Middleware\HandleInertiaRequests;
 use App\Mail\ClientUpdateMail;
 use App\Models\CaseFile;
 use App\Models\CaseNotification;
+use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Notifications\Notification;
 use Illuminate\Support\Facades\DB;
@@ -51,6 +53,10 @@ class NotificationService
         ?string $relatedUrl = null,
         bool $sendEmail = true,
     ): ?CaseNotification {
+        // Contact address is the case's own intake snapshot. The caller-supplied
+        // address is ignored so a changed account email or an email-based
+        // lookup can never redirect a case notice to a different person.
+        $clientEmail = $case->email ?? '';
         if (empty($clientEmail)) {
             return null;
         }
@@ -98,19 +104,14 @@ class NotificationService
      *
      * @param  string  $notificationId  UUID of the notification
      * @param  string  $notifiableType  'user' or 'ofw'
-     * @param  mixed  $notifiable  The notifiable entity (User model for 'user', client email string for 'ofw')
+     * @param  mixed  $notifiable  The notifiable entity (User model; 'ofw' scopes by explicit case ownership)
      * @return bool True if found and updated, false if not found
      */
     public function markAsRead(string $notificationId, string $notifiableType = 'user', mixed $notifiable = null): bool
     {
         if ($notifiableType === 'ofw') {
-            $query = CaseNotification::where('id', $notificationId)
+            $query = $this->ownedCaseNotifications($notifiable)->where('id', $notificationId)
                 ->whereNull('read_at');
-
-            // If client email provided, scope to that client
-            if (is_string($notifiable) && ! empty($notifiable)) {
-                $query->where('client_email', $notifiable);
-            }
 
             $updated = $query->update(['read_at' => now()]);
 
@@ -146,14 +147,14 @@ class NotificationService
     /**
      * Mark all unread notifications as read for a given notifiable entity.
      *
-     * @param  mixed  $notifiable  User model or client email string
+     * @param  mixed  $notifiable  User model (OFW access requires explicit case ownership)
      * @param  string  $notifiableType  'user' or 'ofw'
      * @return int Number of updated records
      */
     public function markAllAsRead(mixed $notifiable, string $notifiableType = 'user'): int
     {
         if ($notifiableType === 'ofw') {
-            return CaseNotification::where('client_email', $notifiable)
+            return $this->ownedCaseNotifications($notifiable)
                 ->whereNull('read_at')
                 ->update(['read_at' => now()]);
         }
@@ -171,13 +172,13 @@ class NotificationService
     /**
      * Get the unread notification count for a given notifiable entity.
      *
-     * @param  mixed  $notifiable  User model or client email string
+     * @param  mixed  $notifiable  User model (OFW access requires explicit case ownership)
      * @param  string  $notifiableType  'user' or 'ofw'
      */
     public function getUnreadCount(mixed $notifiable, string $notifiableType = 'user'): int
     {
         if ($notifiableType === 'ofw') {
-            return CaseNotification::where('client_email', $notifiable)
+            return $this->ownedCaseNotifications($notifiable)
                 ->whereNull('read_at')
                 ->count();
         }
@@ -188,14 +189,14 @@ class NotificationService
     /**
      * Get paginated notifications for a given notifiable entity.
      *
-     * @param  mixed  $notifiable  User model or client email string
+     * @param  mixed  $notifiable  User model (OFW access requires explicit case ownership)
      * @param  string  $notifiableType  'user' or 'ofw'
      * @param  int  $perPage  Items per page (default: 20)
      */
     public function getNotifications(mixed $notifiable, string $notifiableType = 'user', int $perPage = 20): LengthAwarePaginator
     {
         if ($notifiableType === 'ofw') {
-            return CaseNotification::where('client_email', $notifiable)
+            return $this->ownedCaseNotifications($notifiable)
                 ->orderBy('created_at', 'desc')
                 ->paginate($perPage);
         }
@@ -203,6 +204,14 @@ class NotificationService
         return $notifiable->notifications()
             ->orderBy('created_at', 'desc')
             ->paginate($perPage);
+    }
+
+    private function ownedCaseNotifications(mixed $owner): Builder
+    {
+        return CaseNotification::query()->whereHas('caseFile', fn (Builder $query) => $query
+            ->clientVisible()->where('is_deleted', false)
+            ->where('ofw_user_id', $owner instanceof User ? $owner->id : null)
+            ->whereNotNull('ofw_user_id'));
     }
 
     /**

@@ -2,7 +2,6 @@
 
 namespace App\Http\Requests;
 
-use App\Models\Referral;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreReferralRequest extends FormRequest
@@ -17,43 +16,14 @@ class StoreReferralRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'case_id' => ['required', 'string', 'exists:cases,id'],
-            'agcy_id' => ['required', 'string', 'exists:agencies,id'],
+            'case_id' => ['required', 'uuid', 'exists:cases,id'],
+            'agcy_id' => ['required', 'uuid', 'exists:agencies,id'],
+            'category_id' => ['required', 'uuid', 'exists:case_categories,id'],
+            'concern' => ['required', 'string', 'max:5000'],
+            'override_reason' => ['nullable', 'string', 'max:5000'],
             'notes' => ['nullable', 'string', 'max:5000'],
             'documents' => ['nullable', 'array'],
             'documents.*' => ['file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:10240'],
         ];
-    }
-
-    /**
-     * Prevent duplicate referrals: same case cannot be referred to the same agency twice.
-     *
-     * A prior referral only blocks a new one while it is still active. Once a
-     * referral reaches a terminal state (REJECTED or COMPLETED) the case can be
-     * referred to that agency again (e.g. a renewed or corrected request).
-     */
-    public function withValidator($validator): void
-    {
-        $validator->after(function ($validator) {
-            $caseId = $this->input('case_id');
-            $agcyId = $this->input('agcy_id');
-
-            if (! $caseId || ! $agcyId) {
-                return;
-            }
-
-            $exists = Referral::where('case_id', $caseId)
-                ->where('agcy_id', $agcyId)
-                ->where('is_deleted', false)
-                ->whereNotIn('status', ['REJECTED', 'COMPLETED'])
-                ->exists();
-
-            if ($exists) {
-                $validator->errors()->add(
-                    'agcy_id',
-                    'This case already has an active referral with the selected agency.',
-                );
-            }
-        });
     }
 }

@@ -2,9 +2,8 @@
 
 namespace App\Services\Export\Queries;
 
-use App\Models\ClientAddress;
-use App\Models\ClientEmployment;
-use App\Models\NextOfKin;
+use App\Enums\UserRole;
+use App\Models\CaseFile;
 use App\Models\User;
 use App\Services\Export\Queries\Concerns\ScopesForExportUser;
 use App\Services\PhilippineAddressService;
@@ -14,135 +13,55 @@ class ClientDetailQueries
 {
     use ScopesForExportUser;
 
-    /**
-     * Get next-of-kin. ADMIN/CASE_MANAGER: all. AGENCY: own referrals only.
-     */
+    private function caseQuery(?User $user)
+    {
+        $query = CaseFile::query()->where('cases.is_deleted', false);
+        if (! $this->isAdmin($user)) {
+            if ($user->role !== UserRole::AGENCY->value || ! $user->agcy_id) {
+                $query->whereRaw('1 = 0');
+            } else {
+                $query->whereHas('referrals', fn ($q) => $q->where('agcy_id', $user->agcy_id));
+            }
+        }
+
+        return $query;
+    }
+
     public function getNextOfKins(?User $user = null): Collection
     {
-        $query = NextOfKin::query()
-            ->select([
-                'id',
-                'client_id',
-                'first_name',
-                'middle_name',
-                'last_name',
-                'is_primary',
-                'relationship',
-                'phone_number',
-                'email',
-                'full_address',
-                'region',
-                'province',
-                'city_municipality',
-                'barangay',
-                'street',
-                'sort_order',
-                'created_at',
-                'updated_at',
-            ])
-            ->where('is_deleted', false);
-
-        if (! $this->isAdmin($user)) {
-            $query->whereIn('client_id', function ($q) use ($user) {
-                $q->select('client_id')
-                    ->from('cases')
-                    ->where('user_id', $user->id)
-                    ->where('is_deleted', false)
-                    ->whereNotNull('client_id');
-            });
-        }
-
-        $addressResolver = app(PhilippineAddressService::class);
-
-        return $query->get()->map(function ($row) use ($addressResolver) {
-            foreach (['region', 'province', 'city_municipality', 'barangay'] as $field) {
-                $row->{$field} = $addressResolver->resolve($row->{$field} ?? null);
-            }
-
-            $row->full_address = $addressResolver->format(
-                $row->street ?? null,
-                $row->barangay ?? null,
-                $row->city_municipality ?? null,
-                $row->province ?? null,
-                $row->region ?? null,
-            ) ?: ($row->full_address ?? '');
-
-            return $row;
-        });
+        return $this->caseQuery($user)->whereNotNull('nok_name')->get()->map(fn ($case) => (object) [
+            'case_id' => $case->id,
+            'name' => $case->nok_name,
+            'relationship' => $case->nok_relationship,
+            'phone_number' => $case->nok_contact_number,
+            'email' => $case->nok_email,
+        ]);
     }
 
-    /**
-     * Get client addresses. ADMIN/CASE_MANAGER: all. AGENCY: own referrals only.
-     */
     public function getClientAddresses(?User $user = null): Collection
     {
-        $query = ClientAddress::query()
-            ->select([
-                'id',
-                'client_id',
-                'region',
-                'province',
-                'city_municipality',
-                'barangay',
-                'street',
-                'created_at',
-                'updated_at',
-            ])
-            ->where('is_deleted', false);
+        $resolver = app(PhilippineAddressService::class);
 
-        if (! $this->isAdmin($user)) {
-            $query->whereIn('client_id', function ($q) use ($user) {
-                $q->select('client_id')
-                    ->from('cases')
-                    ->where('user_id', $user->id)
-                    ->where('is_deleted', false)
-                    ->whereNotNull('client_id');
-            });
-        }
-
-        $addressResolver = app(PhilippineAddressService::class);
-
-        return $query->get()->map(function ($row) use ($addressResolver) {
-            foreach (['region', 'province', 'city_municipality', 'barangay'] as $field) {
-                $row->{$field} = $addressResolver->resolve($row->{$field} ?? null);
-            }
-
-            return $row;
-        });
+        return $this->caseQuery($user)->get()->map(fn ($case) => (object) [
+            'case_id' => $case->id,
+            'region' => $resolver->resolve($case->address_region),
+            'province' => $resolver->resolve($case->address_province),
+            'city_municipality' => $resolver->resolve($case->address_city_municipality),
+            'barangay' => $resolver->resolve($case->address_barangay),
+            'street' => $case->address_street,
+        ]);
     }
 
-    /**
-     * Get client employments. ADMIN/CASE_MANAGER: all. AGENCY: own referrals only.
-     */
     public function getClientEmployments(?User $user = null): Collection
     {
-        $query = ClientEmployment::query()
-            ->select([
-                'id',
-                'client_id',
-                'employer_name',
-                'position',
-                'last_position',
-                'country',
-                'last_country',
-                'start_date',
-                'end_date',
-                'date_of_arrival',
-                'created_at',
-                'updated_at',
-            ])
-            ->where('is_deleted', false);
+        return $this->caseQuery($user)->get()->map(function ($case) {
+            $row = ['case_id' => $case->id];
+            foreach (['employer_name', 'employer_address', 'position', 'last_position', 'country', 'date_of_arrival'] as $field) {
+                $value = $case->{'employment_'.$field};
+                $row[$field === 'country' ? 'employment_country' : $field] = $value instanceof \DateTimeInterface ? $value->format('Y-m-d') : $value;
+            }
 
-        if (! $this->isAdmin($user)) {
-            $query->whereIn('client_id', function ($q) use ($user) {
-                $q->select('client_id')
-                    ->from('cases')
-                    ->where('user_id', $user->id)
-                    ->where('is_deleted', false)
-                    ->whereNotNull('client_id');
-            });
-        }
-
-        return $query->get();
+            return (object) $row;
+        });
     }
 }

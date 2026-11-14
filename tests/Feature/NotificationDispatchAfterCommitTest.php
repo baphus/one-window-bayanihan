@@ -6,8 +6,8 @@ use App\DTOs\FileStoreResult;
 use App\Enums\UserRole;
 use App\Mail\ClientUpdateMail;
 use App\Models\Agency;
+use App\Models\CaseCategory;
 use App\Models\CaseFile;
-use App\Models\Client;
 use App\Models\User;
 use App\Notifications\MilestoneAdded;
 use App\Notifications\ReferralCreated;
@@ -63,7 +63,10 @@ class NotificationDispatchAfterCommitTest extends TestCase
         $storage->shouldNotReceive('delete');
 
         $referral = $this->service->createReferralWithDocuments(
-            ['case_id' => $case->id, 'agcy_id' => $agency->id],
+            [
+                'category_id' => CaseCategory::factory()->create()->id,
+                'concern' => 'Assistance requested',
+                'override_reason' => 'Agency selected for this assistance', 'case_id' => $case->id, 'agcy_id' => $agency->id],
             $caseManager->id,
             [UploadedFile::fake()->create('document.pdf', 1)],
             $storage,
@@ -90,6 +93,9 @@ class NotificationDispatchAfterCommitTest extends TestCase
 
         $this->rollBackAfter(fn () => $this->service->createReferralWithDocuments(
             [
+                'category_id' => CaseCategory::factory()->create()->id,
+                'concern' => 'Assistance requested',
+                'override_reason' => 'Agency selected for this assistance',
                 'case_id' => $case->id,
                 'agcy_id' => $agency->id,
                 'notes' => 'Rolled back',
@@ -110,6 +116,9 @@ class NotificationDispatchAfterCommitTest extends TestCase
         $case = $this->createCase($caseManager);
         $agency = Agency::factory()->create();
         $referral = $this->service->createReferral([
+            'category_id' => CaseCategory::factory()->create()->id,
+            'concern' => 'Assistance requested',
+            'override_reason' => 'Agency selected for this assistance',
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
         ], $caseManager->id);
@@ -130,6 +139,9 @@ class NotificationDispatchAfterCommitTest extends TestCase
         $case = $this->createCase($caseManager);
         $agency = Agency::factory()->create();
         $referral = $this->service->createReferral([
+            'category_id' => CaseCategory::factory()->create()->id,
+            'concern' => 'Assistance requested',
+            'override_reason' => 'Agency selected for this assistance',
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
         ], $caseManager->id);
@@ -150,6 +162,9 @@ class NotificationDispatchAfterCommitTest extends TestCase
         $case = $this->createCase($caseManager);
         $agency = Agency::factory()->create();
         $referral = $this->service->createReferral([
+            'category_id' => CaseCategory::factory()->create()->id,
+            'concern' => 'Assistance requested',
+            'override_reason' => 'Agency selected for this assistance',
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
         ], $caseManager->id);
@@ -180,6 +195,9 @@ class NotificationDispatchAfterCommitTest extends TestCase
         ]);
 
         $this->service->createReferral([
+            'category_id' => CaseCategory::factory()->create()->id,
+            'concern' => 'Assistance requested',
+            'override_reason' => 'Agency selected for this assistance',
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
         ], $caseManager->id);
@@ -193,6 +211,9 @@ class NotificationDispatchAfterCommitTest extends TestCase
         $case = $this->createCase($caseManager);
         $agency = Agency::factory()->create();
         $referral = $this->service->createReferral([
+            'category_id' => CaseCategory::factory()->create()->id,
+            'concern' => 'Assistance requested',
+            'override_reason' => 'Agency selected for this assistance',
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
         ], $caseManager->id);
@@ -250,13 +271,9 @@ class NotificationDispatchAfterCommitTest extends TestCase
 
     private function createCase(User $user): CaseFile
     {
-        $client = Client::factory()->create([
-            'email' => 'ofw@example.com',
-        ]);
-
-        return CaseFile::factory()->create([
+        return CaseFile::factory()->withIntake()->create([
             'user_id' => $user->id,
-            'client_id' => $client->id,
+            'email' => 'ofw@example.com',
             'status' => 'OPEN',
         ]);
     }

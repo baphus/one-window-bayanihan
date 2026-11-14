@@ -4,13 +4,8 @@ use App\Models\Agency;
 use App\Models\CaseCategory;
 use App\Models\CaseDocument;
 use App\Models\CaseFile;
-use App\Models\CaseIssue;
 use App\Models\CaseStatus;
-use App\Models\Client;
-use App\Models\ClientAddress;
-use App\Models\ClientEmployment;
 use App\Models\Milestone;
-use App\Models\NextOfKin;
 use App\Models\Referral;
 use App\Models\ReferralAttachment;
 use App\Models\ReferralClientAccessLink;
@@ -88,10 +83,6 @@ return [
     */
     'observed_models' => [
         CaseFile::class,
-        Client::class,
-        ClientAddress::class,
-        ClientEmployment::class,
-        NextOfKin::class,
         Referral::class,
         Milestone::class,
         ReferralAttachment::class,
@@ -99,7 +90,6 @@ return [
         Service::class,
         ServiceRequirement::class,
         CaseCategory::class,
-        CaseIssue::class,
         CaseStatus::class,
         ReferralClientRequest::class,
         ReferralClientRequestItem::class,

@@ -6,7 +6,6 @@ use App\Enums\UserRole;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\Agency;
 use App\Models\CaseFile;
-use App\Models\Client;
 use App\Models\Referral;
 use App\Models\User;
 use App\Services\ReportsService;
@@ -55,18 +54,18 @@ class ReportsAgencyScopingTest extends TestCase
 
     private function createClientWithCase(string $userId, string $agencyId): array
     {
-        $client = Client::factory()->create();
         $case = CaseFile::factory()->create([
             'user_id' => $userId,
-            'client_id' => $client->id,
+            'client_type' => 'OFW',
             'status' => 'OPEN',
+            'address_province' => 'CEBU',
         ]);
         Referral::factory()->create([
             'case_id' => $case->id,
             'agcy_id' => $agencyId,
         ]);
 
-        return ['client' => $client, 'case' => $case];
+        return ['case' => $case];
     }
 
     #[Test]
@@ -181,7 +180,7 @@ class ReportsAgencyScopingTest extends TestCase
             agencyId: $this->agencyAId,
         );
 
-        // Province options should be available (client factory generates addresses)
+        // Province options should be available (factory generates case address fields)
         // We just verify the method doesn't error and returns an array
         $this->assertIsArray($options);
     }

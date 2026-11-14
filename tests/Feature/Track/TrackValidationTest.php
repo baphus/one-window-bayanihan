@@ -59,7 +59,7 @@ class TrackValidationTest extends TestCase
     {
         $result = $this->createCompleteCase();
         $case = $result['case'];
-        $email = strtolower($result['client']->email);
+        $email = strtolower($case->email);
 
         $response = $this->post(route('track.send-otp'), [
             'tracker_number' => $case->tracker_number,
@@ -81,7 +81,7 @@ class TrackValidationTest extends TestCase
     {
         $result = $this->createCompleteCase();
         $case = $result['case'];
-        $email = strtolower($result['client']->email);
+        $email = strtolower($case->email);
 
         $response = $this->post(route('track.verify-otp'), [
             'tracker_number' => $case->tracker_number,
@@ -104,7 +104,7 @@ class TrackValidationTest extends TestCase
     {
         $result = $this->createCompleteCase();
         $case = $result['case'];
-        $email = strtolower($result['client']->email);
+        $email = strtolower($case->email);
         Cache::put('otp:track:'.$email.':'.$case->tracker_number, '123456', now()->addMinutes(5));
 
         $response = $this->post(route('track.verify-otp'), [
@@ -134,7 +134,7 @@ class TrackValidationTest extends TestCase
     {
         $result = $this->createCompleteCase();
         $case = $result['case'];
-        $email = strtolower($result['client']->email);
+        $email = strtolower($case->email);
 
         $response = $this->withSession([
             TrackingService::SESSION_KEY => [

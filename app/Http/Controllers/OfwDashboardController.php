@@ -6,10 +6,12 @@ use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\CaseFile;
 use App\Models\CaseNotification;
 use App\Models\Referral;
+use App\Services\IntakeDocumentService;
 use App\Services\NotificationService;
 use App\Services\TrackingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 class OfwDashboardController extends Controller
@@ -26,7 +28,7 @@ class OfwDashboardController extends Controller
     {
         $user = request()->user();
 
-        $cases = CaseFile::where('client_id', $user->client_id)
+        $cases = CaseFile::where('ofw_user_id', $user->id)
             ->where('is_deleted', false)
             ->whereIn('status', [
                 CaseFile::STATUS_PENDING_REVIEW,
@@ -35,7 +37,7 @@ class OfwDashboardController extends Controller
                 'CLOSED',
                 'ARCHIVED',
             ])
-            ->with(['categories', 'referrals.agency'])
+            ->with(['categories:id,name', 'referrals.category', 'referrals.agency'])
             ->orderBy('created_at', 'desc')
             ->paginate(15);
 
@@ -50,7 +52,7 @@ class OfwDashboardController extends Controller
         // slugs are referral-status vocabulary and never occur on a case, so the
         // buckets always sum to the total: every visible case lands in exactly
         // one card (archived cases remain client-visible and count as completed).
-        $caseStatsRow = CaseFile::where('client_id', $user->client_id)
+        $caseStatsRow = CaseFile::where('ofw_user_id', $user->id)
             ->where('is_deleted', false)
             ->whereIn('status', [
                 CaseFile::STATUS_PENDING_REVIEW,
@@ -62,7 +64,7 @@ class OfwDashboardController extends Controller
             ->selectRaw('count(*) as total')
             ->selectRaw("count(*) filter (where status = '".CaseFile::STATUS_PENDING_REVIEW."') as under_review")
             ->selectRaw("count(*) filter (where status = 'OPEN') as in_progress")
-            ->selectRaw("count(*) filter (where status in ('CLOSED', 'ARCHIVED')) as completed")
+            ->selectRaw("count(*) filter (where status in ('CLOSED', 'ARCHIVED', 'REJECTED')) as completed")
             ->first();
 
         // Map to an explicit array instead of passing the Eloquent row through:
@@ -77,7 +79,7 @@ class OfwDashboardController extends Controller
         ];
 
         return Inertia::render('OFW/Dashboard', [
-            'cases' => $cases,
+            'cases' => $cases->through(fn (CaseFile $case) => $this->ownerCasePayload($case)),
             'caseStats' => $caseStats,
             'mfaRecoveryCodes' => request()->session()->pull('mfaRecoveryCodes'),
         ]);
@@ -91,16 +93,13 @@ class OfwDashboardController extends Controller
         $user = request()->user();
 
         $case = CaseFile::with([
-            'client.addresses',
-            'client.employments',
-            'client.nextOfKin',
             'referrals.agency',
             'referrals.milestones.user',
-            'category',
+            'referrals.category',
         ])->clientVisible()->findOrFail($id);
 
         // Authorization: ensure the case belongs to this OFW's client
-        if ($case->client_id !== $user->client_id) {
+        if ($case->ofw_user_id !== $user->id) {
             abort(403);
         }
 
@@ -110,9 +109,59 @@ class OfwDashboardController extends Controller
         // contract for Tracking/Show so OFW/CaseDetail receives trackingId,
         // trackedCase, caseOverview, milestoneTimeline, completionPercentage,
         // trackingAgencies, caseNotifications, and rejectedCount directly.
+        $payload = $this->ownerCasePayload($case, withDocuments: true);
+
         return Inertia::render('OFW/CaseDetail', array_merge($trackingData, [
-            'case' => $case,
+            'case' => $payload,
+            'documents' => collect($payload['documents'])->map(fn ($document) => [
+                'id' => $document['id'], 'name' => $document['file_name'],
+                'meta' => $document['category'], 'statusLabel' => 'Received',
+                'download_url' => $document['download_url'],
+            ])->values(),
         ]));
+    }
+
+    private function ownerCasePayload(CaseFile $case, bool $withDocuments = false): array
+    {
+        $payload = $case->only([
+            'id', 'case_number', 'tracker_number', 'status', 'summary', 'created_at', 'updated_at',
+            'intake_date', 'first_name', 'middle_name', 'last_name', 'suffix', 'date_of_birth', 'sex',
+            'email', 'contact_number', 'civil_status', 'civil_status_other', 'deployment_mode', 'employment_status',
+            'address_region', 'address_province', 'address_city_municipality', 'address_barangay', 'address_street',
+            'employment_employer_name', 'employment_employer_address', 'employment_position', 'employment_country',
+            'employment_last_position',
+            'employment_date_of_arrival', 'proposed_assessments', 'proposed_assessment_other', 'return_reason',
+            'requested_document_slots', 'document_request_reason',
+        ]);
+        $payload['age_at_intake'] = $case->age_at_intake;
+        $payload['document_requirements'] = IntakeDocumentService::requirementList($case);
+        foreach (array_diff(CaseFile::INTAKE_FIELDS, [
+            'ofw_user_id', 'staff_summary', 'consent_evidence', 'consent_accepted_by',
+            'missing_document_reasons', 'last_correction_reason', 'document_request_reason',
+            'document_requested_by', 'document_requested_at', 'reviewed_document_ids',
+            'proposed_assessment_by', 'proposed_assessment_at', 'confirmed_assessments',
+            'confirmed_assessment_other', 'confirmed_assessment_by', 'confirmed_assessment_at',
+            'assigned_case_manager_id',
+        ]) as $field) {
+            $payload[$field] = $case->getAttribute($field);
+        }
+        $payload['case_categories'] = $case->categories()->get(['case_categories.id', 'case_categories.name'])
+            ->map(fn ($category) => ['id' => $category->id, 'name' => $category->name])->values();
+        if ($withDocuments) {
+            $payload['documents'] = $case->documents()
+                ->whereNull('referral_id')
+                ->whereIn('category', IntakeDocumentService::REQUIREMENT_KEYS)
+                ->where('is_deleted', false)->get()
+                ->map(fn ($document) => [
+                    'id' => $document->id,
+                    'file_name' => IntakeDocumentService::REQUIREMENT_LABELS[$document->category] ?? $document->file_name,
+                    'extension' => pathinfo($document->file_name, PATHINFO_EXTENSION),
+                    'file_type' => $document->file_type, 'category' => $document->category, 'size' => $document->size,
+                    'download_url' => route('cases.documents.download', ['case' => $case->id, 'document' => $document->id]),
+                ])->values();
+        }
+
+        return $payload;
     }
 
     /**
@@ -130,7 +179,7 @@ class OfwDashboardController extends Controller
         $case = CaseFile::query()->clientVisible()->findOrFail($caseId);
 
         // Same ownership check as show(): the case must belong to this OFW's client.
-        if ($case->client_id !== $user->client_id) {
+        if ($case->ofw_user_id !== $user->id) {
             abort(403);
         }
 
@@ -155,15 +204,13 @@ class OfwDashboardController extends Controller
     public function notifications(Request $request)
     {
         $user = $request->user();
-        $clientEmail = $user->client?->email;
 
-        $caseIds = CaseFile::where('client_id', $user->client_id)
+        $caseIds = CaseFile::where('ofw_user_id', $user->id)
             ->where('is_deleted', false)
             ->clientVisible()
             ->pluck('id');
 
         $notifications = CaseNotification::whereIn('case_id', $caseIds)
-            ->when($clientEmail, fn ($query) => $query->where('client_email', $clientEmail))
             ->orderBy('created_at', 'desc')
             ->paginate(15);
 
@@ -207,7 +254,6 @@ class OfwDashboardController extends Controller
                 'meta' => [
                     'total' => $notifications->total(),
                     'unread' => CaseNotification::whereIn('case_id', $caseIds)
-                        ->when($clientEmail, fn ($query) => $query->where('client_email', $clientEmail))
                         ->whereNull('read_at')
                         ->count(),
                 ],
@@ -215,7 +261,7 @@ class OfwDashboardController extends Controller
         }
 
         return Inertia::render('OFW/Notifications', [
-            'notifications' => $notifications,
+            'notifications' => $notifications->setCollection($items),
         ]);
     }
 
@@ -225,16 +271,14 @@ class OfwDashboardController extends Controller
     public function markNotificationAsRead(Request $request, string $id): JsonResponse
     {
         $user = $request->user();
-        $clientEmail = $user->client?->email;
 
-        $caseIds = CaseFile::where('client_id', $user->client_id)
+        $caseIds = CaseFile::where('ofw_user_id', $user->id)
             ->where('is_deleted', false)
             ->clientVisible()
             ->pluck('id');
 
         $updated = CaseNotification::where('id', $id)
             ->whereIn('case_id', $caseIds)
-            ->when($clientEmail, fn ($query) => $query->where('client_email', $clientEmail))
             ->whereNull('read_at')
             ->update(['read_at' => now()]);
 

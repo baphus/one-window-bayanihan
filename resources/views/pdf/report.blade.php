@@ -460,7 +460,7 @@
     @endif
 
     {{-- ═══════════════ CASELOAD ═══════════════ --}}
-    @if(!empty($caseStatusDistribution['labels']) || !empty($categoryDistribution) || !empty($caseIssueDistribution))
+    @if(!empty($caseStatusDistribution['labels']) || !empty($categoryDistribution))
     <h2 class="page-break">Caseload Composition</h2>
 
     @if(!empty($caseStatusDistribution['labels']))
@@ -511,12 +511,12 @@
     </table>
     @endif
 
-    @if(!empty($reopenedStats) && ((($reopenedStats['reopenedCount'] ?? 0) > 0) || (($reopenedStats['totalClients'] ?? 0) > 0)))
+    @if(!empty($reopenedStats) && ((($reopenedStats['reopenedCount'] ?? 0) > 0) || (($reopenedStats['linkedAccounts'] ?? 0) > 0)))
         <div class="note-box">
-            <strong>Reopened and returning clients:</strong>
+            <strong>Reopened cases and returning accounts:</strong>
             {{ $fmt($reopenedStats['reopenedCount'] ?? 0) }} reopens in range;
-            {{ $fmt($reopenedStats['repeatClients'] ?? 0) }} of {{ $fmt($reopenedStats['totalClients'] ?? 0) }} clients
-            have more than one case ({{ $reopenedStats['repeatClientRate'] ?? 0 }}%).
+            {{ $fmt($reopenedStats['repeatAccounts'] ?? 0) }} of {{ $fmt($reopenedStats['linkedAccounts'] ?? 0) }} linked accounts
+            have more than one case ({{ $reopenedStats['repeatAccountRate'] ?? 0 }}%).
         </div>
     @endif
 
@@ -545,8 +545,7 @@
     @endif
 
     @foreach([
-        ['Case Categories', 'Cases by assigned category', $categoryDistribution ?? [], 'Category'],
-        ['Case Issues', 'Most reported issues and concerns', $caseIssueDistribution ?? [], 'Issue'],
+        ['Referral Categories', 'Distinct cases reached by referral category', $categoryDistribution ?? [], 'Category'],
     ] as [$title, $desc, $rows, $header])
         @continue(empty($rows))
         @php $c = $capped(['labels' => collect($rows)->pluck('name')->all(), 'data' => collect($rows)->pluck('count')->all()]); @endphp
@@ -579,8 +578,8 @@
     <h2 class="page-break">Geography</h2>
 
     @foreach([
-        ['Cases by Province', 'Province of the client\'s registered address', $geographicDistribution ?? [], 'Province', '#005288'],
-        ['Cases by City / Municipality', 'City or municipality of the client\'s registered address', $cityDistribution ?? [], 'City / Municipality', '#0b7a75'],
+        ['Cases by Province', 'Province recorded on the case intake address', $geographicDistribution ?? [], 'Province', '#005288'],
+        ['Cases by City / Municipality', 'City or municipality recorded on the case intake address', $cityDistribution ?? [], 'City / Municipality', '#0b7a75'],
     ] as [$title, $desc, $dist, $header, $colour])
         @continue(empty($dist['labels']))
         @php $c = $capped($dist); @endphp
@@ -623,18 +622,18 @@
 
     {{-- ═══════════════ CLIENT PROFILE ═══════════════ --}}
     @if(!empty($genderDistribution['labels']) || !empty($ageGroupDistribution['labels']) || !empty($vulnerabilityDistribution['labels']) || !empty($clientTypeDistribution['labels']) || !empty($employmentDistribution['labels']) || !empty($employmentOccupationBreakdown['labels']) || !empty($clientRequestTypeDistribution['labels']))
-    <h2 class="page-break">Client Profile</h2>
+    <h2 class="page-break">Case Intake Profile</h2>
     <p class="section-desc">
         Aggregated demographic data. Figures are counts of cases, not individuals, and
         small buckets are withheld — see the confidentiality notice on the cover.
     </p>
 
     @foreach([
-        ['Client Type', 'OFW versus next of kin', $clientTypeDistribution ?? [], 'Type', 'pie'],
-        ['Gender', 'Recorded client gender', $genderDistribution ?? [], 'Gender', 'pie'],
-        ['Age Groups', 'Client age at time of intake', $ageGroupDistribution ?? [], 'Age Band', 'bar'],
+        ['Intake Type', 'OFW versus next of kin', $clientTypeDistribution ?? [], 'Type', 'pie'],
+        ['Gender', 'Recorded gender on case intake records', $genderDistribution ?? [], 'Gender', 'pie'],
+        ['Age Groups', 'Age at intake on case records', $ageGroupDistribution ?? [], 'Age Band', 'bar'],
         ['Vulnerability Indicators', 'Cases flagged with a vulnerability marker', $vulnerabilityDistribution ?? [], 'Indicator', 'bar'],
-        ['Client Request Types', 'Client requests in range by request type', $clientRequestTypeDistribution ?? [], 'Type', 'bar'],
+        ['Account Request Types', 'Account requests in range by request type', $clientRequestTypeDistribution ?? [], 'Type', 'bar'],
     ] as [$title, $desc, $dist, $header, $kind])
         @continue(empty($dist['labels']))
         <table class="chart-row">
@@ -665,8 +664,8 @@
     @endforeach
 
     @foreach([
-        ['Previous Country of Employment', 'Where the client last worked', $employmentDistribution ?? [], 'Country', '#9b51b0'],
-        ['Previous Occupation', 'Role the client last held overseas', $employmentOccupationBreakdown ?? [], 'Occupation', '#d9663b'],
+        ['Previous Country of Employment', 'Jobsite country recorded at intake', $employmentDistribution ?? [], 'Country', '#9b51b0'],
+        ['Previous Occupation', 'Occupation recorded at intake', $employmentOccupationBreakdown ?? [], 'Occupation', '#d9663b'],
     ] as [$title, $desc, $dist, $header, $colour])
         @continue(empty($dist['labels']))
         @php $c = $capped($dist); @endphp
@@ -706,14 +705,12 @@
 
     <h3>Top {{ count($topCases ?? []) }} Cases by Risk</h3>
     <table class="data">
-        <thead><tr><th>Case #</th><th>Category</th><th>Issue</th><th>Status</th><th>Created</th><th class="num">Age</th><th class="num">Risk</th></tr></thead>
+        <thead><tr><th>Case #</th><th>Status</th><th>Created</th><th class="num">Age</th><th class="num">Risk</th></tr></thead>
         <tbody>
             @forelse(($topCases ?? []) as $row)
                 @php $riskClass = ($row->risk_score ?? 0) > 100 ? 'risk-high' : (($row->risk_score ?? 0) > 60 ? 'risk-mid' : ''); @endphp
                 <tr class="{{ $riskClass }}">
                     <td>{{ $row->case_number ?? '' }}</td>
-                    <td>{{ $row->category ?? '' }}</td>
-                    <td>{{ $row->issue ?? '' }}</td>
                     <td>{{ $row->status ?? '' }}</td>
                     <td>{{ $row->created_at ? e(\Carbon\Carbon::parse($row->created_at)->format('d M Y')) : '' }}</td>
                     <td class="num">{{ $row->age_days ?? '' }}d</td>
@@ -767,14 +764,12 @@
             ranked by risk. @if($apx['casesTotal'] > count($apx['cases'])) The remaining {{ $fmt($apx['casesTotal'] - count($apx['cases'])) }} are in the Excel export. @endif
         </div>
         <table class="data">
-            <thead><tr><th>Case #</th><th>Client Type</th><th>Category</th><th>Issue</th><th>Status</th><th>Created</th><th class="num">Age</th><th class="num">Risk</th></tr></thead>
+            <thead><tr><th>Case #</th><th>Intake Type</th><th>Status</th><th>Created</th><th class="num">Age</th><th class="num">Risk</th></tr></thead>
             <tbody>
                 @foreach($apx['cases'] as $row)
                     <tr>
                         <td>{{ $row->case_number ?? '' }}</td>
                         <td>{{ $row->client_type ?? '' }}</td>
-                        <td>{{ Str::limit((string) ($row->category ?? ''), 30) }}</td>
-                        <td>{{ Str::limit((string) ($row->issue ?? ''), 30) }}</td>
                         <td>{{ $row->status ?? '' }}</td>
                         <td>{{ $row->created_at ? e(\Carbon\Carbon::parse($row->created_at)->format('d M Y')) : '' }}</td>
                         <td class="num">{{ $row->age_days ?? '' }}d</td>

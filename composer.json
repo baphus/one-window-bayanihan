@@ -18,6 +18,8 @@
         "pragmarx/google2fa-laravel": "3.0.1",
         "resend/resend-php": "^1.6",
         "sentry/sentry-laravel": "^4.8",
+        "setasign/fpdf": "^1.9.0",
+        "setasign/fpdi": "^2.6.0",
         "tightenco/ziggy": "^2.0"
     },
     "require-dev": {

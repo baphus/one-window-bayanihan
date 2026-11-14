@@ -37,6 +37,8 @@ class MigrationConventionTest extends TestCase
         // reason as above — deploys run migrate only, never db:seed, so the
         // cases-page filter list would otherwise miss them in production.
         '2026_10_22_000001_seed_case_statuses_for_case_type.php',
+        // Fresh case-owned schema dumps omit rows; migrate-only installs need canonical statuses.
+        '2026_11_10_080000_restore_canonical_status_reference_data.php',
     ];
 
     /**

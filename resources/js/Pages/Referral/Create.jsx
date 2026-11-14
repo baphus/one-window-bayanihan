@@ -36,19 +36,26 @@ function InfoRow({ label, value, subtext }) {
     );
 }
 
-function formatFileSize(bytes) {
-    if (!bytes) return '';
+function caseName(item) {
+    const flat = [item?.first_name, item?.last_name].filter(Boolean).join(' ');
+    return flat || [item?.client?.first_name, item?.client?.last_name].filter(Boolean).join(' ') || 'Unnamed OFW';
+}
+
+function formatFileSize(bytes) {    if (!bytes) return '';
     if (bytes < 1024) return bytes + ' B';
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 }
 
-export default function ReferralCreate({ case_id, agencies, cases: paginatedCases, caseReferrals = {}, filters = {} }) {
+export default function ReferralCreate({ case_id, agencies = [], cases: paginatedCases, categories = [], filters = {} }) {
     const cases = paginatedCases.data || [];
     const { current_page: currentPage, last_page: lastPage, from, to, total } = paginatedCases || {};
     const { data, setData, post, processing, errors, setError, clearErrors, transform } = useForm({
         case_id: case_id || '',
+        category_id: '',
         agcy_id: '',
+        concern: '',
+        override_reason: '',
         notes: '',
         documents: [],
     });
@@ -59,6 +66,7 @@ export default function ReferralCreate({ case_id, agencies, cases: paginatedCase
 
     const [createStep, setCreateStep] = useState(1);
     const [notesValue, setNotesValue] = useState('');
+    const [concernValue, setConcernValue] = useState('');
     const [searchQuery, setSearchQuery] = useState(filters.search || '');
     const [debouncedSearch, setDebouncedSearch] = useState(filters.search || '');
     const searchDebounceRef = useRef(null);
@@ -92,23 +100,24 @@ export default function ReferralCreate({ case_id, agencies, cases: paginatedCase
     const hasDirty = useMemo(() => (
         data.case_id !== initialFormRef.current.case_id
         || data.agcy_id !== initialFormRef.current.agcy_id
+        || Boolean(data.category_id)
+        || concernValue !== ''
+        || Boolean(data.override_reason)
         || notesValue !== ''
         || data.documents.length > 0
-    ), [data.case_id, data.agcy_id, notesValue, data.documents.length]);
+    ), [data.case_id, data.agcy_id, data.category_id, data.override_reason, concernValue, notesValue, data.documents.length]);
     const { UnsavedModal, bypassNext } = useUnsavedChanges(hasDirty);
     const selectedCase = useMemo(() => {
         if (!data.case_id) return null;
         return cases.find((c) => c.id === data.case_id) || selectedCaseRef.current;
     }, [cases, data.case_id]);
     const selectedAgency = agencies.find((item) => item.id === data.agcy_id);
-
-    // Agencies that already have a referral for the selected case
-    const referredAgencyIds = useMemo(() => {
-        if (!data.case_id || !caseReferrals[data.case_id]) return new Set();
-        return new Set(caseReferrals[data.case_id]);
-    }, [data.case_id, caseReferrals]);
-
-    const selectedAgencyIsReferred = data.agcy_id && referredAgencyIds.has(data.agcy_id);
+    const selectedCategory = categories.find((item) => String(item.id) === String(data.category_id));
+    const suggestedAgencyIds = useMemo(
+        () => new Set((selectedCategory?.suggested_agency_ids ?? []).map(String)),
+        [selectedCategory],
+    );
+    const isOverride = Boolean(data.agcy_id) && !suggestedAgencyIds.has(String(data.agcy_id));
 
     useEffect(() => {
         if (case_id) {
@@ -134,8 +143,12 @@ export default function ReferralCreate({ case_id, agencies, cases: paginatedCase
     }, [debouncedSearch]);
 
     const isStepOneValid = Boolean(selectedCase);
-    const isStepTwoValid = Boolean(data.agcy_id) && !selectedAgencyIsReferred;
-    const isStepThreeValid = Boolean(data.case_id && data.agcy_id);
+    const isStepTwoValid = Boolean(data.category_id && data.agcy_id);
+    const isStepThreeValid = Boolean(
+        data.case_id && data.category_id && data.agcy_id
+        && concernValue.trim()
+        && (!isOverride || data.override_reason.trim()),
+    );
 
     const stepProgress = Math.round((createStep / STEPS.length) * 100);
 
@@ -157,13 +170,18 @@ export default function ReferralCreate({ case_id, agencies, cases: paginatedCase
             return;
         }
         if (!isStepThreeValid) {
-            toast.error('Please select a case and an agency before submitting.');
+            toast.error('Please pick a case, category and agency, then describe the concern.');
             return;
         }
 
         bypassNext();
 
-        transform((current) => ({ ...current, notes: notesValue }));
+        transform((current) => ({
+            ...current,
+            concern: concernValue.trim(),
+            notes: notesValue,
+            override_reason: isOverride ? current.override_reason.trim() : '',
+        }));
 
         post(route('referrals.store'), {
             onSuccess: () => { toast.success('Referral submitted successfully!'); },
@@ -352,7 +370,7 @@ export default function ReferralCreate({ case_id, agencies, cases: paginatedCase
                                                                             </div>
                                                                         </div>
                                                                         <p className="text-[13px] font-semibold text-slate-800">
-                                                                            {item.client?.first_name || ''} {item.client?.last_name || ''}
+                                                                            {caseName(item)}
                                                                         </p>
                                                                         <p className="text-[11px] text-slate-500">
                                                                             Created: {formatDisplayDate(item.created_at)}
@@ -471,7 +489,7 @@ export default function ReferralCreate({ case_id, agencies, cases: paginatedCase
                                                 <h3 className="text-[12px] font-bold uppercase tracking-wider text-slate-500">Selected Case Details</h3>
                                                 <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
                                                     <InfoRow label="Case Number" value={selectedCase.case_number} />
-                                                    <InfoRow label="Client Name" value={`${selectedCase.client?.first_name || ''} ${selectedCase.client?.last_name || ''}`} />
+                                                    <InfoRow label="Client Name" value={caseName(selectedCase)} />
                                                     <InfoRow label="Client Type" value={selectedCase.client_type === 'OFW' ? 'Overseas Filipino Worker' : 'Next of Kin'} />
                                                     <InfoRow label="Status" value={selectedCase.status} />
                                                     <InfoRow label="Date Created" value={formatDisplayDate(selectedCase.created_at)} subtext={formatDisplayTime(selectedCase.created_at)} />
@@ -488,6 +506,42 @@ export default function ReferralCreate({ case_id, agencies, cases: paginatedCase
 
                                 {createStep === 2 && (
                                     <div className="space-y-5">
+                                        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+                                            <h3 className="text-[12px] font-bold uppercase tracking-wider text-slate-500">Referral category</h3>
+                                            <p className="mt-2 text-[13px] text-slate-500">Pick one category for this referral. It only applies to this referral, not the whole case.</p>
+                                            <div className="mt-4">
+                                                {categories.length === 0 ? (
+                                                    <p className="rounded-md bg-amber-50 px-3 py-2 text-[12px] text-amber-800">No referral categories are available. Ask an admin to add one first.</p>
+                                                ) : (
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {categories.map((category) => {
+                                                            const checked = String(category.id) === String(data.category_id);
+                                                            return (
+                                                                <button
+                                                                    key={category.id}
+                                                                    type="button"
+                                                                    aria-pressed={checked}
+                                                                    onClick={() => {
+                                                                        setData('category_id', checked ? '' : category.id);
+                                                                        setData('agcy_id', '');
+                                                                        setData('override_reason', '');
+                                                                    }}
+                                                                    className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-[12px] font-semibold transition ${checked ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-slate-300 bg-white text-slate-700 hover:border-indigo-400'}`}
+                                                                >
+                                                                    {category.color && <span className="h-2 w-2 rounded-full" style={{ backgroundColor: category.color }} aria-hidden="true" />}
+                                                                    {category.name}
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                )}
+                                                <InputError message={errors.category_id} className="mt-2" />
+                                                {selectedCategory && selectedCategory.suggested_agency_ids?.length > 0 && (
+                                                    <p className="mt-3 text-[12px] text-slate-500">Suggested agencies for {selectedCategory.name} are marked below.</p>
+                                                )}
+                                            </div>
+                                        </div>
+
                                         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
                                             <h3 className="text-[12px] font-bold uppercase tracking-wider text-slate-500">Agency Selection</h3>
                                             <p className="mt-2 text-[13px] text-slate-500">Choose the agency to handle this referral.</p>
@@ -518,29 +572,28 @@ export default function ReferralCreate({ case_id, agencies, cases: paginatedCase
 
                                                             <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
                                                                 {filteredAgencies.map((agency) => {
-                                                                    const alreadyReferred = data.case_id && referredAgencyIds.has(agency.id);
+                                                                    const suggested = suggestedAgencyIds.has(String(agency.id));
                                                                     return (
                                                                         <button
                                                                             key={agency.id}
                                                                             type="button"
                                                                             onClick={() => {
-                                                                                if (alreadyReferred) return;
                                                                                 setData('agcy_id', agency.id);
+                                                                                if (!suggestedAgencyIds.has(String(agency.id))) return;
+                                                                                setData('override_reason', '');
                                                                             }}
-                                                                            disabled={alreadyReferred}
+                                                                            aria-pressed={agency.id === data.agcy_id}
                                                                             className={`flex w-full flex-col gap-2 rounded-lg border p-4 text-left shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
-                                                                                alreadyReferred
-                                                                                    ? 'border-slate-200 bg-slate-50 opacity-50 cursor-not-allowed'
-                                                                                    : agency.id === data.agcy_id
-                                                                                        ? 'ring-2 ring-indigo-500 border-indigo-500 bg-indigo-50/30'
-                                                                                        : 'border-slate-200 bg-white hover:border-indigo-400 hover:shadow-md'
+                                                                                agency.id === data.agcy_id
+                                                                                    ? 'ring-2 ring-indigo-500 border-indigo-500 bg-indigo-50/30'
+                                                                                    : 'border-slate-200 bg-white hover:border-indigo-400 hover:shadow-md'
                                                                             }`}
                                                                         >
                                                                             <div className="flex items-center gap-3">
                                                                                 {agency.logo_url ? (
                                                                                     <img
                                                                                         src={agency.logo_url}
-                                                                                        alt={agency.name}
+                                                                                        alt=""
                                                                                         className="h-9 w-9 shrink-0 rounded-full object-contain border border-slate-200"
                                                                                     />
                                                                                 ) : (
@@ -568,9 +621,9 @@ export default function ReferralCreate({ case_id, agencies, cases: paginatedCase
                                                                                 <span className="text-[11px] text-slate-500">
                                                                                     {agency.services?.length || 0} service{(agency.services?.length || 0) !== 1 ? 's' : ''}
                                                                                 </span>
-                                                                                {alreadyReferred && (
-                                                                                    <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-700">
-                                                                                        Already referred
+                                                                                {suggested && (
+                                                                                    <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700">
+                                                                                        Suggested
                                                                                     </span>
                                                                                 )}
                                                                             </div>
@@ -589,11 +642,23 @@ export default function ReferralCreate({ case_id, agencies, cases: paginatedCase
                                                         </>
                                                     )}
                                                 </Field>
-                                                {selectedAgencyIsReferred && (
-                                                    <p className="mt-2 text-[12px] font-medium text-amber-700 flex items-center gap-1.5">
-                                                        <span className="material-symbols-outlined text-[16px]">warning</span>
-                                                        This case has already been referred to {selectedAgency?.name}. Select a different agency.
-                                                    </p>
+                                                {isOverride && (
+                                                    <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3">
+                                                        <label htmlFor="referral-override-reason" className="mb-1.5 block text-[11px] font-bold uppercase tracking-widest text-amber-800">
+                                                            Reason for choosing {selectedAgency?.name ?? 'this agency'} *
+                                                        </label>
+                                                        <textarea
+                                                            id="referral-override-reason"
+                                                            rows={3}
+                                                            maxLength={5000}
+                                                            value={data.override_reason}
+                                                            onChange={(e) => setData('override_reason', e.target.value)}
+                                                            placeholder="Explain why this agency is a better fit than the suggested ones."
+                                                            className="w-full rounded-md border border-amber-300 px-3 py-2 text-[13px] text-slate-700 outline-none focus:ring-1 focus:ring-amber-500"
+                                                        />
+                                                        <p className="mt-1 text-[11px] text-amber-700">This agency is not one of the suggested destinations for the selected category.</p>
+                                                        <InputError message={errors.override_reason} className="mt-1" />
+                                                    </div>
                                                 )}
                                                 <InputError message={errors.agcy_id} className="mt-1" />
                                             </div>
@@ -621,7 +686,7 @@ export default function ReferralCreate({ case_id, agencies, cases: paginatedCase
                                                     </div>
                                                 </div>
                                                 <p className="mt-2 text-[13px] font-semibold text-slate-800">
-                                                    {selectedCase.client?.first_name || ''} {selectedCase.client?.last_name || ''}
+                                                    {caseName(selectedCase)}
                                                 </p>
                                                 <p className="mt-2 text-[11px] text-slate-500">
                                                     This case is pre-selected. You can go back to change it.
@@ -634,11 +699,54 @@ export default function ReferralCreate({ case_id, agencies, cases: paginatedCase
                                 {createStep === 3 && (
                                     <div className="space-y-5">
                                         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+                                            <h3 className="text-[12px] font-bold uppercase tracking-wider text-slate-500">Concern for this referral</h3>
+                                            <p className="mt-2 text-[13px] text-slate-500">Describe the specific assistance needed from {selectedAgency?.name ?? 'the receiving agency'}.</p>
+                                            <div className="mt-4">
+                                                <div className="mb-3">
+                                                    <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.08em] text-slate-600">Quick presets</p>
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {[
+                                                            'Workplace discrimination',
+                                                            'Repatriation',
+                                                            'Local job placement',
+                                                            'Medical assistance',
+                                                            'Skills training',
+                                                            'Legal assistance',
+                                                        ].map((preset) => (
+                                                            <button
+                                                                key={preset}
+                                                                type="button"
+                                                                onClick={() => setConcernValue(preset)}
+                                                                className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-[12px] font-medium text-slate-700 transition-colors hover:border-indigo-400 hover:bg-indigo-50"
+                                                            >
+                                                                {preset}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                    <p className="mt-1.5 text-[11px] text-slate-500">Click a preset to fill the concern field. You can edit it after.</p>
+                                                </div>
+                                                <label htmlFor="referral-concern" className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-slate-600">Concern *</label>
+                                                <textarea
+                                                    id="referral-concern"
+                                                    rows={5}
+                                                    maxLength={5000}
+                                                    value={concernValue}
+                                                    onChange={(e) => { setConcernValue(e.target.value); setData('concern', e.target.value); }}
+                                                    placeholder="Describe the concern this agency should act on…"
+                                                    className="w-full rounded-md border border-slate-200 px-3 py-3 text-[13px] text-slate-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                                                    required
+                                                />
+                                                <InputError message={errors.concern} className="mt-1" />
+                                            </div>
+                                        </div>
+
+                                        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
                                             <h3 className="text-[12px] font-bold uppercase tracking-wider text-slate-500">Remarks</h3>
-                                            <p className="mt-2 text-[13px] text-slate-500">Add optional context for the receiving agency.</p>
+                                            <p className="mt-2 text-[13px] text-slate-500">Optional context for the receiving agency.</p>
                                             <div className="mt-4">
                                                 <textarea
                                                     rows={4}
+                                                    maxLength={5000}
                                                     value={notesValue}
                                                     onChange={(e) => { setNotesValue(e.target.value); setData('notes', e.target.value); }}
                                                     placeholder="Optional context for the receiving agency..."

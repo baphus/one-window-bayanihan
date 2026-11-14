@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\CaseFile;
-use App\Models\Client;
 use App\Models\Referral;
 use App\Models\User;
 use App\Services\ReferralService;
@@ -16,32 +15,22 @@ class ReferralClientAvatarTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_referral_client_photo_prefers_account_avatar_then_falls_back_to_client_photo(): void
+    public function test_referral_uses_case_owned_identity_without_loading_legacy_client(): void
     {
         $account = User::factory()->create(['role' => UserRole::OFW->value, 'avatar_url' => 'https://example.test/account.jpg']);
-        $client = Client::factory()->create(['user_id' => $account->id, 'avatar_url' => 'https://example.test/client.jpg']);
-
-        $loadedClient = $this->loadReferralClient($client);
-
-        $this->assertSame('https://example.test/account.jpg', $loadedClient->user->avatar_url ?: $loadedClient->avatar_url);
-        $this->assertSame('https://example.test/client.jpg', $loadedClient->avatar_url);
-
-        $account->update(['avatar_url' => null]);
-        $loadedClient = $this->loadReferralClient($client);
-
-        $this->assertSame('https://example.test/client.jpg', $loadedClient->user->avatar_url ?: $loadedClient->avatar_url);
-
-        $client->update(['avatar_url' => null]);
-        $loadedClient = $this->loadReferralClient($client);
-
-        $this->assertNull($loadedClient->user->avatar_url ?: $loadedClient->avatar_url);
-    }
-
-    private function loadReferralClient(Client $client): Client
-    {
-        $case = CaseFile::factory()->create(['client_id' => $client->id, 'status' => 'OPEN']);
+        $case = CaseFile::factory()->withIntake()->create([
+            'ofw_user_id' => $account->id,
+            'first_name' => 'Case',
+            'last_name' => 'Owned',
+            'status' => 'OPEN',
+        ]);
         $referral = Referral::factory()->create(['case_id' => $case->id, 'agcy_id' => Agency::factory()->create()->id]);
 
-        return app(ReferralService::class)->getReferral($referral->id)->caseFile->client;
+        $loaded = app(ReferralService::class)->getReferral($referral->id)->caseFile;
+
+        $this->assertSame('Case', $loaded->first_name);
+        $this->assertSame('Owned', $loaded->last_name);
+        $this->assertSame('https://example.test/account.jpg', $loaded->ofwUser->avatar_url);
+        $this->assertFalse($loaded->relationLoaded('client'));
     }
 }

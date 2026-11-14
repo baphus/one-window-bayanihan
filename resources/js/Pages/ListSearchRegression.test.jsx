@@ -2,7 +2,6 @@ import '@testing-library/jest-dom/vitest';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import CaseIndex from './Case/Index.jsx';
-import ClientIndex from './Client/Index.jsx';
 import ReferralIndex from './Referral/Index.jsx';
 
 const { routerGet } = vi.hoisted(() => ({ routerGet: vi.fn() }));
@@ -41,16 +40,7 @@ const pageCases = [
         placeholder: /tracking ID/,
         original: [{ id: 'case-original-1' }, { id: 'case-original-2' }],
         searched: [{ id: 'case-match' }],
-        props: { stats: {}, users: [], agencies: [], categories: [], caseIssues: [] },
-    },
-    {
-        name: 'clients',
-        Component: ClientIndex,
-        prop: 'clients',
-        placeholder: /name, email/,
-        original: [{ id: 'client-original-1' }, { id: 'client-original-2' }],
-        searched: [{ id: 'client-match' }],
-        props: { stats: {}, users: [], agencies: [], categories: [], caseIssues: [] },
+        props: { stats: {}, users: [], agencies: [], categories: [] },
     },
     {
         name: 'referrals',
@@ -59,7 +49,7 @@ const pageCases = [
         placeholder: /referral ID/,
         original: [{ id: 'referral-original-1' }, { id: 'referral-original-2' }],
         searched: [{ id: 'referral-match' }],
-        props: { stats: {}, agencies: [], categories: [], caseIssues: [] },
+        props: { stats: {}, agencies: [], categories: [] },
     },
 ];
 

@@ -3,19 +3,18 @@
 namespace Tests\Feature;
 
 use App\Enums\UserRole;
-use App\Models\CaseCategory;
 use App\Models\CaseFile;
-use App\Models\CaseIssue;
-use App\Models\Client;
 use App\Models\User;
+use App\Services\IntakeDocumentService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Routing\Middleware\ThrottleRequests;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 /**
- * NEXT_OF_KIN filing paths: linked-OFW via selected_client_id; inline OFW via
- * new_ofw with filer's own client as the ofw_client_id anchor. OFW must file
- * against their own client regardless of payload.
+ * Public NOK filing is removed: only case managers create NEXT_OF_KIN cases.
+ * Public OFW submissions must reject NOK classification and relative fields.
  */
 class NextOfKinFilingTest extends TestCase
 {
@@ -24,194 +23,115 @@ class NextOfKinFilingTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        Storage::fake('object-storage');
         $this->withoutMiddleware([ThrottleRequests::class]);
     }
 
-    // ── helpers ─────────────────────────────────────────────────────────────
-
-    private function basicFilingPayload(array $overrides = []): array
+    private function basePayload(array $overrides = []): array
     {
         return array_merge([
+            'client_type' => 'OFW',
+            'intake_date' => now()->toDateString(),
+            'first_name' => 'Juan',
+            'last_name' => 'Dela Cruz',
+            'date_of_birth' => '1990-01-01',
+            'sex' => 'MALE',
+            'email' => 'ofw@example.test',
+            'contact_number' => '+639170000000',
+            'civil_status' => 'SINGLE',
+            'deployment_mode' => 'AGENCY_HIRED',
+            'employment_status' => 'RETURNED',
+            'address_region' => 'Central Visayas',
+            'address_city_municipality' => 'Cebu City',
+            'address_barangay' => 'Lahug',
+            'employment_employer_name' => 'Employer',
+            'employment_country' => 'UAE',
+            'employment_last_position' => 'Worker',
+            'employment_date_of_arrival' => '2021-02-01',
+            'summary' => 'NOK filing test',
             'vulnerability_indicator' => 'None',
-            'case_issue_id' => null,
-            'summary' => null,
-            'category_ids' => [],
-            'client' => [
-                'first_name' => 'Client',
-                'last_name' => 'Dummy',
-                'date_of_birth' => '1990-01-01',
-                'sex' => 'Male',
-                'email' => 'dummy@example.test',
-                'contact_number' => '+639170000000',
-            ],
-            'address' => [
-                'region' => 'Region VII',
-                'province' => 'Cebu',
-                'city_municipality' => 'Cebu City',
-                'barangay' => 'Lahug',
-            ],
-            'employment' => [
-                'employer_name' => 'Employer',
-                'country' => 'UAE',
-                'start_date' => '2020-01-01',
-                'end_date' => '2021-01-01',
-                'is_present' => false,
-                'last_country' => 'Qatar',
-                'last_position' => 'Worker',
-                'date_of_arrival' => '2021-02-01',
-            ],
+            'return_reason' => 'OTHERS',
             'consent' => true,
+            'consent_text_version' => IntakeDocumentService::CONSENT_VERSION,
+            'documents' => collect(['passport_front_page', 'arrival_stamp', 'oec', 'sworn_affidavit'])
+                ->mapWithKeys(fn ($slot) => [$slot => UploadedFile::fake()->image($slot.'.jpg')])->all(),
         ], $overrides);
     }
 
-    /**
-     * Build a NEXT_OF_KIN filer + an OFW linked to that filer's client.
-     */
-    private function buildNokWithLinkedOfw(): array
+    public function test_case_manager_creates_nok_case_with_affected_ofw_and_relative_fields(): void
     {
-        $filerUser = User::factory()->mfaEnabled()->create([
-            'role' => UserRole::OFW->value,
-            'mfa_secret' => 'JBSWY3DPEHPK3PXP',
-        ]);
-        $filerClient = Client::factory()->create([
-            'type' => 'NEXT_OF_KIN',
-            'user_id' => $filerUser->id,
-            'first_name' => 'Nok',
-            'last_name' => 'Filer',
-        ]);
-        $filerUser->client_id = $filerClient->id;
-        $filerUser->save();
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
-        $linkedOfw = Client::factory()->create([
-            'type' => 'OFW',
-            'ofw_client_id' => $filerClient->id,
-            'first_name' => 'OFW',
-            'last_name' => 'Linked',
-        ]);
-
-        return ['filer' => $filerUser, 'linkedOfw' => $linkedOfw];
-    }
-
-    /**
-     * Build an OFW filer whose own client has no linked OFWs yet.
-     */
-    private function buildOfwSelfFiler(): User
-    {
-        $user = User::factory()->mfaEnabled()->create([
-            'role' => UserRole::OFW->value,
-            'mfa_secret' => 'JBSWY3DPEHPK3PXP',
-        ]);
-        $client = Client::factory()->create([
-            'type' => 'OFW',
-            'user_id' => $user->id,
-            'first_name' => 'Self',
-            'last_name' => 'OFW',
-        ]);
-        $user->client_id = $client->id;
-        $user->save();
-
-        return $user;
-    }
-
-    // ── tests ───────────────────────────────────────────────────────────────
-
-    public function test_nok_cannot_file_for_linked_ofw_even_with_forged_client_selection(): void
-    {
-        ['filer' => $filer, 'linkedOfw' => $linkedOfw] = $this->buildNokWithLinkedOfw();
-
-        $this->actingAsWithMfa($filer)->postJson(route('cases.store'), $this->basicFilingPayload([
-            'selected_client_id' => $linkedOfw->id,
-        ]))->assertForbidden();
-
-        $this->assertSame(0, CaseFile::count());
-    }
-
-    public function test_nok_cannot_file_inline_new_ofw(): void
-    {
-        ['filer' => $filer] = $this->buildNokWithLinkedOfw();
-        $response = $this->actingAsWithMfa($filer)->postJson(route('cases.store'), $this->basicFilingPayload([
-            'new_ofw' => [
-                'first_name' => 'New',
-                'last_name' => 'OFW',
-                'date_of_birth' => '1992-06-15',
-                'sex' => 'Female',
-                'email' => 'newofw@example.test',
-                'contact_number' => '+639180000000',
-            ],
+        $response = $this->actingAsWithMfa($manager)->postJson(route('cases.store'), $this->basePayload([
+            'client_type' => 'NEXT_OF_KIN',
+            'nok_name' => 'Maria Cruz',
+            'nok_relationship' => 'Spouse',
+            'nok_contact_number' => '+639180000001',
+            'nok_email' => 'nok@example.test',
         ]));
 
-        $response->assertForbidden();
-        $this->assertSame(0, CaseFile::count());
-        $this->assertDatabaseMissing('clients', ['email' => 'newofw@example.test']);
-    }
-
-    public function test_nok_case_and_intake_get_redirect_to_dashboard_with_office_notice(): void
-    {
-        ['filer' => $filer] = $this->buildNokWithLinkedOfw();
-        $this->actingAsWithMfa($filer);
-        $message = 'Requests filed by next of kin must be submitted through DMW staff. Please visit the DMW Region VII office for assistance.';
-
-        $this->get(route('cases.create'))->assertRedirect(route('dashboard'))->assertSessionHas('error', $message);
-        $this->get(route('ofw.intake'))->assertRedirect(route('dashboard'))->assertSessionHas('error', $message);
-    }
-
-    public function test_nok_cannot_submit_intake(): void
-    {
-        ['filer' => $filer] = $this->buildNokWithLinkedOfw();
-
-        $this->actingAsWithMfa($filer)->post(route('ofw.intake.store'), [
-            'summary' => 'Help needed',
-            'consent' => true,
-        ])->assertForbidden();
-
-        $this->assertSame(0, CaseFile::count());
-    }
-
-    public function test_staff_can_access_filing_pages_for_nok_and_ofw_client_types(): void
-    {
-        foreach ([UserRole::ADMIN, UserRole::CASE_MANAGER] as $role) {
-            foreach (['NEXT_OF_KIN', 'OFW'] as $type) {
-                $user = User::factory()->mfaEnabled()->create([
-                    'role' => $role->value,
-                    'mfa_secret' => 'JBSWY3DPEHPK3PXP',
-                ]);
-                $client = Client::factory()->create(['type' => $type, 'user_id' => $user->id]);
-                $user->client_id = $client->id;
-                $user->save();
-
-                $this->actingAsWithMfa($user)->get(route('cases.create'))->assertOk();
-            }
+        if ($response->status() === 422) {
+            $this->fail('cases.store 422: '.json_encode($response->json('errors')));
         }
-    }
-
-    public function test_ofw_ignores_selected_client_id_and_uses_own(): void
-    {
-        $ofw = $this->buildOfwSelfFiler();
-        $otherOfw = Client::factory()->create([
-            'type' => 'OFW',
-            'first_name' => 'Other',
-            'last_name' => 'OFW',
-        ]);
-        $category = CaseCategory::factory()->create();
-        $caseIssue = CaseIssue::create(['name' => 'Unpaid wages', 'is_active' => true]);
-
-        $response = $this->actingAsWithMfa($ofw)->postJson(route('cases.store'), $this->basicFilingPayload([
-            'category_ids' => [$category->id],
-            'case_issue_id' => $caseIssue->id,
-            'selected_client_id' => $otherOfw->id, // stray payload
-        ]));
-
         $response->assertRedirect();
 
-        $case = CaseFile::where('user_id', $ofw->id)
-            ->where('status', CaseFile::STATUS_PENDING_REVIEW)
-            ->latest()
-            ->first();
+        $case = CaseFile::where('status', 'OPEN')->latest()->firstOrFail();
+        $this->assertSame('NEXT_OF_KIN', $case->client_type);
+        $this->assertSame('Maria Cruz', $case->nok_name);
+        $this->assertSame('Spouse', $case->nok_relationship);
+        $this->assertSame('+639180000001', $case->nok_contact_number);
+        $this->assertSame('nok@example.test', $case->nok_email);
+        $this->assertSame('Juan', $case->first_name);
+    }
 
-        $this->assertNotNull($case);
-        // Must be the filer's own linked client, NOT the selected one.
-        $this->assertEquals($ofw->client_id, $case->client_id);
-        $this->assertNotEquals($otherOfw->id, $case->client_id);
-        $this->assertEquals(CaseFile::STATUS_PENDING_REVIEW, $case->status);
+    public function test_nok_case_without_relative_fields_is_rejected(): void
+    {
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+
+        $this->actingAsWithMfa($manager)
+            ->postJson(route('cases.store'), $this->basePayload([
+                'client_type' => 'NEXT_OF_KIN',
+                'nok_name' => null,
+                'nok_relationship' => null,
+                'nok_contact_number' => null,
+                'nok_email' => null,
+            ]))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['nok_name', 'nok_relationship', 'nok_contact_number', 'nok_email']);
+    }
+
+    public function test_public_ofw_submission_rejects_nok_classification(): void
+    {
+        $ofw = User::factory()->create(['role' => UserRole::OFW->value, 'email_verified_at' => now()]);
+
+        $this->actingAsWithMfa($ofw)
+            ->postJson(route('ofw.intake.store'), $this->basePayload([
+                'client_type' => 'NEXT_OF_KIN',
+                'consent' => true,
+                'consent_method' => null,
+                'consent_evidence' => null,
+                'nok_name' => 'Maria Cruz',
+                'nok_relationship' => 'Spouse',
+            ]))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['client_type', 'nok_name', 'nok_relationship']);
+    }
+
+    public function test_public_ofw_submission_rejects_relative_fields_even_with_ofw_type(): void
+    {
+        $ofw = User::factory()->create(['role' => UserRole::OFW->value, 'email_verified_at' => now()]);
+
+        $this->actingAsWithMfa($ofw)
+            ->postJson(route('ofw.intake.store'), $this->basePayload([
+                'consent' => true,
+                'consent_method' => null,
+                'consent_evidence' => null,
+                'nok_name' => 'Maria Cruz',
+                'nok_relationship' => 'Spouse',
+                'nok_contact_number' => '+639180000001',
+                'nok_email' => 'nok@example.test',
+            ]))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['nok_name', 'nok_relationship', 'nok_contact_number', 'nok_email']);
     }
 }

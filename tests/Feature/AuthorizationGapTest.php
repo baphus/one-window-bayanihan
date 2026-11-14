@@ -8,6 +8,7 @@ use App\Http\Middleware\SetPostgresSession;
 use App\Models\Agency;
 use App\Models\AuditLog;
 use App\Models\CaseCategory;
+use App\Models\CaseDocument;
 use App\Models\CaseFile;
 use App\Models\Milestone;
 use App\Models\Referral;
@@ -30,12 +31,18 @@ class AuthorizationGapTest extends TestCase
     {
         $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $filer = User::factory()->create(['role' => UserRole::OFW->value]);
-        $case = CaseFile::factory()->pendingReview()->create(['user_id' => $filer->id]);
-        // approveCase revalidates published categories; attach an active one
-        // so the fixture matches production behavior without weakening the gate.
-        $case->categories()->attach(CaseCategory::factory()->create()->id);
+        $case = CaseFile::factory()->withIntake()->pendingReview()->create([
+            'user_id' => $filer->id, 'ofw_user_id' => $filer->id, 'return_reason' => 'OTHERS',
+        ]);
+        $reviewedIds = [];
+        foreach (['passport_front_page', 'arrival_stamp', 'oec', 'sworn_affidavit'] as $slot) {
+            $reviewedIds[] = CaseDocument::factory()->create(['case_id' => $case->id, 'category' => $slot, 'referral_id' => null])->id;
+        }
 
-        $response = $this->actingAsWithMfa($manager)->post(route('cases.review-approve', $case));
+        $response = $this->actingAsWithMfa($manager)->post(route('cases.review-approve', $case), [
+            'confirmed_assessments' => ['LEGAL_ASSISTANCE'], 'reviewed_document_ids' => $reviewedIds,
+            'category_ids' => [CaseCategory::factory()->create()->id],
+        ]);
 
         // Successful approve redirects to review-pending
         $response->assertRedirect();
@@ -221,42 +228,9 @@ class AuthorizationGapTest extends TestCase
         $response->assertOk()->assertExactJson([]);
     }
 
-    // ──────────────────────────────────────────────
-    // CaseIssueController::quickStore()
-    // ──────────────────────────────────────────────
-
-    public function test_admin_can_create_case_issue(): void
+    public function test_retired_case_issue_endpoint_returns_not_found(): void
     {
-        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
-
-        $response = $this->actingAsWithMfa($admin)->post('/case-issues/quick', [
-            'name' => 'Test Issue '.fake()->unique()->word(),
-        ]);
-
-        $response->assertStatus(200);
-    }
-
-    public function test_case_manager_can_create_case_issue(): void
-    {
-        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-
-        $response = $this->actingAsWithMfa($manager)->post('/case-issues/quick', [
-            'name' => 'Test Issue '.fake()->unique()->word(),
-        ]);
-
-        $response->assertStatus(200);
-    }
-
-    public function test_agency_cannot_create_case_issue(): void
-    {
-        $agency = Agency::factory()->create();
-        $agencyUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id]);
-
-        $response = $this->actingAsWithMfa($agencyUser)->post('/case-issues/quick', [
-            'name' => 'Test Issue '.fake()->unique()->word(),
-        ]);
-
-        $response->assertStatus(403);
+        $this->post('/case-issues/quick', ['name' => 'Retired issue'])->assertNotFound();
     }
 
     // ──────────────────────────────────────────────

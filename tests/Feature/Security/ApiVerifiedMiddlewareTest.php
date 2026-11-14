@@ -16,7 +16,7 @@ class ApiVerifiedMiddlewareTest extends TestCase
     {
         $user = User::factory()->unverified()->create();
 
-        $response = $this->actingAsWithMfa($user)->get('/api/clients');
+        $response = $this->actingAsWithMfa($user)->get('/dashboard/case-manager-period');
 
         // verified middleware redirects to verification.notice for non-JSON web requests
         $response->assertRedirect(route('verification.notice'));
@@ -27,7 +27,7 @@ class ApiVerifiedMiddlewareTest extends TestCase
     {
         $user = User::factory()->create(); // email_verified_at defaults to now()
 
-        $response = $this->actingAsWithMfa($user)->get('/api/clients');
+        $response = $this->actingAsWithMfa($user)->get('/dashboard/case-manager-period');
 
         $response->assertOk();
     }
@@ -38,7 +38,7 @@ class ApiVerifiedMiddlewareTest extends TestCase
         $user = User::factory()->unverified()->create();
 
         $response = $this->actingAsWithMfa($user)
-            ->get('/api/clients', ['Accept' => 'application/json']);
+            ->get('/dashboard/case-manager-period', ['Accept' => 'application/json']);
 
         // verified middleware returns 403 for JSON/AJAX requests
         $response->assertForbidden();

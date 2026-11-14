@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Enums\UserRole;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\CaseFile;
-use App\Models\Client;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
@@ -26,18 +25,10 @@ class OfwDashboardTest extends TestCase
     #[Test]
     public function test_ofw_sees_own_cases(): void
     {
-        $client = Client::factory()->create();
-        $ofwUser = User::factory()->create([
-            'role' => UserRole::OFW->value,
-            'client_id' => $client->id,
-        ]);
+        $ofwUser = User::factory()->create(['role' => UserRole::OFW->value]);
 
-        $case1 = CaseFile::factory()->open()->create([
-            'client_id' => $client->id,
-        ]);
-        $case2 = CaseFile::factory()->pendingReview()->create([
-            'client_id' => $client->id,
-        ]);
+        $case1 = CaseFile::factory()->open()->create(['ofw_user_id' => $ofwUser->id]);
+        $case2 = CaseFile::factory()->pendingReview()->create(['ofw_user_id' => $ofwUser->id]);
 
         $response = $this->actingAsWithMfa($ofwUser)
             ->withHeader('X-Inertia', 'true')
@@ -53,16 +44,12 @@ class OfwDashboardTest extends TestCase
     #[Test]
     public function test_ofw_cannot_see_other_cases(): void
     {
-        $client = Client::factory()->create();
-        $ofwUser = User::factory()->create([
-            'role' => UserRole::OFW->value,
-            'client_id' => $client->id,
-        ]);
+        $ofwUser = User::factory()->create(['role' => UserRole::OFW->value]);
 
-        // Another client's case
-        $otherClient = Client::factory()->create();
+        // Another account's case
+        $otherUser = User::factory()->create(['role' => UserRole::OFW->value]);
         $otherCase = CaseFile::factory()->open()->create([
-            'client_id' => $otherClient->id,
+            'ofw_user_id' => $otherUser->id,
         ]);
 
         $response = $this->actingAsWithMfa($ofwUser)
@@ -74,18 +61,10 @@ class OfwDashboardTest extends TestCase
     #[Test]
     public function test_ofw_does_not_see_personnel_draft_in_list(): void
     {
-        $client = Client::factory()->create();
-        $ofwUser = User::factory()->create([
-            'role' => UserRole::OFW->value,
-            'client_id' => $client->id,
-        ]);
+        $ofwUser = User::factory()->create(['role' => UserRole::OFW->value]);
 
-        $open = CaseFile::factory()->open()->create([
-            'client_id' => $client->id,
-        ]);
-        CaseFile::factory()->draft()->create([
-            'client_id' => $client->id,
-        ]);
+        $open = CaseFile::factory()->open()->create(['ofw_user_id' => $ofwUser->id]);
+        CaseFile::factory()->draft()->create(['ofw_user_id' => $ofwUser->id]);
 
         $response = $this->actingAsWithMfa($ofwUser)
             ->withHeader('X-Inertia', 'true')
@@ -100,15 +79,9 @@ class OfwDashboardTest extends TestCase
     #[Test]
     public function test_ofw_cannot_open_personnel_draft_directly(): void
     {
-        $client = Client::factory()->create();
-        $ofwUser = User::factory()->create([
-            'role' => UserRole::OFW->value,
-            'client_id' => $client->id,
-        ]);
+        $ofwUser = User::factory()->create(['role' => UserRole::OFW->value]);
 
-        $draft = CaseFile::factory()->draft()->create([
-            'client_id' => $client->id,
-        ]);
+        $draft = CaseFile::factory()->draft()->create(['ofw_user_id' => $ofwUser->id]);
 
         $response = $this->actingAsWithMfa($ofwUser)
             ->get("/my-cases/{$draft->id}");
@@ -119,28 +92,24 @@ class OfwDashboardTest extends TestCase
     #[Test]
     public function ofw_stat_buckets_sum_to_the_visible_total(): void
     {
-        $client = Client::factory()->create();
-        $ofwUser = User::factory()->create([
-            'role' => UserRole::OFW->value,
-            'client_id' => $client->id,
-        ]);
+        $ofwUser = User::factory()->create(['role' => UserRole::OFW->value]);
 
         // One case for every client-visible status, weighted so an accidental
         // status-independent count (a bare COUNT(*)) cannot pass.
-        CaseFile::factory()->open()->create(['client_id' => $client->id]);
-        CaseFile::factory()->pendingReview()->create(['client_id' => $client->id]);
-        CaseFile::factory()->pendingReview()->create(['client_id' => $client->id]);
-        CaseFile::factory()->closed()->create(['client_id' => $client->id]);
-        CaseFile::factory()->closed()->create(['client_id' => $client->id]);
-        CaseFile::factory()->archived()->create(['client_id' => $client->id]);
+        CaseFile::factory()->open()->create(['ofw_user_id' => $ofwUser->id]);
+        CaseFile::factory()->pendingReview()->create(['ofw_user_id' => $ofwUser->id]);
+        CaseFile::factory()->pendingReview()->create(['ofw_user_id' => $ofwUser->id]);
+        CaseFile::factory()->closed()->create(['ofw_user_id' => $ofwUser->id]);
+        CaseFile::factory()->closed()->create(['ofw_user_id' => $ofwUser->id]);
+        CaseFile::factory()->archived()->create(['ofw_user_id' => $ofwUser->id]);
+        CaseFile::factory()->create(['ofw_user_id' => $ofwUser->id, 'status' => 'REJECTED']);
 
-        // A draft of the same client: clientVisible() excludes it, so it must
+        // A draft of the same account: clientVisible() excludes it, so it must
         // not inflate the total and leave the buckets short.
-        CaseFile::factory()->draft()->create(['client_id' => $client->id]);
+        CaseFile::factory()->draft()->create(['ofw_user_id' => $ofwUser->id]);
 
-        // Another client's case must never leak into the OFW's stats.
-        $otherClient = Client::factory()->create();
-        CaseFile::factory()->open()->create(['client_id' => $otherClient->id]);
+        // Another account's case must never leak into the OFW's stats.
+        CaseFile::factory()->open()->create(['ofw_user_id' => User::factory()->create(['role' => UserRole::OFW->value])->id]);
 
         $response = $this->actingAsWithMfa($ofwUser)
             ->withHeader('X-Inertia', 'true')
@@ -154,25 +123,20 @@ class OfwDashboardTest extends TestCase
         // (total, under_review, in_progress, completed) — no extra bucket may
         // appear and none may go missing.
         $this->assertSame(['total', 'under_review', 'in_progress', 'completed'], array_keys($stats));
-        $this->assertSame(6, $stats['total']);
+        $this->assertSame(7, $stats['total']);
         $this->assertSame(0, $stats['total'] - ($stats['under_review'] + $stats['in_progress'] + $stats['completed']));
         $this->assertSame(2, $stats['under_review']);
         $this->assertSame(1, $stats['in_progress']);
-        // Archived cases remain client-visible and count as completed, so the
-        // completed bucket keeps every finalized case in exactly one bucket.
-        $this->assertSame(3, $stats['completed']);
+        // Archived and declined cases remain visible in the Closed filter.
+        $this->assertSame(4, $stats['completed']);
     }
 
     #[Test]
     public function ofw_stats_are_empty_but_consistent_when_the_client_has_no_cases(): void
     {
-        $client = Client::factory()->create();
-        $ofwUser = User::factory()->create([
-            'role' => UserRole::OFW->value,
-            'client_id' => $client->id,
-        ]);
+        $ofwUser = User::factory()->create(['role' => UserRole::OFW->value]);
 
-        CaseFile::factory()->draft()->create(['client_id' => $client->id]);
+        CaseFile::factory()->draft()->create(['ofw_user_id' => $ofwUser->id]);
 
         $response = $this->actingAsWithMfa($ofwUser)
             ->withHeader('X-Inertia', 'true')

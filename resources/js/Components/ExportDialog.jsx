@@ -30,6 +30,7 @@ export default function ExportDialog({
   const [exporting, setExporting] = useState(false);
   const [rowCount, setRowCount] = useState(null);
   const [countState, setCountState] = useState('idle'); // 'idle' | 'loading' | 'ready' | 'error'
+  const overLimit = countState === 'ready' && rowCount > 10_000;
   const timeoutRef = useRef(null);
 
   const clearPending = () => {
@@ -71,7 +72,8 @@ export default function ExportDialog({
       const res = await fetch(url, { headers: { Accept: 'application/json' } });
       if (!res.ok) throw new Error(`Count request failed: ${res.status}`);
       const data = await res.json();
-      setRowCount(typeof data.count === 'number' ? data.count : null);
+      if (!Number.isSafeInteger(data.count) || data.count < 0) throw new Error('Invalid count response');
+      setRowCount(data.count);
       setCountState('ready');
     } catch {
       setCountState('error');
@@ -86,7 +88,7 @@ export default function ExportDialog({
   if (!open) return null;
 
   const handleExport = () => {
-    if (exporting) return;
+    if (exporting || overLimit || countState === 'loading') return;
     if (!dateFrom || !dateTo) {
       setError('Both start and end dates are required.');
       return;
@@ -171,8 +173,9 @@ export default function ExportDialog({
         <div className="mb-4">
           <p className="text-xs text-slate-500">
             {countState === 'loading' && 'Loading\u2026'}
-            {countState === 'ready' && `Approximately ${rowCount} ${rowCount === 1 ? 'row' : 'rows'} will be exported for the selected date range.`}
-            {countState === 'error' && 'Could not load the row count. You can still export.'}
+            {countState === 'ready' && !overLimit && `${rowCount} ${rowCount === 1 ? 'row matches' : 'rows match'} the selected filters and date range.`}
+            {overLimit && `${rowCount} rows match. This exceeds the 10,000-row limit. Narrow the date range or filters, then try again.`}
+            {countState === 'error' && 'Could not load the row count. Export may still be rejected if it exceeds 10,000 rows.'}
           </p>
         </div>
 
@@ -185,7 +188,7 @@ export default function ExportDialog({
           </button>
           <button
             onClick={handleExport}
-            disabled={exporting}
+            disabled={exporting || overLimit || countState === 'loading'}
             className="px-4 py-2 bg-blue-900 rounded-md text-sm font-medium text-white hover:bg-blue-800 inline-flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <span className="material-symbols-outlined text-[18px]">download</span>

@@ -6,6 +6,8 @@ use App\Models\Concerns\SoftDeleteFlag;
 use App\Models\Concerns\UsesUuid;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class CaseCategory extends Model
 {
@@ -34,14 +36,19 @@ class CaseCategory extends Model
         'sort_order' => 'integer',
     ];
 
-    public function caseFiles()
+    public function suggestedAgencies(): BelongsToMany
     {
-        return $this->hasMany(CaseFile::class, 'category_id');
+        return $this->belongsToMany(Agency::class, 'case_category_agency', 'case_category_id', 'agcy_id')
+            ->withTimestamps();
     }
 
-    public function cases()
+    public function cases(): BelongsToMany
     {
-        return $this->belongsToMany(CaseFile::class, 'case_category', 'case_category_id', 'case_id')
-            ->withTimestamps();
+        return $this->belongsToMany(CaseFile::class, 'case_file_case_category', 'case_category_id', 'case_id')->withTimestamps();
+    }
+
+    public function referrals(): HasMany
+    {
+        return $this->hasMany(Referral::class, 'category_id');
     }
 }

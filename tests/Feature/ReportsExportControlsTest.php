@@ -6,7 +6,6 @@ use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\AuditLog;
 use App\Models\CaseFile;
-use App\Models\Client;
 use App\Models\Referral;
 use App\Models\User;
 use App\Services\Reports\ReportsExportService;
@@ -85,10 +84,9 @@ class ReportsExportControlsTest extends TestCase
         $agency = Agency::factory()->create();
 
         for ($i = 0; $i < $count; $i++) {
-            $client = Client::factory()->create(['type' => $clientType]);
             $case = CaseFile::factory()->create(array_merge([
                 'user_id' => $owner->id,
-                'client_id' => $client->id,
+                'client_type' => $clientType,
                 'status' => 'OPEN',
             ], $caseAttributes));
             Referral::factory()->create([

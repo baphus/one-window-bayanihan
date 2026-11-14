@@ -3,260 +3,92 @@
 namespace Tests\Feature;
 
 use App\Enums\UserRole;
+use App\Models\Agency;
 use App\Models\AuditLog;
 use App\Models\CaseCategory;
+use App\Models\CaseDocument;
 use App\Models\CaseFile;
-use App\Models\Client;
+use App\Models\Referral;
 use App\Models\User;
 use App\Services\CaseService;
 use App\Services\DashboardService;
 use App\Services\ReportsService;
-use App\Services\TrackingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class CategoryAnalyticsAuditHardeningTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_case_stats_dashboard_and_reports_use_distinct_pivot_assignments(): void
+    public function test_case_analytics_count_distinct_cases_per_referral_category(): void
     {
         Cache::forget('stats:cases');
         Cache::forget('dashboard:cm_cases_by_category');
-        Cache::forget('dashboard:cm_counts');
 
-        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $agency = Agency::factory()->create();
         $primary = CaseCategory::factory()->create(['name' => 'Primary']);
         $secondary = CaseCategory::factory()->create(['name' => 'Secondary']);
         $excluded = CaseCategory::factory()->create(['name' => 'Excluded']);
+        $case = CaseFile::factory()->create(['status' => 'OPEN', 'user_id' => $manager->id]);
+        $case->categories()->attach([$primary->id, $secondary->id]);
+        Referral::factory()->create(['case_id' => $case->id, 'agcy_id' => $agency->id, 'category_id' => $primary->id]);
+        Referral::factory()->create(['case_id' => $case->id, 'agcy_id' => Agency::factory()->create()->id, 'category_id' => $primary->id]);
+        Referral::factory()->create(['case_id' => $case->id, 'agcy_id' => $agency->id, 'category_id' => $secondary->id]);
+        $draft = CaseFile::factory()->create(['status' => 'DRAFT', 'user_id' => $manager->id]);
+        Referral::factory()->create(['case_id' => $draft->id, 'agcy_id' => $agency->id, 'category_id' => $excluded->id]);
 
-        $first = CaseFile::factory()->create([
-            'status' => 'OPEN',
-            'user_id' => $user->id,
-            'category_id' => $primary->id,
-        ]);
-        $this->link($first, [$primary->id, $secondary->id]);
+        $stats = collect(app(CaseService::class)->getCaseStats()['category_breakdown'])->pluck('count', 'name');
+        $this->assertSame(1, (int) $stats['Primary']);
+        $this->assertSame(1, (int) $stats['Secondary']);
+        $this->assertArrayNotHasKey('Excluded', $stats->all());
 
-        $second = CaseFile::factory()->create([
-            'status' => 'CLOSED',
-            'user_id' => $user->id,
-            'category_id' => $primary->id,
-        ]);
-        $this->link($second, [$primary->id]);
+        $dashboard = collect(app(DashboardService::class)->getCaseManagerData($manager)['casesByCategory'])->pluck('count', 'name');
+        $this->assertSame(1, (int) $dashboard['Primary']);
+        $this->assertSame(1, (int) $dashboard['Secondary']);
 
-        foreach ([
-            ['status' => 'DRAFT', 'is_deleted' => false],
-            ['status' => 'ARCHIVED', 'is_deleted' => false],
-            ['status' => 'OPEN', 'is_deleted' => true],
-        ] as $attributes) {
-            $excludedCase = CaseFile::factory()->create(array_merge($attributes, [
-                'user_id' => $user->id,
-                'category_id' => $excluded->id,
-            ]));
-            $this->link($excludedCase, [$excluded->id]);
+        $report = collect(app(ReportsService::class)->categoryDistribution($manager->id, UserRole::CASE_MANAGER->value))->pluck('count', 'name');
+        $this->assertSame(1, (int) $report['Primary']);
+        $this->assertSame(1, (int) $report['Secondary']);
+    }
+
+    public function test_agency_analytics_include_only_its_referral_categories(): void
+    {
+        $agency = Agency::factory()->create();
+        $otherAgency = Agency::factory()->create();
+        $category = CaseCategory::factory()->create(['name' => 'Agency only']);
+        $case = CaseFile::factory()->create(['status' => 'OPEN']);
+        $case->categories()->attach($category->id);
+        Referral::factory()->create(['case_id' => $case->id, 'agcy_id' => $agency->id, 'category_id' => $category->id]);
+        Referral::factory()->create(['case_id' => $case->id, 'agcy_id' => $otherAgency->id, 'category_id' => null]);
+
+        $rows = app(ReportsService::class)->categoryDistribution(null, UserRole::AGENCY->value, $agency->id);
+
+        $this->assertSame(['Agency only'], collect($rows)->pluck('name')->all());
+        $this->assertSame(1, $rows[0]['count']);
+    }
+
+    public function test_approval_audits_status_change_to_open(): void
+    {
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $case = CaseFile::factory()->withIntake()->pendingReview()->create(['assigned_case_manager_id' => $manager->id]);
+        $documentIds = [];
+        foreach (['passport_front_page', 'arrival_stamp', 'oec', 'sworn_affidavit'] as $slot) {
+            $documentIds[] = CaseDocument::factory()->create(['case_id' => $case->id, 'category' => $slot, 'referral_id' => null])->id;
         }
 
-        $stats = app(CaseService::class)->getCaseStats();
-        $statsCounts = collect($stats['category_breakdown'])->pluck('count', 'name')->all();
-        $this->assertSame(2, $statsCounts['Primary']);
-        $this->assertSame(1, $statsCounts['Secondary']);
-        $this->assertArrayNotHasKey('Excluded', $statsCounts);
-
-        $dashboard = app(DashboardService::class)->getCaseManagerData($user);
-        $dashboardCounts = collect($dashboard['casesByCategory'])->pluck('count', 'name')->all();
-        $this->assertSame(2, $dashboardCounts['Primary']);
-        $this->assertSame(1, $dashboardCounts['Secondary']);
-        $this->assertArrayNotHasKey('Excluded', $dashboardCounts);
-
-        $reportCounts = collect(app(ReportsService::class)->categoryDistribution($user->id, UserRole::CASE_MANAGER->value))
-            ->pluck('count', 'name')->all();
-        $this->assertSame(2, $reportCounts['Primary']);
-        $this->assertSame(1, $reportCounts['Secondary']);
-        $this->assertArrayNotHasKey('Excluded', $reportCounts);
-    }
-
-    public function test_category_audits_capture_sorted_complete_sets_and_skip_reorders(): void
-    {
-        $user = User::factory()->create();
-        $first = CaseCategory::factory()->create(['name' => 'Publication first']);
-        $second = CaseCategory::factory()->create(['name' => 'Publication second']);
-        $client = Client::factory()->create();
-
-        $pending = app(CaseService::class)->createCase([
-            'category_ids' => [$second->id, $first->id],
-            'selected_client_id' => $client->id,
-        ], $user->id);
-        $this->assertCount(0, $this->categoryAudits($pending->id));
-
-        $published = CaseFile::factory()->create([
-            'status' => 'OPEN',
-            'user_id' => $user->id,
-            'category_id' => $first->id,
-        ]);
-        $this->link($published, [$first->id]);
-
-        $beforeMutation = $this->categoryAudits($published->id)->count();
-        app(CaseService::class)->updateCase($published->id, [
-            'category_ids' => [$second->id, $first->id],
-        ], $user->id);
-        $audits = $this->categoryAudits($published->id);
-        $this->assertSame($beforeMutation + 1, $audits->count());
-        $mutation = $audits->last();
-        $this->assertSame(sortIds([$first->id]), $mutation->old_value['category_ids']);
-        $this->assertSame(sortIds([$first->id, $second->id]), $mutation->new_value['category_ids']);
-
-        app(CaseService::class)->updateCase($published->id, [
-            'category_ids' => [$first->id, $second->id],
-        ], $user->id);
-        app(CaseService::class)->updateCase($published->id, [
-            'category_ids' => [$second->id, $first->id],
-        ], $user->id);
-        $this->assertSame($beforeMutation + 1, $this->categoryAudits($published->id)->count());
-    }
-
-    public function test_approve_audits_status_change_to_open(): void
-    {
-        $user = User::factory()->create();
         $category = CaseCategory::factory()->create();
-        $client = Client::factory()->create();
-        $service = app(CaseService::class);
-
-        $pending = $service->createCase([
+        $approved = app(CaseService::class)->approveCase($case->id, $manager->id, [
             'category_ids' => [$category->id],
-            'selected_client_id' => $client->id,
-        ], $user->id);
-
-        $this->assertSame(CaseFile::STATUS_PENDING_REVIEW, $pending->status);
-        $this->assertCount(0, $this->categoryAudits($pending->id));
-
-        $approved = $service->approveCase($pending->id, $user->id);
+            'confirmed_assessments' => ['LEGAL_ASSISTANCE'],
+            'reviewed_document_ids' => $documentIds,
+        ]);
 
         $this->assertSame('OPEN', $approved->status);
-        $publicationAudit = AuditLog::where('module', 'case')
-            ->where('entity_id', $pending->id)
-            ->where('action', 'APPROVE')
-            ->orderBy('chain_seq')
-            ->get()
-            ->last();
-
-        $this->assertNotNull($publicationAudit);
-        $this->assertSame(CaseFile::STATUS_PENDING_REVIEW, $publicationAudit->old_value['status']);
-        $this->assertSame('OPEN', $publicationAudit->new_value['status']);
+        $audit = AuditLog::where('module', 'case')->where('entity_id', $case->id)->where('action', 'APPROVE')->orderBy('chain_seq')->get()->last();
+        $this->assertNotNull($audit);
+        $this->assertSame(CaseFile::STATUS_PENDING_REVIEW, $audit->old_value['status']);
+        $this->assertSame('OPEN', $audit->new_value['status']);
     }
-
-    public function test_published_category_sync_invalidates_observable_analytics_and_tracking_caches(): void
-    {
-        Cache::forget('stats:cases');
-        Cache::forget('dashboard:cm_cases_by_category');
-        Cache::forget('dashboard:cm_counts');
-
-        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-        $primary = CaseCategory::factory()->create(['name' => 'Cache primary']);
-        $secondary = CaseCategory::factory()->create(['name' => 'Cache secondary']);
-        $case = CaseFile::factory()->create([
-            'status' => 'OPEN',
-            'user_id' => $user->id,
-            'category_id' => $primary->id,
-            'summary' => 'Stable summary',
-            'vulnerability_indicator' => 'None',
-            'nok_vulnerability_indicator' => null,
-            'case_issue_id' => null,
-        ]);
-        $this->link($case, [$primary->id]);
-
-        app(CaseService::class)->getCaseStats();
-        app(DashboardService::class)->getCaseManagerData($user);
-        $reports = app(ReportsService::class);
-        $reports->categoryDistribution($user->id, UserRole::CASE_MANAGER->value);
-        $tracking = app(TrackingService::class);
-        $tracking->buildTrackingData($case->fresh());
-        $this->assertTrue(Cache::has('stats:cases'));
-        $this->assertTrue(Cache::has('dashboard:cm_cases_by_category'));
-
-        $beforeAdd = $case->fresh();
-        $unchanged = [
-            'status' => $beforeAdd->status,
-            'vulnerability_indicator' => $beforeAdd->vulnerability_indicator,
-            'nok_vulnerability_indicator' => $beforeAdd->nok_vulnerability_indicator,
-            'summary' => $beforeAdd->summary,
-            'case_issue_id' => $beforeAdd->case_issue_id,
-        ];
-        app(CaseService::class)->updateCase($case->id, array_merge($unchanged, [
-            'category_ids' => [$primary->id, $secondary->id],
-        ]), $user->id);
-
-        $afterAdd = $case->fresh();
-        $this->assertSame($beforeAdd->category_id, $afterAdd->category_id);
-        $this->assertSame($beforeAdd->updated_at?->toISOString(), $afterAdd->updated_at?->toISOString());
-        $this->assertFalse(Cache::has('stats:cases'));
-        $this->assertFalse(Cache::has('dashboard:cm_cases_by_category'));
-
-        $statsCounts = collect(app(CaseService::class)->getCaseStats()['category_breakdown'])
-            ->pluck('count', 'name')->all();
-        $this->assertSame(1, $statsCounts['Cache primary']);
-        $this->assertSame(1, $statsCounts['Cache secondary']);
-        $dashboardCounts = collect(app(DashboardService::class)->getCaseManagerData($user)['casesByCategory'])
-            ->pluck('count', 'name')->all();
-        $this->assertSame(1, $dashboardCounts['Cache primary']);
-        $this->assertSame(1, $dashboardCounts['Cache secondary']);
-        $reportCounts = collect($reports->categoryDistribution($user->id, UserRole::CASE_MANAGER->value))
-            ->pluck('count', 'name')->all();
-        $this->assertSame(1, $reportCounts['Cache primary']);
-        $this->assertSame(1, $reportCounts['Cache secondary']);
-        $this->assertSame(['Cache primary', 'Cache secondary'], collect($tracking->buildTrackingData($case->fresh())['trackedCase']['categories'])->pluck('name')->all());
-
-        Cache::forget('stats:cases');
-        Cache::forget('dashboard:cm_cases_by_category');
-        app(CaseService::class)->getCaseStats();
-        app(DashboardService::class)->getCaseManagerData($user);
-        $tracking->buildTrackingData($case->fresh());
-        $beforeRemove = $case->fresh();
-        $originalUpdatedAt = $beforeRemove->updated_at?->toISOString();
-        app(CaseService::class)->updateCase($case->id, array_merge($unchanged, [
-            'category_ids' => [$primary->id],
-        ]), $user->id);
-        $afterRemove = $case->fresh();
-        $this->assertSame($beforeRemove->category_id, $afterRemove->category_id);
-        $this->assertSame($originalUpdatedAt, $afterRemove->updated_at?->toISOString());
-        $this->assertFalse(Cache::has('stats:cases'));
-        $this->assertFalse(Cache::has('dashboard:cm_cases_by_category'));
-
-    }
-
-    private function categoryAudits(string $caseId)
-    {
-        return AuditLog::where('module', 'case')
-            ->where('entity_id', $caseId)
-            ->whereIn('action', ['CREATE', 'UPDATE', 'PUBLISH'])
-            ->whereNotNull('new_value')
-            ->orderBy('chain_seq')
-            ->get()
-            ->filter(fn (AuditLog $audit) => array_key_exists('category_ids', $audit->new_value ?? []))
-            ->values();
-    }
-
-    private function link(CaseFile $case, array $categoryIds): void
-    {
-        $now = now();
-        DB::table('case_category')->insert(array_map(
-            fn (string $categoryId) => [
-                'id' => (string) Str::uuid(),
-                'case_id' => $case->id,
-                'case_category_id' => $categoryId,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ],
-            $categoryIds,
-        ));
-    }
-}
-
-function sortIds(array $ids): array
-{
-    sort($ids, SORT_STRING);
-
-    return $ids;
 }

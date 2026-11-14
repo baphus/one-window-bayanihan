@@ -98,7 +98,7 @@ class ReferralClientRequestController extends Controller
     private function ownerRequest(Request $request, string $case, string $referral, string $clientRequest, array $with = []): array
     {
         $ownedCase = CaseFile::query()->clientVisible()->whereKey($case)->firstOrFail();
-        abort_unless($ownedCase->client_id === $request->user()->client_id, 403);
+        abort_unless($ownedCase->ofw_user_id === $request->user()->id, 403);
 
         $referralModel = Referral::query()->whereKey($referral)->where('case_id', $ownedCase->id)->firstOrFail();
 
@@ -236,7 +236,7 @@ class ReferralClientRequestController extends Controller
     public function sendMessage(StoreReferralClientMessageRequest $request, ReferralClientRequest $clientRequest): RedirectResponse
     {
         $message = $this->requestService->sendAgencyMessage($clientRequest, $request->user(), $request->validated('body'));
-        $clientRequest->loadMissing('referral.caseFile.client');
+        $clientRequest->loadMissing('referral.caseFile');
         $this->notifyCaseManager($clientRequest, 'agency_message', $request->user());
         $this->notifyClientOfAgencyReply($clientRequest);
 
@@ -537,7 +537,7 @@ class ReferralClientRequestController extends Controller
             if (! $alreadyRequested) {
                 CaseNotification::create([
                     'case_id' => $clientRequest->referral?->case_id,
-                    'client_email' => $clientRequest->referral?->caseFile?->client?->email,
+                    'client_email' => $clientRequest->referral?->caseFile?->email,
                     'type' => 'client_request_replacement_requested',
                     'title' => 'Client asked for a replacement',
                     'message' => "The client asked for a replacement for '{$clientRequest->title}'.",
@@ -556,9 +556,9 @@ class ReferralClientRequestController extends Controller
 
     private function issueForClient(ReferralClientRequest $clientRequest, User $issuer, bool $isReissue = false): array
     {
-        $clientRequest->loadMissing('referral.agency', 'referral.caseFile.client');
-        $client = $clientRequest->referral?->caseFile?->client;
-        $email = $client?->email;
+        $clientRequest->loadMissing('referral.agency', 'referral.caseFile');
+        $case = $clientRequest->referral?->caseFile;
+        $email = $case?->email;
         if (! $email) {
             $this->recordDelivery($clientRequest, null, 'not_sent_no_email');
 
@@ -566,7 +566,7 @@ class ReferralClientRequestController extends Controller
         }
 
         $issued = $this->accessService->issue($clientRequest, $issuer, [
-            'name' => trim(($client->first_name ?? '').' '.($client->last_name ?? '')),
+            'name' => trim(($case->first_name ?? '').' '.($case->last_name ?? '')),
             'email' => $email,
         ], $isReissue);
         $magicLink = route('track.request.index').'#token='.rawurlencode($issued['raw_token']);
@@ -707,7 +707,7 @@ class ReferralClientRequestController extends Controller
      */
     private function notifyClientOfAgencyReply(ReferralClientRequest $clientRequest): void
     {
-        $email = $clientRequest->referral?->caseFile?->client?->email;
+        $email = $clientRequest->referral?->caseFile?->email;
         if (! $email) {
             return;
         }
@@ -735,7 +735,7 @@ class ReferralClientRequestController extends Controller
     private function notifyClientOfRevision(ReferralClientRequest $clientRequest): void
     {
         $clientRequest->loadMissing('referral.caseFile');
-        $owner = $clientRequest->referral?->caseFile?->user;
+        $owner = User::find($clientRequest->referral?->caseFile?->ofw_user_id);
         if (! $owner) {
             return;
         }

@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Enums\UserRole;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\CaseFile;
-use App\Models\Client;
 use App\Models\Referral;
 use App\Models\ReferralClientMessage;
 use App\Models\ReferralClientMessageAttachment;
@@ -122,7 +121,7 @@ class OfwClientRequestAccessTest extends TestCase
         config(['filesystems.default' => 'object-storage']);
         Storage::fake('object-storage');
         [, $case, $referral, $request] = $this->context();
-        $otherUser = User::factory()->create(['role' => UserRole::OFW->value, 'client_id' => Client::factory()->create()->id]);
+        $otherUser = User::factory()->create(['role' => UserRole::OFW->value]);
         $file = UploadedFile::fake()->createWithContent('passport.pdf', '%PDF-1.4 client document', 'application/pdf');
 
         $this->actingAsWithMfa($otherUser)->post(route('ofw.case.requests.messages.store', [
@@ -168,7 +167,7 @@ class OfwClientRequestAccessTest extends TestCase
     public function another_client_cannot_reply_to_request(): void
     {
         [, $case, $referral, $request] = $this->context();
-        $otherUser = User::factory()->create(['role' => UserRole::OFW->value, 'client_id' => Client::factory()->create()->id]);
+        $otherUser = User::factory()->create(['role' => UserRole::OFW->value]);
 
         $this->actingAsWithMfa($otherUser)->post(route('ofw.case.requests.messages.store', [
             'case' => $case,
@@ -183,7 +182,7 @@ class OfwClientRequestAccessTest extends TestCase
     public function another_client_cannot_view_request(): void
     {
         [, $case, $referral, $request] = $this->context();
-        $otherUser = User::factory()->create(['role' => UserRole::OFW->value, 'client_id' => Client::factory()->create()->id]);
+        $otherUser = User::factory()->create(['role' => UserRole::OFW->value]);
 
         $this->actingAsWithMfa($otherUser)->get(route('ofw.case.requests.show', [
             'case' => $case,
@@ -196,7 +195,7 @@ class OfwClientRequestAccessTest extends TestCase
     public function mismatched_referral_and_request_are_not_found(): void
     {
         [$user, $case, $referral, $request] = $this->context();
-        $otherCase = CaseFile::factory()->open()->create(['client_id' => $user->client_id]);
+        $otherCase = CaseFile::factory()->open()->create(['ofw_user_id' => $user->id]);
         $otherReferral = Referral::factory()->create(['case_id' => $otherCase->id]);
 
         $this->actingAsWithMfa($user)->get(route('ofw.case.requests.show', [
@@ -291,9 +290,8 @@ class OfwClientRequestAccessTest extends TestCase
 
     private function context(array $requestOverrides = []): array
     {
-        $client = Client::factory()->create();
-        $user = User::factory()->create(['role' => UserRole::OFW->value, 'client_id' => $client->id]);
-        $case = CaseFile::factory()->open()->create(['client_id' => $client->id]);
+        $user = User::factory()->create(['role' => UserRole::OFW->value]);
+        $case = CaseFile::factory()->open()->create(['ofw_user_id' => $user->id]);
         $referral = Referral::factory()->create(['case_id' => $case->id]);
         $request = ReferralClientRequest::factory()->create(['referral_id' => $referral->id, ...$requestOverrides]);
 

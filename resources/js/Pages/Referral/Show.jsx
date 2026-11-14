@@ -818,7 +818,7 @@ const REJECTION_REASONS = [
     { value: 'OTHER', label: 'Other' },
 ];
 
-export default function ReferralShow({ referral, serviceRequirements = [], overdueDays = 7, timeline = [], clientRequestHistory = [], clientRequestPermissions = {}, relatedReferrals = [] }) {
+export default function ReferralShow({ referral, caseIdentity: caseIdentityProp = null, serviceRequirements = [], overdueDays = 7, timeline = [], clientRequestHistory = [], clientRequestPermissions = {}, relatedReferrals = [] }) {
     const page = usePage();
     const { auth, roles, errors } = page.props;
     const fromOverdue = new URLSearchParams((page.url ?? '').split('?')[1] ?? '').get('from') === 'overdue';
@@ -829,8 +829,7 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
     const canUpdateStatus = isAgency;
 
     const caseFile = referral.case_file;
-    const client = caseFile?.client;
-    const clientAddress = client?.addresses?.[0] ?? client?.address ?? null;
+    const caseIdentity = caseIdentityProp ?? referral.case_identity ?? caseFile?.case_identity ?? null;
     const receivingAgencyName = referral.agency?.name ?? 'the receiving agency';
     const isReceivingAgency = isAgency && auth.user.agcy_id && auth.user.agcy_id === referral.agcy_id;
     const canViewPresence = canShowReferralPresence(auth.user, referral, roles);
@@ -1188,6 +1187,24 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                                     serviceRequirements={serviceRequirements}
                                 />
                             )}
+                            {referral.category && (
+                                <div>
+                                    <p className="text-[12px] font-medium text-slate-500">Referral category</p>
+                                    <p className="mt-0.5 text-[13px] font-semibold text-slate-800">{referral.category.name ?? referral.category.title}</p>
+                                </div>
+                            )}
+                            {referral.concern && (
+                                <div>
+                                    <p className="text-[12px] font-medium text-slate-500">Concern</p>
+                                    <p className="mt-0.5 text-[13px] leading-5 text-slate-800 whitespace-pre-wrap">{referral.concern}</p>
+                                </div>
+                            )}
+                            {referral.override_reason && (
+                                <div>
+                                    <p className="text-[12px] font-medium text-slate-500">Reason for non-suggested agency</p>
+                                    <p className="mt-0.5 text-[13px] leading-5 text-slate-800 whitespace-pre-wrap">{referral.override_reason}</p>
+                                </div>
+                            )}
                             {referral.notes && (
                                 <div>
                                     <p className="text-[12px] font-medium text-slate-500">Notes</p>
@@ -1223,8 +1240,8 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                                 <InfoCell label="Tracker number" value={caseFile?.tracker_number ?? 'N/A'} />
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-3 [&>div]:border-0">
-                                <InfoCell label="Category" value={caseFile?.category?.name ?? caseFile?.category?.title ?? 'N/A'} />
-                                <InfoCell label="Issue / concern" value={caseFile?.case_issue?.name ?? caseFile?.case_issue?.title ?? 'N/A'} />
+                                <InfoCell label="Referral category" value={referral.category?.name ?? referral.category?.title ?? 'N/A'} />
+                                <InfoCell label="Concern" value={referral.concern ?? 'N/A'} />
                             </div>
                             <div>
                                 <p className="text-[12px] font-medium text-slate-500">Case narrative</p>
@@ -1319,42 +1336,42 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                 </main>
 
                 <aside className="space-y-4 xl:col-span-4">
-                    {/* Client Information */}
+                    {/* OFW identity — only the case allow-list sent for this referral */}
                     <section data-tour="referral-client-info" className="rounded-xl border border-[#dce3eb] bg-white shadow-[0_1px_3px_rgba(23,35,51,0.04)]">
-                        <CardHeader title="Client Information" />
+                        <CardHeader title="OFW information" />
                         <div className="space-y-4 px-5 pb-5">
-                            {client ? (
-                                (client.user?.avatar_url || client.avatar_url) ? (
+                            {caseIdentity ? (
+                                caseIdentity.avatar_url ? (
                                     <img
-                                        src={client.user?.avatar_url || client.avatar_url}
+                                        src={caseIdentity.avatar_url}
                                         alt=""
                                         className="h-[72px] w-[72px] shrink-0 rounded-2xl border border-slate-200 object-cover"
                                         onError={(e) => { e.target.style.display = 'none'; }}
                                     />
                                 ) : (
                                     <span
-                                        className={`inline-flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-2xl text-[22px] font-bold text-white ${getAvatarColor(formatFullName(client))}`}
+                                        className={`inline-flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-2xl text-[22px] font-bold text-white ${getAvatarColor(formatFullName(caseIdentity))}`}
                                         aria-hidden="true"
                                     >
-                                        {[client?.first_name, client?.last_name].filter(Boolean).map((part) => part[0]).join('').toUpperCase().slice(0, 2) || '?'}
+                                        {[caseIdentity.first_name, caseIdentity.last_name].filter(Boolean).map((part) => part[0]).join('').toUpperCase().slice(0, 2) || '?'}
                                     </span>
                                 )
                             ) : null}
 
-                            <InfoField label="Full name" value={formatFullName(client)} />
+                            <InfoField label="Full name" value={formatFullName(caseIdentity)} />
 
                             <InfoField label="Client type" value={caseFile?.client_type?.replace(/_/g, ' ')} />
 
-                            <InfoField label="Date of birth" value={client?.date_of_birth ? formatDisplayDate(client.date_of_birth) : null} />
+                            <InfoField label="Date of birth" value={caseIdentity?.date_of_birth ? formatDisplayDate(caseIdentity.date_of_birth) : null} />
 
                             <div className="grid grid-cols-2 gap-3">
-                                <InfoField label="Age" value={client?.date_of_birth ? getClientAge(client.date_of_birth) : null} />
-                                <InfoField label="Sex" value={client?.sex} />
+                                <InfoField label="Age at intake" value={caseIdentity?.age_at_intake ?? (caseIdentity?.date_of_birth ? getClientAge(caseIdentity.date_of_birth) : null)} />
+                                <InfoField label="Sex" value={caseIdentity?.sex} />
                             </div>
 
                             <div className="grid grid-cols-2 gap-3">
-                                <InfoField label="Email" value={client?.email} />
-                                <InfoField label="Contact no." value={client?.contact_number} />
+                                <InfoField label="Email" value={caseIdentity?.email} />
+                                <InfoField label="Contact no." value={caseIdentity?.contact_number} />
                             </div>
 
                             <InfoField
@@ -1367,90 +1384,7 @@ export default function ReferralShow({ referral, serviceRequirements = [], overd
                                 })()}
                             />
 
-                            <InfoField label="Address" value={formatAddress(clientAddress)} />
-
-                            {client?.employments?.length > 0 && (
-                                <>
-                                    <hr className="border-slate-200" />
-                                    <div>
-                                        <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500 mb-2">
-                                            Employment History
-                                            <span className="ml-1.5 text-slate-400 font-normal normal-case">({client.employments.length} record{client.employments.length !== 1 ? 's' : ''})</span>
-                                        </p>
-                                        <div className="space-y-2">
-                                            {client.employments.map((emp) => (
-                                                <div key={emp.id} className="rounded-md border border-slate-100 bg-slate-50 px-3 py-2">
-                                                    <div className="flex items-start justify-between gap-2">
-                                                        <div className="min-w-0">
-                                                            {(emp.last_position || emp.position) && (
-                                                                <p className="text-[12px] font-semibold text-slate-800">
-                                                                    {emp.last_position || emp.position}
-                                                                </p>
-                                                            )}
-                                                            {(emp.employer_name || emp.last_country || emp.country) && (
-                                                                <p className="text-[11px] text-slate-600 mt-0.5">
-                                                                    {[emp.employer_name, emp.last_country || emp.country].filter(Boolean).join(' · ')}
-                                                                </p>
-                                                            )}
-                                                        </div>
-                                                        {emp.date_of_arrival && (
-                                                            <span className="shrink-0 text-[10px] text-slate-400 whitespace-nowrap">
-                                                                Arrived in PH {formatDisplayDate(emp.date_of_arrival)}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    {(emp.start_date && emp.end_date) && (
-                                                        <p className="mt-1 text-[10px] text-slate-400">
-                                                            {formatDisplayDate(emp.start_date)} &ndash; {formatDisplayDate(emp.end_date)}
-                                                        </p>
-                                                    )}
-                                                    {(emp.start_date && !emp.end_date) && (
-                                                        <p className="mt-1 text-[10px] text-slate-400">
-                                                            Since {formatDisplayDate(emp.start_date)}
-                                                        </p>
-                                                    )}
-                                                    {(!emp.start_date && emp.end_date) && (
-                                                        <p className="mt-1 text-[10px] text-slate-400">
-                                                            Until {formatDisplayDate(emp.end_date)}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </>
-                            )}
-
-                            {client?.nextOfKin?.length > 0 && (
-                                <>
-                                    <hr className="border-slate-200" />
-                                    <div>
-                                        <p className="text-[9px] font-extrabold uppercase tracking-[0.1em] text-slate-500 mb-2">
-                                            Next of Kin
-                                            <span className="ml-1.5 text-slate-400 font-normal normal-case">({client.nextOfKin.length} record{client.nextOfKin.length !== 1 ? 's' : ''})</span>
-                                        </p>
-                                        <div className="space-y-2">
-                                            {client.nextOfKin.map((nok) => (
-                                                <div key={nok.id} className={`rounded-md border px-3 py-2 ${nok.is_primary ? 'border-blue-100 bg-blue-50/50' : 'border-slate-100 bg-white'}`}>
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="text-[13px] font-bold text-slate-800">
-                                                            {[nok.first_name, nok.last_name].filter(Boolean).join(' ')}
-                                                        </span>
-                                                        {nok.is_primary && (
-                                                            <span className="inline-flex items-center rounded-full bg-indigo-600 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.1em] text-white">Primary</span>
-                                                        )}
-                                                    </div>
-                                                    <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-slate-500">
-                                                        {nok.relationship && <span>{nok.relationship}</span>}
-                                                        {nok.phone_number && <span>{nok.phone_number}</span>}
-                                                        {nok.email && <span className="break-all">{nok.email}</span>}
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </>
-                            )}
+                            <InfoField label="Address" value={formatAddress(caseIdentity?.address ?? null)} />
                         </div>
                     </section>
 

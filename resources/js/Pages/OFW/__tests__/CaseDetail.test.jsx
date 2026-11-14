@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import CaseDetail from '../CaseDetail';
 import { NEUTRAL_STATUS_LINE } from '@/lib/caseStatusLine';
@@ -8,13 +8,14 @@ vi.mock('@inertiajs/react', () => ({
     Link: ({ children, ...props }) => <a {...props}>{children}</a>,
     usePage: () => ({ url: '/my-cases', props: { auth: { user: { name: 'Test OFW' } } } }),
     router: { post: vi.fn(), reload: vi.fn() },
+    useForm: () => ({ data: {}, setData: vi.fn(), transform: vi.fn(), post: vi.fn(), processing: false, errors: {}, reset: vi.fn() }),
 }));
 
 vi.mock('@/Layouts/OfwPortalLayout', () => ({
     default: ({ children }) => <div>{children}</div>,
 }));
 
-vi.mock('@/Components/CitizenTimeline', () => ({ default: () => <div /> }));
+vi.mock('@/Components/CitizenTimeline', () => ({ default: ({ statusBar }) => <div>{statusBar}</div> }));
 
 globalThis.route = (name, params) => `/${name}/${Array.isArray(params) ? params.join('/') : params ?? ''}`;
 
@@ -32,6 +33,7 @@ function renderCase(status, overrides = {}) {
             caseOverview={{}}
             trackingAgencies={overrides.trackingAgencies ?? []}
             rejectedCount={overrides.rejectedCount ?? 0}
+            case={overrides.caseFile}
         />,
     );
 }
@@ -73,6 +75,25 @@ describe('OFW/CaseDetail status line', () => {
         expect(screen.getByText(/Due/)).toBeInTheDocument();
     });
 
+    it('shows grouped intake fields and requirement-labeled downloadable documents without previews', () => {
+        renderCase('IN_PROGRESS', { caseFile: { first_name: 'Ana', last_name: 'Santos', date_of_birth: '2026-10-12', vulnerability_indicator: 'PWD', summary: 'My statement', documents: [
+            { id: 'img', file_name: 'passport.jpg', category: 'passport_front_page', requirement_label: 'Passport front page', download_url: '/files/passport' },
+            { id: 'pdf', file_name: 'contract.pdf', category: 'employment_contract', requirement_label: 'Employment contract', download_url: '/files/contract' },
+        ] }, requestDocuments: [{ id: 'other', file_name: 'referral.png', download_url: '/files/referral' }] });
+        fireEvent.click(screen.getByRole('tab', { name: 'My Submitted Documents' }));
+        expect(screen.getByText('First name')).toBeInTheDocument();
+        expect(screen.getByText('Ana')).toBeInTheDocument();
+        expect(screen.getByText('October 12, 2026')).toBeInTheDocument();
+        expect(screen.getByText('My statement')).toBeInTheDocument();
+        expect(screen.queryByRole('img')).not.toBeInTheDocument();
+        expect(screen.queryByRole('iframe')).not.toBeInTheDocument();
+        expect(screen.getAllByRole('link', { name: /^Download / }).map((link) => link.getAttribute('href'))).toEqual(['/files/passport', '/files/contract']);
+        expect(screen.getAllByText('Passport front page').length).toBeGreaterThan(0);
+        expect(screen.getAllByText('Employment contract').length).toBeGreaterThan(0);
+        expect(screen.queryByText(/passport\.jpg|contract\.pdf/)).not.toBeInTheDocument();
+        expect(screen.queryByText('referral.png')).not.toBeInTheDocument();
+    });
+
     it('shows a request in progress without labeling it as action required', () => {
         renderCase('IN_PROGRESS', { trackingAgencies: [{
             referralId: 'r1', name: 'OWWA', status: 'PROCESSING',
@@ -90,9 +111,21 @@ describe('OFW/CaseDetail status line', () => {
         renderCase('IN_PROGRESS', { trackingAgencies: [{ referralId: 'r1', name: 'OWWA', status: 'FOR_COMPLIANCE' }] });
 
         expect(screen.getByText('Action Required: Agency compliance update')).toBeInTheDocument();
-        expect(screen.getByText(/No linked response request is available/)).toBeInTheDocument();
+        expect(screen.getAllByText(/No linked response request is available/).length).toBeGreaterThan(0);
         expect(screen.queryByText('No action is needed from you right now.')).not.toBeInTheDocument();
         expect(screen.queryByRole('link', { name: 'View Request and Respond' })).not.toBeInTheDocument();
+    });
+
+    it('shows declined status without implying the case is open or in progress', () => {
+        renderCase('REJECTED');
+
+        expect(screen.getByText('Declined')).toBeInTheDocument();
+        expect(screen.getByText('This request was declined. Submit a fresh intake to request assistance.')).toBeInTheDocument();
+        expect(screen.getByText('Request Declined')).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: 'Submit a fresh intake' })).toBeInTheDocument();
+        expect(screen.queryByText('Open — In Progress')).not.toBeInTheDocument();
+        expect(screen.queryByText(NEUTRAL_STATUS_LINE)).not.toBeInTheDocument();
+        expect(screen.queryByText('Documents needed from you')).not.toBeInTheDocument();
     });
 
     it('confirms a resolved case', () => {
@@ -104,5 +137,33 @@ describe('OFW/CaseDetail status line', () => {
         renderCase('SOME_FUTURE_STATUS');
         expect(screen.getByText(NEUTRAL_STATUS_LINE)).toBeInTheDocument();
         expect(screen.queryByText(/unavailable/i)).not.toBeInTheDocument();
+    });
+});
+
+describe('OFW/CaseDetail outstanding requirements', () => {
+    const caseFile = {
+        id: 'case-1',
+        document_requirements: [
+            { slot: 'arrival_stamp', state: 'for_compliance', label: 'BI arrival stamp', note: null },
+            { slot: 'passport_front_page', state: 'received', label: 'Passport front page', note: null },
+        ],
+    };
+
+    it('opens the upload tab and asks for outstanding documents on an open case', () => {
+        renderCase('IN_PROGRESS', { caseFile });
+
+        expect(screen.getByRole('tab', { name: 'My Submitted Documents' })).toHaveAttribute('aria-selected', 'true');
+        expect(screen.getByText('Documents are needed from you.')).toBeInTheDocument();
+        expect(screen.queryByText('No action is needed from you right now.')).not.toBeInTheDocument();
+        expect(screen.getByText('Documents needed from you')).toBeInTheDocument();
+        expect(screen.getByText('BI arrival stamp')).toBeInTheDocument();
+        expect(screen.queryByText('Passport front page')).not.toBeInTheDocument();
+    });
+
+    it('hides the upload when the case is closed', () => {
+        renderCase('RESOLVED', { caseFile });
+        fireEvent.click(screen.getByRole('tab', { name: 'My Submitted Documents' }));
+
+        expect(screen.queryByText('Documents needed from you')).not.toBeInTheDocument();
     });
 });

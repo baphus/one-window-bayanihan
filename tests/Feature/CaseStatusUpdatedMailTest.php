@@ -2,10 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Mail\ClientUpdateMail;
 use App\Models\CaseCategory;
 use App\Models\CaseFile;
-use App\Models\Client;
 use App\Models\Referral;
 use App\Models\User;
 use App\Notifications\CaseStatusUpdated;
@@ -29,8 +29,13 @@ class CaseStatusUpdatedMailTest extends TestCase
 
         $legal = CaseCategory::factory()->create(['name' => 'Legal']);
         $repatriation = CaseCategory::factory()->create(['name' => 'Repatriation']);
-        $case->categories()->sync([$legal->id, $repatriation->id]);
-        $case->update(['category_id' => $legal->id]);
+        foreach ([$legal, $repatriation] as $category) {
+            Referral::factory()->create([
+                'case_id' => $case->id,
+                'category_id' => $category->id,
+                'concern' => 'Assistance requested',
+            ]);
+        }
 
         $html = (new CaseStatusUpdated($case->fresh(), 'OPEN', 'CLOSED', 'Stu Torres'))
             ->toMail($caseManager)
@@ -56,18 +61,18 @@ class CaseStatusUpdatedMailTest extends TestCase
     public function test_client_email_carries_details_but_not_internal_fields(): void
     {
         $caseManager = User::factory()->create(['name' => 'Internal Caseworker']);
-        $client = Client::factory()->create(['email' => 'ofw@example.com']);
+        $ofw = User::factory()->create(['role' => UserRole::OFW->value, 'email' => 'ofw@example.com']);
         $case = CaseFile::factory()->create([
             'user_id' => $caseManager->id,
-            'client_id' => $client->id,
+            'ofw_user_id' => $ofw->id,
             'summary' => 'Internal note: do not share.',
         ]);
 
         $category = CaseCategory::factory()->create(['name' => 'Legal']);
-        $case->categories()->sync([$category->id]);
-
         Referral::factory()->create([
             'case_id' => $case->id,
+            'category_id' => $category->id,
+            'concern' => 'Passport assistance',
             'required_services' => 'Passport assistance',
         ]);
 

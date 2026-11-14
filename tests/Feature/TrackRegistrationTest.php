@@ -3,194 +3,61 @@
 namespace Tests\Feature;
 
 use App\Enums\UserRole;
-use App\Http\Middleware\VerifyTurnstile;
+use App\Models\CaseFile;
 use App\Models\User;
 use App\Services\TrackingService;
-use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Routing\Middleware\ThrottleRequests;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Mail;
-use PHPUnit\Framework\Attributes\Test;
-use Tests\Feature\TrackingService\Traits\CreatesTrackingCase;
 use Tests\TestCase;
 
 class TrackRegistrationTest extends TestCase
 {
-    use CreatesTrackingCase;
     use RefreshDatabase;
 
-    protected function setUp(): void
+    public function test_tracking_registration_redirects_without_creating_account_or_claiming_staff_case(): void
     {
-        parent::setUp();
-        Mail::fake();
-        $this->withoutMiddleware([
-            VerifyTurnstile::class,
-            PreventRequestForgery::class,
-            ThrottleRequests::class,
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $case = CaseFile::factory()->create([
+            'user_id' => $manager->id,
+            'ofw_user_id' => null,
+            'email' => 'tracked@example.test',
         ]);
-    }
+        $binding = ['tracker_number' => $case->tracker_number, 'email' => $case->email];
 
-    #[Test]
-    public function test_creates_ofw_account_linked_to_case_client_and_logs_in(): void
-    {
-        $email = 'ofw-track@example.com';
-        $trackerNumber = $this->buildTrackerNumber();
+        $this->withSession([TrackingService::SESSION_KEY => $binding])
+            ->postJson(route('track.register'), [
+                'password' => 'Str0ngPass!123', 'password_confirmation' => 'Str0ngPass!123',
+            ])->assertOk()->assertExactJson(['success' => true, 'redirect' => route('register')]);
 
-        $case = $this->createCompleteCase();
-        $case['case']->update(['tracker_number' => $trackerNumber]);
-        $case['client']->update(['email' => $email]);
-
-        $response = $this->withSession([
-            TrackingService::SESSION_KEY => [
-                'tracker_number' => $trackerNumber,
-                'email' => $email,
-            ],
-        ])->postJson(route('track.register'), [
-            'password' => 'Str0ngPass!123',
-            'password_confirmation' => 'Str0ngPass!123',
+        $this->assertDatabaseMissing('users', ['email' => 'tracked@example.test']);
+        $this->assertDatabaseHas('cases', [
+            'id' => $case->id, 'user_id' => $manager->id, 'ofw_user_id' => null,
         ]);
-
-        $response->assertOk();
-        $response->assertJson([
-            'success' => true,
-            'redirect' => route('ofw.dashboard'),
-        ]);
-
-        $user = User::where('email', $email)->first();
-        $this->assertNotNull($user);
-        $this->assertSame(UserRole::OFW->value, $user->role);
-        $this->assertEquals($case['client']->id, $user->client_id);
-        $this->assertNotNull($user->email_verified_at);
-        $this->assertTrue((bool) $user->is_active);
-        $this->assertTrue(Hash::check('Str0ngPass!123', $user->password));
-
-        $this->assertAuthenticatedAs($user);
-    }
-
-    #[Test]
-    public function test_existing_ofw_account_is_logged_in_again_without_duplicate(): void
-    {
-        $email = 'returning-track@example.com';
-        $trackerNumber = $this->buildTrackerNumber();
-
-        $case = $this->createCompleteCase();
-        $case['case']->update(['tracker_number' => $trackerNumber]);
-        $case['client']->update(['email' => $email]);
-
-        $existing = User::factory()->create([
-            'email' => $email,
-            'role' => UserRole::OFW->value,
-            'client_id' => $case['client']->id,
-        ]);
-
-        $response = $this->withSession([
-            TrackingService::SESSION_KEY => [
-                'tracker_number' => $trackerNumber,
-                'email' => $email,
-            ],
-        ])->postJson(route('track.register'), [
-            'password' => 'Str0ngPass!123',
-            'password_confirmation' => 'Str0ngPass!123',
-        ]);
-
-        $response->assertOk();
-        $response->assertJson([
-            'success' => true,
-            'redirect' => route('login'),
-        ]);
-
-        $this->assertEquals(1, User::where('email', $email)->count());
-        $this->assertGuest();
-        $this->assertTrue(session()->has('status'), 'Flash status missing.');
-        $this->assertSame('An account already exists for this email. Please log in.', session('status'));
-    }
-
-    #[Test]
-    public function test_requires_verified_session_binding(): void
-    {
-        $response = $this->postJson(route('track.register'), [
-            'password' => 'Str0ngPass!123',
-        ]);
-
-        $response->assertStatus(422);
-        $response->assertJson([
-            'error' => 'Session expired. Please verify your case again.',
-        ]);
-
+        $this->assertSame($binding, session(TrackingService::SESSION_KEY));
+        $this->assertNull(session('pending_registration'));
         $this->assertGuest();
     }
 
-    #[Test]
-    public function test_rejects_weak_password(): void
+    public function test_matching_account_is_not_signed_in_or_associated_with_staff_case(): void
     {
-        $trackerNumber = $this->buildTrackerNumber();
+        $user = User::factory()->create(['role' => UserRole::OFW->value, 'email' => 'existing@example.test']);
+        $case = CaseFile::factory()->create(['email' => $user->email, 'ofw_user_id' => null]);
 
-        $case = $this->createCompleteCase();
-        $case['case']->update(['tracker_number' => $trackerNumber]);
+        $this->withSession([TrackingService::SESSION_KEY => [
+            'tracker_number' => $case->tracker_number, 'email' => $user->email,
+        ]])->postJson(route('track.register'))->assertOk()
+            ->assertExactJson(['success' => true, 'redirect' => route('register')]);
 
-        $response = $this->withSession([
-            TrackingService::SESSION_KEY => [
-                'tracker_number' => $trackerNumber,
-                'email' => 'weak-pass@example.com',
-            ],
-        ])->postJson(route('track.register'), [
-            'password' => 'short',
-        ]);
-
-        $response->assertStatus(422);
-        $response->assertJsonValidationErrors('password');
-
+        $this->assertDatabaseHas('users', ['id' => $user->id, 'email' => $user->email]);
+        $this->assertNull($case->fresh()->ofw_user_id);
+        $this->assertSame(1, User::where('email', $user->email)->count());
         $this->assertGuest();
-        $this->assertEquals(0, User::where('email', 'weak-pass@example.com')->count());
     }
 
-    #[Test]
-    public function test_rejects_mismatched_password_confirmation(): void
+    public function test_unverified_request_only_gets_public_registration_route(): void
     {
-        $email = 'mismatch-track@example.com';
-        $trackerNumber = $this->buildTrackerNumber();
-
-        $case = $this->createCompleteCase();
-        $case['case']->update(['tracker_number' => $trackerNumber]);
-        $case['client']->update(['email' => $email]);
-
-        $response = $this->withSession([
-            TrackingService::SESSION_KEY => [
-                'tracker_number' => $trackerNumber,
-                'email' => $email,
-            ],
-        ])->postJson(route('track.register'), [
-            'password' => 'Str0ngPass!123',
-            'password_confirmation' => 'DifferentPass!123',
-        ]);
-
-        $response->assertStatus(422);
-        $response->assertJsonValidationErrors('password');
-
+        $this->postJson(route('track.register'), ['email' => 'forged@example.test', 'client_id' => 'forged'])
+            ->assertOk()->assertExactJson(['success' => true, 'redirect' => route('register')]);
+        $this->assertDatabaseCount('users', 0);
         $this->assertGuest();
-        $this->assertEquals(0, User::where('email', $email)->count());
-    }
-
-    #[Test]
-    public function test_rejects_unknown_tracker_number(): void
-    {
-        $response = $this->withSession([
-            TrackingService::SESSION_KEY => [
-                'tracker_number' => 'OWBAP-NOTFOUND',
-                'email' => 'ghost@example.com',
-            ],
-        ])->postJson(route('track.register'), [
-            'password' => 'Str0ngPass!123',
-            'password_confirmation' => 'Str0ngPass!123',
-        ]);
-
-        $response->assertStatus(422);
-        $response->assertJson([
-            'error' => 'Unable to process request. Please check your details and try again.',
-        ]);
-
-        $this->assertGuest();
-        $this->assertEquals(0, User::where('email', 'ghost@example.com')->count());
     }
 }

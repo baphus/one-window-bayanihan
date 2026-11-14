@@ -4,6 +4,7 @@ import { useState } from 'react';
 import InputError from '@/Components/InputError';
 import MfaConfirmDialog from '@/Components/MfaConfirmDialog';
 import useMfaStatus from '@/Hooks/useMfaStatus';
+import IdentityFields, { emptyIdentity } from '@/Components/IdentityFields';
 
 export default function UserFormModal({ user, agencies, onClose, onBypass, selectedAgencyId, initialMode = 'invite', mfaPolicy }) {
   const isEdit = !!user;
@@ -21,7 +22,7 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
   ];
 
   const { data, setData, post, patch, processing, errors, clearErrors, setError, transform } = useForm({
-    name: user?.name ?? '',
+    ...emptyIdentity(user),
     email: user?.email ?? '',
     password: '',
     password_confirmation: '',
@@ -179,21 +180,9 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
               </div>
             )}
 
-            {/* Name (edit or create mode) */}
+            {/* Identity (edit or create mode) */}
             {(isEdit || isCreateMode) && (
-              <div>
-                <label className="block text-sm font-medium text-slate-700">Full Name <span className="text-red-500">*</span></label>
-                <input
-                  type="text"
-                  value={data.name}
-                  onChange={(e) => setData('name', e.target.value)}
-                  className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-primary focus:ring-primary text-sm"
-                  placeholder="e.g. Juan Dela Cruz"
-                  required
-                  maxLength={255}
-                />
-                <InputError message={errors.name} className="mt-1" />
-              </div>
+              <IdentityFields data={data} setData={setData} errors={errors} />
             )}
 
             {/* Email */}

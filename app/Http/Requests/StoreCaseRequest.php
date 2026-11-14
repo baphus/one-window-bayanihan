@@ -2,11 +2,12 @@
 
 namespace App\Http\Requests;
 
-use App\Rules\EmploymentStartAtWorkingAge;
+use App\Models\CaseFile;
 use App\Rules\ServedRegion;
 use App\Rules\VulnerabilityRule;
-use Illuminate\Auth\Access\AuthorizationException;
+use App\Services\IntakeDocumentService;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 
 class StoreCaseRequest extends FormRequest
@@ -15,157 +16,99 @@ class StoreCaseRequest extends FormRequest
     {
         $user = $this->user();
 
-        return $user !== null && ($user->isAdmin() || $user->isCaseManager() || ($user->isOfw() && ! $user->isNextOfKin()));
-    }
-
-    protected function failedAuthorization(): void
-    {
-        if ($this->user()?->isOfw() && $this->user()->isNextOfKin()) {
-            throw new AuthorizationException('Requests filed by next of kin must be submitted through DMW staff. Please visit the DMW Region VII office for assistance.');
-        }
-
-        parent::failedAuthorization();
+        // Next of kin are no longer a user role: NOK details live on the case.
+        return $user !== null && ($user->isAdmin() || $user->isCaseManager() || $user->isOfw());
     }
 
     protected function prepareForValidation(): void
     {
-        if ($this->has('category_id') && $this->category_id === '') {
-            $this->merge(['category_id' => null]);
+        if ($this->user()?->isOfw()) {
+            $this->merge(['intake_date' => now(config('app.operating_timezone', 'Asia/Manila'))->toDateString()]);
         }
-
-        if ($this->has('category_ids') && $this->input('category_ids') === '') {
-            $this->merge(['category_ids' => null]);
-        }
-
-        if ($this->has('case_issue_id') && $this->case_issue_id === '') {
-            $this->merge(['case_issue_id' => null]);
-        }
-
-        // Inertia sends JSON — ConvertEmptyStringsToNull middleware doesn't apply.
-        // Convert empty email strings to null so 'nullable|email' passes correctly.
-        if ($this->has('client.email') && $this->input('client.email') === '') {
-            $this->merge(['client' => array_merge($this->input('client', []), ['email' => null])]);
-        }
-
-        // Normalize vulnerability fields — accept comma-separated multi-select, validate each segment
         foreach (['vulnerability_indicator', 'nok_vulnerability_indicator'] as $field) {
-            if ($this->has($field)) {
-                $raw = $this->input($field);
-                if (is_string($raw)) {
-                    $this->merge([$field => VulnerabilityRule::normalize($raw)]);
-                }
+            if (is_string($this->input($field))) {
+                $this->merge([$field => VulnerabilityRule::normalize($this->input($field))]);
             }
         }
-
-        if ($this->has('next_of_kin') && is_array($this->input('next_of_kin'))) {
-            $noks = $this->input('next_of_kin');
-            foreach ($noks as $key => $nok) {
-                if (isset($nok['email']) && $nok['email'] === '') {
-                    $noks[$key]['email'] = null;
-                }
-            }
-            $this->merge(['next_of_kin' => $noks]);
-        }
-    }
-
-    private function convertEmptyStringsToNull(array $data): array
-    {
-        $result = [];
-        foreach ($data as $key => $value) {
-            if (is_array($value)) {
-                $result[$key] = $this->convertEmptyStringsToNull($value);
-            } else {
-                $result[$key] = $value === '' ? null : $value;
-            }
-        }
-
-        return $result;
     }
 
     public function rules(): array
     {
-        // Clients must be 15–100 years old.
-        $dobMax = now()->subYears(15)->toDateString();
-        $dobMin = now()->subYears(100)->toDateString();
-
-        return [
-            'client_type' => ['sometimes', 'required', Rule::in(['OFW', 'NEXT_OF_KIN'])],
+        $public = $this->user()?->isOfw();
+        $rules = [
+            'client_type' => ['required', Rule::in($this->user()?->isCaseManager() ? ['OFW', 'NEXT_OF_KIN'] : ['OFW'])],
+            'intake_date' => ['required', 'date_format:Y-m-d'],
+            'first_name' => ['required', 'string', 'max:255'],
+            'last_name' => ['required', 'string', 'max:255'],
+            'middle_name' => ['nullable', 'string', 'max:255'],
+            'suffix' => ['nullable', 'string', 'max:50'],
+            'date_of_birth' => ['required', 'date_format:Y-m-d', 'before_or_equal:intake_date'],
+            'sex' => ['required', Rule::in(['MALE', 'FEMALE'])],
+            'email' => ['required', 'email', 'max:255'],
+            'contact_number' => ['required', 'string', 'max:50'],
+            'civil_status' => ['required', Rule::in(CaseFile::CIVIL_STATUSES)],
+            'civil_status_other' => ['required_if:civil_status,OTHER', 'nullable', 'string', 'max:255'],
+            'deployment_mode' => ['required', Rule::in(CaseFile::DEPLOYMENT_MODES)],
+            'employment_status' => ['required', Rule::in(CaseFile::EMPLOYMENT_STATUSES)],
+            'address_region' => ['required', 'string', 'max:255', new ServedRegion],
+            'address_province' => ['nullable', 'string', 'max:255'],
+            'address_city_municipality' => ['required', 'string', 'max:255'],
+            'address_barangay' => ['required', 'string', 'max:255'],
+            'address_street' => ['nullable', 'string', 'max:1000'],
+            'employment_employer_name' => ['nullable', 'string', 'max:255'],
+            'employment_employer_address' => ['nullable', 'string', 'max:1000'],
+            'employment_position' => ['nullable', 'string', 'max:255'],
+            'employment_country' => ['nullable', 'string', 'max:255'],
+            'employment_date_of_arrival' => ['nullable', 'date', 'after_or_equal:date_of_birth', 'before_or_equal:today'],
+            'employment_last_position' => ['nullable', 'string', 'max:255'],
+            'employment_date_of_arrival' => ['nullable', 'date', 'after_or_equal:date_of_birth', 'before_or_equal:today'],
+            'summary' => ['required', 'string', 'max:5000'],
             'vulnerability_indicator' => ['required', 'string', 'max:255', new VulnerabilityRule],
-            'nok_vulnerability_indicator' => ['nullable', 'string', 'max:255', new VulnerabilityRule],
-            'summary' => ['nullable', 'string', 'max:5000'],
-            'category_id' => ['bail', 'required_without:category_ids', 'nullable', 'string', 'uuid', Rule::exists('case_categories', 'id')->where('is_active', true)],
-            'category_ids' => ['required_without:category_id', 'nullable', 'array', 'min:1'],
-            'category_ids.*' => ['bail', 'uuid', 'distinct', Rule::exists('case_categories', 'id')->where('is_active', true)],
-            'case_issue_id' => ['required', 'string', 'exists:case_issues,id'],
-
-            'client.first_name' => ['required', 'string', 'max:255'],
-            'client.last_name' => ['required', 'string', 'max:255'],
-            'client.middle_name' => ['nullable', 'string', 'max:255'],
-            'client.suffix' => ['nullable', 'string', 'max:50'],
-            'client.date_of_birth' => ['required', 'date', 'before_or_equal:'.$dobMax, 'after_or_equal:'.$dobMin],
-            'client.sex' => ['required', 'string', 'max:50'],
-            'client.email' => ['required', 'email', 'max:255'],
-            'client.contact_number' => ['required', 'string', 'max:50'],
-
-            'next_of_kin' => ['required_if:client_type,NEXT_OF_KIN', 'nullable', 'array', Rule::when($this->input('client_type') === 'NEXT_OF_KIN', ['min:1'])],
-            'next_of_kin.*.first_name' => ['required_with:next_of_kin', 'string', 'max:255'],
-            'next_of_kin.*.middle_name' => ['nullable', 'string', 'max:255'],
-            'next_of_kin.*.last_name' => ['required_with:next_of_kin', 'string', 'max:255'],
-            'next_of_kin.*.is_primary' => ['nullable', 'boolean'],
-            'next_of_kin.*.relationship' => ['required_with:next_of_kin', 'string', 'max:255'],
-            'next_of_kin.*.phone_number' => ['required_with:next_of_kin', 'string', 'max:50'],
-            'next_of_kin.*.email' => ['required_with:next_of_kin', 'email', 'max:255'],
-            'next_of_kin.*.full_address' => ['nullable', 'string'],
-            'next_of_kin.*.nok_address.region' => ['required_with:next_of_kin', 'string', 'max:255', new ServedRegion],
-            'next_of_kin.*.nok_address.province' => ['nullable', 'string', 'max:255'],
-            'next_of_kin.*.nok_address.city_municipality' => ['required_with:next_of_kin', 'string', 'max:255'],
-            'next_of_kin.*.nok_address.barangay' => ['required_with:next_of_kin', 'string', 'max:255'],
-            'next_of_kin.*.nok_address.street' => ['nullable', 'string'],
-
-            'selected_client_id' => ['nullable', 'string', 'exists:clients,id'],
-            'selected_nok_index' => ['nullable', 'integer', 'min:0'],
-
-            'new_ofw' => ['nullable', 'array'],
-            'new_ofw.first_name' => ['required_with:new_ofw', 'string', 'max:255'],
-            'new_ofw.last_name' => ['required_with:new_ofw', 'string', 'max:255'],
-            'new_ofw.middle_name' => ['nullable', 'string', 'max:255'],
-            'new_ofw.suffix' => ['nullable', 'string', 'max:50'],
-            'new_ofw.date_of_birth' => ['nullable', 'date'],
-            'new_ofw.sex' => ['nullable', 'string', 'max:50'],
-            'new_ofw.email' => ['nullable', 'email', 'max:255'],
-            'new_ofw.contact_number' => ['nullable', 'string', 'max:50'],
-
-            'confirm_duplicate_client' => ['nullable', 'boolean'],
-
-            'consent' => ['nullable', 'boolean'],
-
-            'address.region' => ['required', 'string', 'max:255', new ServedRegion],
-            'address.province' => ['nullable', 'string', 'max:255'],
-            'address.city_municipality' => ['required', 'string', 'max:255'],
-            'address.barangay' => ['required', 'string', 'max:255'],
-            'address.street' => ['nullable', 'string'],
-
-            'employment.employer_name' => ['required', 'string', 'max:255'],
-            'employment.position' => ['nullable', 'string', 'max:255'],
-            'employment.country' => ['nullable', 'string', 'max:255'],
-            'employment.start_date' => ['required', 'date', 'after_or_equal:client.date_of_birth', 'before_or_equal:today', new EmploymentStartAtWorkingAge($this->input('client.date_of_birth'))],
-            'employment.end_date' => ['required_unless:employment.is_present,true', 'nullable', 'date', 'after_or_equal:employment.start_date', 'before_or_equal:today'],
-            'employment.is_present' => ['nullable', 'boolean'],
-            'employment.last_country' => ['required', 'string', 'max:255'],
-            'employment.last_position' => ['required', 'string', 'max:255'],
-            'employment.date_of_arrival' => ['required', 'date', 'after_or_equal:client.date_of_birth'],
+            'nok_vulnerability_indicator' => [$public ? 'prohibited' : 'nullable', 'string', 'max:255', new VulnerabilityRule],
+            'proposed_assessments' => ['nullable', 'array', 'max:8'],
+            'proposed_assessments.*' => ['required', 'distinct', Rule::in(CaseFile::ASSESSMENTS)],
+            'proposed_assessment_other' => ['required_if:proposed_assessments.*,OTHER', 'nullable', 'string', 'max:2000'],
+            'return_reason' => ['required', Rule::in(IntakeDocumentService::RETURN_REASONS)],
+            'documents' => ['nullable', 'array:'.implode(',', IntakeDocumentService::SLOTS)],
+            'documents.*' => ['file', 'max:'.config('file-uploads.max_size', 20480), 'mimes:pdf,jpg,jpeg,png,webp'],
+            'consent_text_version' => ['required', Rule::in([IntakeDocumentService::CONSENT_VERSION])],
+            'consent' => ['required', 'accepted'],
+            'complied_onsite_slots' => $public ? ['prohibited'] : ['nullable', 'array'],
+            'complied_onsite_slots.*' => ['required', 'distinct', Rule::in(IntakeDocumentService::REQUIREMENT_KEYS)],
+            'missing_document_reasons' => $public ? ['prohibited'] : ['nullable', 'array:'.implode(',', IntakeDocumentService::REQUIREMENT_KEYS)],
+            'missing_document_reasons.*' => ['nullable', 'string', 'max:1000'],
+            'staff_summary' => $public ? ['prohibited'] : ['nullable', 'string', 'max:5000'],
         ];
+        foreach (['nok_name', 'nok_relationship', 'nok_contact_number', 'nok_email'] as $field) {
+            $rules[$field] = $public ? ['prohibited'] : ['required_if:client_type,NEXT_OF_KIN', 'nullable', $field === 'nok_email' ? 'email' : 'string', 'max:255'];
+        }
+        foreach (['region', 'province', 'city_municipality', 'barangay'] as $part) {
+            $rules['address_'.$part.'_code'] = ['nullable', 'string', 'max:20'];
+        }
+        foreach (['assigned_case_manager_id', 'last_correction_reason', 'document_requested_by', 'document_requested_at', 'requested_document_slots', 'reviewed_document_ids', 'ofw_user_id', 'user_id', 'client_id', 'selected_client_id', 'new_ofw', 'next_of_kin', 'client', 'category_id', 'category_ids', 'case_issue_id', 'confirmed_assessments', 'confirmed_assessment_by', 'confirmed_assessment_at', 'proposed_assessment_by', 'proposed_assessment_at', 'consent_accepted_by', 'consent_given_at', 'consent_method', 'consent_evidence', 'document_requirements', 'reviewed_by', 'reviewed_at'] as $field) {
+            $rules[$field] = ['prohibited'];
+        }
+
+        return $rules;
     }
 
     protected function withValidator($validator): void
     {
         $validator->after(function ($validator) {
-            if ($this->has('category_id') && $this->has('category_ids')) {
-                $validator->errors()->add('category_ids', 'Use either category_id or category_ids, not both.');
+            if (in_array('OTHER', (array) $this->input('proposed_assessments', []), true) && ! $this->filled('proposed_assessment_other')) {
+                $validator->errors()->add('proposed_assessment_other', 'Explain the Other assessment.');
             }
-
-            if (! $this->filled('category_id') && empty($this->input('category_ids'))) {
-                $validator->errors()->add('category_ids', 'At least one category is required.');
+            if (! $validator->errors()->has('date_of_birth') && ! $validator->errors()->has('intake_date') && $this->filled('date_of_birth') && $this->filled('intake_date')) {
+                $age = Carbon::parse($this->input('date_of_birth'))->diffInYears(Carbon::parse($this->input('intake_date')));
+                if ($age < 15 || $age > 100) {
+                    $validator->errors()->add('date_of_birth', 'Age at intake must be between 15 and 100.');
+                }
+            }
+            // Self-service filings still need the standard set; assisted filings record requirements instead.
+            if ($this->user()?->isOfw()) {
+                foreach (IntakeDocumentService::missingSlots(array_keys($this->file('documents', [])), (string) $this->input('return_reason')) as $slot) {
+                    $validator->errors()->add('documents.'.$slot, 'Required document missing.');
+                }
             }
         });
     }

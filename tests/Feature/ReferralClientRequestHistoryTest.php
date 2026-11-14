@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\CaseFile;
-use App\Models\Client;
 use App\Models\Referral;
 use App\Models\ReferralClientAccessLink;
 use App\Models\ReferralClientMessage;
@@ -23,9 +22,19 @@ class ReferralClientRequestHistoryTest extends TestCase
         $agency = Agency::factory()->create();
         $agencyUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id, 'is_active' => true]);
         $owner = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-        $clientUser = User::factory()->create(['avatar_url' => 'https://images.example.test/ofw.jpg']);
-        $client = Client::factory()->create(['user_id' => $clientUser->id]);
-        $case = CaseFile::factory()->create(['user_id' => $owner->id, 'client_id' => $client->id]);
+        $clientUser = User::factory()->create([
+            'avatar_url' => 'https://images.example.test/ofw.jpg',
+            'password' => 'legacy-private-password',
+        ]);
+        $case = CaseFile::factory()->withIntake()->create([
+            'first_name' => 'Alicia',
+            'last_name' => 'Reyes',
+            'date_of_birth' => '1975-04-03',
+            'email' => 'alicia@example.test',
+            'consent_evidence' => 'legacy-private-evidence',
+            'user_id' => $owner->id,
+            'ofw_user_id' => $clientUser->id,
+        ]);
         $referral = Referral::factory()->create(['case_id' => $case->id, 'agcy_id' => $agency->id]);
         $clientRequest = ReferralClientRequest::factory()->create([
             'referral_id' => $referral->id,
@@ -49,10 +58,20 @@ class ReferralClientRequestHistoryTest extends TestCase
         $this->actingAsWithMfa($agencyUser)
             ->get(route('referrals.show', $referral))
             ->assertInertia(fn ($page) => $page
-                ->where('referral.case_file.client.user.id', $clientUser->id)
-                ->where('referral.case_file.client.user.avatar_url', 'https://images.example.test/ofw.jpg')
-                ->missing('referral.case_file.client.user.email')
-                ->missing('referral.case_file.client.user.password')
+                ->where('caseIdentity.ofw_avatar_url', 'https://images.example.test/ofw.jpg')
+                ->where('caseIdentity.first_name', 'Alicia')
+                ->where('caseIdentity.email', 'alicia@example.test')
+                ->where('caseIdentity.id', $case->id)
+                ->missing('referral.case_file.client')
+                ->missing('referral.case_file.client_id')
+                ->missing('referral.case_file.client.email')
+                ->missing('referral.case_file.client.date_of_birth')
+                ->missing('referral.case_file.client.first_name')
+                ->missing('caseIdentity.client_id')
+                ->missing('referral.case_file.consent_evidence')
+                ->missing('referral.case_file.password')
+                ->missing('caseIdentity.date_of_birth')
+                ->missing('caseIdentity.password')
                 ->where('clientRequestPermissions', [
                     'canCreate' => true,
                     'canReply' => true,

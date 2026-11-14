@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\CaseFile;
-use App\Models\Client;
 use App\Models\Referral;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -68,7 +67,7 @@ class PresenceTest extends TestCase
     }
 
     #[Test]
-    public function client_and_next_of_kin_cannot_join_either_presence_roster(): void
+    public function clients_cannot_join_either_presence_roster(): void
     {
         $agency = $this->agency();
         $case = $this->caseFile();
@@ -76,11 +75,6 @@ class PresenceTest extends TestCase
         $ofw = User::factory()->create(['role' => UserRole::OFW->value, 'agcy_id' => $agency->id]);
         $this->actingAsWithMfa($ofw)->postJson("/cases/{$case->id}/presence")->assertForbidden();
         $this->actingAsWithMfa($ofw)->postJson("/referrals/{$referral->id}/presence")->assertForbidden();
-
-        $nokClient = Client::factory()->create(['type' => 'NEXT_OF_KIN']);
-        $nok = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id, 'client_id' => $nokClient->id]);
-        $this->actingAsWithMfa($nok)->postJson("/cases/{$case->id}/presence")->assertForbidden();
-        $this->actingAsWithMfa($nok)->postJson("/referrals/{$referral->id}/presence")->assertForbidden();
     }
 
     #[Test]

@@ -9,6 +9,7 @@ use App\Models\ReferralClientAccessLink;
 use App\Services\AuditCategory;
 use App\Services\AuditLogger;
 use App\Services\CloudinaryAvatarService;
+use App\Services\MfaPolicyService;
 use App\Services\OnboardingService;
 use App\Services\ReferenceDataService;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
@@ -25,8 +26,12 @@ class ProfileController extends Controller
     /**
      * Display the user's profile form.
      */
-    public function edit(Request $request): Response
+    public function edit(Request $request): Response|RedirectResponse
     {
+        if ($request->user()->isOfw()) {
+            return Redirect::route('ofw.profile.edit');
+        }
+
         return Inertia::render('Profile/Edit', self::editProps($request));
     }
 
@@ -52,6 +57,7 @@ class ProfileController extends Controller
             'mustVerifyEmail' => $user instanceof MustVerifyEmail,
             'status' => session('status'),
             'mfaEnabled' => $user->mfa_enabled_at !== null,
+            'mfaRequired' => app(MfaPolicyService::class)->requiresEnrollment($user),
             'defaultAgency' => app(ReferenceDataService::class)->getDefaultAgency(),
             'notificationPrefs' => $user->notifications_config ?? [
                 'email_on_case_assigned' => true,
@@ -70,6 +76,13 @@ class ProfileController extends Controller
     public function update(ProfileUpdateRequest $request): RedirectResponse
     {
         $user = $request->user();
+
+        if ($user->isOfw()) {
+            $user->fill($request->validated());
+            $user->save();
+
+            return Redirect::route('ofw.profile.edit');
+        }
 
         $user->fill($request->validated());
 
@@ -178,6 +191,9 @@ class ProfileController extends Controller
                 ->update(['revoked_at' => now(), 'revoked_by' => $user->id]);
 
             $user->update(['is_active' => false]);
+            if ($user->isOfw()) {
+                DB::table('sessions')->where('user_id', $user->id)->delete();
+            }
             $user->delete();
         });
 

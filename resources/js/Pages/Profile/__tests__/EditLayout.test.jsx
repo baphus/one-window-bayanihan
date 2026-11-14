@@ -26,7 +26,7 @@ vi.mock('@/Components/ProfileHeader', () => ({ default: () => null }));
 vi.mock('@/Components/ui/ToggleSwitch', () => ({ default: () => null }));
 vi.mock('@/Components/ui/ProfileCard', () => ({
     ProfileCard: ({ children }) => <div>{children}</div>, ProfileField: ({ children, label, htmlFor }) => <div><label htmlFor={htmlFor}>{label}</label>{children}</div>,
-    ProfileSaveBar: () => <button type="submit">Save profile</button>, ProfileSection: ({ children, title }) => <section><h2>{title}</h2>{children}</section>,
+    ProfileSaveBar: ({ processing, note }) => <><button type="submit" disabled={processing}>Save profile</button>{note && <p>{note}</p>}</>, ProfileSection: ({ children, title }) => <section><h2>{title}</h2>{children}</section>,
     ProfileStaticField: () => null, ProfileTextInput: ({ label, id, onChange, ...props }) => <input aria-label={label} id={id} {...props} onChange={onChange ? (event) => onChange(event.target.value) : undefined} />, PROFILE_INPUT_CLASS: '', PROFILE_TEXTAREA_CLASS: '',
 }));
 vi.mock('@/Hooks/useUnsavedChanges', () => ({ default: () => ({ UnsavedModal: null, bypassNext: vi.fn() }) }));
@@ -41,7 +41,7 @@ function renderProfile(role, type, mfaEnabled = true) {
     page.props.auth.user = {
         role, type, id: 'fixture', name: 'Test User', email: 'test@example.com', emergency_contact: {},
     };
-    return render(<Edit mfaEnabled={mfaEnabled} notificationPrefs={{}} />);
+    return render(<Edit mfaEnabled={mfaEnabled} mfaRequired={role === 'ADMIN'} notificationPrefs={{}} />);
 }
 
 describe('Profile layout selection', () => {
@@ -66,7 +66,7 @@ describe('Profile layout selection', () => {
         for (const heading of ['Emergency contact', 'Notifications']) {
             expect(screen.queryByRole('heading', { name: heading })).not.toBeInTheDocument();
         }
-        expect(screen.getByLabelText('Full name')).toBeInTheDocument();
+        expect(screen.getByLabelText(/first name/i)).toBeInTheDocument();
         expect(screen.getByLabelText('Contact number')).toBeInTheDocument();
     });
 
@@ -81,13 +81,32 @@ describe('Profile layout selection', () => {
         expect(screen.getByRole('heading', { name: 'Notifications' })).toBeInTheDocument();
     });
 
+    it('explains why admin profile changes cannot be saved before MFA enrollment', async () => {
+        const { fireEvent } = await import('@testing-library/react');
+        renderProfile('ADMIN', undefined, false);
+        expect(screen.getByText(/enable two-factor authentication before saving profile changes/i)).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Save profile' })).toBeDisabled();
+        fireEvent.submit(screen.getByRole('button', { name: 'Save profile' }).closest('form'));
+        expect(form.patch).not.toHaveBeenCalled();
+    });
+
     it('submits only account fields for OFW through shared profile PATCH', async () => {
         const { fireEvent } = await import('@testing-library/react');
         renderProfile('OFW', 'OFW');
         fireEvent.submit(screen.getByRole('button', { name: 'Save profile' }).closest('form'));
         expect(form.transform).toHaveBeenCalledOnce();
         const payload = transformCallback.current();
-        expect(payload).toEqual({ name: 'Updated User', email: 'test@example.com', contact_number: '', timezone: 'Asia/Manila' });
+        expect(payload).toEqual({
+            email: 'test@example.com',
+            contact_number: '',
+            timezone: 'Asia/Manila',
+            first_name: '',
+            middle_name: '',
+            last_name: '',
+            suffix: '',
+            date_of_birth: '',
+            sex: '',
+        });
         expect(payload).not.toHaveProperty('position');
         expect(payload).not.toHaveProperty('department');
         expect(payload).not.toHaveProperty('office_location');

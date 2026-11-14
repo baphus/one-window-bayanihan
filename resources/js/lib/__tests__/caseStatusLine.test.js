@@ -41,6 +41,11 @@ describe('buildCaseStatusLine', () => {
             .toBe('This request has been resolved.');
     });
 
+    it('states plainly that a declined request needs a fresh intake', () => {
+        expect(buildCaseStatusLine({ status: 'REJECTED' }))
+            .toBe('This request was declined. Submit a fresh intake to request assistance.');
+    });
+
     it('describes a draft request as still being prepared', () => {
         expect(buildCaseStatusLine({ status: 'BEING_PREPARED' }))
             .toBe('This request is still being prepared by the One Window Bayanihan team.');

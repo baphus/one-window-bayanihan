@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\CaseFile;
-use App\Models\Client;
 use App\Models\Referral;
 use App\Models\SurveyForm;
 use App\Models\SurveyInvitation;
@@ -147,9 +146,11 @@ class SurveyResponseControllerTest extends TestCase
 
     private function makeInvitation(Agency $agency, bool $submitted, ?User $owner = null): SurveyInvitation
     {
-        $client = Client::factory()->create(['email' => 'private@example.test']);
         $owner ??= User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-        $case = CaseFile::factory()->create(['client_id' => $client->id, 'user_id' => $owner->id]);
+        $case = CaseFile::factory()->withIntake()->create([
+            'email' => 'private@example.test',
+            'user_id' => $owner->id,
+        ]);
         $referral = Referral::factory()->create(['case_id' => $case->id, 'agcy_id' => $agency->id]);
         $form = SurveyForm::firstOrCreate(
             ['agency_id' => $agency->id],
@@ -157,7 +158,7 @@ class SurveyResponseControllerTest extends TestCase
         );
         $question = $form->questions()->first() ?? $form->questions()->create(['type' => 'text', 'label' => 'Answer', 'order' => 0]);
         $created = app(SurveyInvitationService::class)->createInvitation(
-            referralId: $referral->id, clientName: 'Private Client', clientEmail: $client->email,
+            referralId: $referral->id, clientName: 'Private Client', clientEmail: $case->email,
             serviceName: 'Service', surveyFormId: $form->id,
         );
         $invitation = $created['invitation'];

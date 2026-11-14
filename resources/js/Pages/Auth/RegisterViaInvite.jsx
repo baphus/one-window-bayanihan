@@ -3,10 +3,12 @@ import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import AppFooter from '@/Components/landing/AppFooter';
 import AppHeader from '@/Components/landing/AppHeader';
 import AvatarPicker from '@/Components/AvatarPicker';
+import IdentityFields, { emptyIdentity } from '@/Components/IdentityFields';
+import displayName from '@/utils/displayName';
 
 export default function RegisterViaInvite({ invite }) {
     const { data, setData, processing, errors } = useForm({
-        name: '',
+        ...emptyIdentity(),
         password: '',
         password_confirmation: '',
         position: '',
@@ -25,7 +27,9 @@ export default function RegisterViaInvite({ invite }) {
         e.preventDefault();
 
         const formData = new FormData();
-        formData.append('name', data.name);
+        for (const key of ['first_name', 'middle_name', 'last_name', 'suffix', 'date_of_birth', 'sex']) {
+            formData.append(key, data[key] ?? '');
+        }
         formData.append('password', data.password);
         formData.append('password_confirmation', data.password_confirmation);
         formData.append('position', data.position ?? '');
@@ -138,18 +142,8 @@ export default function RegisterViaInvite({ invite }) {
                             </div>
 
                             <form onSubmit={submit} className="space-y-5">
-                                {/* Name */}
-                                <div>
-                                    <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-on-surface-variant">Full Name</label>
-                                    <input
-                                        type="text"
-                                        value={data.name}
-                                        onChange={(e) => setData('name', e.target.value)}
-                                        className="w-full border border-outline-variant bg-surface-container px-4 py-3 text-sm focus:border-primary focus:outline-none rounded-md"
-                                        required
-                                    />
-                                    {errors.name && <p className="mt-1 text-xs font-semibold text-error">{errors.name}</p>}
-                                </div>
+                                {/* Identity */}
+                                <IdentityFields data={data} setData={setData} errors={errors} variant="brand" />
 
                                 {/* Password */}
                                 <div>
@@ -204,7 +198,7 @@ export default function RegisterViaInvite({ invite }) {
                                         <AvatarPicker
                                             file={avatarFile}
                                             onFileChange={setAvatarFile}
-                                            name={data.name}
+                                            name={displayName(data)}
                                             error={errors.profile_picture}
                                             disabled={busy}
                                         />

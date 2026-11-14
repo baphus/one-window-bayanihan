@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Enums\UserRole;
 use App\Models\CaseFile;
 use App\Models\CaseNotification;
-use App\Models\Client;
 use App\Models\Referral;
 use App\Models\ReferralClientRequest;
 use App\Models\User;
@@ -18,9 +17,8 @@ class OfwNotificationsEndpointTest extends TestCase
 
     public function test_bell_route_deep_links_each_notification_type(): void
     {
-        $client = Client::factory()->create(['email' => 'client@example.com']);
-        $user = User::factory()->create(['role' => UserRole::OFW->value, 'client_id' => $client->id]);
-        $case = CaseFile::factory()->open()->create(['client_id' => $client->id]);
+        $user = User::factory()->create(['role' => UserRole::OFW->value]);
+        $case = CaseFile::factory()->open()->create(['ofw_user_id' => $user->id, 'email' => 'client@example.com']);
         $referral = Referral::factory()->create(['case_id' => $case->id]);
         $request = ReferralClientRequest::factory()->create(['referral_id' => $referral->id]);
 
@@ -33,7 +31,7 @@ class OfwNotificationsEndpointTest extends TestCase
         ) {
             CaseNotification::create([
                 'case_id' => $case->id,
-                'client_email' => $client->email,
+                'client_email' => $case->email,
                 'title' => 'title',
                 'message' => 'message',
                 ...$row,
@@ -58,12 +56,11 @@ class OfwNotificationsEndpointTest extends TestCase
 
     public function test_marking_read_is_scoped_to_the_calling_client(): void
     {
-        $client = Client::factory()->create(['email' => 'client@example.com']);
-        $user = User::factory()->create(['role' => UserRole::OFW->value, 'client_id' => $client->id]);
-        $case = CaseFile::factory()->open()->create(['client_id' => $client->id]);
+        $user = User::factory()->create(['role' => UserRole::OFW->value]);
+        $case = CaseFile::factory()->open()->create(['ofw_user_id' => $user->id, 'email' => 'client@example.com']);
         $notification = CaseNotification::create([
             'case_id' => $case->id,
-            'client_email' => $client->email,
+            'client_email' => $case->email,
             'type' => 'case_updated',
             'title' => 'title',
             'message' => 'message',

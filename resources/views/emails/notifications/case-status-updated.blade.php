@@ -2,12 +2,12 @@
 @php
 $statusLabel = ucwords(strtolower(str_replace('_', ' ', $newStatus)));
 $oldLabel = ucwords(strtolower(str_replace('_', ' ', $oldStatus)));
-$clientName = trim(($case->client?->first_name ?? '').' '.($case->client?->last_name ?? ''));
-// A case can hold several categories in the case_category pivot; category_id
-// is only the primary one.
-$categories = $case->categories->isNotEmpty()
-    ? $case->categories->pluck('name')->implode(', ')
-    : ($case->category?->name ?? 'N/A');
+$clientName = trim(($case->first_name ?? '').' '.($case->last_name ?? ''));
+$categories = $case->referrals
+    ->pluck('category.name')
+    ->filter()
+    ->unique()
+    ->implode(', ') ?: 'N/A';
 @endphp
 
 <p style="color: #a1a1aa; font-size: 12px; margin: 0 0 20px 0;">Request reference {{ $case->case_number }}</p>

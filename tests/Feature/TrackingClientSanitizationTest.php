@@ -2,10 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Models\CaseFile;
 use App\Models\CaseNotification;
-use App\Models\Client;
 use App\Models\Referral;
+use App\Models\User;
 use App\Services\CaseEventRecorder;
 use App\Services\TrackingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -26,8 +27,8 @@ class TrackingClientSanitizationTest extends TestCase
 
     private function makeCase(): array
     {
-        $client = Client::factory()->create();
-        $case = CaseFile::factory()->create(['client_id' => $client->id]);
+        $owner = User::factory()->create(['role' => UserRole::OFW->value]);
+        $case = CaseFile::factory()->create(['email' => 'intake@example.test', 'ofw_user_id' => $owner->id]);
         $referral = Referral::factory()->create([
             'case_id' => $case->id,
             'status' => 'PENDING',
@@ -39,7 +40,7 @@ class TrackingClientSanitizationTest extends TestCase
 
         CaseNotification::create([
             'case_id' => $case->id,
-            'client_email' => $client->email,
+            'client_email' => 'intake@example.test',
             'type' => 'referral_status_changed',
             'title' => 'Your referral has an update',
             'message' => 'An office updated your referral.',
@@ -54,7 +55,7 @@ class TrackingClientSanitizationTest extends TestCase
         ]);
         CaseNotification::create([
             'case_id' => $case->id,
-            'client_email' => $client->email,
+            'client_email' => 'intake@example.test',
             'type' => 'milestone_added',
             'title' => 'New update on your case',
             'message' => 'An office posted an update.',
@@ -63,7 +64,7 @@ class TrackingClientSanitizationTest extends TestCase
         ]);
         CaseNotification::create([
             'case_id' => $case->id,
-            'client_email' => $client->email,
+            'client_email' => 'intake@example.test',
             'type' => 'case_updated',
             'title' => 'Case Updated',
             'message' => 'The details of your case have been updated.',
@@ -73,24 +74,21 @@ class TrackingClientSanitizationTest extends TestCase
 
         $case = $case->fresh();
         $case->load([
-            'client.addresses',
-            'client.employments',
-            'client.nextOfKin',
             'referrals.agency',
             'referrals.services',
             'referrals.milestones.user',
             'user',
-            'category',
-            'categories',
+            'referrals.category',
         ]);
 
-        return [$case, $referral];
+        return [$case, $referral, $owner];
     }
 
     public function test_agency_cards_carry_no_staff_notes(): void
     {
-        [$case] = $this->makeCase();
+        [$case, , $owner] = $this->makeCase();
         $service = app(TrackingService::class);
+        $this->actingAs($owner);
 
         foreach ([false, true] as $flag) {
             $cards = $service->buildTrackingData($case, $flag)['trackingAgencies'];
@@ -102,8 +100,9 @@ class TrackingClientSanitizationTest extends TestCase
 
     public function test_notification_data_codes_are_stripped(): void
     {
-        [$case] = $this->makeCase();
+        [$case, , $owner] = $this->makeCase();
         $service = app(TrackingService::class);
+        $this->actingAs($owner);
 
         foreach ([false, true] as $flag) {
             $items = $service->buildTrackingData($case, $flag)['caseNotifications']['items'];
@@ -121,8 +120,9 @@ class TrackingClientSanitizationTest extends TestCase
 
     public function test_staff_deep_links_are_rewritten(): void
     {
-        [$case, $referral] = $this->makeCase();
+        [$case, $referral, $owner] = $this->makeCase();
         $service = app(TrackingService::class);
+        $this->actingAs($owner);
 
         foreach ([false, true] as $flag) {
             $items = $service->buildTrackingData($case, $flag)['caseNotifications']['items'];
@@ -148,8 +148,9 @@ class TrackingClientSanitizationTest extends TestCase
 
     public function test_public_milestones_url_behavior_preserved(): void
     {
-        [$case] = $this->makeCase();
+        [$case, , $owner] = $this->makeCase();
         $service = app(TrackingService::class);
+        $this->actingAs($owner);
 
         $public = $service->buildTrackingData($case);
         $portal = $service->buildTrackingData($case, forOfwPortal: true);
@@ -170,6 +171,21 @@ class TrackingClientSanitizationTest extends TestCase
         $this->assertSame('case_opened', $timeline[0]['type']);
         $this->assertSame('referral_sent', $timeline[1]['type']);
         $this->assertNotEmpty($timeline[0]['title']);
+    }
+
+    public function test_portal_notifications_require_authenticated_case_owner(): void
+    {
+        [$case, , $owner] = $this->makeCase();
+        $service = app(TrackingService::class);
+
+        $this->assertNotEmpty($service->buildTrackingData($case, forOfwPortal: false)['caseNotifications']['items']);
+        $this->assertSame([], $service->buildTrackingData($case, forOfwPortal: true)['caseNotifications']['items']);
+
+        $this->actingAs($owner);
+        $this->assertNotEmpty($service->buildTrackingData($case, forOfwPortal: true)['caseNotifications']['items']);
+
+        $this->actingAs(User::factory()->create(['role' => UserRole::OFW->value]));
+        $this->assertSame([], $service->buildTrackingData($case, forOfwPortal: true)['caseNotifications']['items']);
     }
 
     public function test_reads_are_always_fresh_without_invalidation(): void

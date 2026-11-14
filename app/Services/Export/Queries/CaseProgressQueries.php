@@ -2,6 +2,7 @@
 
 namespace App\Services\Export\Queries;
 
+use App\Enums\UserRole;
 use App\Models\User;
 use App\Services\Export\Queries\Concerns\ScopesForExportUser;
 use Illuminate\Support\Collection;
@@ -26,19 +27,19 @@ class CaseProgressQueries
                 'created_at',
                 'updated_at',
             ])
-            ->where('is_deleted', false);
+            ->where('is_deleted', false)
+            ->whereNull('deleted_at');
 
         if (! $this->isAdmin($user)) {
+            if ($user->role !== UserRole::AGENCY->value || ! $user->agcy_id) {
+                return collect();
+            }
             $query->whereIn('refr_id', function ($q) use ($user) {
                 $q->select('id')
                     ->from('referrals')
+                    ->where('agcy_id', $user->agcy_id)
                     ->where('is_deleted', false)
-                    ->whereIn('case_id', function ($q2) use ($user) {
-                        $q2->select('id')
-                            ->from('cases')
-                            ->where('user_id', $user->id)
-                            ->where('is_deleted', false);
-                    });
+                    ->whereNull('deleted_at');
             });
         }
 
@@ -61,14 +62,19 @@ class CaseProgressQueries
                 'created_at',
                 'updated_at',
             ])
-            ->where('is_deleted', false);
+            ->where('is_deleted', false)
+            ->whereNull('deleted_at');
 
         if (! $this->isAdmin($user)) {
+            if ($user->role !== UserRole::AGENCY->value || ! $user->agcy_id) {
+                return collect();
+            }
             $query->whereIn('case_id', function ($q) use ($user) {
-                $q->select('id')
-                    ->from('cases')
-                    ->where('user_id', $user->id)
-                    ->where('is_deleted', false);
+                $q->select('case_id')
+                    ->from('referrals')
+                    ->where('agcy_id', $user->agcy_id)
+                    ->where('is_deleted', false)
+                    ->whereNull('deleted_at');
             });
         }
 

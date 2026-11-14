@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Enums\UserRole;
-use App\Models\Client;
 use App\Models\User;
 use App\Services\CloudinaryAvatarService;
 use Cloudinary\Api\Exception\AuthorizationRequired;
@@ -133,22 +132,16 @@ class ProfileAvatarTest extends TestCase
     }
 
     #[Test]
-    public function ofw_profile_page_exposes_the_user_avatar_over_the_legacy_client_one(): void
+    public function ofw_profile_page_exposes_the_user_avatar(): void
     {
         $ofw = $this->makeOfw();
-
-        $clientAvatar = 'https://res.cloudinary.com/test-cloud/image/upload/v1750000000/client-profile-pictures/client-legacy.jpg';
-        $ofw->client->forceFill(['avatar_url' => $clientAvatar])->saveQuietly();
         $ofw->forceFill(['avatar_url' => self::OLD_AVATAR])->saveQuietly();
 
         $response = $this->actingAsWithMfa($ofw)->get(route('ofw.profile.edit'));
-
         $response->assertOk();
-        $page = $response->viewData('page');
-        $props = $page['props'] ?? [];
-
-        $this->assertSame(self::OLD_AVATAR, $props['user']['avatar_url'] ?? null, 'user.avatar_url must be exposed to the page.');
-        $this->assertSame(self::OLD_AVATAR, $props['client']['avatar_url'] ?? null, 'The user avatar must win over the legacy client avatar.');
+        $props = $response->viewData('page')['props'] ?? [];
+        $this->assertSame(self::OLD_AVATAR, $props['user']['avatar_url'] ?? null);
+        $this->assertArrayNotHasKey('client', $props);
     }
 
     #[Test]
@@ -162,17 +155,7 @@ class ProfileAvatarTest extends TestCase
 
     private function makeOfw(): User
     {
-        $ofw = User::factory()->create(['role' => UserRole::OFW->value]);
-        $client = Client::factory()->create([
-            'type' => 'OFW',
-            'user_id' => $ofw->id,
-            'first_name' => 'Test',
-            'last_name' => 'Ofw',
-        ]);
-
-        $ofw->forceFill(['client_id' => $client->id])->saveQuietly();
-
-        return $ofw->fresh();
+        return User::factory()->create(['role' => UserRole::OFW->value]);
     }
 
     /**

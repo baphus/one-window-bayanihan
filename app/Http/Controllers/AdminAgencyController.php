@@ -224,9 +224,21 @@ class AdminAgencyController extends Controller
 
         $perPage = $this->perPage($request, 15);
         $referrals = $agency->referrals()
-            ->with(['caseFile.client'])
+            ->with('caseFile')
             ->latest()
-            ->paginate($perPage);
+            ->paginate($perPage)
+            ->through(fn ($referral) => [
+                'id' => $referral->id,
+                'status' => $referral->status,
+                'required_services' => $referral->required_services,
+                'created_at' => $referral->created_at,
+                'case_file' => $referral->caseFile ? [
+                    'id' => $referral->caseFile->id,
+                    'case_number' => $referral->caseFile->case_number,
+                    'first_name' => $referral->caseFile->first_name,
+                    'last_name' => $referral->caseFile->last_name,
+                ] : null,
+            ]);
 
         return Inertia::render('Admin/Agency/Show', [
             'agency' => $agency,

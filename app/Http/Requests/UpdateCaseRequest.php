@@ -2,62 +2,67 @@
 
 namespace App\Http\Requests;
 
+use App\Models\CaseFile;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
+use Illuminate\Support\Carbon;
 
 class UpdateCaseRequest extends FormRequest
 {
+    public const EDITABLE_FIELDS = [
+        'intake_date', 'first_name', 'middle_name', 'last_name', 'suffix', 'date_of_birth', 'sex',
+        'email', 'contact_number', 'civil_status', 'civil_status_other', 'deployment_mode', 'employment_status',
+        'address_region', 'address_province', 'address_city_municipality', 'address_barangay', 'address_street',
+        'address_region_code', 'address_province_code', 'address_city_municipality_code', 'address_barangay_code',
+        'employment_employer_name', 'employment_employer_address', 'employment_position', 'employment_country',
+        'employment_last_position',
+        'employment_date_of_arrival', 'nok_name', 'nok_relationship', 'nok_contact_number', 'nok_email',
+        'summary', 'vulnerability_indicator', 'nok_vulnerability_indicator',
+    ];
+
     public function authorize(): bool
     {
-        return true;
-    }
+        $case = CaseFile::find($this->route('case'));
+        $actor = $this->user();
 
-    protected function prepareForValidation(): void
-    {
-        if ($this->has('category_id') && $this->category_id === '') {
-            $this->merge(['category_id' => null]);
-        }
-
-        if ($this->has('category_ids') && $this->input('category_ids') === '') {
-            $this->merge(['category_ids' => null]);
-        }
-
-        if ($this->has('case_issue_id') && $this->case_issue_id === '') {
-            $this->merge(['case_issue_id' => null]);
-        }
+        return $case && $actor && ($actor->isAdmin() || ($actor->isCaseManager() && $case->assigned_case_manager_id === $actor->id));
     }
 
     public function rules(): array
     {
-        // Only issue/concern and category are editable on the case detail
-        // screen. Status, vulnerability and narrative are deliberately not
-        // accepted here: status changes go through the dedicated toggle /
-        // archive routes, and narrative + vulnerability are set at intake and
-        // approval time. Keys outside this list are ignored, so a caller that
-        // still sends them gets a silent no-op rather than a partial write.
-        return [
-            'case_issue_id' => ['nullable', 'string', 'exists:case_issues,id'],
-            // Category fields are optional on partial edits; existing assignments
-            // remain unchanged when neither field is submitted.
-            'category_id' => ['bail', 'nullable', 'string', 'uuid', Rule::exists('case_categories', 'id')->where('is_active', true)],
-            'category_ids' => ['nullable', 'array'],
-            'category_ids.*' => ['bail', 'uuid', 'distinct', Rule::exists('case_categories', 'id')->where('is_active', true)],
-        ];
+        $case = CaseFile::findOrFail($this->route('case'));
+        $source = new StoreCaseRequest;
+        $source->setUserResolver(fn () => $this->user());
+        $source->replace(array_merge($case->only(self::EDITABLE_FIELDS), $this->all()));
+        $rules = array_intersect_key($source->rules(), array_flip(self::EDITABLE_FIELDS));
+        foreach ($rules as &$rule) {
+            array_unshift($rule, 'sometimes');
+        }
+        unset($rule);
+        $dob = $this->input('date_of_birth', $case->date_of_birth?->toDateString());
+        $rules['date_of_birth'] = ['sometimes', 'required', 'date_format:Y-m-d'];
+        $rules['employment_date_of_arrival'] = ['sometimes', 'nullable', 'date', 'before_or_equal:today'];
+        if ($dob) {
+            $rules['employment_date_of_arrival'][] = 'after_or_equal:'.$dob;
+        }
+        $rules['correction_reason'] = ['required', 'string', 'max:1000'];
+        foreach (['ofw_user_id', 'assigned_case_manager_id', 'user_id', 'client_id', 'client_type', 'consent_method', 'consent_text_version', 'consent_evidence', 'consent_accepted_by', 'consent_given_at', 'proposed_assessments', 'proposed_assessment_by', 'proposed_assessment_at', 'confirmed_assessments', 'confirmed_assessment_by', 'confirmed_assessment_at', 'return_reason', 'missing_document_reasons', 'requested_document_slots', 'document_request_reason', 'document_requested_by', 'document_requested_at', 'reviewed_document_ids', 'last_correction_reason', 'status', 'reviewed_by', 'reviewed_at'] as $field) {
+            $rules[$field] = ['prohibited'];
+        }
+
+        return $rules;
     }
 
     protected function withValidator($validator): void
     {
         $validator->after(function ($validator) {
-            if ($this->has('category_id') && $this->has('category_ids')) {
-                $validator->errors()->add('category_ids', 'Use either category_id or category_ids, not both.');
-            }
-
-            if ($this->has('category_id') && ! $this->filled('category_id')) {
-                $validator->errors()->add('category_id', 'At least one category is required.');
-            }
-
-            if ($this->has('category_ids') && empty($this->input('category_ids'))) {
-                $validator->errors()->add('category_ids', 'At least one category is required.');
+            $case = CaseFile::findOrFail($this->route('case'));
+            $dob = $this->input('date_of_birth', $case->date_of_birth?->toDateString());
+            $intake = $this->input('intake_date', $case->intake_date?->toDateString());
+            if ($dob && $intake && ! $validator->errors()->has('date_of_birth') && ! $validator->errors()->has('intake_date')) {
+                $age = Carbon::parse($dob)->diffInYears(Carbon::parse($intake), false);
+                if ($age < 15 || $age > 100) {
+                    $validator->errors()->add('date_of_birth', 'Age at intake must be between 15 and 100.');
+                }
             }
         });
     }

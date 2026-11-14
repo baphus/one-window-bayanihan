@@ -35,8 +35,7 @@ class TrackingMetricsTest extends TestCase
     private function loadRelations(CaseFile $case): CaseFile
     {
         $case->load([
-            'client.addresses',
-            'client.employments',
+            'referrals.category',
             'referrals.agency',
             'referrals.services',
             'referrals.milestones.user',

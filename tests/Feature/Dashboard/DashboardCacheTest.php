@@ -5,7 +5,6 @@ namespace Tests\Feature\Dashboard;
 use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\CaseFile;
-use App\Models\Client;
 use App\Models\Referral;
 use App\Models\User;
 use App\Services\DashboardService;
@@ -75,9 +74,7 @@ class DashboardCacheTest extends TestCase
         $this->assertTrue(Cache::has('dashboard:agency_recent_activity:'.$agency->id));
         $this->assertTrue(Cache::has('dashboard:admin_recent_logs'));
 
-        $case = CaseFile::factory()->create([
-            'client_id' => Client::factory()->create()->id,
-        ]);
+        $case = CaseFile::factory()->create();
         Referral::factory()->create(['case_id' => $case->id, 'agcy_id' => $agency->id]);
 
         $this->assertFalse(Cache::has('dashboard:cm_recent_activity'));
@@ -89,21 +86,19 @@ class DashboardCacheTest extends TestCase
     {
         $agency = Agency::factory()->create();
         $agencyUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id]);
-        $client = Client::factory()->create();
-
         $pending = Referral::factory()->pending()->create([
             'agcy_id' => $agency->id,
-            'case_id' => CaseFile::factory()->create(['client_id' => $client->id])->id,
+            'case_id' => CaseFile::factory()->create()->id,
         ]);
         $processing = Referral::factory()->processing()->create([
             'agcy_id' => $agency->id,
-            'case_id' => CaseFile::factory()->create(['client_id' => $client->id])->id,
+            'case_id' => CaseFile::factory()->create()->id,
         ]);
         // Overdue threshold is the referral_overdue_days setting (default 7),
         // so the seed must age beyond it to land in the overdue queue.
         $overdue = Referral::factory()->pending()->create([
             'agcy_id' => $agency->id,
-            'case_id' => CaseFile::factory()->create(['client_id' => $client->id])->id,
+            'case_id' => CaseFile::factory()->create()->id,
             'created_at' => now()->subDays(8),
             'updated_at' => now()->subDays(8),
         ]);
@@ -127,9 +122,7 @@ class DashboardCacheTest extends TestCase
         $this->assertTrue(Cache::has('dashboard:cm_recent_activity'));
         $this->assertTrue(Cache::has('dashboard:admin_recent_logs'));
 
-        CaseFile::factory()->create([
-            'client_id' => Client::factory()->create()->id,
-        ]);
+        CaseFile::factory()->create();
 
         $this->assertFalse(Cache::has('dashboard:cm_recent_activity'));
         $this->assertFalse(Cache::has('dashboard:admin_recent_logs'));

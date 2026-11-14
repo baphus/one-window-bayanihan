@@ -4,12 +4,15 @@ namespace App\Http\Controllers;
 
 use App\Enums\AuditModule;
 use App\Enums\UserRole;
+use App\Http\Requests\ApproveIntakeRequest;
 use App\Http\Requests\StoreCaseRequest;
 use App\Http\Requests\StoreIntakeRequest;
+use App\Http\Requests\UpdateCaseCategoriesRequest;
 use App\Http\Requests\UpdateCaseRequest;
 use App\Mail\IntakeReviewMail;
+use App\Models\Agency;
+use App\Models\CaseCategory;
 use App\Models\CaseFile;
-use App\Models\Client;
 use App\Models\SystemSetting;
 use App\Models\User;
 use App\Rules\VulnerabilityRule;
@@ -17,20 +20,20 @@ use App\Services\AuditLogger;
 use App\Services\CaseService;
 use App\Services\Export\DataExportQueries;
 use App\Services\Export\DataExportService;
+use App\Services\IntakeDocumentService;
 use App\Services\OnboardingService;
 use App\Services\ReferenceDataService;
+use App\Services\StorageService;
 use App\Services\TrackingService;
 use App\Support\CategoryFilter;
 use App\Support\MultiSelectFilter;
 use Barryvdh\DomPDF\Facade\Pdf;
-use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Request;
-use Illuminate\Support\Arr;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
+use setasign\Fpdi\Fpdi;
 
 class CaseController extends Controller
 {
@@ -49,8 +52,8 @@ class CaseController extends Controller
 
         // Filter options come from the reference tables, so a value the page
         // offers is always a value the database actually holds.
-        $caseStatusOptions = array_column($this->referenceData->getCaseStatusOptions(), 'value');
-        $clientTypeOptions = array_column($this->referenceData->getClientTypeOptions(), 'value');
+        $caseStatusOptions = array_values(array_unique([...array_column($this->referenceData->getCaseStatusOptions(), 'value'), 'REJECTED']));
+        $clientTypeOptions = ['OFW', 'NEXT_OF_KIN'];
         $vulnerabilityOptions = array_column($this->referenceData->getVulnerabilityOptions(), 'value');
 
         // agcy_id is the agencies FK column name (also on users/referrals),
@@ -68,7 +71,6 @@ class CaseController extends Controller
             'vulnerability_indicator' => MultiSelectFilter::rule($vulnerabilityOptions),
             'user_id' => ['nullable'],
             'agcy_id' => ['nullable'],
-            'case_issue_id' => ['nullable'],
             'age_min_days' => ['nullable', 'integer', 'min:0', 'max:3650'],
             'referral_state' => ['nullable', 'string', 'in:none'],
             'date_from' => ['nullable', 'string', 'date_format:Y-m-d'],
@@ -82,7 +84,7 @@ class CaseController extends Controller
 
         // Normalise the list filters to arrays so the query layer and the echoed
         // `filters` prop always agree on one shape.
-        foreach (['status', 'client_type', 'vulnerability_indicator', 'user_id', 'agcy_id', 'case_issue_id'] as $key) {
+        foreach (['status', 'client_type', 'vulnerability_indicator', 'user_id', 'agcy_id'] as $key) {
             $values = MultiSelectFilter::ids($filters[$key] ?? null);
             $filters[$key] = $values === [] ? null : $values;
         }
@@ -95,44 +97,54 @@ class CaseController extends Controller
         );
 
         return Inertia::render('Case/Index', [
-            'cases' => $cases,
+            'cases' => $cases->through(fn ($case) => $this->caseService->caseListPayload($case)),
             'filters' => (object) array_filter($filters, fn ($value) => $value !== null),
             'stats' => $this->caseService->getCaseStats($request->user()),
             'users' => $this->referenceData->getCaseManagerUsers(),
             'agencies' => $this->referenceData->getAgenciesDropdown(),
             'categories' => $this->referenceData->getActiveCategories(),
-            'caseIssues' => $this->referenceData->getActiveIssues(),
             'statuses' => $this->referenceData->getCaseStatusOptions(),
-            'clientTypes' => $this->referenceData->getClientTypeOptions(),
+            'clientTypes' => array_map(
+                fn (string $type) => ['value' => $type, 'label' => $type === 'OFW' ? 'Overseas Filipino Worker' : 'Next of Kin'],
+                ['OFW', 'NEXT_OF_KIN'],
+            ),
             'vulnerabilities' => $this->referenceData->getVulnerabilityOptions(),
         ]);
     }
 
+    private function intakeProps(): array
+    {
+        return [
+            'consentTextVersion' => IntakeDocumentService::CONSENT_VERSION,
+            'documentSlots' => IntakeDocumentService::SLOTS,
+            'returnReasons' => IntakeDocumentService::RETURN_REASONS,
+            'civilStatuses' => CaseFile::CIVIL_STATUSES,
+            'deploymentModes' => CaseFile::DEPLOYMENT_MODES,
+            'employmentStatuses' => CaseFile::EMPLOYMENT_STATUSES,
+            'assessmentOptions' => CaseFile::ASSESSMENTS,
+            'vulnerabilityOptions' => VulnerabilityRule::VALUES,
+            'occupationOptions' => $this->referenceData->getOccupationOptions(),
+        ];
+    }
+
     public function create(Request $request)
     {
-        if ($request->user()->isOfw() && $request->user()->isNextOfKin()) {
-            return redirect()->route('dashboard')->with('error', 'Requests filed by next of kin must be submitted through DMW staff. Please visit the DMW Region VII office for assistance.');
-        }
+        return Inertia::render('Case/Create', $this->intakeProps());
+    }
 
-        $client = null;
-        if ($request->has('client_id')) {
-            $client = Client::with(['addresses', 'employments', 'nextOfKin', 'caseFiles'])->find($request->client_id);
-            // OFW self-file: only their own linked client may prefill.
-            if ($request->user()->isOfw() && (! $client || $client->id !== $request->user()->client_id)) {
-                $client = $request->user()->client
-                    ? $request->user()->client->load(['addresses', 'employments', 'nextOfKin', 'caseFiles'])
-                    : null;
-            }
-        } elseif ($request->user()->isOfw() && $request->user()->client) {
-            $client = $request->user()->client->load(['addresses', 'employments', 'nextOfKin', 'caseFiles']);
-        }
+    /**
+     * Which active OFW account, if any, a typed email belongs to.
+     * Name only: the filer needs to confirm who they are filing for.
+     */
+    public function lookupOfw(Request $request)
+    {
+        $data = $request->validate(['email' => ['required', 'email', 'max:255']]);
 
-        return Inertia::render('Case/Create', [
-            'client' => $client,
-            'categories' => $this->referenceData->getActiveCategories(),
-            'caseIssues' => $this->referenceData->getActiveIssues(),
-            'occupationOptions' => $this->referenceData->getOccupationOptions(),
-        ]);
+        return response()->json(['name' => User::query()
+            ->where('email', $data['email'])
+            ->where('role', UserRole::OFW->value)
+            ->where('is_active', true)
+            ->value('name')]);
     }
 
     public function store(StoreCaseRequest $request)
@@ -154,82 +166,15 @@ class CaseController extends Controller
 
     public function intake()
     {
-        $user = auth()->user();
-
-        if ($user->isOfw() && $user->isNextOfKin()) {
-            return redirect()->route('dashboard')->with('error', 'Requests filed by next of kin must be submitted through DMW staff. Please visit the DMW Region VII office for assistance.');
-        }
-
-        // Resolve linked client same way storeIntake does: OFW always files for
-        // their own linked client. If no client yet, profile is empty so the
-        // intake form can prompt the user to complete their profile first.
-        $client = $user && $user->client
-            ? $user->client->load(['addresses', 'employments', 'nextOfKin'])
-            : null;
-
-        // Mirror OfwProfileController's singular address/employment payload so the
-        // Intake "Review your details" panel reads profile.address.* / profile.employment.*
-        // (the raw loaded addresses[]/employments[] collections are retained too).
-        $profile = null;
-        if ($client) {
-            $profile = $client->toArray();
-
-            $address = $client->addresses()->orderBy('created_at')->first();
-            $employment = $client->employments()->orderBy('created_at')->first();
-
-            $profile['address'] = $address ? [
-                'region' => $address->region,
-                'province' => $address->province,
-                'city_municipality' => $address->city_municipality,
-                'barangay' => $address->barangay,
-                'street' => $address->street,
-            ] : null;
-
-            $profile['employment'] = $employment ? [
-                'employer_name' => $employment->employer_name,
-                'position' => $employment->position,
-                'country' => $employment->country,
-                'start_date' => $employment->start_date?->toDateString(),
-                'end_date' => $employment->end_date?->toDateString(),
-                'last_country' => $employment->last_country,
-                'last_position' => $employment->last_position,
-                'date_of_arrival' => $employment->date_of_arrival?->toDateString(),
-            ] : null;
-        }
-
-        return Inertia::render('OFW/Intake', [
-            'profile' => $profile,
-            'vulnerabilityOptions' => VulnerabilityRule::VALUES,
-        ]);
+        return Inertia::render('OFW/Intake', $this->intakeProps());
     }
 
     public function storeIntake(StoreIntakeRequest $request)
     {
         $validated = $request->validated();
 
-        // Resolve client_id from the authenticated OFW user
         $user = $request->user();
-        $client = $user->client;
-
-        if (! $client) {
-            return back()
-                ->withInput()
-                ->withErrors(['client' => 'No linked client found. Please complete your profile first.']);
-        }
-
-        // Build case data from the explicit allow-list only. StoreIntakeRequest
-        // already drops category_id / category_ids / case_issue_id, but repeat
-        // the allow-list here so a future rule change cannot silently widen the
-        // intake boundary (defence in depth).
-        $caseData = array_merge(Arr::only($validated, ['summary', 'vulnerability_indicator', 'consent']), [
-            'user_id' => $user->id,
-            'client_id' => $client->id,
-        ]);
-
-        $case = $this->caseService->createCase(
-            $caseData,
-            $user->id,
-        );
+        $case = $this->caseService->createCase($validated, $user->id);
 
         Mail::to($user->email)->queue((new IntakeReviewMail($case))->afterCommit());
 
@@ -263,14 +208,9 @@ class CaseController extends Controller
         ]);
         $direction = $listing['direction'] ?? 'asc';
 
-        $cases = CaseFile::with([
-            'client.addresses',
-            'client.employments',
-            'client.nextOfKin',
-            'categories',
-            'category',
-            'caseIssue',
-        ])
+        $cases = CaseFile::with(['documents' => fn ($query) => $query
+            ->whereNull('referral_id')
+            ->where('is_deleted', false)])
             ->where('status', CaseFile::STATUS_PENDING_REVIEW)
             ->where('is_deleted', false)
             ->when($request->user()->isAgency() && $request->user()->agcy_id, function ($query) use ($request) {
@@ -280,57 +220,36 @@ class CaseController extends Controller
             ->paginate((int) ($listing['per_page'] ?? 15));
 
         return Inertia::render('Case/ReviewPending', [
-            'cases' => $cases,
+            'cases' => $cases->through(fn ($case) => $this->authorizedIntakePayload($case)),
+            ...$this->intakeProps(),
             'filters' => (object) $request->only(['search']),
             'sort' => 'created_at',
             'direction' => $direction,
-            'categories' => $this->referenceData->getActiveCategories(),
-            'caseIssues' => $this->referenceData->getActiveIssues(),
+            'categories' => CaseCategory::where('is_active', true)
+                ->with(['suggestedAgencies' => fn ($query) => $query
+                    ->where('agencies.is_active', true)
+                    ->where('agencies.is_deleted', false)
+                    ->select('agencies.id', 'agencies.name', 'agencies.short')])
+                ->orderBy('sort_order')
+                ->get(['id', 'name', 'color'])
+                ->map(fn (CaseCategory $category) => [
+                    'id' => $category->id,
+                    'name' => $category->name,
+                    'color' => $category->color,
+                    'suggested_agency_ids' => $category->suggestedAgencies->pluck('id')->all(),
+                ]),
+            'agencies' => Agency::where('is_active', true)
+                ->where('is_deleted', false)
+                ->orderBy('name')
+                ->get(['id', 'name', 'short']),
         ]);
     }
 
-    public function reviewApprove(Request $request, CaseFile $case)
+    public function reviewApprove(ApproveIntakeRequest $request, CaseFile $case)
     {
-        $user = $request->user();
+        $this->caseService->approveCase($case->id, $request->user()->id, $request->validated());
 
-        abort_unless(in_array($user->role, [UserRole::CASE_MANAGER->value, UserRole::ADMIN->value], true), 403);
-
-        abort_unless($case->status === CaseFile::STATUS_PENDING_REVIEW, 404);
-
-        // Require category_ids and case_issue_id at approve time for cases
-        // that don't already have categories (backward compat: staff-created
-        // cases already have categories so approve still works without re-entry).
-        $hasExistingCategories = $case->categories()->exists();
-
-        $categoryIds = [];
-        $caseIssueId = null;
-
-        if (! $hasExistingCategories) {
-            // Validate category_ids and case_issue_id for intake-created cases
-            $validated = $request->validate([
-                'category_ids' => ['required', 'array', 'min:1'],
-                'category_ids.*' => ['bail', 'uuid', 'distinct', Rule::exists('case_categories', 'id')->where('is_active', true)],
-                'case_issue_id' => ['required', 'string', 'exists:case_issues,id'],
-            ]);
-
-            $categoryIds = $validated['category_ids'];
-            $caseIssueId = $validated['case_issue_id'];
-        }
-        // Backward compat: staff-created cases already have categories;
-        // no need to re-validate or re-sync
-
-        // Flip to OPEN via approveCase (atomic transaction, sets reviewed_by/Reviewed_at).
-        // Category IDs and case issue ID are synced within the transaction if provided.
-        $case = $this->caseService->approveCase(
-            $case->id,
-            $user->id,
-            $categoryIds,
-            $caseIssueId,
-        );
-
-        return redirect()
-            ->route('cases.index')
-            ->with('success', 'Case approved successfully.');
+        return redirect()->route('cases.index')->with('success', 'Case approved successfully.');
     }
 
     public function reviewReject(Request $request, CaseFile $case)
@@ -345,11 +264,16 @@ class CaseController extends Controller
             'reason' => ['required', 'string', 'max:1000'],
         ]);
 
-        $this->caseService->rejectCase($case->id, $validated['reason'], $user->id);
+        $slots = $request->validate([
+            'slots' => ['sometimes', 'array', 'min:1', 'required_with:slots.*'],
+            'slots.*' => ['required', 'distinct', Rule::in(IntakeDocumentService::REQUIREMENT_KEYS)],
+        ])['slots'] ?? [];
+
+        $this->caseService->rejectCase($case->id, $validated['reason'], $user->id, $slots);
 
         return redirect()
             ->route('cases.review-pending')
-            ->with('success', 'Case rejected.');
+            ->with('success', 'Case declined.');
     }
 
     public function show(string $id, Request $request)
@@ -391,24 +315,37 @@ class CaseController extends Controller
             visibleReferralIds: $visibleReferralIds,
         )['milestoneTimeline'];
 
-        $categories = $this->referenceData->getActiveCategories();
-        $caseIssues = $this->referenceData->getActiveIssues();
-
         $approver = $case->reviewer ? [
             'name' => $case->reviewer->name,
             'role' => UserRole::tryFrom($case->reviewer->role)?->label(),
             'at' => $case->reviewed_at?->toISOString(),
         ] : null;
 
+        $case->load('categories:id,name');
+        $caseCategories = $case->categories->map(fn (CaseCategory $category) => ['id' => $category->id, 'name' => $category->name])->values();
+        $managerView = $request->user()->isCaseManager();
+
         return Inertia::render('Case/Show', [
-            'case' => $case,
+            'case' => $this->authorizedIntakePayload($case),
+            'case_categories' => $caseCategories,
+            'recommended_agencies' => $managerView ? $case->categories->load('suggestedAgencies:id,name,short,is_active,is_deleted')->flatMap(fn (CaseCategory $category) => $category->suggestedAgencies)->filter(fn ($agency) => $agency->is_active && ! $agency->is_deleted)->unique('id')->values()->map(fn ($agency) => ['id' => $agency->id, 'name' => $agency->name, 'short' => $agency->short]) : null,
+            'documentRequirements' => $request->user()->isAgency()
+                ? []
+                : IntakeDocumentService::requirementList($case),
+            ...$this->intakeProps(),
+            'categories' => $managerView ? $this->referenceData->getActiveCategories() : [],
             'overdueDays' => $overdueDays,
             'milestoneTimeline' => $milestonesForViewer,
-            'categories' => $categories,
-            'caseIssues' => $caseIssues,
             'approver' => $approver,
             'lifecycle' => $this->caseService->getCaseLifecycle($case),
         ]);
+    }
+
+    public function updateCategories(UpdateCaseCategoriesRequest $request, CaseFile $case)
+    {
+        $case->categories()->sync($request->validated('category_ids'));
+
+        return back()->with('success', 'Case categories updated.');
     }
 
     public function update(UpdateCaseRequest $request, string $id)
@@ -471,7 +408,7 @@ class CaseController extends Controller
      */
     private const CASE_EXPORT_FILTER_KEYS = [
         'status', 'search', 'client_type', 'vulnerability_indicator',
-        'user_id', 'agcy_id', 'case_issue_id',
+        'user_id', 'agcy_id',
         'age_min_days', 'referral_state', 'date_from', 'date_to',
     ];
 
@@ -500,6 +437,8 @@ class CaseController extends Controller
 
         $queries = $this->exportQueries;
         $exportService = $this->exportService;
+
+        abort_if($queries->countCasesExport($user, $filters) > 10000, 422, 'More than 10,000 cases match. Narrow filters before exporting.');
 
         $data = $queries->getCasesExport($user, $filters);
 
@@ -544,84 +483,111 @@ class CaseController extends Controller
 
     public function exportPdf(string $id, Request $request)
     {
-        $case = $this->caseService->getCase($id);
+        abort_unless($request->user()->isCaseManager() || $request->user()->isAdmin(), 403);
+        $case = CaseFile::with(['user', 'reviewer', 'categories', 'caseEvents', 'referrals.category', 'referrals.agency', 'documents' => fn ($query) => $query->whereNull('referral_id')->where('is_deleted', false)->orderBy('created_at')])->findOrFail($id);
         $this->authorizeCaseAccess($case, $request->user());
+        $documents = $case->documents->filter(fn ($document) => in_array($document->category, IntakeDocumentService::SLOTS, true))->values();
+        $annexes = $documents->map(fn ($document) => [
+            'name' => IntakeDocumentService::REQUIREMENT_LABELS[$document->category],
+            'type' => $document->file_type,
+            'created_at' => $document->created_at,
+            'file_name' => $document->file_name,
+            'included' => in_array($document->file_type, ['application/pdf', 'image/jpeg', 'image/png'], true),
+        ])->all();
+        $pdf = Pdf::loadView('pdf.case-report', [
+            'case' => $case,
+            'referrals' => $case->referrals,
+            'latestEvent' => $case->caseEvents->sortByDesc('occurred_at')->first(),
+            'documentAnnexes' => $annexes,
+            'exportedAt' => now(config('app.operating_timezone', 'Asia/Manila'))->format('M d, Y h:i A'),
+        ])->setPaper('a4', 'portrait');
 
-        $client = $case->client;
-        $primaryEmployment = $client->employments->first();
-        $primaryAddress = $client->addresses->first();
-        $latestEvent = $case->caseEvents()->latest('occurred_at')->latest('created_at')->first();
-        $avatar = null;
-        $avatarUrl = $client->getRawOriginal('avatar_url');
+        $merged = new Fpdi;
+        $streams = [];
+        try {
+            $base = fopen('php://temp', 'w+b');
+            $streams[] = $base;
+            fwrite($base, $pdf->output());
+            rewind($base);
+            $this->appendPdfPages($merged, $base);
 
-        // Only fetch uploaded avatars from the trusted image host; never arbitrary URLs.
-        if ($avatarUrl && parse_url($avatarUrl, PHP_URL_SCHEME) === 'https'
-            && parse_url($avatarUrl, PHP_URL_HOST) === 'res.cloudinary.com') {
-            try {
-                $response = Http::timeout(5)
-                    ->withOptions(['allow_redirects' => false])->get($avatarUrl);
-                $image = $response->body();
-                $info = $response->successful() && strlen($image) <= 5 * 1024 * 1024
-                    ? @getimagesizefromstring($image) : false;
-
-                if ($info && $info['mime'] === 'image/webp' && function_exists('imagecreatefromstring')) {
-                    $decoded = @imagecreatefromstring($image);
-                    if ($decoded !== false) {
-                        ob_start();
-                        imagepng($decoded);
-                        $image = ob_get_clean();
-                        imagedestroy($decoded);
-                        $info['mime'] = 'image/png';
+            $disk = Storage::disk(app(StorageService::class)->diskName());
+            foreach ($documents as $document) {
+                $name = IntakeDocumentService::REQUIREMENT_LABELS[$document->category];
+                $mime = strtolower((string) $document->file_type);
+                if (! in_array($mime, ['application/pdf', 'image/jpeg', 'image/png'], true)) {
+                    continue;
+                }
+                try {
+                    $stream = $disk->readStream(ltrim($document->file_path, '/'));
+                } catch (\Throwable $e) {
+                    abort(422, "Required annex unavailable: {$name}.");
+                }
+                abort_unless(is_resource($stream), 422, "Required annex unavailable: {$name}.");
+                $streams[] = $stream;
+                if ($mime === 'application/pdf') {
+                    try {
+                        $this->appendPdfPages($merged, $stream, $name);
+                    } catch (\Throwable $e) {
+                        abort(422, "Required PDF annex cannot be imported: {$name}.");
+                    }
+                } elseif (in_array($mime, ['image/jpeg', 'image/png'], true)) {
+                    $bytes = stream_get_contents($stream);
+                    $dimensions = $bytes === false ? false : @getimagesizefromstring($bytes);
+                    abort_if($dimensions === false, 422, "Required image annex cannot be read: {$name}.");
+                    $image = tempnam(sys_get_temp_dir(), 'case-annex-');
+                    abort_if($image === false, 422, "Required image annex cannot be prepared: {$name}.");
+                    try {
+                        file_put_contents($image, $bytes);
+                        $merged->AddPage('P', 'A4');
+                        $merged->SetFont('Arial', 'B', 11);
+                        $merged->Cell(0, 12, iconv('UTF-8', 'ISO-8859-1//TRANSLIT', $name) ?: 'Required document', 0, 1);
+                        [$width, $height] = $dimensions;
+                        $scale = min(185 / $width, 260 / $height);
+                        $merged->Image($image, 12, 26, $width * $scale, $height * $scale, $mime === 'image/jpeg' ? 'JPG' : 'PNG');
+                    } catch (\Throwable $e) {
+                        abort(422, "Required image annex cannot be imported: {$name}.");
+                    } finally {
+                        unlink($image);
                     }
                 }
-
-                if ($info && in_array($info['mime'], ['image/jpeg', 'image/png', 'image/gif'], true)) {
-                    $avatar = 'data:'.$info['mime'].';base64,'.base64_encode($image);
+            }
+            $output = $merged->Output('S');
+        } finally {
+            foreach ($streams as $stream) {
+                if (is_resource($stream)) {
+                    fclose($stream);
                 }
-            } catch (ConnectionException $e) {
-                Log::notice('Case PDF avatar unavailable.', ['case_id' => $case->id]);
             }
         }
-
-        $data = [
-            'case' => $case,
-            'client' => $client,
-            'avatar' => $avatar,
-            'employment' => $primaryEmployment,
-            'address' => $primaryAddress,
-            'referrals' => $case->referrals,
-            'latestEvent' => $latestEvent,
-            'exportedAt' => now(config('app.operating_timezone', 'Asia/Manila'))->format('M d, Y h:i A'),
-        ];
-
-        // Shorten narrative, never shrink text or silently discard agency rows.
-        foreach ([500, 240, 100] as $textLimit) {
-            $pdf = Pdf::loadView('pdf.case-report', $data + ['textLimit' => $textLimit])
-                ->setPaper('a4', 'portrait');
-            $pdf->render();
-
-            if ($pdf->getDomPDF()->getCanvas()->get_page_count() === 1) {
-                break;
-            }
-        }
-
-        abort_if($pdf->getDomPDF()->getCanvas()->get_page_count() !== 1, 422,
-            'This case has too much agency or profile information for a readable one-page summary. No details were silently omitted.');
 
         $filename = 'case-report-'.$case->case_number.'-'.now(config('app.operating_timezone', 'Asia/Manila'))->format('Ymd-His').'.pdf';
+        AuditLogger::export()->by($request->user())->module(AuditModule::DATA_EXPORT)
+            ->context(null, ['format' => 'pdf', 'scope' => 'case'])->write();
 
-        AuditLogger::export()
-            ->by($request->user())
-            ->module(AuditModule::DATA_EXPORT)
-            ->context(null, ['format' => 'pdf', 'scope' => 'case'])
-            ->write();
-
-        return response()->streamDownload(function () use ($pdf) {
-            echo $pdf->output();
-        }, $filename, [
+        return response($output, 200, [
             'Content-Type' => 'application/pdf',
-            'Cache-Control' => 'max-age=0',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+            'Cache-Control' => 'no-store, private',
         ]);
+    }
+
+    private function appendPdfPages(Fpdi $merged, $stream, ?string $name = null): void
+    {
+        rewind($stream);
+        $count = $merged->setSourceFile($stream);
+        abort_if($count < 1, 422, 'Required PDF annex has no pages.');
+        for ($page = 1; $page <= $count; $page++) {
+            $template = $merged->importPage($page);
+            $size = $merged->getTemplateSize($template);
+            $heading = $name === null ? 0 : 16;
+            $merged->AddPage($size['orientation'], [$size['width'], $size['height'] + $heading]);
+            if ($name !== null) {
+                $merged->SetFont('Arial', 'B', 10);
+                $merged->Cell(0, 12, iconv('UTF-8', 'ISO-8859-1//TRANSLIT', $name) ?: 'Required document', 0, 1);
+            }
+            $merged->useTemplate($template, 0, $heading, $size['width'], $size['height']);
+        }
     }
 
     public function trashIndex(Request $request)
@@ -677,7 +643,8 @@ class CaseController extends Controller
             ['key' => 'tracker_number', 'label' => 'Case Tracking ID', 'type' => 'string'],
             ['key' => 'ofw_full_name', 'label' => 'OFW Full Name', 'type' => 'string'],
             ['key' => 'ofw_sex', 'label' => 'OFW Sex/Gender', 'type' => 'string'],
-            ['key' => 'ofw_date_of_birth', 'label' => 'OFW Date of Birth', 'type' => 'date'],
+            ['key' => 'intake_date', 'label' => 'Intake Date', 'type' => 'date'],
+            ['key' => 'client_type', 'label' => 'Intake Type', 'type' => 'string'],
             ['key' => 'ofw_contact_number', 'label' => 'OFW Contact No.', 'type' => 'string'],
             ['key' => 'ofw_email', 'label' => 'OFW Email Address', 'type' => 'string'],
             ['key' => 'ofw_age', 'label' => 'OFW Age', 'type' => 'string'],
@@ -686,18 +653,67 @@ class CaseController extends Controller
             ['key' => 'province', 'label' => 'Province', 'type' => 'string'],
             ['key' => 'region', 'label' => 'Region', 'type' => 'string'],
             ['key' => 'vulnerability', 'label' => 'Vulnerability', 'type' => 'string'],
+            ['key' => 'civil_status', 'label' => 'Civil Status', 'type' => 'string'],
+            ['key' => 'deployment_mode', 'label' => 'Deployment Mode', 'type' => 'string'],
+            ['key' => 'employment_status', 'label' => 'Employment Status', 'type' => 'string'],
+            ['key' => 'return_reason', 'label' => 'Reason for Return', 'type' => 'string'],
+            ['key' => 'proposed_assessments', 'label' => 'Proposed Assessments', 'type' => 'string'],
             ['key' => 'date_of_arrival', 'label' => 'Date of Arrival in PH', 'type' => 'date'],
-            ['key' => 'previous_country', 'label' => 'Previous Country', 'type' => 'string'],
+            ['key' => 'employment_country', 'label' => 'Jobsite Country', 'type' => 'string'],
             ['key' => 'work_position', 'label' => 'Work Occupation', 'type' => 'string'],
-            ['key' => 'issue_concern', 'label' => 'Issues/Concern', 'type' => 'string'],
             ['key' => 'categories', 'label' => 'Categories', 'type' => 'string'],
-            ['key' => 'case_summary', 'label' => 'Case Summary', 'type' => 'string'],
+            ['key' => 'case_summary', 'label' => 'OFW Statement / Case Narrative', 'type' => 'string'],
             ['key' => 'receiving_parties', 'label' => 'Receiving Party/s', 'type' => 'string'],
+            ['key' => 'opened_by', 'label' => 'Opened By', 'type' => 'string'],
             ['key' => 'nok_full_name', 'label' => 'NOK Full Name', 'type' => 'string'],
-            ['key' => 'nok_contact_number', 'label' => 'NOK Contact No.', 'type' => 'string'],
-            ['key' => 'nok_email', 'label' => 'NOK Email', 'type' => 'string'],
+            ['key' => 'nok_relationship', 'label' => 'NOK Relationship', 'type' => 'string'],
             ['key' => 'exported_at', 'label' => 'Exported At', 'type' => 'string'],
         ];
+    }
+
+    private function authorizedIntakePayload(CaseFile $case): array
+    {
+        $payload = $case->toArray();
+        unset($payload['documents']);
+        if (auth()->user()?->isAgency()) {
+            unset($payload['document_requirements']);
+            $payload['documents'] = $case->documents
+                ->map(fn ($document) => [
+                    'id' => $document->id,
+                    'file_name' => $document->file_name,
+                    'file_type' => $document->file_type,
+                    'category' => $document->category,
+                    'size' => $document->size,
+                ])->values()->all();
+        }
+        $staffOnly = ['staff_summary', 'consent_evidence', 'consent_accepted_by', 'missing_document_reasons', 'last_correction_reason', 'document_request_reason', 'document_requested_by', 'document_requested_at', 'reviewed_document_ids', 'proposed_assessment_by', 'proposed_assessment_at', 'confirmed_assessment_by', 'confirmed_assessment_at', 'assigned_case_manager_id', 'document_requirements'];
+        $fields = auth()->user()?->isAgency()
+            ? array_diff(CaseFile::INTAKE_FIELDS, $staffOnly)
+            : array_values(array_diff(CaseFile::INTAKE_FIELDS, ['ofw_user_id', 'last_correction_reason']));
+        foreach ($fields as $field) {
+            $value = $case->getAttribute($field);
+            $payload[$field] = $value instanceof \DateTimeInterface ? $value->format(str_ends_with($field, '_at') ? DATE_ATOM : 'Y-m-d') : $value;
+        }
+        $payload['age_at_intake'] = $case->age_at_intake;
+        if (! auth()->user()?->isAgency()) {
+            $payload['documents'] = $case->documents()
+                ->whereNull('referral_id')
+                ->where('is_deleted', false)
+                ->get()
+                ->map(fn ($document) => [
+                    'id' => $document->id,
+                    'file_name' => IntakeDocumentService::REQUIREMENT_LABELS[$document->category] ?? $document->file_name,
+                    'extension' => pathinfo($document->file_name, PATHINFO_EXTENSION),
+                    'file_type' => $document->file_type,
+                    'category' => $document->category,
+                    'size' => $document->size,
+                    'user' => $document->user?->name,
+                    'created_at' => $document->created_at?->toISOString(),
+                    'download_url' => route('cases.documents.download', ['case' => $case->id, 'document' => $document->id]),
+                ])->values()->all();
+        }
+
+        return $payload;
     }
 
     private function authorizeCaseAccess($case, $user)

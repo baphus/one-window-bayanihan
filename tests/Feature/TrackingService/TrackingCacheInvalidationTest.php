@@ -3,6 +3,7 @@
 namespace Tests\Feature\TrackingService;
 
 use App\Models\Agency;
+use App\Models\CaseCategory;
 use App\Models\CaseFile;
 use App\Models\Referral;
 use App\Models\ReferralClientRequest;
@@ -36,15 +37,11 @@ class TrackingCacheInvalidationTest extends TestCase
     private function loadRelations(CaseFile $case): CaseFile
     {
         return $case->load([
-            'client.addresses',
-            'client.employments',
-            'client.nextOfKin',
+            'referrals.category',
             'referrals.agency',
             'referrals.services',
             'referrals.milestones.user',
             'user',
-            'category',
-            'categories',
         ]);
     }
 
@@ -101,6 +98,9 @@ class TrackingCacheInvalidationTest extends TestCase
         // The case manager creates a new referral.
         $agency = Agency::factory()->create();
         app(ReferralService::class)->createReferral([
+            'category_id' => CaseCategory::factory()->create()->id,
+            'concern' => 'Assistance requested',
+            'override_reason' => 'Agency selected for this assistance',
             'case_id' => $case->id,
             'agcy_id' => $agency->id,
         ], $user->id);

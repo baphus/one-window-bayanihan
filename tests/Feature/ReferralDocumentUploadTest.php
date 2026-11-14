@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\DTOs\FileStoreResult;
 use App\Enums\UserRole;
 use App\Models\Agency;
+use App\Models\CaseCategory;
 use App\Models\CaseFile;
 use App\Models\Referral;
 use App\Models\User;
@@ -96,6 +97,9 @@ class ReferralDocumentUploadTest extends TestCase
         $response = $this->from('/some-page')->actingAsWithMfa($admin)->post(
             route('referrals.store'),
             [
+                'category_id' => CaseCategory::factory()->create()->id,
+                'concern' => 'Assistance requested',
+                'override_reason' => 'Agency selected for this assistance',
                 'case_id' => $this->case->id,
                 'agcy_id' => $this->agency->id,
                 'documents' => [$file],
@@ -117,6 +121,9 @@ class ReferralDocumentUploadTest extends TestCase
         $response = $this->actingAsWithMfa($admin)->post(
             route('referrals.store'),
             [
+                'category_id' => CaseCategory::factory()->create()->id,
+                'concern' => 'Assistance requested',
+                'override_reason' => 'Agency selected for this assistance',
                 'case_id' => $this->case->id,
                 'agcy_id' => $this->agency->id,
                 'documents' => [$file],
@@ -157,6 +164,9 @@ class ReferralDocumentUploadTest extends TestCase
         $response = $this->from('/referrals/create')->actingAsWithMfa($admin)->post(
             route('referrals.store'),
             [
+                'category_id' => CaseCategory::factory()->create()->id,
+                'concern' => 'Assistance requested',
+                'override_reason' => 'Agency selected for this assistance',
                 'case_id' => $case->id,
                 'agcy_id' => $this->agency->id,
                 'documents' => [$file],

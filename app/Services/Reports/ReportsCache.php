@@ -28,7 +28,7 @@ class ReportsCache
     /** Reference/lookup data (provinces, cities, agencies) shared by all reports. */
     public const KEY_REFERENCE_DATA = ReportLookups::KEY_REFERENCE_DATA;
 
-    private const VERSION_KEY = 'reports:payload:version';
+    private const VERSION_KEY = 'reports:case_intake:payload:version';
 
     /**
      * Current cache generation. Reads never bump it, so an empty cache does not

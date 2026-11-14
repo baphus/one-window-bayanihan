@@ -27,6 +27,35 @@ class CaseFileFactory extends Factory
         ];
     }
 
+    public function withIntake(): static
+    {
+        return $this->state(fn () => [
+            'client_type' => 'OFW',
+            'intake_date' => '2026-11-10',
+            'first_name' => 'Juan',
+            'last_name' => 'Dela Cruz',
+            'date_of_birth' => '1990-06-15',
+            'sex' => 'MALE',
+            'email' => 'juan@example.test',
+            'contact_number' => '09171234567',
+            'civil_status' => 'SINGLE',
+            'deployment_mode' => 'AGENCY_HIRED',
+            'employment_status' => 'RETURNED',
+            'address_region' => 'Central Visayas',
+            'address_city_municipality' => 'Cebu City',
+            'address_barangay' => 'Lahug',
+            'address_street' => '123 Example Street',
+            'employment_employer_name' => 'Example Employer',
+            'employment_employer_address' => 'Example Employer Address',
+            'return_reason' => 'OTHERS',
+            'employment_position' => 'Engineer',
+            'employment_country' => 'Japan',
+            'employment_last_position' => 'Engineer',
+            'employment_date_of_arrival' => '2026-10-02',
+            'proposed_assessments' => ['LEGAL_ASSISTANCE'],
+        ]);
+    }
+
     public function open(): static
     {
         return $this->state(['status' => 'OPEN']);

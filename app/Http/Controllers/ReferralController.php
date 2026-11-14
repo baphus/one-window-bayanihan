@@ -9,9 +9,8 @@ use App\Http\Requests\StoreMilestoneRequest;
 use App\Http\Requests\StoreReferralCommentRequest;
 use App\Http\Requests\StoreReferralRequest;
 use App\Http\Requests\UpdateReferralStatusRequest;
-use App\Models\Agency;
+use App\Models\CaseCategory;
 use App\Models\CaseFile;
-use App\Models\Referral;
 use App\Models\ReferralAttachment;
 use App\Models\ReferralComment;
 use App\Models\SystemSetting;
@@ -39,24 +38,22 @@ class ReferralController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
-        $filterKeys = ['status', 'search', 'case_id', 'agcy_id', 'category_id', 'category_ids', 'case_issue_id', 'age_min_days', 'age_max_days', 'date_from', 'date_to'];
+        $filterKeys = ['status', 'search', 'case_id', 'agcy_id', 'category_id', 'category_ids', 'age_min_days', 'age_max_days', 'date_from', 'date_to'];
         $queryOptions = $request->validate([
-            'sort' => ['sometimes', 'string', 'in:case_number,client,case_issue,agency,status'],
+            'sort' => ['sometimes', 'string', 'in:case_number,client,category,agency,status'],
             'direction' => ['sometimes', 'string', 'in:asc,desc'],
             'per_page' => ['sometimes', 'integer', 'min:10', 'max:100'],
         ]);
         $categoryFilters = CategoryFilter::fromRequest($request)->toArray();
 
-        // Status, agency and issue are multi-select in the filter panel; the
+        // Status and agency are multi-select in the filter panel; the
         // legacy scalar form is accepted so existing links keep working.
         $statuses = MultiSelectFilter::ids($request->input('status'));
         $agencyIds = MultiSelectFilter::ids($request->input('agcy_id'));
-        $issueIds = MultiSelectFilter::ids($request->input('case_issue_id'));
 
         $listFilters = [
             'status' => $statuses === [] ? null : $statuses,
             'agcy_id' => $agencyIds === [] ? null : $agencyIds,
-            'case_issue_id' => $issueIds === [] ? null : $issueIds,
         ];
 
         $referrals = $this->referralService->getReferrals(
@@ -74,7 +71,6 @@ class ReferralController extends Controller
             'stats' => $this->referralService->getReferralStats($user->agcy_id, $user->role, $user->id),
             'agencies' => $this->referenceData->getAgenciesDropdown(),
             'categories' => $this->referenceData->getActiveCategories(),
-            'caseIssues' => $this->referenceData->getActiveIssues(),
             'statuses' => $this->referenceData->getReferralStatusOptions(),
         ]);
     }
@@ -83,7 +79,7 @@ class ReferralController extends Controller
     {
         $agencies = $this->referenceData->getAgenciesWithServices();
 
-        $casesQuery = CaseFile::with('client')
+        $casesQuery = CaseFile::with('ofwUser:id,avatar_url')
             ->where('status', 'OPEN')
             ->orderBy('created_at', 'desc');
 
@@ -92,35 +88,29 @@ class ReferralController extends Controller
             $casesQuery->where(function ($q) use ($searchTerm) {
                 $q->where('tracker_number', 'ilike', $searchTerm)
                     ->orWhere('case_number', 'ilike', $searchTerm)
-                    ->orWhereHas('client', function ($q) use ($searchTerm) {
-                        $q->where('first_name', 'ilike', $searchTerm)
-                            ->orWhere('last_name', 'ilike', $searchTerm);
-                    });
+                    ->orWhere('first_name', 'ilike', $searchTerm)
+                    ->orWhere('last_name', 'ilike', $searchTerm);
             });
         }
 
         $cases = $casesQuery->paginate(12)->withQueryString();
 
-        // Build a lookup: case_id → [agcy_id, ...] so the frontend can warn
-        // when a case is already referred to a given agency. Matches the
-        // StoreReferralRequest duplicate rule — terminal (REJECTED/COMPLETED)
-        // referrals don't block a new one.
-        $caseIds = $cases->pluck('id');
-        $existingReferrals = Referral::whereIn('case_id', $caseIds)
-            ->where('is_deleted', false)
-            ->whereNotIn('status', ['REJECTED', 'COMPLETED'])
-            ->select('case_id', 'agcy_id')
-            ->get();
-        $caseReferrals = [];
-        foreach ($existingReferrals as $ref) {
-            $caseReferrals[$ref->case_id][] = $ref->agcy_id;
-        }
+        $categories = CaseCategory::where('is_active', true)->with('suggestedAgencies:id')
+            ->orderBy('sort_order')->orderBy('name')->get()
+            ->map(fn (CaseCategory $category) => [
+                'id' => $category->id,
+                'name' => $category->name,
+                'color' => $category->color,
+                'suggested_agency_ids' => $category->suggestedAgencies->pluck('id')->all(),
+            ]);
+
+        $cases->getCollection()->each->makeVisible(['first_name', 'middle_name', 'last_name', 'suffix', 'email', 'contact_number', 'client_type']);
 
         return Inertia::render('Referral/Create', [
             'case_id' => $request->query('case_id'),
             'agencies' => $agencies,
             'cases' => $cases,
-            'caseReferrals' => $caseReferrals,
+            'categories' => $categories,
             'filters' => $request->only(['search']),
         ]);
     }
@@ -161,6 +151,7 @@ class ReferralController extends Controller
 
         return Inertia::render('Referral/Show', [
             'referral' => $referral,
+            'caseIdentity' => $referral->caseIdentity(),
             'serviceRequirements' => $serviceRequirements,
             'overdueDays' => $overdueDays,
             'timeline' => $this->referralService->getReferralTimeline($referral),
@@ -594,11 +585,13 @@ class ReferralController extends Controller
         // that are legitimately 0 (e.g. age_min_days).
         $filters = array_filter(array_merge($request->only([
             'status', 'search', 'age_min_days', 'age_max_days',
-            'date_from', 'date_to', 'agcy_id', 'category_id', 'category_ids', 'case_issue_id',
+            'date_from', 'date_to', 'agcy_id', 'category_id', 'category_ids', 'case_id',
         ]), CategoryFilter::fromRequest($request)->toArray()), fn ($value) => $value !== null);
 
         $queries = $this->exportQueries;
         $exportService = $this->exportService;
+
+        abort_if($queries->countReferralsExport($user, $filters) > 10000, 422, 'More than 10,000 referrals match. Narrow filters before exporting.');
 
         $data = $queries->getReferralsExport($user, $filters);
 
@@ -619,7 +612,7 @@ class ReferralController extends Controller
 
         return $exportService->generateSingleSheet(
             'Referrals',
-            self::referralsExportColumnMap(),
+            self::referralsExportColumnMap($user->isAgency()),
             $data,
             $filename
         );
@@ -638,7 +631,7 @@ class ReferralController extends Controller
         // that are legitimately 0 (e.g. age_max_days).
         $filters = array_filter(array_merge($request->only([
             'status', 'search', 'age_min_days', 'age_max_days',
-            'date_from', 'date_to', 'agcy_id', 'category_id', 'category_ids', 'case_issue_id',
+            'date_from', 'date_to', 'agcy_id', 'category_id', 'category_ids', 'case_id',
         ]), CategoryFilter::fromRequest($request)->toArray()), fn ($value) => $value !== null);
 
         $count = $this->exportQueries->countReferralsExport($user, $filters);
@@ -650,48 +643,32 @@ class ReferralController extends Controller
      * Merged business-export column map — case + referral data in one row per referral.
      * No IDs or system fields. The referrals export is replaced by this richer view.
      */
-    public static function referralsExportColumnMap(): array
+    public static function referralsExportColumnMap(bool $agency = false): array
     {
-        return [
-            // Primary columns (aligned with Referrals page table)
-            ['key' => 'case_number',           'label' => 'Case No',               'type' => 'string'],
-            ['key' => 'client_full_name',       'label' => 'Client',                'type' => 'string'],
-            ['key' => 'client_contact_number',  'label' => 'Client Contact No.',    'type' => 'string'],
-            ['key' => 'client_email',           'label' => 'Client Email',          'type' => 'string'],
-            ['key' => 'case_summary',           'label' => 'Case Summary',          'type' => 'string'],
-            ['key' => 'issue_concern',          'label' => 'Issue / Concern',       'type' => 'string'],
-            ['key' => 'referred_agency',        'label' => 'Agency',                'type' => 'string'],
-            ['key' => 'required_services',      'label' => 'Service',               'type' => 'string'],
-            ['key' => 'referral_status',        'label' => 'Status',                'type' => 'status'],
-            ['key' => 'latest_update',          'label' => 'Latest Update',         'type' => 'string'],
-            ['key' => 'date_referred',          'label' => 'Date Referred',         'type' => 'date'],
-            // Case details
-            ['key' => 'case_status',            'label' => 'Case Status',           'type' => 'status'],
-            ['key' => 'tracker_number',         'label' => 'Case Tracking ID',      'type' => 'string'],
-            ['key' => 'client_type',            'label' => 'Client Type',           'type' => 'string'],
-            // Client demographics
-            ['key' => 'sex',                    'label' => 'Gender',                'type' => 'string'],
-            ['key' => 'client_date_of_birth',   'label' => 'Date of Birth',         'type' => 'date'],
-            ['key' => 'client_age',             'label' => 'Age',                   'type' => 'string'],
-            // Address
-            ['key' => 'client_full_address',    'label' => 'Full Address',          'type' => 'string'],
-            ['key' => 'barangay',               'label' => 'Barangay',              'type' => 'string'],
-            ['key' => 'municipality',           'label' => 'Municipality',          'type' => 'string'],
-            ['key' => 'province',               'label' => 'Province',              'type' => 'string'],
-            ['key' => 'region',                 'label' => 'Region',                'type' => 'string'],
-            // Employment
-            ['key' => 'vulnerability',          'label' => 'Vulnerability',         'type' => 'string'],
-            ['key' => 'date_of_arrival',        'label' => 'Date of Arrival in PH', 'type' => 'date'],
-            ['key' => 'previous_country',       'label' => 'Previous Country',      'type' => 'string'],
-            ['key' => 'work_position',          'label' => 'Work Occupation',         'type' => 'string'],
-            // NOK info
-            ['key' => 'nok_full_name',          'label' => 'NOK Full Name',         'type' => 'string'],
-            ['key' => 'nok_relationship',       'label' => 'NOK Relationship',      'type' => 'string'],
-            ['key' => 'nok_contact_number',     'label' => 'NOK Contact No.',       'type' => 'string'],
-            ['key' => 'nok_email',              'label' => 'NOK Email',             'type' => 'string'],
-            // Footer
-            ['key' => 'exported_at',            'label' => 'Exported At',           'type' => 'string'],
+        $columns = [
+            ['key' => 'case_number', 'label' => 'Case Number', 'type' => 'string'],
+            ['key' => 'client_full_name', 'label' => 'OFW Name', 'type' => 'string'],
+            ['key' => 'client_contact_number', 'label' => 'OFW Phone', 'type' => 'string'],
         ];
+
+        if (! $agency) {
+            array_push($columns,
+                ['key' => 'client_type', 'label' => 'Intake Type', 'type' => 'string'],
+                ['key' => 'vulnerability', 'label' => 'Vulnerability', 'type' => 'string'],
+                ['key' => 'employment_country', 'label' => 'Jobsite Country', 'type' => 'string'],
+                ['key' => 'case_summary', 'label' => 'Case Summary', 'type' => 'string'],
+            );
+        }
+
+        return array_merge($columns, [
+            ['key' => 'referred_agency', 'label' => 'Referred Agency', 'type' => 'string'],
+            ...($agency ? [] : [['key' => 'category', 'label' => 'Referral Category', 'type' => 'string']]),
+            ['key' => 'issue_concern', 'label' => 'Referral Concern', 'type' => 'string'],
+            ['key' => 'required_services', 'label' => 'Required Services', 'type' => 'string'],
+            ['key' => 'referral_status', 'label' => 'Referral Status', 'type' => 'status'],
+            ['key' => 'date_referred', 'label' => 'Date Referred', 'type' => 'date'],
+            ['key' => 'latest_update', 'label' => 'Latest Update', 'type' => 'string'],
+        ]);
     }
 
     private function authorizeReferralAccess($referral, $user)

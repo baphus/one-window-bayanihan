@@ -120,49 +120,6 @@ export default function HeroSection({ title, description, onTrackAction, agencie
         </div>
       </div>
 
-      <style>{`
-        /* --- Marquee --- */
-        @keyframes marquee {
-          0% { transform: translateX(0); }
-          100% { transform: translateX(-50%); }
-        }
-        .animate-marquee {
-          animation: marquee 15s linear infinite;
-          will-change: transform;
-        }
-        @media (min-width: 640px) {
-          .animate-marquee { animation-duration: 25s; }
-        }
-        @media (min-width: 1024px) {
-          .animate-marquee { animation-duration: 30s; }
-        }
-        .group:hover .animate-marquee {
-          animation-play-state: paused;
-        }
-
-        /* --- Entrance animation --- */
-        @keyframes fade-in-up {
-          0% { opacity: 0; transform: translateY(24px); }
-          100% { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fade-in-up {
-          animation: fade-in-up 1s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-        }
-
-        /* --- Marquee fade edges --- */
-        .marquee-fade {
-          mask-image: linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%);
-          -webkit-mask-image: linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%);
-        }
-        .marquee-fade img {
-          filter: brightness(1.2);
-          opacity: 0.75;
-          transition: opacity 0.4s ease;
-        }
-        .marquee-fade img:hover {
-          opacity: 1;
-        }
-      `}</style>
     </section>
   );
 }

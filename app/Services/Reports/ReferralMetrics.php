@@ -450,23 +450,11 @@ class ReferralMetrics
             ->whereIn('referrals.status', ['PENDING', 'PROCESSING', 'FOR_COMPLIANCE'])
             ->whereRaw('EXTRACT(EPOCH FROM (NOW() - referrals.created_at)) / 86400 > 14');
 
-        if ($province || $city) {
-            $query->whereIn('referrals.case_id', function ($q) use ($province, $city) {
-                $q->select('cases.id')->from('cases')
-                    ->join('clients', 'clients.id', '=', 'cases.client_id')
-                    ->join('client_addresses', 'client_addresses.client_id', '=', 'clients.id');
-                if ($province) {
-                    $q->where('client_addresses.province', $province);
-                }
-                if ($city) {
-                    $q->where('client_addresses.city_municipality', $city);
-                }
-            });
-        }
+        $this->applyGeoFilter($query, $province, $city);
 
         $count = (clone $query)->count();
 
-        $referrals = $query->with(['caseFile.client', 'agency'])
+        $referrals = $query->with(['caseFile', 'agency'])
             ->orderBy('referrals.created_at', 'asc')
             ->paginate(10);
 

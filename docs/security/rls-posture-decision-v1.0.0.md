@@ -50,16 +50,14 @@ looks present but is bypassed by the owner:
 | Table | Policies |
 |---|---|
 | `cases` | `admin_all_cases`, `case_manager_all_access_cases`, `agency_referred_cases` |
-| `clients` | `admin_all_clients`, `case_manager_all_access_clients`, `clients_agency_referred` |
-| `client_addresses` | `admin_all_client_addresses`, `case_manager_all_access_client_addresses`, `client_addresses_agency_referred` |
-| `client_employments` | `admin_all_client_employments`, `case_manager_all_access_client_employments`, `client_employments_agency_referred` |
-| `next_of_kin` | `admin_all_next_of_kin`, `case_manager_all_access_next_of_kin`, `next_of_kin_agency_referred` |
 | `referrals` | `admin_all_referrals`, `case_manager_all_access_referrals`, agency policy |
 | `milestones` | `admin_all_milestones`, `case_manager_all_access_milestones`, `milestones_agency_referred` |
 | `referral_attachments` | `admin_all_referral_attachments`, `case_manager_all_access_referral_attachments`, agency policy |
 | `referral_comments` | `admin_all_referral_comments`, `case_manager_all_access_referral_comments`, agency policy |
 | `case_documents` | `admin_all_case_documents`, `case_manager_all_access_case_documents`, `case_documents_agency_referred` |
 | `case_notifications` | `admin_all_case_notifications`, `case_manager_all_access_case_notifications`, `case_notifications_agency_referred` |
+
+The case-owned intake cutover removes `clients`, `client_addresses`, `client_employments`, and `next_of_kin` with their table-local policies. Their PII is now held on `cases`, which retains the same enabled-but-not-forced posture; inbox enforcement is unchanged.
 
 **Forced** (`FORCE ROW LEVEL SECURITY`, so the owner is subject to the policies
 too) — 7 tables, all on the referral-client inbox and the agency-to-agency

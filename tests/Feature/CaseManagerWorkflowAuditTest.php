@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Enums\UserRole;
-use App\Models\CaseCategory;
 use App\Models\CaseFile;
 use App\Models\Referral;
 use App\Models\User;
@@ -104,21 +103,20 @@ class CaseManagerWorkflowAuditTest extends TestCase
         $response->assertStatus(200);
     }
 
-    public function test_cm_can_edit_another_cm_case(): void
+    public function test_cm_cannot_correct_another_cms_case(): void
     {
         $otherCM = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $case = CaseFile::factory()->create([
             'user_id' => $otherCM->id,
+            'assigned_case_manager_id' => $otherCM->id,
             'status' => 'OPEN',
         ]);
 
-        $category = CaseCategory::create(['name' => 'Legal Assistance', 'is_active' => true]);
+        $this->actingAsWithMfa($this->cmUser)
+            ->patch("/cases/{$case->id}", ['summary' => 'Attempted correction', 'correction_reason' => 'Correction'])
+            ->assertForbidden();
 
-        $response = $this->actingAsWithMfa($this->cmUser)
-            ->patch("/cases/{$case->id}", ['category_ids' => [$category->id]]);
-        $response->assertStatus(302);
-
-        $this->assertSame([$category->id], $case->fresh()->categories()->pluck('case_categories.id')->all());
+        $this->assertNotSame('Attempted correction', $case->fresh()->summary);
     }
 
     public function test_cm_can_toggle_status_of_another_cm_case(): void

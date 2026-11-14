@@ -76,12 +76,14 @@ class ClientReplyFailureTest extends ReferralClientInboxTestCase
         $context = $this->context();
         $this->issue($context);
 
+        $owner = User::factory()->create([
+            'role' => UserRole::OFW->value,
+        ]);
+        $context['case']->update(['ofw_user_id' => $owner->id]);
+
         return [
             'request' => $context['clientRequest'],
-            'owner' => User::factory()->create([
-                'role' => UserRole::OFW->value,
-                'client_id' => $context['client']->id,
-            ]),
+            'owner' => $owner,
         ];
     }
 

@@ -1,4 +1,4 @@
-import Select from '@/Components/Select';
+﻿import Select from '@/Components/Select';
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, router, usePage } from '@inertiajs/react';
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
@@ -9,14 +9,17 @@ import { toFilterList, toggleFilterValue, useArrayFilters } from '@/Hooks/useArr
 import StatusBadge from '@/Components/ui/StatusBadge';
 import { FolderCheck, Users, ArrowRightLeft, TrendingUp, Clock } from 'lucide-react';
 import KpiCard from '@/Components/ui/KpiCard';
-import { formatDisplayDate, formatDisplayTime, getCategoryFilterIds } from '@/lib/utils';
+import { formatDisplayDate, formatDisplayTime } from '@/lib/utils';
 import { RowContextMenu, RowContextMenuItem } from '@/Components/ui/RowContextMenu';
 import ExportDialog from '@/Components/ExportDialog';
 import ExportExcelButton from '@/Components/ExportExcelButton';
+import { downloadExport } from '@/lib/downloadExport';
+import { useToast } from '@/Hooks/useToast';
 import usePersistedColumns from '@/Hooks/usePersistedColumns';
 import { usePersistedViewMode, usePersistedFilters } from '@/Hooks/usePersistedViewState';
 import useTableVisitLoading from '@/Hooks/useTableVisitLoading';
 import ConfirmDialog from '@/Components/ui/ConfirmDialog';
+import { humanizeStatus } from '@/lib/statusLabels';
 
 const vulnStyles = {
   'PWD': 'bg-purple-100 text-purple-800',
@@ -75,18 +78,11 @@ function canArchiveCase(caseFile) {
   return caseFile.status === 'CLOSED' && !hasActiveReferrals(caseFile.referrals);
 }
 
-function getCaseCategories(caseFile, availableCategories = []) {
-  if (Array.isArray(caseFile?.categories) && caseFile.categories.length) return caseFile.categories;
-  if (caseFile?.category) return [caseFile.category];
-  // Responses containing only IDs are supported as a final compatibility fallback.
-  return (caseFile?.category_ids || []).map((id) => availableCategories.find((category) => String(category.id) === String(id))).filter(Boolean);
-}
-
 // Merged cells keep identifiers and qualifying details together; source fields remain optional.
 const COLUMN_DEFS = [
   { key: 'case_reference', label: 'Case / Tracking ID', sortKey: 'case_number', default: true },
-  { key: 'client', label: 'Client', sortKey: 'client_name', default: true },
-  { key: 'issue_category', label: 'Issue / Category', sortable: false, default: true },
+  { key: 'client', label: 'OFW', sortKey: 'client_name', default: true },
+  { key: 'category', label: 'Categories', sortable: false, default: true },
   { key: 'vulnerability_indicator', label: 'Vulnerability', sortable: false, default: true },
   { key: 'author', label: 'Author', default: true },
   { key: 'status', label: 'Case Status', default: true },
@@ -99,13 +95,12 @@ const COLUMN_DEFS = [
   { key: 'tracker_number', label: 'Tracking ID', default: false },
   { key: 'client_type', label: 'Client Type', default: false },
   { key: 'client_name', label: 'Client Name', default: false },
-  { key: 'category', label: 'Category', sortable: false, default: false },
-  { key: 'issue_concern', label: 'Issue/Concern', sortable: false, default: false },
-  { key: 'age', label: 'Age', sortable: false, default: false },
+  { key: 'age', label: 'Age at intake', sortable: false, default: false }
 ];
 
-export default function CaseIndex({ cases, filters: rawFilters, stats, users = [], agencies = [], categories = [], caseIssues = [] }) {
+export default function CaseIndex({ cases, filters: rawFilters, stats, users = [], agencies = [] }) {
   const { auth, roles } = usePage().props;
+  const toast = useToast();
   const canCreate = auth.user.role === roles.CASE_MANAGER || auth.user.role === roles.ADMIN;
   const filters = rawFilters && !Array.isArray(rawFilters) ? rawFilters : {};
 
@@ -147,8 +142,8 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
     appendList('vulnerability_indicator', filters.vulnerability_indicator);
     appendList('user_id', filters.user_id);
     appendList('agcy_id', filters.agcy_id);
-    getCategoryFilterIds(filters).forEach((id) => params.append('category_ids[]', id));
-    appendList('case_issue_id', filters.case_issue_id);
+    if (toFilterList(filters.category_ids).length) appendList('category_ids', filters.category_ids);
+    else appendList('category_id', filters.category_id);
     if (filters.age_min_days) params.set('age_min_days', filters.age_min_days);
     if (filters.referral_state) params.set('referral_state', filters.referral_state);
     if (dateFrom) params.set('date_from', dateFrom);
@@ -161,8 +156,8 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
     const url = route('cases.export-excel') + (qs ? '?' + qs : '');
 
     setExportDialogOpen(false);
-    window.location.href = url;
-  }, [buildExportQuery]);
+    downloadExport(url).catch((error) => toast.error(error.message));
+  }, [buildExportQuery, toast]);
 
   const countUrlBuilder = useCallback((dateFrom, dateTo) => {
     const qs = buildExportQuery({ dateFrom, dateTo });
@@ -178,17 +173,12 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
     };
 
     if (toFilterList(filters?.status).length) chips.push({ label: 'Status', value: labelList(filters.status, [
-      { value: 'OPEN', label: 'Open' }, { value: 'CLOSED', label: 'Closed' }, { value: 'ARCHIVED', label: 'Archived' },
+      { value: 'OPEN', label: 'Open' }, { value: 'CLOSED', label: 'Closed' }, { value: 'ARCHIVED', label: 'Archived' }, { value: 'REJECTED', label: 'Declined' },
     ]) });
     if (toFilterList(filters?.client_type).length) chips.push({ label: 'Client Type', value: labelList(filters.client_type, [
       { value: 'OFW', label: 'OFW' }, { value: 'NEXT_OF_KIN', label: 'Next of Kin' },
     ]) });
     if (toFilterList(filters?.vulnerability_indicator).length) chips.push({ label: 'Vulnerability', value: toFilterList(filters.vulnerability_indicator).join(', ') });
-    if (getCategoryFilterIds(filters).length) {
-      const names = getCategoryFilterIds(filters).map((id) => categories?.find((c) => String(c.id) === id)?.name || id);
-      chips.push({ label: 'Category', value: names.join(', ') });
-    }
-    if (toFilterList(filters?.case_issue_id).length) chips.push({ label: 'Issue', value: labelList(filters.case_issue_id, (caseIssues ?? []).map((c) => ({ value: c.id, label: c.name }))) });
     if (toFilterList(filters?.age_min_days).length) chips.push({ label: 'Case Age', value: toFilterList(filters.age_min_days).map((d) => `${d}+ days`).join(', ') });
     if (toFilterList(filters?.user_id).length) chips.push({ label: 'Author', value: labelList(filters.user_id, users.map((u) => ({ value: u.id, label: u.name }))) });
     if (toFilterList(filters?.agcy_id).length) chips.push({ label: 'Referred To', value: labelList(filters.agcy_id, agencies.map((a) => ({ value: a.id, label: a.name }))) });
@@ -255,7 +245,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
       preserveState: true,
       preserveScroll: true,
       replace: true,
-      only: ['cases', 'filters', 'stats', 'users', 'agencies', 'categories', 'caseIssues'],
+      only: ['cases', 'filters', 'stats', 'users', 'agencies'],
     }));
   };
 
@@ -302,23 +292,12 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
       chips.push({ key: 'agcy_id', label: 'Referred To', value: join(agencyList, Object.fromEntries(agencies.map((a) => [a.id, a.name]))) });
     }
 
-    if (getCategoryFilterIds(filters).length) {
-      const ids = getCategoryFilterIds(filters);
-      const names = ids.map((id) => categories?.find(c => String(c.id) === id)?.name || id);
-      chips.push({ key: 'category_ids', label: 'Category', value: names.join(', ') });
-    }
-
-    const issueList = toFilterList(filters?.case_issue_id);
-    if (issueList.length) {
-      chips.push({ key: 'case_issue_id', label: 'Issue/Concern', value: join(issueList, Object.fromEntries((caseIssues ?? []).map((c) => [c.id, c.name]))) });
-    }
-
     const ageList = toFilterList(filters?.age_min_days);
     if (ageList.length) chips.push({ key: 'age_min_days', label: 'Age', value: ageList.map((d) => `${d}+ days`).join(', ') });
 
     if (filters?.referral_state === 'none') chips.push({ key: 'referral_state', label: 'Referrals', value: 'None' });
     return chips;
-  }, [filters, users, agencies, categories, caseIssues]);
+  }, [filters, users, agencies]);
 
   const handleClearFilters = () => {
     updateTable({
@@ -327,8 +306,6 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
       vulnerability_indicator: undefined,
       user_id: undefined,
       agcy_id: undefined,
-      category_ids: undefined,
-      case_issue_id: undefined,
       age_min_days: undefined,
       referral_state: undefined,
       search: undefined,
@@ -380,38 +357,11 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
             return {
               ...base,
               render: (row) => {
-                const clientName = row.client ? `${row.client.first_name} ${row.client.last_name}` : 'N/A';
-                const clientType = row.client_type === 'OFW' ? 'OFW' : 'Next of Kin';
-                return (
-                  <div>
-                    <div className="text-xs font-medium text-slate-800">{clientName}</div>
-                    <div className="text-[10px] text-slate-500">{clientType} · {getClientAge(row.client?.date_of_birth)}</div>
-                  </div>
-                );
+                const name = [row.first_name, row.middle_name, row.last_name, row.suffix].filter(Boolean).join(' ') || 'N/A';
+                const type = row.client_type === 'OFW' ? 'OFW' : 'Next of Kin';
+                return <div><div className="text-xs font-medium text-slate-800">{name}</div><div className="text-[10px] text-slate-500">{type} · {row.age_at_intake != null ? `${row.age_at_intake} yrs` : 'Age not recorded'}</div></div>;
               },
-              sortAccessor: (row) => row.client ? `${row.client.last_name}, ${row.client.first_name}` : '',
-            };
-          case 'issue_category':
-            return {
-              ...base,
-              sortable: false,
-              render: (row) => {
-                const rowCategories = getCaseCategories(row, categories);
-                return (
-                  <div className="space-y-1">
-                    <div className="text-xs text-slate-700">{row.case_issue?.name || <span className="text-slate-400">&mdash;</span>}</div>
-                    <div className="flex max-w-[220px] flex-wrap gap-1">
-                      {rowCategories.length > 0 ? rowCategories.map((category) => (
-                        <span key={category.id || category.name} className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
-                          style={{ backgroundColor: category.color ? `${category.color}20` : '#f1f5f9', color: category.color || '#64748b' }}>
-                          {category.color && <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: category.color }} />}
-                          {category.name || category.title}
-                        </span>
-                      )) : <span className="text-[10px] text-slate-400">&mdash;</span>}
-                    </div>
-                  </div>
-                );
-              },
+              sortAccessor: (row) => `${row.last_name ?? ''}, ${row.first_name ?? ''}`,
             };
           case 'case_number':
             return {
@@ -435,10 +385,8 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
           case 'client_name':
             return {
               ...base,
-              render: (row) =>
-                row.client ? `${row.client.first_name} ${row.client.last_name}` : 'N/A',
-              sortAccessor: (row) =>
-                row.client ? `${row.client.last_name}, ${row.client.first_name}` : '',
+              render: (row) => [row.first_name, row.middle_name, row.last_name, row.suffix].filter(Boolean).join(' ') || 'N/A',
+              sortAccessor: (row) => `${row.last_name ?? ''}, ${row.first_name ?? ''}`,
             };
           case 'author':
             return {
@@ -496,46 +444,24 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
               ...base,
               sortable: false,
               render: (row) => {
-                const rowCategories = getCaseCategories(row, categories);
-                if (!rowCategories.length) return <span className="text-slate-400">&mdash;</span>;
-                return (
-                  <div className="flex max-w-[220px] flex-wrap gap-1">
-                    {rowCategories.map((category) => (
-                      <span key={category.id || category.name} className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
-                        style={{ backgroundColor: category.color ? `${category.color}20` : '#f1f5f9', color: category.color || '#64748b' }}>
-                        {category.color && <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: category.color }} />}
-                        {category.name || category.title}
-                      </span>
-                    ))}
-                  </div>
-                );
-              },
-            };
-          case 'issue_concern':
-            return {
-              ...base,
-              sortable: false,
-              render: (row) => {
-                if (!row.case_issue) return <span className="text-slate-400">&mdash;</span>;
-                return <span className="text-xs text-slate-700">{row.case_issue.name}</span>;
+                const names = (row.categories ?? []).map((category) => category.name);
+                return names.length ? names.join(', ') : <span className="text-slate-400">—</span>;
               },
             };
           case 'age':
             return {
               ...base,
-              // Not sortable: clients.date_of_birth is an encrypted column, so
-              // age cannot be ordered in SQL. The table sorts server-side, so
-              // offering it here would only ever produce a rejected request.
+              // Age is fixed to the case intake date and is not a server sort key.
               sortable: false,
               render: (row) => (
-                <span className="text-xs text-slate-600">{getClientAge(row.client?.date_of_birth)}</span>
+                <span className="text-xs text-slate-600">{row.age_at_intake != null ? `${row.age_at_intake} yrs` : '—'}</span>
               ),
             };
           case 'status':
             return {
               ...base,
               render: (row) => (
-                <StatusBadge status={row.status} />
+                <StatusBadge status={row.status} label={row.status === 'REJECTED' ? humanizeStatus(row.status) : undefined} />
               ),
             };
           case 'approval':
@@ -603,7 +529,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
             return { ...base, render: (row) => row[col.key] };
         }
       }),
-  [visibleColumns, categories]);
+  [visibleColumns]);
 
   const handleSearchClear = () => {
     setSearchValue('');
@@ -626,6 +552,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
           { value: 'OPEN', label: 'Open' },
           { value: 'CLOSED', label: 'Closed' },
           { value: 'ARCHIVED', label: 'Archived' },
+          { value: 'REJECTED', label: 'Declined' },
         ],
       },
       {
@@ -648,16 +575,6 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
         ],
       },
       {
-        key: 'category_ids',
-        label: 'Category',
-        options: (categories ?? []).map((category) => ({ value: String(category.id), label: category.name })),
-      },
-      {
-        key: 'case_issue_id',
-        label: 'Issue / Concern',
-        options: (caseIssues ?? []).map((issue) => ({ value: issue.id, label: issue.name })),
-      },
-      {
         key: 'user_id',
         label: 'Author',
         options: (users ?? []).map((user) => ({ value: user.id, label: user.name })),
@@ -668,7 +585,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
         options: (agencies ?? []).map((agency) => ({ value: agency.id, label: agency.name })),
       },
     ],
-    [users, agencies, categories, caseIssues],
+    [users, agencies],
   );
 
   const selectedFilters = useMemo(
@@ -676,8 +593,6 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
       status: toFilterList(filters?.status),
       client_type: toFilterList(filters?.client_type),
       vulnerability_indicator: toFilterList(filters?.vulnerability_indicator),
-      category_ids: getCategoryFilterIds(filters),
-      case_issue_id: toFilterList(filters?.case_issue_id),
       user_id: toFilterList(filters?.user_id),
       agcy_id: toFilterList(filters?.agcy_id),
     }),
@@ -687,12 +602,6 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
   const { toggleFilter } = useArrayFilters();
 
   const handleFilterToggle = (key, value) => {
-    if (key === 'category_ids') {
-      const next = toggleFilterValue(getCategoryFilterIds(filters), value);
-      updateTable({ ...filters, category_ids: next.length ? next : undefined, category_id: undefined, page: undefined });
-      return;
-    }
-
     updateTable(toggleFilter(filters, key, value));
   };
 
@@ -779,6 +688,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
       { key: 'open', label: 'Open', value: 'OPEN', count: stats?.open_cases },
       { key: 'closed', label: 'Closed', value: 'CLOSED', count: stats?.closed_cases },
       { key: 'archived', label: 'Archived', value: 'ARCHIVED', count: stats?.archived_cases },
+      { key: 'declined', label: 'Declined', value: 'REJECTED', count: stats?.declined_cases },
     ];
 
     return (

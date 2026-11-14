@@ -4,7 +4,6 @@ namespace Tests\Feature;
 
 use App\Enums\UserRole;
 use App\Models\CaseFile;
-use App\Models\Client;
 use App\Models\User;
 use App\Notifications\CaseStatusUpdated;
 use App\Notifications\CaseUpdated;
@@ -37,6 +36,7 @@ class CaseServiceNotificationTest extends TestCase
         $this->service->updateCase($case->id, [
             'vulnerability_indicator' => 'Low',
             'summary' => 'Updated summary',
+            'correction_reason' => 'Correct intake record',
         ], $caseManager->id);
 
         Notification::assertSentTo($caseManager, CaseUpdated::class);
@@ -50,6 +50,7 @@ class CaseServiceNotificationTest extends TestCase
         $this->service->updateCase($case->id, [
             'vulnerability_indicator' => 'Low',
             'summary' => 'Updated summary',
+            'correction_reason' => 'Correct intake record',
         ], $caseManager->id);
 
         $this->assertDatabaseHas('case_notifications', [
@@ -69,6 +70,7 @@ class CaseServiceNotificationTest extends TestCase
         $this->service->updateCase($case->id, [
             'vulnerability_indicator' => 'Low',
             'summary' => 'Test summary',
+            'correction_reason' => 'Reviewed unchanged facts',
         ], $caseManager->id);
 
         Notification::assertNothingSent();
@@ -110,13 +112,11 @@ class CaseServiceNotificationTest extends TestCase
 
     private function createCase(User $user): CaseFile
     {
-        $client = Client::factory()->create([
-            'email' => 'ofw@example.com',
-        ]);
-
-        return CaseFile::factory()->create([
+        return CaseFile::factory()->withIntake()->create([
             'user_id' => $user->id,
-            'client_id' => $client->id,
+            'assigned_case_manager_id' => $user->id,
+            'ofw_user_id' => User::factory()->create(['role' => UserRole::OFW->value])->id,
+            'email' => 'ofw@example.com',
             'vulnerability_indicator' => 'Low',
             'summary' => 'Test summary',
             'status' => 'OPEN',

@@ -40,10 +40,6 @@ class RlsPostureTest extends TestCase
      */
     private const ENABLED_NOT_FORCED_TABLES = [
         'cases',
-        'clients',
-        'client_addresses',
-        'client_employments',
-        'next_of_kin',
         'referrals',
         'milestones',
         'referral_attachments',

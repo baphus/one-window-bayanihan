@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Enums\UserRole;
-use App\Models\Client;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\Test;
@@ -16,11 +15,7 @@ class OfwRouteIsolationTest extends TestCase
     #[Test]
     public function test_ofw_cannot_access_staff_dashboard(): void
     {
-        $client = Client::factory()->create();
-        $ofwUser = User::factory()->create([
-            'role' => UserRole::OFW->value,
-            'client_id' => $client->id,
-        ]);
+        $ofwUser = User::factory()->create(['role' => UserRole::OFW->value]);
 
         $response = $this->actingAsWithMfa($ofwUser)
             ->get('/dashboard');
@@ -32,11 +27,7 @@ class OfwRouteIsolationTest extends TestCase
     #[Test]
     public function test_ofw_cannot_access_cases_index(): void
     {
-        $client = Client::factory()->create();
-        $ofwUser = User::factory()->create([
-            'role' => UserRole::OFW->value,
-            'client_id' => $client->id,
-        ]);
+        $ofwUser = User::factory()->create(['role' => UserRole::OFW->value]);
 
         $response = $this->actingAsWithMfa($ofwUser)
             ->get('/cases');

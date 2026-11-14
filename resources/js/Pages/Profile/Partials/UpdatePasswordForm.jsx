@@ -1,9 +1,8 @@
-import InputLabel from '@/Components/InputLabel';
 import PrimaryButton from '@/Components/PrimaryButton';
 import { CardSection as Section } from '@/Components/ui/CardSection';
 import PasswordInput from '@/Components/PasswordInput';
 import { useForm, usePage } from '@inertiajs/react';
-import { useRef, useEffect, useMemo } from 'react';
+import { useRef, useEffect, useMemo, useState } from 'react';
 import { makeUpdatePasswordSchema } from '@/Schemas/profileSchemas';
 import useClientValidation from '@/Hooks/useClientValidation';
 import { useToast } from '@/Hooks/useToast';
@@ -11,6 +10,7 @@ import { useToast } from '@/Hooks/useToast';
 export default function UpdatePasswordForm({ className = '', onDirtyChange, onBypass }) {
     const { passwordRules } = usePage().props;
     const toast = useToast();
+    const [expanded, setExpanded] = useState(false);
     const passwordInput = useRef();
     const currentPasswordInput = useRef();
     const initialRef = useRef({ current_password: '', password: '', password_confirmation: '' });
@@ -51,6 +51,7 @@ export default function UpdatePasswordForm({ className = '', onDirtyChange, onBy
             preserveScroll: true,
             onSuccess: () => {
                 reset();
+                setExpanded(false);
                 onDirtyChange?.(false);
                 toast.success('Password updated successfully.');
             },
@@ -74,7 +75,15 @@ export default function UpdatePasswordForm({ className = '', onDirtyChange, onBy
             description="Ensure your account is using a long, random password to stay secure."
             className={className}
         >
-            <form onSubmit={updatePassword} className="space-y-6">
+            {!expanded ? (
+                <button
+                    type="button"
+                    onClick={() => setExpanded(true)}
+                    className="inline-flex items-center rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-[13px] font-bold text-slate-700 transition-colors hover:border-slate-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                >
+                    Change password
+                </button>
+            ) : <form id="change-password-form" onSubmit={updatePassword} className="space-y-6">
                 <PasswordInput
                     id="current_password"
                     label="Current Password"
@@ -107,9 +116,16 @@ export default function UpdatePasswordForm({ className = '', onDirtyChange, onBy
 
                 <div className="flex items-center gap-4">
                     <PrimaryButton disabled={processing}>Save</PrimaryButton>
-
+                    <button
+                        type="button"
+                        disabled={processing}
+                        onClick={() => { reset(); clearErrors(); setExpanded(false); }}
+                        className="rounded-lg px-4 py-2.5 text-[13px] font-bold text-slate-700 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-50"
+                    >
+                        Cancel
+                    </button>
                 </div>
-            </form>
+            </form>}
         </Section>
     );
 }

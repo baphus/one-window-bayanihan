@@ -19,9 +19,9 @@ class MessageSenderAvatarPayloadTest extends ReferralClientInboxTestCase
         $agencyUser->save();
         $clientUser = User::factory()->create([
             'role' => UserRole::OFW->value,
-            'client_id' => $context['client']->id,
             'avatar_url' => 'private/client-avatar.jpg',
         ]);
+        $context['case']->update(['ofw_user_id' => $clientUser->id]);
         $request = $context['clientRequest'];
         $issued = $this->issue($context);
         $agencyMessage = ReferralClientMessage::factory()->create([

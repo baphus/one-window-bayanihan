@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\User;
 use Database\Seeders\AgencySeeder;
@@ -35,6 +36,25 @@ class ProfileEditTest extends TestCase
             );
     }
 
+    public function test_admin_without_mfa_sees_enrollment_requirement_and_cannot_save(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+
+        $this->actingAs($admin)->get(route('profile.edit'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('Profile/Edit')
+                ->where('mfaEnabled', false)
+                ->where('mfaRequired', true)
+            );
+
+        $this->actingAs($admin)->patch(route('profile.update'), [
+            'first_name' => 'Changed',
+            'email' => $admin->email,
+        ])->assertRedirect(route('profile.edit'));
+        $this->assertNotSame('Changed', $admin->fresh()->first_name);
+    }
+
     public function test_profile_update_with_all_new_fields(): void
     {
         $user = User::factory()->create([
@@ -43,7 +63,8 @@ class ProfileEditTest extends TestCase
 
         $this->actingAsWithMfa($user)
             ->patch(route('profile.update'), [
-                'name' => 'Updated Name',
+                'first_name' => 'Updated',
+                'last_name' => 'Name',
                 'email' => $user->email,
                 'position' => 'Senior Case Worker',
                 'department' => 'Field Operations',
@@ -89,10 +110,11 @@ class ProfileEditTest extends TestCase
 
         $this->actingAsWithMfa($user)
             ->patch(route('profile.update'), [
-                'name' => '',
+                'first_name' => '',
+                'last_name' => '',
                 'email' => 'not-an-email',
             ])
-            ->assertSessionHasErrors(['name', 'email']);
+            ->assertSessionHasErrors(['first_name', 'last_name', 'email']);
     }
 
     public function test_guest_cannot_access_profile(): void

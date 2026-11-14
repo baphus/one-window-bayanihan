@@ -24,7 +24,7 @@ vi.mock('@inertiajs/react', () => ({
 }));
 
 vi.mock('@/Layouts/AppLayout', () => ({ default: ({ children }) => <main>{children}</main> }));
-vi.mock('@/Components/ExportDialog', () => ({ default: () => null }));
+vi.mock('@/Components/ExportDialog', () => ({ default: ({ countUrlBuilder }) => <output data-testid="case-export-count-url">{countUrlBuilder('2026-01-01', '2026-01-31')}</output> }));
 vi.mock('@/Components/ExportExcelButton', () => ({ default: () => null }));
 vi.mock('@/Components/ui/RowContextMenu', () => ({
   RowContextMenu: ({ children }) => <div>{children}</div>,
@@ -42,7 +42,8 @@ const caseRow = {
   status: 'OPEN',
   vulnerability_indicator: 'None',
   created_at: '2026-01-05T00:00:00Z',
-  client: { first_name: 'Maria', last_name: 'Santos' },
+  first_name: 'Maria',
+  last_name: 'Santos',
   referrals: [],
 };
 
@@ -58,12 +59,17 @@ function renderIndex(props = {}) {
       stats={{}}
       users={[]}
       agencies={[]}
-      categories={[]}
-      caseIssues={[]}
       {...props}
     />,
   );
 }
+
+it('includes selected case categories in export count query', () => {
+  renderIndex({ filters: { category_ids: ['cat-a', 'cat-b'], status: ['ARCHIVED'] } });
+  const url = new URL(screen.getByTestId('case-export-count-url').textContent, 'http://localhost');
+  expect(url.searchParams.getAll('category_ids[]')).toEqual(['cat-a', 'cat-b']);
+  expect(url.searchParams.getAll('status[]')).toEqual(['ARCHIVED']);
+});
 
 function lastVisitOptions() {
   return routerGet.mock.calls[routerGet.mock.calls.length - 1][2];
@@ -150,37 +156,33 @@ describe('Case Index register columns', () => {
     expect(screen.queryByRole('columnheader', { name: /^Tracking ID$/ })).not.toBeInTheDocument();
   });
 
-  it('merges client name with client type and age into one column', () => {
+  it('merges OFW name with client type and age into one column', () => {
     renderIndex({
-      cases: page({ data: [{ ...caseRow, client: { first_name: 'Maria', last_name: 'Santos', date_of_birth: '1990-01-01' } }] }),
+      cases: page({ data: [{ ...caseRow, first_name: 'Maria', last_name: 'Santos', date_of_birth: '1990-01-01', age_at_intake: 35 }] }),
     });
 
-    expect(screen.getByRole('columnheader', { name: /^Client$/ })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: /^OFW$/ })).toBeInTheDocument();
     expect(screen.getByText('Maria Santos')).toBeInTheDocument();
-    // Secondary line carries type + derived age.
-    expect(screen.getByText(/OFW · \d+ yrs?/)).toBeInTheDocument();
-    expect(screen.queryByRole('columnheader', { name: /^Client Name$/ })).not.toBeInTheDocument();
+    // Secondary line carries type + age at intake.
+    expect(screen.getByText(/OFW · 35/)).toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: /^OFW Name$/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('columnheader', { name: /^Client Type$/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole('columnheader', { name: /^Age$/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: /^Age at intake$/ })).not.toBeInTheDocument();
   });
 
-  it('merges issue and category into one column', () => {
+  it('shows case-owned categories without case-wide issue text', () => {
     renderIndex({
       cases: page({
         data: [{
           ...caseRow,
-          case_issue: { id: 'i1', name: 'Unpaid final salary' },
           categories: [{ id: 'c1', name: 'Employment' }],
         }],
       }),
-      categories: [{ id: 'c1', name: 'Employment' }],
     });
 
-    expect(screen.getByRole('columnheader', { name: /Issue \/ Category/i })).toBeInTheDocument();
-    expect(screen.getByText('Unpaid final salary')).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: /^Categories$/ })).toBeInTheDocument();
     expect(screen.getByText('Employment')).toBeInTheDocument();
-    expect(screen.queryByRole('columnheader', { name: /^Issue\/Concern$/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole('columnheader', { name: /^Category$/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: /Issue/i })).not.toBeInTheDocument();
   });
 
   it('keeps the register default to nine data columns plus actions', () => {
@@ -190,8 +192,8 @@ describe('Case Index register columns', () => {
     // never joins the name the way it joins textContent.
     const expectedHeaders = [
       'Case / Tracking ID',
-      'Client',
-      'Issue / Category',
+      'OFW',
+      'Categories',
       'Vulnerability',
       'Author',
       'Case Status',
@@ -231,7 +233,26 @@ describe('Case Index row actions', () => {
   });
 });
 
+describe('Case Index quick status tabs', () => {
+  it('shows Declined count and filters cases by REJECTED', () => {
+    renderIndex({ stats: { declined_cases: 3 } });
+
+    const declinedTab = screen.getByRole('button', { name: 'Declined' });
+    expect(declinedTab).toHaveTextContent('3');
+    expect(declinedTab).toHaveAttribute('aria-pressed', 'false');
+    fireEvent.click(declinedTab);
+
+    expect(routerGet.mock.calls.at(-1)[1]).toMatchObject({ status: 'REJECTED' });
+  });
+});
+
 describe('Case Index advanced filter panel', () => {
+  it('offers Declined status filter even when status comes from local options', () => {
+    renderIndex();
+    fireEvent.click(screen.getByRole('button', { name: /filters/i }));
+    const panel = screen.getByRole('dialog', { name: /filters/i });
+    expect(within(panel).getByRole('checkbox', { name: 'Declined' })).toBeInTheDocument();
+  });
   function openFilters() {
     fireEvent.click(screen.getByRole('button', { name: /^Filters/ }));
   }

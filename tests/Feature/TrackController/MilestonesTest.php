@@ -21,7 +21,7 @@ class MilestonesTest extends TestCase
         $response = $this->withSession([
             TrackingService::SESSION_KEY => [
                 'tracker_number' => $case->tracker_number,
-                'email' => $result['client']->email,
+                'email' => $case->email,
                 'verified_at' => now()->getTimestamp(),
             ],
         ])->get(route('track.milestones', [
@@ -53,7 +53,7 @@ class MilestonesTest extends TestCase
         $response = $this->withSession([
             TrackingService::SESSION_KEY => [
                 'tracker_number' => $caseA->tracker_number,
-                'email' => $resultA['client']->email,
+                'email' => $caseA->email,
                 'verified_at' => now()->getTimestamp(),
             ],
         ])->get(route('track.milestones', [

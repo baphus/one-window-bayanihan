@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\CaseFile;
-use App\Models\Client;
 use App\Models\Milestone;
 use App\Models\Referral;
 use App\Models\User;
@@ -67,23 +66,22 @@ class TrackingMilestonesNotesTest extends TestCase
     }
 
     /**
-     * A case with a client, a staff owner, and one referral carrying internal
+     * A case with intake email, a staff owner, and one referral carrying internal
      * notes plus a milestone — so the leak has somewhere to travel to.
      *
-     * @return array{case: CaseFile, referral: Referral, client: Client, owner: User}
+     * @return array{case: CaseFile, referral: Referral, owner: User}
      */
     private function makeCase(): array
     {
-        $client = Client::factory()->create();
         $owner = User::factory()->create([
             'role' => UserRole::CASE_MANAGER->value,
             'is_active' => true,
         ]);
         $agency = Agency::factory()->create();
 
-        $case = CaseFile::factory()->open()->create([
+        $case = CaseFile::factory()->withIntake()->open()->create([
             'user_id' => $owner->id,
-            'client_id' => $client->id,
+            'email' => 'tracker@example.test',
         ]);
 
         $referral = Referral::factory()->create([
@@ -98,7 +96,6 @@ class TrackingMilestonesNotesTest extends TestCase
         return [
             'case' => $case->fresh(),
             'referral' => $referral,
-            'client' => $client,
             'owner' => $owner,
         ];
     }
@@ -106,12 +103,12 @@ class TrackingMilestonesNotesTest extends TestCase
     /**
      * Bind the anonymous tracking session for this case/referral pair.
      */
-    private function withTrackingSession(CaseFile $case, Client $client): self
+    private function withTrackingSession(CaseFile $case): self
     {
         return $this->withSession([
             TrackingService::SESSION_KEY => [
                 'tracker_number' => $case->tracker_number,
-                'email' => $client->email,
+                'email' => $case->email,
                 'verified_at' => now()->getTimestamp(),
             ],
         ]);
@@ -159,9 +156,9 @@ class TrackingMilestonesNotesTest extends TestCase
     #[Test]
     public function public_tracking_milestones_payload_carries_no_notes(): void
     {
-        ['case' => $case, 'referral' => $referral, 'client' => $client] = $this->makeCase();
+        ['case' => $case, 'referral' => $referral] = $this->makeCase();
 
-        $response = $this->withTrackingSession($case, $client)->get(route('track.milestones', [
+        $response = $this->withTrackingSession($case)->get(route('track.milestones', [
             'tracker_number' => $case->tracker_number,
             'referral' => $referral->id,
         ]));
@@ -183,12 +180,10 @@ class TrackingMilestonesNotesTest extends TestCase
     #[Test]
     public function ofw_portal_milestones_payload_carries_no_notes(): void
     {
-        ['case' => $case, 'referral' => $referral, 'client' => $client] = $this->makeCase();
+        ['case' => $case, 'referral' => $referral] = $this->makeCase();
 
-        $ofwUser = User::factory()->create([
-            'role' => UserRole::OFW->value,
-            'client_id' => $client->id,
-        ]);
+        $ofwUser = User::factory()->create(['role' => UserRole::OFW->value]);
+        $case->forceFill(['ofw_user_id' => $ofwUser->id])->save();
 
         $response = $this->actingAsWithMfa($ofwUser)->get(route('ofw.case.milestones', [
             'case' => $case->id,

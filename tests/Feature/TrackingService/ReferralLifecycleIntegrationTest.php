@@ -3,7 +3,6 @@
 namespace Tests\Feature\TrackingService;
 
 use App\Models\CaseFile;
-use App\Models\Client;
 use App\Models\Milestone;
 use App\Models\Referral;
 use App\Models\ReferralAttachment;
@@ -24,8 +23,7 @@ class ReferralLifecycleIntegrationTest extends TestCase
     private function loadRelations(CaseFile $case): CaseFile
     {
         $case->load([
-            'client.addresses',
-            'client.employments',
+            'referrals.category',
             'referrals.agency',
             'referrals.services',
             'referrals.milestones.user',
@@ -37,20 +35,16 @@ class ReferralLifecycleIntegrationTest extends TestCase
     }
 
     /**
-     * Create a simple case with a client for isolated tests.
+     * Create a simple case with case-owned intake for isolated tests.
      *
-     * @return array{case: CaseFile, client: Client, user: User}
+     * @return array{case: CaseFile, user: User}
      */
     private function createCaseWithClient(): array
     {
         $user = User::factory()->create();
-        $client = Client::factory()->create();
-        $case = CaseFile::factory()->create([
-            'user_id' => $user->id,
-            'client_id' => $client->id,
-        ]);
+        $case = CaseFile::factory()->withIntake()->create(['user_id' => $user->id]);
 
-        return ['case' => $case, 'client' => $client, 'user' => $user];
+        return ['case' => $case, 'user' => $user];
     }
 
     // ----------------------------------------------------------------

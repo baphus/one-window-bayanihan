@@ -29,7 +29,8 @@ class ProfileTest extends TestCase
         $response = $this
             ->actingAsWithMfa($user)
             ->patch('/profile', [
-                'name' => 'Test User',
+                'first_name' => 'Test',
+                'last_name' => 'User',
                 'email' => $user->email,
             ]);
 
@@ -43,7 +44,7 @@ class ProfileTest extends TestCase
         $this->assertNotNull($user->email_verified_at);
     }
 
-    public function test_ofw_can_update_account_fields_but_staff_fields_are_ignored(): void
+    public function test_ofw_can_update_contact_but_staff_and_identity_fields_are_rejected(): void
     {
         $user = User::factory()->create([
             'role' => UserRole::OFW->value,
@@ -58,7 +59,6 @@ class ProfileTest extends TestCase
         $this->actingAsWithMfa($user)->patch('/profile', [
             'name' => 'Updated OFW Name',
             'email' => $user->email,
-            'contact_number' => '09181112222',
             'timezone' => 'Asia/Manila',
             'position' => 'Attacker title',
             'department' => 'Attacker department',
@@ -66,10 +66,13 @@ class ProfileTest extends TestCase
             'bio' => 'Attacker bio',
             'emergency_contact' => ['name' => 'Attacker', 'relation' => 'Other', 'phone' => '09999999999'],
             'notifications_config' => ['email_on_case_assigned' => false],
-        ])->assertSessionHasNoErrors()->assertRedirect('/profile');
+        ])->assertSessionHasErrors(['email', 'timezone', 'position', 'department', 'office_location', 'bio', 'emergency_contact', 'notifications_config']);
+
+        $this->actingAsWithMfa($user)->patch('/profile', ['contact_number' => '09181112222'])
+            ->assertRedirect(route('ofw.profile.edit'));
 
         $user->refresh();
-        $this->assertSame('Updated OFW Name', $user->name);
+        $this->assertNotSame('Updated OFW Name', $user->name);
         $this->assertSame('09181112222', $user->contact_number);
         $this->assertSame('Asia/Manila', $user->timezone);
         $this->assertSame('Existing staff title', $user->position);
@@ -111,7 +114,8 @@ class ProfileTest extends TestCase
         $response = $this
             ->actingAsWithMfa($user)
             ->patch('/profile', [
-                'name' => 'Test User',
+                'first_name' => 'Test',
+                'last_name' => 'User',
                 'email' => $user->email,
             ]);
 

@@ -2,9 +2,9 @@
 
 namespace Tests\Feature\TrackingService\Traits;
 
+use App\Enums\UserRole;
 use App\Models\AuditLog;
 use App\Models\CaseFile;
-use App\Models\Client;
 use App\Models\Milestone;
 use App\Models\Referral;
 use App\Models\User;
@@ -14,17 +14,16 @@ use Illuminate\Support\Str;
 trait CreatesTrackingCase
 {
     /**
-     * Create a complete CaseFile with Client, User, N referrals, and N milestones per referral.
+     * Create a complete CaseFile with case-owned intake, User, N referrals, and N milestones per referral.
      *
-     * @return array{case: CaseFile, client: Client, referrals: Collection, milestones: Collection, user: User}
+     * @return array{case: CaseFile, referrals: Collection, milestones: Collection, user: User}
      */
     public function createCompleteCase(int $referralCount = 1, int $milestonesPerReferral = 0): array
     {
         $user = User::factory()->create();
-        $client = Client::factory()->create();
-        $case = CaseFile::factory()->create([
+        $case = CaseFile::factory()->withIntake()->create([
             'user_id' => $user->id,
-            'client_id' => $client->id,
+            'ofw_user_id' => User::factory()->create(['role' => UserRole::OFW->value])->id,
         ]);
 
         $referrals = collect();
@@ -47,7 +46,6 @@ trait CreatesTrackingCase
 
         return [
             'case' => $case,
-            'client' => $client,
             'referrals' => $referrals,
             'milestones' => $allMilestones,
             'user' => $user,

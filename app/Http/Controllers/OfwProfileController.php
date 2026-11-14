@@ -3,10 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\AvatarUploadRequest;
+use App\Http\Requests\Concerns\ValidatesUserIdentity;
 use App\Services\CloudinaryAvatarService;
+use App\Services\MfaPolicyService;
 use App\Services\OfwProfileService;
-use App\Services\ReferenceDataService;
 use Illuminate\Auth\SessionGuard;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -19,36 +21,37 @@ use Inertia\Inertia;
 
 class OfwProfileController extends Controller
 {
-    public function __construct(
-        private readonly OfwProfileService $profileService,
-        private readonly ReferenceDataService $referenceData,
-    ) {}
+    use ValidatesUserIdentity;
 
-    /**
-     * Show the OFW profile edit page.
-     *
-     * Identity fields (name, date of birth, sex, email) are staff-owned and
-     * passed read-only. The drift-prone sections the OFW can edit themselves
-     * (contact number, address, employment, next of kin) are passed as editable
-     * payloads.
-     */
-    public function edit()
+    public function __construct(private readonly OfwProfileService $profileService) {}
+
+    public function edit(Request $request)
     {
-        $user = request()->user();
+        $user = $request->user();
 
         return Inertia::render('OFW/Profile', [
-            'user' => $user->only(['id', 'name', 'email', 'contact_number', 'avatar_url']),
-            'client' => $this->clientPayload($user),
-            'occupationOptions' => $this->referenceData->getOccupationOptions(),
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'contact_number' => $user->contact_number,
+                'avatar_url' => $user->avatar_url,
+                'first_name' => $user->first_name,
+                'middle_name' => $user->middle_name,
+                'last_name' => $user->last_name,
+                'suffix' => $user->suffix,
+                'date_of_birth' => $user->date_of_birth?->toDateString(),
+                'sex' => $user->sex,
+            ],
+            'mfaEnabled' => $user->mfa_enabled_at !== null,
+            'mfaRequired' => app(MfaPolicyService::class)->requiresEnrollment($user),
+            'mustVerifyEmail' => $user instanceof MustVerifyEmail,
+            'status' => session('status'),
+            'email_change_step' => $request->session()->get('email_change_step'),
+            'email_change_hint' => $request->session()->get('email_change_hint'),
         ]);
     }
 
-    /**
-     * Upload or replace the OFW's own profile picture.
-     *
-     * The public_id is derived from the user id, so Cloudinary overwrites the
-     * same asset only after the replacement upload succeeds.
-     */
     public function storeAvatar(AvatarUploadRequest $request): RedirectResponse
     {
         $user = $request->user();
@@ -78,9 +81,6 @@ class OfwProfileController extends Controller
         return redirect()->route('ofw.profile.edit')->with('success', 'Profile picture updated successfully.');
     }
 
-    /**
-     * Remove the OFW's own profile picture.
-     */
     public function destroyAvatar(Request $request): RedirectResponse
     {
         $user = $request->user();
@@ -88,8 +88,6 @@ class OfwProfileController extends Controller
         try {
             app(CloudinaryAvatarService::class)->deleteByUrl($user->getRawOriginal('avatar_url'));
         } catch (\Throwable $e) {
-            // deleteByUrl() is already best-effort; this covers anything that
-            // escapes it so a removal request never 500s.
             report($e);
         }
 
@@ -99,25 +97,9 @@ class OfwProfileController extends Controller
         return redirect()->route('ofw.profile.edit')->with('success', 'Profile picture removed.');
     }
 
-    /**
-     * Update whichever self-service profile section was submitted.
-     *
-     * Each section is saved independently (one save button per block), so only
-     * the fields present in the payload are touched. The password change is the
-     * exception: it requires the current password, only runs when a new
-     * password was provided, and is treated as a credential change — every
-     * other session and remember-me cookie for the account is invalidated.
-     */
     public function update(Request $request)
     {
         $user = $request->user();
-
-        // Normalize sex case to match DB strtoupper storage (registration &
-        // ClientProfileService both uppercase before persisting).
-        if ($request->filled('sex')) {
-            $request->merge(['sex' => strtoupper($request->input('sex'))]);
-        }
-
         $validated = $request->validate([
             'current_password' => [
                 'nullable',
@@ -125,43 +107,14 @@ class OfwProfileController extends Controller
                 Rule::when(fn () => filled($request->input('password')), ['current_password']),
             ],
             'password' => ['nullable', 'confirmed', Password::defaults()],
-            'contact_number' => ['nullable', 'string', 'max:50'],
-            'sex' => ['nullable', 'in:MALE,FEMALE'],
-            'suffix' => ['nullable', 'string', 'max:50'],
-            'address' => ['sometimes', 'array'],
-            'address.region' => ['nullable', 'string', 'max:255'],
-            'address.province' => ['nullable', 'string', 'max:255'],
-            'address.city_municipality' => ['nullable', 'string', 'max:255'],
-            'address.barangay' => ['nullable', 'string', 'max:255'],
-            'address.street' => ['nullable', 'string', 'max:255'],
-            'employment' => ['sometimes', 'array'],
-            'employment.employer_name' => ['nullable', 'string', 'max:255'],
-            'employment.position' => ['nullable', 'string', 'max:255'],
-            'employment.country' => ['nullable', 'string', 'max:255'],
-            'employment.start_date' => ['nullable', 'date'],
-            'employment.end_date' => ['nullable', 'date', 'after_or_equal:employment.start_date'],
-            'employment.is_present' => ['nullable', 'boolean'],
-            'employment.last_country' => ['nullable', 'string', 'max:255'],
-            'employment.last_position' => ['nullable', 'string', 'max:255'],
-            'employment.date_of_arrival' => ['nullable', 'date'],
-            'next_of_kin' => ['sometimes', 'array'],
-            'next_of_kin.*.first_name' => ['nullable', 'string', 'max:255'],
-            'next_of_kin.*.middle_name' => ['nullable', 'string', 'max:255'],
-            'next_of_kin.*.last_name' => ['nullable', 'string', 'max:255'],
-            'next_of_kin.*.relationship' => ['nullable', 'string', 'max:255'],
-            'next_of_kin.*.phone_number' => ['nullable', 'string', 'max:20'],
-            'next_of_kin.*.email' => ['nullable', 'email', 'max:255'],
-            'next_of_kin.*.region' => ['nullable', 'string', 'max:255'],
-            'next_of_kin.*.province' => ['nullable', 'string', 'max:255'],
-            'next_of_kin.*.city_municipality' => ['nullable', 'string', 'max:255'],
-            'next_of_kin.*.barangay' => ['nullable', 'string', 'max:255'],
-            'next_of_kin.*.street' => ['nullable', 'string', 'max:255'],
-            'next_of_kin.*.nok_address.region' => ['nullable', 'string', 'max:255'],
-            'next_of_kin.*.nok_address.province' => ['nullable', 'string', 'max:255'],
-            'next_of_kin.*.nok_address.city_municipality' => ['nullable', 'string', 'max:255'],
-            'next_of_kin.*.nok_address.barangay' => ['nullable', 'string', 'max:255'],
-            'next_of_kin.*.nok_address.street' => ['nullable', 'string'],
-        ]);
+        ] + $this->identityRules(requireDemographics: true, partial: true) + [
+            'contact_number' => ['sometimes', 'nullable', 'string', 'max:50'],
+        ] + array_fill_keys([
+            'name', 'email',
+            'address', 'employment', 'next_of_kin', 'type', 'client_type', 'client_id', 'ofw_client_id',
+            'nok_name', 'nok_relationship', 'nok_contact_number', 'nok_email', 'department', 'position',
+            'office_location', 'bio', 'emergency_contact', 'notifications_config', 'timezone', 'avatar',
+        ], 'prohibited'));
 
         if (! empty($validated['password'])) {
             $user->password = Hash::make($validated['password']);
@@ -180,71 +133,8 @@ class OfwProfileController extends Controller
             $webGuard->logoutOtherDevices($validated['password']);
         }
 
-        $this->profileService->updateClientProfile($user, $validated);
+        $this->profileService->updateAccount($user, $validated);
 
         return redirect()->route('ofw.profile.edit')->with('success', 'Profile updated successfully.');
-    }
-
-    private function clientPayload($user): ?array
-    {
-        $client = $user->client;
-
-        if (! $client) {
-            return null;
-        }
-
-        $address = $client->addresses()->orderBy('created_at')->orderBy('id')->first();
-        $employment = $client->employments()->orderBy('created_at')->orderBy('id')->first();
-        $nextOfKin = $client->nextOfKin()
-            ->orderBy('sort_order')
-            ->orderBy('created_at')
-            ->get()
-            ->map(fn ($nok) => [
-                'id' => $nok->id,
-                'first_name' => $nok->first_name,
-                'middle_name' => $nok->middle_name,
-                'last_name' => $nok->last_name,
-                'relationship' => $nok->relationship,
-                'phone_number' => $nok->phone_number,
-                'email' => $nok->email,
-                'region' => $nok->region,
-                'province' => $nok->province,
-                'city_municipality' => $nok->city_municipality,
-                'barangay' => $nok->barangay,
-                'street' => $nok->street,
-            ])
-            ->values();
-
-        return [
-            'id' => $client->id,
-            'first_name' => $client->first_name,
-            'middle_name' => $client->middle_name,
-            'last_name' => $client->last_name,
-            'suffix' => $client->suffix,
-            'sex' => $client->sex,
-            'date_of_birth' => $client->date_of_birth?->toDateString(),
-            'email' => $client->email,
-            'contact_number' => $client->contact_number,
-            'avatar_url' => $user->avatar_url ?? $client->avatar_url,
-            'address' => $address ? [
-                'region' => $address->region,
-                'province' => $address->province,
-                'city_municipality' => $address->city_municipality,
-                'barangay' => $address->barangay,
-                'street' => $address->street,
-            ] : null,
-            'employment' => $employment ? [
-                'employer_name' => $employment->employer_name,
-                'position' => $employment->position,
-                'country' => $employment->country,
-                'start_date' => $employment->start_date?->toDateString(),
-                'end_date' => $employment->end_date?->toDateString(),
-                'last_country' => $employment->last_country,
-                'last_position' => $employment->last_position,
-                'date_of_arrival' => $employment->date_of_arrival?->toDateString(),
-                'is_present' => (bool) $employment->is_present,
-            ] : null,
-            'next_of_kin' => $nextOfKin,
-        ];
     }
 }

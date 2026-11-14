@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Services\AuditLogFormatter;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
@@ -514,7 +515,8 @@ class AuditLogFormatterComprehensiveTest extends TestCase
             'nok_vulnerability_indicator' => ['nok_vulnerability_indicator', 'NOK vulnerability level'],
             'escalation_reason' => ['escalation_reason', 'escalation reason'],
             'category_id' => ['category_id', 'category'],
-            'case_issue_id' => ['case_issue_id', 'case issue'],
+            'case_issue_id' => ['case_issue_id', 'legacy case issue reference'],
+            'client_id' => ['client_id', 'legacy client reference'],
 
             // Client fields
             'first_name' => ['first_name', 'first name'],
@@ -603,6 +605,17 @@ class AuditLogFormatterComprehensiveTest extends TestCase
     // ========================================================================
     //  TEST SUITE 5: Sensitive data redaction
     // ========================================================================
+
+    public function test_legacy_client_and_issue_uuids_use_safe_fallback_without_legacy_lookups(): void
+    {
+        $clientId = 'd31e0a57-85f4-4f17-9b34-7699c787dfea';
+        $issueId = '754da30c-3bd9-4a40-844b-2abea1b3b733';
+
+        DB::shouldReceive('table')->never();
+        $this->assertSame('legacy ID', $this->formatter->formatFieldValue('case', 'client_id', $clientId));
+        $this->assertSame('legacy ID', $this->formatter->formatFieldValue('case', 'case_issue_id', $issueId));
+        $this->assertSame('not a UUID', $this->formatter->formatFieldValue('case', 'client_id', 'not a UUID'));
+    }
 
     public function test_sensitive_fields_are_redacted_via_audit_log_model_saving_event(): void
     {
@@ -843,8 +856,11 @@ class AuditLogFormatterComprehensiveTest extends TestCase
         $this->assertStringContainsString('Open', $statusChanges[0]['new']);
         $this->assertStringContainsString('PENDING_REVIEW', $statusChanges[0]['old']);
 
-        // client_id change is meaningful
-        $this->assertContains('client id', $fieldLabels);
+        // Historical client references are non-identifying.
+        $this->assertContains('legacy client reference', $fieldLabels);
+        $clientReference = array_values(array_filter($changes, fn ($change) => $change['fieldLabel'] === 'legacy client reference'))[0];
+        $this->assertSame('legacy ID', $clientReference['new']);
+        $this->assertStringNotContainsString('d31e0a57-85f4-4f17-9b34-7699c787dfea', json_encode($clientReference));
 
         // Fields that didn't change should NOT appear
         $this->assertNotContains('summary', $fieldLabels,

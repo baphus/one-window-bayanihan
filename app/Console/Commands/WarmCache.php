@@ -23,12 +23,11 @@ class WarmCache extends Command
             $this->call('cache:clear');
         }
 
-        // 1. Reference data (agencies, categories, issues, users)
+        // 1. Reference data (agencies, categories, users)
         $this->components->task('Reference data', function () {
             $ref = app(ReferenceDataService::class);
             $ref->getAgenciesDropdown();
             $ref->getActiveCategories();
-            $ref->getActiveIssues();
             $ref->getCaseManagerUsers();
             $ref->getAgenciesWithServices();
             $ref->getDefaultAgency();

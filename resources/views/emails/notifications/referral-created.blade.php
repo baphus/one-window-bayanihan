@@ -7,16 +7,9 @@
 A referral has been assigned to your agency. Please review the details and respond within 5 business days.
 </p>
 
-@php
-$categories = $referral->caseFile?->categories?->isNotEmpty()
-    ? $referral->caseFile->categories->pluck('name')->implode(', ')
-    : ($referral->caseFile?->category?->name ?? 'N/A');
-@endphp
-
 <x-mail::detail-table :rows="[
-['label' => 'Client', 'value' => ($referral->caseFile?->client?->first_name ?? '') . ' ' . ($referral->caseFile?->client?->last_name ?? '')],
-['label' => 'Categories', 'value' => $categories],
-['label' => 'Issue', 'value' => $referral->caseFile?->caseIssue?->name ?? 'N/A'],
+['label' => 'Client', 'value' => trim(($referral->caseFile?->first_name ?? '') . ' ' . ($referral->caseFile?->last_name ?? '')) ?: 'N/A'],
+['label' => 'Category', 'value' => $referral->category?->name ?? 'N/A'],
 ['label' => 'Services', 'value' => $referral->required_services ?: 'N/A'],
 ['label' => 'From', 'value' => $referral->caseFile?->user?->name ?? 'DMW Region VII'],
 ['label' => 'Referred', 'value' => $referral->created_at->format('M d, Y')],

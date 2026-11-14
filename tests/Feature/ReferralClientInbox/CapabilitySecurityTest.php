@@ -31,7 +31,7 @@ class CapabilitySecurityTest extends ReferralClientInboxTestCase
         $this->post(route('track.request.exchange'), ['token' => $first['raw_token']])->assertNotFound();
 
         $expired = $access->issue($context['clientRequest'], $context['agencyUser'], [
-            'email' => $context['client']->email,
+            'email' => $context['case']->email,
             'name' => 'Test Client',
         ]);
         $expired['link']->update(['expires_at' => now()->subMinute()]);
@@ -39,7 +39,7 @@ class CapabilitySecurityTest extends ReferralClientInboxTestCase
 
         $current = $this->issue($context);
         $replacement = $access->reissue($context['clientRequest'], $context['agencyUser'], [
-            'email' => $context['client']->email,
+            'email' => $context['case']->email,
             'name' => 'Test Client',
         ]);
         $this->post(route('track.request.exchange'), ['token' => $current['raw_token']])->assertNotFound();
@@ -52,7 +52,7 @@ class CapabilitySecurityTest extends ReferralClientInboxTestCase
         $this->withSession([
             TrackingService::SESSION_KEY => [
                 'tracker_number' => $context['case']->tracker_number,
-                'email' => $context['client']->email,
+                'email' => $context['case']->email,
             ],
         ])->post(route('track.request.messages.store'), ['body' => 'Attempted message'])
             ->assertNotFound();

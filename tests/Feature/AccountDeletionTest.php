@@ -69,7 +69,7 @@ class AccountDeletionTest extends TestCase
     private function linkIssuedBy(User $issuer): ReferralClientAccessLink
     {
         $agency = Agency::factory()->create();
-        $case = CaseFile::factory()->create(['client_id' => $issuer->client_id]);
+        $case = CaseFile::factory()->create(['ofw_user_id' => $issuer->id]);
         $referral = Referral::factory()->create(['case_id' => $case->id, 'agcy_id' => $agency->id]);
         $request = ReferralClientRequest::factory()->create(['referral_id' => $referral->id]);
 

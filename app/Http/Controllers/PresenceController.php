@@ -17,7 +17,7 @@ class PresenceController extends Controller
     {
         $user = request()->user();
         $record = CaseFile::query()->findOrFail($case);
-        abort_unless(($user->isAdmin() || $user->isCaseManager() || $user->isAgency()) && ! $user->isNextOfKin(), 403);
+        abort_unless($user->isAdmin() || $user->isCaseManager() || $user->isAgency(), 403);
         if (! $user->isAdmin() && ! $user->isCaseManager()) {
             abort_unless($user->agcy_id && $record->referrals()->where('agcy_id', $user->agcy_id)->whereNotIn('status', ['COMPLETED', 'REJECTED'])->exists(), 403);
         }
@@ -28,7 +28,7 @@ class PresenceController extends Controller
     public function referral(Referral $referral): JsonResponse
     {
         $user = request()->user();
-        abort_unless(($user->isAgency() || $user->isAdmin() || $user->isCaseManager()) && ! $user->isNextOfKin() && $user->agcy_id && $user->agcy_id === $referral->agcy_id, 403);
+        abort_unless(($user->isAgency() || $user->isAdmin() || $user->isCaseManager()) && $user->agcy_id && $user->agcy_id === $referral->agcy_id, 403);
 
         return $this->heartbeat('referral:'.$referral->getKey(), $user, $referral->agcy_id);
     }

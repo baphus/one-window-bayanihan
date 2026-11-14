@@ -9,8 +9,11 @@ use App\Http\Requests\EmailChangeVerifyOtpRequest;
 use App\Mail\EmailChangedNotification;
 use App\Services\AuditCategory;
 use App\Services\AuditLogger;
+use App\Services\MfaPolicyService;
 use App\Services\OtpService;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\QueryException;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -37,11 +40,7 @@ class EmailChangeController extends Controller
         // them on mount: without them mfaEnabled was undefined (MFA shown as
         // disabled mid-flow) and notifications_config resolved to {} so the
         // next save overwrote the stored preferences with all-off defaults.
-        return Inertia::render('Profile/Edit', [
-            ...ProfileController::editProps($request),
-            'email_change_step' => 'new-email',
-            'email_change_hint' => null,
-        ]);
+        return $this->renderProfile($request, 'new-email', null);
     }
 
     public function sendOtp(EmailChangeSendOtpRequest $request): Response
@@ -69,11 +68,7 @@ class EmailChangeController extends Controller
             'session_id' => substr($request->session()->getId(), 0, 8).'***',
         ]);
 
-        return Inertia::render('Profile/Edit', [
-            ...ProfileController::editProps($request),
-            'email_change_step' => 'otp',
-            'email_change_hint' => $hint,
-        ]);
+        return $this->renderProfile($request, 'otp', $hint);
     }
 
     public function verifyOtp(EmailChangeVerifyOtpRequest $request)
@@ -92,7 +87,7 @@ class EmailChangeController extends Controller
         if (! $verified) {
             $request->session()->put('email_change_step', 'otp');
 
-            return redirect()->route('profile.edit')
+            return redirect()->route($request->user()->isOfw() ? 'ofw.profile.edit' : 'profile.edit')
                 ->withErrors(['otp' => 'That verification code was not accepted. Please check the latest code and try again.'])
                 ->with('email_change_hint', $this->maskEmail($newEmail));
         }
@@ -146,8 +141,31 @@ class EmailChangeController extends Controller
             'new_email' => $this->redactEmail($newEmail),
         ]);
 
-        return redirect()->route('profile.edit')
+        return redirect()->route($user->isOfw() ? 'ofw.profile.edit' : 'profile.edit')
             ->with('success', 'Your email address has been changed successfully.');
+    }
+
+    private function renderProfile(Request $request, string $step, ?string $hint): Response
+    {
+        if ($request->user()->isOfw()) {
+            $user = $request->user();
+
+            return Inertia::render('OFW/Profile', [
+                'user' => $user->only(['id', 'name', 'email', 'contact_number', 'avatar_url']),
+                'mfaEnabled' => $user->mfa_enabled_at !== null,
+                'mfaRequired' => app(MfaPolicyService::class)->requiresEnrollment($user),
+                'mustVerifyEmail' => $user instanceof MustVerifyEmail,
+                'status' => session('status'),
+                'email_change_step' => $step,
+                'email_change_hint' => $hint,
+            ]);
+        }
+
+        return Inertia::render('Profile/Edit', [
+            ...ProfileController::editProps($request),
+            'email_change_step' => $step,
+            'email_change_hint' => $hint,
+        ]);
     }
 
     private function isEmailUniqueViolation(QueryException $exception): bool

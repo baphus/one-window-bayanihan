@@ -155,20 +155,20 @@ class CaseMetrics
         $this->applyLocalDateWindow($reopened, 'occurred_at', $from, $to);
         $reopenedCount = $reopened->count();
 
-        // Repeat-client rate is atemporal: clients with 2+ live cases over
-        // all scoped clients. Deleted, draft, and archived cases never count.
-        $perClient = (clone $scoped)->whereNotNull('cases.client_id')
-            ->select('cases.client_id', DB::raw('count(*) as total'))
-            ->groupBy('cases.client_id')
+        // Repeat-account rate is atemporal: linked accounts with 2+ live cases over
+        // all scoped linked accounts. Deleted, draft, and archived cases never count.
+        $perAccount = (clone $scoped)->whereNotNull('cases.ofw_user_id')
+            ->select('cases.ofw_user_id', DB::raw('count(*) as total'))
+            ->groupBy('cases.ofw_user_id')
             ->pluck('total');
-        $totalClients = $perClient->count();
-        $repeatClients = $perClient->filter(fn ($total) => (int) $total > 1)->count();
+        $totalAccounts = $perAccount->count();
+        $repeatAccounts = $perAccount->filter(fn ($total) => (int) $total > 1)->count();
 
         return [
             'reopenedCount' => (int) $reopenedCount,
-            'repeatClients' => (int) $repeatClients,
-            'totalClients' => (int) $totalClients,
-            'repeatClientRate' => $totalClients > 0 ? round(($repeatClients / $totalClients) * 100, 1) : 0,
+            'repeatAccounts' => (int) $repeatAccounts,
+            'linkedAccounts' => (int) $totalAccounts,
+            'repeatAccountRate' => $totalAccounts > 0 ? round(($repeatAccounts / $totalAccounts) * 100, 1) : 0,
         ];
     }
 
@@ -248,19 +248,19 @@ class CaseMetrics
         ?string $province = null,
         ?string $city = null,
     ): array {
-        // Category analytics reads the authoritative assignment table. A case
-        // counts once per assigned category; deleted, draft, and archived cases
-        // are excluded from both counts and percentages.
+        // Case-owned categories count each case once per category; referral
+        // totals stay separate. Deleted, draft and archived cases are excluded.
         //
         // The date and geography filters were previously missing here, so this
         // was the one panel on the report that silently reported all-time,
         // unfiltered figures while every other panel honoured the active
         // filters. Reconciling an exported category count against the
         // dashboard did not add up.
-        $query = DB::table('case_category AS assignments')
+        $query = DB::table('case_file_case_category AS assignments')
             ->join('cases', 'cases.id', '=', 'assignments.case_id')
             ->join('case_categories', 'case_categories.id', '=', 'assignments.case_category_id')
             ->where('cases.is_deleted', false)
+            ->whereNull('cases.deleted_at')
             ->whereNotIn('cases.status', ['DRAFT', 'ARCHIVED'])
             ->select('case_categories.name', 'case_categories.color', DB::raw('count(DISTINCT cases.id) as total'))
             ->groupBy('case_categories.name', 'case_categories.color')
@@ -270,12 +270,11 @@ class CaseMetrics
 
         $this->applyGeoFilter($query, $province, $city, 'cases');
 
+        if (! $this->hasRequiredRoleScope($userId, $role, $agencyId)) {
+            $query->whereRaw('1 = 0');
+        }
         if ($agencyId) {
-            $query->whereIn('cases.id', function ($q) use ($agencyId) {
-                $q->select('case_id')->from('referrals')
-                    ->where('agcy_id', $agencyId)
-                    ->whereNull('deleted_at');
-            });
+            $query->whereExists(fn ($referrals) => $referrals->selectRaw('1')->from('referrals')->whereColumn('referrals.case_id', 'cases.id')->where('referrals.agcy_id', $agencyId)->where('referrals.is_deleted', false)->whereNull('referrals.deleted_at'));
         }
 
         $results = $query->get();
@@ -299,26 +298,8 @@ class CaseMetrics
         ?string $city = null,
         ?string $agencyId = null,
     ): array {
-        $query = $this->caseQuery($userId, $role, $agencyId, $dateScope);
-        $this->applyLocalDateWindow($query, 'cases.created_at', $fromDate, $toDate);
-        $this->applyGeoFilter($query, $province, $city, 'cases');
-
-        $issues = (clone $query)
-            ->join('case_issues', 'cases.case_issue_id', '=', 'case_issues.id')
-            ->where('case_issues.is_deleted', false)
-            ->select('case_issues.name', DB::raw('count(*) as total'))
-            ->groupBy('case_issues.name', 'case_issues.sort_order')
-            ->orderBy('case_issues.sort_order')
-            ->orderByDesc('total')
-            ->get();
-
-        $chartColors = ['#0b5a8c', '#0b7a75', '#6366f1', '#f59e0b', '#ef4444', '#22c55e', '#8b5cf6', '#ec4899'];
-
-        return $issues->map(fn ($item, $i) => [
-            'name' => $item->name,
-            'count' => (int) $item->total,
-            'color' => $chartColors[$i % count($chartColors)],
-        ])->toArray();
+        // Free-text referral concerns contain PII, not a reportable issue catalog.
+        return [];
     }
 
     public function getVulnerabilityDistribution(
@@ -400,9 +381,8 @@ class CaseMetrics
         $this->applyCaseWindow($query, $fromDate, $toDate, $province, $city);
 
         $types = (clone $query)
-            ->join('clients', 'clients.id', '=', 'cases.client_id')
-            ->select('clients.type as client_type', DB::raw('count(*) as total'))
-            ->groupBy('clients.type')
+            ->select('cases.client_type', DB::raw('count(*) as total'))
+            ->groupBy('cases.client_type')
             ->pluck('total', 'client_type');
 
         return [

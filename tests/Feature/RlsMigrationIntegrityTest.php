@@ -67,8 +67,7 @@ class RlsMigrationIntegrityTest extends TestCase
         if ($this->isSquashed()) {
             $content = File::get(database_path('schema/pgsql-schema.sql'));
             $expected = [
-                'cases', 'clients', 'client_addresses', 'client_employments',
-                'next_of_kin', 'referrals', 'milestones', 'referral_attachments',
+                'cases', 'referrals', 'milestones', 'referral_attachments',
                 'referral_comments', 'case_documents', 'case_notifications',
             ];
             foreach ($expected as $table) {
@@ -191,8 +190,7 @@ class RlsMigrationIntegrityTest extends TestCase
         if ($this->isSquashed()) {
             $content = File::get(database_path('schema/pgsql-schema.sql'));
             $tables = [
-                'clients', 'client_addresses', 'client_employments',
-                'next_of_kin', 'case_documents', 'referrals',
+                'case_documents', 'referrals',
                 'milestones', 'referral_attachments', 'referral_comments',
                 'case_notifications',
             ];
@@ -216,8 +214,7 @@ class RlsMigrationIntegrityTest extends TestCase
         } else {
             $content = File::get($this->migration2);
             $tables = [
-                'clients', 'client_addresses', 'client_employments',
-                'next_of_kin', 'case_documents', 'referrals',
+                'case_documents', 'referrals',
                 'milestones', 'referral_attachments', 'referral_comments',
                 'case_notifications',
             ];
@@ -569,8 +566,7 @@ class RlsMigrationIntegrityTest extends TestCase
         if ($this->isSquashed()) {
             $content = File::get(database_path('schema/pgsql-schema.sql'));
             $tables = [
-                'clients', 'client_addresses', 'client_employments',
-                'next_of_kin', 'case_documents', 'referrals',
+                'case_documents', 'referrals',
                 'milestones', 'referral_attachments', 'referral_comments',
                 'case_notifications',
             ];

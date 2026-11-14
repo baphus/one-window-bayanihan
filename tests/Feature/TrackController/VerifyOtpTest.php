@@ -50,9 +50,8 @@ class VerifyOtpTest extends TestCase
 
     private function sendOtp(string $trackerNumber): string
     {
-        $this->email = strtolower((string) CaseFile::with('client')
-            ->where('tracker_number', $trackerNumber)
-            ->firstOrFail()->client->email);
+        $this->email = strtolower((string) CaseFile::where('tracker_number', $trackerNumber)
+            ->firstOrFail()->email);
 
         $this->post(route('track.send-otp'), [
             'tracker_number' => $trackerNumber,

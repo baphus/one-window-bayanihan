@@ -5,20 +5,11 @@ namespace Tests\Feature;
 use App\Enums\UserRole;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\CaseFile;
-use App\Models\Client;
-use App\Models\ClientAddress;
-use App\Models\ClientEmployment;
-use App\Models\NextOfKin;
 use App\Models\User;
-use App\Notifications\CaseUpdated;
-use App\Services\MfaPendingState;
-use App\Services\OfwProfileService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
-use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 class OfwProfileTest extends TestCase
@@ -31,401 +22,161 @@ class OfwProfileTest extends TestCase
         $this->withoutMiddleware(HandleInertiaRequests::class);
     }
 
-    private function ofwUserFor(Client $client): User
+    private function ofw(): User
     {
-        $user = User::factory()->mfaEnabled()->create([
+        return User::factory()->create(['role' => UserRole::OFW->value, 'profile_completed_at' => null]);
+    }
+
+    public function test_settings_expose_account_without_client_profile(): void
+    {
+        $user = $this->ofw();
+        $this->actingAsWithMfa($user)->get(route('ofw.profile.edit'))->assertOk()
+            ->assertInertia(fn ($page) => $page->component('OFW/Profile')
+                ->where('user.email', $user->email)
+                ->where('mfaEnabled', true)
+                ->where('mfaRequired', false)
+                ->has('mustVerifyEmail')
+                ->missing('client')->missing('occupationOptions'));
+    }
+
+    public function test_contact_change_updates_only_account_not_historical_case(): void
+    {
+        $user = $this->ofw();
+        $case = CaseFile::factory()->create(['ofw_user_id' => $user->id, 'contact_number' => '09171111111']);
+        $this->actingAsWithMfa($user)->put(route('ofw.profile.update'), ['contact_number' => '09182222222'])
+            ->assertRedirect(route('ofw.profile.edit'));
+        $this->assertSame('09182222222', $user->fresh()->contact_number);
+        $this->assertSame('09171111111', $case->fresh()->contact_number);
+    }
+
+    public function test_shared_profile_redirects_to_the_minimal_ofw_settings_page(): void
+    {
+        $this->actingAsWithMfa($this->ofw())->get('/profile')
+            ->assertRedirect(route('ofw.profile.edit'));
+    }
+
+    public function test_required_ofw_override_can_reach_mfa_enrollment_on_minimal_settings_page(): void
+    {
+        $user = User::factory()->create([
             'role' => UserRole::OFW->value,
-            'client_id' => $client->id,
-            'mfa_secret' => 'JBSWY3DPEHPK3PXP',
-        ]);
-        $this->withSession([
-            MfaPendingState::MARKER_KEY => [
-                'user_id' => (string) $user->id,
-                'credential_fingerprint' => hash('sha256', (string) $user->password),
-            ],
+            'mfa_requirement_override' => 'required',
+            'mfa_enabled_at' => null,
+            'mfa_secret' => null,
         ]);
 
-        return $user;
+        $this->actingAs($user)->get(route('ofw.profile.edit'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->component('OFW/Profile')->where('mfaRequired', true));
+        $this->get(route('ofw.dashboard'))->assertRedirect(route('ofw.profile.edit'));
     }
 
-    #[Test]
-    public function test_ofw_sees_own_profile_record(): void
+    public function test_shared_profile_patch_rejects_staff_fields_for_ofw(): void
     {
-        $client = Client::factory()->create([
-            'first_name' => 'Maria',
-            'last_name' => 'Soriano',
-            'sex' => 'FEMALE',
-            'contact_number' => '09171234567',
-        ]);
-        ClientAddress::create(['client_id' => $client->id, 'region' => 'VII', 'city_municipality' => 'Cebu City']);
-        ClientEmployment::create(['client_id' => $client->id, 'employer_name' => 'ACME Ltd', 'country' => 'Saudi Arabia']);
-        $nok = NextOfKin::create(['client_id' => $client->id, 'first_name' => 'Juan', 'last_name' => 'Soriano', 'is_primary' => true, 'sort_order' => 0]);
-        $user = $this->ofwUserFor($client);
+        $user = $this->ofw();
 
-        $response = $this->actingAsWithMfa($user)
-            ->withHeader('X-Inertia', 'true')
-            ->get('/my-cases/profile');
+        $this->actingAsWithMfa($user)->patch('/profile', [
+            'department' => 'Changed', 'position' => 'Changed', 'office_location' => 'Changed',
+            'bio' => 'Changed', 'emergency_contact' => ['name' => 'Changed'],
+        ])->assertSessionHasErrors(['department', 'position', 'office_location', 'bio', 'emergency_contact']);
 
-        $response->assertOk();
-        $response->assertJsonPath('component', 'OFW/Profile');
-        $this->assertEquals('Maria', $response->json('props.client.first_name'));
-        $this->assertEquals('Cebu City', $response->json('props.client.address.city_municipality'));
-        $this->assertEquals('ACME Ltd', $response->json('props.client.employment.employer_name'));
-        $this->assertEquals('Saudi Arabia', $response->json('props.client.employment.country'));
-        $this->assertEquals($nok->id, $response->json('props.client.next_of_kin.0.id'));
+        $this->assertNull($user->fresh()->department);
+        $this->assertNull($user->fresh()->position);
     }
 
-    #[Test]
-    public function test_ofw_profile_page_omits_client_when_account_has_none(): void
+    public function test_settings_reject_case_identity_and_representative_fields(): void
     {
-        $user = User::factory()->create(['role' => UserRole::OFW->value]);
-
-        $response = $this->actingAsWithMfa($user)
-            ->withHeader('X-Inertia', 'true')
-            ->get('/my-cases/profile');
-
-        $response->assertOk();
-        $this->assertNull($response->json('props.client'));
+        $this->actingAsWithMfa($this->ofw())->put(route('ofw.profile.update'), [
+            'address' => ['street' => 'Changed'],
+            'employment' => ['employer_name' => 'Changed'], 'next_of_kin' => [['first_name' => 'Other']],
+            'type' => 'NEXT_OF_KIN', 'email' => 'unverified@example.test',
+        ])->assertSessionHasErrors(['address', 'employment', 'next_of_kin', 'type', 'email']);
     }
 
-    #[Test]
-    public function test_ofw_can_update_contact_number(): void
+    public function test_identity_edit_recomposes_the_display_name(): void
     {
-        $client = Client::factory()->create(['contact_number' => '09171234567']);
-        $user = $this->ofwUserFor($client);
+        $user = $this->ofw();
 
-        $this->actingAsWithMfa($user)->put('/my-cases/profile', [
-            'contact_number' => '09182222222',
+        $this->actingAsWithMfa($user)->put(route('ofw.profile.update'), [
+            'first_name' => 'Maria', 'middle_name' => 'Santos', 'last_name' => 'Cruz', 'suffix' => 'Jr.',
+            'date_of_birth' => '1990-01-01', 'sex' => 'FEMALE',
+        ])->assertRedirect(route('ofw.profile.edit'))->assertSessionHasNoErrors();
+
+        $fresh = $user->fresh();
+        $this->assertSame('Maria Santos Cruz, Jr.', $fresh->name);
+        $this->assertSame('FEMALE', $fresh->sex);
+        $this->assertSame('1990-01-01', $fresh->date_of_birth->toDateString());
+    }
+
+    public function test_password_change_invalidates_other_sessions_and_remember_token(): void
+    {
+        $user = $this->ofw();
+        $rememberToken = $user->remember_token;
+        $sessionId = $this->otherSession($user);
+        $this->actingAsWithMfa($user)->put(route('ofw.profile.update'), [
+            'current_password' => 'P@ssw0rd!', 'password' => 'NewPassword123!', 'password_confirmation' => 'NewPassword123!',
         ])->assertRedirect(route('ofw.profile.edit'));
-
-        $this->assertDatabaseHas('clients', ['id' => $client->id, 'contact_number' => '09182222222']);
-        $this->assertDatabaseHas('users', ['id' => $user->id, 'contact_number' => '09182222222']);
-    }
-
-    #[Test]
-    public function test_ofw_can_update_address(): void
-    {
-        $client = Client::factory()->create();
-        ClientAddress::create(['client_id' => $client->id, 'region' => 'VII', 'city_municipality' => 'Old City']);
-        $user = $this->ofwUserFor($client);
-
-        $this->actingAsWithMfa($user)->put('/my-cases/profile', [
-            'address' => ['region' => 'NCR', 'province' => 'Metro Manila', 'city_municipality' => 'Manila', 'barangay' => 'Ermita', 'street' => 'Roxas Blvd'],
-        ])->assertRedirect(route('ofw.profile.edit'));
-
-        $address = ClientAddress::where('client_id', $client->id)->first();
-        $this->assertEquals('NCR', $address->region);
-        $this->assertEquals('Manila', $address->city_municipality);
-        $this->assertEquals('Roxas Blvd', $address->street);
-    }
-
-    #[Test]
-    public function test_ofw_can_update_employment(): void
-    {
-        $client = Client::factory()->create();
-        $user = $this->ofwUserFor($client);
-
-        $this->actingAsWithMfa($user)->put('/my-cases/profile', [
-            'employment' => [
-                'employer_name' => 'ACME Ltd',
-                'position' => 'Domestic Worker',
-                'country' => 'Saudi Arabia',
-                'start_date' => '2024-01-01',
-                'end_date' => '2025-01-01',
-                'last_position' => 'Nanny',
-                'date_of_arrival' => '2025-02-01',
-            ],
-        ])->assertRedirect(route('ofw.profile.edit'));
-
-        $employment = ClientEmployment::where('client_id', $client->id)->first();
-        $this->assertEquals('ACME Ltd', $employment->employer_name);
-        $this->assertEquals('Saudi Arabia', $employment->country);
-        $this->assertEquals('2024-01-01', $employment->start_date->toDateString());
-        $this->assertEquals('2025-02-01', $employment->date_of_arrival->toDateString());
-
-        // The saved country must come back on the edit page, not just in the DB.
-        $response = $this->actingAsWithMfa($user)
-            ->withHeader('X-Inertia', 'true')
-            ->get('/my-cases/profile');
-
-        $this->assertEquals('Saudi Arabia', $response->json('props.client.employment.country'));
-    }
-
-    /**
-     * SearchableSelect offers a "Use '…'" option for freeform text. Saving with
-     * a picker that reads "None" used to store the literal word as the job
-     * title, which then showed everywhere the occupation is read.
-     */
-    #[Test]
-    public function test_placeholder_position_is_saved_as_empty_not_as_a_job_title(): void
-    {
-        $client = Client::factory()->create();
-        $user = $this->ofwUserFor($client);
-
-        $this->actingAsWithMfa($user)->put('/my-cases/profile', [
-            'employment' => [
-                'employer_name' => 'Test',
-                'position' => 'None',
-                'last_position' => '  none  ',
-                'last_country' => 'United States',
-            ],
-        ])->assertRedirect(route('ofw.profile.edit'));
-
-        $employment = ClientEmployment::where('client_id', $client->id)->first();
-        $this->assertNull($employment->position);
-        $this->assertNull($employment->last_position);
-        $this->assertSame('United States', $employment->last_country);
-
-        // The placeholder must not reappear on the view that reads it back.
-        $response = $this->actingAsWithMfa($user)
-            ->withHeader('X-Inertia', 'true')
-            ->get('/my-cases/profile');
-
-        $response->assertOk();
-        $this->assertNull($response->json('props.client.employment.position'));
-        $this->assertNull($response->json('props.client.employment.last_position'));
-    }
-
-    #[Test]
-    public function test_a_real_position_that_merely_starts_with_none_is_kept(): void
-    {
-        $client = Client::factory()->create();
-        $user = $this->ofwUserFor($client);
-
-        $this->actingAsWithMfa($user)->put('/my-cases/profile', [
-            'employment' => [
-                'employer_name' => 'Test',
-                'position' => 'None Such Operator',
-                'last_position' => 'Nun',
-            ],
-        ])->assertRedirect(route('ofw.profile.edit'));
-
-        $employment = ClientEmployment::where('client_id', $client->id)->first();
-        $this->assertSame('None Such Operator', $employment->position);
-        $this->assertSame('Nun', $employment->last_position);
-    }
-
-    #[Test]
-    public function test_ofw_can_replace_next_of_kin(): void
-    {
-        $client = Client::factory()->create();
-        NextOfKin::create(['client_id' => $client->id, 'first_name' => 'Old', 'last_name' => 'Kin', 'is_primary' => true, 'sort_order' => 0]);
-        $user = $this->ofwUserFor($client);
-
-        $this->actingAsWithMfa($user)->put('/my-cases/profile', [
-            'next_of_kin' => [
-                ['first_name' => 'Juan', 'last_name' => 'Soriano', 'relationship' => 'Spouse', 'phone_number' => '09170000000', 'email' => 'juan@example.com'],
-                ['first_name' => 'Ana', 'last_name' => 'Soriano', 'relationship' => 'Sibling'],
-            ],
-        ])->assertRedirect(route('ofw.profile.edit'));
-
-        $this->assertDatabaseMissing('next_of_kin', ['first_name' => 'Old']);
-        $noks = NextOfKin::where('client_id', $client->id)->orderBy('sort_order')->get();
-        $this->assertCount(2, $noks);
-        $this->assertTrue($noks[0]->is_primary);
-        $this->assertFalse($noks[1]->is_primary);
-        $this->assertEquals('juan@example.com', $noks[0]->email);
-    }
-
-    #[Test]
-    public function test_ofw_can_clear_all_next_of_kin(): void
-    {
-        $client = Client::factory()->create();
-        NextOfKin::create(['client_id' => $client->id, 'first_name' => 'Old', 'last_name' => 'Kin', 'is_primary' => true]);
-        $user = $this->ofwUserFor($client);
-
-        $this->actingAsWithMfa($user)->put('/my-cases/profile', [
-            'next_of_kin' => [],
-        ])->assertRedirect(route('ofw.profile.edit'));
-
-        $this->assertDatabaseMissing('next_of_kin', ['client_id' => $client->id]);
-    }
-
-    #[Test]
-    public function test_next_of_kin_survives_a_failure_part_way_through_the_profile_update(): void
-    {
-        $client = Client::factory()->create(['contact_number' => '09171234567']);
-        NextOfKin::create([
-            'client_id' => $client->id,
-            'first_name' => 'Juan',
-            'last_name' => 'Soriano',
-            'relationship' => 'Spouse',
-            'is_primary' => true,
-            'sort_order' => 0,
-        ]);
-        $user = $this->ofwUserFor($client);
-
-        // Fail on the first replacement row, i.e. after the existing rows have
-        // already been force-deleted.
-        NextOfKin::creating(function () {
-            throw new \RuntimeException('simulated next of kin insert failure');
-        });
-
-        try {
-            app(OfwProfileService::class)->updateClientProfile($user, [
-                'contact_number' => '09182222222',
-                'next_of_kin' => [
-                    ['first_name' => 'Ana', 'last_name' => 'Soriano', 'relationship' => 'Sibling'],
-                ],
-            ]);
-
-            $this->fail('Expected the profile update to abort.');
-        } catch (\RuntimeException $e) {
-            $this->assertSame('simulated next of kin insert failure', $e->getMessage());
-        } finally {
-            Event::forget('eloquent.creating: '.NextOfKin::class);
-        }
-
-        // The force-deleted row is restored by the rollback and the replacement
-        // is not partially applied.
-        $this->assertDatabaseHas('next_of_kin', [
-            'client_id' => $client->id,
-            'first_name' => 'Juan',
-            'last_name' => 'Soriano',
-        ]);
-        $this->assertDatabaseMissing('next_of_kin', ['client_id' => $client->id, 'first_name' => 'Ana']);
-
-        // The earlier contact number write in the same request is rolled back too.
-        $this->assertDatabaseHas('clients', ['id' => $client->id, 'contact_number' => '09171234567']);
-    }
-
-    #[Test]
-    public function test_ofw_can_change_password(): void
-    {
-        $client = Client::factory()->create();
-        $user = $this->ofwUserFor($client);
-
-        $this->actingAsWithMfa($user)->put('/my-cases/profile', [
-            'current_password' => 'P@ssw0rd!',
-            'password' => 'NewPassword123!',
-            'password_confirmation' => 'NewPassword123!',
-        ])->assertRedirect(route('ofw.profile.edit'));
-
         $this->assertTrue(Hash::check('NewPassword123!', $user->fresh()->password));
+        $this->assertDatabaseMissing('sessions', ['id' => $sessionId]);
+        $this->assertNotSame($rememberToken, $user->fresh()->remember_token);
     }
 
-    #[Test]
-    public function test_ofw_password_change_invalidates_other_sessions_and_remember_token(): void
+    public function test_password_change_requires_correct_current_password(): void
     {
-        $client = Client::factory()->create();
-        $user = $this->ofwUserFor($client);
-        $originalRememberToken = $user->remember_token;
-
-        DB::table('sessions')->insert([
-            'id' => Str::random(40),
-            'user_id' => $user->id,
-            'ip_address' => '127.0.0.1',
-            'user_agent' => 'phpunit',
-            'payload' => 'test',
-            'last_activity' => time(),
-        ]);
-
-        $this->actingAsWithMfa($user)->put('/my-cases/profile', [
-            'current_password' => 'P@ssw0rd!',
-            'password' => 'NewPassword123!',
-            'password_confirmation' => 'NewPassword123!',
-        ])->assertRedirect(route('ofw.profile.edit'));
-
-        // Rotating the hash on its own leaves every other browser signed in,
-        // which makes the change pointless: the old password stays usable
-        // somewhere the OFW never sees.
-        $this->assertDatabaseMissing('sessions', ['user_id' => $user->id]);
-        $this->assertNotSame($originalRememberToken, $user->fresh()->remember_token);
-    }
-
-    #[Test]
-    public function test_profile_update_without_a_password_keeps_other_sessions_alive(): void
-    {
-        $client = Client::factory()->create();
-        $user = $this->ofwUserFor($client);
-        $originalRememberToken = $user->remember_token;
-        $sessionId = Str::random(40);
-
-        DB::table('sessions')->insert([
-            'id' => $sessionId,
-            'user_id' => $user->id,
-            'ip_address' => '127.0.0.1',
-            'user_agent' => 'phpunit',
-            'payload' => 'test',
-            'last_activity' => time(),
-        ]);
-
-        $this->actingAsWithMfa($user)->put('/my-cases/profile', [
-            'contact_number' => '09182222222',
-        ])->assertRedirect(route('ofw.profile.edit'));
-
-        // Only the password branch is a credential change; saving a contact
-        // number must not sign the OFW out of their other devices.
-        $this->assertDatabaseHas('sessions', ['id' => $sessionId]);
-        $this->assertSame($originalRememberToken, $user->fresh()->remember_token);
-    }
-
-    #[Test]
-    public function test_current_password_is_required_when_changing_password(): void
-    {
-        $client = Client::factory()->create();
-        $user = $this->ofwUserFor($client);
-
-        $this->actingAsWithMfa($user)->put('/my-cases/profile', [
-            'password' => 'NewPassword123!',
-            'password_confirmation' => 'NewPassword123!',
+        $user = $this->ofw();
+        $this->actingAsWithMfa($user)->put(route('ofw.profile.update'), [
+            'password' => 'NewPassword123!', 'password_confirmation' => 'NewPassword123!',
         ])->assertSessionHasErrors('current_password');
-    }
-
-    #[Test]
-    public function test_blank_password_submission_is_allowed_without_current_password(): void
-    {
-        $client = Client::factory()->create();
-        $user = $this->ofwUserFor($client);
-
-        $this->actingAsWithMfa($user)->put('/my-cases/profile', [
-            'current_password' => '',
-            'password' => '',
-            'password_confirmation' => '',
-            'contact_number' => '09182222222',
-        ])->assertRedirect(route('ofw.profile.edit'));
-
+        $this->put(route('ofw.profile.update'), [
+            'current_password' => 'wrong', 'password' => 'NewPassword123!', 'password_confirmation' => 'NewPassword123!',
+        ])->assertSessionHasErrors('current_password');
         $this->assertTrue(Hash::check('P@ssw0rd!', $user->fresh()->password));
-        $this->assertDatabaseHas('clients', ['id' => $client->id, 'contact_number' => '09182222222']);
     }
 
-    #[Test]
-    public function test_profile_update_is_audited(): void
+    public function test_contact_only_save_keeps_password_sessions_and_remember_token(): void
     {
-        $client = Client::factory()->create();
-        ClientAddress::create(['client_id' => $client->id, 'city_municipality' => 'Old City']);
-        $user = $this->ofwUserFor($client);
-
-        $this->actingAsWithMfa($user)->put('/my-cases/profile', [
-            'address' => ['city_municipality' => 'New City'],
+        $user = $this->ofw();
+        $rememberToken = $user->remember_token;
+        $sessionId = $this->otherSession($user);
+        $this->actingAsWithMfa($user)->put(route('ofw.profile.update'), [
+            'contact_number' => '09182222222', 'current_password' => '', 'password' => '', 'password_confirmation' => '',
         ])->assertRedirect(route('ofw.profile.edit'));
-
-        $this->assertDatabaseHas('audit_logs', [
-            'action' => 'UPDATE',
-            'module' => 'client_address',
-            'entity_id' => ClientAddress::where('client_id', $client->id)->first()->id,
-            'user_id' => $user->id,
-        ]);
+        $this->assertDatabaseHas('sessions', ['id' => $sessionId]);
+        $this->assertSame($rememberToken, $user->fresh()->remember_token);
+        $this->assertTrue(Hash::check('P@ssw0rd!', $user->fresh()->password));
     }
 
-    #[Test]
-    public function test_profile_update_notifies_case_manager(): void
+    public function test_ofw_can_delete_account_with_current_password_without_deleting_case_history(): void
     {
-        $client = Client::factory()->create();
-        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-        CaseFile::factory()->open()->create([
-            'client_id' => $client->id,
-            'user_id' => $manager->id,
-        ]);
-        $user = $this->ofwUserFor($client);
+        $user = $this->ofw();
+        $case = CaseFile::factory()->create(['ofw_user_id' => $user->id]);
+        $sessionId = $this->otherSession($user);
 
-        $this->actingAsWithMfa($user)->put('/my-cases/profile', [
-            'contact_number' => '09182222222',
-        ])->assertRedirect(route('ofw.profile.edit'));
+        $this->actingAsWithMfa($user)->delete('/profile', ['password' => 'P@ssw0rd!'])
+            ->assertRedirect('/');
 
-        $this->assertDatabaseHas('notifications', [
-            'type' => CaseUpdated::class,
-            'notifiable_id' => $manager->id,
+        $this->assertSoftDeleted('users', ['id' => $user->id]);
+        $this->assertDatabaseMissing('sessions', ['id' => $sessionId]);
+        $this->assertNotNull($case->fresh());
+        $this->assertSame($user->id, $case->fresh()->ofw_user_id);
+    }
+
+    public function test_contact_update_is_not_audited_as_sensitive_account_data(): void
+    {
+        $user = $this->ofw();
+        $this->actingAsWithMfa($user)->put(route('ofw.profile.update'), ['contact_number' => '09182222222'])
+            ->assertRedirect(route('ofw.profile.edit'));
+        $this->assertSame('09182222222', $user->fresh()->contact_number);
+        $this->assertDatabaseMissing('audit_logs', ['action' => 'UPDATE', 'entity_id' => $user->id]);
+    }
+
+    private function otherSession(User $user): string
+    {
+        $id = Str::random(40);
+        DB::table('sessions')->insert([
+            'id' => $id, 'user_id' => $user->id, 'ip_address' => '127.0.0.1',
+            'user_agent' => 'phpunit', 'payload' => 'test', 'last_activity' => time(),
         ]);
+
+        return $id;
     }
 }

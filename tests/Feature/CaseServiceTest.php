@@ -2,9 +2,11 @@
 
 namespace Tests\Feature;
 
-use App\Models\Client;
+use App\Enums\UserRole;
+use App\Models\CaseFile;
 use App\Models\User;
 use App\Services\CaseService;
+use App\Services\IntakeDocumentService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -38,17 +40,36 @@ class CaseServiceTest extends TestCase
     public function test_create_case_resolves_address_codes_to_names(): void
     {
         $service = app(CaseService::class);
-        $user = User::factory()->create();
-        $client = Client::factory()->create();
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $data = CaseFile::factory()->withIntake()->make()->only(CaseFile::INTAKE_FIELDS);
+        $result = $service->createCase(array_merge($data, [
+            'client_type' => 'OFW',
+            'address_region_code' => '0700000000', 'address_province_code' => '0702200000',
+            'consent' => true,
+            'consent_text_version' => IntakeDocumentService::CONSENT_VERSION,
+            'missing_document_reasons' => array_fill_keys(['passport_front_page', 'arrival_stamp', 'employment_evidence', 'sworn_affidavit'], 'Awaiting copy'),
+        ]), $user->id);
 
-        $result = $service->createCase([
-            'client' => ['first_name' => 'John', 'last_name' => 'Doe'],
-            'selected_client_id' => $client->id,
-            'address' => ['region' => '0700000000', 'province' => '0702200000', 'city_municipality' => '', 'barangay' => '', 'street' => '123 Main'],
-        ], $user->id);
+        $this->assertEquals('Region VII (Central Visayas)', $result->address_region);
+        $this->assertEquals('Cebu', $result->address_province);
+        $this->assertNull($result->client_id);
+        $this->assertSame($user->id, $result->reviewed_by);
+        $this->assertNotNull($result->reviewed_at);
+    }
 
-        $address = $client->addresses()->first();
-        $this->assertEquals('Region VII (Central Visayas)', $address->region);
-        $this->assertEquals('Cebu', $address->province);
+    public function test_admin_created_case_records_creator_as_final_approver(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $data = CaseFile::factory()->withIntake()->make()->only(CaseFile::INTAKE_FIELDS);
+
+        $case = app(CaseService::class)->createCase(array_merge($data, [
+            'consent' => true,
+            'consent_text_version' => IntakeDocumentService::CONSENT_VERSION,
+            'missing_document_reasons' => array_fill_keys(['passport_front_page', 'arrival_stamp', 'employment_evidence', 'sworn_affidavit'], 'Awaiting copy'),
+        ]), $admin->id);
+
+        $this->assertSame('OPEN', $case->status);
+        $this->assertSame($admin->id, $case->reviewed_by);
+        $this->assertNotNull($case->reviewed_at);
     }
 }

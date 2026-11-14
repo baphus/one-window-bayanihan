@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\DTOs\FileStoreResult;
 use App\Enums\UserRole;
 use App\Models\Agency;
+use App\Models\CaseCategory;
 use App\Models\CaseFile;
 use App\Models\User;
 use App\Services\ReferralService;
@@ -58,6 +59,9 @@ class ReferralServiceTransactionScopeTest extends TestCase
 
         $referral = app(ReferralService::class)->createReferralWithDocuments(
             [
+                'category_id' => CaseCategory::factory()->create()->id,
+                'concern' => 'Assistance requested',
+                'override_reason' => 'Agency selected for this assistance',
                 'case_id' => $case->id,
                 'agcy_id' => $agency->id,
                 'notes' => null,

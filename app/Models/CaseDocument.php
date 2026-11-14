@@ -64,15 +64,18 @@ class CaseDocument extends Model
     }
 
     /**
-     * Documents an agency user may see: general case files (no referral)
-     * plus files linked to a referral addressed to that agency.
+     * Documents an agency user may see: only files attached to a referral
+     * addressed to that agency. Case-level intake documents stay with the
+     * case manager and the owning OFW.
      */
     public function scopeVisibleToAgency(Builder $query, ?string $agencyId): Builder
     {
-        return $query->where(function (Builder $q) use ($agencyId) {
-            $q->whereNull('referral_id')
-                ->orWhereHas('referral', fn ($referrals) => $referrals->where('agcy_id', $agencyId));
-        });
+        if ($agencyId === null || $agencyId === '') {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->whereNotNull('referral_id')
+            ->whereHas('referral', fn ($referrals) => $referrals->where('agcy_id', $agencyId));
     }
 
     public function fileUrl(): Attribute

@@ -6,9 +6,10 @@ use App\Enums\UserRole;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\SetPostgresSession;
 use App\Models\CaseFile;
-use App\Models\Client;
 use App\Models\User;
 use App\Services\CaseService;
+use App\Services\ReferenceDataService;
+use Database\Seeders\CaseStatusSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Testing\TestResponse;
@@ -57,11 +58,9 @@ class CaseIndexContractTest extends TestCase
         $row = static fn (string $number, string $first, string $last, string $type, User $author, string $createdAt, string $status) => [
             'case_number' => $number,
             'tracker_number' => 'TRK-'.$number,
-            'client_id' => Client::factory()->create([
-                'first_name' => $first,
-                'last_name' => $last,
-                'type' => $type,
-            ])->id,
+            'client_type' => $type,
+            'first_name' => $first,
+            'last_name' => $last,
             'user_id' => $author->id,
             'status' => $status,
             'created_at' => $createdAt,
@@ -104,9 +103,22 @@ class CaseIndexContractTest extends TestCase
         $this->assertSame([$c2->id], collect($this->props($nok)['cases']['data'])->pluck('id')->all());
     }
 
+    public function test_rejected_cases_are_listed_and_filterable(): void
+    {
+        ['admin' => $admin] = $this->seedCases();
+        $rejected = CaseFile::factory()->create(['status' => 'REJECTED']);
+
+        $response = $this->actingAsWithMfa($admin)->get(route('cases.index', ['status' => 'REJECTED']));
+        $response->assertOk()->assertInertia(fn ($page) => $page->where('filters.status', ['REJECTED']));
+        $this->assertSame([$rejected->id], collect($this->props($response)['cases']['data'])->pluck('id')->all());
+        $this->assertSame(1, $this->props($response)['stats']['declined_cases']);
+    }
+
     public function test_client_type_filter_round_trips_in_the_echoed_filters(): void
     {
         ['admin' => $admin] = $this->seedCases();
+        $this->seed(CaseStatusSeeder::class);
+        Cache::forget(ReferenceDataService::KEY_CASE_STATUSES);
 
         // The chip, the select and the export dialog all read the echoed prop,
         // so a filter that is applied but not echoed silently resets on reload.

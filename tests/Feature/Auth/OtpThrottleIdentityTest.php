@@ -157,7 +157,6 @@ class OtpThrottleIdentityTest extends TestCase
             'pending_registration' => [
                 'credentials' => [
                     'email' => $email,
-                    'name' => 'Pending Filer',
                     'password' => Hash::make('password'),
                 ],
             ],

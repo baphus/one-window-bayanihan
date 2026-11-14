@@ -107,9 +107,9 @@ final class SettingRegistry
             Setting::bool(
                 key: 'mfa_role_ofw_required',
                 group: SettingGroup::SECURITY,
-                default: true,
+                default: false,
                 consumer: 'MfaPolicyService::roleDefault',
-                description: 'Require MFA for Citizen (OFW and next of kin) accounts by default. Optional still challenges accounts that are already enrolled, and never deletes their credentials.',
+                description: 'MFA enrolment is optional for Citizen (OFW and next of kin) accounts by default. Optional still challenges accounts that are already enrolled, and never deletes their credentials.'
             ),
 
             Setting::int(

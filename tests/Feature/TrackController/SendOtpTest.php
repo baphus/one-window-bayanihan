@@ -4,7 +4,6 @@ namespace Tests\Feature\TrackController;
 
 use App\Mail\OtpMail;
 use App\Models\CaseFile;
-use App\Models\Client;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Routing\Middleware\ThrottleRequests;
@@ -25,10 +24,9 @@ class SendOtpTest extends TestCase
         parent::setUp();
 
         $this->email = 'test@example.com';
-        $client = Client::factory()->create(['email' => $this->email]);
         $user = User::factory()->create();
         $case = CaseFile::factory()->create([
-            'client_id' => $client->id,
+            'email' => $this->email,
             'user_id' => $user->id,
         ]);
         $this->trackerNumber = $case->tracker_number;
@@ -73,14 +71,10 @@ class SendOtpTest extends TestCase
         $this->withoutMiddleware(ThrottleRequests::class);
         Mail::fake();
 
-        // A staff-created pending filing against an existing client. The client
-        // email matches, so without the clientVisible guard the OTP would be sent.
-        // DRAFT cases are invisible to tracking; PENDING_REVIEW is visible.
-        // A pending filing whose client email does NOT match still gets the
-        // generic enumeration-safe error.
-        $client = Client::factory()->create(['email' => $this->email]);
+        // Staff-created pending filing with matching case-owned email remains
+        // visible to tracking; a mismatched email still gets the generic error.
         $case = CaseFile::factory()->pendingReview()->create([
-            'client_id' => $client->id,
+            'email' => $this->email,
             'user_id' => User::factory()->create()->id,
         ]);
 

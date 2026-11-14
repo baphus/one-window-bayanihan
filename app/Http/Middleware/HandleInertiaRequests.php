@@ -6,6 +6,7 @@ use App\Enums\UserRole;
 use App\Helpers\CacheHelper;
 use App\Services\CaseService;
 use App\Services\Chatbot\ChatbotSuggestionService;
+use App\Services\NotificationService;
 use App\Services\OnboardingService;
 use Closure;
 use Illuminate\Http\Request;
@@ -76,7 +77,9 @@ class HandleInertiaRequests extends Middleware
         return (int) CacheHelper::safeRemember(
             "notifications:unread:{$user->id}",
             60,
-            fn () => $user->unreadNotifications()->count(),
+            fn () => $user->role === UserRole::OFW->value
+                ? app(NotificationService::class)->getUnreadCount($user, 'ofw')
+                : $user->unreadNotifications()->count(),
         );
     }
 
@@ -118,18 +121,27 @@ class HandleInertiaRequests extends Middleware
 
     public function share(Request $request): array
     {
+        $user = $request->user();
+
         return [
             ...parent::share($request),
             'request_id' => LogContext::getRequestId() ?: ($request->attributes->get('correlation_id') ?? $request->header('X-Request-ID')),
             'auth' => [
-                'user' => $request->user() ? [
-                    ...$request->user()->only([
-                        'id', 'name', 'email', 'role', 'agcy_id', 'avatar_url',
-                        'is_active', 'contact_number', 'position', 'department',
-                        'office_location', 'bio', 'emergency_contact', 'timezone',
-                        'profile_completed_at',
-                    ]),
-                    'type' => $request->user()->client?->type,
+                'user' => $user ? [
+                    ...$user->only($user->isOfw()
+                        ? ['id', 'name', 'email', 'role', 'avatar_url', 'is_active', 'contact_number']
+                        : [
+                            'id', 'name', 'email', 'role', 'agcy_id', 'avatar_url',
+                            'is_active', 'contact_number', 'position', 'department',
+                            'office_location', 'bio', 'emergency_contact', 'timezone',
+                            'profile_completed_at',
+                        ]),
+                    'first_name' => $user->first_name,
+                    'middle_name' => $user->middle_name,
+                    'last_name' => $user->last_name,
+                    'suffix' => $user->suffix,
+                    'date_of_birth' => $user->date_of_birth?->toDateString(),
+                    'sex' => $user->sex,
                     'agency' => $this->getCachedUserAgency($request),
                 ] : null,
             ],

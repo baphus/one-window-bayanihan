@@ -144,9 +144,9 @@ export function ReportsDashboard({
         <p className="mb-1 text-xs text-slate-600 dark:text-slate-300">Applied period: {initialFrom || fromDateISO} to {initialTo || toDateISO}</p>
         <p className="text-sm text-slate-500 dark:text-slate-400">
           <strong className="text-slate-700 dark:text-slate-300">How to read this page:</strong>{' '}
-          All numbers cover cases filed in the chosen period. Percentages use only clients with
-          that detail recorded. Some clients appear in more than one row. Small groups may be
-          hidden in the PDF export to protect privacy.
+          All numbers cover cases filed in the chosen period. Percentages use only cases with
+          that detail recorded. A case can appear in more than one row. Counts describe cases and
+          linked accounts, never unique people. Small groups may be hidden in the PDF export to protect privacy.
         </p>
       </div>
 

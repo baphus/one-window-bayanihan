@@ -6,7 +6,6 @@ use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\Agency;
 use App\Models\CaseCategory;
 use App\Models\CaseFile;
-use App\Models\CaseIssue;
 use App\Models\CaseStatus;
 use App\Models\Milestone;
 use App\Models\Referral;
@@ -73,7 +72,6 @@ class CacheInvalidationObserver
         match (true) {
             $model instanceof Agency => $this->invalidateAgency($model),
             $model instanceof CaseCategory => $this->invalidateCategory(),
-            $model instanceof CaseIssue => $this->invalidateIssue(),
             $model instanceof CaseStatus => $this->invalidateCaseStatus(),
             $model instanceof User => $this->invalidateUser(),
             $model instanceof CaseFile => $this->invalidateCase($model),
@@ -102,12 +100,6 @@ class CacheInvalidationObserver
         Cache::forget('stats:cases');
         Cache::forget('dashboard:cm_cases_by_category');
         Cache::forget('dashboard:admin_cases_by_category');
-        ReportsService::invalidateAll();
-    }
-
-    private function invalidateIssue(): void
-    {
-        ReferenceDataService::invalidateIssues();
         ReportsService::invalidateAll();
     }
 

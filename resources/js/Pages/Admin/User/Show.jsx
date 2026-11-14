@@ -34,13 +34,6 @@ export default function AdminUserShow({ user, agencies = [] }) {
     OFW: 'Citizen',
   };
 
-  const client = user.client ?? null;
-  const relatedOfw = client?.ofw_client ?? null;
-  const clientTypeLabel = client?.type === 'NEXT_OF_KIN' ? 'Next of Kin' : client?.type === 'OFW' ? 'OFW' : null;
-  const clientName = client
-    ? [client.first_name, client.last_name].filter(Boolean).join(' ') || 'Unnamed client'
-    : null;
-
   const agency = user.agency ?? null;
   const emergency = user.emergency_contact ?? {};
   const { auth } = usePage().props;
@@ -115,50 +108,8 @@ export default function AdminUserShow({ user, agencies = [] }) {
           </div>
         </section>
 
-        {/* 2. Agency Information, or the citizen's client record.
-            OFW and next-of-kin accounts share users.role = OFW, so the client's
-            type is the only thing that says which one this is. */}
-        {user.role === 'OFW' ? (
-          <div className="rounded-xl border border-[#dce3eb] bg-white p-5 shadow-[0_1px_3px_rgba(23,35,51,0.04)]">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3">Linked Client</p>
-            {client ? (
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Client Record</p>
-                    <Link
-                      href={route('clients.show', client.id)}
-                      className="text-sm font-semibold text-blue-900 hover:underline mt-1 inline-block"
-                    >
-                      {clientName}
-                    </Link>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Client Type</p>
-                    <p className="text-sm font-semibold text-slate-900 mt-1">{clientTypeLabel ?? '\u2014'}</p>
-                  </div>
-                </div>
-                {client.type === 'NEXT_OF_KIN' && (
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Related OFW</p>
-                    {relatedOfw ? (
-                      <Link
-                        href={route('clients.show', relatedOfw.id)}
-                        className="text-sm font-semibold text-blue-900 hover:underline mt-1 inline-block"
-                      >
-                        {[relatedOfw.first_name, relatedOfw.last_name].filter(Boolean).join(' ') || 'Unnamed client'}
-                      </Link>
-                    ) : (
-                      <p className="text-sm text-slate-500 mt-1">Not linked to an OFW record.</p>
-                    )}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <p className="text-sm text-slate-500">This account has no linked client record.</p>
-            )}
-          </div>
-        ) : (
+        {/* 2. Agency information */}
+        {user.role !== 'OFW' && (
         <div className="rounded-xl border border-[#dce3eb] bg-white p-5 shadow-[0_1px_3px_rgba(23,35,51,0.04)]">
           <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3">Agency Information</p>
           {agency ? (

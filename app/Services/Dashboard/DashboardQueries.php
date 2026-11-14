@@ -115,12 +115,11 @@ class DashboardQueries
                     r.required_services
                 ) AS service_names,
                 r.created_at,
-                a.name AS agency_name, c.case_number, c.tracker_number, cl.first_name, cl.last_name,
+                a.name AS agency_name, c.case_number, c.tracker_number, c.first_name, c.last_name,
                 EXTRACT(EPOCH FROM (NOW() - r.created_at))/86400 AS age_days{$scoreColumn}
             FROM referrals r
             LEFT JOIN agencies a ON a.id = r.agcy_id
             LEFT JOIN cases c ON c.id = r.case_id AND c.is_deleted = false
-            LEFT JOIN clients cl ON cl.id = c.client_id
             WHERE r.is_deleted = false {$filter}
         ";
 
@@ -135,7 +134,7 @@ class DashboardQueries
             'case_id' => $row->case_id,
             'case_number' => $row->case_number ?? 'N/A',
             'tracking_number' => $row->tracker_number ?? null,
-            'client_name' => trim(($row->first_name ?? '').' '.($row->last_name ?? '')) ?: 'Unnamed',
+            'client_name' => trim(($row->first_name ?? '').' '.($row->last_name ?? '')) ?: 'N/A',
             'service' => $row->service_names ?: 'Service not specified',
             'agency_name' => $includeAgency ? ($row->agency_name ?? 'N/A') : null,
             'status' => $row->status,
@@ -219,12 +218,11 @@ class DashboardQueries
             SELECT * FROM (
                 -- Aging open cases (7+ days)
                 SELECT c.id, c.case_number, c.tracker_number, c.status, c.created_at,
-                    cl.first_name, cl.last_name,
+                    c.first_name, c.last_name,
                     'Aging open case' AS reason,
                     COALESCE(r_latest.status, NULL) AS latest_referral_status,
                     (40 + EXTRACT(EPOCH FROM (NOW() - c.created_at))/86400) AS priority_score
                 FROM cases c
-                LEFT JOIN clients cl ON cl.id = c.client_id
                 LEFT JOIN LATERAL (
                     SELECT status FROM referrals WHERE case_id = c.id AND is_deleted = false ORDER BY updated_at DESC LIMIT 1
                 ) r_latest ON true
@@ -237,12 +235,11 @@ class DashboardQueries
 
                 -- Open cases with no referrals
                 SELECT c.id, c.case_number, c.tracker_number, c.status, c.created_at,
-                    cl.first_name, cl.last_name,
+                    c.first_name, c.last_name,
                     'No referral yet' AS reason,
                     NULL AS latest_referral_status,
                     80 AS priority_score
                 FROM cases c
-                LEFT JOIN clients cl ON cl.id = c.client_id
                 WHERE c.status = 'OPEN' AND c.is_deleted = false
                     AND NOT EXISTS (SELECT 1 FROM referrals r WHERE r.case_id = c.id AND r.is_deleted = false)
 
@@ -250,12 +247,11 @@ class DashboardQueries
 
                 -- Cases with REJECTED referrals
                 SELECT DISTINCT ON (c.id) c.id, c.case_number, c.tracker_number, c.status, c.created_at,
-                    cl.first_name, cl.last_name,
+                    c.first_name, c.last_name,
                     'Rejected referral' AS reason,
                     'REJECTED' AS latest_referral_status,
                     100 AS priority_score
                 FROM cases c
-                LEFT JOIN clients cl ON cl.id = c.client_id
                 JOIN referrals r ON r.case_id = c.id AND r.status = 'REJECTED' AND r.is_deleted = false
                 WHERE c.status = 'OPEN' AND c.is_deleted = false
             ) sub
@@ -283,8 +279,8 @@ class DashboardQueries
      */
     public function buildIntakeReviewList(?string $userId, int $limit = 8): array
     {
-        return CaseFile::with(['client'])
-            ->select('id', 'case_number', 'tracker_number', 'client_id', 'status', 'user_id', 'created_at', 'updated_at')
+        return CaseFile::query()
+            ->select('id', 'case_number', 'tracker_number', 'status', 'user_id', 'created_at', 'updated_at')
             ->where('status', CaseFile::STATUS_PENDING_REVIEW)
             ->where('is_deleted', false)
             ->orderBy('created_at', 'asc')
@@ -294,7 +290,7 @@ class DashboardQueries
                 'id' => $c->id,
                 'caseNo' => $c->case_number,
                 'trackerNumber' => $c->tracker_number,
-                'clientName' => $c->client ? trim(($c->client->first_name ?? '').' '.($c->client->last_name ?? '')) : 'N/A',
+                'clientName' => trim(($c->first_name ?? '').' '.($c->last_name ?? '')) ?: 'N/A',
                 'status' => $c->status,
                 'isOwnDraft' => $userId ? $c->user_id === $userId : false,
                 'createdAt' => $c->created_at?->toISOString() ?? now()->toISOString(),
@@ -326,6 +322,7 @@ class DashboardQueries
             SELECT
                 r.case_id,
                 COUNT(*)::int AS referral_count,
+                MIN(cc.name) AS category_name,
                 COUNT(*) FILTER (WHERE r.status IN ('PENDING','PROCESSING','FOR_COMPLIANCE'))::int AS active_referral_count,
                 COUNT(*) FILTER (WHERE r.status IN ('PENDING','PROCESSING','FOR_COMPLIANCE') AND r.created_at < ?)::int AS overdue_referral_count,
                 MAX(CASE WHEN r.status IN ('PENDING','PROCESSING','FOR_COMPLIANCE')
@@ -340,6 +337,7 @@ class DashboardQueries
                     ELSE 0
                 END) AS worst_severity
             FROM referrals r
+            LEFT JOIN case_categories cc ON cc.id = r.category_id
             WHERE r.case_id IN ({$placeholders}) AND r.is_deleted = false
             GROUP BY r.case_id
         ", array_merge([$overdueThreshold], $caseIds));
@@ -358,6 +356,7 @@ class DashboardQueries
             $overdueCount = (int) $row->overdue_referral_count;
             $result[$row->case_id] = [
                 'referral_count' => (int) $row->referral_count,
+                'category' => $row->category_name,
                 'active_referral_count' => (int) $row->active_referral_count,
                 'overdue_referral_count' => $overdueCount,
                 'worst_referral_status' => $severityToStatus[(int) $row->worst_severity] ?? null,
@@ -410,15 +409,14 @@ class DashboardQueries
      */
     public function buildReferralNews(int $limit = 8): array
     {
-        return CaseEvent::with('caseFile.client')
+        return CaseEvent::with('caseFile')
             ->whereIn('type', [CaseEvent::TYPE_REFERRAL_STATUS_CHANGED, CaseEvent::TYPE_MILESTONE_ADDED])
             ->orderByDesc('occurred_at')
             ->limit($limit)
             ->get()
             ->map(function (CaseEvent $event) {
                 $case = $event->caseFile;
-                $client = $case?->client;
-                $clientName = $client ? trim(($client->first_name ?? '').' '.($client->last_name ?? '')) : '';
+                $clientName = $case ? trim(($case->first_name ?? '').' '.($case->last_name ?? '')) : '';
                 $meta = is_array($event->meta) ? $event->meta : [];
                 $isMilestone = $event->type === CaseEvent::TYPE_MILESTONE_ADDED;
 
