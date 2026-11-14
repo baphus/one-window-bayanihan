@@ -32,7 +32,7 @@ class CategoryVisibilityHardeningTest extends TestCase
         $case = CaseFile::factory()->create();
         Referral::factory()->create(['case_id' => $case->id, 'agcy_id' => $agency->id]);
 
-        $this->actingAsWithMfa($user)->get('/clients')->assertNotFound();
+        $this->actingAsWithMfa($user)->get('/clients')->assertForbidden();
 
         $referralPage = $this->actingAsWithMfa($user)->get(route('referrals.index'));
         $referralPage->assertStatus(200)

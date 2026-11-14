@@ -7,11 +7,12 @@ use Tests\TestCase;
 
 class ClientControllerAuthTest extends TestCase
 {
-    public function test_shared_client_directory_routes_are_not_registered(): void
+    public function test_legacy_client_export_and_avatar_routes_are_not_registered(): void
     {
+        $this->assertTrue(Route::has('clients.index'));
+        $this->assertTrue(Route::has('clients.show'));
+
         foreach ([
-            'clients.index',
-            'clients.show',
             'clients.export-excel',
             'clients.export-count',
             'clients.avatar.store',
@@ -20,7 +21,6 @@ class ClientControllerAuthTest extends TestCase
             $this->assertFalse(Route::has($name), "Legacy route [{$name}] must remain retired.");
         }
 
-        $this->get('/clients')->assertNotFound();
         $this->get('/clients/not-a-client-id')->assertNotFound();
         $this->get('/clients/export-excel')->assertNotFound();
         $this->getJson('/clients/export-count')->assertNotFound();
