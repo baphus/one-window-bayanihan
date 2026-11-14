@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\UserRole;
 use App\Models\Agency;
+use App\Models\AuditLog;
 use App\Models\CaseFile;
 use App\Models\Referral;
 use App\Models\User;
@@ -107,6 +108,24 @@ class CaseReferralGuardTest extends TestCase
 
         $this->assertEquals('CLOSED', $updated->status);
         $this->assertNotNull($updated->closed_at);
+    }
+
+    #[Test]
+    public function force_close_allows_active_referral(): void
+    {
+        $this->createReferral('PROCESSING');
+        $updated = $this->caseService->toggleCaseStatus($this->case->id, $this->user->id, true);
+        $this->assertSame('CLOSED', $updated->status);
+        $audit = AuditLog::where('entity_id', $this->case->id)->where('action', 'CLOSE')->sole();
+        $this->assertTrue($audit->new_value['force_close']);
+    }
+
+    #[Test]
+    public function completed_referrals_allow_normal_close(): void
+    {
+        $this->createReferral('COMPLETED');
+        $this->createReferral('REJECTED');
+        $this->assertSame('CLOSED', $this->caseService->toggleCaseStatus($this->case->id, $this->user->id)->status);
     }
 
     #[Test]

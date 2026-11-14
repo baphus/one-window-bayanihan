@@ -213,6 +213,11 @@ class Referral extends Model
         return $this->belongsTo(CaseCategory::class, 'category_id');
     }
 
+    public function categories()
+    {
+        return $this->belongsToMany(CaseCategory::class, 'referral_case_category', 'referral_id', 'case_category_id');
+    }
+
     public function agency()
     {
         return $this->belongsTo(Agency::class, 'agcy_id');

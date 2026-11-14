@@ -38,6 +38,7 @@ class ReferralDuplicateTest extends TestCase
             'user_id' => $this->caseManager->id,
             'status' => 'OPEN',
         ]);
+        $this->case->categories()->attach(CaseCategory::factory()->create());
     }
 
     #[Test]
@@ -45,11 +46,10 @@ class ReferralDuplicateTest extends TestCase
     {
         // First referral to Agency A
         $response1 = $this->actingAsWithMfa($this->caseManager)->post(route('referrals.store'), [
-            'category_id' => CaseCategory::factory()->create()->id,
             'concern' => 'Assistance requested',
             'override_reason' => 'Agency selected for this assistance',
             'case_id' => $this->case->id,
-            'agcy_id' => $this->agencyA->id,
+            'agcy_ids' => [$this->agencyA->id],
             'notes' => 'First referral to Agency A',
         ]);
         $response1->assertRedirect();
@@ -57,11 +57,10 @@ class ReferralDuplicateTest extends TestCase
 
         // Second referral to Agency B (different agency)
         $response2 = $this->actingAsWithMfa($this->caseManager)->post(route('referrals.store'), [
-            'category_id' => CaseCategory::factory()->create()->id,
             'concern' => 'Assistance requested',
             'override_reason' => 'Agency selected for this assistance',
             'case_id' => $this->case->id,
-            'agcy_id' => $this->agencyB->id,
+            'agcy_ids' => [$this->agencyB->id],
             'notes' => 'Second referral to Agency B',
         ]);
         $response2->assertRedirect();
@@ -73,22 +72,20 @@ class ReferralDuplicateTest extends TestCase
     {
         // Create first referral to Agency A
         $this->actingAsWithMfa($this->caseManager)->post(route('referrals.store'), [
-            'category_id' => CaseCategory::factory()->create()->id,
             'concern' => 'Assistance requested',
             'override_reason' => 'Agency selected for this assistance',
             'case_id' => $this->case->id,
-            'agcy_id' => $this->agencyA->id,
+            'agcy_ids' => [$this->agencyA->id],
             'notes' => 'First referral',
         ]);
         $this->assertEquals(1, Referral::where('case_id', $this->case->id)->count());
 
         // Identical concern at the same agency must not send twice.
         $response2 = $this->actingAsWithMfa($this->caseManager)->post(route('referrals.store'), [
-            'category_id' => CaseCategory::factory()->create()->id,
             'concern' => 'Assistance requested',
             'override_reason' => 'Agency selected for this assistance',
             'case_id' => $this->case->id,
-            'agcy_id' => $this->agencyA->id,
+            'agcy_ids' => [$this->agencyA->id],
             'notes' => 'Duplicate referral attempt',
         ]);
 
@@ -115,11 +112,10 @@ class ReferralDuplicateTest extends TestCase
             }
 
             $response = $this->actingAsWithMfa($this->caseManager)->post(route('referrals.store'), [
-                'category_id' => CaseCategory::factory()->create()->id,
                 'concern' => 'Assistance requested',
                 'override_reason' => 'Agency selected for this assistance',
                 'case_id' => $case->id,
-                'agcy_id' => $this->agencyA->id,
+                'agcy_ids' => [$this->agencyA->id],
             ]);
 
             $response->assertSessionHasErrors('case_id');
@@ -139,7 +135,6 @@ class ReferralDuplicateTest extends TestCase
 
         try {
             app(ReferralService::class)->createReferral([
-                'category_id' => CaseCategory::factory()->create()->id,
                 'concern' => 'Assistance requested',
                 'override_reason' => 'Agency selected for this assistance',
                 'case_id' => $this->case->id,
@@ -166,11 +161,10 @@ class ReferralDuplicateTest extends TestCase
         ]);
 
         $response = $this->actingAsWithMfa($this->caseManager)->post(route('referrals.store'), [
-            'category_id' => CaseCategory::factory()->create()->id,
             'concern' => 'Assistance requested',
             'override_reason' => 'Agency selected for this assistance',
             'case_id' => $this->case->id,
-            'agcy_id' => $this->agencyA->id,
+            'agcy_ids' => [$this->agencyA->id],
             'notes' => 'Re-referral after rejection',
         ]);
 
@@ -188,11 +182,10 @@ class ReferralDuplicateTest extends TestCase
         ]);
 
         $response = $this->actingAsWithMfa($this->caseManager)->post(route('referrals.store'), [
-            'category_id' => CaseCategory::factory()->create()->id,
             'concern' => 'Assistance requested',
             'override_reason' => 'Agency selected for this assistance',
             'case_id' => $this->case->id,
-            'agcy_id' => $this->agencyA->id,
+            'agcy_ids' => [$this->agencyA->id],
             'notes' => 'Re-referral after completion',
         ]);
 
@@ -211,11 +204,10 @@ class ReferralDuplicateTest extends TestCase
         ]);
 
         $response = $this->actingAsWithMfa($this->caseManager)->post(route('referrals.store'), [
-            'category_id' => CaseCategory::factory()->create()->id,
             'concern' => 'Assistance requested',
             'override_reason' => 'Agency selected for this assistance',
             'case_id' => $this->case->id,
-            'agcy_id' => $this->agencyA->id,
+            'agcy_ids' => [$this->agencyA->id],
             'notes' => 'Duplicate while active',
         ]);
 

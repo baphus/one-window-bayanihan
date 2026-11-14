@@ -26,7 +26,8 @@ class ReferralClassificationRoutingTest extends TestCase
         $agency = Agency::factory()->create(['is_active' => true]);
         $category = CaseCategory::factory()->create();
         $category->suggestedAgencies()->attach($agency);
-        $data = ['case_id' => $case->id, 'agcy_id' => $agency->id, 'category_id' => $category->id, 'concern' => 'Wage claim'];
+        $case->categories()->attach($category);
+        $data = ['case_id' => $case->id, 'agcy_id' => $agency->id, 'concern' => 'Wage claim'];
         $service = app(ReferralService::class);
         $first = $service->createReferral($data, $manager->id);
         $second = $service->createReferral([...$data, 'concern' => 'Contract advice'], $manager->id);
@@ -50,21 +51,22 @@ class ReferralClassificationRoutingTest extends TestCase
         $case = CaseFile::factory()->create(['status' => 'OPEN']);
         $agency = Agency::factory()->create(['is_active' => true]);
         $category = CaseCategory::factory()->create();
-        $data = ['case_id' => $case->id, 'agcy_id' => $agency->id, 'category_id' => $category->id, 'concern' => 'Medical assistance'];
+        $case->categories()->attach($category);
+        $data = ['case_id' => $case->id, 'agcy_ids' => [$agency->id], 'concern' => 'Medical assistance'];
         $this->actingAsWithMfa($manager);
         $this->post(route('referrals.store'), ['case_id' => $case->id, 'agcy_id' => $agency->id])
-            ->assertSessionHasErrors(['category_id', 'concern']);
+            ->assertSessionHasErrors(['agcy_ids', 'agcy_id', 'concern']);
         $this->post(route('referrals.store'), $data)->assertSessionHasErrors('override_reason');
         $this->post(route('referrals.store'), [...$data, 'override_reason' => 'Specialist assistance'])
             ->assertSessionHasNoErrors()->assertRedirect();
         $this->assertSame('Specialist assistance', Referral::sole()->override_reason);
         $agency->update(['is_active' => false]);
         $this->post(route('referrals.store'), [...$data, 'override_reason' => 'Still requested', 'concern' => 'Another concern'])
-            ->assertSessionHasErrors('agcy_id');
+            ->assertSessionHasErrors('agcy_ids.0');
         $agency->update(['is_active' => true]);
         $category->update(['is_active' => false]);
         $this->post(route('referrals.store'), [...$data, 'override_reason' => 'Still requested'])
-            ->assertSessionHasErrors('category_id');
+            ->assertSessionHasErrors('case_id');
         $this->assertSame(1, Referral::count());
     }
 
@@ -87,7 +89,8 @@ class ReferralClassificationRoutingTest extends TestCase
         $case = CaseFile::factory()->create(['status' => 'OPEN']);
         $agency = Agency::factory()->create(['is_active' => true]);
         $category = CaseCategory::factory()->create();
-        $data = ['case_id' => $case->id, 'agcy_id' => $agency->id, 'category_id' => $category->id, 'concern' => 'Valid concern', 'override_reason' => 'Specialist agency'];
+        $case->categories()->attach($category);
+        $data = ['case_id' => $case->id, 'agcy_id' => $agency->id, 'concern' => 'Valid concern', 'override_reason' => 'Specialist agency'];
         $service = app(ReferralService::class);
         foreach (['concern', 'category_id', 'agcy_id'] as $field) {
             $invalid = $data;
@@ -103,7 +106,7 @@ class ReferralClassificationRoutingTest extends TestCase
                 $service->createReferral($invalid, $manager->id);
                 $this->fail('Invalid classification must fail.');
             } catch (ValidationException $exception) {
-                $this->assertArrayHasKey($field, $exception->errors());
+                $this->assertArrayHasKey($field === 'category_id' ? 'case_id' : $field, $exception->errors());
             }
         }
         $this->assertSame(0, Referral::count());

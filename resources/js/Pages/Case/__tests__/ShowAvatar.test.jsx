@@ -1,8 +1,10 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import CaseShow from '../Show';
+import { router } from '@inertiajs/react';
 
-vi.mock('@inertiajs/react', () => ({ Head: () => null, Link: ({ children, ...props }) => <a {...props}>{children}</a>, router: {}, usePage: () => ({ props: { roles: { CASE_MANAGER: 'CASE_MANAGER', ADMIN: 'ADMIN' }, auth: { user: { role: 'CASE_MANAGER' } } } }), useForm: () => ({ data: {}, setData: vi.fn(), post: vi.fn(), processing: false, errors: {} }) }));
+const pageState = vi.hoisted(() => ({ role: 'CASE_MANAGER' }));
+vi.mock('@inertiajs/react', () => ({ Head: () => null, Link: ({ children, ...props }) => <a {...props}>{children}</a>, router: { patch: vi.fn(), post: vi.fn() }, usePage: () => ({ props: { roles: { CASE_MANAGER: 'CASE_MANAGER', ADMIN: 'ADMIN' }, auth: { user: { role: pageState.role } }, categories: [{ id: 'cat-1', name: 'Legal' }, { id: 'cat-2', name: 'Medical' }] } }), useForm: () => ({ data: {}, setData: vi.fn(), post: vi.fn(), processing: false, errors: {} }) }));
 vi.mock('@/Layouts/AppLayout', () => ({ default: ({ children }) => <div>{children}</div> }));
 vi.mock('@/Components/ui/StatusBadge', () => ({ default: () => null }));
 vi.mock('@/Components/ui/UserAvatar', () => ({ default: () => null, getAvatarColor: () => '' }));
@@ -15,7 +17,6 @@ vi.mock('@/Components/ui/RowContextMenu', () => ({ RowContextMenu: () => null, R
 vi.mock('@/Components/FileUpload', () => ({ default: () => null }));
 vi.mock('@/Components/AuditLogModal', () => ({ default: () => null }));
 vi.mock('@/Components/Timeline', () => ({ default: () => null }));
-vi.mock('@/Components/ui/ConfirmDialog', () => ({ default: () => null }));
 const { toastError } = vi.hoisted(() => ({ toastError: vi.fn() }));
 vi.mock('@/Hooks/useToast', () => ({ useToast: () => ({ success: vi.fn(), error: toastError }) }));
 globalThis.route = () => '/';
@@ -90,5 +91,66 @@ describe('Case documents section', () => {
     expect(screen.getByText('For compliance')).toBeInTheDocument();
     expect(screen.getByText('Received')).toBeInTheDocument();
     expect(screen.getByText('To follow')).toBeInTheDocument();
+  });
+});
+
+describe('Case actions', () => {
+  it('saves corrections and categories together with PATCH', () => {
+    render(<CaseShow case={{ id: 'case-1', status: 'OPEN', first_name: 'Ari', referrals: [] }} case_categories={[{ id: 'cat-1', name: 'Legal' }]} />);
+    globalThis.route = (name) => `/${name}`;
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Case' }));
+    router.patch.mockClear();
+    fireEvent.change(screen.getByLabelText('First name'), { target: { value: 'Maria' } });
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Medical' }));
+    fireEvent.change(screen.getByLabelText('Reason for correction *'), { target: { value: 'Correct name' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    expect(router.patch).toHaveBeenCalledTimes(1);
+    expect(router.patch).toHaveBeenCalledWith('/cases.update', expect.objectContaining({ first_name: 'Maria', correction_reason: 'Correct name', category_ids: ['cat-1', 'cat-2'] }), expect.any(Object));
+    expect(screen.getByRole('button', { name: 'Saving…' })).toBeDisabled();
+    fireEvent.submit(screen.getByRole('button', { name: 'Saving…' }).closest('form'));
+    expect(router.patch).toHaveBeenCalledTimes(1);
+  });
+  it('restricts editing to case managers', () => {
+    pageState.role = 'AGENCY';
+    const { rerender } = render(<CaseShow case={{ id: 'case-1', status: 'OPEN', referrals: [] }} />);
+    expect(screen.queryByRole('button', { name: 'Edit Case' })).not.toBeInTheDocument();
+    pageState.role = 'CASE_MANAGER';
+    rerender(<CaseShow case={{ id: 'case-1', status: 'OPEN', referrals: [] }} />);
+    expect(screen.getByRole('button', { name: 'Edit Case' })).toBeInTheDocument();
+  });
+  it('keeps edits on validation failure and confirms dismissal', () => {
+    render(<CaseShow case={{ id: 'case-1', status: 'OPEN', first_name: 'Ari', referrals: [] }} case_categories={[{ id: 'cat-1', name: 'Legal' }]} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Case' }));
+    fireEvent.change(screen.getByLabelText('First name'), { target: { value: 'Maria' } });
+    fireEvent.change(screen.getByLabelText('Reason for correction *'), { target: { value: 'Fix typo' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    const callbacks = router.patch.mock.calls.at(-1)[2];
+    act(() => { callbacks.onError({ first_name: 'Invalid name' }); callbacks.onFinish(); });
+    expect(screen.getByRole('alert')).toHaveTextContent('Invalid name');
+    expect(screen.getByLabelText('First name')).toHaveValue('Maria');
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel' }));
+    expect(screen.getByText('Your case edits have not been saved.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Discard changes' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+  it('only locks normal close for active referrals', () => {
+    const { rerender } = render(<CaseShow case={{ id: 'case-1', status: 'OPEN', referrals: [{ id: 'r1', status: 'PENDING' }] }} />);
+    const normalClose = screen.getByRole('button', { name: 'Close Case' });
+    expect(normalClose).toBeDisabled();
+    expect(normalClose).toHaveTextContent('lock');
+    expect(screen.getByRole('button', { name: 'Force close case' })).toBeEnabled();
+    router.post.mockClear();
+    fireEvent.click(screen.getByRole('button', { name: 'Force close case' }));
+    expect(screen.getByText(/referrals are still processing.*anyway/i)).toBeInTheDocument();
+    expect(router.post).not.toHaveBeenCalled();
+    fireEvent.click(screen.getAllByRole('button', { name: 'Force close case' }).at(-1));
+    expect(router.post).toHaveBeenCalledWith('/cases.toggle-status', { force_close: true }, expect.any(Object));
+    rerender(<CaseShow case={{ id: 'case-1', status: 'OPEN', referrals: [{ id: 'r1', status: 'COMPLETED' }] }} />);
+    expect(screen.getByRole('button', { name: 'Close Case' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Close Case' })).not.toHaveTextContent('lock');
+    expect(screen.queryByRole('button', { name: 'Force close case' })).not.toBeInTheDocument();
+    rerender(<CaseShow case={{ id: 'case-1', status: 'OPEN', referrals: [{ id: 'r1', status: 'REJECTED' }] }} />);
+    expect(screen.getByRole('button', { name: 'Close Case' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Close Case' })).not.toHaveTextContent('lock');
   });
 });

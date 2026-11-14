@@ -39,6 +39,7 @@ class ReferralDocumentUploadTest extends TestCase
             'status' => 'OPEN',
         ]);
 
+        $this->case->categories()->attach(CaseCategory::factory()->create());
         $this->referral = Referral::create([
             'id' => fake()->uuid(),
             'required_services' => 'Test Service',
@@ -97,11 +98,10 @@ class ReferralDocumentUploadTest extends TestCase
         $response = $this->from('/some-page')->actingAsWithMfa($admin)->post(
             route('referrals.store'),
             [
-                'category_id' => CaseCategory::factory()->create()->id,
                 'concern' => 'Assistance requested',
                 'override_reason' => 'Agency selected for this assistance',
                 'case_id' => $this->case->id,
-                'agcy_id' => $this->agency->id,
+                'agcy_ids' => [$this->agency->id],
                 'documents' => [$file],
             ],
         );
@@ -121,11 +121,10 @@ class ReferralDocumentUploadTest extends TestCase
         $response = $this->actingAsWithMfa($admin)->post(
             route('referrals.store'),
             [
-                'category_id' => CaseCategory::factory()->create()->id,
                 'concern' => 'Assistance requested',
                 'override_reason' => 'Agency selected for this assistance',
                 'case_id' => $this->case->id,
-                'agcy_id' => $this->agency->id,
+                'agcy_ids' => [$this->agency->id],
                 'documents' => [$file],
             ],
         );
@@ -159,16 +158,16 @@ class ReferralDocumentUploadTest extends TestCase
             'status' => 'OPEN',
         ]);
 
+        $case->categories()->attach(CaseCategory::factory()->create());
         $file = UploadedFile::fake()->createWithContent('document.pdf', '%PDF-1.4 test document', 'application/pdf');
 
         $response = $this->from('/referrals/create')->actingAsWithMfa($admin)->post(
             route('referrals.store'),
             [
-                'category_id' => CaseCategory::factory()->create()->id,
                 'concern' => 'Assistance requested',
                 'override_reason' => 'Agency selected for this assistance',
                 'case_id' => $case->id,
-                'agcy_id' => $this->agency->id,
+                'agcy_ids' => [$this->agency->id],
                 'documents' => [$file],
             ],
         );

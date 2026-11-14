@@ -191,7 +191,7 @@ class NotificationPayloadEnrichmentTest extends TestCase
 
     private function createCase(User $user): CaseFile
     {
-        return CaseFile::factory()->withIntake()->create([
+        $case = CaseFile::factory()->withIntake()->create([
             'user_id' => $user->id,
             'email' => 'ofw@example.com',
             'first_name' => 'Snapshot',
@@ -199,5 +199,8 @@ class NotificationPayloadEnrichmentTest extends TestCase
             'email' => 'snapshot@example.test',
             'status' => 'OPEN',
         ]);
+        $case->categories()->attach(CaseCategory::factory()->create());
+
+        return $case;
     }
 }

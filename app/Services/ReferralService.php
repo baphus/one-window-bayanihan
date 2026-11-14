@@ -31,6 +31,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -75,20 +76,21 @@ class ReferralService
             $data['override_reason'] = is_string($data['override_reason'] ?? null) ? trim($data['override_reason']) : ($data['override_reason'] ?? null);
             Validator::make($data, [
                 'agcy_id' => ['required', 'uuid'],
-                'category_id' => ['required', 'uuid'],
                 'concern' => ['required', 'string', 'max:5000'],
                 'override_reason' => ['nullable', 'string', 'max:5000'],
             ])->validate();
 
-            $category = CaseCategory::whereKey($data['category_id'])->where('is_active', true)->sharedLock()->first();
-            if (! $category || $category->is_deleted) {
-                throw ValidationException::withMessages(['category_id' => 'Select an active category.']);
+            $categoryIds = DB::table('case_file_case_category')->where('case_id', $case->id)->pluck('case_category_id');
+            $categories = CaseCategory::whereIn('id', $categoryIds)->where('is_active', true)->where('is_deleted', false)->sharedLock()->get();
+            if ($categoryIds->isEmpty() || $categories->count() !== $categoryIds->count()) {
+                throw ValidationException::withMessages(['case_id' => 'Case must have only active categories.']);
             }
+            $category = $categories->first();
             $agency = Agency::whereKey($data['agcy_id'])->where('is_active', true)->sharedLock()->first();
             if (! $agency || $agency->is_deleted) {
                 throw ValidationException::withMessages(['agcy_id' => 'Select an active agency.']);
             }
-            if (! $category->suggestedAgencies()->whereKey($agency->id)->exists() && ($data['override_reason'] === null || $data['override_reason'] === '')) {
+            if (! $categories->contains(fn (CaseCategory $item) => $item->suggestedAgencies()->whereKey($agency->id)->exists()) && ($data['override_reason'] === null || $data['override_reason'] === '')) {
                 throw ValidationException::withMessages(['override_reason' => 'Explain why this agency is selected outside category suggestions.']);
             }
 
@@ -118,6 +120,8 @@ class ReferralService
                 'override_reason' => $data['override_reason'] === '' ? null : $data['override_reason'],
             ]);
 
+            $referral->categories()->sync($categoryIds);
+
             // Reload services so event recorder and timeline reflect actual service names
             $referral->load('services');
 
@@ -125,7 +129,13 @@ class ReferralService
 
             // Audit logging is handled by AuditObserver::created() — no manual log needed.
 
-            $this->notifier->notifyCreated($referral, $userId);
+            DB::afterCommit(function () use ($referral, $userId) {
+                try {
+                    $this->notifier->notifyCreated($referral, $userId);
+                } catch (\Throwable $exception) {
+                    Log::error('Referral notification failed after commit', ['referral_id' => $referral->id, 'exception' => $exception]);
+                }
+            });
 
             return $referral->load(['agency', 'category', 'caseFile', 'milestones']);
         });
@@ -151,6 +161,56 @@ class ReferralService
      *
      * @throws \Throwable
      */
+    public function createReferralsWithDocuments(array $data, string $userId, array $files, StorageService $storage): array
+    {
+        $paths = [];
+        $uploads = [];
+        try {
+            foreach ($data['agcy_ids'] as $index => $agencyId) {
+                foreach ($files as $file) {
+                    $result = $storage->store($file, 'case-documents/'.$data['case_id']);
+                    if (! $result->success) {
+                        throw new SafeException('REFERRAL_DOCUMENT_UPLOAD_FAILED', $result->error ?? 'Failed to store file.');
+                    }
+                    $paths[] = $result->path;
+                    $uploads[$index][] = $result;
+                }
+            }
+
+            return DB::transaction(function () use ($data, $userId, $uploads) {
+                $referrals = [];
+                foreach ($data['agcy_ids'] as $index => $agencyId) {
+                    try {
+                        $referral = $this->createReferral([...$data, 'agcy_id' => $agencyId], $userId);
+                    } catch (ValidationException $exception) {
+                        $errors = $exception->errors();
+                        if (isset($errors['agcy_id'])) {
+                            $errors["agcy_ids.$index"] = $errors['agcy_id'];
+                            unset($errors['agcy_id']);
+                        }
+                        throw ValidationException::withMessages($errors);
+                    }
+                    foreach ($uploads[$index] ?? [] as $result) {
+                        CaseDocument::create([
+                            'file_name' => $result->originalName, 'file_path' => $result->path,
+                            'file_type' => $result->type, 'size' => $result->size,
+                            'case_id' => $referral->case_id, 'referral_id' => $referral->id,
+                            'user_id' => $userId, 'category' => 'referral',
+                        ]);
+                    }
+                    $referrals[] = $referral;
+                }
+
+                return $referrals;
+            });
+        } catch (\Throwable $exception) {
+            foreach ($paths as $path) {
+                $storage->delete($path);
+            }
+            throw $exception;
+        }
+    }
+
     public function createReferralWithDocuments(array $data, string $userId, array|UploadedFile|null $files, StorageService $storage): Referral
     {
         $files = is_array($files) ? $files : ($files instanceof UploadedFile ? [$files] : []);
@@ -250,6 +310,7 @@ class ReferralService
             'caseFile',
             'caseFile.ofwUser:id,avatar_url',
             'category',
+            'categories',
             'agency',
             // Only the newest milestone is ever read: Referral::
             // getLatestUpdateAttribute() takes first(), which this accessor
@@ -267,7 +328,7 @@ class ReferralService
         $sortMap = [
             'case_number' => ['expression' => 'cases.case_number', 'joins' => ['cases']],
             'client' => ['expression' => "CONCAT_WS(' ', cases.first_name, cases.last_name)", 'joins' => ['cases']],
-            'category' => ['expression' => 'case_categories.name', 'joins' => ['case_categories']],
+            'category' => ['expression' => "COALESCE((SELECT STRING_AGG(sc.name, ', ' ORDER BY sc.name) FROM referral_case_category rc JOIN case_categories sc ON sc.id = rc.case_category_id WHERE rc.referral_id = referrals.id), case_categories.name)", 'joins' => ['case_categories']],
             'agency' => ['expression' => 'agencies.name', 'joins' => ['agencies']],
             'status' => ['expression' => 'referrals.status', 'joins' => []],
             'created_at' => ['expression' => 'referrals.created_at', 'joins' => []],
@@ -325,7 +386,12 @@ class ReferralService
         $categoryIds = array_values(array_filter($categoryIds));
 
         if (! empty($categoryIds)) {
-            $query->whereIn('referrals.category_id', $categoryIds);
+            $query->where(function ($q) use ($categoryIds) {
+                $q->whereHas('categories', fn ($categories) => $categories->whereIn('case_categories.id', $categoryIds))
+                    ->orWhere(function ($legacy) use ($categoryIds) {
+                        $legacy->whereDoesntHave('categories')->whereIn('referrals.category_id', $categoryIds);
+                    });
+            });
         }
 
         if (! empty($filters['age_min_days']) && is_numeric($filters['age_min_days'])) {
@@ -378,6 +444,7 @@ class ReferralService
             'caseFile.ofwUser:id,avatar_url',
             'caseFile.user',
             'category',
+            'categories',
             'agency',
             'milestones.user',
             'attachments.user',

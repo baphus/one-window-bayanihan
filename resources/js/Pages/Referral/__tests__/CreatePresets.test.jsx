@@ -1,22 +1,17 @@
+import React from 'react';
 import '@testing-library/jest-dom/vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const mockSetData = vi.fn();
+const mockPost = vi.fn();
 
 vi.mock('@inertiajs/react', () => ({
   Head: () => null,
   Link: ({ children, href }) => <a href={href}>{children}</a>,
-  useForm: () => ({
-    data: { case_id: 'case-1', category_id: 'cat-1', agcy_id: 'agcy-1', concern: '', notes: '', override_reason: '', documents: [] },
-    setData: mockSetData,
-    post: vi.fn(),
-    processing: false,
-    errors: {},
-    setError: vi.fn(),
-    clearErrors: vi.fn(),
-    transform: vi.fn((fn) => fn),
-  }),
+  useForm: (initial) => {
+    const [data, update] = React.useState(initial);
+    return { data, setData: (key, value) => update((current) => ({ ...current, [key]: value })), post: mockPost, processing: false, errors: {}, clearErrors: vi.fn(), transform: vi.fn() };
+  },
   router: { get: vi.fn(), post: vi.fn() },
   usePage: () => ({ props: { auth: { user: { id: 'u-1', role: 'CASE_MANAGER' } }, just_published: false } }),
 }));
@@ -35,13 +30,13 @@ afterEach(cleanup);
 
 const agencies = [{ id: 'agcy-1', name: 'DOLE' }];
 const categories = [{ id: 'cat-1', name: 'Legal', suggested_agency_ids: ['agcy-1'] }];
-const cases = { data: [{ id: 'case-1', case_number: 'C001', first_name: 'Juan', last_name: 'Cruz', created_at: '2026-11-01', status: 'open' }], current_page: 1, last_page: 1, from: 1, to: 1, total: 1 };
+const cases = { data: [{ id: 'case-1', case_number: 'C001', first_name: 'Juan', last_name: 'Cruz', created_at: '2026-11-01', status: 'open', categories: [{ id: 'cat-1', name: 'Legal' }] }], current_page: 1, last_page: 1, from: 1, to: 1, total: 1 };
 
 describe('Referral Create concern presets', () => {
   it('shows preset buttons on step 3', () => {
     render(<ReferralCreate case_id="case-1" agencies={agencies} cases={cases} categories={categories} filters={{}} />);
     
-    // Navigate to step 3
+    fireEvent.click(screen.getByRole('button', { name: /DOLE/i }));
     fireEvent.click(screen.getByRole('button', { name: /next/i }));
     
     expect(screen.getByText('Workplace discrimination')).toBeInTheDocument();
@@ -54,6 +49,7 @@ describe('Referral Create concern presets', () => {
 
   it('fills concern textarea when preset clicked', () => {
     render(<ReferralCreate case_id="case-1" agencies={agencies} cases={cases} categories={categories} filters={{}} />);
+    fireEvent.click(screen.getByRole('button', { name: /DOLE/i }));
     fireEvent.click(screen.getByRole('button', { name: /next/i }));
     
     const concernTextarea = screen.getByLabelText(/concern \*/i);
@@ -65,6 +61,7 @@ describe('Referral Create concern presets', () => {
 
   it('allows editing preset after selection', () => {
     render(<ReferralCreate case_id="case-1" agencies={agencies} cases={cases} categories={categories} filters={{}} />);
+    fireEvent.click(screen.getByRole('button', { name: /DOLE/i }));
     fireEvent.click(screen.getByRole('button', { name: /next/i }));
     
     const concernTextarea = screen.getByLabelText(/concern \*/i);
@@ -75,3 +72,24 @@ describe('Referral Create concern presets', () => {
     expect(concernTextarea.value).toBe('Legal assistance - contract dispute');
   });
 });
+
+  it('confirms all recipients and shared documents before sending', () => {
+    const allAgencies = [...agencies, { id: 'agcy-2', name: 'OWWA' }];
+    const allCategories = [{ ...categories[0], suggested_agency_ids: ['agcy-1', 'agcy-2'] }];
+    render(<ReferralCreate case_id="case-1" agencies={allAgencies} cases={cases} categories={allCategories} />);
+    expect(screen.queryByText('Referral category')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /DOLE/i }));
+    fireEvent.click(screen.getByRole('button', { name: /OWWA/i }));
+    fireEvent.click(screen.getByRole('button', { name: /next/i }));
+    fireEvent.change(screen.getByLabelText(/concern \*/i), { target: { value: 'Help needed' } });
+    const file = new File(['proof'], 'proof.pdf', { type: 'application/pdf' });
+    fireEvent.change(document.querySelector('input[type="file"]'), { target: { files: [file] } });
+    fireEvent.click(screen.getByRole('button', { name: /review referrals/i }));
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toHaveTextContent('DOLE');
+    expect(dialog).toHaveTextContent('OWWA');
+    expect(dialog).toHaveTextContent('proof.pdf');
+    expect(mockPost).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: /send referrals/i }));
+    expect(mockPost).toHaveBeenCalled();
+  });

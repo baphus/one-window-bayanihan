@@ -41,6 +41,7 @@ class CaseEventRecordingTest extends TestCase
     {
         [$case, $user] = $this->makeCase();
         $agency = Agency::factory()->create();
+        $case->categories()->attach(CaseCategory::factory()->create());
 
         $referral = app(ReferralService::class)->createReferral([
             'category_id' => CaseCategory::factory()->create()->id,

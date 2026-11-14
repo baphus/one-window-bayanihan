@@ -342,7 +342,7 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
                     case 'category':
                         return {
                             ...base,
-                            render: (row) => row.category?.name ?? row.category?.title ?? 'N/A',
+                            render: (row) => (row.categories?.length ? row.categories : row.category ? [row.category] : []).map((category) => category.name ?? category.title).join(', ') || 'N/A',
                         };
                     case 'agency':
                         return {

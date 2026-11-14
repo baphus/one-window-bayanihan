@@ -5,6 +5,7 @@ namespace App\Http\Requests;
 use App\Models\CaseFile;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Carbon;
+use Illuminate\Validation\Rule;
 
 class UpdateCaseRequest extends FormRequest
 {
@@ -45,6 +46,8 @@ class UpdateCaseRequest extends FormRequest
             $rules['employment_date_of_arrival'][] = 'after_or_equal:'.$dob;
         }
         $rules['correction_reason'] = ['required', 'string', 'max:1000'];
+        $rules['category_ids'] = ['sometimes', 'required', 'array', 'min:1'];
+        $rules['category_ids.*'] = ['required', 'uuid', 'distinct', Rule::exists('case_categories', 'id')->where('is_active', true)->where('is_deleted', false)->whereNull('deleted_at')];
         foreach (['ofw_user_id', 'assigned_case_manager_id', 'user_id', 'client_id', 'client_type', 'consent_method', 'consent_text_version', 'consent_evidence', 'consent_accepted_by', 'consent_given_at', 'proposed_assessments', 'proposed_assessment_by', 'proposed_assessment_at', 'confirmed_assessments', 'confirmed_assessment_by', 'confirmed_assessment_at', 'return_reason', 'missing_document_reasons', 'requested_document_slots', 'document_request_reason', 'document_requested_by', 'document_requested_at', 'reviewed_document_ids', 'last_correction_reason', 'status', 'reviewed_by', 'reviewed_at'] as $field) {
             $rules[$field] = ['prohibited'];
         }

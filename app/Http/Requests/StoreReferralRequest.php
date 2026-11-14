@@ -17,8 +17,10 @@ class StoreReferralRequest extends FormRequest
     {
         return [
             'case_id' => ['required', 'uuid', 'exists:cases,id'],
-            'agcy_id' => ['required', 'uuid', 'exists:agencies,id'],
-            'category_id' => ['required', 'uuid', 'exists:case_categories,id'],
+            'agcy_ids' => ['required', 'array', 'min:1'],
+            'agcy_ids.*' => ['required', 'uuid', 'distinct'],
+            'category_id' => ['prohibited'],
+            'agcy_id' => ['prohibited'],
             'concern' => ['required', 'string', 'max:5000'],
             'override_reason' => ['nullable', 'string', 'max:5000'],
             'notes' => ['nullable', 'string', 'max:5000'],

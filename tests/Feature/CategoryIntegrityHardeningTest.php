@@ -65,6 +65,16 @@ class CategoryIntegrityHardeningTest extends TestCase
         }
     }
 
+    public function test_unassigned_manager_cannot_correct_case_or_categories(): void
+    {
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $case = CaseFile::factory()->withIntake()->create(['status' => 'OPEN', 'assigned_case_manager_id' => User::factory()->create(['role' => UserRole::CASE_MANAGER->value])->id]);
+        $category = CaseCategory::factory()->create();
+        $this->actingAsWithMfa($manager)->patch(route('cases.update', $case), ['first_name' => 'Changed', 'category_ids' => [$category->id], 'correction_reason' => 'Correction'])->assertForbidden();
+        $this->assertSame('Juan', $case->fresh()->first_name);
+        $this->assertSame(0, $case->categories()->count());
+    }
+
     public function test_assigned_manager_correction_does_not_mutate_referral_classification(): void
     {
         $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
