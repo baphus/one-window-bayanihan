@@ -569,6 +569,7 @@ class ReferralServiceNotificationTest extends TestCase
     {
         $case = CaseFile::factory()->withIntake()->create([
             'user_id' => $user->id,
+            'assigned_case_manager_id' => $user->id,
             'email' => 'ofw@example.com',
             'status' => 'OPEN',
         ]);

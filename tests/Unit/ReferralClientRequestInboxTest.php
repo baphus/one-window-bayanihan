@@ -2,12 +2,14 @@
 
 namespace Tests\Unit;
 
+use App\Enums\UserRole;
 use App\Http\Controllers\ReferralClientRequestController;
 use App\Mail\ClientRequestMail;
 use App\Models\Agency;
 use App\Models\CaseFile;
 use App\Models\Referral;
 use App\Models\ReferralClientRequest;
+use App\Models\User;
 use App\Notifications\ReferralClientRequestActivity;
 use App\Services\ReferralClientAccessService;
 use Illuminate\Contracts\Queue\ShouldBeEncrypted;
@@ -122,7 +124,8 @@ class ReferralClientRequestInboxTest extends TestCase
 
     public function test_delivery_history_contains_status_but_no_token_or_magic_url(): void
     {
-        $case = CaseFile::factory()->create();
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $case = CaseFile::factory()->create(['assigned_case_manager_id' => $manager->id]);
         $referral = Referral::factory()->create([
             'case_id' => $case->id,
             'agcy_id' => Agency::factory()->create()->id,
@@ -132,7 +135,7 @@ class ReferralClientRequestInboxTest extends TestCase
         $method = new \ReflectionMethod($controller, 'recordDelivery');
         $method->invoke($controller, $clientRequest, null, 'not_sent_no_email');
 
-        $notification = $case->user->notifications()->latest()->firstOrFail();
+        $notification = $manager->notifications()->latest()->firstOrFail();
         $this->assertSame('referral_client_request_delivery_not_sent_no_email', $notification->data['type']);
         $this->assertSame($clientRequest->id, $notification->data['request_id']);
         $this->assertSame($referral->id, $notification->data['referral_id']);
