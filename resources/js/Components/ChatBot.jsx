@@ -9,28 +9,6 @@ import TurnstileWidget from '@/Components/TurnstileWidget';
 import { getTurnstileError } from '@/lib/turnstile';
 import ChatbotSources from '@/Components/ChatbotSources';
 
-// Turnstile verification is anti-abuse state, not conversation state, so it
-// outlives a reload for the browser tab. The transcript deliberately does not:
-// conversation context is ephemeral and reset on every page load.
-const TURNSTILE_SESSION_KEY = 'owb_chat_turnstile_verified';
-
-function loadTurnstileVerified() {
-    try {
-        return sessionStorage.getItem(TURNSTILE_SESSION_KEY) === '1';
-    } catch {
-        /* sessionStorage unavailable */
-    }
-    return false;
-}
-
-function saveTurnstileVerified() {
-    try {
-        sessionStorage.setItem(TURNSTILE_SESSION_KEY, '1');
-    } catch {
-        /* sessionStorage unavailable */
-    }
-}
-
 function createWelcomeMessage(name) {
     return {
         role: 'bot',
@@ -235,7 +213,24 @@ function ChatBotSession() {
     const [quickHelpVisible, setQuickHelpVisible] = useState(true);
     const [turnstileToken, setTurnstileToken] = useState('');
     const [turnstileStatus, setTurnstileStatus] = useState('idle');
-    const [turnstileVerified, setTurnstileVerified] = useState(loadTurnstileVerified);
+    const [verifiedUntil, setVerifiedUntil] = useState(turnstile?.verified_until || 0);
+    const [widgetKey, setWidgetKey] = useState(0);
+    const turnstileVerified = verifiedUntil * 1000 > Date.now();
+
+    useEffect(() => {
+        setVerifiedUntil(turnstile?.verified_until || 0);
+    }, [turnstile?.verified_until]);
+
+    useEffect(() => {
+        if (!verifiedUntil) return undefined;
+        const delay = verifiedUntil * 1000 - Date.now();
+        if (delay <= 0) return undefined;
+        const timer = setTimeout(() => {
+            setVerifiedUntil(0);
+            setShowTurnstile(true);
+        }, Math.min(delay, 2147483647));
+        return () => clearTimeout(timer);
+    }, [verifiedUntil]);
     const [showTurnstile, setShowTurnstile] = useState(false);
     const [lastContext, setLastContext] = useState(null);
     const [quota, setQuota] = useState(null);
@@ -373,15 +368,17 @@ function ChatBotSession() {
             if (needsTurnstile && turnstileToken) {
                 payload.cf_turnstile_response = turnstileToken;
             }
+            if (turnstileToken) {
+                setTurnstileToken('');
+                setWidgetKey((key) => key + 1);
+            }
             const { data } = await axios.post(route('chatbot.message'), payload, { signal: controller.signal });
             if (controller.signal.aborted) return;
             quotaVersion.current++;
             setQuota(data.quota);
-            // If we got here with a token, the session is now verified
-            if (needsTurnstile) {
-                setTurnstileVerified(true);
-                setShowTurnstile(false);
-                saveTurnstileVerified();
+            if (turnstile?.enabled) {
+                setVerifiedUntil(data.turnstile?.verified_until || 0);
+                setShowTurnstile(!data.turnstile?.verified_until);
             }
             setMessages((prev) => [
                 ...prev,
@@ -397,11 +394,9 @@ function ChatBotSession() {
                 quotaVersion.current++;
                 setQuota(err.response.data.quota);
                 setMessages((prev) => [...prev, { role: 'bot', text: err.response.data.message, time: new Date() }]);
-            } else if (err.response?.status === 422 && err.response?.data?.error === 'turnstile_required') {
-                // The reused verification is not accepted server-side (expired
-                // reuse window or a fresh-token-per-request setup). Drop the
-                // client flag so the challenge is shown again.
-                setTurnstileVerified(false);
+            } else if (err.response?.status === 422 && ['turnstile_required', 'turnstile_failed'].includes(err.response?.data?.error)) {
+                setVerifiedUntil(0);
+                setTurnstileToken('');
                 setShowTurnstile(true);
                 setMessages((prev) => [
                     ...prev,
@@ -699,7 +694,7 @@ function ChatBotSession() {
                             {showTurnstile && !turnstileVerified && (
                                 <div className="mb-3 rounded-lg bg-amber-50 border border-amber-200 p-3 text-center">
                                     <p className="text-xs text-amber-800 mb-2 font-medium">Please verify you're human to continue chatting:</p>
-                                    <TurnstileWidget onToken={setTurnstileToken} onExpire={() => setTurnstileToken('')} onStatusChange={setTurnstileStatus} />
+                                    <TurnstileWidget key={widgetKey} onToken={setTurnstileToken} onExpire={() => setTurnstileToken('')} onStatusChange={setTurnstileStatus} />
                                 </div>
                             )}
                             <div className="mb-2 text-xs text-on-surface-variant" role="status" aria-live="polite">

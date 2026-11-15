@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Services\TurnstileVerifier;
 use Closure;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -41,7 +42,7 @@ class VerifyTurnstile
             $verifiedAt = (int) $request->session()->get(self::SESSION_VERIFIED_AT_KEY, 0);
 
             if ($verifiedAt > 0 && (time() - $verifiedAt) < $ttl) {
-                return $next($request);
+                return $this->withVerifiedUntil($next($request), $verifiedAt + $ttl);
             }
 
             $request->session()->forget([self::SESSION_KEY, self::SESSION_VERIFIED_AT_KEY]);
@@ -75,12 +76,27 @@ class VerifyTurnstile
             $request->session()->put(self::SESSION_VERIFIED_AT_KEY, time());
         }
 
-        return $next($request);
+        $response = $next($request);
+
+        return $ttl > 0
+            ? $this->withVerifiedUntil($response, (int) $request->session()->get(self::SESSION_VERIFIED_AT_KEY) + $ttl)
+            : $response;
+    }
+
+    private function withVerifiedUntil(Response $response, int $verifiedUntil): Response
+    {
+        if ($response instanceof JsonResponse) {
+            $data = $response->getData(true);
+            $data['turnstile']['verified_until'] = $verifiedUntil;
+            $response->setData($data);
+        }
+
+        return $response;
     }
 
     /**
      * The configured reuse window applies only to the session alias; every
-     * other route must present a fresh token per request. 0 (default) also
+     * other route must present a fresh token per request. A TTL of 0 also
      * makes the chatbot require a fresh token per message.
      */
     private function sessionTtl(Request $request): int

@@ -6,13 +6,13 @@ import ChatBot from './ChatBot';
 const state = vi.hoisted(() => ({ props: { chatbot: { enabled: true, assistant_name: 'Bayani' }, auth: { user: null }, turnstile: { enabled: false, site_key: 'site-key' } } }));
 vi.mock('@inertiajs/react', () => ({ usePage: () => state, Link: ({ children, ...props }) => <a {...props}>{children}</a>, router: { visit: vi.fn() } }));
 vi.mock('axios', () => ({ default: { get: vi.fn(), post: vi.fn(), isCancel: () => false } }));
-vi.mock('@/Components/TurnstileWidget', () => ({ default: () => null }));
+vi.mock('@/Components/TurnstileWidget', () => ({ default: ({ onToken }) => <button onClick={() => onToken('fresh-token')}>Complete verification</button> }));
 
 beforeEach(() => {
     localStorage.clear();
     sessionStorage.clear();
     state.props.auth.user = null;
-    state.props.turnstile.enabled = false;
+    state.props.turnstile = { enabled: false, site_key: 'site-key', verified_until: null };
     global.route = (name, slug) => name === 'helpdesk.show' ? `/help/${slug}` : '/chatbot/message';
     Element.prototype.scrollTo = vi.fn();
     axios.post.mockReset();
@@ -95,9 +95,53 @@ test('keeps a completed Turnstile challenge across a reload but not the transcri
     expect(sessionStorage.getItem('owb_chat_turnstile_verified')).toBeNull();
 });
 
+test('reuses server verification until expiry without replaying a token', async () => {
+    state.props.turnstile.enabled = true;
+    const expiry = Math.floor(Date.now() / 1000) + 60;
+    const response = { data: { quota: { limit: 5, remaining: 4, resets_at: '2099-01-01T16:00:00Z' }, reply: 'Hello', turnstile: { verified_until: expiry } } };
+    axios.post.mockResolvedValue(response);
+    render(<ChatBot />);
+    fireEvent.click(screen.getByRole('button', { name: 'Open chat' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Complete verification' }));
+    await send('Hello');
+    expect(axios.post.mock.calls[0][1].cf_turnstile_response).toBe('fresh-token');
+    expect(screen.queryByRole('button', { name: 'Complete verification' })).not.toBeInTheDocument();
+    await send('Again');
+    expect(axios.post.mock.calls[1][1]).not.toHaveProperty('cf_turnstile_response');
+    vi.spyOn(Date, 'now').mockReturnValue(expiry * 1000);
+    await send('Expired');
+    expect(axios.post).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole('button', { name: 'Complete verification' })).toBeInTheDocument();
+    vi.restoreAllMocks();
+});
+
+test('requires a new challenge for each message when reuse is disabled', async () => {
+    state.props.turnstile.enabled = true;
+    axios.post.mockResolvedValue({ data: { quota: { limit: 5, remaining: 4, resets_at: '2099-01-01T16:00:00Z' }, reply: 'Hello', turnstile: { verified_until: null } } });
+    render(<ChatBot />);
+    fireEvent.click(screen.getByRole('button', { name: 'Open chat' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Complete verification' }));
+    await send('Hello');
+    await send('Again');
+    expect(axios.post).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('button', { name: 'Complete verification' })).toBeInTheDocument();
+});
+
+test('requires a fresh token after the server rejects a token', async () => {
+    state.props.turnstile.enabled = true;
+    axios.post.mockRejectedValueOnce({ response: { status: 422, data: { error: 'turnstile_failed' } } });
+    render(<ChatBot />);
+    fireEvent.click(screen.getByRole('button', { name: 'Open chat' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Complete verification' }));
+    await send('Hello');
+    await send('Try again');
+    expect(axios.post).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('button', { name: 'Complete verification' })).toBeInTheDocument();
+});
+
 test('does not show the verification prompt after a verified reload', () => {
     state.props.turnstile.enabled = true;
-    sessionStorage.setItem('owb_chat_turnstile_verified', '1');
+    state.props.turnstile.verified_until = Math.floor(Date.now() / 1000) + 60;
     render(<ChatBot />);
     fireEvent.click(screen.getByRole('button', { name: 'Open chat' }));
     expect(screen.queryByText(/Please verify you're human to continue chatting/i)).not.toBeInTheDocument();
@@ -105,7 +149,7 @@ test('does not show the verification prompt after a verified reload', () => {
 
 test('drops the remembered verification when the server demands a token', async () => {
     state.props.turnstile.enabled = true;
-    sessionStorage.setItem('owb_chat_turnstile_verified', '1');
+    state.props.turnstile.verified_until = Math.floor(Date.now() / 1000) + 60;
     const error = Object.assign(new Error('turnstile_required'), { response: { status: 422, data: { error: 'turnstile_required' } } });
     axios.post.mockRejectedValueOnce(error);
     render(<ChatBot />);
