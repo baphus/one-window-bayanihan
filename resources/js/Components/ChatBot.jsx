@@ -238,6 +238,32 @@ function ChatBotSession() {
     const [turnstileVerified, setTurnstileVerified] = useState(loadTurnstileVerified);
     const [showTurnstile, setShowTurnstile] = useState(false);
     const [lastContext, setLastContext] = useState(null);
+    const [quota, setQuota] = useState(null);
+    const [quotaError, setQuotaError] = useState(false);
+    const [quotaRefresh, setQuotaRefresh] = useState(0);
+    const quotaVersion = useRef(0);
+
+    useEffect(() => {
+        if (!open) return undefined;
+        let active = true;
+        const version = ++quotaVersion.current;
+        setQuota(null);
+        setQuotaError(false);
+        axios.get(route('chatbot.quota')).then(({ data }) => {
+            if (active && quotaVersion.current === version) setQuota(data.quota);
+        }).catch(() => {
+            if (active && quotaVersion.current === version) setQuotaError(true);
+        });
+        return () => { active = false; };
+    }, [open, quotaRefresh]);
+
+    useEffect(() => {
+        if (!open || !quota || quota.remaining > 0) return undefined;
+        const delay = Math.max(0, new Date(quota.resets_at).getTime() - Date.now());
+        if (!Number.isFinite(delay)) return undefined;
+        const timer = setTimeout(() => setQuotaRefresh((value) => value + 1), Math.min(2147483647, Math.max(1000, delay)));
+        return () => clearTimeout(timer);
+    }, [open, quota]);
 
     useEffect(() => () => abortRef.current?.abort(), []);
 
@@ -290,7 +316,7 @@ function ChatBotSession() {
     async function handleSend(e, overrideMessage) {
         e?.preventDefault();
         const userMessage = (overrideMessage || input).trim();
-        if (!userMessage || loading) return;
+        if (!userMessage || loading || !quota || quota.remaining <= 0) return;
 
         // If turnstile is enabled and not verified, require the token
         const needsTurnstile = turnstile?.enabled && !turnstileVerified;
@@ -349,6 +375,8 @@ function ChatBotSession() {
             }
             const { data } = await axios.post(route('chatbot.message'), payload, { signal: controller.signal });
             if (controller.signal.aborted) return;
+            quotaVersion.current++;
+            setQuota(data.quota);
             // If we got here with a token, the session is now verified
             if (needsTurnstile) {
                 setTurnstileVerified(true);
@@ -365,7 +393,11 @@ function ChatBotSession() {
             if (axios.isCancel(err)) return;
             setLastContext(null);
             // Handle turnstile_required error from backend
-            if (err.response?.status === 422 && err.response?.data?.error === 'turnstile_required') {
+            if (err.response?.status === 429 && err.response?.data?.status === 'quota_exceeded') {
+                quotaVersion.current++;
+                setQuota(err.response.data.quota);
+                setMessages((prev) => [...prev, { role: 'bot', text: err.response.data.message, time: new Date() }]);
+            } else if (err.response?.status === 422 && err.response?.data?.error === 'turnstile_required') {
                 // The reused verification is not accepted server-side (expired
                 // reuse window or a fresh-token-per-request setup). Drop the
                 // client flag so the challenge is shown again.
@@ -376,11 +408,12 @@ function ChatBotSession() {
                     { role: 'bot', text: 'Please complete the verification challenge below to continue.', time: new Date() },
                 ]);
             } else {
+                if (!err.response) setQuotaRefresh((value) => value + 1);
                 setMessages((prev) => [
                     ...prev,
                     {
                         role: 'bot',
-                        text: 'Sorry, I encountered an error. Please try again.',
+                        text: err.response?.status === 429 ? 'Too many requests. Please wait a moment and try again.' : 'Sorry, I encountered an error. Please try again.',
                         time: new Date(),
                     },
                 ]);
@@ -433,7 +466,14 @@ function ChatBotSession() {
                                         remarkPlugins={[remarkGfm]}
                                         rehypePlugins={[rehypeSanitize]}
                                         components={{
-                                            a: ({ children }) => <span>{children}</span>,
+                                            a: ({ href, children }) => {
+                                                let allowed = false;
+                                                try {
+                                                    const url = new URL(href, window.location.origin);
+                                                    allowed = url.origin === window.location.origin && !url.search && !url.hash && ['/partners', '/contact', '/track'].includes(url.pathname);
+                                                } catch { /* Invalid URL remains plain text. */ }
+                                                return allowed ? <a href={href} className="text-primary underline underline-offset-2 focus-visible:outline focus-visible:outline-2">{children}</a> : <span>{children}</span>;
+                                            },
                                             img: () => null,
                                             ul: ({ children }) => (
                                                 <ul className="my-1 list-disc space-y-0.5 pl-5 marker:text-outline-variant">
@@ -662,6 +702,12 @@ function ChatBotSession() {
                                     <TurnstileWidget onToken={setTurnstileToken} onExpire={() => setTurnstileToken('')} onStatusChange={setTurnstileStatus} />
                                 </div>
                             )}
+                            <div className="mb-2 text-xs text-on-surface-variant" role="status" aria-live="polite">
+                                {quotaError ? <>Could not load your daily allowance. <button type="button" className="text-primary underline" onClick={() => setQuotaRefresh((value) => value + 1)}>Try again</button></> : !quota ? 'Loading daily allowance…' : <>
+                                    {quota.remaining} of {quota.limit} messages remaining today.
+                                    {quota.remaining === 0 && <> Resets {new Date(quota.resets_at).toLocaleString('en-US', { timeZone: 'Asia/Manila', dateStyle: 'medium', timeStyle: 'short' })} (Asia/Manila). Visit <a className="text-primary underline" href="/contact">Contact</a> or <a className="text-primary underline" href="/track">Track a case</a>.</>}
+                                </>}
+                            </div>
                             <form onSubmit={handleSend} className="flex items-end gap-2">
                                 <div className="relative flex-1">
                                     <textarea
@@ -671,7 +717,7 @@ function ChatBotSession() {
                                         onKeyDown={handleKeyDown}
                                         placeholder="Ask about services, agencies, or case tracking..."
                                         rows={2}
-                                        disabled={loading}
+                                        disabled={loading || !quota || quota.remaining <= 0}
                                         className="block w-full resize-none rounded-xl border border-outline-variant/80 bg-surface-container-low px-4 py-3 pr-10 text-sm leading-relaxed placeholder:text-on-surface-variant/60 focus:border-primary/40 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/15 disabled:opacity-50"
                                         style={{ minHeight: '56px', maxHeight: '160px' }}
                                         onInput={(e) => {
@@ -683,7 +729,7 @@ function ChatBotSession() {
                                 </div>
                                 <button
                                     type="submit"
-                                    disabled={loading || !input.trim()}
+                                    disabled={loading || !quota || quota.remaining <= 0 || !input.trim()}
                                     className="flex h-[56px] w-[56px] shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary-container text-on-primary shadow-md shadow-primary/30 transition-all hover:brightness-110 hover:shadow-lg hover:shadow-primary/40 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none disabled:active:scale-100"
                                     aria-label="Send message"
                                 >

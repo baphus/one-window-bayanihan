@@ -173,7 +173,7 @@ class AuditLogFormatterComprehensiveTest extends TestCase
                 'UPDATE', 'case_files',
                 ['status' => 'OPEN', 'summary' => 'Old summary', 'client_type' => 'OFW'],
                 ['status' => 'CLOSED', 'summary' => 'New summary', 'client_type' => 'NON-OFW'],
-                ['updated: status, summary, client type'], // multi-change: fields are named
+                ['updated: status, client type'], // free-text summary is excluded from description
             ],
             'UPDATE / case (no changes)' => [
                 'UPDATE', 'case', ['status' => 'OPEN'], ['status' => 'OPEN'],
@@ -505,7 +505,7 @@ class AuditLogFormatterComprehensiveTest extends TestCase
             'summary' => ['summary', 'summary'],
             'client_type' => ['client_type', 'client type'],
             'user_id' => ['user_id', 'assigned user'],
-            'is_deleted' => ['is_deleted', 'deleted status'],
+            'is_deleted' => ['is_deleted', 'record status'],
             'is_active' => ['is_active', 'active status'],
             'consent_given_at' => ['consent_given_at', 'consent date'],
             'closed_at' => ['closed_at', 'closed at'],
@@ -854,7 +854,7 @@ class AuditLogFormatterComprehensiveTest extends TestCase
         $statusChanges = array_values(array_filter($changes, fn ($c) => $c['fieldLabel'] === 'status'));
         $this->assertNotEmpty($statusChanges);
         $this->assertStringContainsString('Open', $statusChanges[0]['new']);
-        $this->assertStringContainsString('PENDING_REVIEW', $statusChanges[0]['old']);
+        $this->assertSame('PENDING_REVIEW', $statusChanges[0]['old']);
 
         // Historical client references are non-identifying.
         $this->assertContains('legacy client reference', $fieldLabels);
@@ -936,7 +936,6 @@ class AuditLogFormatterComprehensiveTest extends TestCase
 
         // Admin path still surfaces the client snapshot full name.
         $adminByField = collect($this->formatter->formatForAuditResponse($log, true)['changes'])->keyBy('field');
-        $this->assertSame('client', $adminByField['client']['fieldLabel']);
         $this->assertSame('Juan M. Dela Cruz Jr.', $adminByField['client']['new']);
 
         $this->assertSame('next of kin count', $byField['next_of_kin_count']['fieldLabel']);
@@ -946,6 +945,47 @@ class AuditLogFormatterComprehensiveTest extends TestCase
         // the free-text summary
         $this->assertArrayNotHasKey('category_ids', $byField);
         $this->assertArrayNotHasKey('summary', $byField);
+    }
+
+    public function test_admin_changes_preserve_missing_null_and_ciphertext_distinctions(): void
+    {
+        $ciphertext = json_encode(['iv' => 'opaque-iv', 'value' => 'opaque-value', 'mac' => 'opaque-mac']);
+        $log = new AuditLog([
+            'action' => 'UPDATE',
+            'module' => 'CASE',
+            'old_value' => ['case_number' => 'CASE-1', 'title' => null, 'tracker_number' => $ciphertext],
+            'new_value' => ['case_number' => 'CASE-2', 'title' => 'Title', 'tracker_number' => $ciphertext],
+            'timestamp' => now(),
+        ]);
+
+        $changes = collect($this->formatter->formatForAuditResponse($log, true)['changes'])->keyBy('field');
+
+        $this->assertArrayHasKey('case_number', $changes);
+        $this->assertSame('Not set', $changes['title']['old']);
+        $this->assertSame('Title', $changes['title']['new']);
+        $this->assertSame('Value unavailable (historical encrypted data)', $changes['tracker_number']['old']);
+        $this->assertSame('Value unavailable (historical encrypted data)', $changes['tracker_number']['new']);
+        $this->assertStringNotContainsString('opaque-value', json_encode($changes));
+    }
+
+    public function test_admin_changes_do_not_expose_free_text_or_change_staff_shape(): void
+    {
+        $log = new AuditLog([
+            'action' => 'UPDATE',
+            'module' => 'CASE',
+            'old_value' => ['case_number' => 'CASE-1', 'notes' => 'private old'],
+            'new_value' => ['case_number' => 'CASE-2', 'notes' => 'private new'],
+            'timestamp' => now(),
+        ]);
+
+        $admin = collect($this->formatter->formatForAuditResponse($log, true)['changes'])->keyBy('field');
+        $staff = collect($this->formatter->formatForAuditResponse($log)['changes'])->keyBy('field');
+
+        $this->assertArrayNotHasKey('notes', $admin);
+        $this->assertArrayNotHasKey('notes', $staff);
+        $this->assertArrayHasKey('case_number', $admin);
+        $this->assertArrayNotHasKey('old', $staff['case_number']);
+        $this->assertSame('CASE-2', $staff['case_number']['new']);
     }
 
     // ========================================================================

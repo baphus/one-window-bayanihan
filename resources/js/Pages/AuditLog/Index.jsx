@@ -1,6 +1,7 @@
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, router } from '@inertiajs/react';
 import { AuditTimeline } from '@/Components/AuditTimeline';
+import { Download } from 'lucide-react';
 import TableLoadingOverlay from '@/Components/ui/TableLoadingOverlay';
 import useTableVisitLoading from '@/Hooks/useTableVisitLoading';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -131,7 +132,7 @@ function ExportDialog({ open, onClose, filterValues, defaultDays, maxDays }) {
             disabled={exporting}
             className="px-4 py-2 bg-primary rounded-md text-sm font-medium text-on-primary hover:bg-primary-container inline-flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <span className="material-symbols-outlined text-[18px]">download</span>
+            <Download aria-hidden="true" className="h-[18px] w-[18px]" />
             Export CSV
           </button>
         </div>
@@ -195,7 +196,7 @@ export default function AuditLogIndex({
             onClick={() => setExportOpen(true)}
             className="inline-flex flex-shrink-0 items-center gap-1 h-8 px-3 bg-white border border-slate-300 rounded-md text-xs font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
-            <span className="material-symbols-outlined text-[16px]">download</span>
+            <Download aria-hidden="true" className="h-4 w-4" />
             Export
           </button>
         </div>
@@ -203,6 +204,7 @@ export default function AuditLogIndex({
         <div data-tour="audit-timeline" className="relative" aria-busy={tableLoading}>
           <AuditTimeline
             logs={logs.data}
+            showChanges
             availableActions={availableActions ?? []}
             availableModules={availableModules ?? []}
             availableModulesLabels={availableModulesLabels ?? {}}

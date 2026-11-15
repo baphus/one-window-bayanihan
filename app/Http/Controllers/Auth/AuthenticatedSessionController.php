@@ -49,6 +49,12 @@ class AuthenticatedSessionController extends Controller
         $pendingState->clear($request);
         $user = $request->authenticate();
 
+        // A saved public landing page must not override the role's login destination.
+        $intended = $request->session()->get('url.intended');
+        if ($intended && in_array(parse_url($intended, PHP_URL_PATH), [null, '', '/'], true)) {
+            $request->session()->forget('url.intended');
+        }
+
         if ($user) {
             $pendingState->startChallenge($request, $user, $request->boolean('remember'), $request->session()->pull('url.intended'));
 

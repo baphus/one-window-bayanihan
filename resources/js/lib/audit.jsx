@@ -13,14 +13,12 @@ import { formatDisplayDateTime } from '@/lib/utils';
  *   module           raw module, e.g. "case"        (AuditModule value)
  *   formatted_module human label, e.g. "Case"
  *   message          human-readable description
- *   changes          [{ field, fieldLabel, new }]   (after-only, no `old`)
+ *   changes          [{ field, fieldLabel, old?, new? }] (admin safe values)
  *   actor            actor name (or "System")
  *   timestamp        ISO-8601 string
  *   hasChanges       boolean
- * The changes payload is deliberately after-only and carries the safe-response
- * posture: free-text fields never arrive; each `new` value is already a
- * display-formatted, controlled transformation (statuses, booleans, resolved
- * names, etc.).
+ * Changes contain only server-approved structured values; free text is excluded.
+ * Staff timelines do not display changes.
  * There are NO camelCase `formatted*` keys — always read the snake_case
  * contract above (older code read `formattedModule` and silently fell back to
  * the raw lower-cased module string).
@@ -102,7 +100,7 @@ export function getActivityType(action, module) {
         return 'USER REGISTERED';
     }
 
-    return act || 'ACTIVITY';
+    return act ? act.toLowerCase().replace(/_/g, ' ') : 'Activity';
 }
 
 /** Map a module (raw or label) to a concise entity-type noun. */
@@ -142,56 +140,35 @@ export function normalizeAuditLog(log) {
  * Each changed field renders as a label/value line. Deliberately NOT a
  * table — the audit timeline must not read as tabular data.
  *
- * @param {Array}  props.changes  [{ field, fieldLabel, new, old? }]
- *   after-only today; when `old` is present render an old → new diff.
- * @param {number} [props.maxRows] cap the visible rows; excess collapses to "+N more"
- * @param {'full'|'compact'} [props.variant='full']
- *        full    – bordered container (Index timeline)
- *        compact – borderless, tighter (AuditLogCard feeds)
+ * @param {Array} props.changes Safe, display-formatted before/after values.
  */
-export function ChangesList({ changes, maxRows = null, variant = 'full' }) {
-    if (!changes || changes.length === 0) return null;
+export function ChangesList({ changes }) {
+    if (!changes?.length) return null;
 
-    const visible = maxRows ? changes.slice(0, maxRows) : changes;
-    const remaining = maxRows ? changes.length - maxRows : 0;
+    const value = (change, key) => {
+        if (!Object.prototype.hasOwnProperty.call(change, key)) return 'Not recorded';
+        if (change[key] === null || change[key] === '') return 'Not set';
+        return String(change[key]);
+    };
 
     return (
-        <div className={variant === 'full'
-            ? 'border border-slate-200 rounded-md overflow-hidden bg-white/60'
-            : 'mt-2'}>
-            <dl className={variant === 'full' ? 'divide-y divide-slate-100' : ''}>
-                {visible.map((change, idx) => {
-                    const label = change.fieldLabel || change.field;
-                    const next = change.new ?? '—';
-                    const hasOld = change.old !== undefined && change.old !== null && change.old !== '';
-                    return (
-                        <div key={idx} className="flex gap-3 px-3 py-1.5">
-                            <dt className="w-32 shrink-0 truncate text-[11px] font-medium capitalize text-slate-500">
-                                {label}
-                            </dt>
-                            <dd className="min-w-0 flex-1 break-words text-xs">
-                                {hasOld ? (
-                                    <>
-                                        <span className="text-slate-400 line-through">{String(change.old)}</span>
-                                        <span aria-hidden="true" className="mx-1.5 text-slate-300">→</span>
-                                        <span className="text-emerald-700">{String(next)}</span>
-                                    </>
-                                ) : (
-                                    <span className="text-emerald-700">{String(next)}</span>
-                                )}
-                            </dd>
-                        </div>
-                    );
-                })}
+        <details className="rounded-md border border-slate-200 bg-white/60 text-xs">
+            <summary className="cursor-pointer px-3 py-2 font-semibold text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                View changes ({changes.length})
+            </summary>
+            <dl className="divide-y divide-slate-100 border-t border-slate-100">
+                {changes.map((change, idx) => (
+                    <div key={idx} className="flex flex-col gap-1 px-3 py-2 sm:flex-row sm:gap-3">
+                        <dt className="w-32 shrink-0 break-words font-medium text-slate-600">{change.fieldLabel || change.field?.replace(/_/g, ' ')}</dt>
+                        <dd className="min-w-0 flex-1 whitespace-pre-wrap break-all text-slate-800">
+                            <span className="font-medium">Before: </span>{value(change, 'old')}
+                            <br />
+                            <span className="font-medium">After: </span>{value(change, 'new')}
+                        </dd>
+                    </div>
+                ))}
             </dl>
-            {remaining > 0 && (
-                <p className={variant === 'full'
-                    ? 'border-t border-slate-100 px-3 py-1.5 text-[11px] text-slate-400'
-                    : 'px-1 pt-[3px] text-[10px] text-slate-400'}>
-                    +{remaining} more
-                </p>
-            )}
-        </div>
+        </details>
     );
 }
 
@@ -202,14 +179,13 @@ export function ChangesList({ changes, maxRows = null, variant = 'full' }) {
  * Header is a single wrapping line: timestamp • actor • ACTION badge • module label.
  *
  * @param {Object} props.log safe audit row (snake_case formatted_module)
- * @param {number} [props.maxRows=3]
- * @param {'full'|'compact'} [props.variant='full']
+ * @param {boolean} [props.showChanges=false] Show admin-only details.
  * @param {string[]} [props.extra=[]] trailing meta segments (e.g. case no.)
  */
-export function AuditLogRow({ log, maxRows = 3, variant = 'full', extra = [] }) {
+export function AuditLogRow({ log, extra = [], showChanges = false }) {
     const style = actionStyle(log.action);
     const actor = log.actor || 'System';
-    const moduleLabel = log.formatted_module || log.module || '';
+    const moduleLabel = log.formatted_module || (log.module || '').replace(/_/g, ' ');
     const message = log.message ?? '';
     const changes = Array.isArray(log.changes) ? log.changes : [];
     const timestamp = log.timestamp ? formatDisplayDateTime(log.timestamp) : '';
@@ -221,10 +197,9 @@ export function AuditLogRow({ log, maxRows = 3, variant = 'full', extra = [] }) 
                     <span className="whitespace-nowrap tabular-nums text-slate-500">{timestamp}</span>
                 )}
                 {timestamp && <span aria-hidden="true" className="text-slate-300">•</span>}
-                <span className="max-w-[180px] truncate font-medium text-slate-700">{actor}</span>
+                <span className="break-words font-medium text-slate-700">{actor}</span>
                 <span aria-hidden="true" className="text-slate-300">•</span>
                 <span className={`inline-flex items-center gap-1 rounded px-1.5 py-px text-[10px] font-bold uppercase tracking-wide ${style.badge}`}>
-                    <span className="material-symbols-outlined text-[12px] leading-none">{style.icon}</span>
                     {getActivityType(log.action, log.module)}
                 </span>
                 {moduleLabel && <span className="text-slate-500">{moduleLabel}</span>}
@@ -238,9 +213,9 @@ export function AuditLogRow({ log, maxRows = 3, variant = 'full', extra = [] }) 
             {message && (
                 <p className="mt-0.5 text-[13px] leading-5 text-slate-800">{message}</p>
             )}
-            {changes.length > 0 && (
+            {showChanges && changes.length > 0 && (
                 <div className="mt-1.5">
-                    <ChangesList changes={changes} maxRows={maxRows} variant={variant} />
+                    <ChangesList changes={changes} />
                 </div>
             )}
         </div>

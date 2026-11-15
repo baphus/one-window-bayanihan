@@ -5,6 +5,7 @@ namespace Tests\Feature\Security;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -66,6 +67,7 @@ class TurnstileValidationTest extends TestCase
     public function it_tells_user_to_complete_the_check_when_token_missing(): void
     {
         config(['turnstile.enabled' => true]);
+        Log::spy();
 
         $response = $this->post(route('login'), [
             'email' => 'test@example.com',
@@ -73,6 +75,10 @@ class TurnstileValidationTest extends TestCase
         ]);
 
         $response->assertSessionHasErrors(['captcha' => 'Please complete the security check to continue.']);
+        Log::shouldHaveReceived('warning')->once()->with('Turnstile verification failed', [
+            'reason' => 'missing_token',
+            'ip' => '127.0.0.1',
+        ]);
     }
 
     #[Test]

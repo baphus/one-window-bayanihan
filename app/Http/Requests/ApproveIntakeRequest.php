@@ -16,6 +16,8 @@ class ApproveIntakeRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'duplicate_seen_ids' => ['sometimes', 'array'],
+            'duplicate_seen_ids.*' => ['required', 'uuid', 'distinct'],
             'confirmed_assessments' => ['required', 'array', 'min:1', 'max:8'],
             'confirmed_assessments.*' => ['required', 'distinct', Rule::in(CaseFile::ASSESSMENTS)],
             'confirmed_assessment_other' => [Rule::requiredIf(in_array('OTHER', (array) $this->input('confirmed_assessments', []), true)), 'nullable', 'string', 'max:2000'],

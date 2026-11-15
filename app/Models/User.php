@@ -33,6 +33,13 @@ class User extends Authenticatable implements MustVerifyEmail
         return 'user';
     }
 
+    public function getAuditEntityLabel(): ?string
+    {
+        return filled($this->name) ? $this->name : null;
+    }
+
+    public ?string $auditActorId = null;
+
     public $incrementing = false;
 
     protected $keyType = 'string';

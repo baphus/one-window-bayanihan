@@ -141,6 +141,20 @@ class ChatbotAgentTest extends TestCase
         (new ChatbotTurn)->remaining();
     }
 
+    public function test_navigation_answers_use_verified_links_without_calling_model(): void
+    {
+        HelpdeskAgent::fake([])->preventStrayPrompts();
+        $service = app(ChatbotConversationService::class);
+        $this->assertStringContainsString(route('partners'), $service->reply(['message' => 'Where is the partners page?'], new ChatbotAudience)['reply']);
+        $this->assertStringContainsString(route('partners'), $service->reply(['message' => 'Where can I get OWWA assistance?'], new ChatbotAudience)['reply']);
+        $this->assertStringContainsString(route('contact'), $service->reply(['message' => 'Contact details'], new ChatbotAudience)['reply']);
+        $this->assertStringContainsString(route('track.index'), $service->reply(['message' => 'Where is the tracking link?'], new ChatbotAudience)['reply']);
+        $this->assertSame('clarification', $service->reply(['message' => 'What about tracking?'], new ChatbotAudience)['status']);
+        $this->assertSame('clarification', $service->reply(['message' => 'What tracking options exist?'], new ChatbotAudience)['status']);
+        $this->assertSame('clarification', $service->reply(['message' => 'How do I track my request?'], new ChatbotAudience)['status']);
+        HelpdeskAgent::assertNeverPrompted();
+    }
+
     public function test_disabled_feature_and_greeting_do_not_call_model(): void
     {
         HelpdeskAgent::fake([])->preventStrayPrompts();

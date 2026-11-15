@@ -6,6 +6,7 @@ use App\Casts\EncryptedDate;
 use App\Casts\EncryptedString;
 use App\Enums\AuditAction;
 use App\Models\AuditLog;
+use App\Models\User;
 use App\Services\AuditLogFormatter;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -15,12 +16,26 @@ class AuditObserver
 {
     public function created($model): void
     {
-        $this->log(AuditAction::CREATE->value, $model, null, $this->filterKeys($model->getAttributes(), $model));
+        $actorId = $model instanceof User ? $model->auditActorId : null;
+        if ($model instanceof User) {
+            $model->auditActorId = null;
+        }
+
+        $this->log(
+            AuditAction::CREATE->value,
+            $model,
+            null,
+            $this->filterKeys($model->getAttributes(), $model),
+            is_string($actorId) ? $actorId : null,
+        );
     }
 
     public function updated($model): void
     {
-        $old = array_intersect_key($model->getOriginal(), $model->getDirty());
+        // Raw originals, not getOriginal(): the cast is applied there, which
+        // would hand a Carbon/decrypted value to decryptEncryptedAttributes()
+        // and store an ISO timestamp instead of the formatter's Y-m-d.
+        $old = array_intersect_key($model->getRawOriginal(), $model->getDirty());
         $new = $model->getDirty();
 
         $old = $this->filterKeys($old, $model);
@@ -45,7 +60,7 @@ class AuditObserver
         $this->log(AuditAction::RESTORE->value, $model, ['is_deleted' => true], ['is_deleted' => false]);
     }
 
-    private function log(string $action, $model, ?array $old, ?array $new): void
+    private function log(string $action, $model, ?array $old, ?array $new, ?string $actorId = null): void
     {
         // AuditLog itself is not in config('audit.observed_models'), but guard
         // anyway so a future registration cannot recurse infinitely.
@@ -68,7 +83,7 @@ class AuditObserver
             'entity_label' => method_exists($model, 'getAuditEntityLabel') ? $model->getAuditEntityLabel() : null,
             'old_value' => $this->decryptEncryptedAttributes($old, $model),
             'new_value' => $this->decryptEncryptedAttributes($new, $model),
-            'user_id' => Auth::id(),
+            'user_id' => $actorId ?? Auth::id(),
             'timestamp' => now(),
             'ip_address' => $request?->ip() ?? 'cli',
             'user_agent' => $request?->userAgent() ?? 'cli',
@@ -115,6 +130,12 @@ class AuditObserver
         $casts = $model->getCasts();
 
         foreach ($attributes as $key => $value) {
+            if ($value instanceof \DateTimeInterface) {
+                $attributes[$key] = $value->format('Y-m-d');
+
+                continue;
+            }
+
             if (! is_string($value) || ! isset($casts[$key])) {
                 continue;
             }
@@ -126,12 +147,18 @@ class AuditObserver
             }
 
             try {
-                $decrypted = $model->castAttribute($key, $value);
+                // Model::castAttribute() is protected; call the cast itself.
+                $decrypted = ($cast === EncryptedDate::class ? new EncryptedDate : new EncryptedString)
+                    ->get($model, $key, $value, $model->getAttributes());
                 $attributes[$key] = $decrypted instanceof \DateTimeInterface
                     ? $decrypted->format('Y-m-d')
                     : $decrypted;
-            } catch (\Throwable) {
-                // Genuinely undecryptable — keep the raw stored value.
+            } catch (\Throwable $e) {
+                // Keep immutable evidence; report failures without logging values.
+                logger()->warning('Audit value decryption failed', [
+                    'field' => $key,
+                    'exception' => $e->getMessage(),
+                ]);
             }
         }
 

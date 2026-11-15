@@ -18,6 +18,7 @@ use App\Models\SystemSetting;
 use App\Models\User;
 use App\Rules\VulnerabilityRule;
 use App\Services\AuditLogger;
+use App\Services\CaseDuplicateCheckService;
 use App\Services\CaseService;
 use App\Services\Export\DataExportQueries;
 use App\Services\Export\DataExportService;
@@ -224,6 +225,7 @@ class CaseController extends Controller
         ]);
         $direction = $listing['direction'] ?? 'asc';
 
+        $duplicateRetry = session()->pull('duplicate_check_retry');
         $cases = CaseFile::with(['documents' => fn ($query) => $query
             ->whereNull('referral_id')
             ->where('is_deleted', false)])
@@ -236,7 +238,17 @@ class CaseController extends Controller
             ->paginate((int) ($listing['per_page'] ?? 15));
 
         return Inertia::render('Case/ReviewPending', [
-            'cases' => $cases->through(fn ($case) => $this->authorizedIntakePayload($case, $request->user())),
+            'cases' => $cases->through(function ($case) use ($request, $duplicateRetry) {
+                $payload = $this->authorizedIntakePayload($case, $request->user());
+                if ($request->user()->isAdmin() || $request->user()->isCaseManager()) {
+                    $assessments = is_array($duplicateRetry) && $duplicateRetry['case_id'] === $case->id
+                        ? $duplicateRetry['assessments']
+                        : ($case->proposed_assessments ?: []);
+                    $payload['duplicate_check'] = app(CaseDuplicateCheckService::class)->forCase($case, $assessments);
+                }
+
+                return $payload;
+            }),
             ...$this->intakeProps(),
             'filters' => (object) $request->only(['search']),
             'sort' => 'created_at',
@@ -263,9 +275,22 @@ class CaseController extends Controller
 
     public function reviewApprove(ApproveIntakeRequest $request, CaseFile $case)
     {
-        $this->caseService->approveCase($case->id, $request->user()->id, $request->validated());
+        abort_unless($case->status === CaseFile::STATUS_PENDING_REVIEW && ! $case->is_deleted, 404);
+        $validated = $request->validated();
+        $check = app(CaseDuplicateCheckService::class)->forCase($case, $validated['confirmed_assessments']);
+        $unseen = array_diff(array_column($check['matches'], 'id'), $validated['duplicate_seen_ids'] ?? []);
+        if ($unseen !== []) {
+            session()->flash('duplicate_check_retry', ['case_id' => $case->id, 'assessments' => $validated['confirmed_assessments']]);
 
-        return redirect()->route('cases.index')->with('success', 'Case approved successfully.');
+            return back()->withErrors(['duplicate_check' => 'New possible duplicate cases found. Review them before approving.']);
+        }
+        $unavailable = ! $check['available'];
+        unset($validated['duplicate_seen_ids']);
+        $this->caseService->approveCase($case->id, $request->user()->id, $validated);
+
+        $redirect = redirect()->route('cases.index')->with('success', 'Case approved successfully.');
+
+        return $unavailable ? $redirect->with('warning', 'Duplicate check unavailable; case approved without duplicate results.') : $redirect;
     }
 
     public function reviewReject(Request $request, CaseFile $case)

@@ -10,6 +10,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Hashing\BcryptHasher;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
+use PHPUnit\Framework\Attributes\TestWith;
 use PragmaRX\Google2FA\Google2FA;
 use Tests\TestCase;
 
@@ -35,6 +36,47 @@ class AuthenticationTest extends TestCase
 
         $this->assertAuthenticated();
         $response->assertRedirect(route('dashboard', absolute: false));
+    }
+
+    #[TestWith([false, '/'])]
+    #[TestWith([false, 'http://localhost/?from=landing'])]
+    #[TestWith([true, '/'])]
+    #[TestWith([true, 'http://localhost/?from=landing'])]
+    public function test_admin_login_ignores_landing_page_intended_url(bool $mfa, string $intended): void
+    {
+        $user = $mfa ? $this->createMfaUser() : User::factory()->create(['role' => UserRole::ADMIN->value]);
+
+        $response = $this->withSession(['url.intended' => $intended])
+            ->post(route('staff.login.store'), ['email' => $user->email, 'password' => 'P@ssw0rd!']);
+
+        if ($mfa) {
+            $response->assertRedirect(route('mfa.challenge.show'));
+            $this->assertGuest();
+            $response = $this->post(route('mfa.challenge.recovery'), ['code' => 'ABCD-EFGH-IJKL']);
+        }
+
+        $response->assertRedirect('/dashboard');
+        $response->assertSessionMissing('url.intended');
+        $this->assertAuthenticatedAs($user);
+    }
+
+    #[TestWith([false])]
+    #[TestWith([true])]
+    public function test_admin_login_preserves_intended_staff_page(bool $mfa): void
+    {
+        $user = $mfa ? $this->createMfaUser() : User::factory()->create(['role' => UserRole::ADMIN->value]);
+
+        $response = $this->withSession(['url.intended' => '/admin/users'])
+            ->post(route('staff.login.store'), ['email' => $user->email, 'password' => 'P@ssw0rd!']);
+
+        if ($mfa) {
+            $response->assertRedirect(route('mfa.challenge.show'));
+            $this->assertGuest();
+            $response = $this->post(route('mfa.challenge.recovery'), ['code' => 'ABCD-EFGH-IJKL']);
+        }
+
+        $response->assertRedirect('/admin/users');
+        $this->assertAuthenticatedAs($user);
     }
 
     public function test_user_cannot_login_with_invalid_password(): void

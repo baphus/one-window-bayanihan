@@ -1,7 +1,8 @@
 import Select from '@/Components/Select';
 import { useMemo, useCallback, useState, useEffect, useRef, useId } from 'react';
 import { formatDateGroup } from '@/lib/relativeTime';
-import { AuditLogRow, CATEGORY_LABELS, actionStyle } from '@/lib/audit';
+import { AuditLogRow, CATEGORY_LABELS, actionStyle, getActivityType } from '@/lib/audit';
+import { Search, X, SlidersHorizontal, ChevronDown, History } from 'lucide-react';
 import { formatCount } from '@/Components/Dashboard/primitives';
 import { sortTimelineItems } from '@/Components/Timeline';
 import TablePagination from '@/Components/ui/TablePagination';
@@ -60,6 +61,7 @@ export function AuditTimeline({
     showActorFilter = true,
     showRoleFilter = true,
     showChangesFilter = true,
+    showChanges = false,
     searchPlaceholder = 'Search action, module, actor, or case number...',
 }) {
     const groupedLogs = useMemo(() => {
@@ -115,16 +117,14 @@ export function AuditTimeline({
                             <DateGroupHeader label={group.label} count={group.logs.length} />
 
                             {group.logs.map(log => (
-                                <TimelineEntry key={log.id} log={log} />
+                                <TimelineEntry key={log.id} log={log} showChanges={showChanges} />
                             ))}
                         </div>
                     ))}
                 </div>
             ) : (
                 <div className="bg-slate-50 rounded-xl border border-dashed border-slate-300 p-10 text-center">
-                    <span className="material-symbols-outlined text-[40px] text-slate-400 mb-3 block mx-auto">
-                        history
-                    </span>
+                    <History aria-hidden="true" className="h-10 w-10 text-slate-400 mb-3 mx-auto" />
                     <h3 className="text-base font-medium text-slate-900 mb-1">No activity found</h3>
                     <p className="text-slate-500 text-xs mb-3">Try adjusting your filters or check back later.</p>
 
@@ -133,7 +133,7 @@ export function AuditTimeline({
                             onClick={() => onFilterChange({})}
                             className="inline-flex items-center gap-1 h-8 px-3 bg-white border border-slate-300 rounded-md text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
                         >
-                            <span className="material-symbols-outlined text-[16px]">filter_alt_off</span>
+                            <X aria-hidden="true" className="h-4 w-4" />
                             Clear Filters
                         </button>
                     )}
@@ -152,14 +152,14 @@ export function AuditTimeline({
     );
 }
 
-function TimelineEntry({ log }) {
+function TimelineEntry({ log, showChanges }) {
     const style = actionStyle(log.action);
     return (
         <div className="relative pl-11 py-2">
             <div className={`absolute left-5 top-3 -translate-x-1/2 w-2.5 h-2.5 rounded-full ring-4 ring-white ${style.dot} z-10`} />
             {/* Dense row: hairline separator, no card */}
             <div className="border-b border-slate-100 pb-2 hover:bg-slate-50/60 -mx-2 px-2 rounded transition-colors">
-                <AuditLogRow log={log} maxRows={3} variant="full" />
+                <AuditLogRow log={log} showChanges={showChanges} />
             </div>
         </div>
     );
@@ -343,7 +343,7 @@ function FilterBar({ availableActions, availableModules, availableModulesLabels,
         activeChips.push({
             key: `action:${a}`,
             label: 'Action',
-            value: a,
+            value: getActivityType(a, ''),
             remove: () => removeFromList('action', a),
         });
     });
@@ -351,7 +351,7 @@ function FilterBar({ availableActions, availableModules, availableModulesLabels,
         activeChips.push({
             key: `module:${m}`,
             label: 'Module',
-            value: availableModulesLabels[m] || m,
+            value: availableModulesLabels[m] || m.replace(/_/g, ' '),
             remove: () => removeFromList('module', m),
         });
     });
@@ -380,9 +380,7 @@ function FilterBar({ availableActions, availableModules, availableModulesLabels,
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2">
                 <div className="relative flex-1 min-w-0">
                     <label htmlFor={searchId} className="sr-only">Search audit logs</label>
-                    <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-[16px]" aria-hidden="true">
-                        search
-                    </span>
+                    <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
                     <input
                         id={searchId}
                         type="text"
@@ -398,7 +396,7 @@ function FilterBar({ availableActions, availableModules, availableModulesLabels,
                             aria-label="Clear search"
                             className="absolute right-1.5 top-1/2 -translate-y-1/2 inline-flex items-center justify-center h-6 w-6 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                         >
-                            <span className="material-symbols-outlined text-[15px]">close</span>
+                            <X aria-hidden="true" className="h-4 w-4" />
                         </button>
                     )}
                 </div>
@@ -446,16 +444,14 @@ function FilterBar({ availableActions, availableModules, availableModulesLabels,
                     aria-controls={advancedId}
                     className="h-8 px-3 inline-flex items-center justify-center gap-1.5 border border-slate-300 rounded-md text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary self-start sm:self-auto"
                 >
-                    <span className="material-symbols-outlined text-[16px]" aria-hidden="true">tune</span>
+                    <SlidersHorizontal aria-hidden="true" className="h-4 w-4" />
                     <span>Filters</span>
                     {activeChipCount > 0 && (
                         <span className="bg-primary text-white text-[10px] font-bold min-w-[16px] h-[16px] px-1 rounded-full inline-flex items-center justify-center leading-none">
                             {activeChipCount}
                         </span>
                     )}
-                    <span className="material-symbols-outlined text-[16px] transition-transform" aria-hidden="true" style={{ transform: showAdvanced ? 'rotate(180deg)' : 'none' }}>
-                        expand_more
-                    </span>
+                    <ChevronDown aria-hidden="true" className={`h-4 w-4 transition-transform ${showAdvanced ? 'rotate-180' : ''}`} />
                 </button>
             </div>
 
@@ -579,7 +575,7 @@ function FilterBar({ availableActions, availableModules, availableModulesLabels,
                                         active={isActive}
                                         onClick={() => handleActionToggle(action)}
                                     >
-                                        {action}
+                                        {getActivityType(action, '')}
                                     </ToggleChip>
                                 );
                             })}
@@ -598,7 +594,7 @@ function FilterBar({ availableActions, availableModules, availableModulesLabels,
                                             active={isActive}
                                             onClick={() => handleModuleToggle(m)}
                                         >
-                                            {availableModulesLabels[m] || m}
+                                            {availableModulesLabels[m] || m.replace(/_/g, ' ')}
                                         </ToggleChip>
                                     );
                                 })}
@@ -653,7 +649,7 @@ function FilterChip({ label, value, onRemove }) {
                 aria-label={`Remove ${label} filter`}
                 className="inline-flex items-center justify-center h-5 w-5 rounded-full hover:bg-primary/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
-                <span className="material-symbols-outlined text-[14px]">close</span>
+                <X aria-hidden="true" className="h-3.5 w-3.5" />
             </button>
         </span>
     );
@@ -823,12 +819,10 @@ function ActorPicker({ inputId, filterValues, onFilterChange }) {
                     aria-label="Clear actor filter"
                     className="absolute right-1.5 top-1/2 -translate-y-1/2 inline-flex items-center justify-center h-6 w-6 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 >
-                    <span className="material-symbols-outlined text-[15px]">close</span>
+                    <X aria-hidden="true" className="h-4 w-4" />
                 </button>
             ) : (
-                <span className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 material-symbols-outlined text-[15px] text-slate-400" aria-hidden="true">
-                    {open ? 'expand_less' : 'expand_more'}
-                </span>
+                <ChevronDown aria-hidden="true" className={`pointer-events-none absolute right-1.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 ${open ? 'rotate-180' : ''}`} />
             )}
 
             {open && (

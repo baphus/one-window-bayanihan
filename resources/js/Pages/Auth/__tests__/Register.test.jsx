@@ -15,7 +15,7 @@ vi.mock('@inertiajs/react', async () => {
         usePage: () => ({
             props: {
                 passwordRules: { min_length: 8, require_mixed_case: true, require_numbers: true, require_symbols: true },
-                turnstile: { enabled: false },
+                turnstile: { enabled: true },
             },
         }),
         useForm: (initial) => {
@@ -23,6 +23,7 @@ vi.mock('@inertiajs/react', async () => {
             return {
                 data: state,
                 setData: (key, value) => setState((prev) => ({ ...prev, [key]: value })),
+                transform: (callback) => { state = callback(state); },
                 post: (url, options) => postMock(url, { ...options, data: state }),
                 processing: false,
                 errors: {},
@@ -33,7 +34,7 @@ vi.mock('@inertiajs/react', async () => {
 
 vi.mock('@/Components/landing/AppHeader', () => ({ default: () => null }));
 vi.mock('@/Components/landing/AppFooter', () => ({ default: () => null }));
-vi.mock('@/Components/TurnstileWidget', () => ({ default: () => null }));
+vi.mock('@/Components/TurnstileWidget', () => ({ default: ({ onToken, onExpire }) => <div><button type="button" onClick={() => onToken('solved-token')}>Solve CAPTCHA</button><button type="button" onClick={onExpire}>Expire CAPTCHA</button></div> }));
 // The crop step only needs to hand the chosen file back; react-easy-crop needs a
 // real image decoder that jsdom does not provide.
 vi.mock('@/Components/CropImageModal', () => ({
@@ -105,8 +106,31 @@ describe('Register', () => {
         expect(screen.getByRole('button', { name: /continue to email verification/i })).toBeDisabled();
     });
 
+    it('submits solved CAPTCHA token and omits it after expiry', () => {
+        render(<Register />);
+        fireEvent.click(screen.getByRole('button', { name: 'Solve CAPTCHA' }));
+        fireEvent.change(screen.getByLabelText('Email address'), { target: { value: 'juan@example.com' } });
+        fireEvent.change(screen.getByLabelText(/first name/i), { target: { value: 'Juan' } });
+        fireEvent.change(screen.getByLabelText(/last name/i), { target: { value: 'Dela Cruz' } });
+        fireEvent.change(screen.getByLabelText(/date of birth/i), { target: { value: '1990-01-01' } });
+        fireEvent.click(screen.getByLabelText(/^sex/i));
+        fireEvent.mouseDown(screen.getByRole('option', { name: 'Male' }));
+        fireEvent.change(screen.getByTestId('pw-Password'), { target: { value: 'Str0ng!Passphrase' } });
+        fireEvent.change(screen.getByTestId('pw-Confirm password'), { target: { value: 'Str0ng!Passphrase' } });
+        fireEvent.click(screen.getByRole('button', { name: /continue to email verification/i }));
+
+        expect(postMock).toHaveBeenLastCalledWith('/register.store', expect.objectContaining({
+            data: expect.objectContaining({ cf_turnstile_response: 'solved-token' }),
+        }));
+
+        fireEvent.click(screen.getByRole('button', { name: 'Expire CAPTCHA' }));
+        expect(screen.getByRole('button', { name: /continue to email verification/i })).toBeDisabled();
+        expect(screen.getByRole('button', { name: 'Solve CAPTCHA' })).toBeInTheDocument();
+    });
+
     it('posts identity details and the cropped photo as multipart registration data', () => {
         const { container } = render(<Register />);
+        fireEvent.click(screen.getByRole('button', { name: 'Solve CAPTCHA' }));
         fireEvent.change(screen.getByLabelText('Email address'), { target: { value: 'juan@example.com' } });
         const photo = new File(['photo'], 'profile.jpg', { type: 'image/jpeg' });
         fireEvent.change(container.querySelector('input[type="file"]'), { target: { files: [photo] } });
