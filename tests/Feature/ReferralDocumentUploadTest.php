@@ -87,6 +87,56 @@ class ReferralDocumentUploadTest extends TestCase
     }
 
     #[Test]
+    public function attachment_endpoints_reject_missing_files_and_invalid_labels(): void
+    {
+        Storage::fake('object-storage');
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $attachment = $this->referral->attachments()->create([
+            'file_name' => 'original.pdf', 'file_path' => 'referrals/original.pdf',
+            'file_type' => 'application/pdf', 'size' => 10, 'user_id' => $admin->id,
+        ]);
+        $this->actingAsWithMfa($admin);
+
+        $urls = [
+            route('referrals.attachments.store', $this->referral),
+            route('referrals.attachments.replace', [$this->referral, $attachment]),
+        ];
+        foreach ($urls as $url) {
+            $this->postJson($url, [])->assertUnprocessable()->assertJsonValidationErrors('file');
+            $this->postJson($url, ['file' => 'not an upload'])->assertUnprocessable()->assertJsonValidationErrors('file');
+            $this->postJson($url, [
+                'file' => UploadedFile::fake()->createWithContent('document.pdf', '%PDF-1.4 test document'),
+                'document_label' => ['invalid'],
+            ])->assertUnprocessable()->assertJsonValidationErrors('document_label');
+        }
+        $this->assertDatabaseCount('referral_attachments', 1);
+        $this->assertFalse((bool) $attachment->fresh()->is_archived);
+        $this->assertSame([], Storage::disk('object-storage')->allFiles());
+    }
+
+    #[Test]
+    public function stale_replacement_keeps_current_version_and_removes_rejected_upload(): void
+    {
+        Storage::fake('object-storage');
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $original = $this->referral->attachments()->create([
+            'file_name' => 'original.pdf', 'file_path' => 'referrals/original.pdf',
+            'file_type' => 'application/pdf', 'size' => 10, 'user_id' => $admin->id,
+        ]);
+        $this->actingAsWithMfa($admin);
+        $url = route('referrals.attachments.replace', [$this->referral, $original]);
+        $file = fn () => UploadedFile::fake()->createWithContent('replacement.pdf', '%PDF-1.4 replacement');
+
+        $this->post($url, ['file' => $file()])->assertRedirect()->assertSessionHasNoErrors();
+        $storedPaths = Storage::disk('object-storage')->allFiles();
+        $this->postJson($url, ['file' => $file()])->assertUnprocessable()->assertJsonValidationErrors('file');
+
+        $this->assertDatabaseCount('referral_attachments', 2);
+        $this->assertSame(1, $this->referral->attachments()->where('is_archived', false)->count());
+        $this->assertSame($storedPaths, Storage::disk('object-storage')->allFiles());
+    }
+
+    #[Test]
     public function store_rejects_php_file(): void
     {
         Storage::fake('object-storage');

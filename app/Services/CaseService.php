@@ -551,31 +551,6 @@ class CaseService
         });
     }
 
-    /**
-     * Transitions the edit endpoint is not allowed to perform.
-     *
-     * The edit form carries a status field, but two status changes belong to
-     * dedicated flows and must not be reachable by patching the case:
-     *  - PENDING_REVIEW → OPEN is publication (approveCase stamps reviewed_by /
-     *    reviewed_at, revalidates categories and writes the PUBLISH audit entry);
-     *  - ARCHIVED is only reachable from CLOSED (archiveCase's rule).
-     *
-     * OPEN ↔ CLOSED stays available here — it is the same transition
-     * toggleCaseStatus performs and records the same client-facing events.
-     *
-     * @throws \Symfony\Component\HttpKernel\Exception\HttpResponseException 422 on a forbidden transition
-     */
-    private function assertStatusTransitionAllowed(string $from, string $to): void
-    {
-        if ($to === 'OPEN' && $from === CaseFile::STATUS_PENDING_REVIEW) {
-            abort(422, 'Pending cases must be published through the review queue.');
-        }
-
-        if ($to === 'ARCHIVED' && $from !== 'CLOSED') {
-            abort(422, 'Only closed cases can be archived.');
-        }
-    }
-
     public function archiveCase(string $id, string $userId): CaseFile
     {
         return DB::transaction(function () use ($id, $userId) {
@@ -974,17 +949,19 @@ class CaseService
      */
     public function deleteArchivedCase(CaseFile $case, string $reason, User $actor): void
     {
-        abort_unless($case->status === 'ARCHIVED', 422, 'Only archived cases can be deleted.');
-
-        abort_unless(
-            $actor->isAdmin() || $case->user_id === $actor->id,
-            403,
-            'You may only delete a case you own.',
-        );
-
         $userId = $actor->id;
 
-        DB::transaction(function () use ($case, $reason, $userId) {
+        DB::transaction(function () use ($case, $reason, $actor, $userId) {
+            $case = CaseFile::lockForUpdate()->findOrFail($case->id);
+
+            abort_unless($case->status === 'ARCHIVED', 422, 'Only archived cases can be deleted.');
+
+            abort_unless(
+                $actor->isAdmin() || $case->user_id === $actor->id,
+                403,
+                'You may only delete a case you own.',
+            );
+
             // Store reason directly on the row before soft-delete so it
             // persists even if only the trashed record is inspected.
             $case->deletion_reason = $reason;

@@ -320,6 +320,10 @@ class ReferralController extends Controller
         $referral = $this->referralService->getReferral($id);
         $this->authorizeReferralAccess($referral, $request->user());
 
+        $request->validate([
+            'file' => ['required', 'file'],
+            'document_label' => ['nullable', 'string', 'max:255'],
+        ]);
         $file = $request->file('file');
 
         $errors = app(StorageService::class)->validate($file, 'referral_attachment');
@@ -362,6 +366,10 @@ class ReferralController extends Controller
             ->where('is_deleted', false)
             ->firstOrFail();
 
+        $request->validate([
+            'file' => ['required', 'file'],
+            'document_label' => ['nullable', 'string', 'max:255'],
+        ]);
         $file = $request->file('file');
 
         $errors = app(StorageService::class)->validate($file, 'referral_attachment');
@@ -375,19 +383,24 @@ class ReferralController extends Controller
             return back()->withErrors(['file' => $result->error ?? 'Failed to store file.']);
         }
 
-        $attachment = $this->referralService->replaceAttachment(
-            $id,
-            $attachmentId,
-            [
-                'name' => $request->input('document_label')
-                    ? str_replace('::', ' / ', $request->input('document_label')).' - '.$result->originalName
-                    : $result->originalName,
-                'path' => $result->path,
-                'type' => $result->type,
-                'size' => $result->size,
-            ],
-            $request->user()->id,
-        );
+        try {
+            $this->referralService->replaceAttachment(
+                $id,
+                $attachmentId,
+                [
+                    'name' => $request->input('document_label')
+                        ? str_replace('::', ' / ', $request->input('document_label')).' - '.$result->originalName
+                        : $result->originalName,
+                    'path' => $result->path,
+                    'type' => $result->type,
+                    'size' => $result->size,
+                ],
+                $request->user()->id,
+            );
+        } catch (\Throwable $exception) {
+            app(StorageService::class)->delete($result->path);
+            throw $exception;
+        }
 
         return redirect()
             ->back()

@@ -13,6 +13,7 @@ use App\Mail\IntakeReviewMail;
 use App\Models\Agency;
 use App\Models\CaseCategory;
 use App\Models\CaseFile;
+use App\Models\Referral;
 use App\Models\SystemSetting;
 use App\Models\User;
 use App\Rules\VulnerabilityRule;
@@ -235,7 +236,7 @@ class CaseController extends Controller
             ->paginate((int) ($listing['per_page'] ?? 15));
 
         return Inertia::render('Case/ReviewPending', [
-            'cases' => $cases->through(fn ($case) => $this->authorizedIntakePayload($case)),
+            'cases' => $cases->through(fn ($case) => $this->authorizedIntakePayload($case, $request->user())),
             ...$this->intakeProps(),
             'filters' => (object) $request->only(['search']),
             'sort' => 'created_at',
@@ -303,12 +304,6 @@ class CaseController extends Controller
             $case->load(['documents' => fn ($q) => $q
                 ->where('is_deleted', false)
                 ->visibleToAgency($request->user()->agcy_id)]);
-            $userAgencyId = $request->user()->agcy_id;
-            foreach ($case->referrals as $referral) {
-                if (! $userAgencyId || $referral->agcy_id !== $userAgencyId) {
-                    $referral->unsetRelation('attachments');
-                }
-            }
         }
         $overdueDays = (int) SystemSetting::getValue('referral_overdue_days', 7);
 
@@ -341,7 +336,7 @@ class CaseController extends Controller
         $managerView = $request->user()->isCaseManager();
 
         return Inertia::render('Case/Show', [
-            'case' => $this->authorizedIntakePayload($case),
+            'case' => $this->authorizedIntakePayload($case, $request->user()),
             'case_categories' => $caseCategories,
             'recommended_agencies' => $managerView ? $case->categories->load('suggestedAgencies:id,name,short,is_active,is_deleted')->flatMap(fn (CaseCategory $category) => $category->suggestedAgencies)->filter(fn ($agency) => $agency->is_active && ! $agency->is_deleted)->unique('id')->values()->map(fn ($agency) => ['id' => $agency->id, 'name' => $agency->name, 'short' => $agency->short, 'matching_categories' => $case->categories->filter(fn ($category) => $category->suggestedAgencies->contains('id', $agency->id))->map(fn ($category) => ['id' => $category->id, 'name' => $category->name])->values()]) : null,
             'documentRequirements' => $request->user()->isAgency()
@@ -687,10 +682,27 @@ class CaseController extends Controller
         ];
     }
 
-    private function authorizedIntakePayload(CaseFile $case): array
+    private function authorizedIntakePayload(CaseFile $case, User $user): array
     {
         $payload = $case->toArray();
         unset($payload['documents']);
+        if ($user->isAgency()) {
+            $payload['referrals'] = $case->referrals->map(function (Referral $referral) use ($user): array {
+                if ($referral->agcy_id === $user->agcy_id) {
+                    return $referral->toArray();
+                }
+
+                return [
+                    'id' => $referral->id,
+                    'agcy_id' => $referral->agcy_id,
+                    'status' => $referral->status,
+                    'required_services' => $referral->required_services,
+                    'created_at' => $referral->created_at?->toISOString(),
+                    'updated_at' => $referral->updated_at?->toISOString(),
+                    'agency' => $referral->agency ? ['name' => $referral->agency->name] : null,
+                ];
+            })->values()->all();
+        }
         if (auth()->user()?->isAgency()) {
             unset($payload['document_requirements']);
             $payload['documents'] = $case->documents
