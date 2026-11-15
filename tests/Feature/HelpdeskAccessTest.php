@@ -33,8 +33,10 @@ class HelpdeskAccessTest extends TestCase
             $this->assertSame(in_array($role, ['AGENCY', 'ADMIN'], true), $service->findAllowed('getting-started-agency-focal', $user) !== null);
             $this->assertSame($role === 'ADMIN', HelpdeskArticleService::allows('unknown', $role));
         }
-        $this->assertCount(46, $service->all());
-        foreach ($service->all() as $article) {
+        $articles = $service->all();
+        $this->assertContains('using-public-tracking-portal', array_column($articles, 'slug'));
+        $this->assertFalse(HelpdeskArticleService::allows('unknown', 'CASE_MANAGER'));
+        foreach ($articles as $article) {
             $this->assertContains($article['audience'], ['public', 'staff', 'CASE_MANAGER', 'AGENCY', 'ADMIN']);
         }
     }

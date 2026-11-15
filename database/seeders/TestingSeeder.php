@@ -424,7 +424,9 @@ class TestingSeeder extends Seeder
                 $caseIds[] = $caseId;
                 $status = $caseStatusDistribution[$i];
 
-                $caseNumber = $caseNumbers->nextCaseNumber();
+                do {
+                    $caseNumber = $caseNumbers->nextCaseNumber();
+                } while (DB::table('cases')->where('case_number', $caseNumber)->exists());
 
                 // Unique tracker_number
                 do {
