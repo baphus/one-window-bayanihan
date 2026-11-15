@@ -280,7 +280,7 @@ class DashboardQueries
     public function buildIntakeReviewList(?string $userId, int $limit = 8): array
     {
         return CaseFile::query()
-            ->select('id', 'case_number', 'tracker_number', 'status', 'user_id', 'created_at', 'updated_at')
+            ->select('id', 'case_number', 'tracker_number', 'status', 'user_id', 'first_name', 'last_name', 'created_at', 'updated_at')
             ->where('status', CaseFile::STATUS_PENDING_REVIEW)
             ->where('is_deleted', false)
             ->orderBy('created_at', 'asc')

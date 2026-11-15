@@ -11,6 +11,7 @@
  */
 const CASE_STATUS_LABELS = {
     OPEN: 'Open',
+    PENDING_REVIEW: 'Pending Review',
     FOR_REFERRAL: 'For referral',
     CLOSED: 'Closed',
     ARCHIVED: 'Archived',

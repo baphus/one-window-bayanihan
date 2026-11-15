@@ -52,7 +52,7 @@ class AuditLogAuditResponseTest extends TestCase
         );
     }
 
-    public function test_audit_response_uses_short_uuid_label_for_referral(): void
+    public function test_audit_response_never_renders_a_referral_id(): void
     {
         $entityId = Str::uuid()->toString();
         $log = new AuditLog([
@@ -65,15 +65,16 @@ class AuditLogAuditResponseTest extends TestCase
 
         $response = (new AuditLogFormatter)->formatForAuditResponse($log);
 
-        $this->assertStringContainsString('Referral ID '.substr($entityId, 0, 8), $response['message']);
-        $this->assertStringNotContainsString($entityId, $response['message']);
+        $this->assertSame('System updated a referral', $response['message']);
+        $this->assertStringNotContainsString(substr($entityId, 0, 8), $response['message']);
+        $this->assertStringNotContainsString($entityId, json_encode($response));
         $this->assertSame(
             [['field' => 'status', 'fieldLabel' => 'status', 'new' => 'Completed']],
             $response['changes'],
         );
     }
 
-    public function test_audit_response_uses_short_uuid_label_for_milestone(): void
+    public function test_audit_response_never_renders_a_milestone_id(): void
     {
         $entityId = Str::uuid()->toString();
         $log = new AuditLog([
@@ -86,8 +87,9 @@ class AuditLogAuditResponseTest extends TestCase
 
         $response = (new AuditLogFormatter)->formatForAuditResponse($log);
 
-        $this->assertStringContainsString('Milestone ID '.substr($entityId, 0, 8), $response['message']);
-        $this->assertStringNotContainsString($entityId, $response['message']);
+        $this->assertSame('System updated a milestone', $response['message']);
+        $this->assertStringNotContainsString(substr($entityId, 0, 8), $response['message']);
+        $this->assertStringNotContainsString($entityId, json_encode($response));
     }
 
     public function test_audit_response_guardrail_holds_for_unclassified_stored_text(): void

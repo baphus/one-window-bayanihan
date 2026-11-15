@@ -107,6 +107,13 @@ class DashboardContractTest extends TestCase
         $this->assertContains($pendingReview->id, array_column($data['intakeReview'], 'id'));
         $this->assertSame(0, $data['pendingReviewCount'] - count($data['intakeReview']));
 
+        // The review queue renders the client name and filed date, so the row
+        // must carry both — the query used to select neither and every row
+        // read "N/A".
+        $reviewRow = collect($data['intakeReview'])->firstWhere('id', $pendingReview->id);
+        $this->assertSame('Test Case', $reviewRow['clientName']);
+        $this->assertNotEmpty($reviewRow['createdAt']);
+
         // referralNews: CaseEvent-sourced rows in the shape ReferralNewsBlock reads.
         $this->assertArrayHasKey('referralNews', $data);
         $this->assertIsArray($data['referralNews']);

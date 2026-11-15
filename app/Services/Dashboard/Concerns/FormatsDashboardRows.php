@@ -2,6 +2,8 @@
 
 namespace App\Services\Dashboard\Concerns;
 
+use App\Models\AuditLog;
+use App\Services\AuditLogFormatter;
 use Carbon\Carbon;
 
 trait FormatsDashboardRows
@@ -25,35 +27,53 @@ trait FormatsDashboardRows
         return $timestamp->diffForHumans();
     }
 
-    private function formatChangeSummary(array $changes): string
-    {
-        if (empty($changes)) {
-            return '';
-        }
-
-        $first = $changes[0];
-        $summary = $first['fieldLabel'].': ';
-
-        // The audit response carries after-only changes (no `old` key), so a
-        // missing old value simply starts the summary at the new value.
-        $old = $first['old'] ?? null;
-
-        if ($old !== null && $old !== 'not set') {
-            $summary .= $old.' → ';
-        }
-
-        $summary .= $first['new'] ?? '';
-
-        if (count($changes) > 1) {
-            $summary .= ' (+'.(count($changes) - 1).' more)';
-        }
-
-        return $summary;
-    }
-
     private function queueItem(string $key, string $label, int $count, string $note, string $tone, string $icon, string $href): array
     {
         return compact('key', 'label', 'count', 'note', 'tone', 'icon', 'href');
+    }
+
+    /**
+     * Format one audit row for a dashboard activity feed. A row the formatter
+     * cannot handle degrades to a neutral sentence instead of failing the
+     * whole widget.
+     */
+    private function auditDisplay(AuditLog $log, AuditLogFormatter $formatter): array
+    {
+        try {
+            return $formatter->formatForAuditResponse($log);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return [
+                'id' => (string) $log->getKey(),
+                'message' => 'Activity recorded',
+                'changes' => [],
+                'action' => $log->action,
+                'module' => 'other',
+                'actor' => $log->user?->name ?? 'System',
+                'timestamp' => $log->timestamp?->toISOString(),
+                'hasChanges' => false,
+            ];
+        }
+    }
+
+    /**
+     * One activity row in the AuditLogRow contract (resources/js/lib/audit.jsx).
+     * Every dashboard feed goes through here so the shape cannot drift by role.
+     */
+    private function activityRow(AuditLog $log, array $display): array
+    {
+        return [
+            'id' => (string) $log->getKey(),
+            'action' => $display['action'] ?? null,
+            'module' => $display['module'] ?? null,
+            'formatted_module' => $display['formatted_module'] ?? null,
+            'message' => $display['message'] ?? '',
+            'changes' => $display['changes'] ?? [],
+            'actor' => $display['actor'] ?? 'System',
+            'timestamp' => $display['timestamp'] ?? null,
+            'hasChanges' => (bool) ($display['hasChanges'] ?? false),
+        ];
     }
 
     private function ageInDays($timestamp): int

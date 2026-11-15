@@ -4,12 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Enums\AuditModule;
 use App\Enums\UserRole;
+use App\Helpers\CacheHelper;
 use App\Http\Controllers\Concerns\ResolvesPerPage;
 use App\Models\ActivityEvent;
 use App\Models\CaseFile;
 use App\Models\Referral;
 use App\Services\ActivityScope;
 use App\Services\ActivityVisibility;
+use App\Services\AuditLogFormatter;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -29,6 +31,7 @@ class ActivityController extends Controller
         $perPage = $this->perPage($request, 25);
         $search = trim((string) $request->input('search', ''));
         $filters = [
+            'action' => $request->filled('action') ? (string) $request->input('action') : '',
             'date_from' => $request->filled('date_from') ? (string) $request->input('date_from') : '',
             'date_to' => $request->filled('date_to') ? (string) $request->input('date_to') : '',
             'module' => $request->filled('module') ? (string) $request->input('module') : '',
@@ -37,7 +40,8 @@ class ActivityController extends Controller
         ];
 
         $query = ActivityScope::applyTo(ActivityEvent::query(), $user);
-        $query->when($filters['date_from'] !== '', fn (Builder $q) => $q->whereDate('occurred_at', '>=', $filters['date_from']))
+        $query->when($filters['action'] !== '', fn (Builder $q) => $q->whereIn('action', explode(',', $filters['action'])))
+            ->when($filters['date_from'] !== '', fn (Builder $q) => $q->whereDate('occurred_at', '>=', $filters['date_from']))
             ->when($filters['date_to'] !== '', fn (Builder $q) => $q->whereDate('occurred_at', '<=', $filters['date_to']))
             ->when($filters['module'] !== '', fn (Builder $q) => $q->whereIn('module', explode(',', $filters['module'])))
             ->when($search !== '', function (Builder $q) use ($search) {
@@ -52,30 +56,49 @@ class ActivityController extends Controller
                 });
             });
 
-        $events = $query->with('actor')
+        $events = $query->with(['actor', 'auditLog.user'])
             ->orderByDesc('occurred_at')
             ->orderByDesc('id')
             ->paginate($perPage)
             ->appends($filters);
 
-        $this->presentEvents($events);
+        $this->presentTimelineEvents($events);
 
-        $availableModules = collect(ActivityVisibility::modulesFor($user->role))
+        $role = (string) $user->role;
+
+        // Filter options are exactly what this role is allowed to see — the
+        // same lists ActivityScope enforces on the query.
+        $availableActions = CacheHelper::safeRemember(
+            'activity_available_actions:'.$role,
+            now()->addHours(24),
+            fn () => ActivityEvent::query()
+                ->whereIn('module', ActivityVisibility::modulesFor($role))
+                ->whereIn('action', ActivityVisibility::actionsFor($role))
+                ->distinct()
+                ->orderBy('action')
+                ->pluck('action')
+                ->values()
+                ->all(),
+        );
+
+        $modules = collect(ActivityVisibility::modulesFor($role))
             ->map(fn (string $module) => AuditModule::tryFromLegacy($module))
             ->filter()
             ->unique(fn (AuditModule $module) => $module->value)
             ->sortBy(fn (AuditModule $module) => $module->value)
-            ->map(fn (AuditModule $module) => [
-                'value' => $module->value,
-                'label' => $module->label(),
-            ])
-            ->values()
+            ->values();
+
+        $availableModules = $modules->pluck('value')->all();
+        $availableModulesLabels = $modules
+            ->mapWithKeys(fn (AuditModule $module) => [$module->value => $module->label()])
             ->all();
 
         return Inertia::render('Activity/Index', [
             'events' => $events,
             'filters' => (object) $filters,
+            'availableActions' => $availableActions,
             'availableModules' => $availableModules,
+            'availableModulesLabels' => $availableModulesLabels,
             'viewTitle' => 'Activity',
         ]);
     }
@@ -127,6 +150,7 @@ class ActivityController extends Controller
     private function presentEvents(CursorPaginator|LengthAwarePaginator $events): CursorPaginator|LengthAwarePaginator
     {
         $links = $this->resolveLinks($events->getCollection());
+
         $events->setCollection(
             $events->getCollection()
                 ->map(fn (ActivityEvent $event) => $this->presentEvent($event, $links))
@@ -134,6 +158,45 @@ class ActivityController extends Controller
         );
 
         return $events;
+    }
+
+    /**
+     * Present the activity page's rows in the audit-timeline contract, so the
+     * page renders through the same AuditTimeline/AuditLogRow as /audit-logs.
+     * The linked audit row supplies the human sentence and field-level changes;
+     * the append-only mirror's stored description is the fallback (and is
+     * id-redacted either way).
+     */
+    private function presentTimelineEvents(LengthAwarePaginator $events): void
+    {
+        $formatter = app(AuditLogFormatter::class);
+
+        $events->setCollection(
+            $events->getCollection()->map(function (ActivityEvent $event) use ($formatter) {
+                $module = AuditModule::tryFromLegacy((string) $event->module);
+                $display = null;
+
+                if ($event->auditLog !== null) {
+                    try {
+                        $display = $formatter->formatForAuditResponse($event->auditLog);
+                    } catch (\Throwable $e) {
+                        report($e);
+                    }
+                }
+
+                return [
+                    'id' => (string) $event->getKey(),
+                    'action' => $display['action'] ?? strtoupper((string) $event->action),
+                    'module' => $module?->value ?? $event->module,
+                    'formatted_module' => $display['formatted_module'] ?? ($module?->label() ?? $event->module),
+                    'message' => $display['message'] ?? AuditLogFormatter::redactIdentifiers($event->description),
+                    'changes' => $display['changes'] ?? [],
+                    'actor' => $display['actor'] ?? ($event->actor_name ?? 'System'),
+                    'timestamp' => $event->occurred_at?->toISOString(),
+                    'hasChanges' => $display['hasChanges'] ?? false,
+                ];
+            })->values()
+        );
     }
 
     /**
@@ -282,8 +345,7 @@ class ActivityController extends Controller
             'module' => $module?->value ?? $event->module,
             'moduleLabel' => $module?->label() ?? $event->module,
             'action' => $event->action,
-            'description' => $event->description,
-            'entityId' => $event->entity_id,
+            'description' => AuditLogFormatter::redactIdentifiers($event->description),
             'entityType' => $module?->value ?? $event->module,
             'link' => $links[(string) $event->entity_id] ?? null,
         ];

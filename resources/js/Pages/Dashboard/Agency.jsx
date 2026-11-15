@@ -16,8 +16,9 @@ import {
 } from 'chart.js';
 import GettingStartedChecklist from '@/Components/GettingStartedChecklist';
 import StatusBadge from '@/Components/ui/StatusBadge';
-import { ActivityFeed, EmptyState, QuickActions, SectionCard, ViewAllLink, formatCount, safeArray } from '@/Components/Dashboard/primitives';
+import { EmptyState, QuickActions, SectionCard, ViewAllLink, formatCount, safeArray } from '@/Components/Dashboard/primitives';
 import { DashboardRow, DashboardRowList, RowAgeFlag } from '@/Components/Dashboard/DashboardRow';
+import { AuditTimeline } from '@/Components/AuditTimeline';
 import KpiCard from '@/Components/ui/KpiCard';
 import { humanizeStatus } from '@/lib/statusLabels';
 import safeRoute from '@/utils/safeRoute';
@@ -153,17 +154,19 @@ function ReferralQueue({ title, description, referrals, emptyMessage, href, data
                     const referred = item.referred_at
                         ? new Date(item.referred_at).toLocaleDateString('en-PH', { day: '2-digit', month: 'short', year: 'numeric' })
                         : '';
+                    const clientName = item.client_name && item.client_name !== 'N/A' ? item.client_name : 'Unnamed client';
+                    const note = [item.service, referred ? `referred ${referred}` : null].filter(Boolean).join(' · ');
 
                     return (
                         <DashboardRow
                             key={item.id}
                             href={referralHref}
                             pill={trackingId}
-                            title={item.service ?? '—'}
-                            note={`Referred${referred ? ` ${referred}` : ''}`}
+                            title={clientName}
+                            note={note}
                             right={
                                 <>
-                                    <StatusBadge status={item.status} label={humanizeStatus(item.status)} />
+                                    <StatusBadge status={item.status} label={humanizeStatus(item.status)} variant="soft" />
                                     <RowAgeFlag days={item.age_days} overdueDays={OVERDUE_DAYS} />
                                 </>
                             }
@@ -473,8 +476,8 @@ export default function AgencyDashboard({ dashboard = {} }) {
                         href={safeRoute('overdue-referrals.index', undefined, '/overdue-referrals')}
                         dataTour="dashboard-agency-overdue"
                     />
-                    <SectionCard title="Recent activity" dataTour="dashboard-agency-activity">
-                        <ActivityFeed items={recentActivity} limit={6} />
+                    <SectionCard title="Recent activity" dataTour="dashboard-agency-activity" bodyClassName="px-5 py-4">
+                        <AuditTimeline logs={recentActivity.slice(0, 6)} showFilters={false} />
                     </SectionCard>
                 </div>
             </div>

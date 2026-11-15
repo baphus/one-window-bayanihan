@@ -212,7 +212,7 @@ class AuditLogFormatter
      */
     private function resolvePurposefulEntity(AuditLog $log): ?string
     {
-        if (is_string($log->entity_label) && $log->entity_label !== '') {
+        if (is_string($log->entity_label) && $log->entity_label !== '' && ! $this->isOpaqueIdentifier($log->entity_label)) {
             return $log->entity_label;
         }
 
@@ -220,7 +220,55 @@ class AuditLogFormatter
         $old = is_array($log->old_value) ? $log->old_value : [];
         $all = array_merge($old, $new);
 
-        return $this->extractEntityDetail($all, (string) $log->module) ?: null;
+        $detail = $this->extractEntityDetail($all, (string) $log->module);
+
+        return $detail !== '' && ! $this->isOpaqueIdentifier($detail) ? $detail : null;
+    }
+
+    /**
+     * True when a value is a raw database identifier (UUID, or a hex prefix of
+     * one). Activity copy is names, numbers and titles only — an id is never
+     * rendered, in a message or in a change list.
+     *
+     * A UUID prefix always contains a hex letter, so a pure-digit value stays:
+     * it is a phone number, an amount or a count, not an id.
+     */
+    private function isOpaqueIdentifier(mixed $value): bool
+    {
+        if (! is_string($value) || $value === '') {
+            return false;
+        }
+
+        return Str::isUuid($value)
+            || preg_match('/^(?=[0-9a-f]*[a-f])[0-9a-f]{8,36}$/i', $value) === 1;
+    }
+
+    /**
+     * Strip database ids from stored free text. Legacy activity descriptions
+     * can still carry one ("created Referral ID 42eee6a6"); the append-only
+     * audit trail is never rewritten, so this happens at presentation time.
+     */
+    public static function redactIdentifiers(?string $text): string
+    {
+        if ($text === null || $text === '') {
+            return '';
+        }
+
+        // "Referral ID 42eee6a6" → "a referral"
+        $text = preg_replace_callback(
+            '/\b(Referral|Milestone|Case|Client|User|Agency|Document)\s+ID\s*[:#]?\s*[0-9a-f]{6,36}(?:-[0-9a-f]{4,12})*\b/iu',
+            fn (array $matches) => 'a '.strtolower($matches[1]),
+            $text,
+        ) ?? $text;
+
+        // Any remaining bare UUID.
+        $text = preg_replace(
+            '/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/iu',
+            '',
+            $text,
+        ) ?? $text;
+
+        return trim(preg_replace('/\s{2,}/u', ' ', $text) ?? $text);
     }
 
     /**
@@ -233,10 +281,12 @@ class AuditLogFormatter
         $old = is_array($log->old_value) ? $log->old_value : [];
 
         foreach ($keys as $key) {
-            if (array_key_exists($key, $new) && is_scalar($new[$key]) && (string) $new[$key] !== '') {
+            if (array_key_exists($key, $new) && is_scalar($new[$key]) && (string) $new[$key] !== ''
+                && ! $this->isOpaqueIdentifier((string) $new[$key])) {
                 return (string) $new[$key];
             }
-            if (array_key_exists($key, $old) && is_scalar($old[$key]) && (string) $old[$key] !== '') {
+            if (array_key_exists($key, $old) && is_scalar($old[$key]) && (string) $old[$key] !== ''
+                && ! $this->isOpaqueIdentifier((string) $old[$key])) {
                 return (string) $old[$key];
             }
         }
@@ -708,8 +758,17 @@ class AuditLogFormatter
             }
             // Check if it's a flat list (sequential integer keys)
             if (array_is_list($value)) {
-                $items = array_map(fn ($v) => is_scalar($v) ? (string) $v : '…', array_slice($value, 0, 3));
-                $suffix = $count > 3 ? sprintf(' (+%d more)', $count - 3) : '';
+                $scalars = array_values(array_filter(
+                    $value,
+                    fn ($item) => is_scalar($item) && ! $this->isOpaqueIdentifier((string) $item),
+                ));
+
+                if ($scalars === []) {
+                    return sprintf('%d selected', $count);
+                }
+
+                $items = array_map(fn ($item) => (string) $item, array_slice($scalars, 0, 3));
+                $suffix = count($scalars) > 3 ? sprintf(' (+%d more)', count($scalars) - 3) : '';
 
                 return implode(', ', $items).$suffix;
             }
@@ -808,10 +867,11 @@ class AuditLogFormatter
      * later classified-event policy may opt individual, approved summaries back
      * in; until then this deliberately exposes only event metadata.
      *
-     * The message appends a resolved entity identifier (case number, or a
-     * short UUID for referrals/milestones) when that is safe to disclose, and
-     * `changes` carries an after-only payload of fields whose formatted value
-     * is a controlled transformation (free-text fields are never surfaced).
+     * The message appends a resolved entity identifier (case number, referral
+     * service/agency, or milestone title) when that is safe to disclose; a raw
+     * UUID is never rendered. `changes` carries an after-only payload of fields
+     * whose formatted value is a controlled transformation (free-text fields
+     * are never surfaced).
      *
      * @return array{
      *     id: string,
@@ -979,6 +1039,7 @@ class AuditLogFormatter
 
         // Prefer the durable entity_label snapshot when present.
         $label = is_string($log->entity_label ?? null) && $log->entity_label !== ''
+            && ! $this->isOpaqueIdentifier($log->entity_label)
             ? $log->entity_label
             : null;
 
@@ -1030,7 +1091,7 @@ class AuditLogFormatter
             return $label;
         });
 
-        return is_string($label) && $label !== '' ? "Referral — {$label}" : 'Referral ID '.substr($referralId, 0, 8);
+        return is_string($label) && $label !== '' ? "Referral — {$label}" : 'a referral';
     }
 
     private function resolveMilestoneTitle(string $milestoneId): ?string
@@ -1043,7 +1104,7 @@ class AuditLogFormatter
 
         return is_string($title) && $title !== ''
             ? "Milestone '{$title}'"
-            : 'Milestone ID '.substr($milestoneId, 0, 8);
+            : 'a milestone';
     }
 
     /**
@@ -1080,6 +1141,11 @@ class AuditLogFormatter
 
             $formatted = $this->formatFieldValue('', (string) $field, $value);
             $raw = is_scalar($value) ? (string) $value : json_encode($value);
+
+            if ($this->isOpaqueIdentifier($formatted)) {
+                // A raw id that no formatter could resolve — never displayed.
+                continue;
+            }
 
             if (! in_array($field, self::CONTROLLED_FIELDS, true) && $formatted === $raw) {
                 // Raw value passed through unchanged — treat as unsafe free text.
@@ -1157,7 +1223,23 @@ class AuditLogFormatter
             }
         }
 
-        return $changes;
+        // Never render a raw id: an opaque side becomes "—", and a change with
+        // no human-readable side at all is dropped.
+        $changes = array_map(function (array $change) {
+            if ($this->isOpaqueIdentifier($change['new'] ?? null)) {
+                $change['new'] = null;
+            }
+            if ($this->isOpaqueIdentifier($change['old'] ?? null)) {
+                $change['old'] = null;
+            }
+
+            return $change;
+        }, $changes);
+
+        return array_values(array_filter(
+            $changes,
+            fn (array $change) => ($change['new'] ?? null) !== null || ($change['old'] ?? null) !== null,
+        ));
     }
 
     private function resolveUuidValue(string $field, mixed $value): ?string

@@ -1,9 +1,6 @@
 import { useState } from 'react';
 import { Link } from '@inertiajs/react';
 import KpiCard from '@/Components/ui/KpiCard';
-import StatusBadge from '@/Components/ui/StatusBadge';
-import ActivityItem from '@/Components/Dashboard/ActivityItem';
-import { humanizeStatus } from '@/lib/statusLabels';
 import safeRoute from '@/utils/safeRoute';
 
 const numberFormatter = new Intl.NumberFormat('en-US');
@@ -112,7 +109,7 @@ export function SectionCard({ title, action, collapsible = false, defaultOpen = 
                     onClick={() => setOpen((o) => !o)}
                     className="flex w-full items-center justify-between gap-3 border-b border-slate-100 px-5 py-3 text-left transition-colors hover:bg-slate-50/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
                 >
-                    <h2 className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-primary">{title}</h2>
+                    <h2 className="text-sm font-semibold tracking-tight text-slate-900">{title}</h2>
                     <MaterialSymbol
                         name="expand_more"
                         className={`text-[18px] text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`}
@@ -120,7 +117,7 @@ export function SectionCard({ title, action, collapsible = false, defaultOpen = 
                 </button>
             ) : (
                 <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-3">
-                    <h2 className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-primary">{title}</h2>
+                    <h2 className="text-sm font-semibold tracking-tight text-slate-900">{title}</h2>
                     {action ?? null}
                 </div>
             )}
@@ -213,98 +210,6 @@ export function TriageStrip({ items, dataTour }) {
     );
 }
 
-/**
- * Shared pill + title + note + chevron row shell. EntityRow,
- * PriorityReferralRow, and CaseActivityRow delegate through here.
- */
-function RowShell({ href, pill, title, titleExtra, notes, right, align = 'center', padY = 'py-3' }) {
-    return (
-        <Link
-            href={href}
-            className={`flex ${align === 'start' ? 'items-start' : 'items-center'} gap-3 px-5 ${padY} transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary`}
-        >
-            <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                    {pill ? (
-                        <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">{pill}</span>
-                    ) : null}
-                    <span className="truncate text-sm font-bold text-slate-900">{title}</span>
-                    {titleExtra ?? null}
-                </div>
-                {notes}
-            </div>
-            <div className={`flex shrink-0 items-center gap-2${align === 'start' ? ' pt-0.5' : ''}`}>
-                {right}
-                <MaterialSymbol name="chevron_right" className="text-[16px] text-slate-300" />
-            </div>
-        </Link>
-    );
-}
-
-export function EntityRow({ href, pill, title, note, badges = [], age, right }) {
-    return (
-        <RowShell
-            href={href}
-            pill={pill}
-            title={title}
-            notes={note ? <p className="mt-0.5 truncate text-xs text-slate-500">{note}</p> : null}
-            right={
-                <>
-                    {right}
-                    {age ? <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{age}</span> : null}
-                </>
-            }
-        />
-    );
-}
-
-export function EntityList({ children, empty }) {
-    const rows = safeArray(children);
-
-    if (rows.length === 0) return empty ?? null;
-
-    return <div className="divide-y divide-slate-100">{rows}</div>;
-}
-
-export function DashboardTable({ columns, rows, empty }) {
-    return (
-        <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-slate-200 text-left">
-                <thead className="bg-slate-50">
-                    <tr>
-                        {columns.map((column) => (
-                            <th
-                                key={column.key}
-                                scope="col"
-                                className={`whitespace-nowrap px-5 py-3 text-[11px] font-extrabold uppercase tracking-[0.14em] text-slate-500 ${column.className ?? ''}`}
-                            >
-                                {column.label}
-                            </th>
-                        ))}
-                    </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 bg-white">
-                    {rows.length === 0 ? (
-                        <tr>
-                            <td colSpan={columns.length}>{empty}</td>
-                        </tr>
-                    ) : (
-                        rows.map((row) => (
-                            <tr key={row.key} className="transition-colors hover:bg-slate-50">
-                                {columns.map((column) => (
-                                    <td key={column.key} className={`whitespace-nowrap px-5 py-3 text-sm text-slate-600 ${column.cellClassName ?? ''}`}>
-                                        {row[column.key]}
-                                    </td>
-                                ))}
-                            </tr>
-                        ))
-                    )}
-                </tbody>
-            </table>
-        </div>
-    );
-}
-
 export function BarList({ items, maxItems = 6 }) {
     const rows = safeArray(items).slice(0, maxItems);
     const maxValue = Math.max(...rows.map((item) => Number(item.count ?? 0)), 1);
@@ -337,117 +242,6 @@ export function BarList({ items, maxItems = 6 }) {
     );
 }
 
-export function ActivityFeed({ items, limit = 6, empty }) {
-    const rows = safeArray(items).slice(0, limit);
-
-    if (rows.length === 0) {
-        return empty ?? <p className="px-5 py-6 text-sm text-slate-500">No recent activity.</p>;
-    }
-
-    return (
-        <div className="space-y-4 px-5 py-4">
-            {rows.map((activity) => (
-                <ActivityItem
-                    key={activity.id}
-                    title={activity.title}
-                    desc={activity.desc}
-                    time={activity.time?.toUpperCase() ?? ''}
-                    logoSrc={activity.logoSrc ?? '/logo.png'}
-                    actionType={activity.actionType}
-                    actor={activity.actor}
-                    message={activity.message}
-                    detail={activity.detail}
-                />
-            ))}
-        </div>
-    );
-}
-
-/**
- * Attention-aware case activity row. Two-line scannable layout:
- *   Line 1: pill(case_number) + client_name + category
- *   Line 2: owner · referrals · worst status
- *   Line 3: updated time
- *   Right:  StatusBadge + SLA pill
- */
-export function CaseActivityRow({
-    href,
-    caseNumber,
-    clientName,
-    category,
-    caseOwner,
-    referralCount = 0,
-    worstReferralStatus,
-    isOverdue,
-    maxReferralAgeDays,
-    updatedAt,
-    status,
-}) {
-    const slaLabel = isOverdue
-        ? `OVERDUE${maxReferralAgeDays ? ` ${maxReferralAgeDays}d` : ''}`
-        : referralCount > 0 && worstReferralStatus
-            ? `${referralCount} referral${referralCount === 1 ? '' : 's'} · ${humanizeStatus(worstReferralStatus).toLowerCase()}`
-            : referralCount > 0
-                ? `${referralCount} referral${referralCount === 1 ? '' : 's'}`
-                : null;
-
-    const slaTone =
-        isOverdue || worstReferralStatus === 'REJECTED'
-            ? 'rose'
-            : worstReferralStatus === 'FOR_COMPLIANCE' || worstReferralStatus === 'PENDING'
-                ? 'amber'
-                : 'slate';
-
-    const slaClasses = {
-        rose: 'border-rose-200 bg-rose-50 text-rose-700',
-        amber: 'border-amber-200 bg-amber-50 text-amber-700',
-        slate: 'border-slate-200 bg-slate-100 text-slate-600',
-    };
-
-    const secondaryParts = [];
-    if (caseOwner) secondaryParts.push(caseOwner);
-    if (referralCount > 0) secondaryParts.push(`${referralCount} referral${referralCount === 1 ? '' : 's'}`);
-    if (worstReferralStatus && worstReferralStatus !== 'PENDING') {
-        secondaryParts.push(humanizeStatus(worstReferralStatus).toLowerCase());
-    }
-
-    return (
-        <RowShell
-            href={href}
-            pill={caseNumber}
-            title={clientName || 'Unnamed client'}
-            titleExtra={category ? (
-                <span className="text-[11px] font-medium text-slate-400">{category}</span>
-            ) : null}
-            notes={
-                <>
-                    {secondaryParts.length > 0 ? (
-                        <p className="mt-0.5 truncate text-xs text-slate-500">
-                            {secondaryParts.join(' · ')}
-                        </p>
-                    ) : null}
-                    {updatedAt ? (
-                        <p className="mt-0.5 text-[11px] text-slate-400">{updatedAt}</p>
-                    ) : null}
-                </>
-            }
-            right={
-                <>
-                    <StatusBadge status={status} />
-                    {slaLabel ? (
-                        <span
-                            className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${slaClasses[slaTone]}`}
-                        >
-                            {slaLabel}
-                        </span>
-                    ) : null}
-                </>
-            }
-            align="start"
-        />
-    );
-}
-
 /**
  * Compact filter chip for client-side list filtering.
  */
@@ -473,26 +267,6 @@ export function FilterChip({ label, count, active, onClick }) {
                 </span>
             ) : null}
         </button>
-    );
-}
-
-/**
- * Priority referral row — compact variant for the priority referrals card.
- */
-export function PriorityReferralRow({ href, caseNumber, clientName, agencyName, status, ageDays }) {
-    return (
-        <RowShell
-            href={href}
-            pill={caseNumber}
-            title={clientName || 'Unnamed'}
-            notes={
-                <p className="mt-0.5 truncate text-xs text-slate-500">
-                    {[agencyName, ageDays != null ? `${ageDays}d old` : null].filter(Boolean).join(' · ')}
-                </p>
-            }
-            right={<StatusBadge status={status} />}
-            padY="py-2.5"
-        />
     );
 }
 

@@ -1,49 +1,42 @@
 import { Link } from '@inertiajs/react';
-import { MaterialSymbol } from '@/Components/Dashboard/primitives';
 import { safeArray } from '@/Components/Dashboard/primitives';
 
 /**
- * DashboardRow — the shared quick-panel row for every dashboard.
+ * DashboardRow — the shared queue row for every dashboard.
  *
- * Replaces the DashboardTable pattern: instead of a <table> with column
- * headers, each item is a clickable divide-y row with a two-line scannable
- * layout. The pill anchors the row, the title answers "what", the note
- * answers "context", and the right side carries the status badge / age flag.
- *
- * Reads at the same density across case manager, agency focal, and admin.
+ * One grammar across roles: identifier, what it is, one context line, then the
+ * status/age on the right. The whole row is the link, so no chevron.
  */
 
 /**
  * @param {object} props
  * @param {string} props.href         Where the row navigates.
- * @param {string} [props.pill]       Small uppercase label (tracking number, action).
- * @param {string} [props.pillTone]   Tailwind text/bg classes for the pill.
+ * @param {string} [props.pill]       Identifier (case number, reference).
  * @param {import('react').ReactNode} props.title  The main label.
  * @param {import('react').ReactNode} [props.note] Secondary context line.
  * @param {import('react').ReactNode} [props.right] Right-side content (badge, age).
  * @param {boolean} [props.alignStart] Top-align the row instead of center.
  */
-export function DashboardRow({ href, pill, pillTone = 'bg-primary/10 text-primary', title, note, right, alignStart = false }) {
+export function DashboardRow({ href, pill, title, note, right, alignStart = false }) {
     return (
         <Link
             href={href}
-            className={`flex ${alignStart ? 'items-start' : 'items-center'} gap-3 px-5 py-3.5 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary`}
+            className={`flex ${alignStart ? 'items-start' : 'items-center'} gap-3 px-4 py-2.5 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary`}
         >
             <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-baseline gap-2">
                     {pill ? (
-                        <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${pillTone}`}>
+                        <span className="shrink-0 font-mono text-[11px] font-semibold tabular-nums text-slate-500">
                             {pill}
                         </span>
                     ) : null}
-                    <span className="truncate text-[13px] font-bold text-slate-900">{title}</span>
+                    <span className="truncate text-[13px] font-semibold text-slate-900">{title}</span>
                 </div>
-                {note ? <p className="mt-0.5 truncate text-[12px] text-slate-500">{note}</p> : null}
+                {note ? <p className="mt-0.5 truncate text-[11.5px] text-slate-500">{note}</p> : null}
             </div>
-            <div className={`flex shrink-0 items-center gap-2 ${alignStart ? 'pt-0.5' : ''}`}>
-                {right}
-                <MaterialSymbol name="chevron_right" className="text-[16px] text-slate-300" />
-            </div>
+            {right ? (
+                <div className={`flex shrink-0 items-center gap-2 ${alignStart ? 'pt-0.5' : ''}`}>{right}</div>
+            ) : null}
         </Link>
     );
 }
@@ -71,8 +64,8 @@ export function RowAgeFlag({ days, overdueDays = 7 }) {
         <span
             className={
                 overdue
-                    ? 'inline-flex items-center rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-black text-white'
-                    : 'text-[10px] font-bold uppercase tracking-widest text-slate-400'
+                    ? 'inline-flex items-center rounded bg-rose-600 px-1.5 py-px text-[10px] font-bold tabular-nums text-white'
+                    : 'text-[11px] font-semibold tabular-nums text-slate-400'
             }
         >
             {parsed}d

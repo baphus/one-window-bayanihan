@@ -11,6 +11,7 @@ use App\Models\Milestone;
 use App\Models\Referral;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class ActivityEndpointTest extends TestCase
@@ -107,6 +108,24 @@ class ActivityEndpointTest extends TestCase
                 }
             }
         }
+    }
+
+    public function test_activity_response_never_exposes_database_ids(): void
+    {
+        $agency = Agency::factory()->create();
+        $user = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id]);
+        $referral = Referral::factory()->create(['agcy_id' => $agency->id]);
+        $shortId = '42eee6a6';
+        $uuid = (string) Str::uuid();
+
+        $this->log('referral', 'CREATE', $referral->id, "created Referral ID {$shortId}");
+        $this->log('referral', 'UPDATE', $referral->id, "updated referral {$uuid}");
+
+        $payload = json_encode($this->rows(route('api.referrals.activity', $referral->id), $user));
+
+        $this->assertStringNotContainsString($shortId, $payload);
+        $this->assertStringNotContainsString($uuid, $payload);
+        $this->assertStringContainsString('created a referral', $payload);
     }
 
     public function test_milestone_event_appears_in_referral_activity(): void
