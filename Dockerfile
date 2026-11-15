@@ -81,6 +81,7 @@ RUN apt-get update && apt-get install -y \
     libonig-dev \
     libxml2-dev \
     libpq-dev \
+    postgresql-client \
     libicu-dev \
     nginx \
     supervisor \
