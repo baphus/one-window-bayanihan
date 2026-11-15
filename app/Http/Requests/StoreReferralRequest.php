@@ -25,7 +25,7 @@ class StoreReferralRequest extends FormRequest
             'override_reason' => ['nullable', 'string', 'max:5000'],
             'notes' => ['nullable', 'string', 'max:5000'],
             'documents' => ['nullable', 'array'],
-            'documents.*' => ['file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:10240'],
+            'documents.*' => ['file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:'.config('file-uploads.max_size', 5120)],
         ];
     }
 }

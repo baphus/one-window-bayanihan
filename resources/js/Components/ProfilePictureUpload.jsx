@@ -1,3 +1,4 @@
+import { MAX_UPLOAD_BYTES, UPLOAD_SIZE_ERROR } from '@/utils/uploadLimit';
 import { useState, useRef, useEffect } from 'react';
 import { router } from '@inertiajs/react';
 import ConfirmDialog from '@/Components/ui/ConfirmDialog';
@@ -48,10 +49,12 @@ export default function ProfilePictureUpload({
         if (!file) return;
 
         setError(null);
+        if (file.size > MAX_UPLOAD_BYTES) { setError(UPLOAD_SIZE_ERROR); event.target.value = ''; return; }
         setCropFile(file);
     }
 
     function handleCropComplete(croppedFile) {
+        if (croppedFile.size > MAX_UPLOAD_BYTES) { setError(UPLOAD_SIZE_ERROR); handleCancelCrop(); return; }
         setSelectedFile(croppedFile);
 
         const reader = new FileReader();

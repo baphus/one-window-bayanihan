@@ -1,3 +1,4 @@
+import { MAX_UPLOAD_BYTES, UPLOAD_SIZE_ERROR } from '@/utils/uploadLimit';
 import Select from '@/Components/Select';
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
@@ -1413,7 +1414,7 @@ export default function ReferralShow({ referral, caseIdentity: caseIdentityProp 
                                                 type="file"
                                                 accept=".pdf,.jpg,.jpeg,.png,.webp"
                                                 className="hidden"
-                                                onChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)}
+                                                onChange={(e) => { const file = e.target.files?.[0] ?? null; if (file && file.size > MAX_UPLOAD_BYTES) { toast.error(UPLOAD_SIZE_ERROR); e.target.value = ''; setSelectedFile(null); return; } setSelectedFile(file); }}
                                             />
                                         </label>
                                         <button

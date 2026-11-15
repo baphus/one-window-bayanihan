@@ -1,3 +1,4 @@
+import { MAX_UPLOAD_BYTES, UPLOAD_SIZE_ERROR } from '@/utils/uploadLimit';
 import { useMemo, useState } from 'react';
 import AddressDropdowns from '@/Components/AddressDropdowns';
 import CountrySelect from '@/Components/CountrySelect';
@@ -241,6 +242,7 @@ export default function CaseIntakeForm({ form, mode = 'public', options = {}, on
 
     const [employmentEvidenceSlot, setEmploymentEvidenceSlot] = useState(() => EMPLOYMENT_EVIDENCE_SLOTS.find((slot) => data.documents?.[slot]) ?? '');
     const [occupationOther, setOccupationOther] = useState(false);
+    const [documentSizeErrors, setDocumentSizeErrors] = useState({});
     const employmentEvidenceSelected = EMPLOYMENT_EVIDENCE_SLOTS.some((slot) => Boolean(data.documents?.[slot]));
     const occupations = [...new Set([...DEFAULT_OCCUPATIONS, ...occupationOptions.map((option) => typeof option === 'string' ? option : option?.value ?? option?.label).filter(Boolean)])];
     const lastOccupationIsOther = occupationOther || (data.employment_last_position && !occupations.includes(data.employment_last_position));
@@ -319,11 +321,11 @@ export default function CaseIntakeForm({ form, mode = 'public', options = {}, on
                     id={`intake-doc-${slot}`}
                     type="file"
                     accept=".pdf,.jpg,.jpeg,.png,.webp"
-                    onChange={(event) => setDocument(slot, event.target.files?.[0] ?? null)}
+                    onChange={(event) => { const file = event.target.files?.[0] ?? null; const tooLarge = file && file.size > MAX_UPLOAD_BYTES; setDocumentSizeErrors((prev) => ({ ...prev, [slot]: tooLarge ? UPLOAD_SIZE_ERROR : null })); if (tooLarge) event.target.value = ''; setDocument(slot, tooLarge ? null : file); }}
                     className="mt-2 block w-full text-[12px] text-slate-600 file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-[12px] file:font-bold file:text-slate-700"
                 />
                 {file && <p className="mt-1 truncate text-[11px] text-emerald-700">{file.name}</p>}
-                <InputError message={errors[`documents.${slot}`]} className="mt-1" />
+                <InputError message={documentSizeErrors[slot] || errors[`documents.${slot}`]} className="mt-1" />
                 {isStaff && !file && onsiteCheckbox(slot, 'Complied onsite')}
                 {isStaff && !file && (
                     <div className="mt-2">

@@ -52,6 +52,18 @@ class StorageService
      */
     public function store(UploadedFile $file, string $directory, ?array $options = []): FileStoreResult
     {
+        if ($file->isValid() && $file->getSize() > config('file-uploads.max_size', 5120) * 1024) {
+            return new FileStoreResult(
+                path: '',
+                originalName: $file->getClientOriginalName(),
+                storedName: '',
+                type: $file->getMimeType() ?? 'application/octet-stream',
+                size: $file->getSize() ?? 0,
+                success: false,
+                error: 'File must not exceed 5 MiB.',
+            );
+        }
+
         if (! $file->isValid()) {
             return new FileStoreResult(
                 path: '',

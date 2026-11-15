@@ -14,6 +14,7 @@ vi.mock('@/Components/CropImageModal', () => ({
                 >
                     crop-confirm
                 </button>
+                <button type="button" onClick={() => onCropComplete(new File([new Uint8Array(5 * 1024 * 1024 + 1)], 'large.jpg', { type: 'image/jpeg' }))}>crop-oversized</button>
                 <button type="button" onClick={onCancel}>crop-cancel</button>
             </div>
         ) : null
@@ -43,6 +44,26 @@ describe('AvatarPicker', () => {
 
         expect(screen.getByTestId('crop-modal')).toBeInTheDocument();
         // The raw file must not be handed to the parent until it is cropped.
+        expect(onFileChange).not.toHaveBeenCalled();
+    });
+
+    it('accepts the exact limit and rejects an oversized original before cropping', () => {
+        const onFileChange = vi.fn();
+        const { container } = render(<AvatarPicker onFileChange={onFileChange} />);
+        pickFile(container, new File([new Uint8Array(5 * 1024 * 1024 + 1)], 'large.png', { type: 'image/png' }));
+        expect(screen.getByRole('alert')).toHaveTextContent('5 MiB');
+        expect(screen.queryByTestId('crop-modal')).not.toBeInTheDocument();
+        expect(onFileChange).not.toHaveBeenCalled();
+        pickFile(container, new File([new Uint8Array(5 * 1024 * 1024)], 'limit.png', { type: 'image/png' }));
+        expect(screen.getByTestId('crop-modal')).toBeInTheDocument();
+    });
+
+    it('rejects oversized cropped output', () => {
+        const onFileChange = vi.fn();
+        const { container } = render(<AvatarPicker onFileChange={onFileChange} />);
+        pickFile(container, new File(['raw'], 'photo.png', { type: 'image/png' }));
+        fireEvent.click(screen.getByText('crop-oversized'));
+        expect(screen.getByRole('alert')).toHaveTextContent('5 MiB');
         expect(onFileChange).not.toHaveBeenCalled();
     });
 

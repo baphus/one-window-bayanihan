@@ -1,8 +1,8 @@
+import { MAX_UPLOAD_BYTES, UPLOAD_SIZE_ERROR } from '@/utils/uploadLimit';
 import { useState, useRef, useEffect } from 'react';
 import CropImageModal from '@/Components/CropImageModal';
 
 const ACCEPTED_TYPES = ['image/png', 'image/jpeg', 'image/svg+xml'];
-const MAX_SIZE_BYTES = 2 * 1024 * 1024; // 2MB
 
 export default function LogoUpload({ currentLogoUrl, onChange }) {
     const [previewUrl, setPreviewUrl] = useState(null);
@@ -36,8 +36,8 @@ export default function LogoUpload({ currentLogoUrl, onChange }) {
         }
 
         // Validate size
-        if (file.size > MAX_SIZE_BYTES) {
-            setError('File must be less than 2MB.');
+        if (file.size > MAX_UPLOAD_BYTES) {
+            setError(UPLOAD_SIZE_ERROR);
             event.target.value = '';
             return;
         }
@@ -54,6 +54,7 @@ export default function LogoUpload({ currentLogoUrl, onChange }) {
     }
 
     function handleCropComplete(croppedFile) {
+        if (croppedFile.size > MAX_UPLOAD_BYTES) { setError(UPLOAD_SIZE_ERROR); handleCancelCrop(); return; }
         const url = URL.createObjectURL(croppedFile);
         setPreviewUrl(url);
         onChange(croppedFile);

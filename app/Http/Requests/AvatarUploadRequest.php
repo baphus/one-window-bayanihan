@@ -12,8 +12,8 @@ use Illuminate\Http\UploadedFile;
  * Every avatar entry point (invite registration, OFW registration, staff
  * profile, OFW profile) validates through this class so a photo accepted at
  * registration is also accepted on the profile page. The rule set previously
- * drifted between ProfileUpdateRequest (max:2048, no gif) and
- * ProfilePictureRequest (max:5120, gif allowed); this is the single source.
+ * drifted between ProfileUpdateRequest (no gif) and
+ * ProfilePictureRequest (gif allowed); this is the single source.
  *
  * The 32x32 floor is mirrored independently in
  * CloudinaryAvatarService::validateImageFile(), which sniffs decoded content
@@ -41,14 +41,14 @@ class AvatarUploadRequest extends FormRequest
                 'nullable',
                 'image',
                 'mimes:jpeg,png,webp',
-                'max:2048',
+                'max:'.config('file-uploads.max_size', 5120),
                 'dimensions:min_width=32,min_height=32',
             ],
             'avatar' => [
                 'nullable',
                 'image',
                 'mimes:jpeg,png,webp',
-                'max:2048',
+                'max:'.config('file-uploads.max_size', 5120),
                 'dimensions:min_width=32,min_height=32',
             ],
         ];
@@ -62,11 +62,11 @@ class AvatarUploadRequest extends FormRequest
         return [
             'profile_picture.image' => 'The file must be an image.',
             'profile_picture.mimes' => 'Profile picture must be a JPEG, PNG, or WebP file.',
-            'profile_picture.max' => 'Profile picture must not exceed 2MB.',
+            'profile_picture.max' => 'Profile picture must not exceed 5 MiB.',
             'profile_picture.dimensions' => 'Profile picture must be at least 32x32 pixels.',
             'avatar.image' => 'The file must be an image.',
             'avatar.mimes' => 'Profile picture must be a JPEG, PNG, or WebP file.',
-            'avatar.max' => 'Profile picture must not exceed 2MB.',
+            'avatar.max' => 'Profile picture must not exceed 5 MiB.',
             'avatar.dimensions' => 'Profile picture must be at least 32x32 pixels.',
         ];
     }

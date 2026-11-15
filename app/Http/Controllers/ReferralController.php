@@ -321,7 +321,7 @@ class ReferralController extends Controller
         $this->authorizeReferralAccess($referral, $request->user());
 
         $request->validate([
-            'file' => ['required', 'file'],
+            'file' => ['required', 'file', 'max:'.config('file-uploads.max_size', 5120)],
             'document_label' => ['nullable', 'string', 'max:255'],
         ]);
         $file = $request->file('file');
@@ -367,7 +367,7 @@ class ReferralController extends Controller
             ->firstOrFail();
 
         $request->validate([
-            'file' => ['required', 'file'],
+            'file' => ['required', 'file', 'max:'.config('file-uploads.max_size', 5120)],
             'document_label' => ['nullable', 'string', 'max:255'],
         ]);
         $file = $request->file('file');

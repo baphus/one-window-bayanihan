@@ -69,13 +69,12 @@ describe('FileUpload', () => {
         const onError = vi.fn();
         render(
             <FileUpload
-                maxSize={500}
                 onFilesSelected={() => {}}
                 onError={onError}
             />,
         );
 
-        const largeFile = createFile('large.pdf', 'application/pdf', 1000);
+        const largeFile = createFile('large.pdf', 'application/pdf', 5 * 1024 * 1024 + 1);
         const input = screen.getByLabelText('File upload drop zone').querySelector('input[type="file"]');
 
         fireEvent.change(input, { target: { files: [largeFile] } });

@@ -39,7 +39,7 @@ class ProfileUpdateRequest extends FormRequest
                 'max:255',
                 Rule::in([$this->user()->email]),
             ],
-            'avatar' => ['nullable', 'image', 'mimes:jpeg,png,webp', 'max:2048'],
+            'avatar' => ['nullable', 'image', 'mimes:jpeg,png,webp', 'max:'.config('file-uploads.max_size', 5120)],
             'contact_number' => ['nullable', 'string', 'max:50'],
             'timezone' => ['nullable', 'string', 'max:50'],
         ] + $this->identityRules(partial: true);

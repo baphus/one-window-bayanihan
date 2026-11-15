@@ -145,10 +145,10 @@ class SoftDeleteFlagConsistencyTest extends TestCase
             ->patch(route('admin.agencies.update', $agency->id), [
                 'name' => 'Logo Test Agency',
                 'short' => 'LOGO',
-                'logo_url' => UploadedFile::fake()->create('logo.png', 3000),
+                'logo_url' => UploadedFile::fake()->create('logo.png', 5121),
             ]);
 
-        $response->assertSessionHasErrors(['logo_url' => 'The logo url field must not be greater than 2048 kilobytes.']);
+        $response->assertSessionHasErrors(['logo_url' => 'The logo url field must not be greater than 5120 kilobytes.']);
 
         $this->assertNull($agency->refresh()->logo_url);
     }

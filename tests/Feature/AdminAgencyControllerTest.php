@@ -109,7 +109,7 @@ class AdminAgencyControllerTest extends TestCase
     public function test_logo_upload_rejects_oversized_file(): void
     {
         $admin = User::factory()->mfaEnabled()->create(['role' => UserRole::ADMIN->value, 'mfa_secret' => 'JBSWY3DPEHPK3PXP']);
-        $file = UploadedFile::fake()->create('logo.jpg', 3000);
+        $file = UploadedFile::fake()->create('logo.jpg', 5121);
 
         $response = $this->actingAsWithMfa($admin)->post(route('admin.agencies.store'), [
             'name' => 'Test Agency',

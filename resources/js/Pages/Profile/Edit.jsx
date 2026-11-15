@@ -1,3 +1,4 @@
+import { MAX_UPLOAD_BYTES, UPLOAD_SIZE_ERROR } from '@/utils/uploadLimit';
 import Select from '@/Components/Select';
 import { useRef, useState } from 'react';
 import { Head, router, useForm, usePage } from '@inertiajs/react';
@@ -110,6 +111,7 @@ export default function Edit({ mustVerifyEmail, status, mfaEnabled, mfaRequired,
     }
 
     function handleCropComplete(croppedFile) {
+        if (croppedFile.size > MAX_UPLOAD_BYTES) { toast.error(UPLOAD_SIZE_ERROR); setCropFile(null); return; }
         setPendingAvatarFile(croppedFile);
         setAvatarPreview(URL.createObjectURL(croppedFile));
         setCropFile(null);

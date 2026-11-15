@@ -1,8 +1,8 @@
 import React, { useRef, useState, useCallback } from 'react';
+import { MAX_UPLOAD_BYTES } from '@/utils/uploadLimit';
 
 export default function FileUpload({
     accept,
-    maxSize,
     multiple = false,
     onFilesSelected,
     onError,
@@ -11,6 +11,7 @@ export default function FileUpload({
     className = '',
     variant = 'dropzone',
 }) {
+    const maxSize = MAX_UPLOAD_BYTES;
     const inputRef = useRef(null);
     const [isDragOver, setIsDragOver] = useState(false);
     const [error, setError] = useState(null);
@@ -52,7 +53,7 @@ export default function FileUpload({
             if (maxSize && file.size > maxSize) {
                 const sizeLabel =
                     maxSize >= 1024 * 1024
-                        ? `${Math.round(maxSize / (1024 * 1024))} MB`
+                        ? `${Math.round(maxSize / (1024 * 1024))} MiB`
                         : `${Math.round(maxSize / 1024)} KB`;
                 const msg = `File "${file.name}" exceeds the maximum size of ${sizeLabel}.`;
                 setError(msg);
