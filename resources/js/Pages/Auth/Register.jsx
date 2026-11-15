@@ -3,11 +3,13 @@ import axios from 'axios';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import AppFooter from '@/Components/landing/AppFooter';
 import AppHeader from '@/Components/landing/AppHeader';
+import AvatarPicker from '@/Components/AvatarPicker';
 import PasswordInput from '@/Components/PasswordInput';
 import IdentityFields, { emptyIdentity } from '@/Components/IdentityFields';
 import TurnstileWidget from '@/Components/TurnstileWidget';
 import { makeRegisterSchema } from '@/Schemas/authSchemas';
 import useClientValidation from '@/Hooks/useClientValidation';
+import displayName from '@/utils/displayName';
 import { getTurnstileError } from '@/lib/turnstile';
 
 export default function Register({ initial = {} }) {
@@ -79,12 +81,13 @@ export default function Register({ initial = {} }) {
                                 {!errors.email && emailStatus === 'checking' && <p className="mt-1 text-xs text-slate-500" role="status">Checking email availability...</p>}
                                 {emailStatus === 'taken' && <p className="mt-1 text-xs text-red-600" role="alert">This email is already registered. <Link href={route('login')} className="font-semibold underline">Sign in instead</Link>.</p>}
                             </div>
-                            <div>
-                                <label htmlFor="register-profile-picture" className="mb-2 block text-xs font-bold uppercase tracking-widest text-on-surface-variant">Profile photo <span className="font-normal normal-case tracking-normal">(optional)</span></label>
-                                <input id="register-profile-picture" type="file" accept="image/jpeg,image/png" onChange={(event) => setData('profile_picture', event.target.files?.[0] ?? null)} className="block w-full rounded-md border border-outline-variant bg-surface-container px-3 py-2 text-sm file:mr-3 file:rounded file:border-0 file:bg-primary file:px-3 file:py-2 file:text-sm file:font-semibold file:text-on-primary focus:outline-none focus:ring-2 focus:ring-primary" aria-describedby={errors.profile_picture ? 'register-profile-picture-error' : 'register-profile-picture-help'} />
-                                <p id="register-profile-picture-help" className="mt-1 text-xs text-slate-500">Add a photo to your account now, or skip it and add one later in account settings.</p>
-                                {errors.profile_picture && <p id="register-profile-picture-error" className="mt-1 text-xs text-red-600" role="alert">{errors.profile_picture}</p>}
-                            </div>
+                            <AvatarPicker
+                                file={data.profile_picture}
+                                onFileChange={(file) => setData('profile_picture', file)}
+                                name={displayName(data)}
+                                error={errors.profile_picture}
+                                disabled={processing}
+                            />
                             <PasswordInput id="register-password" label="Password" value={data.password} onChange={(value) => setData('password', value)} error={errors.password} autoComplete="new-password" showStrengthMeter rules={passwordRules} confirmation={data.password_confirmation} />
                             <PasswordInput id="register-password-confirm" label="Confirm password" value={data.password_confirmation} onChange={(value) => setData('password_confirmation', value)} error={errors.password_confirmation} autoComplete="new-password" />
                             {turnstile?.enabled && <div className="text-center"><TurnstileWidget onToken={setTurnstileToken} onExpire={() => setTurnstileToken('')} onStatusChange={setTurnstileStatus} />{errors.captcha && <p className="mt-1 text-xs text-red-600">{errors.captcha}</p>}{!turnstileToken && <p className={`mt-1 text-xs ${['error', 'expired'].includes(turnstileStatus) ? 'text-red-600' : 'text-slate-500'}`}>{getTurnstileError({ token: turnstileToken, status: turnstileStatus })}</p>}</div>}

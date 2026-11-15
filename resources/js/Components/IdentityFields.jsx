@@ -1,8 +1,15 @@
 import InputError from '@/Components/InputError';
+import Select from '@/Components/Select';
 
 const INPUT = {
   default: 'mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-primary focus:ring-primary text-sm',
   brand: 'w-full border border-outline-variant bg-surface-container px-4 py-2.5 text-sm focus:border-primary focus:outline-none rounded-md',
+};
+
+// Select's own base already sets the control box, so no `block` here.
+const SELECT = {
+  default: 'mt-1 w-full rounded-lg border-slate-300 shadow-sm focus:border-primary focus:ring-primary text-sm',
+  brand: 'w-full border border-outline-variant bg-surface-container px-4 text-sm focus:border-primary focus:outline-none rounded-md',
 };
 
 const LABEL = {
@@ -28,6 +35,7 @@ export function emptyIdentity(user) {
 
 export default function IdentityFields({ data, setData, errors = {}, requireDemographics = false, variant = 'default' }) {
   const input = INPUT[variant] ?? INPUT.default;
+  const select = SELECT[variant] ?? SELECT.default;
   const label = LABEL[variant] ?? LABEL.default;
   const error = (name) => <InputError message={errors[name]} className="mt-1" />;
   const field = (name, text, required = false) => (
@@ -58,11 +66,11 @@ export default function IdentityFields({ data, setData, errors = {}, requireDemo
         <label className={label} htmlFor="identity-suffix">
           Suffix
         </label>
-        <select
+        <Select
           id="identity-suffix"
           value={data.suffix ?? ''}
           onChange={(event) => setData('suffix', event.target.value)}
-          className={input}
+          className={select}
           autoComplete="honorific-suffix"
         >
           <option value="">None</option>
@@ -72,7 +80,7 @@ export default function IdentityFields({ data, setData, errors = {}, requireDemo
           <option value="III">III</option>
           <option value="IV">IV</option>
           <option value="V">V</option>
-        </select>
+        </Select>
         {error('suffix')}
       </div>
       <div>
@@ -94,17 +102,17 @@ export default function IdentityFields({ data, setData, errors = {}, requireDemo
         <label className={label} htmlFor="identity-sex">
           Sex{requireDemographics && <span className="text-red-500"> *</span>}
         </label>
-        <select
+        <Select
           id="identity-sex"
           value={data.sex ?? ''}
           onChange={(event) => setData('sex', event.target.value)}
-          className={input}
+          className={select}
           required={requireDemographics}
         >
           <option value="">Select sex...</option>
           <option value="MALE">Male</option>
           <option value="FEMALE">Female</option>
-        </select>
+        </Select>
         {error('sex')}
       </div>
     </div>

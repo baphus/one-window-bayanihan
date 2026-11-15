@@ -1,21 +1,28 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('@inertiajs/react', () => ({
-    usePage: () => ({ props: { passwordRules: { min_length: 8 } } }),
-    useForm: (initial) => ({
-        data: initial,
-        setData: vi.fn(),
-        put: vi.fn(),
-        transform: vi.fn(),
-        reset: vi.fn(),
-        clearErrors: vi.fn(),
-        setError: vi.fn(),
-        processing: false,
-        errors: {},
-        isDirty: false,
-    }),
-}));
+vi.mock('@inertiajs/react', async () => {
+    const { useState } = await import('react');
+
+    return {
+        usePage: () => ({ props: { passwordRules: { min_length: 8 } } }),
+        useForm: (initial) => {
+            const [state, setState] = useState(() => initial);
+            return {
+                data: state,
+                setData: (key, value) => setState((prev) => ({ ...prev, [key]: value })),
+                put: vi.fn(),
+                transform: vi.fn(),
+                reset: vi.fn(),
+                clearErrors: vi.fn(),
+                setError: vi.fn(),
+                processing: false,
+                errors: {},
+                isDirty: false,
+            };
+        },
+    };
+});
 vi.mock('@/Layouts/OfwPortalLayout', () => ({ default: ({ children }) => <div>{children}</div> }));
 vi.mock('@/Hooks/useToast', () => ({ useToast: () => ({ success: vi.fn(), error: vi.fn() }) }));
 vi.mock('@/Hooks/useUnsavedChanges', () => ({ default: () => ({ UnsavedModal: null, bypassNext: vi.fn() }) }));
@@ -48,7 +55,7 @@ describe('OFW account settings', () => {
         expect(screen.getByLabelText(/first name/i)).toHaveValue('Juan');
         expect(screen.getByLabelText(/last name/i)).toHaveValue('Cruz');
         expect(screen.getByLabelText(/date of birth/i)).toHaveValue('1990-01-01');
-        expect(screen.getByLabelText(/^sex/i)).toHaveValue('MALE');
+        expect(screen.getByLabelText(/^sex/i)).toHaveTextContent('Male');
         expect(screen.getByText('juan@example.com')).toBeInTheDocument();
         expect(screen.getByLabelText('Contact number')).toBeInTheDocument();
         expect(screen.getByText('New password')).toBeInTheDocument();
@@ -67,5 +74,12 @@ describe('OFW account settings', () => {
     it('passes required MFA policy through when backend marks it required', () => {
         render(<Profile user={user} mfaRequired />);
         expect(screen.getByText('MFA required')).toBeInTheDocument();
+    });
+
+    it('accepts a new contact number', () => {
+        render(<Profile user={user} />);
+        const input = screen.getByLabelText('Contact number');
+        fireEvent.change(input, { target: { value: '09179999999' } });
+        expect(input).toHaveValue('09179999999');
     });
 });

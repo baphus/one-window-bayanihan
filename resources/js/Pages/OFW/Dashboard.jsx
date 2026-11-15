@@ -3,6 +3,7 @@ import { Link, usePage } from '@inertiajs/react';
 import { Hourglass, Info } from 'lucide-react';
 import OfwPortalLayout from '@/Layouts/OfwPortalLayout';
 import OfwBreadcrumbs from '@/Components/OfwBreadcrumbs';
+import ChatBot from '@/Components/ChatBot';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import { EmptyState, FilterChip } from '@/Components/Dashboard/primitives';
 import { usePersistedViewMode } from '@/Hooks/usePersistedViewState';
@@ -487,6 +488,8 @@ export default function Dashboard({ cases, caseStats, mfaRecoveryCodes = [] }) {
                 </span>
                 All request information on this page comes from your own records.
             </p>
+
+            <ChatBot />
         </OfwPortalLayout>
     );
 }

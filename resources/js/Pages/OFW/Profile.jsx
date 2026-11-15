@@ -2,7 +2,7 @@ import { useForm } from '@inertiajs/react';
 import OfwPortalLayout from '@/Layouts/OfwPortalLayout';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import ProfilePictureUpload from '@/Components/ProfilePictureUpload';
-import { ProfileCard, ProfileField, ProfileSaveBar, ProfileSection, ProfileStaticField, ProfileTextInput } from '@/Components/ui/ProfileCard';
+import { ProfileCard, ProfileSaveBar, ProfileSection, ProfileStaticField, ProfileTextInput } from '@/Components/ui/ProfileCard';
 import IdentityFields, { emptyIdentity } from '@/Components/IdentityFields';
 import ChangeEmailForm from '@/Pages/Profile/Partials/ChangeEmailForm';
 import DeleteUserForm from '@/Pages/Profile/Partials/DeleteUserForm';
@@ -11,7 +11,6 @@ import MfaSetup from '@/Components/MfaSetup';
 import { useToast } from '@/Hooks/useToast';
 import safeRoute from '@/utils/safeRoute';
 
-const Field = ProfileField;
 const TextInput = ProfileTextInput;
 
 export default function Profile({ user, mfaEnabled = false, mfaRequired = false, email_change_step, email_change_hint }) {
@@ -45,9 +44,7 @@ export default function Profile({ user, mfaEnabled = false, mfaRequired = false,
                         </div>
                     </ProfileSection>
                     <ProfileSection title="Contact" description="Change the phone number used for account contact.">
-                        <Field label="Contact number" htmlFor="account-contact" error={form.errors.contact_number}>
-                            <TextInput id="account-contact" type="tel" autoComplete="tel" maxLength={50} value={form.data.contact_number} onChange={(event) => form.setData('contact_number', event.target.value)} />
-                        </Field>
+                        <TextInput id="account-contact" label="Contact number" type="tel" autoComplete="tel" maxLength={50} value={form.data.contact_number} onChange={(value) => form.setData('contact_number', value)} error={form.errors.contact_number} />
                     </ProfileSection>
                     <ProfileSaveBar processing={form.processing} dirty={form.isDirty} onDiscard={() => form.reset()} />
                 </form>
