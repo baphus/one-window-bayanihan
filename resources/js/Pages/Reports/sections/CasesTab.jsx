@@ -1,4 +1,5 @@
-import { usePage } from '@inertiajs/react';
+﻿import { usePage } from '@inertiajs/react';
+import { useState } from 'react';
 import {
     DonutWithList,
     EmptyLine,
@@ -184,19 +185,27 @@ function DemographicsSection({ mapProps }) {
 }
 
 /**
- * Infographic-style ranked list for "Last country worked in": rank numerals
- * with count + percent and bars scaled to #1. A genuine long tail renders as
- * one honest aggregate note — never as a fake 6th country.
+ * Ranked bar list for "Last country worked in". The long tail collapses into a
+ * toggle that reveals every remaining entry and grows the chart on demand.
  */
-function CountryRankList({ top, tailCount, tailCountries, tailSingle = 'country', tailPlural = 'countries' }) {
+function CountryRankList({ top, all = [], tailCount, tailCountries, tailSingle = 'country', tailPlural = 'countries' }) {
+    const [expanded, setExpanded] = useState(false);
+    const items = expanded ? all : top;
+
     return (
         <div>
-            <BarRows items={top} />
+            <BarRows items={items} />
             {tailCount > 0 && tailCountries > 0 ? (
-                <p className="ml-9 mt-4 border-t border-dashed border-slate-300 pt-3 text-sm text-slate-500 dark:border-slate-600 dark:text-slate-400">
-                    Plus <strong>{tailCount}</strong> more cases across {tailCountries} other{' '}
-                    {tailCountries === 1 ? tailSingle : tailPlural}.
-                </p>
+                <button
+                    type="button"
+                    onClick={() => setExpanded((value) => !value)}
+                    aria-expanded={expanded}
+                    className="ml-9 mt-4 border-t border-dashed border-slate-300 pt-3 text-left text-sm font-semibold text-primary hover:underline dark:border-slate-600"
+                >
+                    {expanded
+                        ? 'Show fewer'
+                        : `Plus ${tailCount} more cases across ${tailCountries} other ${tailCountries === 1 ? tailSingle : tailPlural}. Show all`}
+                </button>
             ) : null}
         </div>
     );
@@ -209,6 +218,7 @@ function JobsSection() {
     const countrySlices = toSlices(countries);
     const {
         top: topCountries,
+        named: allCountries,
         tailCount: countryTailCount,
         tailCountries: countryTailCountries,
     } = topNamedWithTail(countrySlices, 5);
@@ -216,6 +226,7 @@ function JobsSection() {
     const occupationSlices = toSlices(occupations);
     const {
         top: topJobs,
+        named: allJobs,
         tailCount: jobTailCount,
         tailCountries: jobTailTypes,
     } = topNamedWithTail(
@@ -239,6 +250,7 @@ function JobsSection() {
                     </p>
                     <CountryRankList
                         top={topCountries}
+                        all={allCountries}
                         tailCount={countryTailCount}
                         tailCountries={countryTailCountries}
                     />
@@ -257,6 +269,7 @@ function JobsSection() {
                     </p>
                     <CountryRankList
                         top={topJobs}
+                        all={allJobs}
                         tailCount={jobTailCount}
                         tailCountries={jobTailTypes}
                         tailSingle="job type"

@@ -140,7 +140,7 @@ export function topNamedWithTail(slices, n, totalTypes = null) {
     const top = named.slice(0, n);
     const tail = named.slice(n);
     const tailCountries = totalTypes == null ? tail.length : Math.max(0, totalTypes - top.length);
-    return { top, tailCount: totalOf(tail), tailCountries };
+    return { top, named, tailCount: totalOf(tail), tailCountries };
 }
 
 export function ReportCard({ title, takeaway, children, dataTour }) {
