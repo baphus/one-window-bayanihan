@@ -17,6 +17,16 @@ class HandleInertiaRequests extends Middleware
 {
     protected $rootView = 'app';
 
+    private function turnstileVerifiedUntil(Request $request): ?int
+    {
+        $ttl = (int) config('turnstile.session_ttl', 0);
+        $verifiedAt = (int) $request->session()->get('turnstile_verified_at', 0);
+
+        return config('turnstile.enabled') && $ttl > 0 && $verifiedAt > 0 && time() - $verifiedAt < $ttl
+            ? $verifiedAt + $ttl
+            : null;
+    }
+
     public function version(Request $request): ?string
     {
         if (app()->environment('local')) {
@@ -180,6 +190,7 @@ class HandleInertiaRequests extends Middleware
             'turnstile' => [
                 'enabled' => (bool) config('turnstile.enabled', false),
                 'site_key' => config('turnstile.site_key', ''),
+                'verified_until' => $this->turnstileVerifiedUntil($request),
             ],
             'addresses' => [
                 'served_regions' => config('addresses.served_regions', []),

@@ -1,3 +1,4 @@
+import { MAX_UPLOAD_BYTES, UPLOAD_SIZE_ERROR } from '@/utils/uploadLimit';
 import Select from '@/Components/Select';
 import { useMemo, useState } from 'react';
 import { Link, useForm } from '@inertiajs/react';
@@ -35,6 +36,7 @@ function formatRequestStatus(status) {
 function IntakeReplacementPanel({ caseId, slots = [], reason = '' }) {
     const form = useForm({ documents: {} });
     const [files, setFiles] = useState({});
+    const [sizeErrors, setSizeErrors] = useState({});
 
     function submit(event) {
         event.preventDefault();
@@ -64,10 +66,10 @@ function IntakeReplacementPanel({ caseId, slots = [], reason = '' }) {
                             id={`replacement-${slot}`}
                             type="file"
                             accept=".pdf,.jpg,.jpeg,.png,.webp"
-                            onChange={(event) => setFiles((prev) => ({ ...prev, [slot]: event.target.files?.[0] ?? null }))}
+                            onChange={(event) => { const file = event.target.files?.[0] ?? null; const tooLarge = file && file.size > MAX_UPLOAD_BYTES; setSizeErrors((prev) => ({ ...prev, [slot]: tooLarge ? UPLOAD_SIZE_ERROR : null })); if (tooLarge) event.target.value = ''; setFiles((prev) => ({ ...prev, [slot]: tooLarge ? null : file })); }}
                             className="mt-1 block w-full text-[12px] text-slate-700 file:mr-3 file:rounded-md file:border-0 file:bg-white file:px-3 file:py-1.5 file:text-[12px] file:font-bold"
                         />
-                        <InputError message={form.errors[`documents.${slot}`]} className="mt-1" />
+                        <InputError message={sizeErrors[slot] || form.errors[`documents.${slot}`]} className="mt-1" />
                     </div>
                 ))}
             </div>

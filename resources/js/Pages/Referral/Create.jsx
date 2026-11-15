@@ -1,3 +1,4 @@
+import { MAX_UPLOAD_BYTES, UPLOAD_SIZE_ERROR } from '@/utils/uploadLimit';
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, useForm, router } from '@inertiajs/react';
 import { useEffect, useMemo, useState, useRef } from 'react';
@@ -726,7 +727,7 @@ export default function ReferralCreate({ case_id, agencies = [], cases: paginate
                                                         type="file"
                                                         multiple
                                                         accept=".pdf,.jpg,.jpeg,.png,.webp"
-                                                        onChange={(e) => setData('documents', Array.from(e.target.files || []))}
+                                                        onChange={(e) => { const files = Array.from(e.target.files || []); if (files.some((file) => file.size > MAX_UPLOAD_BYTES)) { toast.error(UPLOAD_SIZE_ERROR); e.target.value = ''; setData('documents', []); return; } setData('documents', files); }}
                                                         className="hidden"
                                                     />
                                                 </label>

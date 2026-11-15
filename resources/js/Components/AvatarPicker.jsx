@@ -1,3 +1,4 @@
+import { MAX_UPLOAD_BYTES, UPLOAD_SIZE_ERROR } from '@/utils/uploadLimit';
 import { useState, useRef, useEffect } from 'react';
 import CropImageModal from '@/Components/CropImageModal';
 
@@ -29,6 +30,7 @@ export default function AvatarPicker({
     disabled = false,
     label = 'Profile photo',
 }) {
+    const [sizeError, setSizeError] = useState(null);
     const [preview, setPreview] = useState(null);
     const [cropFile, setCropFile] = useState(null);
     const fileInputRef = useRef(null);
@@ -43,10 +45,13 @@ export default function AvatarPicker({
     function handleFileChange(event) {
         const selected = event.target.files?.[0];
         if (!selected) return;
+        setSizeError(null);
+        if (selected.size > MAX_UPLOAD_BYTES) { setSizeError(UPLOAD_SIZE_ERROR); event.target.value = ''; return; }
         setCropFile(selected);
     }
 
     function handleCropComplete(croppedFile) {
+        if (croppedFile.size > MAX_UPLOAD_BYTES) { setSizeError(UPLOAD_SIZE_ERROR); handleCancelCrop(); return; }
         if (preview) URL.revokeObjectURL(preview);
         setPreview(URL.createObjectURL(croppedFile));
         setCropFile(null);
@@ -140,7 +145,7 @@ export default function AvatarPicker({
                         {preview ? 'Photo selected' : 'Add a profile photo'}
                     </p>
                     <p className="mt-0.5 text-xs text-slate-500">
-                        JPEG, PNG, or WebP. You can add or change this later on your profile page.
+                        JPEG, PNG, or WebP, up to 5 MiB. You can add or change this later on your profile page.
                     </p>
                     <div className="mt-2 flex items-center gap-3">
                         <button
@@ -165,7 +170,7 @@ export default function AvatarPicker({
                 </div>
             </div>
 
-            {error && <p className="mt-2 text-xs font-semibold text-error">{error}</p>}
+            {(sizeError || error) && <p role="alert" className="mt-2 text-xs font-semibold text-error">{sizeError || error}</p>}
 
             <CropImageModal
                 file={cropFile}

@@ -1,3 +1,4 @@
+import { MAX_UPLOAD_BYTES, UPLOAD_SIZE_ERROR } from '@/utils/uploadLimit';
 import AppLayout from '@/Layouts/AppLayout';
 import Select from '@/Components/Select';
 import Modal from '@/Components/Modal';
@@ -144,6 +145,7 @@ export default function CaseShow({ case: caseFile, case_categories = [], recomme
   }
 
   function handleDocumentUpload(file, category = null) {
+    if (file && file.size > MAX_UPLOAD_BYTES) { toast.error(UPLOAD_SIZE_ERROR); return; }
     if (!file || uploadingDoc) return;
     setUploadingDoc(true);
 
@@ -810,7 +812,6 @@ export default function CaseShow({ case: caseFile, case_categories = [], recomme
                   <FileUpload
                     variant="button"
                     accept=".pdf,.jpg,.jpeg,.png,.webp"
-                    maxSize={10 * 1024 * 1024}
                     label={uploadingDoc ? 'Uploading...' : 'Upload New File'}
                     disabled={uploadingDoc}
                     onFilesSelected={handleDocumentUpload}
@@ -907,7 +908,6 @@ export default function CaseShow({ case: caseFile, case_categories = [], recomme
               {canManageCaseDocuments && (
                 <FileUpload
                   accept=".pdf,.jpg,.jpeg,.png,.webp"
-                  maxSize={10 * 1024 * 1024}
                   label="Drop files here"
                   disabled={uploadingDoc}
                   onFilesSelected={handleDocumentUpload}

@@ -191,7 +191,7 @@ class ReferralClientRequestController extends Controller
         $validated = $request->validate([
             'body' => ['nullable', 'string', 'max:5000'],
             'attachments' => ['nullable', 'array', 'max:5'],
-            'attachments.*' => ['file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:20480'],
+            'attachments.*' => ['file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:'.config('file-uploads.max_size', 5120)],
             'request_item_ids' => ['nullable', 'array'],
             'request_item_ids.*' => ['nullable', 'uuid'],
         ]);
@@ -373,7 +373,7 @@ class ReferralClientRequestController extends Controller
         $validated = $request->validate([
             'body' => ['nullable', 'string', 'max:5000'],
             'attachments' => ['nullable', 'array', 'max:5'],
-            'attachments.*' => ['file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:20480'],
+            'attachments.*' => ['file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:'.config('file-uploads.max_size', 5120)],
             'request_item_ids' => ['nullable', 'array'],
             'request_item_ids.*' => ['nullable', 'uuid'],
         ]);

@@ -60,10 +60,10 @@ class RegisterViaInviteController extends Controller
             'position' => 'nullable|string|max:255',
             'department' => 'nullable|string|max:255',
             'contact_number' => 'nullable|string|max:20',
-            'profile_picture' => ['nullable', 'image', 'mimes:jpeg,png,webp', 'max:2048', 'dimensions:min_width=32,min_height=32'],
+            'profile_picture' => ['nullable', 'image', 'mimes:jpeg,png,webp', 'max:'.config('file-uploads.max_size', 5120), 'dimensions:min_width=32,min_height=32'],
         ], [
             'profile_picture.mimes' => 'Profile picture must be a JPEG, PNG, or WebP file.',
-            'profile_picture.max' => 'Profile picture must not exceed 2MB.',
+            'profile_picture.max' => 'Profile picture must not exceed 5 MiB.',
             'profile_picture.dimensions' => 'Profile picture must be at least 32x32 pixels.',
         ]);
 

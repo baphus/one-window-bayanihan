@@ -23,7 +23,7 @@ class ReplaceIntakeDocumentsRequest extends FormRequest
     {
         return [
             'documents' => ['required', 'array:'.implode(',', IntakeDocumentService::REQUIREMENT_KEYS), 'min:1'],
-            'documents.*' => ['required', 'file', 'max:'.config('file-uploads.max_size', 20480), 'mimes:pdf,jpg,jpeg,png,webp'],
+            'documents.*' => ['required', 'file', 'max:'.config('file-uploads.max_size', 5120), 'mimes:pdf,jpg,jpeg,png,webp'],
         ];
     }
 }

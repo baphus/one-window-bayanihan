@@ -24,7 +24,7 @@ class StoreCaseDocumentRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'file' => ['required', 'file', 'max:'.config('file-uploads.max_size', 20480), 'mimes:pdf,jpg,jpeg,png,webp'],
+            'file' => ['required', 'file', 'max:'.config('file-uploads.max_size', 5120), 'mimes:pdf,jpg,jpeg,png,webp'],
             'description' => ['nullable', 'string', 'max:500'],
             'category' => ['nullable', 'string', 'max:255'],
             'referral_id' => ['nullable', 'string', 'exists:referrals,id'],
@@ -36,7 +36,7 @@ class StoreCaseDocumentRequest extends FormRequest
         return [
             'file.required' => 'Please select a file to upload.',
             'file.file' => 'The uploaded file is invalid.',
-            'file.max' => 'The file must not be larger than 20MB.',
+            'file.max' => 'The file must not be larger than 5 MiB.',
             'file.mimes' => 'The file must be a PDF, JPG, PNG, or WebP file.',
             'description.max' => 'The description must not exceed 500 characters.',
         ];

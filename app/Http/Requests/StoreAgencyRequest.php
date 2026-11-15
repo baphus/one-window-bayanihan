@@ -22,7 +22,7 @@ class StoreAgencyRequest extends FormRequest
             'contact_address' => ['nullable', 'string', 'max:500'],
             'contact_tel' => ['nullable', 'string', 'max:100'],
             'contact_email' => ['nullable', 'email', 'max:255'],
-            'logo_url' => ['nullable', 'image', 'max:2048'],
+            'logo_url' => ['nullable', 'image', 'max:'.config('file-uploads.max_size', 5120)],
             'location_query' => ['nullable', 'string'],
             'latitude' => ['nullable', 'numeric', 'between:-90,90'],
             'longitude' => ['nullable', 'numeric', 'between:-180,180'],

@@ -1,3 +1,4 @@
+import { MAX_UPLOAD_BYTES, UPLOAD_SIZE_ERROR } from '@/utils/uploadLimit';
 import { useState, useRef, useEffect } from 'react';
 import { usePage } from '@inertiajs/react';
 
@@ -7,6 +8,7 @@ export default function ProfileHeader({ onAvatarSelect, avatarPreview, saving })
     const fileInputRef = useRef(null);
 
     const [imgError, setImgError] = useState(false);
+    const [sizeError, setSizeError] = useState(null);
     const displayUrl = avatarPreview || user.avatar_url;
     const hasImage = !!displayUrl && !imgError;
     const hasNewFile = !!avatarPreview;
@@ -18,6 +20,8 @@ export default function ProfileHeader({ onAvatarSelect, avatarPreview, saving })
     function handleFileChange(e) {
         const file = e.target.files?.[0];
         if (!file) return;
+        setSizeError(null);
+        if (file.size > MAX_UPLOAD_BYTES) { setSizeError(UPLOAD_SIZE_ERROR); e.target.value = ''; return; }
         onAvatarSelect?.(file);
     }
 
@@ -88,6 +92,7 @@ export default function ProfileHeader({ onAvatarSelect, avatarPreview, saving })
             <div className="flex-1 min-w-0">
                 <h2 className="text-xl font-bold text-slate-900 truncate">{user.name}</h2>
                 <p className="text-sm text-slate-500">{roleLabels[user.role] || user.role}</p>
+                {sizeError && <p role="alert" className="text-sm text-red-600">{sizeError}</p>}
                 {user.position && <p className="text-[13px] text-slate-600 mt-0.5">{user.position}</p>}
             </div>
 

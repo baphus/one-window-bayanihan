@@ -70,7 +70,7 @@ class StoreCaseRequest extends FormRequest
             'proposed_assessment_other' => ['required_if:proposed_assessments.*,OTHER', 'nullable', 'string', 'max:2000'],
             'return_reason' => ['required', Rule::in(IntakeDocumentService::RETURN_REASONS)],
             'documents' => ['nullable', 'array:'.implode(',', IntakeDocumentService::SLOTS)],
-            'documents.*' => ['file', 'max:'.config('file-uploads.max_size', 20480), 'mimes:pdf,jpg,jpeg,png,webp'],
+            'documents.*' => ['file', 'max:'.config('file-uploads.max_size', 5120), 'mimes:pdf,jpg,jpeg,png,webp'],
             'consent_text_version' => ['required', Rule::in([IntakeDocumentService::CONSENT_VERSION])],
             'consent' => ['required', 'accepted'],
             'complied_onsite_slots' => $public ? ['prohibited'] : ['nullable', 'array'],

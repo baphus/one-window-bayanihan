@@ -23,7 +23,7 @@ class UpdateAgencyRequest extends FormRequest
             'contact_address' => ['nullable', 'string', 'max:500'],
             'contact_tel' => ['nullable', 'string', 'max:100'],
             'contact_email' => ['nullable', 'email', 'max:255'],
-            'logo_url' => ['nullable', Rule::when($this->hasFile('logo_url'), ['image', 'max:2048'])],
+            'logo_url' => ['nullable', Rule::when($this->hasFile('logo_url'), ['image', 'max:'.config('file-uploads.max_size', 5120)])],
             'location_query' => ['nullable', 'string'],
             'is_active' => ['boolean'],
             'latitude' => ['nullable', 'numeric', 'between:-90,90'],
