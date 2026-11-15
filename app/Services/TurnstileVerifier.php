@@ -24,6 +24,11 @@ class TurnstileVerifier
     public function verify(?string $token, ?string $ip): array
     {
         if (empty($token)) {
+            Log::warning('Turnstile verification failed', [
+                'reason' => 'missing_token',
+                'ip' => $ip,
+            ]);
+
             return ['ok' => false, 'unavailable' => false, 'message' => 'Please complete the security check to continue.'];
         }
 

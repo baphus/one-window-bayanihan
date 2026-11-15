@@ -140,7 +140,7 @@ class AuditLogController extends Controller
 
         return response()->streamDownload(function () use ($query, $formatter) {
             $out = fopen('php://output', 'w');
-            fputcsv($out, ['Timestamp (UTC)', 'Actor', 'Action', 'Module', 'Description', 'Category', 'Has Changes']);
+            fputcsv($out, ['Timestamp (UTC)', 'Actor', 'Action', 'Module', 'Description', 'Category', 'Has Changes', 'Changes']);
 
             foreach ($query->with('user')->orderBy('timestamp', 'desc')->orderBy('id', 'desc')->cursor() as $log) {
                 $display = $formatter->formatForAuditResponse($log, true);
@@ -152,6 +152,12 @@ class AuditLogController extends Controller
                     $display['message'],
                     $display['category'],
                     $display['hasChanges'] ? 'Yes' : 'No',
+                    implode('; ', array_map(fn (array $change) => sprintf(
+                        '%s: %s → %s',
+                        $change['fieldLabel'],
+                        $change['old'] ?? 'Not recorded',
+                        $change['new'] ?? 'Not recorded',
+                    ), $display['changes'])),
                 ]));
             }
 

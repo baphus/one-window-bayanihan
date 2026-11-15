@@ -77,6 +77,7 @@ function ReviewDetail({ caseFile, assessmentOptions = [], agencies = [], categor
   const [rejectReason, setRejectReason] = useState('');
   const [rejectOpen, setRejectOpen] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const [duplicateError, setDuplicateError] = useState('');
   const [selectedCategoryIds, setSelectedCategoryIds] = useState(() => (caseFile.case_categories ?? []).map((category) => String(category.id)));
 
   const documents = useMemo(() => (caseFile.documents ?? []).filter((doc) => !doc.referral_id), [caseFile.documents]);
@@ -109,9 +110,11 @@ function ReviewDetail({ caseFile, assessmentOptions = [], agencies = [], categor
         confirmed_assessment_other: confirmed.includes('OTHER') ? confirmedOther.trim() : '',
         staff_summary: staffSummary.trim(),
         reviewed_document_ids: reviewedIds,
+        duplicate_seen_ids: (caseFile.duplicate_check?.matches ?? []).map((match) => match.id),
       },
       {
         preserveScroll: true,
+        onError: (errors) => setDuplicateError(errors.duplicate_check ?? ''),
         onSuccess: () => onClose(),
         onFinish: () => setProcessing(false),
       },
@@ -170,6 +173,24 @@ function ReviewDetail({ caseFile, assessmentOptions = [], agencies = [], categor
 
         <div className="grid grid-cols-1 gap-4 px-6 py-5 lg:grid-cols-[minmax(0,1fr)_24rem]">
           <div className="space-y-4">
+          {duplicateError && <p role="alert" className="rounded-md border border-amber-300 bg-amber-50 p-3 text-[13px] text-amber-900">{duplicateError} The check now uses your confirmed assessment selection.</p>}
+          {caseFile.duplicate_check && (!caseFile.duplicate_check.available || caseFile.duplicate_check.matches.length > 0) && (
+            <section aria-label="Possible duplicates" className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-[13px] text-amber-950">
+              {!caseFile.duplicate_check.available ? <p>Duplicate check unavailable. You can continue reviewing and approving.</p> : <>
+                <h3 className="font-bold">Possible duplicates ({caseFile.duplicate_check.matches.length})</h3>
+                <p className="mt-1">Shared client and assessment do not confirm the same incident. Review existing cases before approving.</p>
+                <p className="mt-1">Initial results use proposed assessments. Approval checks your confirmed selection.</p>
+                <ul className="mt-3 space-y-2">
+                  {caseFile.duplicate_check.matches.map((match) => <li key={match.id} className="rounded-md border border-amber-200 bg-white p-3">
+                    <a href={safeRoute('cases.show', match.id, `/cases/${match.id}`)} target="_blank" rel="noopener noreferrer" className="font-bold text-blue-900 underline">{match.case_number}</a>
+                    <p className="mt-1">{match.opened_at ? `Opened ${formatDisplayDate(match.opened_at)}` : 'Opening date unavailable'}</p>
+                    <p>Shared assessments: {match.shared_assessments.map((item) => ASSESSMENT_LABELS[item] ?? item).join(', ')}</p>
+                    <p>{match.reasons.map((reason) => ({ same_ofw_account: 'Same OFW account', same_name_and_birth_date: 'Same name and birth date' }[reason])).filter(Boolean).join(' · ')}</p>
+                  </li>)}
+                </ul>
+              </>}
+            </section>
+          )}
           <InfoCard title="Latest submitted intake answers">
             <p className="mb-3 text-[12px] text-slate-500">Current submitted record · Blank answers are marked Not provided.</p>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -332,6 +353,7 @@ export default function ReviewPending({ cases, filters, sort = 'created_at', dir
   usePage();
   const [selected, setSelected] = useState(null);
   const rows = useMemo(() => cases?.data ?? [], [cases]);
+  const selectedCase = rows.find((row) => row.id === selected);
 
   function goToPage(page) {
     router.get(safeRoute('cases.review-pending', undefined, '/cases/review-pending'), { ...(filters || {}), page }, {
@@ -398,10 +420,11 @@ export default function ReviewPending({ cases, filters, sort = 'created_at', dir
                     <p className="mt-1 line-clamp-2 text-[12px] leading-5 text-slate-500">{excerpt(row.summary)}</p>
                     <p className="mt-1 text-[11px] text-slate-400">
                       Case {row.case_number || '—'} · {RETURN_REASON_LABELS[row.return_reason] ?? 'No return reason'} · Submitted {formatDisplayDate(row.created_at)} {formatDisplayTime(row.created_at)}
+                      {row.duplicate_check && (!row.duplicate_check.available || row.duplicate_check.matches.length > 0) && <span className="mt-1 block font-semibold text-amber-800">{row.duplicate_check.available ? `Possible duplicates: ${row.duplicate_check.matches.length}` : 'Duplicate check unavailable'}</span>}
                     </p>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
-                    <button type="button" onClick={() => setSelected(row)} className="inline-flex min-h-[34px] items-center gap-1.5 rounded-md bg-blue-900 px-4 text-[12px] font-bold text-white transition-colors hover:bg-blue-800">
+                    <button type="button" onClick={() => setSelected(row.id)} className="inline-flex min-h-[34px] items-center gap-1.5 rounded-md bg-blue-900 px-4 text-[12px] font-bold text-white transition-colors hover:bg-blue-800">
                       <span className="material-symbols-outlined text-[15px]">rate_review</span>
                       Review
                     </button>
@@ -424,7 +447,7 @@ export default function ReviewPending({ cases, filters, sort = 'created_at', dir
         )}
       </SectionCard>
 
-      {selected && <ReviewDetail caseFile={selected} assessmentOptions={assessmentOptions} agencies={agencies} categories={categories} onClose={() => setSelected(null)} />}
+      {selectedCase && <ReviewDetail caseFile={selectedCase} assessmentOptions={assessmentOptions} agencies={agencies} categories={categories} onClose={() => setSelected(null)} />}
     </AppLayout>
   );
 }

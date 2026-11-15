@@ -50,6 +50,31 @@ function openReview() {
 }
 
 describe('Review pending intake', () => {
+  it('refreshes duplicate advisory after approval error without losing review input', () => {
+    const match = { id: 'other-1', case_number: 'CASE-OTHER', opened_at: null, shared_assessments: ['LEGAL_ASSISTANCE'], reasons: ['same_ofw_account'], email: 'private@example.com' };
+    const props = { filters: {}, assessmentOptions: ['LEGAL_ASSISTANCE'], categories: [{ id: 'cat-1', name: 'Wage claim' }] };
+    const withCheck = (check) => ({ ...pendingCases, data: [{ ...pendingCases.data[0], duplicate_check: check }] });
+    const { rerender } = render(<ReviewPending {...props} cases={withCheck({ available: true, matches: [match] })} />);
+    fireEvent.click(screen.getByRole('button', { name: /review/i }));
+    expect(screen.getByText('Opening date unavailable')).toBeInTheDocument();
+    expect(screen.queryByText('private@example.com')).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'CASE-OTHER' })).toHaveAttribute('target', '_blank');
+    fireEvent.change(screen.getByLabelText('Staff summary'), { target: { value: 'Keep this' } });
+    fireEvent.click(screen.getAllByRole('checkbox', { name: /wage claim/i }).at(-1));
+    fireEvent.click(screen.getAllByLabelText(/Reviewed document/)[0]);
+    fireEvent.click(screen.getByRole('button', { name: /approve case/i }));
+    const [, data, callbacks] = router.post.mock.calls.at(-1);
+    expect(data.duplicate_seen_ids).toEqual(['other-1']);
+    callbacks.onError({ duplicate_check: 'New possible duplicate' });
+    callbacks.onFinish();
+    rerender(<ReviewPending {...props} cases={withCheck({ available: true, matches: [match, { ...match, id: 'other-2', case_number: 'CASE-NEW' }] })} />);
+    expect(screen.getByRole('alert')).toHaveTextContent('New possible duplicate');
+    expect(screen.getByLabelText('Staff summary')).toHaveValue('Keep this');
+    fireEvent.click(screen.getByRole('button', { name: /approve case/i }));
+    expect(router.post.mock.calls.at(-1)[1].duplicate_seen_ids).toEqual(['other-1', 'other-2']);
+    rerender(<ReviewPending {...props} cases={withCheck({ available: false, matches: [] })} />);
+    expect(screen.getByText('Duplicate check unavailable. You can continue reviewing and approving.')).toBeInTheDocument();
+  });
   it('shows case-owned details without legacy issue controls', () => {
     openReview();
 

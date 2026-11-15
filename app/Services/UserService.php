@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Enums\AuditAction;
 use App\Enums\AuditModule;
 use App\Enums\UserRole;
 use App\Mail\EmailChangedNotification;
@@ -43,7 +42,7 @@ class UserService
     public function createUser(array $data, ?string $actorId = null): User
     {
         return DB::transaction(function () use ($data, $actorId) {
-            $user = User::create([
+            $user = new User([
                 'name' => $data['name'] ?? '',
                 'first_name' => $data['first_name'] ?? null,
                 'middle_name' => $data['middle_name'] ?? null,
@@ -58,13 +57,8 @@ class UserService
                 'email_verified_at' => now(),
                 'is_active' => true,
             ]);
-
-            AuditLogger::log(AuditAction::CREATE)
-                ->byId($actorId ?? auth()->id())
-                ->forEntity($user, $user->name)
-                ->module(AuditModule::USER)
-                ->context(null, ['name' => $user->name, 'email' => $user->email, 'role' => $user->role])
-                ->write();
+            $user->auditActorId = $actorId;
+            $user->save();
 
             return $user;
         });

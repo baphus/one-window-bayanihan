@@ -26,6 +26,12 @@ class ChatbotConversationService
             return $this->responses->plain('The helpdesk assistant is currently unavailable.');
         }
         $message = trim($input['message']);
+        $navigation = $this->navigation($message);
+        if ($navigation !== null) {
+            return str_starts_with($navigation, 'clarification:')
+                ? $this->responses->plain(substr($navigation, strlen('clarification:')), 'clarification')
+                : $this->responses->plain($navigation, 'answered');
+        }
         if (preg_match('/^(hi|hello|hey|good morning|good afternoon|who are you)[!.? ]*$/i', $message)) {
             return $this->responses->plain("Hello! I'm **".config('ai-chatbot.assistant_name').'**, your One Window Bayanihan helpdesk assistant. What would you like help with?', 'greeting');
         }
@@ -74,6 +80,35 @@ class ChatbotConversationService
             Http::swap($http);
             Log::info('Chatbot turn finished', [...$turn->metrics(), 'failure_category' => $failure, 'invalid_fields' => $invalidFields]);
         }
+    }
+
+    private function navigation(string $message): ?string
+    {
+        if (preg_match('/\b(track|tracking)\b/i', $message)) {
+            if (preg_match('/\brequest\b/i', $message)) {
+                return 'clarification:Do you want to track an OFW case, or follow up on a separate request?';
+            }
+            if (preg_match('/\b(where|link|url|open)\b/i', $message)
+                && ! preg_match('/\b(where do i enter|where do i input|what do i need|how do i|how can i|steps|instructions|guide)\b/i', $message)) {
+                return 'Track your case at [Track Case]('.route('track.index').').';
+            }
+            if (preg_match('/\b(which|what|how|track|tracking)\b/i', $message)
+                && ! preg_match('/\b(where do i enter|where do i input|how do i|how can i|steps|instructions|guide|require|need|number|my case|request)\b/i', $message)) {
+                return 'clarification:Are you asking how to track your case, or asking about its status?';
+            }
+        }
+        if (preg_match('/\b(partners?|agencies|agency|owwa|assistance from|help from)\b/i', $message)) {
+            if (preg_match('/\b(where|link|url|open|find|page)\b/i', $message) || preg_match('/\b(owwa|agency assistance)\b/i', $message)) {
+                return 'Find agency assistance through [Partners]('.route('partners').').';
+            }
+        }
+        if (preg_match('/\b(contact|reach|phone|email)\b/i', $message)) {
+            if (preg_match('/\b(where|link|url|open|contact details|contact page)\b/i', $message)) {
+                return 'Contact the helpdesk at [Contact]('.route('contact').').';
+            }
+        }
+
+        return null;
     }
 
     /**

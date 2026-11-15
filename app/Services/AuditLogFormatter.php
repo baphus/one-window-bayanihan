@@ -75,12 +75,15 @@ class AuditLogFormatter
     public function format(AuditLog $log): string
     {
         if ($log->description !== null) {
-            return $log->description;
+            return $this->redactHistoricalCiphertext(self::redactIdentifiers($log->description));
         }
 
-        $userName = $this->resolveUserName($log);
-        $module = $this->formatModule((string) $log->module);
+        $userName = $this->redactHistoricalCiphertext($this->resolveUserName($log));
+        $module = $this->redactHistoricalCiphertext($this->formatModule((string) $log->module));
         $action = strtoupper((string) $log->action);
+        if ($log->description !== null && in_array($action, ['CREATE', 'UPDATE', 'DELETE'], true)) {
+            return $this->redactHistoricalCiphertext(self::redactIdentifiers($log->description));
+        }
 
         // Purposeful verbs render as the target sentence:
         //   {Actor name} ({Role label}) {verb past-tense} {Entity identifier} {— salient detail}
@@ -200,7 +203,7 @@ class AuditLogFormatter
             return 'Anonymous (link holder)';
         }
 
-        $name = $this->resolveUserName($log);
+        $name = $this->redactHistoricalCiphertext($this->resolveUserName($log));
         $role = $this->resolveRoleLabel($log);
 
         return $role !== null ? "{$name} ({$role})" : $name;
@@ -241,6 +244,28 @@ class AuditLogFormatter
 
         return Str::isUuid($value)
             || preg_match('/^(?=[0-9a-f]*[a-f])[0-9a-f]{8,36}$/i', $value) === 1;
+    }
+
+    private function isHistoricalCiphertext(mixed $value): bool
+    {
+        if (! is_string($value)) {
+            return false;
+        }
+
+        $decoded = json_decode($value, true);
+        if (! is_array($decoded)) {
+            $plain = base64_decode($value, true);
+            $decoded = is_string($plain) ? json_decode($plain, true) : null;
+        }
+
+        return is_array($decoded) && isset($decoded['iv'], $decoded['value'], $decoded['mac']);
+    }
+
+    private function redactHistoricalCiphertext(string $text): string
+    {
+        return preg_replace_callback('/[A-Za-z0-9+\/=]{40,}/', fn (array $match) => $this->isHistoricalCiphertext($match[0])
+            ? 'Value unavailable (historical encrypted data)'
+            : $match[0], $text) ?? $text;
     }
 
     /**
@@ -651,6 +676,10 @@ class AuditLogFormatter
 
     public function formatFieldName(string $field): string
     {
+        if (in_array($field, ['deleted_at', 'deleted_by', 'is_deleted'], true)) {
+            return 'record status';
+        }
+
         return match ($field) {
             'case_number' => 'case number',
             'tracker_number' => 'tracker number',
@@ -778,6 +807,10 @@ class AuditLogFormatter
         }
 
         $stringValue = (string) $value;
+        if ($field === 'date_of_birth' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $stringValue) === 1) {
+            return Carbon::createFromFormat('Y-m-d', $stringValue)->format('M j, Y');
+        }
+
         $normalized = strtoupper($stringValue);
 
         $statusMap = [
@@ -841,21 +874,45 @@ class AuditLogFormatter
      */
     public function formatForDisplay(AuditLog $log): array
     {
-        $description = $this->format($log);
-        $userName = $this->resolveUserName($log);
-        $action = strtoupper((string) $log->action);
-        $changes = $this->getStructuredChanges($log->old_value, $log->new_value, $action);
+        $display = $this->formatForAuditResponse($log, false);
+        $display['module'] = $this->formatModule((string) $log->module);
+        $display['message'] = $this->redactHistoricalCiphertext(self::redactIdentifiers($this->format($log)));
+        $display['changes'] = $this->safeStructuredChanges($log);
+        $display['hasChanges'] = $display['changes'] !== [];
 
-        return [
-            'message' => $description,
-            'detail' => '',
-            'changes' => $changes,
-            'action' => $action,
-            'module' => $this->formatModule((string) $log->module),
-            'actor' => $userName,
-            'timestamp' => $log->timestamp?->toISOString(),
-            'hasChanges' => $changes !== [],
-        ];
+        return $display;
+    }
+
+    private function safeStructuredChanges(AuditLog $log): array
+    {
+        $changes = $this->getStructuredChanges($log->old_value, $log->new_value, strtoupper((string) $log->action));
+        $old = is_array($log->old_value) ? $log->old_value : [];
+        $new = is_array($log->new_value) ? $log->new_value : [];
+        foreach ($changes as &$change) {
+            foreach (['old', 'new'] as $side) {
+                if (! array_key_exists($side, $change) || $change[$side] === null) {
+                    continue;
+                }
+                $raw = ($side === 'old' ? $old : $new)[$change['field']] ?? null;
+                if ($raw === null) {
+                    continue;
+                }
+                if ($this->isHistoricalCiphertext($raw)) {
+                    $change[$side] = 'Value unavailable (historical encrypted data)';
+                } elseif ($change['field'] === 'date_of_birth') {
+                    $change[$side] = $this->formatFieldValue('', $change['field'], $raw);
+                }
+            }
+        }
+        unset($change);
+
+        return array_values(array_filter(
+            $changes,
+            fn (array $change): bool => ! in_array($change['field'], self::FREE_TEXT_FIELDS, true)
+                && ! in_array($change['field'], ['password', 'remember_token', 'mfa_secret', 'mfa_recovery_codes'], true)
+                && ! $this->isHistoricalCiphertext($change['new'] ?? null)
+                && ! $this->isHistoricalCiphertext($change['old'] ?? null),
+        ));
     }
 
     /**
@@ -869,9 +926,8 @@ class AuditLogFormatter
      *
      * The message appends a resolved entity identifier (case number, referral
      * service/agency, or milestone title) when that is safe to disclose; a raw
-     * UUID is never rendered. `changes` carries an after-only payload of fields
-     * whose formatted value is a controlled transformation (free-text fields
-     * are never surfaced).
+     * UUID is never rendered. Admin changes include safe before/after pairs;
+     * staff changes remain after-only. Free-text fields never surface.
      *
      * @return array{
      *     id: string,
@@ -890,24 +946,28 @@ class AuditLogFormatter
     public function formatForAuditResponse(AuditLog $log, bool $isAdmin = false): array
     {
         $action = AuditAction::tryFrom(strtoupper((string) $log->action))?->value ?? 'UNKNOWN';
-        $actor = $this->resolveUserName($log);
+        $actor = $this->redactHistoricalCiphertext($this->resolveUserName($log));
         $auditModule = AuditModule::tryFromLegacy((string) $log->module);
         $module = $auditModule?->value ?? 'other';
-        $moduleLabel = $auditModule?->label() ?? 'Other activity';
+        $moduleLabel = $this->redactHistoricalCiphertext($auditModule?->label() ?? 'Other activity');
         $category = in_array($log->category, AuditCategory::ALL, true) ? $log->category : null;
         $classifiable = $auditModule !== null && $action !== 'UNKNOWN';
 
-        $identifier = $classifiable ? $this->resolveEntityIdentifier($log, $auditModule) : null;
-        $message = $this->formatSafeMessage($actor, $action, $moduleLabel, $identifier);
+        $identifier = $classifiable
+            ? $this->resolveEntityIdentifier($log, $auditModule)
+            : null;
+        $message = $this->redactHistoricalCiphertext($this->formatSafeMessage($actor, $action, $moduleLabel, $identifier));
+        $identifier = $identifier !== null ? $this->redactHistoricalCiphertext($identifier) : null;
 
         if ($isAdmin && $classifiable && in_array($action, ['PUBLISH', 'CREATE'], true)) {
             $message = $this->formatAdminEnrichedMessage($message, $actor, $action, $log->new_value);
         }
+        $message = $this->redactHistoricalCiphertext($message);
 
         return [
             'id' => (string) $log->getKey(),
             'action' => $action,
-            'module' => $module,
+            'module' => $this->redactHistoricalCiphertext($module),
             'formatted_module' => $moduleLabel,
             'category' => $category,
             'message' => $message,
@@ -934,22 +994,51 @@ class AuditLogFormatter
      */
     private function adminChanges(AuditLog $log, string $action): array
     {
-        $sides = [
-            is_array($log->old_value) ? $log->old_value : [],
-            is_array($log->new_value) ? $log->new_value : [],
-        ];
+        $old = is_array($log->old_value) ? $log->old_value : null;
+        $new = is_array($log->new_value) ? $log->new_value : null;
+        $changes = $this->getStructuredChanges($old, $new, $action);
+        $excludeFields = array_merge(
+            $this->noiseFields,
+            ['is_deleted', 'deleted_by'],
+            $action === 'CREATE' ? $this->createNoiseFields : [],
+            $action === 'PUBLISH' ? ['category_ids'] : [],
+            array_diff(self::FREE_TEXT_FIELDS, ['client']),
+        );
 
         return array_values(array_filter(
-            $this->getStructuredChanges($log->old_value, $log->new_value, $action),
-            function (array $change) use ($sides): bool {
-                $field = (string) $change['field'];
+            array_map(function (array $change) use ($old, $new): array {
+                foreach (['old' => $old, 'new' => $new] as $side => $snapshot) {
+                    if ($snapshot === null) {
+                        unset($change[$side]);
+                    } elseif (array_key_exists($change['field'], $snapshot) && ($snapshot[$change['field']] === null || $snapshot[$change['field']] === '')) {
+                        $change[$side] = 'Not set';
+                    }
+                }
 
-                foreach ($sides as $side) {
-                    if (! array_key_exists($field, $side)) {
+                foreach (['old', 'new'] as $side) {
+                    $snapshot = $side === 'old' ? $old : $new;
+                    $field = $change['field'];
+                    if (array_key_exists($side, $change) && $snapshot !== null && $this->isHistoricalCiphertext($snapshot[$field] ?? null)) {
+                        $change[$side] = 'Value unavailable (historical encrypted data)';
+                    }
+                }
+
+                return $change;
+            }, $changes),
+            function (array $change) use ($old, $new, $excludeFields): bool {
+                $field = (string) $change['field'];
+                if (in_array($field, $excludeFields, true)) {
+                    return false;
+                }
+
+                foreach ([$old, $new] as $side) {
+                    if ($side === null || ! array_key_exists($field, $side)) {
                         continue;
                     }
-
                     $value = $side[$field];
+                    if ($this->isHistoricalCiphertext($value)) {
+                        continue;
+                    }
                     $formatted = $this->formatFieldValue('', $field, $value);
                     $raw = is_scalar($value) ? (string) $value : json_encode($value);
 
@@ -978,7 +1067,7 @@ class AuditLogFormatter
         $clientName = null;
         if (isset($newValue['client']) && is_array($newValue['client'])) {
             $formatted = $this->formatFieldValue('', 'client', $newValue['client']);
-            if (! str_ends_with($formatted, 'fields') && $formatted !== 'empty') {
+            if (! str_ends_with($formatted, 'fields') && $formatted !== 'empty' && ! $this->isHistoricalCiphertext($formatted)) {
                 $clientName = $formatted;
             }
         } elseif (isset($newValue['first_name']) || isset($newValue['last_name'])) {
@@ -1037,22 +1126,30 @@ class AuditLogFormatter
             return null;
         }
 
+        if ($module === AuditModule::USER && is_string($log->entity_label) && $log->entity_label !== ''
+            && ! $this->isHistoricalCiphertext($log->entity_label) && ! $this->isOpaqueIdentifier($log->entity_label)) {
+            return $log->entity_label;
+        }
+
         // Prefer the durable entity_label snapshot when present.
         $label = is_string($log->entity_label ?? null) && $log->entity_label !== ''
             && ! $this->isOpaqueIdentifier($log->entity_label)
             ? $log->entity_label
             : null;
 
+        if ($label !== null) {
+            return match ($module) {
+                AuditModule::CASE => "Case {$label}",
+                AuditModule::REFERRAL => "Referral — {$label}",
+                AuditModule::MILESTONE => "Milestone '{$label}'",
+                default => null,
+            };
+        }
+
         return match ($module) {
-            AuditModule::CASE => $label !== null
-                ? "Case {$label}"
-                : $this->resolveCaseNumber($entityId),
-            AuditModule::REFERRAL => $label !== null
-                ? "Referral — {$label}"
-                : $this->resolveReferralLabel($entityId),
-            AuditModule::MILESTONE => $label !== null
-                ? "Milestone '{$label}'"
-                : $this->resolveMilestoneTitle($entityId),
+            AuditModule::CASE => $this->resolveCaseNumber($entityId),
+            AuditModule::REFERRAL => $this->resolveReferralLabel($entityId),
+            AuditModule::MILESTONE => $this->resolveMilestoneTitle($entityId),
             default => null,
         };
     }
@@ -1139,7 +1236,9 @@ class AuditLogFormatter
                 continue;
             }
 
-            $formatted = $this->formatFieldValue('', (string) $field, $value);
+            $formatted = $this->isHistoricalCiphertext($value)
+                ? 'Value unavailable (historical encrypted data)'
+                : $this->formatFieldValue('', (string) $field, $value);
             $raw = is_scalar($value) ? (string) $value : json_encode($value);
 
             if ($this->isOpaqueIdentifier($formatted)) {
@@ -1147,7 +1246,7 @@ class AuditLogFormatter
                 continue;
             }
 
-            if (! in_array($field, self::CONTROLLED_FIELDS, true) && $formatted === $raw) {
+            if (! in_array($field, self::CONTROLLED_FIELDS, true) && $formatted === $raw && ! $this->isHistoricalCiphertext($value)) {
                 // Raw value passed through unchanged — treat as unsafe free text.
                 continue;
             }
@@ -1168,23 +1267,28 @@ class AuditLogFormatter
             return [];
         }
 
-        $excludeFields = $action === 'CREATE'
-            ? array_merge($this->noiseFields, $this->createNoiseFields)
-            : $this->noiseFields;
+        $excludeFields = array_merge(
+            $action === 'CREATE'
+                ? array_merge($this->noiseFields, $this->createNoiseFields)
+                : $this->noiseFields,
+            ['is_deleted', 'deleted_by'],
+        );
 
         $changes = [];
 
         if ($old === null && is_array($new)) {
             // CREATE: all fields are new
             foreach ($new as $field => $value) {
-                if (in_array($field, $excludeFields, true)) {
+                if (in_array($field, $excludeFields, true) || $value === null || $value === '') {
                     continue;
                 }
                 $changes[] = [
                     'field' => $field,
                     'fieldLabel' => $this->formatFieldName((string) $field),
                     'old' => null,
-                    'new' => $this->formatFieldValue('', (string) $field, $value),
+                    'new' => $this->isHistoricalCiphertext($value)
+                        ? 'Value unavailable'
+                        : $this->formatFieldValue('', (string) $field, $value),
                 ];
             }
         } elseif ($new === null && is_array($old)) {
@@ -1196,7 +1300,9 @@ class AuditLogFormatter
                 $changes[] = [
                     'field' => $field,
                     'fieldLabel' => $this->formatFieldName((string) $field),
-                    'old' => $this->formatFieldValue('', (string) $field, $value),
+                    'old' => $this->isHistoricalCiphertext($value)
+                        ? 'Value unavailable (historical encrypted data)'
+                        : $this->formatFieldValue('', (string) $field, $value),
                     'new' => null,
                 ];
             }
@@ -1207,18 +1313,41 @@ class AuditLogFormatter
                 if (in_array($field, $excludeFields, true)) {
                     continue;
                 }
-                $oldValue = array_key_exists($field, $old) ? $old[$field] : null;
-                $newValue = array_key_exists($field, $new) ? $new[$field] : null;
+                if (! array_key_exists($field, $old) || ! array_key_exists($field, $new)) {
+                    $value = $old[$field] ?? $new[$field];
+                    $displayValue = $this->isHistoricalCiphertext($value)
+                        ? 'Value unavailable (historical encrypted data)'
+                        : $this->formatFieldValue('', (string) $field, $value);
+                    $changes[] = [
+                        'field' => $field,
+                        'fieldLabel' => $this->formatFieldName((string) $field),
+                        ...(array_key_exists($field, $old)
+                            ? ['old' => $displayValue]
+                            : []),
+                        ...(array_key_exists($field, $new)
+                            ? ['new' => $displayValue]
+                            : []),
+                    ];
 
-                if ($oldValue == $newValue) {
+                    continue;
+                }
+
+                $oldValue = $old[$field];
+                $newValue = $new[$field];
+
+                if ($oldValue === $newValue && ! $this->isHistoricalCiphertext($oldValue)) {
                     continue;
                 }
 
                 $changes[] = [
                     'field' => $field,
                     'fieldLabel' => $this->formatFieldName((string) $field),
-                    'old' => $this->formatFieldValue('', (string) $field, $oldValue),
-                    'new' => $this->formatFieldValue('', (string) $field, $newValue),
+                    'old' => $this->isHistoricalCiphertext($oldValue)
+                        ? 'Value unavailable (historical encrypted data)'
+                        : $this->formatFieldValue('', (string) $field, $oldValue),
+                    'new' => $this->isHistoricalCiphertext($newValue)
+                        ? 'Value unavailable (historical encrypted data)'
+                        : $this->formatFieldValue('', (string) $field, $newValue),
                 ];
             }
         }
@@ -1366,9 +1495,21 @@ class AuditLogFormatter
         $entityPrefix = $identifier ?: $module;
 
         $changes = $this->getStructuredChanges($log->old_value, $log->new_value, 'UPDATE');
-
-        if (empty($changes)) {
+        $changes = array_values(array_filter($changes, fn (array $change): bool => ! in_array($change['field'], self::FREE_TEXT_FIELDS, true)));
+        if ($changes === [] && $this->getStructuredChanges($log->old_value, $log->new_value, 'UPDATE') !== []) {
             return sprintf('%s was updated', $entityPrefix);
+        }
+
+        if ($changes === []) {
+            return sprintf('%s was updated', $entityPrefix);
+        }
+
+        $allChanges = $changes;
+        $changes = array_values(array_filter($changes, fn (array $change): bool => ($change['new'] ?? null) !== ($change['old'] ?? null)));
+        if ($changes === []) {
+            $labels = array_values(array_unique(array_map(fn (array $change) => $change['fieldLabel'], $allChanges)));
+
+            return sprintf('%s updated: %s', $entityPrefix, implode(', ', $labels));
         }
 
         if (count($changes) === 1) {

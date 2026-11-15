@@ -481,6 +481,7 @@ Route::get('/files/temp/{disk}/{path}', TemporaryFileController::class)
 // Client picker and linked-person lookup routes were retired with shared-client
 // intake. Case creation uses fresh explicit case-owned fields only.
 
+Route::get('/chatbot/quota', [ChatbotController::class, 'quota'])->name('chatbot.quota');
 Route::post('/chatbot/message', [ChatbotController::class, 'message'])
     ->name('chatbot.message')
     ->middleware(['turnstile.session', 'throttle:chatbot']);

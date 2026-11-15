@@ -9,8 +9,8 @@ return [
     'max_tokens' => max(350, min(350, (int) env('AI_CHATBOT_MAX_TOKENS', 350))),
     'timeout' => max(1, min(120, (int) env('AI_CHATBOT_TIMEOUT', 45))),
     'max_steps' => max(2, min(8, (int) env('AI_CHATBOT_MAX_STEPS', 6))),
-    'max_tool_calls' => max(1, min(12, (int) env('AI_CHATBOT_MAX_TOOL_CALLS', 8))),
-    'max_article_reads' => max(1, min(8, (int) env('AI_CHATBOT_MAX_ARTICLE_READS', 6))),
-    'max_context_characters' => max(1000, min(48000, (int) env('AI_CHATBOT_MAX_CONTEXT_CHARACTERS', 24000))),
+    'max_tool_calls' => min(4, max(1, (int) env('AI_CHATBOT_MAX_TOOL_CALLS', 4))),
+    'max_article_reads' => min(2, max(1, (int) env('AI_CHATBOT_MAX_ARTICLE_READS', 2))),
+    'max_context_characters' => min(12000, max(1000, (int) env('AI_CHATBOT_MAX_CONTEXT_CHARACTERS', 12000))),
     'assistant_name' => env('APP_ASSISTANT_NAME', 'Bayani'),
 ];
