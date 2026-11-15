@@ -34,6 +34,16 @@ vi.mock('@inertiajs/react', async () => {
 vi.mock('@/Components/landing/AppHeader', () => ({ default: () => null }));
 vi.mock('@/Components/landing/AppFooter', () => ({ default: () => null }));
 vi.mock('@/Components/TurnstileWidget', () => ({ default: () => null }));
+// The crop step only needs to hand the chosen file back; react-easy-crop needs a
+// real image decoder that jsdom does not provide.
+vi.mock('@/Components/CropImageModal', () => ({
+    default: ({ file, open, onCropComplete, onCancel }) => (open ? (
+        <div>
+            <button type="button" onClick={() => onCropComplete(file)}>Set as photo</button>
+            <button type="button" onClick={onCancel}>Cancel crop</button>
+        </div>
+    ) : null),
+}));
 vi.mock('@/Components/PasswordInput', () => ({
     default: ({ label, value, onChange }) => (
         <div>
@@ -51,10 +61,13 @@ describe('Register', () => {
         axios.get.mockReset();
         axios.get.mockResolvedValue({ data: { taken: false } });
         global.route = (name) => `/${name}`;
+        // jsdom has no blob URLs; the preview value is irrelevant to these tests.
+        URL.createObjectURL = vi.fn(() => 'blob:preview');
+        URL.revokeObjectURL = vi.fn();
     });
 
     it('requires OFW identity details and leaves profile photo optional', () => {
-        render(<Register />);
+        const { container } = render(<Register />);
 
         expect(screen.getByRole('heading', { name: 'Create your account' })).toBeInTheDocument();
         expect(screen.getByLabelText('Email address')).toBeInTheDocument();
@@ -67,7 +80,7 @@ describe('Register', () => {
         expect(screen.getByLabelText(/^sex/i)).toBeRequired();
         expect(screen.getByLabelText(/middle name/i)).not.toBeRequired();
         expect(screen.getByLabelText(/^suffix/i)).not.toBeRequired();
-        expect(screen.getByLabelText(/profile photo/i)).not.toBeRequired();
+        expect(container.querySelector('input[type="file"]')).not.toBeRequired();
         expect(screen.queryByTestId('addr-region')).not.toBeInTheDocument();
     });
 
@@ -77,7 +90,7 @@ describe('Register', () => {
         expect(screen.getByLabelText(/first name/i)).toHaveValue('Maria');
         expect(screen.getByLabelText(/last name/i)).toHaveValue('Cruz');
         expect(screen.getByLabelText(/date of birth/i)).toHaveValue('1990-01-01');
-        expect(screen.getByLabelText(/^sex/i)).toHaveValue('FEMALE');
+        expect(screen.getByLabelText(/^sex/i)).toHaveTextContent('Female');
     });
 
     it('blocks submission while the email is already registered', async () => {
@@ -92,15 +105,17 @@ describe('Register', () => {
         expect(screen.getByRole('button', { name: /continue to email verification/i })).toBeDisabled();
     });
 
-    it('posts identity details and optional photo as multipart registration data', () => {
-        render(<Register />);
+    it('posts identity details and the cropped photo as multipart registration data', () => {
+        const { container } = render(<Register />);
         fireEvent.change(screen.getByLabelText('Email address'), { target: { value: 'juan@example.com' } });
         const photo = new File(['photo'], 'profile.jpg', { type: 'image/jpeg' });
-        fireEvent.change(screen.getByLabelText(/profile photo/i), { target: { files: [photo] } });
+        fireEvent.change(container.querySelector('input[type="file"]'), { target: { files: [photo] } });
+        fireEvent.click(screen.getByRole('button', { name: 'Set as photo' }));
         fireEvent.change(screen.getByLabelText(/first name/i), { target: { value: 'Juan' } });
         fireEvent.change(screen.getByLabelText(/last name/i), { target: { value: 'Dela Cruz' } });
         fireEvent.change(screen.getByLabelText(/date of birth/i), { target: { value: '1990-01-01' } });
-        fireEvent.change(screen.getByLabelText(/^sex/i), { target: { value: 'MALE' } });
+        fireEvent.click(screen.getByLabelText(/^sex/i));
+        fireEvent.mouseDown(screen.getByRole('option', { name: 'Male' }));
         fireEvent.change(screen.getByTestId('pw-Password'), { target: { value: 'Str0ng!Passphrase' } });
         fireEvent.change(screen.getByTestId('pw-Confirm password'), { target: { value: 'Str0ng!Passphrase' } });
         fireEvent.click(screen.getByRole('button', { name: /continue to email verification/i }));
