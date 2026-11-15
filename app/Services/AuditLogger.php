@@ -54,6 +54,8 @@ class AuditLogger
 
     private ?string $userId = null;
 
+    private bool $actorWasSet = false;
+
     private ?string $ipAddress = null;
 
     private ?string $userAgent = null;
@@ -382,6 +384,7 @@ class AuditLogger
     public function by(?User $user): self
     {
         $this->userId = $user?->getKey();
+        $this->actorWasSet = true;
 
         return $this;
     }
@@ -392,6 +395,7 @@ class AuditLogger
     public function byId(?string $userId): self
     {
         $this->userId = $userId;
+        $this->actorWasSet = true;
 
         return $this;
     }
@@ -491,7 +495,7 @@ class AuditLogger
             'entity_label' => $this->entityLabel,
             'old_value' => $this->oldValue,
             'new_value' => $this->newValue,
-            'user_id' => $this->userId ?? Auth::id(),
+            'user_id' => $this->actorWasSet ? $this->userId : Auth::id(),
             'timestamp' => now(),
             'ip_address' => $this->ipAddress ?? ($request?->ip() ?? 'cli'),
             'user_agent' => $this->userAgent ?? ($request?->userAgent() ?? 'cli'),

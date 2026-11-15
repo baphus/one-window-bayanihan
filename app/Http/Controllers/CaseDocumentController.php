@@ -141,18 +141,32 @@ class CaseDocumentController extends Controller
             return back()->withErrors(['file' => $result->error ?? 'Failed to store file.']);
         }
 
-        $document = CaseDocument::create([
-            'file_name' => $result->originalName,
-            'file_path' => $result->path,
-            'file_type' => $result->type,
-            'category' => $request->input('category'),
-            'size' => $result->size,
-            'case_id' => $caseId,
-            'referral_id' => $request->input('referral_id'),
-            'user_id' => $request->user()->id,
-        ]);
+        try {
+            $document = DB::transaction(function () use ($result, $request, $case, $caseId) {
+                $document = CaseDocument::create([
+                    'file_name' => $result->originalName,
+                    'file_path' => $result->path,
+                    'file_type' => $result->type,
+                    'category' => $request->input('category'),
+                    'size' => $result->size,
+                    'case_id' => $caseId,
+                    'referral_id' => $request->input('referral_id'),
+                    'user_id' => $request->user()->id,
+                ]);
 
-        app(IntakeDocumentService::class)->syncRequirements($case);
+                app(IntakeDocumentService::class)->syncRequirements($case);
+
+                return $document;
+            });
+        } catch (\Throwable $exception) {
+            try {
+                app(StorageService::class)->delete($result->path);
+            } catch (\Throwable $cleanupError) {
+                report($cleanupError);
+            }
+
+            throw $exception;
+        }
 
         if ($isInertia) {
             return back()->with('success', 'Document uploaded successfully.');

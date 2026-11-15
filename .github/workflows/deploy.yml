@@ -527,20 +527,26 @@ jobs:
           }
           echo "SENTRY_RELEASE verified: $IMAGE_TAG"
 
-      # Captured before the new deployment is submitted, so a failed health gate
-      # has something to roll back TO. Not required to succeed (a first-ever
-      # deployment has no current image); the rollback step handles the empty case.
+      # Capture the complete serving deployment before submitting anything. Keep
+      # environment values in a runner-temp file only: it contains secrets and is
+      # never printed or added to step outputs. First deployment has no rollback.
       - name: Record the deployment currently serving traffic
         id: previous
         env:
           SERVICE: ${{ inputs.service_name }}
         run: |
           set -euo pipefail
-          IMAGE=$(aws lightsail get-container-services --service-name "$SERVICE" \
-            --query "containerServices[0].currentDeployment.containers.app.image" \
-            --region "$AWS_REGION" --output text 2>/dev/null || echo "None")
+          CURRENT=$(aws lightsail get-container-services --service-name "$SERVICE" \
+            --query 'containerServices[0].currentDeployment' \
+            --region "$AWS_REGION" --output json)
+          IMAGE=$(jq -r '.containers.app.image // "None"' <<< "$CURRENT")
           echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
-          echo "currently serving: $IMAGE"
+          if [ "$IMAGE" != "None" ] && [ "$IMAGE" != "null" ]; then
+            jq --arg service "$SERVICE" \
+              '{serviceName: $service, containers: .containers, publicEndpoint: .publicEndpoint}' \
+              <<< "$CURRENT" > "$RUNNER_TEMP/previous-deployment.json"
+          fi
+          echo "currently serving: ${IMAGE##*:}"
 
       - name: Deploy to Lightsail
         run: |
@@ -682,10 +688,12 @@ jobs:
             exit 1
           fi
           echo "::warning::health gates failed — redeploying $PREVIOUS_IMAGE"
-          jq --arg image "$PREVIOUS_IMAGE" '.containers.app.image = $image' \
-            "$RUNNER_TEMP/deployment.json" > "$RUNNER_TEMP/rollback.json"
+          if [ ! -s "$RUNNER_TEMP/previous-deployment.json" ]; then
+            echo "::error::previous deployment settings were not captured — refusing to roll back with new settings"
+            exit 1
+          fi
           aws lightsail create-container-service-deployment \
-            --cli-input-json "file://$RUNNER_TEMP/rollback.json" --region "$AWS_REGION" >/dev/null
+            --cli-input-json "file://$RUNNER_TEMP/previous-deployment.json" --region "$AWS_REGION" >/dev/null
           for i in $(seq 1 40); do
             read -r STATE IMAGE < <(aws lightsail get-container-services \
               --service-name "$SERVICE" --region "$AWS_REGION" \

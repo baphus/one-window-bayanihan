@@ -89,6 +89,13 @@ class TrackingService
             return false;
         }
 
+        $case = CaseFile::query()->clientVisible()->where('tracker_number', $trackerNumber)->first(['id', 'email']);
+        if (! $case || ! $this->emailMatchesCase($case, $binding['email'])) {
+            $request->session()->forget(self::SESSION_KEY);
+
+            return false;
+        }
+
         // A numeric Unix timestamp, not a parsed date string: comparing an
         // integer against time() removes any dependency on the timezone or
         // format the value was serialised with.

@@ -122,19 +122,6 @@ class MfaService
         });
     }
 
-    public function verifyCurrentTotp(User $user, string $code): bool
-    {
-        if (! $user->mfa_secret) {
-            return false;
-        }
-
-        try {
-            return app('pragmarx.google2fa')->verifyKey($user->mfa_secret, $code);
-        } catch (Throwable) {
-            return false;
-        }
-    }
-
     public function consumeTotp(User $user, string $code): bool
     {
         return DB::transaction(function () use ($user, $code): bool {
