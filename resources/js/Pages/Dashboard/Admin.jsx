@@ -16,7 +16,6 @@ import {
 } from 'chart.js';
 import GettingStartedChecklist from '@/Components/GettingStartedChecklist';
 import {
-    EmptyState,
     FilterChip,
     MaterialSymbol,
     QuickActions,
@@ -25,9 +24,8 @@ import {
     formatCount,
     safeArray,
 } from '@/Components/Dashboard/primitives';
-import { DashboardRow, DashboardRowList } from '@/Components/Dashboard/DashboardRow';
+import { AuditTimeline } from '@/Components/AuditTimeline';
 import KpiCard from '@/Components/ui/KpiCard';
-import { formatDisplayDateTime } from '@/lib/utils';
 import safeRoute from '@/utils/safeRoute';
 
 ChartJS.register(ArcElement, BarElement, CategoryScale, Filler, Legend, LinearScale, LineElement, PointElement, Tooltip);
@@ -168,13 +166,7 @@ export default function AdminDashboard({ dashboard = {} }) {
     const [period, setPeriod] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    const recentLogs = safeArray(dashboard.recentLogs).slice(0, 8).map((log) => ({
-        ...log,
-        actionType: log.action ?? log.actionType,
-        title: log.message ?? 'System activity',
-        desc: log.detail ?? '',
-        time: log.timestamp ? formatDisplayDateTime(log.timestamp) : log.time,
-    }));
+    const recentLogs = safeArray(dashboard.recentLogs).slice(0, 8);
 
     const [auditFilter, setAuditFilter] = useState('all');
     const auditModuleCounts = recentLogs.reduce((acc, log) => {
@@ -444,26 +436,9 @@ export default function AdminDashboard({ dashboard = {} }) {
                                 />
                             ))}
                         </div>
-                        <DashboardRowList empty={<EmptyState message="No matching activity." />}>
-                            {filteredLogs.map((log) => {
-                                const isSecurity = categorizeModule(log.module) === 'Users';
-                                const pillTone = isSecurity
-                                    ? 'bg-rose-50 text-rose-700'
-                                    : 'bg-primary/10 text-primary';
-
-                                return (
-                                    <DashboardRow
-                                        key={log.id}
-                                        href={safeRoute('audit-logs.index', undefined, '/audit-logs')}
-                                        pill={log.actionType ?? log.action ?? 'EVENT'}
-                                        pillTone={pillTone}
-                                        title={log.title}
-                                        note={`${categorizeModule(log.module)}${log.actor ? ` · ${log.actor}` : ''}`}
-                                        right={<span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{log.time}</span>}
-                                    />
-                                );
-                            })}
-                        </DashboardRowList>
+                        <div className="px-5 py-4">
+                            <AuditTimeline logs={filteredLogs} showFilters={false} />
+                        </div>
                     </SectionCard>
                 </div>
 

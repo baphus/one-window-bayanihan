@@ -56,6 +56,9 @@ export function AuditTimeline({
     filterValues = {},
     pagination,
     onPageChange = () => {},
+    showActorFilter = true,
+    showRoleFilter = true,
+    showChangesFilter = true,
 }) {
     const groupedLogs = useMemo(() => {
         const groups = {};
@@ -93,6 +96,9 @@ export function AuditTimeline({
                     activeCategories={activeCategories}
                     filterValues={filterValues}
                     onFilterChange={onFilterChange}
+                    showActorFilter={showActorFilter}
+                    showRoleFilter={showRoleFilter}
+                    showChangesFilter={showChangesFilter}
                 />
             )}
 
@@ -168,7 +174,7 @@ function TimelineEntry({ log }) {
 const CONTROL_BASE = 'h-8 px-2.5 border border-slate-300 rounded-md text-xs bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary';
 const LABEL_QUIET = 'text-[11px] font-medium uppercase tracking-wide text-slate-400';
 
-function FilterBar({ availableActions, availableModules, availableModulesLabels, availableCategories, activeCategories, filterValues, onFilterChange }) {
+function FilterBar({ availableActions, availableModules, availableModulesLabels, availableCategories, activeCategories, filterValues, onFilterChange, showActorFilter, showRoleFilter, showChangesFilter }) {
     /* ---------- local state for debounced search + Apply-gated dates ---------- */
     const [localSearch, setLocalSearch] = useState(() => filterValues.search || '');
     const [localDateFrom, setLocalDateFrom] = useState(() => filterValues.date_from || '');
@@ -377,7 +383,7 @@ function FilterBar({ availableActions, availableModules, availableModulesLabels,
                     <input
                         id={searchId}
                         type="text"
-                        placeholder="Search action, module, actor, or ID..."
+                        placeholder="Search action, module, actor, or case number..."
                         value={localSearch}
                         onChange={handleSearchChange}
                         className={`${CONTROL_BASE} w-full pl-9 pr-8`}
@@ -471,27 +477,31 @@ function FilterBar({ availableActions, availableModules, availableModulesLabels,
             {showAdvanced && (
                 <div id={advancedId} className="mt-2 pt-2 border-t border-slate-100 space-y-2.5">
                     {/* Actor */}
-                    <FilterRow labelId={actorInputId} label="Actor">
-                        <ActorPicker inputId={actorInputId} filterValues={filterValues} onFilterChange={onFilterChange} />
-                    </FilterRow>
+                    {showActorFilter && (
+                        <FilterRow labelId={actorInputId} label="Actor">
+                            <ActorPicker inputId={actorInputId} filterValues={filterValues} onFilterChange={onFilterChange} />
+                        </FilterRow>
+                    )}
 
                     {/* Role */}
-                    <FilterRow label="Role" title="Reflects the user's current role, not necessarily the role they held when the event was recorded.">
-                        <div role="group" aria-label="Current role" className="flex flex-wrap gap-1.5">
-                            {ROLE_OPTIONS.map(role => {
-                                const isActive = splitList(filterValues.role).includes(role);
-                                return (
-                                    <ToggleChip
-                                        key={role}
-                                        active={isActive}
-                                        onClick={() => handleRoleToggle(role)}
-                                    >
-                                        {ROLE_LABELS[role] || role}
-                                    </ToggleChip>
-                                );
-                            })}
-                        </div>
-                    </FilterRow>
+                    {showRoleFilter && (
+                        <FilterRow label="Role" title="Reflects the user's current role, not necessarily the role they held when the event was recorded.">
+                            <div role="group" aria-label="Current role" className="flex flex-wrap gap-1.5">
+                                {ROLE_OPTIONS.map(role => {
+                                    const isActive = splitList(filterValues.role).includes(role);
+                                    return (
+                                        <ToggleChip
+                                            key={role}
+                                            active={isActive}
+                                            onClick={() => handleRoleToggle(role)}
+                                        >
+                                            {ROLE_LABELS[role] || role}
+                                        </ToggleChip>
+                                    );
+                                })}
+                            </div>
+                        </FilterRow>
+                    )}
 
                     {/* Date range (complements the quick presets above) */}
                     <FilterRow label="Date">
@@ -594,20 +604,22 @@ function FilterBar({ availableActions, availableModules, availableModulesLabels,
                     )}
 
                     {/* Options */}
-                    <FilterRow label="Options">
-                        <label
-                            className="inline-flex items-center gap-2 select-none cursor-pointer"
-                            title="Hide events that recorded no field changes"
-                        >
-                            <input
-                                type="checkbox"
-                                checked={hasChangesOnly}
-                                onChange={(e) => onFilterChange({ ...filterValues, has_changes: e.target.checked ? '1' : '' })}
-                                className="h-3.5 w-3.5 rounded border-slate-300 text-primary focus:ring-primary"
-                            />
-                            <span className="text-xs text-slate-700">Only with changes</span>
-                        </label>
-                    </FilterRow>
+                    {showChangesFilter && (
+                        <FilterRow label="Options">
+                            <label
+                                className="inline-flex items-center gap-2 select-none cursor-pointer"
+                                title="Hide events that recorded no field changes"
+                            >
+                                <input
+                                    type="checkbox"
+                                    checked={hasChangesOnly}
+                                    onChange={(e) => onFilterChange({ ...filterValues, has_changes: e.target.checked ? '1' : '' })}
+                                    className="h-3.5 w-3.5 rounded border-slate-300 text-primary focus:ring-primary"
+                                />
+                                <span className="text-xs text-slate-700">Only with changes</span>
+                            </label>
+                        </FilterRow>
+                    )}
                 </div>
             )}
         </div>

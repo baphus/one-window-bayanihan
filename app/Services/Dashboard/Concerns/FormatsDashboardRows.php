@@ -25,32 +25,6 @@ trait FormatsDashboardRows
         return $timestamp->diffForHumans();
     }
 
-    private function formatChangeSummary(array $changes): string
-    {
-        if (empty($changes)) {
-            return '';
-        }
-
-        $first = $changes[0];
-        $summary = $first['fieldLabel'].': ';
-
-        // The audit response carries after-only changes (no `old` key), so a
-        // missing old value simply starts the summary at the new value.
-        $old = $first['old'] ?? null;
-
-        if ($old !== null && $old !== 'not set') {
-            $summary .= $old.' → ';
-        }
-
-        $summary .= $first['new'] ?? '';
-
-        if (count($changes) > 1) {
-            $summary .= ' (+'.(count($changes) - 1).' more)';
-        }
-
-        return $summary;
-    }
-
     private function queueItem(string $key, string $label, int $count, string $note, string $tone, string $icon, string $href): array
     {
         return compact('key', 'label', 'count', 'note', 'tone', 'icon', 'href');

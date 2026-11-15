@@ -30,4 +30,13 @@ class ActivityEvent extends Model
     {
         return $this->belongsTo(User::class, 'actor_id');
     }
+
+    /**
+     * The audit row this mirror entry was written from. Used to render the
+     * human sentence on the activity page; null once the row is pruned.
+     */
+    public function auditLog()
+    {
+        return $this->belongsTo(AuditLog::class, 'audit_log_id');
+    }
 }

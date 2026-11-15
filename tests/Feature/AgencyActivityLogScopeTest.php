@@ -8,6 +8,7 @@ use App\Http\Middleware\SetPostgresSession;
 use App\Models\Agency;
 use App\Models\AuditLog;
 use App\Models\CaseFile;
+use App\Models\Referral;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -81,5 +82,54 @@ class AgencyActivityLogScopeTest extends TestCase
             ->withHeader('X-Inertia', 'true')
             ->get('/audit-logs')
             ->assertOk();
+    }
+
+    public function test_activity_page_reuses_the_audit_timeline_contract_scoped_by_role(): void
+    {
+        $agency = Agency::factory()->create();
+        $focal = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agency->id]);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+
+        $referral = Referral::factory()->create(['agcy_id' => $agency->id]);
+        $case = CaseFile::factory()->create();
+        AuditLog::truncate();
+        $this->log('referral', $referral->id, 'UPDATED REFERRAL NOTE');
+        AuditLog::create([
+            'action' => 'APPROVE',
+            'module' => 'case',
+            'entity_id' => $case->id,
+            'description' => 'APPROVED CASE',
+            'category' => 'data',
+            'timestamp' => now(),
+        ]);
+
+        $agencyProps = $this->actingAsWithMfa($focal)
+            ->withHeader('X-Inertia', 'true')
+            ->get('/activity')
+            ->assertOk()
+            ->json('props');
+
+        // Rows carry the AuditLogRow contract, not raw mirror columns.
+        $this->assertSame(
+            ['id', 'action', 'module', 'formatted_module', 'message', 'changes', 'actor', 'timestamp', 'hasChanges'],
+            array_keys($agencyProps['events']['data'][0]),
+        );
+        $this->assertStringNotContainsString($referral->id, json_encode($agencyProps['events']['data']));
+
+        // Filter options are the role's own visibility lists, limited to what
+        // that role can actually see.
+        $this->assertContains('referral', $agencyProps['availableModules']);
+        $this->assertNotContains('case', $agencyProps['availableModules']);
+        $this->assertNotContains('APPROVE', $agencyProps['availableActions']);
+        $this->assertContains('UPDATE', $agencyProps['availableActions']);
+
+        $adminProps = $this->actingAsWithMfa($admin)
+            ->withHeader('X-Inertia', 'true')
+            ->get('/activity')
+            ->assertOk()
+            ->json('props');
+
+        $this->assertContains('case', $adminProps['availableModules']);
+        $this->assertContains('APPROVE', $adminProps['availableActions']);
     }
 }

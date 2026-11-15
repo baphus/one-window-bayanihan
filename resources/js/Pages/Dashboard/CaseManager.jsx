@@ -5,8 +5,9 @@ import { Line } from 'react-chartjs-2';
 import { CategoryScale, Chart as ChartJS, Filler, Legend, LinearScale, LineElement, PointElement, Tooltip } from 'chart.js';
 import GettingStartedChecklist from '@/Components/GettingStartedChecklist';
 import StatusBadge from '@/Components/ui/StatusBadge';
-import { ActivityFeed, EmptyState, QuickActions, SectionCard, ViewAllLink, formatCount, safeArray } from '@/Components/Dashboard/primitives';
+import { EmptyState, QuickActions, SectionCard, ViewAllLink, formatCount, safeArray } from '@/Components/Dashboard/primitives';
 import { DashboardRow, DashboardRowList, RowAgeFlag } from '@/Components/Dashboard/DashboardRow';
+import { AuditTimeline } from '@/Components/AuditTimeline';
 import KpiCard from '@/Components/ui/KpiCard';
 import { formatDisplayDate, getCaseAgeInDays } from '@/lib/utils';
 import { humanizeStatus } from '@/lib/statusLabels';
@@ -70,22 +71,12 @@ function createdAtOf(item) {
     return pick(item?.createdAt, item?.created_at, item?.occurredAt, item?.occurred_at, item?.timestamp, item?.time);
 }
 
-function AgeFlag({ days }) {
-    const parsed = toAgeDays(days, 0);
-    const overdue = parsed >= OVERDUE_DAYS;
-    return (
-        <span
-            className={
-                overdue
-                    ? 'inline-flex items-center rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-black text-white'
-                    : 'text-[10px] font-bold uppercase tracking-widest text-slate-400'
-            }
-        >
-            {parsed}d
-        </span>
-    );
+/** Whole days a filing has been waiting in the review queue. */
+function waitingDays(iso) {
+    const filed = iso ? new Date(iso) : null;
+    if (!filed || Number.isNaN(filed.getTime())) return null;
+    return Math.max(0, Math.floor((Date.now() - filed.getTime()) / 86400000));
 }
-
 
 const chartOptions = {
     responsive: true,
@@ -186,7 +177,7 @@ function NeedsYouBlock({ dashboard }) {
                         note={row.note}
                         right={
                             <>
-                                <StatusBadge status={row.status} label={humanizeStatus(row.status)} />
+                                <StatusBadge status={row.status} label={humanizeStatus(row.status)} variant="soft" />
                                 <RowAgeFlag days={row.age} overdueDays={OVERDUE_DAYS} />
                             </>
                         }
@@ -223,17 +214,22 @@ function PendingReviews({ dashboard }) {
                     const filed = createdAtOf(item);
                     const href = item.href && typeof item.href === 'string' && item.href.length > 0 ? item.href : listHref;
                     const trackingId = pick(item.trackerNumber, item.tracker_number, item.caseNo, item.case_number, '—');
-                    const clientName = pick(item.clientName, item.client_name, 'Unnamed client');
+                    const clientName = pick(item.clientName, item.client_name);
+                    const waiting = waitingDays(filed);
                     const filedLabel = filed ? formatDisplayDate(String(filed)) : '';
+                    const note = [
+                        filedLabel ? `Filed ${filedLabel}` : null,
+                        waiting != null ? `waiting ${waiting}d` : null,
+                    ].filter(Boolean).join(' · ');
 
                     return (
                         <DashboardRow
                             key={item.id}
                             href={href}
                             pill={trackingId}
-                            title={clientName}
-                            note={`Request for Assistance${filedLabel ? ` · filed ${filedLabel}` : ''}`}
-                            right={<StatusBadge status={pick(item.status, 'PENDING_REVIEW')} label={humanizeStatus(pick(item.status, 'PENDING_REVIEW'))} />}
+                            title={!clientName || clientName === 'N/A' ? 'Unnamed client' : clientName}
+                            note={note}
+                            right={<StatusBadge status={pick(item.status, 'PENDING_REVIEW')} label={humanizeStatus(pick(item.status, 'PENDING_REVIEW'))} variant="soft" />}
                         />
                     );
                 })}
@@ -258,8 +254,8 @@ function CaseActivityBlock({ dashboard }) {
     const items = useMemo(() => normalizeCaseEvents(dashboard), [dashboard]);
 
     return (
-        <SectionCard title="Case Activity Log" dataTour="dashboard-activity-log">
-            <ActivityFeed items={items} limit={8} />
+        <SectionCard title="Case Activity Log" dataTour="dashboard-activity-log" bodyClassName="px-5 py-4">
+            <AuditTimeline logs={items} showFilters={false} />
         </SectionCard>
     );
 }
@@ -438,15 +434,13 @@ export default function CaseManagerDashboard({ dashboard = {} }) {
                 </div>
             </section>
 
-            {/* Work queues + activity */}
-            <div className="mt-6 grid gap-6 xl:grid-cols-12">
-                <div className="space-y-6 xl:col-span-7">
-                    <PendingReviews dashboard={dashboard} />
-                    <NeedsYouBlock dashboard={dashboard} />
-                </div>
-                <div className="space-y-6 xl:col-span-5">
-                    <CaseActivityBlock dashboard={dashboard} />
-                </div>
+            {/* Two queues side by side, activity full width below */}
+            <div className="mt-6 grid gap-6 xl:grid-cols-2">
+                <PendingReviews dashboard={dashboard} />
+                <NeedsYouBlock dashboard={dashboard} />
+            </div>
+            <div className="mt-6">
+                <CaseActivityBlock dashboard={dashboard} />
             </div>
         </div>
     );

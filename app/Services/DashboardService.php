@@ -96,17 +96,14 @@ class DashboardService
 
                     $changes = $display['changes'] ?? [];
 
+                    // Same shape AuditLogRow reads on the audit-log page.
                     return [
                         'id' => $log->id,
-                        'title' => $display['message'],
-                        'desc' => $this->formatChangeSummary($changes),
-                        'time' => $this->safeRelativeTime($log->timestamp),
-                        'logoSrc' => '/logo.png',
-                        'message' => $display['message'],
-                        'detail' => $display['detail'],
-                        'changes' => $changes,
-                        'actionType' => $display['action'],
+                        'action' => $display['action'],
                         'module' => $display['module'],
+                        'formatted_module' => $display['formatted_module'] ?? null,
+                        'message' => $display['message'],
+                        'changes' => $changes,
                         'actor' => $display['actor'],
                         'timestamp' => $display['timestamp'],
                     ];
@@ -581,17 +578,14 @@ class DashboardService
 
                     $changes = $display['changes'] ?? [];
 
+                    // Same shape AuditLogRow reads on the audit-log page.
                     return [
                         'id' => $log->id,
-                        'title' => $display['message'],
-                        'desc' => $this->formatChangeSummary($changes),
-                        'time' => $this->safeRelativeTime($log->timestamp),
-                        'logoSrc' => '/logo.png',
-                        'message' => $display['message'],
-                        'detail' => $display['detail'],
-                        'changes' => $changes,
-                        'actionType' => $display['action'],
+                        'action' => $display['action'],
                         'module' => $display['module'],
+                        'formatted_module' => $display['formatted_module'] ?? null,
+                        'message' => $display['message'],
+                        'changes' => $changes,
                         'actor' => $display['actor'],
                         'timestamp' => $display['timestamp'],
                     ];
@@ -992,12 +986,11 @@ class DashboardService
                         'id' => $display['id'],
                         'action' => $display['action'],
                         'module' => $display['module'],
-                        'timestamp' => $display['timestamp'],
+                        'formatted_module' => $display['formatted_module'] ?? null,
                         'message' => $display['message'],
-                        'detail' => $display['detail'],
                         'changes' => $changes,
                         'actor' => $display['actor'],
-                        'hasChanges' => $display['hasChanges'],
+                        'timestamp' => $display['timestamp'],
                     ];
                 })
                 ->toArray();
