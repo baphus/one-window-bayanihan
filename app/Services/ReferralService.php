@@ -495,7 +495,16 @@ class ReferralService
 
         foreach ($relatedReferrals as $item) {
             if ($actor === null || (! $actor->isAdmin() && ! $actor->isCaseManager() && $actor->agcy_id !== $item->agcy_id)) {
-                $item->makeHidden(['concern', 'override_reason']);
+                $item->setVisible([
+                    'id', 'case_id', 'agcy_id', 'status', 'created_at', 'updated_at', 'required_services',
+                    'agency', 'services', 'can_message', 'unread_count',
+                ]);
+                $item->setRelation('milestones', collect());
+                $item->setRelation('serviceRequirements', collect());
+                $item->agency?->setVisible(['id', 'name']);
+                foreach ($item->services as $service) {
+                    $service->setVisible(['id', 'name']);
+                }
             }
             $canMessage = $actor !== null && $this->messageService->canAccessThread($item, $actor);
             $item->setAttribute('can_message', $canMessage);
@@ -1016,7 +1025,7 @@ class ReferralService
     /**
      * Get overdue referrals for the unified dashboard — used by all roles.
      *
-     * Uses inactivity-based overdue (time since last milestone, status change, or creation).
+     * Uses latest live milestone creation, referral update, and referral creation as activity timestamps.
      * Returns enriched data with severity bands, compliance progress, and aggregate stats.
      */
     public function getOverdueReferralsDashboard(
@@ -1030,7 +1039,7 @@ class ReferralService
             'caseFile:id,case_number,first_name,middle_name,last_name,suffix',
             'caseFile.user:id,name',
             'agency:id,name',
-            'milestones' => fn ($q) => $q->latest()->limit(1),
+            'milestones' => fn ($q) => $q->where('is_deleted', false)->whereNull('deleted_at')->latest()->limit(1),
         ]);
 
         // Status filter
@@ -1041,10 +1050,11 @@ class ReferralService
 
         // Sort — joins instead of correlated per-row subqueries so the
         // planner scans the joined tables once rather than once per row.
-        // The milestone subquery reads the table directly (DB::table, no
-        // model scopes) to match the original raw-SQL semantics exactly.
+        // Filter deleted milestones explicitly because DB::table bypasses model scopes.
         $sortBy = $filters['sort_by'] ?? 'most_stale';
         $latestMilestones = fn (): \Illuminate\Database\Query\Builder => DB::table('milestones')
+            ->where('is_deleted', false)
+            ->whereNull('deleted_at')
             ->select('refr_id')
             ->selectRaw('MAX(created_at) AS max_created_at')
             ->groupBy('refr_id');
@@ -1064,7 +1074,7 @@ class ReferralService
                     '=',
                     'referrals.id'
                 )
-                ->orderByRaw('EXTRACT(EPOCH FROM (NOW() - COALESCE(latest_milestones.max_created_at, GREATEST(referrals.updated_at, referrals.created_at)))) DESC');
+                ->orderByRaw('EXTRACT(EPOCH FROM (NOW() - GREATEST(COALESCE(latest_milestones.max_created_at, referrals.created_at), referrals.updated_at, referrals.created_at))) DESC');
         }
 
         // Stats and pagination share the same scoping and filters, but NOT the
@@ -1086,9 +1096,9 @@ class ReferralService
             DB::raw("COUNT(*) FILTER (WHERE referrals.status = 'PENDING') AS pending_count"),
             DB::raw("COUNT(*) FILTER (WHERE referrals.status = 'PROCESSING') AS processing_count"),
             DB::raw("COUNT(*) FILTER (WHERE referrals.status = 'FOR_COMPLIANCE') AS for_compliance_count"),
-            DB::raw('COUNT(*) FILTER (WHERE EXTRACT(EPOCH FROM (NOW() - COALESCE(latest_activity.max_created_at, GREATEST(referrals.updated_at, referrals.created_at)))) / 86400 < 15) AS mild_count'),
-            DB::raw('COUNT(*) FILTER (WHERE EXTRACT(EPOCH FROM (NOW() - COALESCE(latest_activity.max_created_at, GREATEST(referrals.updated_at, referrals.created_at)))) / 86400 BETWEEN 15 AND 29) AS moderate_count'),
-            DB::raw('COUNT(*) FILTER (WHERE EXTRACT(EPOCH FROM (NOW() - COALESCE(latest_activity.max_created_at, GREATEST(referrals.updated_at, referrals.created_at)))) / 86400 >= 30) AS severe_count'),
+            DB::raw('COUNT(*) FILTER (WHERE EXTRACT(EPOCH FROM (NOW() - GREATEST(COALESCE(latest_activity.max_created_at, referrals.created_at), referrals.updated_at, referrals.created_at))) / 86400 < 15) AS mild_count'),
+            DB::raw('COUNT(*) FILTER (WHERE EXTRACT(EPOCH FROM (NOW() - GREATEST(COALESCE(latest_activity.max_created_at, referrals.created_at), referrals.updated_at, referrals.created_at))) / 86400 >= 15 AND EXTRACT(EPOCH FROM (NOW() - GREATEST(COALESCE(latest_activity.max_created_at, referrals.created_at), referrals.updated_at, referrals.created_at))) / 86400 < 30) AS moderate_count'),
+            DB::raw('COUNT(*) FILTER (WHERE EXTRACT(EPOCH FROM (NOW() - GREATEST(COALESCE(latest_activity.max_created_at, referrals.created_at), referrals.updated_at, referrals.created_at))) / 86400 >= 30) AS severe_count'),
         ])
             ->leftJoinSub(
                 $latestMilestones(),
@@ -1105,13 +1115,13 @@ class ReferralService
         $now = now();
         $transformed = $referrals->getCollection()->map(function (Referral $referral) use ($now) {
             $latestMilestone = $referral->milestones->first();
-            $lastActivityDate = $latestMilestone
-                ? $latestMilestone->created_at
-                : ($referral->updated_at ?? $referral->created_at);
+            $milestoneActivity = $latestMilestone?->created_at ?? $referral->created_at;
+            $statusActivity = $referral->updated_at ?? $referral->created_at;
+            $lastActivityDate = $milestoneActivity->greaterThan($statusActivity) ? $milestoneActivity : $statusActivity;
             $daysSinceLastActivity = (int) $lastActivityDate->diffInDays($now);
 
             // Last activity description
-            if ($latestMilestone) {
+            if ($latestMilestone && $lastActivityDate->equalTo($latestMilestone->created_at)) {
                 $lastActivityDesc = 'Milestone: '.$latestMilestone->title.' — '.$daysSinceLastActivity.'d ago';
             } elseif ($referral->updated_at && $referral->updated_at->ne($referral->created_at)) {
                 $lastActivityDesc = 'Status update — '.$daysSinceLastActivity.'d ago';
@@ -1235,7 +1245,11 @@ class ReferralService
             $oldAttachment = ReferralAttachment::where('referral_id', $referralId)
                 ->where('id', $attachmentId)
                 ->where('is_deleted', false)
+                ->lockForUpdate()
                 ->firstOrFail();
+            if ($oldAttachment->is_archived) {
+                throw ValidationException::withMessages(['file' => 'This attachment has already been replaced. Refresh and try again.']);
+            }
             $versionGroupId = $oldAttachment->version_group_id ?? (string) Str::uuid();
 
             $oldAttachment->update([

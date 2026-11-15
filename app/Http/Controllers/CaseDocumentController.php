@@ -50,10 +50,15 @@ class CaseDocumentController extends Controller
                     'reviewed_document_ids' => null,
                 ]);
             });
-            $this->notifyManagerOfOfwUpload($case, $request->user());
         } catch (\Throwable $exception) {
             app(IntakeDocumentService::class)->cleanup($paths);
             throw $exception;
+        }
+
+        try {
+            $this->notifyManagerOfOfwUpload($case, $request->user());
+        } catch (\Throwable $exception) {
+            report($exception);
         }
 
         return back()->with('success', 'Replacement documents submitted for review.');

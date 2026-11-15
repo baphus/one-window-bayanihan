@@ -10,10 +10,12 @@ use App\Models\CaseFile;
 use App\Models\CaseStatus;
 use App\Models\Referral;
 use App\Models\ReferralClientRequest;
+use App\Models\Service as ServiceModel;
 use App\Models\User;
 use App\Services\ReferenceDataService;
 use App\Services\Reports\CaseMetrics;
 use App\Services\ReportsService;
+use Carbon\CarbonImmutable;
 use Database\Seeders\CaseStatusSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
@@ -40,6 +42,58 @@ class ReportsMetricsTest extends TestCase
         $this->managerA = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $this->managerB = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $this->agency = Agency::factory()->create();
+    }
+
+    #[Test]
+    public function applied_services_are_ranked_per_service_and_agency_with_report_filters(): void
+    {
+        $owwa = Agency::factory()->create(['name' => 'OWWA']);
+        $otherAgency = Agency::factory()->create(['name' => 'Other Agency']);
+        $edsp = ServiceModel::query()->create(['name' => 'EDSP', 'agcy_id' => $owwa->id]);
+        $otherEdsp = ServiceModel::query()->create(['name' => 'EDSP', 'agcy_id' => $otherAgency->id]);
+        $case = CaseFile::factory()->create(['user_id' => $this->managerA->id, 'status' => 'OPEN', 'created_at' => '2026-04-10 12:00:00']);
+        $outsideWindow = CaseFile::factory()->create(['user_id' => $this->managerA->id, 'status' => 'OPEN', 'created_at' => '2026-05-10 12:00:00']);
+
+        $first = Referral::factory()->create(['case_id' => $case->id, 'agcy_id' => $owwa->id]);
+        $second = Referral::factory()->create(['case_id' => $case->id, 'agcy_id' => $owwa->id]);
+        $third = Referral::factory()->create(['case_id' => $case->id, 'agcy_id' => $otherAgency->id]);
+        $fourth = Referral::factory()->create(['case_id' => $outsideWindow->id, 'agcy_id' => $owwa->id]);
+        $first->services()->attach($edsp->id);
+        $second->services()->attach($edsp->id);
+        $third->services()->attach($otherEdsp->id);
+        $fourth->services()->attach($edsp->id);
+
+        $ranked = $this->service->getAll($this->managerA->id, UserRole::CASE_MANAGER->value, null, '2026-04-01', '2026-04-30', 'case_created_at', only: ['mostRequestedServices'])['mostRequestedServices'];
+
+        $this->assertSame([
+            ['service' => 'EDSP', 'agency' => 'OWWA', 'count' => 2],
+            ['service' => 'EDSP', 'agency' => 'Other Agency', 'count' => 1],
+        ], $ranked);
+    }
+
+    #[Test]
+    public function open_referral_backlog_uses_manila_age_buckets_and_ignores_report_date_window(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2026-11-15 04:00:00', 'UTC'));
+        $case = CaseFile::factory()->create(['user_id' => $this->managerA->id, 'status' => 'OPEN']);
+        foreach ([
+            ['PENDING', '2026-11-08 00:00:00'],
+            ['PROCESSING', '2026-11-07 00:00:00'],
+            ['FOR_COMPLIANCE', '2026-10-31 00:00:00'],
+            ['PENDING', '2026-10-15 00:00:00'],
+            ['COMPLETED', '2026-11-01 00:00:00'],
+        ] as [$status, $createdAt]) {
+            Referral::factory()->create(['case_id' => $case->id, 'agcy_id' => $this->agency->id, 'status' => $status, 'created_at' => $createdAt]);
+        }
+
+        $rows = $this->service->getAll($this->managerA->id, UserRole::CASE_MANAGER->value, null, '2026-11-15', '2026-11-15', 'referral_created_at', only: ['openReferralBacklog'])['openReferralBacklog'];
+
+        $this->assertSame([
+            ['label' => '0–7 days', 'pending' => 1, 'processing' => 0, 'for_compliance' => 0],
+            ['label' => '8–14 days', 'pending' => 0, 'processing' => 1, 'for_compliance' => 0],
+            ['label' => '15–30 days', 'pending' => 0, 'processing' => 0, 'for_compliance' => 1],
+            ['label' => '31+ days', 'pending' => 1, 'processing' => 0, 'for_compliance' => 0],
+        ], $rows);
     }
 
     private function kpisFor(User $manager): array

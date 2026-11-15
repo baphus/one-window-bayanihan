@@ -97,6 +97,24 @@ class DeleteArchivedCaseTest extends TestCase
         app(CaseService::class)->deleteArchivedCase($case, 'Trying to delete an open case should fail', $user);
     }
 
+    public function test_delete_rejects_stale_archived_model_when_database_status_changed(): void
+    {
+        $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $case = CaseFile::factory()->create(['status' => 'ARCHIVED', 'user_id' => $user->id]);
+        CaseFile::whereKey($case->id)->update(['status' => 'OPEN']);
+
+        $this->actingAsWithMfa($user);
+
+        try {
+            app(CaseService::class)->deleteArchivedCase($case, 'Stale archived model must not delete', $user);
+            $this->fail('Expected stale case status to be rejected.');
+        } catch (HttpException $exception) {
+            $this->assertSame(422, $exception->getStatusCode());
+        }
+
+        $this->assertDatabaseHas('cases', ['id' => $case->id, 'status' => 'OPEN', 'deleted_at' => null]);
+    }
+
     public function test_delete_requires_reason_min_10_chars(): void
     {
         $user = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);

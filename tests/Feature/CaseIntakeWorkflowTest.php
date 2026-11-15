@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Notifications\CaseUpdated;
 use App\Services\CaseService;
 use App\Services\IntakeDocumentService;
+use App\Services\NotificationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Notification;
@@ -126,6 +127,36 @@ class CaseIntakeWorkflowTest extends TestCase
         $case = CaseFile::factory()->withIntake()->create();
         $this->expectException(HttpException::class);
         app(CaseService::class)->updateCase($case->id, ['first_name' => 'Forbidden', 'correction_reason' => 'Attempt'], $manager->id);
+    }
+
+    public function test_notification_failure_does_not_undo_successful_document_replacement(): void
+    {
+        config(['filesystems.default' => 'object-storage']);
+        Storage::fake('object-storage');
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $owner = User::factory()->create(['role' => UserRole::OFW->value]);
+        $case = CaseFile::factory()->withIntake()->pendingReview()->create([
+            'ofw_user_id' => $owner->id,
+            'assigned_case_manager_id' => $manager->id,
+            'requested_document_slots' => ['arrival_stamp'],
+            'document_requirements' => ['arrival_stamp' => IntakeDocumentService::REQUIREMENT_FOR_COMPLIANCE],
+        ]);
+        $old = CaseDocument::factory()->create(['case_id' => $case->id, 'category' => 'arrival_stamp', 'referral_id' => null]);
+        $oldPath = $old->file_path;
+        Storage::disk('object-storage')->put($oldPath, 'old file');
+        $notificationService = $this->mock(NotificationService::class);
+        $notificationService->shouldReceive('notifyUsers')->once()->andThrow(new \RuntimeException('Notification dispatch failed'));
+
+        $response = $this->actingAsWithMfa($owner)->post(route('ofw.intake.documents.replace', $case), [
+            'documents' => ['arrival_stamp' => UploadedFile::fake()->image('arrival.jpg')],
+        ]);
+
+        $response->assertRedirect()->assertSessionHas('success', 'Replacement documents submitted for review.');
+        $this->assertSoftDeleted($old);
+        $replacement = $case->documents()->where('category', 'arrival_stamp')->firstOrFail();
+        $this->assertNotSame($oldPath, $replacement->file_path);
+        Storage::disk('object-storage')->assertExists($replacement->file_path);
+        Storage::disk('object-storage')->assertExists($oldPath);
     }
 
     public function test_requested_replacement_keeps_case_and_intake_and_invalidates_review(): void

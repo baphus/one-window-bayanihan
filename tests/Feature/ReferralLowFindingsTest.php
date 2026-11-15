@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Services\ReferralMessageService;
 use App\Services\ReferralService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Validation\ValidationException;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -186,5 +187,50 @@ class ReferralLowFindingsTest extends TestCase
 
         $this->assertSame(1, $counts[$f['referralY']->id] ?? 0);
         $this->assertSame(0, $counts[$f['referralX']->id] ?? 0);
+    }
+
+    #[Test]
+    public function foreign_related_referral_exposes_only_shared_metadata(): void
+    {
+        $f = $this->messageFixtures();
+        $f['referralY']->update([
+            'concern' => 'private concern',
+            'override_reason' => 'private override',
+            'notes' => 'private notes',
+            'decision_comment' => 'private decision',
+        ]);
+        $f['referralY']->refresh();
+        $this->assertSame('private notes', $f['referralY']->notes);
+        $milestone = app(ReferralService::class)->addMilestone($f['referralY']->id, 'private milestone title', 'private milestone description', $f['peer']->id);
+
+        $related = app(ReferralService::class)->getRelatedReferrals($f['referralX'], $f['viewer'])->sole();
+        $serialized = $related->toArray();
+
+        foreach (['concern', 'override_reason', 'notes', 'decision_comment'] as $privateField) {
+            $this->assertArrayNotHasKey($privateField, $serialized);
+        }
+        $this->assertArrayHasKey('agency', $serialized);
+        $this->assertArrayHasKey('services', $serialized);
+        $this->assertArrayHasKey('can_message', $serialized);
+        $this->assertStringNotContainsString('private milestone title', json_encode($serialized));
+        $this->assertStringNotContainsString('private milestone description', json_encode($serialized));
+    }
+
+    #[Test]
+    public function replacing_an_already_archived_attachment_rejects_stale_write(): void
+    {
+        $f = $this->attachmentVersionFixtures();
+        $f['kept']->update(['is_archived' => true]);
+
+        try {
+            app(ReferralService::class)->replaceAttachment($f['referral']->id, $f['kept']->id, [
+                'name' => 'stale.pdf', 'path' => 'referrals/stale.pdf', 'type' => 'application/pdf', 'size' => 10,
+            ], $f['uploader']->id);
+            $this->fail('Archived attachment replacement must be rejected.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('file', $exception->errors());
+        }
+
+        $this->assertDatabaseMissing('referral_attachments', ['file_name' => 'stale.pdf']);
     }
 }

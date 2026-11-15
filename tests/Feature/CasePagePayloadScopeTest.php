@@ -54,6 +54,10 @@ class CasePagePayloadScopeTest extends TestCase
             'case_id' => $this->case->id,
             'agcy_id' => $this->ownAgency->id,
             'status' => 'PROCESSING',
+            'notes' => 'Private referral notes',
+            'concern' => 'Private referral concern',
+            'override_reason' => 'Private override reason',
+            'decision_comment' => 'Private decision comment',
         ]);
         $this->foreignReferral = Referral::factory()->create([
             'case_id' => $this->case->id,
@@ -102,6 +106,48 @@ class CasePagePayloadScopeTest extends TestCase
         $titles = array_column($response->json('props.milestoneTimeline'), 'title');
         $this->assertContains('Our own update', $titles);
         $this->assertNotContains('Another agency private update', $titles);
+    }
+
+    #[Test]
+    public function agency_case_page_only_receives_safe_metadata_for_foreign_referrals(): void
+    {
+        $this->foreignReferral->update([
+            'notes' => 'Foreign private notes',
+            'concern' => 'Foreign private concern',
+            'override_reason' => 'Foreign private override',
+            'decision_comment' => 'Foreign private decision',
+        ]);
+        $this->foreignReferral->milestones()->create([
+            'title' => 'Foreign private milestone',
+            'description' => 'Foreign private description',
+            'user_id' => $this->case->user_id,
+        ]);
+        $response = $this->actingAsWithMfa($this->agencyUser($this->ownAgency))
+            ->withHeaders([
+                'X-Inertia' => 'true',
+                'X-Inertia-Version' => app(HandleInertiaRequests::class)->version(request()),
+            ])
+            ->get(route('cases.show', $this->case));
+
+        $response->assertOk();
+        $referrals = $response->json('props.case.referrals');
+        $own = collect($referrals)->firstWhere('id', $this->ownReferral->id);
+        $foreign = collect($referrals)->firstWhere('id', $this->foreignReferral->id);
+
+        $this->assertSame('Private referral notes', $own['notes']);
+        $this->assertSame('Private referral concern', $own['concern']);
+        $this->assertSame('Private override reason', $own['override_reason']);
+        $this->assertSame('Private decision comment', $own['decision_comment']);
+        $this->assertSame($this->foreignReferral->id, $foreign['id']);
+        $this->assertSame($this->foreignAgency->id, $foreign['agcy_id']);
+        $this->assertSame($this->foreignReferral->status, $foreign['status']);
+        $this->assertSame($this->foreignReferral->required_services, $foreign['required_services']);
+        $this->assertArrayNotHasKey('notes', $foreign);
+        $this->assertArrayNotHasKey('concern', $foreign);
+        $this->assertArrayNotHasKey('override_reason', $foreign);
+        $this->assertArrayNotHasKey('decision_comment', $foreign);
+        $this->assertArrayNotHasKey('milestones', $foreign);
+        $this->assertStringNotContainsString('Foreign private', $response->getContent());
     }
 
     #[Test]

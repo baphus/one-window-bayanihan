@@ -1,4 +1,5 @@
-import { usePage } from '@inertiajs/react';
+﻿import { usePage } from '@inertiajs/react';
+import { useState } from 'react';
 import {
     DonutWithList,
     EmptyLine,
@@ -174,6 +175,7 @@ function DemographicsSection({ mapProps }) {
             )}
 
             </div>
+            <AssistancePanel />
             </div>
             <div className="mt-5">
                 <GeographicMapSection {...mapProps} />
@@ -183,45 +185,27 @@ function DemographicsSection({ mapProps }) {
 }
 
 /**
- * Infographic-style ranked list for "Last country worked in": rank numerals
- * with count + percent and bars scaled to #1. A genuine long tail renders as
- * one honest aggregate note — never as a fake 6th country.
+ * Ranked bar list for "Last country worked in". The long tail collapses into a
+ * toggle that reveals every remaining entry and grows the chart on demand.
  */
-function CountryRankList({ top, tailCount, tailCountries, tailSingle = 'country', tailPlural = 'countries' }) {
-    const peak = Math.max(1, ...top.map((slice) => Number(slice.count ?? 0)));
+function CountryRankList({ top, all = [], tailCount, tailCountries, tailSingle = 'country', tailPlural = 'countries' }) {
+    const [expanded, setExpanded] = useState(false);
+    const items = expanded ? all : top;
+
     return (
         <div>
-            <ol className="space-y-4">
-                {top.map((slice, index) => (
-                    <li key={slice.key}>
-                        <div className="flex items-baseline gap-3">
-                            <span className="w-6 shrink-0 text-center text-sm font-black text-black dark:text-white">
-                                {index + 1}
-                            </span>
-                            <span className="min-w-0 flex-1 truncate text-sm font-bold text-slate-800 dark:text-slate-200">
-                                {slice.label}
-                            </span>
-                            <span className="shrink-0 text-sm font-black text-slate-900 dark:text-slate-100">
-                                {slice.count} ({slice.percent}%)
-                            </span>
-                        </div>
-                        <div className="ml-9 mt-1.5 h-3 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
-                            <div
-                                className="h-full rounded-full"
-                                style={{
-                                    width: `${Math.max(2, Math.round((Number(slice.count ?? 0) / peak) * 100))}%`,
-                                    backgroundColor: slice.hex ?? '#0b5a8c',
-                                }}
-                            />
-                        </div>
-                    </li>
-                ))}
-            </ol>
+            <BarRows items={items} />
             {tailCount > 0 && tailCountries > 0 ? (
-                <p className="ml-9 mt-4 border-t border-dashed border-slate-300 pt-3 text-sm text-slate-500 dark:border-slate-600 dark:text-slate-400">
-                    Plus <strong>{tailCount}</strong> more cases across {tailCountries} other{' '}
-                    {tailCountries === 1 ? tailSingle : tailPlural}.
-                </p>
+                <button
+                    type="button"
+                    onClick={() => setExpanded((value) => !value)}
+                    aria-expanded={expanded}
+                    className="ml-9 mt-4 border-t border-dashed border-slate-300 pt-3 text-left text-sm font-semibold text-primary hover:underline dark:border-slate-600"
+                >
+                    {expanded
+                        ? 'Show fewer'
+                        : `Plus ${tailCount} more cases across ${tailCountries} other ${tailCountries === 1 ? tailSingle : tailPlural}. Show all`}
+                </button>
             ) : null}
         </div>
     );
@@ -234,6 +218,7 @@ function JobsSection() {
     const countrySlices = toSlices(countries);
     const {
         top: topCountries,
+        named: allCountries,
         tailCount: countryTailCount,
         tailCountries: countryTailCountries,
     } = topNamedWithTail(countrySlices, 5);
@@ -241,6 +226,7 @@ function JobsSection() {
     const occupationSlices = toSlices(occupations);
     const {
         top: topJobs,
+        named: allJobs,
         tailCount: jobTailCount,
         tailCountries: jobTailTypes,
     } = topNamedWithTail(
@@ -264,6 +250,7 @@ function JobsSection() {
                     </p>
                     <CountryRankList
                         top={topCountries}
+                        all={allCountries}
                         tailCount={countryTailCount}
                         tailCountries={countryTailCountries}
                     />
@@ -282,6 +269,7 @@ function JobsSection() {
                     </p>
                     <CountryRankList
                         top={topJobs}
+                        all={allJobs}
                         tailCount={jobTailCount}
                         tailCountries={jobTailTypes}
                         tailSingle="job type"
@@ -293,7 +281,7 @@ function JobsSection() {
     );
 }
 
-function AssistanceSection() {
+function AssistancePanel() {
     const [categories, settled] = useSettledProp('categoryDistribution');
     const rows = Array.isArray(categories) ? categories : [];
     const items = ensureDistinctHues(
@@ -309,18 +297,21 @@ function AssistanceSection() {
     );
 
     return (
-        <ReportCard
-            title="Assistance mix"
-            takeaway={totalOf(items) > 0 ? `${topSlice(items).label} is the most given assistance.` : null}
-        >
+        <div>
+            <h3 className="mb-2 text-sm font-semibold text-slate-700 dark:text-slate-200">Assistance mix</h3>
             {!settled ? (
                 <LoadingBlock />
             ) : totalOf(items) === 0 ? (
                 <EmptyLine message="No assistance data to show yet." />
             ) : (
-                <DonutWithList slices={items} showAll />
+                <>
+                    <p className="mb-3 text-sm text-slate-500 dark:text-slate-400">
+                        {topSlice(items).label} is the most given assistance.
+                    </p>
+                    <DonutWithList slices={items} showAll />
+                </>
             )}
-        </ReportCard>
+        </div>
     );
 }
 
@@ -368,18 +359,19 @@ function CaseMixSection() {
 export default function CasesTab({ mapProps }) {
     return (
         <div className="space-y-4">
-            <div className="grid min-w-0 items-start gap-4 lg:grid-cols-2">
+            <div className="grid min-w-0 gap-4 lg:grid-cols-2">
                 <CaseVolumeChart />
                 <TrendsSection avgFinish={<AvgFinishLine />} />
             </div>
-            <div className="grid min-w-0 items-start gap-4 lg:grid-cols-2">
+            <div className="grid min-w-0 gap-4 lg:grid-cols-2">
                 <CaseMixSection />
                 <StatusSection />
             </div>
             <DemographicsSection mapProps={mapProps} />
-            <div className="grid min-w-0 items-start gap-4 lg:grid-cols-2">
-                <JobsSection />
-                <AssistanceSection />
+            <div className="grid min-w-0 gap-4 lg:grid-cols-2">
+                <div className="lg:col-span-2">
+                    <JobsSection />
+                </div>
             </div>
         </div>
     );

@@ -163,6 +163,40 @@ class ReferralServiceAddMilestoneTest extends TestCase
         $this->assertContains($oldStatus->id, $ids);
     }
 
+    public function test_overdue_dashboard_uses_activity_date_for_payload_and_fractional_severity(): void
+    {
+        $this->freezeTime();
+        $referral = $this->makeReferral();
+        $referral->forceFill(['created_at' => now()->subDays(40), 'updated_at' => now()->subDays(8)])->saveQuietly();
+        $milestone = Milestone::create(['refr_id' => $referral->id, 'user_id' => $this->agencyUser->id, 'title' => 'Old milestone']);
+        $milestone->forceFill(['created_at' => now()->subDays(40)])->saveQuietly();
+
+        $result = $this->referralService->getOverdueReferralsDashboard(UserRole::ADMIN->value, null, null, 7);
+        $row = collect($result['referrals']->items())->firstWhere('id', $referral->id);
+
+        $this->assertNotNull($row);
+        $this->assertSame(8, $row['days_since_last_activity']);
+        $this->assertStringContainsString('Status update', $row['last_activity_description']);
+        $this->assertEqualsWithDelta(now()->subDays(8)->timestamp, strtotime($row['last_activity_date']), 5);
+
+        $fractional = $this->makeReferral();
+        $fractional->forceFill(['created_at' => now()->subDays(30), 'updated_at' => now()->subDays(29)->subHours(12)])->saveQuietly();
+        $result = $this->referralService->getOverdueReferralsDashboard(UserRole::ADMIN->value, null, null, 7);
+        $this->assertSame(1, $result['stats']['moderate_count']);
+        $this->assertSame($fractional->id, $result['referrals']->items()[0]['id']);
+        $this->assertSame(1, $result['stats']['mild_count']);
+        $this->assertSame(0, $result['stats']['severe_count']);
+
+        $deleted = Milestone::create(['refr_id' => $fractional->id, 'user_id' => $this->agencyUser->id, 'title' => 'Deleted recent milestone']);
+        $deleted->delete();
+        $result = $this->referralService->getOverdueReferralsDashboard(UserRole::ADMIN->value, null, null, 7);
+        $row = collect($result['referrals']->items())->firstWhere('id', $fractional->id);
+        $this->assertSame(29, $row['days_since_last_activity']);
+        $this->assertSame('moderate', $row['severity']);
+        $this->assertSame(1, $result['stats']['moderate_count']);
+        $this->assertSame($fractional->id, $result['referrals']->items()[0]['id']);
+    }
+
     public function test_search_matches_partial_uuid_with_joined_sort(): void
     {
         $referral = $this->makeReferral();

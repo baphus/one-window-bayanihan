@@ -140,17 +140,85 @@ class TestingSeeder extends Seeder
         );
 
         // =====================================================================
-        // IDEMPOTENCY GUARD — skip all bulk inserts if data already exists
+        // RERUN BEHAVIOUR — each run appends a new synthetic batch, and repairs
+        // earlier batches written before services/categories were attached.
         // =====================================================================
 
-        // Only completed synthetic batches count; unrelated cases cannot skip seeding.
-        $syntheticCount = DB::table('cases')->where('user_id', DB::table('users')->where('email', 'case@bayanihan.gov.ph')->value('id'))
-            ->where('summary', 'like', 'Synthetic intake case — %')->count();
-        if ($syntheticCount >= 850) {
-            return;
+        $syntheticUserId = DB::table('users')->where('email', 'case@bayanihan.gov.ph')->value('id');
+        $syntheticCases = DB::table('cases')
+            ->where('user_id', $syntheticUserId)
+            ->where('summary', 'like', 'Synthetic intake case — %')
+            ->pluck('id');
+
+        // Referrals seeded with only the legacy required_services text: attach the
+        // matching agency service, copy its requirements, and keep the text in sync.
+        $orphanReferrals = DB::table('referrals')
+            ->whereIn('case_id', $syntheticCases)
+            ->where('is_deleted', false)
+            ->whereNotExists(fn ($q) => $q->select(DB::raw(1))->from('referral_services')
+                ->whereColumn('referral_services.referral_id', 'referrals.id'))
+            ->get(['id', 'agcy_id', 'required_services']);
+
+        if ($orphanReferrals->isNotEmpty()) {
+            $servicesByAgency = DB::table('services')->select('id', 'name', 'agcy_id')->where('is_deleted', false)->get()->groupBy('agcy_id');
+            $serviceRows = [];
+            $requirementRows = [];
+            foreach ($orphanReferrals as $orphan) {
+                $agencyServices = $servicesByAgency->get($orphan->agcy_id);
+                if ($agencyServices === null || $agencyServices->isEmpty()) {
+                    continue;
+                }
+                $service = $agencyServices->firstWhere('name', $orphan->required_services) ?? $agencyServices->first();
+                $serviceRows[] = ['referral_id' => $orphan->id, 'service_id' => $service->id, 'created_at' => now(), 'updated_at' => now()];
+                foreach (DB::table('service_requirements')->where('service_id', $service->id)->where('is_deleted', false)->orderBy('name')->get() as $index => $globalRequirement) {
+                    $requirementRows[] = [
+                        'id' => (string) Str::uuid(),
+                        'referral_id' => $orphan->id,
+                        'service_id' => $service->id,
+                        'name' => $globalRequirement->name,
+                        'description' => $globalRequirement->description,
+                        'is_required' => $globalRequirement->is_required,
+                        'sort_order' => $globalRequirement->sort_order ?? $index,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ];
+                }
+            }
+            foreach (array_chunk($serviceRows, 500) as $chunk) {
+                DB::table('referral_services')->insert($chunk);
+            }
+            foreach (array_chunk($requirementRows, 500) as $chunk) {
+                DB::table('referral_service_requirements')->insert($chunk);
+            }
         }
-        if ($syntheticCount > 0) {
-            throw new \LogicException('Partial synthetic case batch exists; resolve it before rerunning TestingSeeder.');
+
+        // Categories added after an earlier seed run.
+        $backfillIds = DB::table('case_categories')->pluck('id')->toArray();
+        if ($backfillIds !== []) {
+            $uncategorized = DB::table('cases')
+                ->whereIn('id', $syntheticCases)
+                ->whereNotExists(fn ($q) => $q->select(DB::raw(1))->from('case_file_case_category')
+                    ->whereColumn('case_file_case_category.case_id', 'cases.id'))
+                ->pluck('id');
+            $backfillRows = [];
+            foreach ($uncategorized as $caseId) {
+                // Reuse the case's referral categories so referral categories
+                // stay a subset of the case's categories.
+                $owned = DB::table('referrals')->where('case_id', $caseId)->whereNotNull('category_id')
+                    ->distinct()->pluck('category_id')->all();
+                $picked = $owned !== [] ? array_values(array_unique($owned)) : [$backfillIds[array_rand($backfillIds)]];
+                foreach ($picked as $catId) {
+                    $backfillRows[] = [
+                        'case_id' => $caseId,
+                        'case_category_id' => $catId,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ];
+                }
+            }
+            foreach (array_chunk($backfillRows, 500) as $chunk) {
+                DB::table('case_file_case_category')->insert($chunk);
+            }
         }
 
         $storedPaths = [];
@@ -185,15 +253,14 @@ class TestingSeeder extends Seeder
             if ($agencyIds === []) {
                 throw new \LogicException('Seed agencies before testing referrals.');
             }
-            $allServiceIds = DB::table('services')->pluck('id', 'agcy_id')->toArray();
+            $servicesByAgency = DB::table('services')->select('id', 'name', 'agcy_id')->orderBy('name')->get()->groupBy('agcy_id');
+            if ($servicesByAgency->isEmpty()) {
+                throw new \LogicException('Seed services before testing referrals.');
+            }
 
             $firstServicePerAgency = [];
             foreach ($agencies as $agency) {
-                $name = DB::table('services')
-                    ->where('agcy_id', $agency->id)
-                    ->orderBy('name')
-                    ->value('name');
-                $firstServicePerAgency[$agency->id] = $name ?? 'General Assistance';
+                $firstServicePerAgency[$agency->id] = $servicesByAgency->get($agency->id)?->first()->name ?? 'General Assistance';
             }
 
             // ---------------------------------------------------------------------
@@ -467,6 +534,38 @@ class TestingSeeder extends Seeder
             unset($cases);
 
             // =====================================================================
+            // 5b. CASE CATEGORIES — attach active categories to every case
+            // =====================================================================
+            $caseCategoryRows = [];
+            $caseCategories = [];
+            foreach ($caseIds as $caseId) {
+                // 80% single-category, 20% two categories. First entry also tags
+                // the case's referrals, so referral categories stay a subset of
+                // the case's categories.
+                $primary = $categoryIds[array_rand($categoryIds)];
+                $caseCategories[$caseId] = $primary;
+                $assigned = [$primary];
+                if (rand(1, 100) > 80) {
+                    $second = $categoryIds[array_rand($categoryIds)];
+                    if ($second !== $primary) {
+                        $assigned[] = $second;
+                    }
+                }
+                foreach ($assigned as $catId) {
+                    $caseCategoryRows[] = [
+                        'case_id' => $caseId,
+                        'case_category_id' => $catId,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ];
+                }
+            }
+            foreach (array_chunk($caseCategoryRows, 100) as $chunk) {
+                DB::table('case_file_case_category')->insert($chunk);
+            }
+            unset($caseCategoryRows);
+
+            // =====================================================================
             // 6. REFERRALS  (variable — target 896)
             //    Distribution: OPEN×2, CLOSED×2, PENDING_REVIEW×0, ARCHIVED×2
             //    Referral status: 30% PENDING, 25% PROCESSING, 15% FOR_COMPLIANCE,
@@ -489,12 +588,9 @@ class TestingSeeder extends Seeder
             }
 
             $referrals = [];
+            $referralServiceRows = [];
             $referralIds = [];
 
-            $caseCategories = [];
-            foreach ($caseIds as $caseId) {
-                $caseCategories[$caseId] = $categoryIds[array_rand($categoryIds)];
-            }
             $caseDocumentAuditRows = [];
             foreach ($caseIds as $caseId) {
                 $caseInsert = DB::table('cases')->where('id', $caseId)->first();
@@ -517,7 +613,15 @@ class TestingSeeder extends Seeder
 
                     // Pick a random agency
                     $agencyId = $agencyIds[array_rand($agencyIds)];
-                    $serviceName = $firstServicePerAgency[$agencyId] ?? 'General Assistance';
+                    $agencyServices = $servicesByAgency->get($agencyId);
+                    if ($agencyServices === null || $agencyServices->isEmpty()) {
+                        throw new \LogicException('Every testing referral agency must have at least one service.');
+                    }
+                    $service = $agencyId === ($agencies['owwa']->id ?? null) && $i % 4 === 0
+                        ? $agencyServices->firstWhere('name', 'EDSP (Emergency Shelter Assistance)')
+                        : null;
+                    $service ??= $agencyServices->random();
+                    $serviceName = $service->name;
                     $refStatus = $referralStatusPool[array_rand($referralStatusPool)];
 
                     // Referral created 1–3 days after the case
@@ -551,6 +655,12 @@ class TestingSeeder extends Seeder
                         $refUpdatedAt = $refCreatedAt->copy();
                     }
 
+                    $referralServiceRows[] = [
+                        'referral_id' => $refId,
+                        'service_id' => $service->id,
+                        'created_at' => $refCreatedAt,
+                        'updated_at' => $refCreatedAt,
+                    ];
                     $referrals[] = [
                         'id' => $refId,
                         'required_services' => $serviceName,
@@ -575,6 +685,11 @@ class TestingSeeder extends Seeder
             }
 
             unset($referrals);
+
+            foreach (array_chunk($referralServiceRows, 500) as $chunk) {
+                DB::table('referral_services')->insert($chunk);
+            }
+            unset($referralServiceRows);
 
             $slotsByReason = [
                 'DISTRESSED_WORKER' => ['passport_front_page', 'arrival_stamp', 'employment_contract', 'distress_certificate'],
