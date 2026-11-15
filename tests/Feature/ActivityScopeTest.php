@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Enums\UserRole;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\SetPostgresSession;
+use App\Models\ActivityEvent;
 use App\Models\Agency;
 use App\Models\AuditLog;
 use App\Models\CaseFile;
@@ -35,14 +36,23 @@ class ActivityScopeTest extends TestCase
         ]);
     }
 
-    private function activityDescriptions(User $user): array
+    /**
+     * The activity page renders audit sentences, not stored descriptions, so
+     * scope is asserted on the mirrored event id rather than on copy.
+     */
+    private function mirroredEventId(AuditLog $log): string
+    {
+        return (string) ActivityEvent::query()->where('audit_log_id', $log->getKey())->value('id');
+    }
+
+    private function visibleEventIds(User $user): array
     {
         return collect($this->actingAsWithMfa($user)
             ->withHeader('X-Inertia', 'true')
             ->get('/activity')
             ->assertOk()
             ->json('props.events.data'))
-            ->pluck('description')
+            ->pluck('id')
             ->all();
     }
 
@@ -60,19 +70,19 @@ class ActivityScopeTest extends TestCase
         $referralA = Referral::factory()->create(['case_id' => $caseA->id, 'agcy_id' => $agencyA->id]);
         $referralB = Referral::factory()->create(['case_id' => $caseB->id, 'agcy_id' => $agencyB->id]);
 
-        $this->log('case', 'CLOSE', $caseA->id, 'CM-A CASE', $managerA->id);
-        $this->log('referral', 'UPDATE', $referralA->id, 'CM-A REFERRAL', $managerA->id);
-        $this->log('case', 'CLOSE', $caseB->id, 'CM-B CASE', $managerB->id);
-        $this->log('referral', 'UPDATE', $referralB->id, 'CM-B REFERRAL', $managerB->id);
+        $caseALog = $this->log('case', 'CLOSE', $caseA->id, 'CM-A CASE', $managerA->id);
+        $referralALog = $this->log('referral', 'UPDATE', $referralA->id, 'CM-A REFERRAL', $managerA->id);
+        $caseBLog = $this->log('case', 'CLOSE', $caseB->id, 'CM-B CASE', $managerB->id);
+        $referralBLog = $this->log('referral', 'UPDATE', $referralB->id, 'CM-B REFERRAL', $managerB->id);
 
-        $descriptions = $this->activityDescriptions($managerA);
+        $ids = $this->visibleEventIds($managerA);
 
         // Manager A sees their own activity.
-        $this->assertContains('CM-A CASE', $descriptions);
-        $this->assertContains('CM-A REFERRAL', $descriptions);
+        $this->assertContains($this->mirroredEventId($caseALog), $ids);
+        $this->assertContains($this->mirroredEventId($referralALog), $ids);
         // Manager A also sees Manager B's activity — cross-manager visibility is intentional.
-        $this->assertContains('CM-B CASE', $descriptions);
-        $this->assertContains('CM-B REFERRAL', $descriptions);
+        $this->assertContains($this->mirroredEventId($caseBLog), $ids);
+        $this->assertContains($this->mirroredEventId($referralBLog), $ids);
     }
 
     public function test_case_manager_sees_unowned_case_events(): void
@@ -81,9 +91,9 @@ class ActivityScopeTest extends TestCase
         // are still visible to all case managers so the queue can be monitored.
         $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $case = CaseFile::factory()->create(['user_id' => null]);
-        $this->log('case', 'CLOSE', $case->id, 'UNOWNED CASE');
+        $log = $this->log('case', 'CLOSE', $case->id, 'UNOWNED CASE');
 
-        $this->assertContains('UNOWNED CASE', $this->activityDescriptions($manager));
+        $this->assertContains($this->mirroredEventId($log), $this->visibleEventIds($manager));
     }
 
     public function test_agency_sees_only_its_referral_events(): void
@@ -99,19 +109,19 @@ class ActivityScopeTest extends TestCase
         $referralX = Referral::factory()->create(['case_id' => $caseX->id, 'agcy_id' => $agencyX->id]);
         $referralY = Referral::factory()->create(['case_id' => $caseY->id, 'agcy_id' => $agencyY->id]);
 
-        $this->log('referral', 'UPDATE', $referralX->id, 'AGENCY-X REFERRAL');
-        $this->log('referral', 'UPDATE', $referralY->id, 'AGENCY-Y REFERRAL');
-        $this->log('case', 'CLOSE', $caseX->id, 'PARENT CASE EVENT');
-        $this->log('client', 'UPDATE', $caseX->id, 'CLIENT EVENT');
-        $this->log('case_document', 'DOWNLOAD', $caseX->id, 'DOCUMENT EVENT');
+        $ownLog = $this->log('referral', 'UPDATE', $referralX->id, 'AGENCY-X REFERRAL');
+        $otherAgencyLog = $this->log('referral', 'UPDATE', $referralY->id, 'AGENCY-Y REFERRAL');
+        $parentCaseLog = $this->log('case', 'CLOSE', $caseX->id, 'PARENT CASE EVENT');
+        $clientLog = $this->log('client', 'UPDATE', $caseX->id, 'CLIENT EVENT');
+        $documentLog = $this->log('case_document', 'DOWNLOAD', $caseX->id, 'DOCUMENT EVENT');
 
-        $descriptions = $this->activityDescriptions($agencyUser);
+        $ids = $this->visibleEventIds($agencyUser);
 
-        $this->assertContains('AGENCY-X REFERRAL', $descriptions);
-        $this->assertNotContains('AGENCY-Y REFERRAL', $descriptions);
-        $this->assertNotContains('PARENT CASE EVENT', $descriptions);
-        $this->assertNotContains('CLIENT EVENT', $descriptions);
-        $this->assertNotContains('DOCUMENT EVENT', $descriptions);
+        $this->assertContains($this->mirroredEventId($ownLog), $ids);
+        $this->assertNotContains($this->mirroredEventId($otherAgencyLog), $ids);
+        $this->assertNotContains($this->mirroredEventId($parentCaseLog), $ids);
+        $this->assertNotContains($this->mirroredEventId($clientLog), $ids);
+        $this->assertNotContains($this->mirroredEventId($documentLog), $ids);
     }
 
     public function test_admin_feed_contains_both_agencies_visible_events(): void
@@ -122,12 +132,12 @@ class ActivityScopeTest extends TestCase
         $referralX = Referral::factory()->create(['agcy_id' => $agencyX->id]);
         $referralY = Referral::factory()->create(['agcy_id' => $agencyY->id]);
 
-        $this->log('referral', 'UPDATE', $referralX->id, 'ADMIN AGENCY-X EVENT');
-        $this->log('referral', 'UPDATE', $referralY->id, 'ADMIN AGENCY-Y EVENT');
+        $logX = $this->log('referral', 'UPDATE', $referralX->id, 'ADMIN AGENCY-X EVENT');
+        $logY = $this->log('referral', 'UPDATE', $referralY->id, 'ADMIN AGENCY-Y EVENT');
 
-        $descriptions = $this->activityDescriptions($admin);
+        $ids = $this->visibleEventIds($admin);
 
-        $this->assertContains('ADMIN AGENCY-X EVENT', $descriptions);
-        $this->assertContains('ADMIN AGENCY-Y EVENT', $descriptions);
+        $this->assertContains($this->mirroredEventId($logX), $ids);
+        $this->assertContains($this->mirroredEventId($logY), $ids);
     }
 }

@@ -985,6 +985,24 @@ class AuditLogFormatterComprehensiveTest extends TestCase
         $this->assertContains('case number', $fieldLabels);
     }
 
+    public function test_change_values_that_are_not_identifiers_survive(): void
+    {
+        $formatter = new AuditLogFormatter;
+
+        // A UUID side is dropped; a long pure-digit value is a phone number or
+        // an amount, not an id, so it must stay.
+        $changes = $formatter->getStructuredChanges(
+            ['contact_number' => '09171234567', 'referral_id' => '42eee6a6-1111-4aaa-8bbb-123456789abc'],
+            ['contact_number' => '09170000000', 'referral_id' => '99fff9f9-2222-4ccc-8ddd-123456789abc'],
+            'UPDATE',
+        );
+
+        $byField = array_column($changes, null, 'field');
+
+        $this->assertSame('09170000000', $byField['contact_number']['new']);
+        $this->assertArrayNotHasKey('referral_id', $byField);
+    }
+
     // ========================================================================
     //  TEST SUITE 8: Actor name resolution
     // ========================================================================

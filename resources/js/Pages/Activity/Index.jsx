@@ -70,6 +70,7 @@ export default function ActivityIndex({
                     showActorFilter={false}
                     showRoleFilter={false}
                     showChangesFilter={false}
+                    searchPlaceholder="Search action, module, or actor..."
                 />
             </div>
         </AppLayout>

@@ -76,38 +76,7 @@ class DashboardService
                 ->orderBy('timestamp', 'desc')
                 ->take(10)
                 ->get()
-                ->map(function ($log) use ($formatter) {
-                    try {
-                        $display = $formatter->formatForAuditResponse($log);
-                    } catch (\Throwable $e) {
-                        report($e, ['context' => 'DashboardService: audit display formatting failed', 'log_id' => $log->getKey()]);
-                        $display = [
-                            'id' => (string) $log->getKey(),
-                            'message' => 'Activity recorded',
-                            'detail' => '',
-                            'changes' => [],
-                            'action' => $log->action,
-                            'module' => 'other',
-                            'actor' => 'System',
-                            'timestamp' => $log->timestamp?->toISOString(),
-                            'hasChanges' => false,
-                        ];
-                    }
-
-                    $changes = $display['changes'] ?? [];
-
-                    // Same shape AuditLogRow reads on the audit-log page.
-                    return [
-                        'id' => $log->id,
-                        'action' => $display['action'],
-                        'module' => $display['module'],
-                        'formatted_module' => $display['formatted_module'] ?? null,
-                        'message' => $display['message'],
-                        'changes' => $changes,
-                        'actor' => $display['actor'],
-                        'timestamp' => $display['timestamp'],
-                    ];
-                })
+                ->map(fn ($log) => $this->activityRow($log, $this->auditDisplay($log, $formatter)))
                 ->toArray();
         });
 
@@ -558,38 +527,7 @@ class DashboardService
                 ->orderBy('timestamp', 'desc')
                 ->take(10)
                 ->get()
-                ->map(function ($log) use ($formatter) {
-                    try {
-                        $display = $formatter->formatForAuditResponse($log);
-                    } catch (\Throwable $e) {
-                        report($e, ['context' => 'DashboardService: audit display formatting failed', 'log_id' => $log->getKey()]);
-                        $display = [
-                            'id' => (string) $log->getKey(),
-                            'message' => 'Activity recorded',
-                            'detail' => '',
-                            'changes' => [],
-                            'action' => $log->action,
-                            'module' => 'other',
-                            'actor' => 'System',
-                            'timestamp' => $log->timestamp?->toISOString(),
-                            'hasChanges' => false,
-                        ];
-                    }
-
-                    $changes = $display['changes'] ?? [];
-
-                    // Same shape AuditLogRow reads on the audit-log page.
-                    return [
-                        'id' => $log->id,
-                        'action' => $display['action'],
-                        'module' => $display['module'],
-                        'formatted_module' => $display['formatted_module'] ?? null,
-                        'message' => $display['message'],
-                        'changes' => $changes,
-                        'actor' => $display['actor'],
-                        'timestamp' => $display['timestamp'],
-                    ];
-                })
+                ->map(fn ($log) => $this->activityRow($log, $this->auditDisplay($log, $formatter)))
                 ->toArray();
         });
 
@@ -962,37 +900,7 @@ class DashboardService
                 ->orderBy('timestamp', 'desc')
                 ->take(8)
                 ->get()
-                ->map(function ($log) use ($formatter) {
-                    try {
-                        $display = $formatter->formatForAuditResponse($log);
-                    } catch (\Throwable $e) {
-                        report($e, ['context' => 'DashboardService: audit display formatting failed', 'log_id' => $log->getKey()]);
-                        $display = [
-                            'id' => (string) $log->getKey(),
-                            'message' => 'Activity recorded',
-                            'detail' => '',
-                            'changes' => [],
-                            'action' => $log->action,
-                            'module' => 'other',
-                            'actor' => $log->user?->name ?? 'System',
-                            'timestamp' => $log->timestamp?->toISOString(),
-                            'hasChanges' => false,
-                        ];
-                    }
-
-                    $changes = $display['changes'] ?? [];
-
-                    return [
-                        'id' => $display['id'],
-                        'action' => $display['action'],
-                        'module' => $display['module'],
-                        'formatted_module' => $display['formatted_module'] ?? null,
-                        'message' => $display['message'],
-                        'changes' => $changes,
-                        'actor' => $display['actor'],
-                        'timestamp' => $display['timestamp'],
-                    ];
-                })
+                ->map(fn ($log) => $this->activityRow($log, $this->auditDisplay($log, $formatter)))
                 ->toArray();
         });
 

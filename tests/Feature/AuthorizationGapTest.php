@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Enums\UserRole;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\SetPostgresSession;
+use App\Models\ActivityEvent;
 use App\Models\Agency;
 use App\Models\AuditLog;
 use App\Models\CaseCategory;
@@ -280,7 +281,13 @@ class AuthorizationGapTest extends TestCase
             ->get('/activity')
             ->json('props.events.data');
 
-        $this->assertContains('MILESTONE ON MY CASE', collect($data)->pluck('description')->all());
+        // The page renders audit sentences, so assert the mirrored event is
+        // visible rather than matching the stored description copy.
+        $milestoneEventId = (string) ActivityEvent::query()
+            ->where('audit_log_id', $milestoneLog->getKey())
+            ->value('id');
+
+        $this->assertContains($milestoneEventId, collect($data)->pluck('id')->all());
     }
 
     // ──────────────────────────────────────────────

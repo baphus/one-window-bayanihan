@@ -229,6 +229,9 @@ class AuditLogFormatter
      * True when a value is a raw database identifier (UUID, or a hex prefix of
      * one). Activity copy is names, numbers and titles only — an id is never
      * rendered, in a message or in a change list.
+     *
+     * A UUID prefix always contains a hex letter, so a pure-digit value stays:
+     * it is a phone number, an amount or a count, not an id.
      */
     private function isOpaqueIdentifier(mixed $value): bool
     {
@@ -236,7 +239,36 @@ class AuditLogFormatter
             return false;
         }
 
-        return Str::isUuid($value) || preg_match('/^[0-9a-f]{8,36}$/i', $value) === 1;
+        return Str::isUuid($value)
+            || preg_match('/^(?=[0-9a-f]*[a-f])[0-9a-f]{8,36}$/i', $value) === 1;
+    }
+
+    /**
+     * Strip database ids from stored free text. Legacy activity descriptions
+     * can still carry one ("created Referral ID 42eee6a6"); the append-only
+     * audit trail is never rewritten, so this happens at presentation time.
+     */
+    public static function redactIdentifiers(?string $text): string
+    {
+        if ($text === null || $text === '') {
+            return '';
+        }
+
+        // "Referral ID 42eee6a6" → "a referral"
+        $text = preg_replace_callback(
+            '/\b(Referral|Milestone|Case|Client|User|Agency|Document)\s+ID\s*[:#]?\s*[0-9a-f]{6,36}(?:-[0-9a-f]{4,12})*\b/iu',
+            fn (array $matches) => 'a '.strtolower($matches[1]),
+            $text,
+        ) ?? $text;
+
+        // Any remaining bare UUID.
+        $text = preg_replace(
+            '/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/iu',
+            '',
+            $text,
+        ) ?? $text;
+
+        return trim(preg_replace('/\s{2,}/u', ' ', $text) ?? $text);
     }
 
     /**

@@ -43,6 +43,7 @@ function sameStringSet(a, b) {
  * @param {Object} [props.filterValues={}] - Current filter state
  * @param {Object} [props.pagination] - Pagination info: total, currentPage, totalPages, from, to, perPage
  * @param {Function} [props.onPageChange] - Callback for page change
+ * @param {string} [props.searchPlaceholder] - Placeholder for the search input
  */
 export function AuditTimeline({
     logs = [],
@@ -59,6 +60,7 @@ export function AuditTimeline({
     showActorFilter = true,
     showRoleFilter = true,
     showChangesFilter = true,
+    searchPlaceholder = 'Search action, module, actor, or case number...',
 }) {
     const groupedLogs = useMemo(() => {
         const groups = {};
@@ -99,6 +101,7 @@ export function AuditTimeline({
                     showActorFilter={showActorFilter}
                     showRoleFilter={showRoleFilter}
                     showChangesFilter={showChangesFilter}
+                    searchPlaceholder={searchPlaceholder}
                 />
             )}
 
@@ -174,7 +177,7 @@ function TimelineEntry({ log }) {
 const CONTROL_BASE = 'h-8 px-2.5 border border-slate-300 rounded-md text-xs bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary';
 const LABEL_QUIET = 'text-[11px] font-medium uppercase tracking-wide text-slate-400';
 
-function FilterBar({ availableActions, availableModules, availableModulesLabels, availableCategories, activeCategories, filterValues, onFilterChange, showActorFilter, showRoleFilter, showChangesFilter }) {
+function FilterBar({ availableActions, availableModules, availableModulesLabels, availableCategories, activeCategories, filterValues, onFilterChange, showActorFilter, showRoleFilter, showChangesFilter, searchPlaceholder }) {
     /* ---------- local state for debounced search + Apply-gated dates ---------- */
     const [localSearch, setLocalSearch] = useState(() => filterValues.search || '');
     const [localDateFrom, setLocalDateFrom] = useState(() => filterValues.date_from || '');
@@ -383,7 +386,7 @@ function FilterBar({ availableActions, availableModules, availableModulesLabels,
                     <input
                         id={searchId}
                         type="text"
-                        placeholder="Search action, module, actor, or case number..."
+                        placeholder={searchPlaceholder}
                         value={localSearch}
                         onChange={handleSearchChange}
                         className={`${CONTROL_BASE} w-full pl-9 pr-8`}

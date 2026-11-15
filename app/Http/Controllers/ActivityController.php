@@ -180,7 +180,7 @@ class ActivityController extends Controller
                     try {
                         $display = $formatter->formatForAuditResponse($event->auditLog);
                     } catch (\Throwable $e) {
-                        report($e, ['context' => 'ActivityController: audit display formatting failed', 'activity_id' => $event->getKey()]);
+                        report($e);
                     }
                 }
 
@@ -189,7 +189,7 @@ class ActivityController extends Controller
                     'action' => $display['action'] ?? strtoupper((string) $event->action),
                     'module' => $module?->value ?? $event->module,
                     'formatted_module' => $display['formatted_module'] ?? ($module?->label() ?? $event->module),
-                    'message' => $display['message'] ?? $this->redactIdentifiers($event->description),
+                    'message' => $display['message'] ?? AuditLogFormatter::redactIdentifiers($event->description),
                     'changes' => $display['changes'] ?? [],
                     'actor' => $display['actor'] ?? ($event->actor_name ?? 'System'),
                     'timestamp' => $event->occurred_at?->toISOString(),
@@ -345,38 +345,9 @@ class ActivityController extends Controller
             'module' => $module?->value ?? $event->module,
             'moduleLabel' => $module?->label() ?? $event->module,
             'action' => $event->action,
-            'description' => $this->redactIdentifiers($event->description),
+            'description' => AuditLogFormatter::redactIdentifiers($event->description),
             'entityType' => $module?->value ?? $event->module,
             'link' => $links[(string) $event->entity_id] ?? null,
         ];
-    }
-
-    /**
-     * Activity copy is read by people, never by machines: a raw database id in
-     * it is noise at best and a disclosure at worst. Legacy descriptions can
-     * still carry one ("created Referral ID 42eee6a6"), so they are stripped at
-     * presentation time — the append-only mirror rows are never rewritten.
-     */
-    private function redactIdentifiers(?string $text): string
-    {
-        if ($text === null || $text === '') {
-            return '';
-        }
-
-        // "Referral ID 42eee6a6" → "a referral"
-        $text = preg_replace_callback(
-            '/\b(Referral|Milestone|Case|Client|User|Agency|Document)\s+ID\s*[:#]?\s*[0-9a-f]{6,36}(?:-[0-9a-f]{4,12})*\b/iu',
-            fn (array $matches) => 'a '.strtolower($matches[1]),
-            $text,
-        ) ?? $text;
-
-        // Any remaining bare UUID.
-        $text = preg_replace(
-            '/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/iu',
-            '',
-            $text,
-        ) ?? $text;
-
-        return trim(preg_replace('/\s{2,}/u', ' ', $text) ?? $text);
     }
 }
