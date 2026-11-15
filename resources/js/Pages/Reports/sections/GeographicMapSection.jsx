@@ -73,7 +73,7 @@ function GeographicPanel({ geoData, province, onProvinceClick, provinceOptions =
         selectedProvince={province}
         onProvinceClick={onProvinceClick}
       />
-      <ul aria-label="Cases by province" className="mt-4 divide-y divide-slate-100 dark:divide-slate-800">
+      <ul aria-label="Cases by province" className="sr-only focus-within:not-sr-only">
         {mapProvinces.map((item) => {
           const selected = province && [item.value, item.id, item.name].includes(province);
           return (

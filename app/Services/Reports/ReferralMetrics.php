@@ -205,25 +205,58 @@ class ReferralMetrics
         ];
     }
 
-    public function getMostRequestedService(?string $userId = null, ?string $role = null, ?string $fromDate = null, ?string $toDate = null, string $dateScope = 'case_created_at', ?string $province = null, ?string $city = null, ?string $agencyId = null): array
+    public function getMostRequestedServices(?string $userId = null, ?string $role = null, ?string $fromDate = null, ?string $toDate = null, string $dateScope = 'case_created_at', ?string $province = null, ?string $city = null, ?string $agencyId = null): array
     {
         $query = $this->referralQuery($userId, $role, $agencyId, $fromDate, $toDate, $dateScope);
         $this->applyGeoFilter($query, $province, $city);
 
-        $top = (clone $query)
+        return (clone $query)
             ->join('referral_services', 'referral_services.referral_id', '=', 'referrals.id')
             ->join('services', 'services.id', '=', 'referral_services.service_id')
-            ->leftJoin('agencies', 'agencies.id', '=', 'services.agcy_id')
-            ->select('services.name', 'agencies.name as agency_name', DB::raw('count(*) as total'))
+            ->join('agencies', 'agencies.id', '=', 'services.agcy_id')
+            ->select('services.name as service', 'agencies.name as agency', DB::raw('count(*) as count'))
             ->groupBy('services.name', 'agencies.name')
-            ->orderByDesc('total')
-            ->first();
+            ->orderByDesc('count')
+            ->orderBy('services.name')
+            ->orderBy('agencies.name')
+            ->limit(10)
+            ->get()
+            ->map(fn ($row) => ['service' => $row->service, 'agency' => $row->agency, 'count' => (int) $row->count])
+            ->all();
+    }
 
-        return [
-            'name' => $top?->name ?? 'N/A',
-            'value' => (int) ($top?->total ?? 0),
-            'agency' => $top?->agency_name ?? 'N/A',
-        ];
+    public function getOpenReferralBacklog(?string $userId = null, ?string $role = null, ?string $agencyId = null, ?string $province = null, ?string $city = null): array
+    {
+        $query = $this->referralQuery($userId, $role, $agencyId);
+        $this->applyGeoFilter($query, $province, $city);
+        $today = ReportCalendar::toLocalDate(now());
+
+        $counts = (clone $query)
+            ->whereIn('referrals.status', ['PENDING', 'PROCESSING', 'FOR_COMPLIANCE'])
+            ->selectRaw('CASE WHEN ?::date - (referrals.created_at AT TIME ZONE ? AT TIME ZONE ?)::date <= 7 THEN 0 WHEN ?::date - (referrals.created_at AT TIME ZONE ? AT TIME ZONE ?)::date <= 14 THEN 1 WHEN ?::date - (referrals.created_at AT TIME ZONE ? AT TIME ZONE ?)::date <= 30 THEN 2 ELSE 3 END as bucket', [$today, ReportCalendar::storageTimezone(), ReportCalendar::timezone(), $today, ReportCalendar::storageTimezone(), ReportCalendar::timezone(), $today, ReportCalendar::storageTimezone(), ReportCalendar::timezone()])
+            ->selectRaw("count(*) FILTER (WHERE referrals.status = 'PENDING') as pending")
+            ->selectRaw("count(*) FILTER (WHERE referrals.status = 'PROCESSING') as processing")
+            ->selectRaw("count(*) FILTER (WHERE referrals.status = 'FOR_COMPLIANCE') as for_compliance")
+            ->groupBy('bucket')
+            ->get()
+            ->keyBy('bucket');
+
+        return collect(['0–7 days', '8–14 days', '15–30 days', '31+ days'])
+            ->values()
+            ->map(fn ($label, $i) => [
+                'label' => $label,
+                'pending' => (int) ($counts[$i]->pending ?? 0),
+                'processing' => (int) ($counts[$i]->processing ?? 0),
+                'for_compliance' => (int) ($counts[$i]->for_compliance ?? 0),
+            ])
+            ->all();
+    }
+
+    public function getMostRequestedService(?string $userId = null, ?string $role = null, ?string $fromDate = null, ?string $toDate = null, string $dateScope = 'case_created_at', ?string $province = null, ?string $city = null, ?string $agencyId = null): array
+    {
+        $top = $this->getMostRequestedServices($userId, $role, $fromDate, $toDate, $dateScope, $province, $city, $agencyId)[0] ?? null;
+
+        return ['name' => $top['service'] ?? 'N/A', 'value' => $top['count'] ?? 0, 'agency' => $top['agency'] ?? 'N/A'];
     }
 
     public function getReferralCycleTimeDistribution(

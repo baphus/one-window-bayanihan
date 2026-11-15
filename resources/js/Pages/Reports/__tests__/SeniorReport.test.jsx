@@ -18,6 +18,7 @@ import {
 import { humanizeStatus } from '@/lib/statusLabels';
 
 vi.mock('react-chartjs-2', () => ({
+  Bar: (props) => <div data-testid="bar-chart" data-chart={JSON.stringify({ data: props.data, options: props.options })} />,
   Doughnut: (props) => (
     <div
       data-testid="donut-chart"
@@ -106,7 +107,7 @@ describe('SeniorReport visuals', () => {
   it('renders bars with labels and counts', () => {
     render(<BarRows items={toSlices(dist)} />);
     expect(screen.getByText('PENDING')).toBeInTheDocument();
-    expect(screen.getByText('60')).toBeInTheDocument();
+    expect(screen.getByText('60').closest('ul')).toHaveClass('sr-only');
   });
 
   it('renders a donut with an adjacent count-and-percent list', () => {
@@ -115,7 +116,7 @@ describe('SeniorReport visuals', () => {
     expect(JSON.parse(chart.getAttribute('data-labels'))).toEqual(['PENDING', 'PROCESSING', 'COMPLETED']);
     expect(JSON.parse(chart.getAttribute('data-values'))).toEqual([10, 30, 60]);
     expect(screen.getByText('COMPLETED')).toBeInTheDocument();
-    expect(screen.getByText('60 (60%)')).toBeInTheDocument();
+    expect(screen.getByText('60 (60%)')).toHaveClass('sr-only');
   });
 
   it('renders the list alone when slices exceed the 5-slice pie ceiling', () => {
@@ -255,48 +256,10 @@ describe('SeniorReport visuals', () => {
     );
     expect(screen.getByText('OWWA')).toBeInTheDocument();
     expect(screen.getByText('216')).toBeInTheDocument();
+    const chart = JSON.parse(screen.getByTestId('bar-chart').getAttribute('data-chart'));
+    expect(chart.options.scales.x.stacked).toBe(true);
+    expect(chart.data.datasets.map((dataset) => dataset.data)).toEqual([[84], [132]]);
     expect(screen.getByText('Active: 84 · Finished: 132')).toBeInTheDocument();
-  });
-
-  it('left-aligns funnel steps and stacked segments instead of centering them', () => {
-    const funnelSlices = toSlices(
-      {
-        labels: ['PENDING', 'PROCESSING', 'FOR_COMPLIANCE', 'COMPLETED', 'REJECTED'],
-        data: [96, 164, 41, 301, 18],
-        colors: [],
-      },
-      { humanizeLabels: true },
-    );
-    const { container: funnelContainer } = render(<FunnelSteps slices={funnelSlices} />);
-    const funnelBars = funnelContainer.querySelectorAll('div[style*="width"]');
-    expect(funnelBars.length).toBeGreaterThan(0);
-    funnelBars.forEach((bar) => {
-      expect(bar.parentElement.className).not.toMatch(/justify-center|mx-auto/);
-    });
-
-    const { container: stackedContainer } = render(
-      <StackedBars
-        rows={[
-          {
-            key: 'owwa',
-            label: 'OWWA',
-            total: 216,
-            segments: [
-              { key: 'active', label: 'Active', count: 84, hex: '#0b5a8c' },
-              { key: 'finished', label: 'Finished', count: 132, hex: '#059669' },
-            ],
-          },
-        ]}
-      />,
-    );
-    const track = stackedContainer.querySelector('.overflow-hidden');
-    expect(track.className).not.toMatch(/justify-center|mx-auto/);
-    const segments = track.querySelectorAll(':scope > div');
-    const widths = Array.from(segments).map((segment) =>
-      parseFloat(segment.style.width.replace('%', '')),
-    );
-    // Single row at peak fills its whole track with no centering gap.
-    expect(widths.reduce((sum, width) => sum + width, 0)).toBeCloseTo(100);
   });
 
   it('renders card titles, takeaways, and empty lines plainly', () => {

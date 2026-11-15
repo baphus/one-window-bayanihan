@@ -1,8 +1,12 @@
 import { useEffect, useState } from 'react';
 import { usePage } from '@inertiajs/react';
-import { Doughnut } from 'react-chartjs-2';
+import { Bar, Doughnut } from 'react-chartjs-2';
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Tooltip, Legend } from 'chart.js';
+
 import ChartSkeleton from '@/Components/Reports/ChartSkeleton';
 import { humanizeStatus } from '@/lib/statusLabels';
+
+ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
 
 const FALLBACK_HUES = ['#0b5a8c', '#0891b2', '#059669', '#d97706', '#ea580c', '#e11d48', '#7c3aed', '#0b7a75'];
 const EXTENDED_HUES = [...FALLBACK_HUES, '#9333ea', '#db2777', '#65a30d', '#0284c7', '#b45309', '#0d9488', '#e879f9', '#84cc16'];
@@ -143,12 +147,12 @@ export function ReportCard({ title, takeaway, children, dataTour }) {
     return (
         <section
             data-tour={dataTour}
-            className="min-w-0 rounded-xl border border-[#dce3eb] bg-white shadow-[0_1px_3px_rgba(23,35,51,0.04)] dark:border-slate-700 dark:bg-slate-900 print:break-inside-avoid"
+            className="flex min-w-0 flex-col rounded-xl border border-[#dce3eb] bg-white shadow-[0_1px_3px_rgba(23,35,51,0.04)] dark:border-slate-700 dark:bg-slate-900 print:break-inside-avoid"
         >
             <header className="mb-4 border-b border-slate-200 px-5 py-4 dark:border-slate-700">
                 <h2 className="text-[15px] font-bold text-black dark:text-white">{title}</h2>
             </header>
-            <div className="px-5 pb-4">
+            <div className="flex-1 px-5 pb-4">
                 {takeaway ? <p className="mb-3 text-xs text-slate-600 dark:text-slate-300">{takeaway}</p> : null}
                 {children}
             </div>
@@ -166,31 +170,30 @@ export function LoadingBlock() {
     return <ChartSkeleton />;
 }
 
-export function BarRows({ items }) {
-    const peak = Math.max(1, ...items.map((item) => Number(item.count ?? 0)));
+const chartOptions = (horizontal, stacked = false) => ({
+    indexAxis: horizontal ? 'y' : 'x',
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { display: stacked }, tooltip: { enabled: true } },
+    scales: {
+        x: { stacked, beginAtZero: true, ticks: horizontal ? { precision: 0 } : { maxRotation: 45, minRotation: 0 }, grid: { display: horizontal } },
+        y: { stacked, beginAtZero: true, ticks: horizontal ? { callback(value) { const label = this.getLabelForValue(value); return label.length > 30 ? label.slice(0, 27) + '…' : label; } } : { precision: 0 }, grid: { display: !horizontal } },
+    },
+});
+
+export function BarRows({ items, vertical = false }) {
+    const data = {
+        labels: items.map((item) => item.label),
+        datasets: [{ label: 'Count', data: items.map((item) => item.count), backgroundColor: items.map((item) => item.hex ?? '#0b5a8c'), borderRadius: 0 }],
+    };
     return (
-        <div className="space-y-4">
-            {items.map((item) => (
-                <div key={item.key}>
-                    <div className="flex items-baseline justify-between gap-3">
-                        <span className="text-sm font-bold text-slate-800 dark:text-slate-200">
-                            {item.label}
-                        </span>
-                        <span className="shrink-0 text-sm font-black text-slate-900 dark:text-slate-100">
-                            {item.count}
-                        </span>
-                    </div>
-                    <div className="mt-1.5 h-3 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
-                        <div
-                            className="h-full rounded-full"
-                            style={{
-                                width: `${Math.round((Number(item.count ?? 0) / peak) * 100)}%`,
-                                backgroundColor: item.hex ?? '#0b5a8c',
-                            }}
-                        />
-                    </div>
-                </div>
-            ))}
+        <div>
+            <div style={{ height: vertical ? 280 : Math.max(180, items.length * 42 + 40) }}>
+                <Bar data={data} options={chartOptions(!vertical)} aria-label="Bar chart" role="img" />
+            </div>
+            <ul className="sr-only">
+                {items.map((item) => <li key={item.key} className="flex justify-between gap-3"><span>{item.label}</span><strong>{item.count}</strong></li>)}
+            </ul>
         </div>
     );
 }
@@ -212,35 +215,13 @@ export function FunnelSteps({ slices }) {
     });
     const stages = PIPELINE_STAGES.map((key) => byKey[key]).filter((stage) => stage !== undefined);
     const exited = byKey.REJECTED;
-    const head = Math.max(1, ...stages.map((stage) => Number(stage.count ?? 0)));
-
     if (stages.length === 0) {
         return null;
     }
 
     return (
         <div className="space-y-3">
-            {stages.map((stage) => (
-                <div key={stage.key}>
-                    <div className="flex items-baseline justify-between gap-3">
-                        <span className="text-sm font-bold text-slate-800 dark:text-slate-200">
-                            {stage.label}
-                        </span>
-                        <span className="shrink-0 text-sm font-black text-slate-900 dark:text-slate-100">
-                            {stage.count}
-                        </span>
-                    </div>
-                    <div className="mt-1">
-                        <div
-                            className="h-5 rounded-md"
-                            style={{
-                                width: `${Math.max(8, Math.round((Number(stage.count ?? 0) / head) * 100))}%`,
-                                backgroundColor: stage.hex ?? '#0b5a8c',
-                            }}
-                        />
-                    </div>
-                </div>
-            ))}
+            <BarRows items={stages} />
             {exited && Number(exited.count) > 0 ? (
                 <div className="flex items-baseline justify-between gap-3 border-t border-dashed border-slate-300 pt-2 dark:border-slate-600">
                     <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
@@ -255,43 +236,30 @@ export function FunnelSteps({ slices }) {
     );
 }
 
-/**
- * Stacked horizontal bars for per-group active/finished-style splits.
- * Segment widths scale against the largest group total so groups stay
- * comparable; each row names every segment count inline, plus the total.
- */
 export function StackedBars({ rows }) {
-    const peak = Math.max(1, ...rows.map((row) => Number(row.total ?? 0)));
-
+    const segments = rows[0]?.segments ?? [];
+    const data = {
+        labels: rows.map((row) => row.label),
+        datasets: segments.map((segment) => ({
+            label: segment.label,
+            data: rows.map((row) => row.segments.find((item) => item.key === segment.key)?.count ?? 0),
+            backgroundColor: segment.hex ?? '#0b5a8c',
+            borderRadius: 0,
+        })),
+    };
     return (
-        <div className="space-y-4">
-            {rows.map((row) => (
-                <div key={row.key}>
-                    <div className="flex items-baseline justify-between gap-3">
-                        <span className="text-sm font-bold text-slate-800 dark:text-slate-200">
-                            {row.label}
-                        </span>
-                        <span className="shrink-0 text-sm font-black text-slate-900 dark:text-slate-100">
-                            {row.total}
-                        </span>
+        <div>
+            <div style={{ height: Math.max(220, rows.length * 48 + 70) }}>
+                <Bar data={data} options={chartOptions(true, true)} aria-label="Stacked bar chart" role="img" />
+            </div>
+            <div className="sr-only">
+                {rows.map((row) => (
+                    <div key={row.key}>
+                        <div className="flex justify-between gap-3"><strong>{row.label}</strong><strong>{row.total}</strong></div>
+                        <p>{row.segments.map((segment) => `${segment.label}: ${segment.count}`).join(' · ')}</p>
                     </div>
-                    <div className="mt-1.5 flex h-4 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
-                        {row.segments.map((segment) => (
-                            <div
-                                key={segment.key}
-                                title={`${segment.label}: ${segment.count}`}
-                                style={{
-                                    width: `${Math.max(segment.count > 0 ? 2 : 0, (Number(segment.count ?? 0) / peak) * 100)}%`,
-                                    backgroundColor: segment.hex ?? '#0b5a8c',
-                                }}
-                            />
-                        ))}
-                    </div>
-                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                        {row.segments.map((segment) => `${segment.label}: ${segment.count}`).join(' · ')}
-                    </p>
-                </div>
-            ))}
+                ))}
+            </div>
         </div>
     );
 }
@@ -341,7 +309,7 @@ export function DonutWithList({ slices, large = false }) {
                                 {slice.label}
                             </span>
                         </span>
-                        <span className="shrink-0 font-bold text-slate-900 dark:text-slate-100">
+                        <span className={chartable ? 'sr-only' : 'shrink-0 font-bold text-slate-900 dark:text-slate-100'}>
                             {slice.count} ({slice.percent}%)
                         </span>
                     </li>

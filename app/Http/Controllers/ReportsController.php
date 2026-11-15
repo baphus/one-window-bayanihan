@@ -103,6 +103,8 @@ class ReportsController extends Controller
             'geographicMapData' => fn () => $data('geographicMapData'),
             'caseIssueDistribution' => fn () => $data('caseIssueDistribution'),
             'mostRequestedService' => fn () => $data('mostRequestedService'),
+            'mostUsedServices' => Inertia::defer(fn () => array_map(fn ($row) => ['name' => $row['service'], 'agency' => $row['agency'], 'count' => $row['count']], $data('mostRequestedServices') ?? [])),
+            'openReferralBacklog' => Inertia::defer(fn () => $data('openReferralBacklog')),
             'cityDistribution' => fn () => $data('cityDistribution'),
 
             // ── DEFERRED PROPS (computed only when requested) ──

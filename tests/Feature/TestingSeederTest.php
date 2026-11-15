@@ -68,7 +68,19 @@ class TestingSeederTest extends TestCase
         $this->assertStringStartsWith('%PDF-1.4', Storage::disk('object-storage')->get($document->file_path));
         $this->assertDatabaseHas('cases', ['status' => 'OPEN', 'consent_text_version' => 'case-intake-v1']);
         $this->assertSame(0, DB::table('referrals')->whereNull('category_id')->count());
+        $this->assertSame(DB::table('referrals')->count(), DB::table('referral_services')->count());
+        $this->assertSame(0, DB::table('referral_services')->join('referrals', 'referrals.id', '=', 'referral_services.referral_id')->join('services', 'services.id', '=', 'referral_services.service_id')->whereColumn('referrals.agcy_id', '!=', 'services.agcy_id')->count());
+        $this->assertGreaterThan(0, DB::table('referral_services')->join('services', 'services.id', '=', 'referral_services.service_id')->where('services.name', 'EDSP (Emergency Shelter Assistance)')->count());
         $this->assertGreaterThan(0, DB::table('referrals')->distinct('category_id')->count('category_id'));
+        $this->assertSame(
+            DB::table('cases')->where('id', '!=', $existing->id)->count(),
+            DB::table('case_file_case_category')->where('case_id', '!=', $existing->id)->distinct('case_id')->count('case_id'),
+        );
+        $this->assertGreaterThan(0, DB::table('case_file_case_category')->distinct('case_category_id')->count('case_category_id'));
+        $this->assertGreaterThan(0, DB::table('case_file_case_category')->select('case_id')->groupBy('case_id')->havingRaw('count(*) > 1')->get()->count());
+        $this->assertSame(0, DB::table('referrals')->whereNotExists(fn ($q) => $q->select(DB::raw(1))->from('case_file_case_category')
+            ->whereColumn('case_file_case_category.case_id', 'referrals.case_id')
+            ->whereColumn('case_file_case_category.case_category_id', 'referrals.category_id'))->count());
         $this->assertSame(
             DB::table('cases')->where('status', 'OPEN')->value('proposed_assessments'),
             DB::table('cases')->where('status', 'OPEN')->value('confirmed_assessments'),
@@ -81,11 +93,22 @@ class TestingSeederTest extends TestCase
         $this->assertSame(0, DB::table('cases')->where('status', 'PENDING_REVIEW')->whereNotNull('reviewed_document_ids')->where('reviewed_document_ids', '!=', '[]')->count());
 
         $caseCount = DB::table('cases')->count();
+        // Simulate a batch seeded before case categories and referral services were attached.
+        DB::table('case_file_case_category')->where('case_id', '!=', $existing->id)->delete();
+        DB::table('referral_service_requirements')->delete();
+        DB::table('referral_services')->delete();
         $this->seed(TestingSeeder::class);
 
-        $this->assertDatabaseCount('cases', $caseCount);
+        // Reruns append another 850-case batch and repair the earlier one.
+        $this->assertDatabaseCount('cases', $caseCount + 850);
+        $this->assertSame(0, DB::table('cases')->where('id', '!=', $existing->id)->whereNotExists(fn ($q) => $q->select(DB::raw(1))->from('case_file_case_category')
+            ->whereColumn('case_file_case_category.case_id', 'cases.id'))->count());
+        $this->assertSame(0, DB::table('referrals')->whereNotExists(fn ($q) => $q->select(DB::raw(1))->from('referral_services')
+            ->whereColumn('referral_services.referral_id', 'referrals.id'))->count());
+        $this->assertSame(DB::table('referrals')->count(), DB::table('referral_services')->count());
+        $this->assertGreaterThan(0, DB::table('referral_service_requirements')->count());
         $this->assertFalse(Schema::hasTable('clients'));
-        $this->assertSame('OWB-202610-00853', $generator->nextCaseNumber());
+        $this->assertSame('OWB-202610-01703', $generator->nextCaseNumber());
     }
 
     public function test_failed_document_write_rolls_back_synthetic_cases(): void
@@ -139,7 +162,9 @@ class TestingSeederTest extends TestCase
 
         $auditCount = DB::table('audit_logs')->count();
         $this->seed(TestingSeeder::class);
-        $this->assertDatabaseCount('cases', 862);
-        $this->assertDatabaseCount('audit_logs', $auditCount);
+        // Each rerun appends a batch instead of skipping.
+        $this->assertDatabaseCount('cases', 1712);
+        $this->assertGreaterThan($auditCount, DB::table('audit_logs')->count());
+        $this->assertEquals($before, DB::table('cases')->where('id', $existing->id)->first());
     }
 }
