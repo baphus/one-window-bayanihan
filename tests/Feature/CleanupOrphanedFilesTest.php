@@ -6,6 +6,7 @@ use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\CaseDocument;
 use App\Models\CaseFile;
+use App\Models\GeneratedDocument;
 use App\Models\Referral;
 use App\Models\ReferralAttachment;
 use App\Models\User;
@@ -66,6 +67,39 @@ class CleanupOrphanedFilesTest extends TestCase
         $exitCode = Artisan::call('storage:cleanup-orphans');
 
         $this->assertEquals(0, $exitCode);
+    }
+
+    public function test_mixed_case_and_generated_document_sweep_is_repeatable(): void
+    {
+        $retentionDays = (int) config('app.trash_retention_days', 90);
+        CaseDocument::create([
+            'id' => fake()->uuid(),
+            'file_name' => 'old.pdf',
+            'file_path' => 'case-files/mixed-old.pdf',
+            'file_type' => 'application/pdf',
+            'case_id' => $this->case->id,
+            'user_id' => $this->user->id,
+            'is_deleted' => true,
+            'deleted_at' => now()->subDays($retentionDays + 5),
+        ]);
+        $generated = GeneratedDocument::create([
+            'user_id' => $this->user->id,
+            'case_id' => $this->case->id,
+            'type' => 'report',
+            'filename' => 'report.xlsx',
+            'path' => 'generated-documents/report.xlsx',
+            'status' => 'completed',
+        ]);
+        $generated->forceFill(['created_at' => now()->subDays(400)])->save();
+
+        $mock = $this->createMock(StorageService::class);
+        $mock->expects($this->exactly(2))->method('delete')->willReturn(true);
+        $this->instance(StorageService::class, $mock);
+
+        $this->assertSame(0, Artisan::call('storage:cleanup-orphans'));
+        $this->assertSame(0, Artisan::call('storage:cleanup-orphans'));
+        $this->assertSame(GeneratedDocument::STATUS_EXPIRED, $generated->fresh()->status);
+        $this->assertNull($generated->fresh()->path);
     }
 
     public function test_command_skips_recently_deleted(): void

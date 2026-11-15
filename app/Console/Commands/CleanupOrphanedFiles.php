@@ -59,7 +59,6 @@ class CleanupOrphanedFiles extends Command
      * Whether the table currently being swept carries files_deleted_at.
      * Resolved once per run; null means "not looked up yet".
      */
-    private ?bool $hasStampColumn = null;
 
     /**
      * Delete stored files for rows that are soft-deleted, in the trash longer
@@ -74,8 +73,7 @@ class CleanupOrphanedFiles extends Command
      * also be past that window: a document trashed yesterday is still restorable
      * even though its case is live.
      *
-     * Every delete is stamped with files_deleted_at so the next nightly run
-     * skips it instead of retrying the same key forever.
+     * Swept rows are marked so the next nightly run skips the same key.
      */
     public function handle(StorageService $storageService): int
     {
@@ -86,7 +84,6 @@ class CleanupOrphanedFiles extends Command
         $this->referralCaseCache = [];
         $this->messageReferralCache = [];
         $this->retained = 0;
-        $this->hasStampColumn = null;
 
         // Same window the purge uses, resolved from the setting rather than
         // config('app.trash_retention_days'). Leaving this on config meant an
@@ -265,13 +262,8 @@ class CleanupOrphanedFiles extends Command
      */
     private function stamp(Model $row, string $path): void
     {
-        // Only three of the four tables carry the column; generated_documents
-        // marks itself by clearing `path` instead. Resolved once per run.
-        if ($this->hasStampColumn === null) {
-            $this->hasStampColumn = Schema::hasColumn($row->getTable(), 'files_deleted_at');
-        }
-
-        if (! $this->hasStampColumn) {
+        // generated_documents marks itself by clearing `path` instead.
+        if (! Schema::hasColumn($row->getTable(), 'files_deleted_at')) {
             return;
         }
 

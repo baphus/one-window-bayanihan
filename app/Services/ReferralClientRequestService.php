@@ -178,52 +178,49 @@ class ReferralClientRequestService
             }
         }
 
-        [$message, $referral] = DB::transaction(function () use ($request, $body, $sender, $isOwner, $files, $requestItemIds) {
-            $lockedRequest = ReferralClientRequest::query()
-                ->lockForUpdate()
-                ->findOrFail($request->id);
-            $referral = Referral::query()->lockForUpdate()->findOrFail($lockedRequest->referral_id);
-            $case = $referral->caseFile()->lockForUpdate()->first();
-            $referral->setRelation('caseFile', $case);
+        $storedPaths = [];
+        try {
+            [$message, $referral] = DB::transaction(function () use ($request, $body, $sender, $isOwner, $files, $requestItemIds, &$storedPaths) {
+                $lockedRequest = ReferralClientRequest::query()
+                    ->lockForUpdate()
+                    ->findOrFail($request->id);
+                $referral = Referral::query()->lockForUpdate()->findOrFail($lockedRequest->referral_id);
+                $case = $referral->caseFile()->lockForUpdate()->first();
+                $referral->setRelation('caseFile', $case);
 
-            $lockedLink = null;
-            if ($isOwner) {
-                if ($sender->role !== UserRole::OFW->value || $sender->is_active === false || ! $case || $case->ofw_user_id !== $sender->id) {
-                    throw new AuthorizationException('You are not allowed to reply to this request.');
+                $lockedLink = null;
+                if ($isOwner) {
+                    if ($sender->role !== UserRole::OFW->value || $sender->is_active === false || ! $case || $case->ofw_user_id !== $sender->id) {
+                        throw new AuthorizationException('You are not allowed to reply to this request.');
+                    }
+                } else {
+                    $lockedLink = ReferralClientAccessLink::query()->lockForUpdate()->findOrFail($sender->id);
+
+                    if ($lockedLink->request_id !== $lockedRequest->id) {
+                        throw new AuthorizationException('This access link does not belong to the request.');
+                    }
+                    if ($lockedLink->revoked_at !== null || ! $lockedLink->expires_at?->isFuture()) {
+                        throw new LogicException('This access link is no longer usable.');
+                    }
                 }
-            } else {
-                $lockedLink = ReferralClientAccessLink::query()->lockForUpdate()->findOrFail($sender->id);
 
-                if ($lockedLink->request_id !== $lockedRequest->id) {
-                    throw new AuthorizationException('This access link does not belong to the request.');
+                $this->assertClientFacingWriteAllowed($referral);
+                $this->assertOpen($lockedRequest);
+
+                $message = ReferralClientMessage::create([
+                    'request_id' => $lockedRequest->id,
+                    'body' => $body,
+                    'sender_kind' => $isOwner ? ReferralClientMessage::SENDER_CLIENT_USER : ReferralClientMessage::SENDER_CLIENT_ACCESS,
+                    'user_id' => $isOwner ? $sender->id : null,
+                    'access_link_id' => $lockedLink?->id,
+                    'kind' => ReferralClientMessage::KIND_MESSAGE,
+                ]);
+
+                $items = $lockedRequest->items()->whereIn('id', array_filter($requestItemIds))->get()->keyBy('id');
+                $hasActiveItems = $lockedRequest->items()->exists();
+                if ($hasActiveItems && collect($files)->keys()->contains(fn ($index) => empty($requestItemIds[$index]))) {
+                    throw new InvalidArgumentException('Select a checklist item for every uploaded document.');
                 }
-                if ($lockedLink->revoked_at !== null || ! $lockedLink->expires_at?->isFuture()) {
-                    throw new LogicException('This access link is no longer usable.');
-                }
-            }
-
-            $this->assertClientFacingWriteAllowed($referral);
-            $this->assertOpen($lockedRequest);
-
-            $message = ReferralClientMessage::create([
-                'request_id' => $lockedRequest->id,
-                'body' => $body,
-                'sender_kind' => $isOwner ? ReferralClientMessage::SENDER_CLIENT_USER : ReferralClientMessage::SENDER_CLIENT_ACCESS,
-                'user_id' => $isOwner ? $sender->id : null,
-                'access_link_id' => $lockedLink?->id,
-                'kind' => ReferralClientMessage::KIND_MESSAGE,
-            ]);
-
-            $items = $lockedRequest->items()->whereIn('id', array_filter($requestItemIds))->get()->keyBy('id');
-            $hasActiveItems = $lockedRequest->items()->exists();
-            if ($hasActiveItems && collect($files)->keys()->contains(fn ($index) => empty($requestItemIds[$index]))) {
-                throw new InvalidArgumentException('Select a checklist item for every uploaded document.');
-            }
-            // Rows are new (and roll back with the transaction); the stored
-            // files are not. Remember their paths so a failed reply after the
-            // first upload does not leave orphaned objects in the bucket.
-            $storedPaths = [];
-            try {
                 foreach ($files as $index => $file) {
                     $itemId = $requestItemIds[$index] ?? null;
                     if ($itemId !== null && ! $items->has($itemId)) {
@@ -255,54 +252,54 @@ class ReferralClientRequestService
                         $items[$itemId]->attachments()->where('id', '<>', $attachment->id)->update(['is_deleted' => true, 'deleted_at' => now()]);
                     }
                 }
-            } catch (\Throwable $e) {
-                foreach ($storedPaths as $path) {
-                    try {
-                        $this->storage->delete($path);
-                    } catch (\Throwable $cleanupError) {
-                        report($cleanupError);
-                    }
-                }
 
-                throw $e;
-            }
+                $lockedRequest->update(['status' => ReferralClientRequest::STATUS_CLIENT_RESPONDED]);
 
-            $lockedRequest->update(['status' => ReferralClientRequest::STATUS_CLIENT_RESPONDED]);
-
-            // Anonymous actor: the holder of the client access link.
-            $audit = AuditLogger::replyClientRequest()
-                ->forEntity($referral, $referral->agency?->name)
-                ->module(AuditModule::REFERRAL_CLIENT_REQUEST)
-                ->context(null, ['attachment_count' => count($files)]);
-
-            $isOwner ? $audit->by($sender) : $audit->byId(null);
-            $audit->write();
-
-            if ($files !== []) {
-                $upload = AuditLogger::uploadReplyDoc()
+                // Anonymous actor: the holder of the client access link.
+                $audit = AuditLogger::replyClientRequest()
                     ->forEntity($referral, $referral->agency?->name)
                     ->module(AuditModule::REFERRAL_CLIENT_REQUEST)
-                    ->context(null, ['count' => count($files)]);
+                    ->context(null, ['attachment_count' => count($files)]);
 
-                $isOwner ? $upload->by($sender) : $upload->byId(null);
-                $upload->write();
+                $isOwner ? $audit->by($sender) : $audit->byId(null);
+                $audit->write();
+
+                if ($files !== []) {
+                    $upload = AuditLogger::uploadReplyDoc()
+                        ->forEntity($referral, $referral->agency?->name)
+                        ->module(AuditModule::REFERRAL_CLIENT_REQUEST)
+                        ->context(null, ['count' => count($files)]);
+
+                    $isOwner ? $upload->by($sender) : $upload->byId(null);
+                    $upload->write();
+                }
+
+                $this->eventRecorder->clientRequestActivity(
+                    $lockedRequest->loadMissing('referral'),
+                    'client_responded',
+                    'You responded to “'.$lockedRequest->title.'”',
+                    match (true) {
+                        $files === [] => 'You sent a response.',
+                        trim($body) === '' => 'You submitted '.count($files).' '.(count($files) === 1 ? 'document.' : 'documents.'),
+                        default => 'You sent a response and submitted '.count($files).' '.(count($files) === 1 ? 'document.' : 'documents.'),
+                    },
+                    'client',
+                    count($files),
+                );
+
+                return [$message, $referral];
+            });
+        } catch (\Throwable $exception) {
+            foreach ($storedPaths as $path) {
+                try {
+                    $this->storage->delete($path);
+                } catch (\Throwable $cleanupError) {
+                    report($cleanupError);
+                }
             }
 
-            $this->eventRecorder->clientRequestActivity(
-                $lockedRequest->loadMissing('referral'),
-                'client_responded',
-                'You responded to “'.$lockedRequest->title.'”',
-                match (true) {
-                    $files === [] => 'You sent a response.',
-                    trim($body) === '' => 'You submitted '.count($files).' '.(count($files) === 1 ? 'document.' : 'documents.'),
-                    default => 'You sent a response and submitted '.count($files).' '.(count($files) === 1 ? 'document.' : 'documents.'),
-                },
-                'client',
-                count($files),
-            );
-
-            return [$message, $referral];
-        });
+            throw $exception;
+        }
 
         return $message->load(['accessLink', 'request', 'attachments']);
     }

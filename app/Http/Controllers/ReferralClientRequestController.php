@@ -650,7 +650,7 @@ class ReferralClientRequestController extends Controller
     private function notifyCaseManager(ReferralClientRequest $clientRequest, string $activity, ?User $actor = null): void
     {
         $clientRequest->loadMissing('referral.caseFile');
-        $owner = $clientRequest->referral?->caseFile?->user;
+        $owner = User::find($clientRequest->referral?->caseFile?->assigned_case_manager_id);
         if ($owner) {
             $owner->notify(new ReferralClientRequestActivity(
                 $activity,
@@ -735,20 +735,21 @@ class ReferralClientRequestController extends Controller
     private function notifyClientOfRevision(ReferralClientRequest $clientRequest): void
     {
         $clientRequest->loadMissing('referral.caseFile');
-        $owner = User::find($clientRequest->referral?->caseFile?->ofw_user_id);
-        if (! $owner) {
+        $case = $clientRequest->referral?->caseFile;
+        $email = $case?->email;
+        if (! $case || ! $email) {
             return;
         }
 
-        $owner->notify(new ReferralClientRequestActivity(
-            'needs_revision',
-            $clientRequest->id,
-            $clientRequest->referral_id,
-            $clientRequest->title,
-            $clientRequest->status,
-            $clientRequest->referral?->caseFile?->case_number,
-            null,
-        ));
+        CaseNotification::create([
+            'case_id' => $case->id,
+            'client_email' => $email,
+            'type' => 'client_request_needs_revision',
+            'title' => 'Changes needed on your document',
+            'message' => "The agency needs changes to a document for '{$clientRequest->title}'. Open your request to review the details.",
+            'data' => ['request_id' => $clientRequest->id, 'referral_id' => $clientRequest->referral_id],
+            'related_url' => null,
+        ]);
     }
 
     private function agencyPayload(ReferralClientRequest $clientRequest): array

@@ -6,6 +6,7 @@ use App\DTOs\FileStoreResult;
 use App\Enums\UserRole;
 use App\Models\ReferralClientMessage;
 use App\Models\User;
+use App\Services\CaseEventRecorder;
 use App\Services\ReferralClientRequestService;
 use App\Services\StorageService;
 use Illuminate\Http\UploadedFile;
@@ -69,6 +70,31 @@ class ClientReplyFailureTest extends ReferralClientInboxTestCase
 
         $this->assertSame(['client-request-attachments/first.pdf'], $deleted);
         $this->assertSame(0, ReferralClientMessage::query()->where('request_id', $context['request']->id)->count());
+    }
+
+    public function test_a_late_failure_cleans_uploaded_file_after_all_uploads(): void
+    {
+        $context = $this->ownerContext();
+        $deleted = [];
+        $this->fakeStorage(
+            fn (int $call) => new FileStoreResult('client-request-attachments/reply.pdf', 'reply.pdf', 'reply.pdf', 'application/pdf', 10),
+            $deleted,
+        );
+        $eventRecorder = $this->mock(CaseEventRecorder::class);
+        $eventRecorder->shouldReceive('clientRequestActivity')->once()->andThrow(new \RuntimeException('late failure'));
+
+        try {
+            app(ReferralClientRequestService::class)->sendClientMessage(
+                $context['request'], 'Reply', $context['owner'], [$this->pdf()], [],
+            );
+            $this->fail('A late transactional failure should reject the reply.');
+        } catch (\RuntimeException $exception) {
+            $this->assertSame('late failure', $exception->getMessage());
+        }
+
+        $this->assertSame(['client-request-attachments/reply.pdf'], $deleted);
+        $this->assertSame(0, ReferralClientMessage::query()->where('request_id', $context['request']->id)->count());
+        $this->assertSame('OPEN', $context['request']->fresh()->status);
     }
 
     private function ownerContext(): array

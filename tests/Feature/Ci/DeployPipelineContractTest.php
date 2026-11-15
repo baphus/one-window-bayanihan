@@ -13,6 +13,14 @@ use Tests\TestCase;
  */
 class DeployPipelineContractTest extends TestCase
 {
+    public function test_shared_redis_does_not_evict_queued_jobs(): void
+    {
+        $compose = (string) file_get_contents(base_path('docker-compose.yml'));
+
+        $this->assertStringContainsString('--maxmemory-policy noeviction', $compose);
+        $this->assertStringNotContainsString('--maxmemory-policy allkeys-lru', $compose);
+    }
+
     private function deploy(): string
     {
         return (string) file_get_contents(base_path('.github/workflows/deploy.yml'));
@@ -106,9 +114,24 @@ class DeployPipelineContractTest extends TestCase
         );
 
         $this->assertStringContainsString(
-            "'.containers.app.image = \$image'",
+            "--query 'containerServices[0].currentDeployment'",
             $workflow,
-            'The rollback must reuse the rendered payload with the previous image'
+            'The previous deployment settings must be captured before the new deployment is submitted'
+        );
+        $this->assertLessThan(
+            strpos($workflow, '- name: Deploy to Lightsail'),
+            strpos($workflow, "--query 'containerServices[0].currentDeployment'"),
+            'The prior deployment snapshot must precede deployment submission'
+        );
+        $this->assertStringContainsString(
+            'previous-deployment.json',
+            $workflow,
+            'Rollback must submit the captured prior containers and public endpoint, not new environment settings'
+        );
+        $this->assertStringNotContainsString(
+            '"$RUNNER_TEMP/deployment.json" > "$RUNNER_TEMP/rollback.json"',
+            $workflow,
+            'Rollback must not base its environment on the new deployment payload'
         );
     }
 

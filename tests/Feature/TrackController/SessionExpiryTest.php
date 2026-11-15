@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\TrackController;
 
+use App\Models\CaseFile;
 use App\Services\TrackingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Routing\Middleware\ThrottleRequests;
@@ -38,6 +39,12 @@ class SessionExpiryTest extends TestCase
      */
     private function assertBindingValidity(bool $expected, array $binding): void
     {
+        if (! CaseFile::query()->where('tracker_number', $this->trackerNumber)->exists()) {
+            CaseFile::factory()->create([
+                'tracker_number' => $this->trackerNumber,
+                'email' => 'ofw@example.com',
+            ]);
+        }
         $session = $this->app['session']->driver();
         $session->put(TrackingService::SESSION_KEY, array_merge([
             'tracker_number' => $this->trackerNumber,

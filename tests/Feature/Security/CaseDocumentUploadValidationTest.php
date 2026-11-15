@@ -3,8 +3,10 @@
 namespace Tests\Feature\Security;
 
 use App\DTOs\FileStoreResult;
+use App\Models\CaseDocument;
 use App\Models\CaseFile;
 use App\Models\User;
+use App\Services\IntakeDocumentService;
 use App\Services\StorageService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -42,6 +44,30 @@ class CaseDocumentUploadValidationTest extends TestCase
 
         $response->assertCreated();
         $response->assertJsonStructure(['id', 'file_name', 'file_path', 'file_type', 'size']);
+    }
+
+    public function test_database_failure_after_upload_deletes_object_and_rolls_back_document(): void
+    {
+        $user = User::factory()->create();
+        $caseFile = CaseFile::factory()->create(['user_id' => $user->id]);
+        $this->actingAsWithMfa($user);
+
+        $storage = $this->createMock(StorageService::class);
+        $storage->method('validate')->willReturn([]);
+        $storage->method('store')->willReturn(new FileStoreResult(
+            path: 'case-documents/test/rollback.pdf', originalName: 'rollback.pdf', storedName: 'rollback.pdf',
+            type: 'application/pdf', size: 10, success: true,
+        ));
+        $storage->expects($this->once())->method('delete')->with('case-documents/test/rollback.pdf')->willReturn(true);
+        $this->app->instance(StorageService::class, $storage);
+        $this->mock(IntakeDocumentService::class)
+            ->shouldReceive('syncRequirements')->once()->andThrow(new \RuntimeException('sync failed'));
+
+        $this->postJson(route('cases.documents.store', $caseFile->id), [
+            'file' => UploadedFile::fake()->create('rollback.pdf', 10, 'application/pdf'),
+        ])->assertInternalServerError();
+
+        $this->assertSame(0, CaseDocument::query()->where('case_id', $caseFile->id)->count());
     }
 
     public function test_invalid_file_type_returns_422(): void

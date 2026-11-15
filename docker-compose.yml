@@ -162,11 +162,12 @@ services:
   # Provides ~30x faster OTP handling and eliminates database queue polling.
   redis:
     image: redis:7-alpine
+    # Preserve queue keys under memory pressure; Redis is shared with cache.
     command: >
       redis-server
       --appendonly yes
       --maxmemory 128mb
-      --maxmemory-policy allkeys-lru
+      --maxmemory-policy noeviction
       --tcp-keepalive 60
     # ports:
     #   - "${REDIS_EXPOSE_PORT:-6379}:6379"  # exposed only when REDIS_EXPOSE_PORT is explicitly set

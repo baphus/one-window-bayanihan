@@ -84,7 +84,7 @@ class ReferralNotifier
                 : null;
             $statusNotification = new ReferralStatusChanged($referral, $oldStatus, $status, $actorName, $reason);
 
-            $caseManager = User::find($referral->caseFile->user_id);
+            $caseManager = User::find($referral->caseFile->assigned_case_manager_id);
             if ($caseManager && ($caseManager->id !== $userId || $status === 'COMPLETED')) {
                 $this->afterCommit($referral, fn () => Notification::send([$caseManager], $statusNotification));
             }
@@ -131,7 +131,7 @@ class ReferralNotifier
     {
         // Dispatch notifications for the milestone (already loaded above)
         if ($referral && $referral->caseFile) {
-            $caseManager = User::find($referral->caseFile->user_id);
+            $caseManager = User::find($referral->caseFile->assigned_case_manager_id);
             $agencyUsers = User::where('agcy_id', $referral->agcy_id)
                 ->where('role', UserRole::AGENCY->value)
                 ->where('is_active', true)
