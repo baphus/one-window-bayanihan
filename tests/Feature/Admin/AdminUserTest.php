@@ -465,6 +465,23 @@ class AdminUserTest extends TestCase
         $this->assertTrue($ids->contains($citizen->id));
     }
 
+    public function test_index_defaults_to_active_accounts_and_all_includes_inactive_non_deleted_accounts(): void
+    {
+        $inactive = User::factory()->create([
+            'role' => UserRole::CASE_MANAGER->value,
+            'is_active' => false,
+            'is_deleted' => false,
+        ]);
+
+        $defaultResponse = $this->actingAsWithMfa($this->admin)->get(route('admin.users.index'));
+        $defaultIds = collect($defaultResponse->viewData('page')['props']['users']['data'])->pluck('id');
+        $this->assertFalse($defaultIds->contains($inactive->id));
+
+        $allResponse = $this->actingAsWithMfa($this->admin)->get(route('admin.users.index', ['show_deleted' => '1']));
+        $allIds = collect($allResponse->viewData('page')['props']['users']['data'])->pluck('id');
+        $this->assertTrue($allIds->contains($inactive->id));
+    }
+
     public function test_admin_can_reactivate_user_and_audit_is_logged(): void
     {
         $target = User::factory()->create([

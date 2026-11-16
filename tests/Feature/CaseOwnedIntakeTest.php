@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\AuditLog;
 use App\Models\CaseFile;
 use App\Models\User;
+use App\Services\CaseService;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -53,6 +54,8 @@ class CaseOwnedIntakeTest extends TestCase
             $this->assertArrayNotHasKey($field, $audit->new_value);
         }
         $this->assertSame('OFW', $payload['client_type']);
+        $this->assertSame(36, app(CaseService::class)->caseListPayload($case)['age_at_intake']);
+        $this->assertArrayNotHasKey('date_of_birth', app(CaseService::class)->caseListPayload($case));
         $this->assertSame($case->case_number, $audit->new_value['case_number']);
         $this->assertArrayNotHasKey('employment_last_country', $case->getAttributes());
         $this->assertArrayNotHasKey('employment_start_date', $case->getAttributes());

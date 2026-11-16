@@ -201,36 +201,15 @@ class CaseStateMachineHardeningTest extends TestCase
 
     // ── restore: ownership scoping ─────────────────────────────────────────
 
-    public function test_case_manager_cannot_restore_another_case_managers_trashed_case(): void
+    public function test_case_managers_cannot_restore_trashed_cases(): void
     {
         $owner = $this->createCaseManager();
-        $intruder = $this->createCaseManager();
-        $case = $this->trashCase($owner);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $case = CaseFile::factory()->create(['status' => 'ARCHIVED', 'user_id' => $owner->id]);
+        $this->service->deleteArchivedCase($case, 'Archived duplicate — moved to trash', $admin);
 
-        $response = $this->actingAsWithMfa($intruder)->post(route('cases.restore', $case));
-
-        $response->assertNotFound();
+        $this->actingAsWithMfa($owner)->post(route('cases.restore', $case))->assertForbidden();
         $this->assertTrue($case->fresh()->trashed());
-        $this->assertDatabaseMissing('audit_logs', [
-            'action' => AuditAction::RESTORE->value,
-            'module' => 'case',
-            'entity_id' => $case->id,
-        ]);
-    }
-
-    public function test_owning_case_manager_can_restore_their_trashed_case(): void
-    {
-        $owner = $this->createCaseManager();
-        $case = $this->trashCase($owner);
-
-        $response = $this->actingAsWithMfa($owner)->post(route('cases.restore', $case));
-
-        $response->assertRedirect(route('cases.trash'));
-        $response->assertSessionHas('success');
-
-        $fresh = $case->fresh();
-        $this->assertFalse($fresh->trashed());
-        $this->assertSame('ARCHIVED', $fresh->status);
     }
 
     public function test_admin_can_restore_any_case_managers_trashed_case(): void
@@ -264,7 +243,8 @@ class CaseStateMachineHardeningTest extends TestCase
     private function trashCase(User $owner): CaseFile
     {
         $case = CaseFile::factory()->create(['status' => 'ARCHIVED', 'user_id' => $owner->id]);
-        $this->service->deleteArchivedCase($case, 'Archived duplicate — moved to trash', $owner);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $this->service->deleteArchivedCase($case, 'Archived duplicate — moved to trash', $admin);
 
         return $case;
     }

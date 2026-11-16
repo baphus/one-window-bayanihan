@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 
 /**
  * Context menu for a table row's kebab action.
@@ -139,7 +139,8 @@ export function RowContextMenu({ x, y, anchorRect, triggerRef, onClose, children
   );
 }
 
-export function RowContextMenuItem({ icon, label, onClick, variant = 'default' }) {
+export function RowContextMenuItem({ icon, label, onClick, variant = 'default', disabledReason }) {
+  const tooltipId = useId();
   const colorClasses = variant === 'danger'
     ? 'text-red-600 hover:bg-red-50 focus-visible:bg-red-50'
     : variant === 'success'
@@ -147,14 +148,19 @@ export function RowContextMenuItem({ icon, label, onClick, variant = 'default' }
       : 'text-slate-700 hover:bg-slate-50 focus-visible:bg-slate-50';
 
   return (
-    <button
-      type="button"
-      role="menuitem"
-      onClick={onClick}
-      className={`flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary ${colorClasses}`}
-    >
-      {icon && <span aria-hidden="true" className="material-symbols-outlined text-[18px] text-slate-400">{icon}</span>}
-      {label}
-    </button>
+    <div className="group relative">
+      <button
+        type="button"
+        role="menuitem"
+        aria-disabled={disabledReason ? 'true' : undefined}
+        aria-describedby={disabledReason ? tooltipId : undefined}
+        onClick={disabledReason ? undefined : onClick}
+        className={`flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary ${disabledReason ? 'cursor-not-allowed text-slate-400' : colorClasses}`}
+      >
+        {icon && <span aria-hidden="true" className="material-symbols-outlined text-[18px] text-slate-400">{icon}</span>}
+        {label}
+      </button>
+      {disabledReason && <span id={tooltipId} role="tooltip" className="pointer-events-none absolute right-2 top-full z-20 hidden w-56 rounded-md bg-slate-900 px-3 py-2 text-left text-[11px] font-normal leading-4 text-white shadow-lg group-hover:block group-focus-within:block">{disabledReason}</span>}
+    </div>
   );
 }

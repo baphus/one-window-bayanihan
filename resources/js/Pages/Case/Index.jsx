@@ -75,7 +75,7 @@ function hasActiveReferrals(referrals) {
 }
 
 function canArchiveCase(caseFile) {
-  return caseFile.status === 'CLOSED' && !hasActiveReferrals(caseFile.referrals);
+  return ['CLOSED', 'REJECTED'].includes(caseFile.status);
 }
 
 // Merged cells keep identifiers and qualifying details together; source fields remain optional.
@@ -831,8 +831,8 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
             router.visit(`${route('cases.show', contextMenu.row.id)}?edit=1`);
             setContextMenu(null);
           }} />}
-          {canArchiveCase(contextMenu.row) && (
-            <RowContextMenuItem icon="archive" label="Archive" onClick={() => {
+          {canCreate && canArchiveCase(contextMenu.row) && (
+            <RowContextMenuItem icon="archive" label="Archive" disabledReason={hasActiveReferrals(contextMenu.row.referrals) ? 'Cannot archive while referrals are still active.' : undefined} onClick={() => {
               setConfirmArchiveId(contextMenu.row.id);
               setContextMenu(null);
             }} />

@@ -457,7 +457,7 @@ class CaseService
 
     public function caseListPayload(CaseFile $case): array
     {
-        return array_merge($case->toArray(), $case->only(['first_name', 'middle_name', 'last_name', 'suffix', 'employment_country', 'employment_status', 'intake_date', 'assigned_case_manager_id']));
+        return array_merge($case->toArray(), $case->only(['first_name', 'middle_name', 'last_name', 'suffix', 'employment_country', 'employment_status', 'intake_date', 'assigned_case_manager_id']), ['age_at_intake' => $case->age_at_intake]);
     }
 
     public function getCase(string $id): CaseFile
@@ -571,22 +571,25 @@ class CaseService
             // between this read and the status write.
             $case = CaseFile::lockForUpdate()->findOrFail($id);
 
-            abort_unless($case->status === 'CLOSED', 422, 'Only closed cases can be archived.');
+            abort_unless(in_array($case->status, ['CLOSED', 'REJECTED'], true), 422, 'Only closed or rejected cases can be archived.');
+
+            $actor = User::findOrFail($userId);
+            abort_unless($actor->isAdmin() || $actor->isCaseManager(), 403);
 
             $canClose = $this->canClose($id);
             abort_unless($canClose['can_close'], 422, $canClose['reason']);
 
-            $old = $case->toArray();
+            $oldStatus = $case->status;
 
-            $case->update([
-                'status' => 'ARCHIVED',
-            ]);
+            $case->archive_previous_status = $oldStatus;
+            $case->status = 'ARCHIVED';
+            $case->save();
 
             AuditLogger::log(AuditAction::ARCHIVE)
                 ->byId($userId)
                 ->forEntity($case, $case->case_number)
                 ->module(AuditModule::CASE)
-                ->context(['status' => 'CLOSED'], ['status' => 'ARCHIVED'])
+                ->context(['status' => $oldStatus], ['status' => 'ARCHIVED'])
                 ->write();
 
             return $case->load([
@@ -607,19 +610,18 @@ class CaseService
 
             $old = $case->toArray();
 
-            // Restore to the previous (pre-archive) state. Cases can only be
-            // archived from CLOSED, so unarchiving returns them to CLOSED and
-            // preserves the original closed_at timestamp (CASE-032).
-            $case->update([
-                'status' => 'CLOSED',
-                'closed_at' => $case->closed_at ?? now(),
-            ]);
+            // Pre-tracking archives came only from CLOSED; retain that fallback.
+            $previousStatus = $case->archive_previous_status ?? 'CLOSED';
+            $case->status = $previousStatus;
+            $case->closed_at = $previousStatus === 'CLOSED' ? ($case->closed_at ?? now()) : null;
+            $case->archive_previous_status = null;
+            $case->save();
 
             AuditLogger::log(AuditAction::UNARCHIVE)
                 ->byId($userId)
                 ->forEntity($case, $case->case_number)
                 ->module(AuditModule::CASE)
-                ->context(['status' => 'ARCHIVED'], ['status' => 'CLOSED'])
+                ->context(['status' => 'ARCHIVED'], ['status' => $previousStatus])
                 ->write();
 
             return $case->load([
@@ -636,6 +638,7 @@ class CaseService
         $case = CaseFile::findOrFail($id);
 
         $pendingReferrals = $case->referrals()
+            ->where('is_deleted', false)
             ->whereNotIn('status', ['COMPLETED', 'REJECTED'])
             ->count();
 
@@ -967,13 +970,9 @@ class CaseService
         DB::transaction(function () use ($case, $reason, $actor, $userId) {
             $case = CaseFile::lockForUpdate()->findOrFail($case->id);
 
-            abort_unless($case->status === 'ARCHIVED', 422, 'Only archived cases can be deleted.');
+            abort_unless($actor->isAdmin(), 403, 'Only system administrators may delete cases.');
 
-            abort_unless(
-                $actor->isAdmin() || $case->user_id === $actor->id,
-                403,
-                'You may only delete a case you own.',
-            );
+            abort_unless($case->status === 'ARCHIVED', 422, 'Only archived cases can be deleted.');
 
             // Store reason directly on the row before soft-delete so it
             // persists even if only the trashed record is inspected.
@@ -1013,7 +1012,9 @@ class CaseService
     public function restoreTrashedCase(string $id, User $actor): CaseFile
     {
         return DB::transaction(function () use ($id, $actor) {
-            $case = $this->scopeToTrashOwner(CaseFile::onlyTrashed()->whereKey($id), $actor)
+            abort_unless($actor->isAdmin(), 403, 'Only system administrators may restore cases.');
+
+            $case = CaseFile::onlyTrashed()->whereKey($id)
                 ->lockForUpdate()
                 ->firstOrFail();
 
@@ -1043,8 +1044,8 @@ class CaseService
      */
     private function scopeToTrashOwner(Builder $query, ?User $user): Builder
     {
-        if ($user && $user->isCaseManager()) {
-            $query->where('user_id', $user->id);
+        if (! $user || ! $user->isAdmin()) {
+            $query->whereRaw('1 = 0');
         }
 
         return $query;
@@ -1053,11 +1054,12 @@ class CaseService
     /**
      * Paginated list of soft-deleted cases for the trash view.
      *
-     * CASE_MANAGER role sees only their own trashed cases.
-     * ADMIN sees all.
+     * Only SYSTEM ADMIN may view trashed cases.
      */
     public function getTrashedCases(array $filters = [], ?User $user = null): LengthAwarePaginator
     {
+        abort_unless($user?->isAdmin(), 403, 'Only system administrators may view trashed cases.');
+
         $query = $this->scopeToTrashOwner(
             CaseFile::onlyTrashed()
                 ->with('user')

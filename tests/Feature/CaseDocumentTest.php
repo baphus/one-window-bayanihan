@@ -41,6 +41,16 @@ class CaseDocumentTest extends TestCase
         ]);
     }
 
+    public function test_soft_deleted_case_hides_case_owned_documents(): void
+    {
+        $document = $this->createDocument();
+        $this->case->delete();
+
+        $this->actingAsWithMfa($this->caseManager)->getJson(route('cases.documents.index', $this->case->id))->assertNotFound();
+        $this->actingAsWithMfa($this->caseManager)->get(route('cases.documents.download', [$this->case->id, $document->id]))->assertNotFound();
+        $this->assertSoftDeleted('case_documents', ['id' => $document->id]);
+    }
+
     private function createDocument(): CaseDocument
     {
         return CaseDocument::create([

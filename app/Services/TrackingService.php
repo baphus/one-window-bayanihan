@@ -138,6 +138,8 @@ class TrackingService
      */
     public function buildTrackingData(CaseFile $case, bool $forOfwPortal = false, bool $withClientDetails = true, ?array $visibleReferralIds = null): array
     {
+        abort_if($case->trashed() || $case->is_deleted, 404);
+
         $case->loadMissing(['referrals.agency', 'referrals.category', 'referrals.services', 'referrals.milestones.user']);
 
         $requestDocuments = $forOfwPortal
@@ -471,6 +473,8 @@ class TrackingService
      */
     public function buildAgencyMilestonesData(CaseFile $case, Referral $referral, bool $forOfwPortal = false): array
     {
+        abort_if($case->trashed() || $case->is_deleted, 404);
+
         $referral->loadMissing(['agency', 'milestones.user', 'services']);
 
         $agencyName = $referral->agency?->name ?? 'Unknown agency';

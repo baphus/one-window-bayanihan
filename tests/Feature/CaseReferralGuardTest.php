@@ -185,7 +185,7 @@ class CaseReferralGuardTest extends TestCase
     }
 
     #[Test]
-    public function archive_case_throws_when_not_closed(): void
+    public function archive_case_throws_when_not_closed_or_rejected(): void
     {
         try {
             $this->caseService->archiveCase($this->case->id, $this->user->id);
@@ -193,6 +193,19 @@ class CaseReferralGuardTest extends TestCase
         } catch (HttpException $e) {
             $this->assertEquals(422, $e->getStatusCode());
         }
+    }
+
+    #[Test]
+    public function archive_case_accepts_rejected_and_unarchive_restores_rejected(): void
+    {
+        $this->case->update(['status' => 'REJECTED']);
+
+        $archived = $this->caseService->archiveCase($this->case->id, $this->user->id);
+        $this->assertSame('ARCHIVED', $archived->status);
+
+        $restored = $this->caseService->unarchiveCase($this->case->id, $this->user->id);
+        $this->assertSame('REJECTED', $restored->status);
+        $this->assertNull($restored->closed_at);
     }
 
     #[Test]
@@ -217,6 +230,7 @@ class CaseReferralGuardTest extends TestCase
         $updated = $this->caseService->archiveCase($this->case->id, $this->user->id);
 
         $this->assertEquals('ARCHIVED', $updated->status);
+        $this->assertSame('CLOSED', $updated->archive_previous_status);
     }
 
     #[Test]

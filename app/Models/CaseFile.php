@@ -149,6 +149,7 @@ class CaseFile extends Model
         'tracker_number',
         'summary',
         'status',
+        'archive_previous_status',
         'closed_at',
         'consent_given_at',
         'user_id',

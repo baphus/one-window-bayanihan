@@ -77,6 +77,20 @@ class PublicSurveyTest extends TestCase
         $this->assertSame(0, SurveyResponse::count());
     }
 
+    public function test_soft_deleted_case_invalidates_public_survey_link(): void
+    {
+        [$invitation, $token] = $this->invitation();
+        CaseFile::withTrashed()->whereKey($invitation->case_id)->update(['deleted_at' => now(), 'is_deleted' => true]);
+
+        $this->get(route('survey.public.show', $token))->assertInertia(
+            fn (Assert $page) => $page->component('Survey/PublicFormError')
+        );
+        $this->post(route('survey.public.submit', $token), ['answers' => []])->assertInertia(
+            fn (Assert $page) => $page->component('Survey/PublicFormError')
+        );
+        $this->assertSame(0, SurveyResponse::where('survey_invitation_id', $invitation->id)->count());
+    }
+
     public function test_valid_submission_is_atomic_and_sequential_replay_is_rejected(): void
     {
         [$invitation, $token] = $this->invitation();
