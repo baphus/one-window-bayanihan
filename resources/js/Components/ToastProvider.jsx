@@ -1,5 +1,5 @@
 import { useEffect, useContext, useState, useCallback, useRef } from 'react';
-import { usePage } from '@inertiajs/react';
+import { router, usePage } from '@inertiajs/react';
 import { useToast, ToastContext } from '@/Hooks/useToast.jsx';
 import AppToast from '@/Components/ui/AppToast';
 
@@ -13,13 +13,14 @@ function ToastStack() {
   if (toasts.length === 0) return null;
 
   return (
-    <div className="fixed top-6 right-6 z-[100] flex flex-col gap-3 max-w-sm w-full pointer-events-none">
-      {toasts.map((t) => (
+    <div className="pointer-events-none fixed left-4 right-4 top-4 z-[100] flex flex-col gap-2 sm:left-auto sm:right-6 sm:top-6 sm:w-full sm:max-w-sm">
+      {toasts.slice(0, 3).map((t) => (
         <div key={t.id} className="pointer-events-auto">
           <AppToast
             message={t.message}
             tone={t.tone}
             exiting={t.exiting}
+            duration={t.duration}
             onClose={() => removeToast(t.id)}
           />
         </div>
@@ -31,6 +32,38 @@ function ToastStack() {
 export function FlashMessageWatcher() {
   const toast = useToast();
   const { props } = usePage();
+
+  useEffect(() => {
+    const removeValidationListener = router.on('error', (event) => {
+      const first = Object.values(event.detail.errors).flat().find((message) => typeof message === 'string' && message.trim());
+      toast.error(first ? `Please review the form: ${first}` : 'Please review the highlighted fields.');
+    });
+    const removeRequestListener = router.on('exception', () => {
+      toast.error('Could not complete request. Check your connection and try again.');
+    });
+    const removeHttpErrorListener = router.on('invalid', (event) => {
+      const { status, data } = event.detail.response;
+      event.preventDefault();
+      if (status === 422 && data && typeof data === 'object' && data.errors && typeof data.errors === 'object') {
+        const first = Object.values(data.errors).flat().find((message) => typeof message === 'string' && message.trim());
+        toast.error(first ? `Please review the form: ${first}` : 'Please review the highlighted fields.');
+        return;
+      }
+      const message = status === 401
+        ? 'Your session expired. Sign in again, then retry your action.'
+        : status === 403
+          ? 'Access denied. Your account may not have permission for this action.'
+          : status >= 500
+            ? 'Server error. Please try again later. No changes were retried.'
+            : 'Request failed. Please try again.';
+      toast.error(message);
+    });
+    return () => {
+      removeValidationListener();
+      removeRequestListener();
+      removeHttpErrorListener();
+    };
+  }, [toast]);
 
   useEffect(() => {
     const flash = props.flash;
@@ -63,26 +96,27 @@ export function FlashMessageWatcher() {
 
 export default function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([]);
-  const timersRef = useRef({});
+  const exitTimers = useRef({});
 
-  const removeToast = useCallback((id) => {
-    setToasts((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, exiting: true } : t)),
-    );
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-      delete timersRef.current[id];
-    }, EXIT_ANIMATION_MS);
-    clearTimeout(timersRef.current[id]);
-    delete timersRef.current[id];
+  useEffect(() => () => {
+    Object.values(exitTimers.current).forEach(clearTimeout);
   }, []);
 
-  const addToast = useCallback((message, tone = 'info', duration = 4000) => {
+  const removeToast = useCallback((id) => {
+    if (exitTimers.current[id]) return;
+    setToasts((prev) => prev.map((t) => (t.id === id ? { ...t, exiting: true } : t)));
+    exitTimers.current[id] = setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+      delete exitTimers.current[id];
+    }, EXIT_ANIMATION_MS);
+  }, []);
+
+  const addToast = useCallback((message, tone = 'info', duration) => {
     const id = ++toastId;
-    setToasts((prev) => [...prev, { id, message, tone, exiting: false }]);
-    timersRef.current[id] = setTimeout(() => removeToast(id), duration);
+    const defaultDuration = tone === 'warning' || tone === 'error' ? 8000 : 5000;
+    setToasts((prev) => [...prev, { id, message, tone, duration: duration ?? defaultDuration, exiting: false }]);
     return id;
-  }, [removeToast]);
+  }, []);
 
   const toast = useCallback(
     (message, tone = 'info', duration) => addToast(message, tone, duration),
@@ -113,10 +147,9 @@ export default function ToastProvider({ children }) {
     if (id) {
       removeToast(id);
     } else {
-      setToasts((prev) =>
-        prev.map((t) => ({ ...t, exiting: true })),
-      );
-      setTimeout(() => setToasts([]), EXIT_ANIMATION_MS);
+      Object.values(exitTimers.current).forEach(clearTimeout);
+      exitTimers.current = {};
+      setToasts([]);
     }
   }, [removeToast]);
 

@@ -60,9 +60,7 @@ export default function CaseTrash({ cases, filters: initialFilters = {} }) {
         toast.success('Case restored successfully.');
         setRestoreTarget(null);
       },
-      onError: (errors) => {
-        const msg = Object.values(errors)[0] || 'Restore failed.';
-        toast.error(msg);
+      onError: () => {
         setRestoreTarget(null);
       },
     });

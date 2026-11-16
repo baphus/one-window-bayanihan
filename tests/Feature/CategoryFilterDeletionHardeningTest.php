@@ -63,6 +63,10 @@ class CategoryFilterDeletionHardeningTest extends TestCase
         $firstReferral = Referral::factory()->create(['case_id' => $firstCase->id, 'agcy_id' => $agency->id, 'category_id' => $first->id]);
         $secondReferral = Referral::factory()->create(['case_id' => $secondCase->id, 'agcy_id' => $agency->id, 'category_id' => $second->id]);
 
+        $this->actingAsWithMfa($admin)->get(route('referrals.index', [
+            'category_ids' => [$first->id, $second->id], 'status' => 'CLOSED',
+        ]))->assertInertia(fn ($page) => $page->where('referrals.total', 0)->etc());
+
         foreach ([[$first->id, 1, $firstCase->id, $firstReferral->id], [[$first->id, $second->id], 2, null, null]] as [$filterValue, $count, $caseId, $referralId]) {
             $filter = is_array($filterValue) ? ['category_ids' => $filterValue] : ['category_id' => $filterValue];
             $this->actingAsWithMfa($admin)->get(route('cases.index', $filter))

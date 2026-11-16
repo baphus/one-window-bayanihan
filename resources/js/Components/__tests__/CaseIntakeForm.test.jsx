@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import CaseIntakeForm, { buildIntakePayload } from '../CaseIntakeForm';
 
@@ -35,6 +35,9 @@ function createMockForm(data = {}) {
             summary: '',
             proposed_assessments: [],
             proposed_assessment_other: '',
+            category_ids: [],
+            confirmed_assessments: [],
+            confirmed_assessment_other: '',
             return_reason: '',
             documents: {},
             consent_text_version: 'case-intake-v1',
@@ -114,6 +117,42 @@ describe('case intake choices', () => {
         fireEvent.change(evidence, { target: { value: 'employment_contract' } });
         expect(screen.getByLabelText('Employment contract abroad')).toBeInTheDocument();
         expect(form.setData).toHaveBeenCalledWith('documents', { passport_front_page: form.data.documents.passport_front_page });
+    });
+});
+
+describe('staff classification', () => {
+    it('keeps category and confirmed choices separate from requested assistance', () => {
+        const form = createMockForm({ confirmed_assessments: ['OTHER'] });
+        render(<CaseIntakeForm form={form} mode="staff" options={{ categories: [{ id: 'cat-1', name: 'Welfare' }], assessmentOptions: ['OTHER'] }} onSubmit={vi.fn()} />);
+        fireEvent.click(screen.getByLabelText('Welfare'));
+        expect(form.setData).toHaveBeenCalledWith('category_ids', ['cat-1']);
+        const confirmed = screen.getByRole('group', { name: 'Confirmed assessments *' });
+        fireEvent.click(within(confirmed).getByLabelText('Other'));
+        expect(form.setData).toHaveBeenCalledWith('confirmed_assessments', []);
+        expect(screen.getByLabelText('Other confirmed assessment *')).toBeRequired();
+        expect(screen.getByText('Requested assistance')).toBeInTheDocument();
+    });
+
+    it('explains when no categories are available', () => {
+        render(<CaseIntakeForm form={createMockForm()} mode="staff" onSubmit={vi.fn()} />);
+        expect(screen.getByText(/No active case categories are available/)).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Submit case' })).toBeDisabled();
+    });
+
+    it('omits staff controls from public intake', () => {
+        render(<CaseIntakeForm form={createMockForm()} mode="public" options={{ categories: [{ id: 'cat-1', name: 'Welfare' }] }} onSubmit={vi.fn()} />);
+        expect(screen.queryByText('Staff classification')).not.toBeInTheDocument();
+        expect(screen.queryByLabelText('Welfare')).not.toBeInTheDocument();
+    });
+
+    it('sends staff classification only in staff payload', () => {
+        const data = createMockForm({ category_ids: ['cat-1'], proposed_assessments: ['LEGAL_ASSISTANCE'], confirmed_assessments: ['OTHER'], confirmed_assessment_other: '  Assessment  ' }).data;
+        expect(buildIntakePayload(data, 'staff')).toMatchObject({ category_ids: ['cat-1'], proposed_assessments: ['LEGAL_ASSISTANCE'], confirmed_assessments: ['OTHER'], confirmed_assessment_other: 'Assessment' });
+        const publicPayload = buildIntakePayload(data, 'public');
+        expect(publicPayload).not.toHaveProperty('category_ids');
+        expect(publicPayload).not.toHaveProperty('confirmed_assessments');
+        expect(publicPayload).not.toHaveProperty('confirmed_assessment_other');
+        expect(buildIntakePayload({ ...data, confirmed_assessments: [] }, 'staff').confirmed_assessment_other).toBe('');
     });
 });
 

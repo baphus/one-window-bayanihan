@@ -62,7 +62,9 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
     const toast = useToast();
     const isAgency = auth.user.role === roles.AGENCY;
     const canCreate = auth.user.role === roles.CASE_MANAGER || auth.user.role === roles.ADMIN;
-    const filters = rawFilters && !Array.isArray(rawFilters) ? rawFilters : {};
+    const incomingFilters = rawFilters && !Array.isArray(rawFilters) ? rawFilters : {};
+    const { category_id: legacyCategory, ...restFilters } = incomingFilters;
+    const filters = { ...restFilters, category_ids: toFilterList(incomingFilters.category_ids).length ? toFilterList(incomingFilters.category_ids) : toFilterList(legacyCategory) };
 
     const [searchValue, setSearchValue] = useState(filters?.search ?? '');
     const [viewMode, setViewMode] = usePersistedViewMode('owb-view_referrals');
@@ -126,13 +128,13 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
         const chips = [];
         if (filters?.status) chips.push({ label: 'Status', value: filters.status });
         if (filters?.agcy_id) chips.push({ label: 'Agency', value: filters.agcy_id });
-        if (filters?.category_id) chips.push({ label: 'Category', value: filters.category_id });
+        if (filters?.category_ids?.length) chips.push({ label: 'Category', value: filters.category_ids.map((id) => categories.find((category) => String(category.id) === id)?.name ?? id).join(', ') });
         if (filters?.age_min_days) chips.push({ label: 'Older Than', value: `${filters.age_min_days}+ days` });
         if (filters?.age_max_days) chips.push({ label: 'Received Within', value: `Last ${filters.age_max_days} days` });
         if (filters?.date_from) chips.push({ label: 'From', value: filters.date_from });
         if (filters?.date_to) chips.push({ label: 'To', value: filters.date_to });
         return chips;
-    }, [filters]);
+    }, [filters, categories]);
 
     useEffect(() => {
         return () => clearTimeout(searchTimeout.current);
@@ -163,8 +165,11 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
 
     const updateTable = (params) => {
         const clean = Object.fromEntries(
-            Object.entries(params).filter(([_, v]) => v !== null && v !== undefined && v !== '')
+            Object.entries(params).filter(([_, v]) => v !== null && v !== undefined && v !== '' && (!Array.isArray(v) || v.length > 0))
         );
+        if (!toFilterList(clean.category_ids).length && clean.category_id) clean.category_ids = toFilterList(clean.category_id);
+        if (clean.category_ids) clean.category_ids = toFilterList(clean.category_ids);
+        delete clean.category_id;
         trackPending(clean);
         router.get(route('referrals.index'), clean, withLoading({
             preserveState: true,
@@ -202,7 +207,7 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
         updateTable({ ...filtersRef.current, search: undefined, page: undefined });
     };
 
-    const agencyLabel = useCallback((id) => agencies.find((a) => a.id === id)?.name ?? id, [agencies]);
+    const agencyLabel = useCallback((id) => agencies.find((a) => String(a.id) === String(id))?.name ?? id, [agencies]);
     const categoryLabel = useCallback(
         (id) => categories?.find((c) => String(c.id) === String(id))?.name ?? id,
         [categories],
@@ -210,25 +215,27 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
     // One chip per selected value, matching the multi-select checkbox panel.
     const activeFilters = useMemo(() => {
         const chips = [];
-        const push = (key, label, value, display) => chips.push({ key, label, value: display ?? value });
+        const push = (key, label, value, display) => chips.push({ key, label, value: display ?? value, id: value });
 
         toFilterList(filters?.status).forEach((value) => push('status', 'Status', value, humanizeStatus(value)));
         toFilterList(filters?.agcy_id).forEach((value) => push('agcy_id', 'Agency', value, agencyLabel(value)));
-        toFilterList(filters?.category_id).forEach((value) => push('category_id', 'Category', value, categoryLabel(value)));
+        toFilterList(filters?.category_ids).forEach((value) => push('category_ids', 'Category', value, categoryLabel(value)));
         if (filters?.age_min_days) push('age_min_days', 'Age', filters.age_min_days, `${filters.age_min_days}+ days`);
         if (filters?.age_max_days) push('age_max_days', 'Received', filters.age_max_days, `within ${filters.age_max_days} days`);
+        if (filters?.date_from) push('date_from', 'From', filters.date_from);
+        if (filters?.date_to) push('date_to', 'To', filters.date_to);
 
         return chips;
     }, [filters, agencyLabel, categoryLabel]);
 
     const handleRemoveFilter = (filter) => {
         // The day-window filters are single-valued selects.
-        if (filter.key === 'age_min_days' || filter.key === 'age_max_days') {
+        if (['age_min_days', 'age_max_days', 'date_from', 'date_to'].includes(filter.key)) {
             updateTable({ ...filters, [filter.key]: undefined, page: undefined });
             return;
         }
 
-        const remaining = toFilterList(filters?.[filter.key]).filter((value) => value !== filter.value);
+        const remaining = toFilterList(filters?.[filter.key]).filter((value) => value !== filter.id);
         const encoded = remaining.length === 0 ? undefined : remaining.length === 1 ? remaining[0] : remaining;
 
         updateTable({ ...filters, [filter.key]: encoded, page: undefined });
@@ -237,7 +244,9 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
     const handleClearFilters = () => {
         setSearchValue('');
         clearTimeout(searchTimeout.current);
-        updateTable({ status: undefined, search: undefined, agcy_id: undefined, category_id: undefined, age_min_days: undefined, age_max_days: undefined, page: undefined });
+        searchTimeout.current = null;
+        pendingParamsRef.current = null;
+        updateTable({});
     };
 
     const handleSortChange = (sortKey, sortDirection) => {
@@ -418,7 +427,7 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
                 options: (agencies ?? []).map((agency) => ({ value: agency.id, label: agency.name })),
             },
             {
-                key: 'category_id',
+                key: 'category_ids',
                 label: 'Category',
                 options: (categories ?? []).map((category) => ({ value: String(category.id), label: category.name })),
             },
@@ -432,7 +441,7 @@ export default function ReferralIndex({ referrals, filters: rawFilters, stats, a
         () => ({
             status: toFilterList(filters?.status),
             agcy_id: toFilterList(filters?.agcy_id),
-            category_id: toFilterList(filters?.category_id),
+            category_ids: toFilterList(filters?.category_ids),
         }),
         [filters],
     );

@@ -505,6 +505,18 @@ export function UnifiedTable({
           </div>
         )}
 
+        {activeFilters.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 pb-3" aria-label="Active filters">
+            {activeFilters.map((filter, index) => (
+              <span key={`${filter.key ?? filter.label}-${filter.id ?? filter.value ?? index}`} className="inline-flex items-center gap-1 rounded-full border border-primary-fixed-dim bg-primary-fixed py-0.5 pl-2 pr-0.5 text-[11px] font-medium text-primary">
+                <span className="font-semibold">{filter.label}{filter.value ? `: ${filter.value}` : ''}</span>
+                {onRemoveFilter && <button type="button" disabled={isLoading} onClick={() => onRemoveFilter(filter)} aria-label={`Remove ${filter.label}: ${filter.value} filter`} className="inline-flex h-5 w-5 items-center justify-center rounded-full transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50"><span aria-hidden="true">×</span></button>}
+              </span>
+            ))}
+            {onClearFilters && <button type="button" disabled={isLoading} onClick={onClearFilters} className="text-xs font-semibold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50">Clear all</button>}
+          </div>
+        )}
+
         {viewMode === 'list' ? (
           <div className="relative overflow-x-auto owb-scroll-wide">
             <table className={`${tableTrackClass} border-collapse text-left`}>

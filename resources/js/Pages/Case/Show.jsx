@@ -166,12 +166,7 @@ export default function CaseShow({ case: caseFile, case_categories = [], recomme
           router.reload({ only: ['case', 'documentRequirements'] });
           toast.success('Document uploaded successfully.');
         },
-        onError: (errors) => {
-          const message = errors?.file
-            || Object.values(errors || {})[0]
-            || 'Could not upload the document. Please try again.';
-          toast.error(message);
-        },
+        onError: () => {},
         onFinish: () => setUploadingDoc(false),
       },
     );
@@ -337,7 +332,7 @@ export default function CaseShow({ case: caseFile, case_categories = [], recomme
   function handleToggleStatus() {
     router.post(route('cases.toggle-status', caseFile.id), { force_close: caseFile.status === 'OPEN' && hasActiveReferrals }, {
       preserveScroll: true,
-      onError: (errors) => toast.error(errors?.message || Object.values(errors || {})[0] || 'An error occurred while updating case status.'),
+      onError: () => {},
     });
   }
 

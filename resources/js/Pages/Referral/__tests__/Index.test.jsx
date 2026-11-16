@@ -29,11 +29,32 @@ vi.mock('@/Components/ui/RowContextMenu', () => ({
 describe('Referral Index export filters', () => {
     const referrals = { data: [], total: 0, from: null, to: null, current_page: 1, last_page: 1, per_page: 15 };
 
+    it('keeps sequential categories after server echoes legacy and normalized filters', () => {
+        globalThis.route = vi.fn((name) => `/${name}`);
+        routerGet.mockClear();
+        const categories = [{ id: 'cat-a', name: 'Category A' }, { id: 'cat-b', name: 'Category B' }];
+        const base = { referrals, stats: {}, agencies: [], categories };
+        const { rerender } = render(<ReferralIndex {...base} filters={{ status: 'PENDING', search: 'maria' }} />);
+        fireEvent.click(screen.getByRole('button', { name: /^Filters/ }));
+        fireEvent.click(screen.getByRole('checkbox', { name: 'Category A' }));
+        expect(routerGet.mock.lastCall[1]).toEqual({ status: 'PENDING', search: 'maria', category_ids: ['cat-a'] });
+        rerender(<ReferralIndex {...base} filters={{ status: 'PENDING', search: 'maria', category_id: 'cat-a', category_ids: ['cat-a'] }} />);
+        fireEvent.click(screen.getByRole('checkbox', { name: 'Category B' }));
+        expect(routerGet.mock.lastCall[1]).toEqual({ status: 'PENDING', search: 'maria', category_ids: ['cat-a', 'cat-b'] });
+        rerender(<ReferralIndex {...base} filters={{ status: 'PENDING', search: 'maria', category_id: 'cat-a', category_ids: ['cat-a', 'cat-b'] }} />);
+        const url = new URL(screen.getByTestId('export-count-url').textContent, 'http://localhost');
+        expect(url.searchParams.getAll('category_ids[]')).toEqual(['cat-a', 'cat-b']);
+        fireEvent.click(screen.getByRole('button', { name: 'Remove Category: Category A filter' }));
+        expect(routerGet.mock.lastCall[1].category_ids).toEqual(['cat-b']);
+        fireEvent.click(within(screen.getByRole('dialog', { name: 'Filters' })).getByRole('button', { name: /Clear all/i }));
+        expect(routerGet.mock.lastCall[1]).toEqual({});
+    });
+
     it.each([
         [{ status: ['PENDING', 'ACCEPTED'], agcy_id: ['agency-a', 'agency-b'], category_id: ['cat-a', 'cat-b'], category_ids: ['cat-c', 'cat-d'], case_id: 'case-a' },
             { 'status[]': ['PENDING', 'ACCEPTED'], 'agcy_id[]': ['agency-a', 'agency-b'], 'category_id[]': [], 'category_ids[]': ['cat-c', 'cat-d'], case_id: ['case-a'] }],
         [{ status: 'PENDING', agcy_id: 'agency-a', category_id: 'cat-a' },
-            { 'status[]': ['PENDING'], 'agcy_id[]': ['agency-a'], 'category_id[]': ['cat-a'], 'category_ids[]': [], case_id: [] }],
+            { 'status[]': ['PENDING'], 'agcy_id[]': ['agency-a'], 'category_id[]': [], 'category_ids[]': ['cat-a'], case_id: [] }],
     ])('includes selected filters in export count query', (filters, expected) => {
         globalThis.route = vi.fn((name) => `/${name}`);
         render(<ReferralIndex referrals={referrals} filters={filters} stats={{}} agencies={[]} categories={[]} />);

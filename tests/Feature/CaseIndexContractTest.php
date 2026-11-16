@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Enums\UserRole;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\SetPostgresSession;
+use App\Models\CaseCategory;
 use App\Models\CaseFile;
 use App\Models\User;
 use App\Services\CaseService;
@@ -72,9 +73,9 @@ class CaseIndexContractTest extends TestCase
         $c3 = CaseFile::factory()->create($row('C-0003', 'Rita', 'Zulu', 'OFW', $alpha, '2026-01-01 09:00:00', 'OPEN'));
 
         // Hidden from the index and excluded from the client-type tile.
-        CaseFile::factory()->create($row('C-0004', 'Hidden', 'Archived', 'OFW', $alpha, '2026-04-01 09:00:00', 'ARCHIVED'));
+        $c4 = CaseFile::factory()->create($row('C-0004', 'Hidden', 'Archived', 'OFW', $alpha, '2026-04-01 09:00:00', 'ARCHIVED'));
 
-        return ['admin' => $admin, 'c1' => $c1, 'c2' => $c2, 'c3' => $c3];
+        return ['admin' => $admin, 'c1' => $c1, 'c2' => $c2, 'c3' => $c3, 'c4' => $c4];
     }
 
     /** @return array<string, mixed> */
@@ -101,6 +102,60 @@ class CaseIndexContractTest extends TestCase
         $nok->assertOk();
 
         $this->assertSame([$c2->id], collect($this->props($nok)['cases']['data'])->pluck('id')->all());
+    }
+
+    public function test_status_filters_include_pending_review_and_match_exact_statuses(): void
+    {
+        ['admin' => $admin, 'c1' => $open, 'c2' => $closed, 'c3' => $otherOpen, 'c4' => $archived] = $this->seedCases();
+        $pending = CaseFile::factory()->create(['status' => CaseFile::STATUS_PENDING_REVIEW]);
+
+        $all = $this->actingAsWithMfa($admin)->get(route('cases.index'));
+        $all->assertOk();
+        $allIds = collect($this->props($all)['cases']['data'])->pluck('id')->all();
+        $this->assertContains($pending->id, $allIds);
+        $this->assertNotContains($archived->id, $allIds);
+
+        foreach (['OPEN' => 'c1', 'CLOSED' => 'c2', 'ARCHIVED' => 'archived', CaseFile::STATUS_PENDING_REVIEW => 'pending'] as $status => $key) {
+            $response = $this->actingAsWithMfa($admin)->get(route('cases.index', ['status' => $status]));
+            $response->assertOk();
+            $ids = collect($this->props($response)['cases']['data'])->pluck('id')->all();
+            $expected = match ($key) {
+                'c1' => [$open->id, $otherOpen->id],
+                'c2' => [$closed->id],
+                'archived' => [$archived->id],
+                default => [$pending->id],
+            };
+            $this->assertEqualsCanonicalizing($expected, $ids);
+        }
+    }
+
+    public function test_category_and_status_filters_combine_on_index_request(): void
+    {
+        ['admin' => $admin, 'c1' => $open, 'c2' => $closed] = $this->seedCases();
+        $category = CaseCategory::factory()->create();
+        $open->categories()->attach($category->id);
+        $closed->categories()->attach($category->id);
+
+        $response = $this->actingAsWithMfa($admin)->get(route('cases.index', [
+            'status' => 'OPEN',
+            'category_ids' => [$category->id],
+        ]));
+
+        $response->assertOk()->assertInertia(fn ($page) => $page
+            ->where('filters.status', ['OPEN'])
+            ->where('filters.category_ids', [$category->id])
+        );
+        $this->assertSame([$open->id], collect($this->props($response)['cases']['data'])->pluck('id')->all());
+    }
+
+    public function test_case_index_rejects_unknown_status_when_reference_options_are_unavailable(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+
+        $this->actingAsWithMfa($admin)
+            ->get(route('cases.index', ['status' => 'NOT_A_CASE_STATUS']))
+            ->assertRedirect()
+            ->assertSessionHasErrors('status');
     }
 
     public function test_rejected_cases_are_listed_and_filterable(): void

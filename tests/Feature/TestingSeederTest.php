@@ -51,9 +51,18 @@ class TestingSeederTest extends TestCase
         $this->assertSame(850, DB::table('cases')->whereNull('ofw_user_id')->where('user_id', DB::table('users')->where('email', 'case@bayanihan.gov.ph')->value('id'))->count());
         $pendingCases = DB::table('cases')->where('status', 'PENDING_REVIEW')->get();
         $this->assertCount(128, $pendingCases);
+        $passportPresence = [];
         foreach ($pendingCases as $pendingCase) {
-            $this->assertSame(['passport_front_page' => 'Pending synthetic document'], json_decode(Crypt::decrypt($pendingCase->missing_document_reasons, false), true));
+            $hasPassport = DB::table('case_documents')->where('case_id', $pendingCase->id)->where('category', 'passport_front_page')->exists();
+            $passportPresence[] = $hasPassport;
+            if ($hasPassport) {
+                $this->assertNull($pendingCase->missing_document_reasons);
+            } else {
+                $this->assertSame(['passport_front_page' => 'Pending synthetic document'], json_decode(Crypt::decrypt($pendingCase->missing_document_reasons, false), true));
+            }
         }
+        $this->assertContains(true, $passportPresence);
+        $this->assertContains(false, $passportPresence);
         $approvedCase = DB::table('cases')
             ->where('status', 'OPEN')
             ->where('user_id', DB::table('users')->where('email', 'case@bayanihan.gov.ph')->value('id'))
@@ -85,10 +94,13 @@ class TestingSeederTest extends TestCase
             DB::table('cases')->where('status', 'OPEN')->value('proposed_assessments'),
             DB::table('cases')->where('status', 'OPEN')->value('confirmed_assessments'),
         );
-        $this->assertSame(850 * 4 - 128, DB::table('case_documents')->count());
+        $syntheticCases = DB::table('cases')->where('user_id', DB::table('users')->where('email', 'case@bayanihan.gov.ph')->value('id'))->where('summary', 'like', 'Synthetic intake case%');
+        $syntheticCaseIds = (clone $syntheticCases)->pluck('id');
+        $missingPendingPassports = (clone $syntheticCases)->where('status', 'PENDING_REVIEW')->whereNotExists(fn ($query) => $query->select(DB::raw(1))->from('case_documents')->whereColumn('case_documents.case_id', 'cases.id')->where('category', 'passport_front_page'))->count();
+        $this->assertSame(850 * 4 - $missingPendingPassports, DB::table('case_documents')->whereIn('case_id', $syntheticCaseIds)->count());
         $this->assertSame(
-            DB::table('case_documents')->count(),
-            DB::table('audit_logs')->where('module', 'case_document')->count(),
+            DB::table('case_documents')->whereIn('case_id', $syntheticCaseIds)->count(),
+            DB::table('audit_logs')->where('module', 'case_document')->whereIn('entity_id', DB::table('case_documents')->whereIn('case_id', $syntheticCaseIds)->select('id'))->count(),
         );
         $this->assertSame(0, DB::table('cases')->where('status', 'PENDING_REVIEW')->whereNotNull('reviewed_document_ids')->where('reviewed_document_ids', '!=', '[]')->count());
 

@@ -42,11 +42,12 @@ class ClientDirectoryService
             ->selectRaw("MAX(CASE WHEN status = 'CLOSED' THEN 1 ELSE 0 END) AS has_closed")
             ->selectRaw("MAX(CASE WHEN client_type = 'OFW' THEN 1 ELSE 0 END) AS has_ofw")
             ->selectRaw("MAX(CASE WHEN client_type = 'NEXT_OF_KIN' THEN 1 ELSE 0 END) AS has_next_of_kin")
-            ->selectRaw('MAX(CASE WHEN vulnerability_indicator ~ ? THEN 1 ELSE 0 END) AS vulnerable', [$vulnerable])
-            ->selectRaw('MAX(created_at) AS latest_case_at');
+            ->selectRaw('((array_agg(vulnerability_indicator ORDER BY created_at DESC, id DESC))[1] ~ ?)::int AS vulnerable', [$vulnerable])
+            ->selectRaw('MAX(created_at) AS latest_case_at')
+            ->selectRaw('(array_agg(id ORDER BY created_at DESC, id DESC))[1] AS latest_case_id');
 
         foreach (VulnerabilityRule::VALUES as $index => $marker) {
-            $groups->selectRaw('MAX(CASE WHEN vulnerability_indicator ~ ? THEN 1 ELSE 0 END) AS marker_'.$index, ['(^|, )'.preg_quote($marker, '/').'(,|$)']);
+            $groups->selectRaw('((array_agg(vulnerability_indicator ORDER BY created_at DESC, id DESC))[1] ~ ?)::int AS marker_'.$index, ['(^|, )'.preg_quote($marker, '/').'(,|$)']);
         }
 
         return $groups->groupByRaw('COALESCE(ofw_user_id, id), CASE WHEN ofw_user_id IS NULL THEN \'case\' ELSE \'account\' END');
@@ -64,9 +65,14 @@ class ClientDirectoryService
 
     public function index(array $filters): array
     {
+        $filters = array_merge([
+            'search' => '', 'status' => 'Any', 'client_type' => null,
+            'vulnerability_indicator' => [], 'sort' => 'latest_case_at',
+            'direction' => 'desc', 'per_page' => 15,
+        ], $filters);
         $groups = $this->groups();
         $kpis = DB::query()->fromSub(clone $groups, 'g')
-            ->selectRaw('COALESCE(SUM(has_ofw), 0) AS ofw_clients, COALESCE(SUM(has_next_of_kin), 0) AS next_of_kin_clients, COALESCE(SUM(vulnerable), 0) AS vulnerable_clients')
+            ->selectRaw('COUNT(*) AS total_clients, COALESCE(SUM(has_ofw), 0) AS ofw_clients, COALESCE(SUM(has_next_of_kin), 0) AS next_of_kin_clients, COALESCE(SUM(vulnerable), 0) AS vulnerable_clients')
             ->selectRaw("COALESCE(SUM(CASE WHEN kind = 'account' AND case_count >= 2 THEN 1 ELSE 0 END), 0) AS returning_clients")
             ->first();
 
@@ -82,6 +88,21 @@ class ClientDirectoryService
             if (in_array($filters['status'], ['Closed', 'Both'])) {
                 $query->where('g.has_closed', 1);
             }
+        }
+
+        if ($filters['client_type'] === 'OFW') {
+            $query->where('g.has_ofw', 1);
+        } elseif ($filters['client_type'] === 'NEXT_OF_KIN') {
+            $query->where('g.has_next_of_kin', 1);
+        }
+
+        $indicatorIndexes = collect((array) $filters['vulnerability_indicator'])
+            ->map(fn ($indicator) => array_search($indicator, VulnerabilityRule::VALUES, true))
+            ->filter(fn ($index) => $index !== false);
+        if ($indicatorIndexes->isNotEmpty()) {
+            $query->where(fn ($query) => $indicatorIndexes->each(
+                fn ($index) => $query->orWhere('g.marker_'.$index, true)
+            ));
         }
 
         if ($filters['search'] !== '') {
@@ -104,11 +125,15 @@ class ClientDirectoryService
             });
         }
 
+        $query->join('cases as latest_case', 'latest_case.id', '=', 'g.latest_case_id');
+        $sortColumn = $filters['sort'] === 'name'
+            ? DB::raw("concat_ws(' ', latest_case.first_name, latest_case.middle_name, latest_case.last_name, latest_case.suffix)")
+            : 'g.latest_case_at';
         $clients = $query->select('g.*')->selectRaw("CASE WHEN g.kind = 'case' THEN 'No account linked' WHEN u.id IS NULL OR u.is_deleted = true OR u.deleted_at IS NOT NULL THEN 'Unavailable' WHEN u.is_active = false THEN 'Inactive' ELSE 'Active' END AS account_state")
-            ->orderByDesc('g.latest_case_at')->orderBy('g.kind')->orderBy('g.id')->paginate(15)->withQueryString();
+            ->orderBy($sortColumn, $filters['direction'])->orderBy('g.kind')->orderBy('g.id')->paginate($filters['per_page'])->withQueryString();
 
         $clients->getCollection()->transform(function ($row) {
-            $case = $this->historyQuery($row->kind, $row->id)->orderByDesc('created_at')->orderByDesc('id')->first(['first_name', 'middle_name', 'last_name', 'suffix', 'date_of_birth', 'email', 'contact_number', 'address_city_municipality', 'address_province', 'employment_country', 'employment_status']);
+            $case = $this->historyQuery($row->kind, $row->id)->whereKey($row->latest_case_id)->first(['first_name', 'middle_name', 'last_name', 'suffix', 'date_of_birth', 'email', 'contact_number', 'address_city_municipality', 'address_province', 'employment_country', 'employment_status']);
             $row->current_age = $this->currentAge($case);
             $row->name = User::composeName($case->first_name, $case->middle_name, $case->last_name, $case->suffix);
             foreach (['email', 'contact_number', 'address_city_municipality', 'address_province', 'employment_country', 'employment_status'] as $field) {
@@ -131,6 +156,8 @@ class ClientDirectoryService
 
             return $row;
         });
+
+        $filters['vulnerability_indicator'] = array_values((array) $filters['vulnerability_indicator']);
 
         return ['clients' => $clients, 'kpis' => (array) $kpis, 'filters' => $filters];
     }

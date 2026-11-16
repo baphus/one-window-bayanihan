@@ -88,6 +88,15 @@ class StoreCaseRequest extends FormRequest
         foreach (['assigned_case_manager_id', 'last_correction_reason', 'document_requested_by', 'document_requested_at', 'requested_document_slots', 'reviewed_document_ids', 'ofw_user_id', 'user_id', 'client_id', 'selected_client_id', 'new_ofw', 'next_of_kin', 'client', 'category_id', 'category_ids', 'case_issue_id', 'confirmed_assessments', 'confirmed_assessment_by', 'confirmed_assessment_at', 'proposed_assessment_by', 'proposed_assessment_at', 'consent_accepted_by', 'consent_given_at', 'consent_method', 'consent_evidence', 'document_requirements', 'reviewed_by', 'reviewed_at'] as $field) {
             $rules[$field] = ['prohibited'];
         }
+        if (! $public) {
+            $rules['category_ids'] = ['required', 'array', 'min:1'];
+            $rules['category_ids.*'] = ['required', 'uuid', 'distinct', Rule::exists('case_categories', 'id')->where('is_active', true)->where('is_deleted', false)->whereNull('deleted_at')];
+            $rules['confirmed_assessments'] = ['required', 'array', 'min:1', 'max:8'];
+            $rules['confirmed_assessments.*'] = ['required', 'distinct', Rule::in(CaseFile::ASSESSMENTS)];
+            $rules['confirmed_assessment_other'] = [Rule::requiredIf(in_array('OTHER', (array) $this->input('confirmed_assessments', []), true)), 'nullable', 'string', 'max:2000'];
+            $rules['confirmed_assessment_by'] = ['prohibited'];
+            $rules['confirmed_assessment_at'] = ['prohibited'];
+        }
 
         return $rules;
     }

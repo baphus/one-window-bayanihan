@@ -1,6 +1,6 @@
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { PageHeader, SectionCard, MaterialSymbol } from '@/Components/Dashboard/primitives';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import ConfirmDialog from '@/Components/ui/ConfirmDialog';
@@ -77,7 +77,8 @@ function ReviewDetail({ caseFile, assessmentOptions = [], agencies = [], categor
   const [rejectReason, setRejectReason] = useState('');
   const [rejectOpen, setRejectOpen] = useState(false);
   const [processing, setProcessing] = useState(false);
-  const [duplicateError, setDuplicateError] = useState('');
+  const [errors, setErrors] = useState({});
+  const fieldError = (field) => Object.entries(errors).filter(([key]) => key === field || key.startsWith(`${field}.`)).map(([, message]) => message).join(' ');
   const [selectedCategoryIds, setSelectedCategoryIds] = useState(() => (caseFile.case_categories ?? []).map((category) => String(category.id)));
 
   const documents = useMemo(() => (caseFile.documents ?? []).filter((doc) => !doc.referral_id), [caseFile.documents]);
@@ -86,6 +87,10 @@ function ReviewDetail({ caseFile, assessmentOptions = [], agencies = [], categor
   const missingSlots = requiredSlots.filter((slot) => !documents.some((doc) => doc.category === slot));
   const hasEmploymentEvidence = documents.some((doc) => ['employment_contract', 'oec', 'work_visa'].includes(doc.category));
   const needsReplacement = (caseFile.requested_document_slots ?? []).length > 0;
+  const reviewedDocuments = documents.filter((doc) => reviewedIds.includes(doc.id));
+  const unreviewedSlots = requiredSlots.filter((slot) => documents.some((doc) => doc.category === slot) && !reviewedDocuments.some((doc) => doc.category === slot));
+  if (hasEmploymentEvidence && !reviewedDocuments.some((doc) => ['employment_contract', 'oec', 'work_visa'].includes(doc.category))) unreviewedSlots.push('employment_evidence');
+  const canApprove = confirmed.length > 0 && selectedCategoryIds.length > 0 && !needsReplacement && missingSlots.length === 0 && hasEmploymentEvidence && unreviewedSlots.length === 0 && (!confirmed.includes('OTHER') || confirmedOther.trim());
 
   const [requestSlots, setRequestSlots] = useState([]);
   const [requestReason, setRequestReason] = useState('');
@@ -99,8 +104,7 @@ function ReviewDetail({ caseFile, assessmentOptions = [], agencies = [], categor
   }
 
   function handleApprove() {
-    if (confirmed.length === 0 || selectedCategoryIds.length === 0) return;
-    if (needsReplacement) return;
+    if (processing || !canApprove) return;
     setProcessing(true);
     router.post(
       safeRoute('cases.review-approve', caseFile.id, `/cases/${caseFile.id}/review-approve`),
@@ -109,12 +113,12 @@ function ReviewDetail({ caseFile, assessmentOptions = [], agencies = [], categor
         category_ids: selectedCategoryIds,
         confirmed_assessment_other: confirmed.includes('OTHER') ? confirmedOther.trim() : '',
         staff_summary: staffSummary.trim(),
-        reviewed_document_ids: reviewedIds,
+        reviewed_document_ids: reviewedDocuments.map((doc) => doc.id),
         duplicate_seen_ids: (caseFile.duplicate_check?.matches ?? []).map((match) => match.id),
       },
       {
         preserveScroll: true,
-        onError: (errors) => setDuplicateError(errors.duplicate_check ?? ''),
+        onError: (errors) => setErrors(errors),
         onSuccess: () => onClose(),
         onFinish: () => setProcessing(false),
       },
@@ -149,8 +153,6 @@ function ReviewDetail({ caseFile, assessmentOptions = [], agencies = [], categor
     );
   }
 
-  const canApprove = confirmed.length > 0 && selectedCategoryIds.length > 0 && !needsReplacement && reviewedIds.length > 0 && (!confirmed.includes('OTHER') || confirmedOther.trim());
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" onClick={onClose}>
       <div
@@ -173,7 +175,7 @@ function ReviewDetail({ caseFile, assessmentOptions = [], agencies = [], categor
 
         <div className="grid grid-cols-1 gap-4 px-6 py-5 lg:grid-cols-[minmax(0,1fr)_24rem]">
           <div className="space-y-4">
-          {duplicateError && <p role="alert" className="rounded-md border border-amber-300 bg-amber-50 p-3 text-[13px] text-amber-900">{duplicateError} The check now uses your confirmed assessment selection.</p>}
+          {errors.duplicate_check && <p role="alert" className="rounded-md border border-amber-300 bg-amber-50 p-3 text-[13px] text-amber-900">{errors.duplicate_check} The check now uses your confirmed assessment selection.</p>}
           {caseFile.duplicate_check && (!caseFile.duplicate_check.available || caseFile.duplicate_check.matches.length > 0) && (
             <section aria-label="Possible duplicates" className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-[13px] text-amber-950">
               {!caseFile.duplicate_check.available ? <p>Duplicate check unavailable. You can continue reviewing and approving.</p> : <>
@@ -245,7 +247,7 @@ function ReviewDetail({ caseFile, assessmentOptions = [], agencies = [], categor
                     ))}
                   </div>
                   {selectedCategoryIds.length === 0 && <p role="alert" className="mt-2 text-[12px] text-amber-700">Select at least one case category before approving.</p>}
-                  <InputError message={selectedCategoryIds.length === 0 ? 'Select at least one case category.' : ''} className="mt-1" />
+                  <InputError message={fieldError('category_ids') || (selectedCategoryIds.length === 0 ? 'Select at least one case category.' : '')} className="mt-1" />
                 </div>
               )}
               <div className="space-y-2">
@@ -256,17 +258,19 @@ function ReviewDetail({ caseFile, assessmentOptions = [], agencies = [], categor
                   </label>
                 ))}
               </div>
+              <InputError message={fieldError('confirmed_assessments')} className="mt-1" />
               {confirmed.includes('OTHER') && (
                 <div className="mt-3">
                   <label htmlFor="review-confirmed-other" className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-600">Other explanation *</label>
                   <input id="review-confirmed-other" value={confirmedOther} onChange={(event) => setConfirmedOther(event.target.value)} maxLength={2000} className="h-10 w-full rounded-md border border-slate-300 px-3 text-[13px]" />
-                  <InputError message={!confirmedOther.trim() ? 'Explain the Other assessment.' : ''} className="mt-1" />
+                  <InputError message={fieldError('confirmed_assessment_other') || (!confirmedOther.trim() ? 'Explain the Other assessment.' : '')} className="mt-1" />
                 </div>
               )}
               {confirmed.length === 0 && <p className="mt-2 text-[12px] text-amber-700">Select at least one confirmed assessment before approving.</p>}
               <div className="mt-3">
                 <label htmlFor="review-staff-summary" className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-600">Staff summary</label>
                 <textarea id="review-staff-summary" rows={3} maxLength={5000} value={staffSummary} onChange={(event) => setStaffSummary(event.target.value)} className="w-full rounded-md border border-slate-300 px-3 py-2 text-[13px]" />
+                <InputError message={fieldError('staff_summary')} className="mt-1" />
               </div>
             </InfoCard>
 
@@ -297,7 +301,9 @@ function ReviewDetail({ caseFile, assessmentOptions = [], agencies = [], categor
                 </p>
               )}
               {needsReplacement && <p className="mt-3 rounded-md bg-red-50 px-3 py-2 text-[12px] text-red-700">A replacement request is open. Approval is blocked until the requested documents are supplied and reviewed.</p>}
-              <InputError message={confirmed.length > 0 && reviewedIds.length === 0 ? 'Tick each reviewed document before approving.' : ''} className="mt-2" />
+              {unreviewedSlots.length > 0 && <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-[12px] text-amber-800">Review required documents: {unreviewedSlots.map((slot) => DOCUMENT_SLOT_LABELS[slot] ?? slot).join(', ')}.</p>}
+              <InputError message={fieldError('reviewed_document_ids')} className="mt-2" />
+              <InputError message={fieldError('duplicate_seen_ids')} className="mt-2" />
 
               <details className="mt-4 rounded-md border border-slate-200 p-3">
                 <summary className="cursor-pointer text-[12px] font-bold text-red-700">Decline and request new filing</summary>
@@ -349,11 +355,15 @@ function ReviewDetail({ caseFile, assessmentOptions = [], agencies = [], categor
   );
 }
 
-export default function ReviewPending({ cases, filters, sort = 'created_at', direction = 'asc', assessmentOptions = [], agencies = [], categories = [] }) {
-  usePage();
-  const [selected, setSelected] = useState(null);
+export default function ReviewPending({ cases, filters, sort = 'created_at', direction = 'asc', assessmentOptions = [], agencies = [], categories = [], selectedReviewCase = null }) {
+  const { url } = usePage();
+  const [selected, setSelected] = useState(() => selectedReviewCase?.id ?? null);
   const rows = useMemo(() => cases?.data ?? [], [cases]);
-  const selectedCase = rows.find((row) => row.id === selected);
+  const selectedCase = rows.find((row) => row.id === selected) ?? (selectedReviewCase?.id === selected ? selectedReviewCase : null);
+
+  useEffect(() => {
+    setSelected(selectedReviewCase?.id ?? null);
+  }, [url]);
 
   function goToPage(page) {
     router.get(safeRoute('cases.review-pending', undefined, '/cases/review-pending'), { ...(filters || {}), page }, {
