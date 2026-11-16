@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Enums\UserRole;
 use App\Http\Middleware\EnsureMfaSession;
 use App\Http\Middleware\VerifyTurnstile;
+use App\Models\CaseCategory;
 use App\Models\CaseFile;
 use App\Models\User;
 use App\Services\IntakeDocumentService;
@@ -48,6 +49,7 @@ class DateOfBirthBoundsTest extends TestCase
         $response = $this->actingAsWithMfa($this->filer)
             ->postJson(route('cases.store'), $this->validFilingData(now()->subYears(15)->toDateString()));
 
+        $response->assertRedirect();
         $case = CaseFile::where('status', 'OPEN')->sole();
         $response->assertRedirect(route('cases.show', $case));
         $this->assertSame(now()->subYears(15)->toDateString(), $case->date_of_birth->toDateString());
@@ -110,6 +112,8 @@ class DateOfBirthBoundsTest extends TestCase
             'employment_date_of_arrival' => now()->toDateString(),
             'summary' => 'DOB bounds filing test.',
             'vulnerability_indicator' => 'None',
+            'category_ids' => [CaseCategory::factory()->create()->id],
+            'confirmed_assessments' => ['LEGAL_ASSISTANCE'],
             'return_reason' => 'OTHERS',
             'consent' => true,
             'consent_text_version' => IntakeDocumentService::CONSENT_VERSION,

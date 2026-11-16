@@ -24,8 +24,10 @@ class MultiCategoryCaseSupportTest extends TestCase
 
     public function test_case_intake_excludes_case_wide_category_fields(): void
     {
-        $this->assertSame(['prohibited'], (new StoreCaseRequest)->rules()['category_id']);
-        $this->assertSame(['prohibited'], (new StoreCaseRequest)->rules()['category_ids']);
+        $publicRequest = new StoreCaseRequest;
+        $publicRequest->setUserResolver(fn () => User::factory()->create(['role' => UserRole::OFW->value]));
+        $this->assertSame(['prohibited'], $publicRequest->rules()['category_id']);
+        $this->assertSame(['prohibited'], $publicRequest->rules()['category_ids']);
         $this->assertNotContains('category_id', UpdateCaseRequest::EDITABLE_FIELDS);
     }
 

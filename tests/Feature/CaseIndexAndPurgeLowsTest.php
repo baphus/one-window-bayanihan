@@ -32,7 +32,7 @@ class CaseIndexAndPurgeLowsTest extends TestCase
         $this->withoutMiddleware(HandleInertiaRequests::class);
         $this->withoutMiddleware(SetPostgresSession::class);
         $props = $this->actingAsWithMfa($manager)->get(route('cases.create'))->assertOk()->viewData('page')['props'];
-        foreach (['client', 'categories', 'caseIssues', 'profile', 'linkedOfws'] as $key) {
+        foreach (['client', 'caseIssues', 'profile', 'linkedOfws'] as $key) {
             $this->assertArrayNotHasKey($key, $props);
         }
         $this->assertArrayHasKey('documentSlots', $props);

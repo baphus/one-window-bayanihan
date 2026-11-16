@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\UserRole;
+use App\Models\CaseCategory;
 use App\Models\CaseFile;
 use App\Models\User;
 use App\Services\IntakeDocumentService;
@@ -38,6 +39,14 @@ class CaseIntakeHttpTest extends TestCase
             'documents' => collect(['passport_front_page', 'arrival_stamp', 'oec', 'sworn_affidavit'])
                 ->mapWithKeys(fn ($slot) => [$slot => UploadedFile::fake()->image($slot.'.jpg')])->all(),
         ];
+    }
+
+    private function staffPayload(): array
+    {
+        return array_merge($this->payload(), [
+            'category_ids' => [CaseCategory::factory()->create()->id],
+            'confirmed_assessments' => ['LEGAL_ASSISTANCE'],
+        ]);
     }
 
     public function test_ofw_case_detail_includes_current_intake_answers_and_only_live_case_documents(): void
@@ -157,6 +166,20 @@ class CaseIntakeHttpTest extends TestCase
         $this->assertSame(0, CaseFile::count());
     }
 
+    public function test_public_submission_rejects_forged_staff_confirmation(): void
+    {
+        $owner = $this->ofw([]);
+        $data = $this->payload();
+        $data['confirmed_assessments'] = ['LEGAL_ASSISTANCE'];
+        $data['confirmed_assessment_by'] = User::factory()->create(['role' => UserRole::CASE_MANAGER->value])->id;
+        $data['confirmed_assessment_at'] = now()->toISOString();
+
+        $this->actingAsWithMfa($owner)->postJson(route('ofw.intake.store'), $data)
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['confirmed_assessments', 'confirmed_assessment_by', 'confirmed_assessment_at']);
+        $this->assertSame(0, CaseFile::count());
+    }
+
     public function test_public_submission_rejects_nok_and_provenance_fields(): void
     {
         $owner = $this->ofw([]);
@@ -207,7 +230,7 @@ class CaseIntakeHttpTest extends TestCase
     {
         Storage::fake('object-storage');
         $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
-        $data = $this->payload();
+        $data = $this->staffPayload();
         $data['documents'] = ['passport_front_page' => UploadedFile::fake()->image('passport.jpg')];
         $data['complied_onsite_slots'] = ['arrival_stamp'];
         $data['missing_document_reasons'] = ['sworn_affidavit' => 'To follow'];
@@ -238,7 +261,7 @@ class CaseIntakeHttpTest extends TestCase
         Storage::fake('object-storage');
         $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
         $ofw = User::factory()->create(['role' => UserRole::OFW->value, 'email' => 'linked@example.test']);
-        $data = $this->payload();
+        $data = $this->staffPayload();
         $data['email'] = 'linked@example.test';
 
         $this->actingAsWithMfa($manager)->post(route('cases.store'), $data)->assertRedirect();
@@ -254,7 +277,7 @@ class CaseIntakeHttpTest extends TestCase
         User::factory()->create(['role' => UserRole::OFW->value, 'email' => 'inactive@example.test', 'is_active' => false]);
 
         foreach (['admin@example.test', 'inactive@example.test'] as $email) {
-            $data = $this->payload();
+            $data = $this->staffPayload();
             $data['email'] = $email;
             $this->actingAsWithMfa($manager)->post(route('cases.store'), $data)->assertRedirect();
         }

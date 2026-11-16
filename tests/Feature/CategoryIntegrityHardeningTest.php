@@ -32,7 +32,10 @@ class CategoryIntegrityHardeningTest extends TestCase
 
     public function test_case_and_referral_category_filters_are_independent_and_case_input_is_prohibited(): void
     {
-        $rules = (new StoreCaseRequest)->rules();
+        $request = new StoreCaseRequest;
+        $publicUser = User::factory()->create(['role' => UserRole::OFW->value]);
+        $request->setUserResolver(fn () => $publicUser);
+        $rules = $request->rules();
         $this->assertSame(['prohibited'], $rules['category_id']);
         $this->assertSame(['prohibited'], $rules['category_ids']);
 

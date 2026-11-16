@@ -105,11 +105,11 @@ it('opens selected pending review from both actions and keeps View for other cas
   expect(route).toHaveBeenCalledWith('cases.show', 'case-1');
 });
 
-it('shows filter validation errors as a toast', () => {
+it('leaves filter validation toasts to the shared watcher without duplicating them', () => {
   renderIndex();
   fireEvent.click(screen.getByRole('button', { name: 'Closed' }));
   lastVisitOptions().onError({ status: 'The selected status is invalid.' });
-  expect(toastError).toHaveBeenCalledWith('The selected status is invalid.');
+  expect(toastError).not.toHaveBeenCalled();
 });
 
 describe('Case Index table loading', () => {

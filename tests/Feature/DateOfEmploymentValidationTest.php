@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Enums\UserRole;
 use App\Http\Middleware\EnsureMfaSession;
 use App\Http\Middleware\VerifyTurnstile;
+use App\Models\CaseCategory;
 use App\Models\CaseFile;
 use App\Models\User;
 use App\Services\IntakeDocumentService;
@@ -52,6 +53,7 @@ class DateOfEmploymentValidationTest extends TestCase
     public function publish_accepts_valid_arrival_date_and_does_not_persist_retired_employment_fields(): void
     {
         $response = $this->actingAsWithMfa($this->user)->post(route('cases.store'), $this->validPublishData('2024-01-15'));
+        $response->assertRedirect();
         $case = CaseFile::where('status', 'OPEN')->firstOrFail();
 
         $response->assertRedirect(route('cases.show', $case));
@@ -83,6 +85,8 @@ class DateOfEmploymentValidationTest extends TestCase
             'employment_date_of_arrival' => $arrival,
             'summary' => 'Employment date validation test',
             'vulnerability_indicator' => 'None',
+            'category_ids' => [CaseCategory::factory()->create()->id],
+            'confirmed_assessments' => ['LEGAL_ASSISTANCE'],
             'return_reason' => 'OTHERS',
             'consent' => true,
             'consent_text_version' => IntakeDocumentService::CONSENT_VERSION,
