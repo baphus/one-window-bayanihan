@@ -97,8 +97,8 @@ class CaseDocumentController extends Controller
     public function store(StoreCaseDocumentRequest $request, string $caseId)
     {
         $case = CaseFile::findOrFail($caseId);
-        $this->authorizeWriteAccess($request->user());
         $this->authorizeAccess($case, $request->user());
+        $this->authorizeWriteAccess($request->user());
 
         $file = $request->file('file');
         $isInertia = $request->header('X-Inertia');
@@ -362,6 +362,8 @@ class CaseDocumentController extends Controller
 
     private function authorizeAccess(CaseFile $case, $user)
     {
+        abort_if($case->trashed() || $case->is_deleted, 404);
+
         // ADMIN and CASE_MANAGER: full access to all cases
         if ($user->isAdmin() || $user->isCaseManager()) {
             return;

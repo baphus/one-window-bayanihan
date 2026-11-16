@@ -95,6 +95,43 @@ describe('Case documents section', () => {
 });
 
 describe('Case actions', () => {
+  it.each(['CLOSED', 'REJECTED'])('shows an accessible warning when %s case has active referrals', (status) => {
+    pageState.role = 'CASE_MANAGER';
+    router.post.mockClear();
+    render(<CaseShow case={{ id: 'case-1', status, referrals: [{ id: 'r1', status: 'PENDING' }] }} />);
+    const archive = screen.getByRole('button', { name: 'Archive Case' });
+    expect(archive).toHaveAttribute('aria-disabled', 'true');
+    expect(archive).toHaveAccessibleDescription('Cannot archive while referrals are still active.');
+    expect(screen.getByRole('tooltip', { hidden: true })).toHaveClass('group-hover:block', 'group-focus-within:block');
+    archive.focus();
+    expect(archive).toHaveFocus();
+    fireEvent.click(archive);
+    expect(router.post).not.toHaveBeenCalled();
+  });
+  it('allows admins to archive rejected cases without active referrals', () => {
+    pageState.role = 'ADMIN';
+    router.post.mockClear();
+    render(<CaseShow case={{ id: 'case-1', status: 'REJECTED', referrals: [{ id: 'r1', status: 'REJECTED' }] }} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Archive Case' }));
+    expect(router.post).toHaveBeenCalledWith(expect.any(String), {}, { preserveScroll: true });
+    pageState.role = 'CASE_MANAGER';
+  });
+  it('hides archive from unauthorized roles', () => {
+    pageState.role = 'AGENCY';
+    render(<CaseShow case={{ id: 'case-1', status: 'CLOSED', referrals: [] }} />);
+    expect(screen.queryByRole('button', { name: 'Archive Case' })).not.toBeInTheDocument();
+    pageState.role = 'CASE_MANAGER';
+  });
+  it('allows only admins to delete archived cases while preserving unarchive', () => {
+    pageState.role = 'CASE_MANAGER';
+    const { rerender } = render(<CaseShow case={{ id: 'case-1', status: 'ARCHIVED', referrals: [] }} />);
+    expect(screen.queryByRole('button', { name: /Delete Case/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Restore from Archive' })).toBeInTheDocument();
+    pageState.role = 'ADMIN';
+    rerender(<CaseShow case={{ id: 'case-1', status: 'ARCHIVED', referrals: [] }} />);
+    expect(screen.getByRole('button', { name: /Delete Case/ })).toBeInTheDocument();
+    pageState.role = 'CASE_MANAGER';
+  });
   it('saves corrections and categories together with PATCH', () => {
     render(<CaseShow case={{ id: 'case-1', status: 'OPEN', first_name: 'Ari', referrals: [] }} case_categories={[{ id: 'cat-1', name: 'Legal' }]} />);
     globalThis.route = (name) => `/${name}`;

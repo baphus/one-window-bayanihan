@@ -77,7 +77,7 @@ class SurveyResponseController extends Controller
     {
         $user = $request->user();
 
-        return match ($user->role) {
+        $query = match ($user->role) {
             UserRole::AGENCY->value => SurveyInvitation::query()->where('agency_id', $user->agcy_id),
             UserRole::CASE_MANAGER->value => SurveyInvitation::query(),
             UserRole::ADMIN->value => SurveyInvitation::query()->when(
@@ -86,6 +86,10 @@ class SurveyResponseController extends Controller
             ),
             default => abort(403, 'You do not have access to survey responses.'),
         };
+
+        return $query->where(function ($cases) {
+            $cases->whereNull('case_id')->orWhereHas('caseFile', fn ($case) => $case->where('is_deleted', false));
+        });
     }
 
     private function validateAgencyFilter(Request $request): void

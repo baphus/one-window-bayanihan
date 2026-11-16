@@ -157,7 +157,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/cases', [CaseController::class, 'index'])->name('cases.index');
         Route::get('/cases/ofw-lookup', [CaseController::class, 'lookupOfw'])->name('cases.ofw-lookup');
         Route::get('/cases/review-pending', [CaseController::class, 'reviewPending'])->name('cases.review-pending');
-        Route::get('/cases/trash', [CaseController::class, 'trashIndex'])->name('cases.trash');
+        Route::middleware('role:ADMIN')->group(function () {
+            Route::get('/cases/trash', [CaseController::class, 'trashIndex'])->name('cases.trash');
+            Route::delete('/cases/{case}/delete-archived', [CaseController::class, 'deleteArchived'])->name('cases.delete-archived');
+            Route::post('/cases/{case}/restore', [CaseController::class, 'restore'])->name('cases.restore');
+        });
         Route::get('/cases/export-excel', [CaseController::class, 'exportExcel'])->name('cases.export-excel');
         Route::get('/cases/export-count', [CaseController::class, 'exportCount'])->name('cases.export-count');
         Route::get('/cases/{case}/export-pdf', [CaseController::class, 'exportPdf'])->name('cases.export-pdf');
@@ -165,8 +169,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/cases/{case}/review-reject', [CaseController::class, 'reviewReject'])->name('cases.review-reject');
         Route::post('/cases/{case}/archive', [CaseController::class, 'archive'])->name('cases.archive');
         Route::post('/cases/{case}/unarchive', [CaseController::class, 'unarchive'])->name('cases.unarchive');
-        Route::delete('/cases/{case}/delete-archived', [CaseController::class, 'deleteArchived'])->name('cases.delete-archived');
-        Route::post('/cases/{case}/restore', [CaseController::class, 'restore'])->name('cases.restore');
         Route::patch('/cases/{case}', [CaseController::class, 'update'])->name('cases.update');
         Route::put('/cases/{case}/categories', [CaseController::class, 'updateCategories'])->name('cases.categories.update');
         Route::post('/cases/{case}/toggle-status', [CaseController::class, 'toggleStatus'])->name('cases.toggle-status');

@@ -107,6 +107,18 @@ class SurveyResponseControllerTest extends TestCase
             ->get(route('survey.responses.index'))->assertForbidden();
     }
 
+    public function test_soft_deleted_case_survey_is_hidden_from_index_and_detail(): void
+    {
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $invitation = $this->makeInvitation(Agency::factory()->create(), true, $manager);
+        CaseFile::withTrashed()->whereKey($invitation->case_id)->update(['deleted_at' => now(), 'is_deleted' => true]);
+
+        $this->actingAsWithMfa($admin)->get(route('survey.responses.index'))
+            ->assertInertia(fn (Assert $page) => $page->where('stats.total_sent', 0)->where('stats.total_submitted', 0)->has('invitations.data', 0));
+        $this->actingAsWithMfa($admin)->get(route('survey.responses.show', $invitation))->assertForbidden();
+    }
+
     private function assertIndex(Assert $page, array $ids, int $sent, int $submitted, mixed $rate): Assert
     {
         return $page->component('Survey/ResponseIndex')

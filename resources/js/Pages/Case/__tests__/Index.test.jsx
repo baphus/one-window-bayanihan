@@ -4,7 +4,7 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import CaseIndex from '../Index.jsx';
 
-const { routerGet, routerVisit, toastError } = vi.hoisted(() => ({ routerGet: vi.fn(), routerVisit: vi.fn(), toastError: vi.fn() }));
+const { routerGet, routerVisit, routerPost, toastError, pageState } = vi.hoisted(() => ({ routerGet: vi.fn(), routerVisit: vi.fn(), routerPost: vi.fn(), toastError: vi.fn(), pageState: { role: 'CASE_MANAGER' } }));
 
 vi.mock('@inertiajs/react', () => ({
   Head: () => null,
@@ -12,13 +12,13 @@ vi.mock('@inertiajs/react', () => ({
     get: routerGet,
     visit: routerVisit,
     patch: vi.fn(),
-    post: vi.fn(),
+    post: routerPost,
     delete: vi.fn(),
     on: () => () => {},
   },
   usePage: () => ({
     props: {
-      auth: { user: { role: 'CASE_MANAGER', id: 'u1' } },
+      auth: { user: { role: pageState.role, id: 'u1' } },
       roles: { ADMIN: 'ADMIN', AGENCY: 'AGENCY', CASE_MANAGER: 'CASE_MANAGER', OFW: 'OFW' },
     },
   }),
@@ -27,11 +27,11 @@ vi.mock('@inertiajs/react', () => ({
 vi.mock('@/Layouts/AppLayout', () => ({ default: ({ children }) => <main>{children}</main> }));
 vi.mock('@/Components/ExportDialog', () => ({ default: ({ countUrlBuilder }) => <output data-testid="case-export-count-url">{countUrlBuilder('2026-01-01', '2026-01-31')}</output> }));
 vi.mock('@/Components/ExportExcelButton', () => ({ default: () => null }));
-vi.mock('@/Components/ui/RowContextMenu', () => ({
+vi.mock('@/Components/ui/RowContextMenu', async (importOriginal) => ({
+  ...await importOriginal(),
   RowContextMenu: ({ children }) => <div>{children}</div>,
-  RowContextMenuItem: ({ label, onClick }) => <button onClick={onClick}>{label}</button>,
 }));
-vi.mock('@/Components/ui/ConfirmDialog', () => ({ default: () => null }));
+vi.mock('@/Components/ui/ConfirmDialog', () => ({ default: ({ open, onConfirm, onCancel }) => open ? <div><button onClick={onConfirm}>Confirm archive</button><button onClick={onCancel}>Cancel archive</button></div> : null }));
 vi.mock('@/Components/ui/StatusBadge', () => ({ default: ({ status }) => <span>{status}</span> }));
 vi.mock('@/Hooks/useToast', () => ({ useToast: () => ({ success: vi.fn(), error: toastError, info: vi.fn() }) }));
 
@@ -80,6 +80,8 @@ beforeEach(() => {
   globalThis.route = vi.fn((name, params) => (params ? `/cases?${new URLSearchParams(params)}` : '/cases'));
   routerGet.mockReset();
   routerVisit.mockClear();
+  routerPost.mockClear();
+  pageState.role = 'CASE_MANAGER';
   toastError.mockClear();
   // The page persists its filters and restores them on mount. A previous test's
   // stored filters would restore themselves here and issue an extra request,
@@ -96,13 +98,59 @@ it('opens selected pending review from both actions and keeps View for other cas
   const pending = { ...caseRow, id: 'case-2', case_number: 'CASE-002', status: 'PENDING_REVIEW' };
   renderIndex({ cases: page({ data: [caseRow, pending] }) });
   fireEvent.click(screen.getByRole('button', { name: 'Actions for case CASE-002' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Review' }));
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Review' }));
   expect(route).toHaveBeenCalledWith('cases.review-pending', { review_case: 'case-2' });
   fireEvent.click(screen.getByRole('button', { name: 'CASE-002' }));
   expect(route).toHaveBeenCalledWith('cases.review-pending', { review_case: 'case-2' });
   fireEvent.click(screen.getByRole('button', { name: 'Actions for case CASE-001' }));
-  fireEvent.click(screen.getByRole('button', { name: 'View' }));
+  fireEvent.click(screen.getByRole('menuitem', { name: 'View' }));
   expect(route).toHaveBeenCalledWith('cases.show', 'case-1');
+});
+
+it.each(['CASE_MANAGER', 'ADMIN'])('confirms archive for eligible cases as %s', (role) => {
+  pageState.role = role;
+  renderIndex({ cases: page({ data: [{ ...caseRow, status: 'CLOSED', referrals: [{ status: 'COMPLETED' }] }] }) });
+  fireEvent.click(screen.getByRole('button', { name: 'Actions for case CASE-001' }));
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Archive' }));
+  expect(routerPost).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: 'Confirm archive' }));
+  expect(route).toHaveBeenCalledWith('cases.archive', 'case-1');
+  expect(routerPost).toHaveBeenCalledWith(expect.any(String), {}, { preserveScroll: true });
+});
+
+it.each([
+  ['CASE_MANAGER', 'OPEN', []],
+  ['CASE_MANAGER', 'ARCHIVED', []],
+  ['AGENCY', 'CLOSED', []],
+])('hides archive for %s with status %s and referrals %j', (role, status, referrals) => {
+  pageState.role = role;
+  renderIndex({ cases: page({ data: [{ ...caseRow, status, referrals }] }) });
+  fireEvent.click(screen.getByRole('button', { name: 'Actions for case CASE-001' }));
+  expect(screen.queryByRole('menuitem', { name: 'Archive' })).not.toBeInTheDocument();
+});
+
+it.each(['CLOSED', 'REJECTED'])('explains blocked archive for %s cases', (status) => {
+  renderIndex({ cases: page({ data: [{ ...caseRow, status, referrals: [{ status: 'PENDING' }] }] }) });
+  fireEvent.click(screen.getByRole('button', { name: 'Actions for case CASE-001' }));
+  const archive = screen.getByRole('menuitem', { name: 'Archive' });
+  expect(archive).toHaveAttribute('aria-disabled', 'true');
+  expect(archive).toHaveAccessibleDescription('Cannot archive while referrals are still active.');
+  const tooltip = screen.getByRole('tooltip', { hidden: true });
+  expect(tooltip).toHaveClass('group-hover:block', 'group-focus-within:block');
+  archive.focus();
+  expect(archive).toHaveFocus();
+  fireEvent.click(archive);
+  expect(routerPost).not.toHaveBeenCalled();
+  expect(screen.queryByRole('button', { name: 'Confirm archive' })).not.toBeInTheDocument();
+});
+
+it('allows archiving a rejected case with rejected referrals', () => {
+  renderIndex({ cases: page({ data: [{ ...caseRow, status: 'REJECTED', referrals: [{ status: 'REJECTED' }] }] }) });
+  fireEvent.click(screen.getByRole('button', { name: 'Actions for case CASE-001' }));
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Archive' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Confirm archive' }));
+  expect(route).toHaveBeenCalledWith('cases.archive', 'case-1');
+  expect(routerPost).toHaveBeenCalled();
 });
 
 it('leaves filter validation toasts to the shared watcher without duplicating them', () => {

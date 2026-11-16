@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import Index from '../Index.jsx';
 
-const router = vi.hoisted(() => ({ get: vi.fn() }));
+const router = vi.hoisted(() => ({ get: vi.fn(), delete: vi.fn(), patch: vi.fn() }));
 const UserFormModalMock = vi.hoisted(() => ({ default: vi.fn(() => null) }));
 
 vi.mock('@/Layouts/AppLayout', () => ({ default: ({ children }) => <main>{children}</main> }));
@@ -55,6 +55,43 @@ describe('Admin user search requests', () => {
     expect(UserFormModalMock.default).toHaveBeenCalledTimes(1);
     expect(UserFormModalMock.default.mock.calls[0][0].initialMode).toBe('create');
     expect(window.location.search).toBe('');
+  });
+});
+
+describe('User lifecycle', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    globalThis.route = vi.fn((name, id) => `/${name}/${id}`);
+    window.history.replaceState({}, '', '/admin/users');
+  });
+
+  it('offers active, deactivated and all filters with the backend query contract', () => {
+    render(<Index {...props} />);
+    fireEvent.click(screen.getByRole('button', { name: /filters/i }));
+    const status = screen.getByLabelText('Status');
+    expect(status).toHaveTextContent('Active');
+    fireEvent.click(status);
+    fireEvent.mouseDown(screen.getByRole('option', { name: 'Deactivated' }));
+    expect(router.get.mock.calls.at(-1)[0]).toContain('status=0');
+    expect(router.get.mock.calls.at(-1)[0]).toContain('show_deleted=1');
+    fireEvent.click(screen.getByRole('button', { name: /filters/i }));
+    fireEvent.click(screen.getByLabelText('Status'));
+    fireEvent.mouseDown(screen.getByRole('option', { name: 'All' }));
+    expect(router.get.mock.calls.at(-1)[0]).toContain('show_deleted=1');
+    expect(router.get.mock.calls.at(-1)[0]).not.toContain('status=');
+  });
+
+  it('confirms permanent deletion and displays backend validation blockers', () => {
+    render(<Index {...props} users={{ ...props.users, data: [{ ...props.users.data[0], is_active: false, is_deleted: true }] }} />);
+    expect(screen.queryByRole('button', { name: 'Deactivate' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Reactivate' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Permanently delete' }));
+    expect(screen.getByText(/This cannot be undone/)).toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole('button', { name: 'Permanently delete' }).at(-1));
+    expect(router.delete).toHaveBeenCalledWith('/admin.users.destroy/user-1', expect.any(Object));
+    act(() => router.delete.mock.calls[0][1].onError({ user: 'User has related records.' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('User has related records.');
   });
 });
 

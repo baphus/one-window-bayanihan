@@ -191,7 +191,7 @@ class CaseManagerWorkflowAuditTest extends TestCase
         ]);
         $case->delete(); // soft-delete → trashed
 
-        $this->actingAsWithMfa($this->cmUser)
+        $this->actingAsWithMfa(User::factory()->create(['role' => UserRole::ADMIN->value]))
             ->delete("/cases/{$case->id}/delete-archived", [
                 'deletion_reason' => 'test deletion reason',
             ])

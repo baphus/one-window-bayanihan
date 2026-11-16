@@ -91,7 +91,7 @@ class SurveyInvitationService
             ->with('surveyForm.questions')
             ->first();
 
-        if (! $invitation || ! $invitation->surveyForm) {
+        if (! $invitation || ! $invitation->surveyForm || ($invitation->case_id && ! $invitation->caseFile()->where('is_deleted', false)->exists())) {
             throw new RuntimeException('Invalid survey link.');
         }
 
