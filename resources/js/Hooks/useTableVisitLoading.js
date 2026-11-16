@@ -5,6 +5,7 @@ export default function useTableVisitLoading() {
   const mountedRef = useRef(true);
 
   useEffect(() => {
+    mountedRef.current = true;
     return () => {
       mountedRef.current = false;
     };

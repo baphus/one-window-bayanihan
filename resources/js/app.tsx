@@ -70,7 +70,7 @@ function AppWithOnboarding({
 
     useEffect(() => {
         const removeListener = router.on('exception', (event) => {
-            const exception = event.detail?.exception;
+            const exception = event.detail.exception;
             console.warn('[Inertia] Navigation exception', {
                 message: exception?.message,
                 name: exception?.name,

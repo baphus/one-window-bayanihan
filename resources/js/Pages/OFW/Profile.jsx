@@ -25,7 +25,7 @@ export default function Profile({ user, mfaEnabled = false, mfaRequired = false,
         form.put(safeRoute('ofw.profile.update', undefined, '/my-cases/profile'), {
             preserveScroll: true,
             onSuccess: () => { toast.success('Profile updated. Existing case records are unchanged.'); },
-            onError: (errors) => { const first = Object.values(errors)[0]; if (first) toast.error(String(first)); },
+            onError: () => {},
         });
     }
 

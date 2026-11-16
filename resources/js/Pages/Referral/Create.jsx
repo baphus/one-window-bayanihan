@@ -178,7 +178,7 @@ export default function ReferralCreate({ case_id, agencies = [], cases: paginate
 
         post(route('referrals.store'), {
             onSuccess: () => { toast.success('Referral submitted successfully!'); },
-            onError: (errs) => { const msgs = Object.values(errs); toast.error(msgs[0] || 'Failed to submit referral.'); },
+            onError: () => {},
             onFinish: () => { transform((current) => current); },
         });
     }

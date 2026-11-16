@@ -51,6 +51,33 @@ class CaseReviewTest extends TestCase
         return ['confirmed_assessments' => ['LEGAL_ASSISTANCE'], 'reviewed_document_ids' => $ids, 'category_ids' => [$category->id]];
     }
 
+    public function test_case_manager_can_load_selected_pending_case_outside_first_page(): void
+    {
+        $filer = User::factory()->create(['role' => UserRole::OFW->value]);
+        $cases = collect(range(1, 16))->map(fn () => $this->createPendingCase($filer));
+        $cm = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+
+        $this->actingAsWithMfa($cm)->get(route('cases.review-pending', ['review_case' => $cases->last()->id]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->has('cases.data', 15)
+                ->where('selectedReviewCase.id', $cases->last()->id)
+                ->where('selectedReviewCase.status', CaseFile::STATUS_PENDING_REVIEW));
+    }
+
+    public function test_selected_review_case_must_be_pending_and_not_deleted(): void
+    {
+        $filer = User::factory()->create(['role' => UserRole::OFW->value]);
+        $case = CaseFile::factory()->withIntake()->create(['user_id' => $filer->id, 'ofw_user_id' => $filer->id]);
+        $cm = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+
+        $this->actingAsWithMfa($cm)->get(route('cases.review-pending', ['review_case' => $case->id]))->assertNotFound();
+
+        $case->update(['status' => CaseFile::STATUS_PENDING_REVIEW, 'is_deleted' => false]);
+        $case->delete();
+        $this->actingAsWithMfa($cm)->get(route('cases.review-pending', ['review_case' => $case->id]))->assertNotFound();
+    }
+
     public function test_case_manager_pending_review_gets_suggestions_and_active_agencies(): void
     {
         $filer = User::factory()->create(['role' => UserRole::OFW->value]);

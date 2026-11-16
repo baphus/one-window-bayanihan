@@ -98,7 +98,7 @@ const COLUMN_DEFS = [
   { key: 'age', label: 'Age at intake', sortable: false, default: false }
 ];
 
-export default function CaseIndex({ cases, filters: rawFilters, stats, users = [], agencies = [] }) {
+export default function CaseIndex({ cases, filters: rawFilters, stats, users = [], agencies = [], categories = [] }) {
   const { auth, roles } = usePage().props;
   const toast = useToast();
   const canCreate = auth.user.role === roles.CASE_MANAGER || auth.user.role === roles.ADMIN;
@@ -173,11 +173,12 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
     };
 
     if (toFilterList(filters?.status).length) chips.push({ label: 'Status', value: labelList(filters.status, [
-      { value: 'OPEN', label: 'Open' }, { value: 'CLOSED', label: 'Closed' }, { value: 'ARCHIVED', label: 'Archived' }, { value: 'REJECTED', label: 'Declined' },
+      { value: 'OPEN', label: 'Open' }, { value: 'CLOSED', label: 'Closed' }, { value: 'ARCHIVED', label: 'Archived' }, { value: 'PENDING_REVIEW', label: 'Pending Review' }, { value: 'REJECTED', label: 'Declined' },
     ]) });
     if (toFilterList(filters?.client_type).length) chips.push({ label: 'Client Type', value: labelList(filters.client_type, [
       { value: 'OFW', label: 'OFW' }, { value: 'NEXT_OF_KIN', label: 'Next of Kin' },
     ]) });
+    if (toFilterList(filters?.category_ids ?? filters?.category_id).length) chips.push({ label: 'Categories', value: labelList(filters.category_ids ?? filters.category_id, categories.map((c) => ({ value: c.id, label: c.name }))) });
     if (toFilterList(filters?.vulnerability_indicator).length) chips.push({ label: 'Vulnerability', value: toFilterList(filters.vulnerability_indicator).join(', ') });
     if (toFilterList(filters?.age_min_days).length) chips.push({ label: 'Case Age', value: toFilterList(filters.age_min_days).map((d) => `${d}+ days`).join(', ') });
     if (toFilterList(filters?.user_id).length) chips.push({ label: 'Author', value: labelList(filters.user_id, users.map((u) => ({ value: u.id, label: u.name }))) });
@@ -186,7 +187,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
     if (filters?.date_from) chips.push({ label: 'From', value: filters.date_from });
     if (filters?.date_to) chips.push({ label: 'To', value: filters.date_to });
     return chips;
-  }, [filters]);
+  }, [filters, users, agencies, categories]);
 
   const handleRowContextMenu = (e, row) => {
     e.preventDefault();
@@ -246,6 +247,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
       preserveScroll: true,
       replace: true,
       only: ['cases', 'filters', 'stats', 'users', 'agencies'],
+      onError: () => {},
     }));
   };
 
@@ -274,10 +276,13 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
     const join = (list, labels) => list.map((value) => labels?.[value] ?? value).join(', ');
 
     const statusList = toFilterList(filters?.status);
-    if (statusList.length) chips.push({ key: 'status', label: 'Status', value: join(statusList, { OPEN: 'Open', CLOSED: 'Closed', ARCHIVED: 'Archived' }) });
+    if (statusList.length) chips.push({ key: 'status', label: 'Status', value: join(statusList, { OPEN: 'Open', CLOSED: 'Closed', ARCHIVED: 'Archived', PENDING_REVIEW: 'Pending Review', REJECTED: 'Declined' }) });
 
     const clientTypeList = toFilterList(filters?.client_type);
     if (clientTypeList.length) chips.push({ key: 'client_type', label: 'Client Type', value: join(clientTypeList, { OFW: 'OFW', NEXT_OF_KIN: 'Next of Kin' }) });
+
+    const categoryList = toFilterList(filters?.category_ids?.length ? filters.category_ids : filters?.category_id);
+    if (categoryList.length) chips.push({ key: 'category_ids', label: 'Categories', value: join(categoryList, Object.fromEntries(categories.map((c) => [c.id, c.name]))) });
 
     const vulnerabilityList = toFilterList(filters?.vulnerability_indicator);
     if (vulnerabilityList.length) chips.push({ key: 'vulnerability_indicator', label: 'Vulnerability', value: vulnerabilityList.join(', ') });
@@ -297,11 +302,14 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
 
     if (filters?.referral_state === 'none') chips.push({ key: 'referral_state', label: 'Referrals', value: 'None' });
     return chips;
-  }, [filters, users, agencies]);
+  }, [filters, users, agencies, categories]);
 
   const handleClearFilters = () => {
+    if (tableLoading) return;
     updateTable({
       status: undefined,
+      category_id: undefined,
+      category_ids: undefined,
       client_type: undefined,
       vulnerability_indicator: undefined,
       user_id: undefined,
@@ -343,7 +351,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
                 <div className="space-y-0.5">
                   <button
                     type="button"
-                    onClick={() => router.visit(route('cases.show', row.id))}
+                    onClick={() => router.visit(row.status === 'PENDING_REVIEW' ? route('cases.review-pending', { review_case: row.id }) : route('cases.show', row.id))}
                     className="block font-mono text-xs font-bold text-blue-900 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                     aria-label={row.case_number}
                   >
@@ -538,6 +546,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
   };
 
   const handleStatusQuickFilter = (status) => {
+    if (tableLoading) return;
     const base = pendingParamsRef.current ?? filtersRef.current;
     pendingParamsRef.current = null;
     updateTable({ ...base, status: status || undefined, page: undefined });
@@ -552,8 +561,14 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
           { value: 'OPEN', label: 'Open' },
           { value: 'CLOSED', label: 'Closed' },
           { value: 'ARCHIVED', label: 'Archived' },
+          { value: 'PENDING_REVIEW', label: 'Pending Review' },
           { value: 'REJECTED', label: 'Declined' },
         ],
+      },
+      {
+        key: 'category_ids',
+        label: 'Categories',
+        options: categories.map((category) => ({ value: category.id, label: category.name })),
       },
       {
         key: 'client_type',
@@ -585,12 +600,13 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
         options: (agencies ?? []).map((agency) => ({ value: agency.id, label: agency.name })),
       },
     ],
-    [users, agencies],
+    [users, agencies, categories],
   );
 
   const selectedFilters = useMemo(
     () => ({
       status: toFilterList(filters?.status),
+      category_ids: toFilterList(filters?.category_ids?.length ? filters.category_ids : filters?.category_id),
       client_type: toFilterList(filters?.client_type),
       vulnerability_indicator: toFilterList(filters?.vulnerability_indicator),
       user_id: toFilterList(filters?.user_id),
@@ -602,6 +618,12 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
   const { toggleFilter } = useArrayFilters();
 
   const handleFilterToggle = (key, value) => {
+    if (tableLoading) return;
+    if (key === 'category_ids') {
+      const { category_id, ...rest } = filters;
+      updateTable(toggleFilter({ ...rest, category_ids: selectedFilters.category_ids }, key, value));
+      return;
+    }
     updateTable(toggleFilter(filters, key, value));
   };
 
@@ -609,7 +631,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
   // select: `age_min_days` is validated as a scalar integer server-side, so an
   // array there would be rejected.
   const advancedFilterContent = useMemo(() => (
-    <div className="flex flex-col gap-3">
+    <fieldset disabled={tableLoading} className="flex min-w-0 flex-col gap-3 disabled:opacity-60">
       <FilterPanel
         searchable
         groups={filterGroups}
@@ -625,6 +647,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
           <Select
             value={filters?.age_min_days ?? ''}
             onChange={(e) => {
+              if (tableLoading) return;
               const val = e.target.value;
               updateTable({ ...filters, age_min_days: val || undefined, page: undefined });
             }}
@@ -649,6 +672,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
               type="date"
               value={filters?.date_from ?? ''}
               onChange={(e) => {
+                if (tableLoading) return;
                 const val = e.target.value;
                 updateTable({ ...filters, date_from: val || undefined, page: undefined });
               }}
@@ -661,6 +685,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
               type="date"
               value={filters?.date_to ?? ''}
               onChange={(e) => {
+                if (tableLoading) return;
                 const val = e.target.value;
                 updateTable({ ...filters, date_to: val || undefined, page: undefined });
               }}
@@ -679,8 +704,8 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
           Done
         </button>
       </div>
-    </div>
-  ), [filters, filterGroups, selectedFilters, activeFilters.length, updateTable]);
+    </fieldset>
+  ), [filters, filterGroups, selectedFilters, activeFilters.length, updateTable, tableLoading]);
 
   const quickFilterPills = useMemo(() => {
     const statuses = [
@@ -688,10 +713,12 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
       { key: 'open', label: 'Open', value: 'OPEN', count: stats?.open_cases },
       { key: 'closed', label: 'Closed', value: 'CLOSED', count: stats?.closed_cases },
       { key: 'archived', label: 'Archived', value: 'ARCHIVED', count: stats?.archived_cases },
+      { key: 'pending-review', label: 'Pending Review', value: 'PENDING_REVIEW', count: stats?.pending_review_cases },
       { key: 'declined', label: 'Declined', value: 'REJECTED', count: stats?.declined_cases },
     ];
 
     return (
+      <fieldset disabled={tableLoading} className="min-w-0 border-0 p-0 disabled:opacity-60" aria-label="Case status filters">
       <TableTabs
         label="Filter cases by status"
         items={statuses}
@@ -699,8 +726,9 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
         allValue=""
         onSelect={(value) => handleStatusQuickFilter(value || undefined)}
       />
+      </fieldset>
     );
-  }, [filters, stats]);
+  }, [filters, stats, tableLoading]);
 
   const columnControlContent = useMemo(() => (
     <div className="space-y-2">
@@ -795,14 +823,14 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
           triggerRef={actionTriggerRef}
           onClose={() => setContextMenu(null)}
         >
-          <RowContextMenuItem icon="visibility" label="View" onClick={() => {
-            router.visit(route('cases.show', contextMenu.row.id));
+          <RowContextMenuItem icon="visibility" label={contextMenu.row.status === 'PENDING_REVIEW' ? 'Review' : 'View'} onClick={() => {
+            router.visit(contextMenu.row.status === 'PENDING_REVIEW' ? route('cases.review-pending', { review_case: contextMenu.row.id }) : route('cases.show', contextMenu.row.id));
             setContextMenu(null);
           }} />
-          <RowContextMenuItem icon="edit" label="Edit" onClick={() => {
+          {contextMenu.row.status !== 'PENDING_REVIEW' && <RowContextMenuItem icon="edit" label="Edit" onClick={() => {
             router.visit(`${route('cases.show', contextMenu.row.id)}?edit=1`);
             setContextMenu(null);
-          }} />
+          }} />}
           {canArchiveCase(contextMenu.row) && (
             <RowContextMenuItem icon="archive" label="Archive" onClick={() => {
               setConfirmArchiveId(contextMenu.row.id);

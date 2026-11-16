@@ -32,6 +32,8 @@ class CaseIntakeWorkflowTest extends TestCase
             'client_type' => 'OFW', 'summary' => 'Request for legal assistance', 'vulnerability_indicator' => 'None',
             'return_reason' => 'OTHERS', 'consent' => true, 'consent_text_version' => IntakeDocumentService::CONSENT_VERSION,
             'employment_employer_address' => 'Private employer address',
+            'category_ids' => [CaseCategory::factory()->create()->id],
+            'confirmed_assessments' => ['LEGAL_ASSISTANCE'],
             'documents' => collect(['passport_front_page', 'arrival_stamp', 'oec', 'sworn_affidavit'])
                 ->mapWithKeys(fn ($slot) => [$slot => UploadedFile::fake()->image($slot.'.jpg')])->all(),
         ]);
@@ -43,6 +45,7 @@ class CaseIntakeWorkflowTest extends TestCase
         $owner = User::factory()->create(['role' => UserRole::OFW->value]);
         $other = User::factory()->create();
         $data = $this->payload();
+        unset($data['category_ids'], $data['confirmed_assessments']);
         $data['ofw_user_id'] = $other->id;
         $first = app(CaseService::class)->createCase($data, $owner->id);
         $data['first_name'] = 'Independent';
@@ -56,6 +59,23 @@ class CaseIntakeWorkflowTest extends TestCase
         $this->assertSame('Independent', $second->first_name);
         $this->assertCount(4, $first->documents);
         $this->assertNotSame('Private employer address', $first->getRawOriginal('employment_employer_address'));
+    }
+
+    public function test_staff_creation_rejects_missing_classification_inactive_categories_and_unexplained_other(): void
+    {
+        $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
+        $data = $this->payload();
+        $inactive = CaseCategory::factory()->create(['is_active' => false]);
+        foreach ([['category_ids' => []], ['confirmed_assessments' => []], ['category_ids' => [$inactive->id]], ['confirmed_assessments' => ['OTHER'], 'confirmed_assessment_other' => '']] as $invalid) {
+            try {
+                app(CaseService::class)->createCase(array_replace($data, $invalid), $manager->id);
+                $this->fail('Invalid staff classification was accepted.');
+            } catch (ValidationException $exception) {
+                $field = isset($invalid['confirmed_assessment_other']) ? 'confirmed_assessment_other' : array_key_first($invalid);
+                $this->assertTrue(collect(array_keys($exception->errors()))->contains(fn ($key) => $key === $field || str_starts_with($key, $field.'.')));
+            }
+        }
+        $this->assertSame(0, CaseFile::count());
     }
 
     public function test_required_documents_cannot_be_waived_for_public_filing(): void
@@ -111,6 +131,10 @@ class CaseIntakeWorkflowTest extends TestCase
         $this->assertNull($case->ofw_user_id);
         $this->assertSame($manager->id, $case->assigned_case_manager_id);
         $this->assertSame('OPEN', $case->status);
+        $this->assertSame(['LEGAL_ASSISTANCE'], $case->confirmed_assessments);
+        $this->assertSame($manager->id, $case->confirmed_assessment_by);
+        $this->assertNotNull($case->confirmed_assessment_at);
+        $this->assertSame(1, $case->categories()->count());
         $this->assertSame('STAFF_ATTESTED', $case->consent_method);
         $this->assertNull($case->consent_evidence);
         $this->assertSame([

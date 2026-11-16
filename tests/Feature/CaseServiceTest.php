@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\UserRole;
+use App\Models\CaseCategory;
 use App\Models\CaseFile;
 use App\Models\User;
 use App\Services\CaseService;
@@ -44,6 +45,7 @@ class CaseServiceTest extends TestCase
         $data = CaseFile::factory()->withIntake()->make()->only(CaseFile::INTAKE_FIELDS);
         $result = $service->createCase(array_merge($data, [
             'client_type' => 'OFW',
+            'category_ids' => [CaseCategory::factory()->create()->id], 'confirmed_assessments' => ['LEGAL_ASSISTANCE'],
             'address_region_code' => '0700000000', 'address_province_code' => '0702200000',
             'consent' => true,
             'consent_text_version' => IntakeDocumentService::CONSENT_VERSION,
@@ -63,6 +65,7 @@ class CaseServiceTest extends TestCase
         $data = CaseFile::factory()->withIntake()->make()->only(CaseFile::INTAKE_FIELDS);
 
         $case = app(CaseService::class)->createCase(array_merge($data, [
+            'category_ids' => [CaseCategory::factory()->create()->id], 'confirmed_assessments' => ['LEGAL_ASSISTANCE'],
             'consent' => true,
             'consent_text_version' => IntakeDocumentService::CONSENT_VERSION,
             'missing_document_reasons' => array_fill_keys(['passport_front_page', 'arrival_stamp', 'employment_evidence', 'sworn_affidavit'], 'Awaiting copy'),

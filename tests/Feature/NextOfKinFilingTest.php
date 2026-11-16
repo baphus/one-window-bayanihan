@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\UserRole;
+use App\Models\CaseCategory;
 use App\Models\CaseFile;
 use App\Models\User;
 use App\Services\IntakeDocumentService;
@@ -50,6 +51,8 @@ class NextOfKinFilingTest extends TestCase
             'employment_date_of_arrival' => '2021-02-01',
             'summary' => 'NOK filing test',
             'vulnerability_indicator' => 'None',
+            'category_ids' => [CaseCategory::factory()->create()->id],
+            'confirmed_assessments' => ['LEGAL_ASSISTANCE'],
             'return_reason' => 'OTHERS',
             'consent' => true,
             'consent_text_version' => IntakeDocumentService::CONSENT_VERSION,

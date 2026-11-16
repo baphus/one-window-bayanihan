@@ -722,7 +722,7 @@ class TestingSeeder extends Seeder
                 $documents = [];
                 $reviewedDocumentIds = [];
                 foreach ($slots as $slot) {
-                    if ($case->status === 'PENDING_REVIEW' && $slot === 'passport_front_page') {
+                    if ($case->status === 'PENDING_REVIEW' && $slot === 'passport_front_page' && (int) substr($case->case_number, -1) % 2 === 0) {
                         continue;
                     }
                     $documentId = (string) Str::uuid();
@@ -764,7 +764,7 @@ class TestingSeeder extends Seeder
                 }
                 DB::table('cases')->where('id', $caseId)->update([
                     'reviewed_document_ids' => $case->status === 'PENDING_REVIEW' ? null : json_encode($reviewedDocumentIds),
-                    'missing_document_reasons' => $case->status === 'PENDING_REVIEW'
+                    'missing_document_reasons' => $case->status === 'PENDING_REVIEW' && (int) substr($case->case_number, -1) % 2 === 0
                         ? Crypt::encrypt(json_encode(['passport_front_page' => 'Pending synthetic document']), false)
                         : null,
                 ]);

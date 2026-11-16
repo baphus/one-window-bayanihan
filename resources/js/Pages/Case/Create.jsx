@@ -22,6 +22,7 @@ export default function CaseCreate(props) {
         deploymentModes = [],
         employmentStatuses = [],
         assessmentOptions = [],
+        categories = [],
         vulnerabilityOptions = [],
         occupationOptions = [],
     } = props;
@@ -37,9 +38,10 @@ export default function CaseCreate(props) {
         deploymentModes,
         employmentStatuses,
         assessmentOptions,
+        categories,
         vulnerabilityOptions,
         occupationOptions,
-    }), [consentTextVersion, documentSlots, returnReasons, civilStatuses, deploymentModes, employmentStatuses, assessmentOptions, vulnerabilityOptions, occupationOptions]);
+    }), [consentTextVersion, documentSlots, returnReasons, civilStatuses, deploymentModes, employmentStatuses, assessmentOptions, categories, vulnerabilityOptions, occupationOptions]);
 
     function submit(event) {
         event.preventDefault();
@@ -51,10 +53,7 @@ export default function CaseCreate(props) {
             preserveScroll: true,
             forceFormData: true,
             onSuccess: () => toast.success('Case created successfully.'),
-            onError: (errors) => {
-                const first = Object.values(errors)[0];
-                toast.error((Array.isArray(first) ? first[0] : first) || 'Please check the highlighted fields.');
-            },
+            onError: () => {},
             onFinish: () => form.transform((data) => data),
         });
     }

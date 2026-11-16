@@ -52,9 +52,12 @@ class CaseController extends Controller
     {
         $categoryFilters = CategoryFilter::fromRequest($request)->toArray();
 
-        // Filter options come from the reference tables, so a value the page
-        // offers is always a value the database actually holds.
-        $caseStatusOptions = array_values(array_unique([...array_column($this->referenceData->getCaseStatusOptions(), 'value'), 'REJECTED']));
+        // Reference rows supply labels, but fixed lifecycle filters must remain
+        // valid even when a row is inactive or missing.
+        $caseStatusOptions = array_values(array_unique([
+            ...array_column($this->referenceData->getCaseStatusOptions(), 'value'),
+            'OPEN', 'CLOSED', 'ARCHIVED', CaseFile::STATUS_PENDING_REVIEW, 'REJECTED',
+        ]));
         $clientTypeOptions = ['OFW', 'NEXT_OF_KIN'];
         $vulnerabilityOptions = array_column($this->referenceData->getVulnerabilityOptions(), 'value');
 
@@ -135,7 +138,10 @@ class CaseController extends Controller
             return redirect()->route('ofw.profile.edit')->with('warning', 'Complete your name, birth date and sex before filing a case.');
         }
 
-        return Inertia::render('Case/Create', $this->intakeProps());
+        return Inertia::render('Case/Create', [
+            ...$this->intakeProps(),
+            'categories' => $request->user()->isOfw() ? [] : $this->referenceData->getActiveCategories()->map(fn ($category) => ['id' => $category->id, 'name' => $category->name]),
+        ]);
     }
 
     /**
@@ -222,33 +228,40 @@ class CaseController extends Controller
         $listing = $request->validate([
             'direction' => ['sometimes', 'string', 'in:asc,desc'],
             'per_page' => ['sometimes', 'integer', 'min:10', 'max:100'],
+            'review_case' => ['sometimes', 'uuid'],
         ]);
         $direction = $listing['direction'] ?? 'asc';
 
         $duplicateRetry = session()->pull('duplicate_check_retry');
-        $cases = CaseFile::with(['documents' => fn ($query) => $query
+        $query = CaseFile::with(['documents' => fn ($query) => $query
             ->whereNull('referral_id')
             ->where('is_deleted', false)])
             ->where('status', CaseFile::STATUS_PENDING_REVIEW)
             ->where('is_deleted', false)
             ->when($request->user()->isAgency() && $request->user()->agcy_id, function ($query) use ($request) {
                 $query->whereHas('referrals', fn ($q) => $q->where('agcy_id', $request->user()->agcy_id));
-            })
+            });
+        $selectedReviewCase = isset($listing['review_case'])
+            ? (clone $query)->whereKey($listing['review_case'])->firstOrFail()
+            : null;
+        $cases = $query
             ->orderBy('created_at', $direction)
             ->paginate((int) ($listing['per_page'] ?? 15));
+        $payloadForReview = function ($case) use ($request, $duplicateRetry) {
+            $payload = $this->authorizedIntakePayload($case, $request->user());
+            if ($request->user()->isAdmin() || $request->user()->isCaseManager()) {
+                $assessments = is_array($duplicateRetry) && $duplicateRetry['case_id'] === $case->id
+                    ? $duplicateRetry['assessments']
+                    : ($case->proposed_assessments ?: []);
+                $payload['duplicate_check'] = app(CaseDuplicateCheckService::class)->forCase($case, $assessments);
+            }
+
+            return $payload;
+        };
 
         return Inertia::render('Case/ReviewPending', [
-            'cases' => $cases->through(function ($case) use ($request, $duplicateRetry) {
-                $payload = $this->authorizedIntakePayload($case, $request->user());
-                if ($request->user()->isAdmin() || $request->user()->isCaseManager()) {
-                    $assessments = is_array($duplicateRetry) && $duplicateRetry['case_id'] === $case->id
-                        ? $duplicateRetry['assessments']
-                        : ($case->proposed_assessments ?: []);
-                    $payload['duplicate_check'] = app(CaseDuplicateCheckService::class)->forCase($case, $assessments);
-                }
-
-                return $payload;
-            }),
+            'cases' => $cases->through($payloadForReview),
+            'selectedReviewCase' => $selectedReviewCase ? $payloadForReview($selectedReviewCase) : null,
             ...$this->intakeProps(),
             'filters' => (object) $request->only(['search']),
             'sort' => 'created_at',

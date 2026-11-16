@@ -112,6 +112,7 @@ class ReferralCategorySnapshotBulkTest extends TestCase
         $this->assertSame(2, Referral::where('case_id', $case->id)->count());
         $case->categories()->sync([$categories[0]->id]);
         $this->assertCount(2, app(ReferralService::class)->getReferrals(['category_ids' => [$categories[1]->id]])->items());
+        $this->assertCount(2, app(ReferralService::class)->getReferrals(['category_ids' => $categories->modelKeys()])->items());
         $this->assertCount(2, app(ReferralQueries::class)->getReferralsExport($manager, ['category_ids' => $categories->modelKeys()]));
         $third = Agency::factory()->create(['is_active' => true]);
         $categories[0]->suggestedAgencies()->attach($third);

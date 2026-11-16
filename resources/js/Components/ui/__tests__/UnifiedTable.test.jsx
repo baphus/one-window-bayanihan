@@ -24,6 +24,23 @@ function renderTable(props = {}) {
   );
 }
 
+describe('UnifiedTable active filters', () => {
+  it('passes original chip identity to removal and disables actions while busy', () => {
+    const remove = vi.fn();
+    const clear = vi.fn();
+    const filters = [{ key: 'category_ids', label: 'Category', value: 'Benefits', id: 'cat-1' }, { key: 'status', label: 'Status', value: 'Open' }];
+    const { rerender } = renderTable({ activeFilters: filters, activeFilterCount: 2, onRemoveFilter: remove, onClearFilters: clear });
+    expect(screen.getByLabelText('Active filters')).toHaveTextContent('Category: Benefits');
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Category: Benefits filter' }));
+    expect(remove).toHaveBeenCalledWith(filters[0]);
+    fireEvent.click(screen.getByRole('button', { name: 'Clear all' }));
+    expect(clear).toHaveBeenCalledOnce();
+    rerender(<UnifiedTable data={rows} columns={columns} activeFilters={filters} onRemoveFilter={remove} onClearFilters={clear} isLoading />);
+    expect(screen.getByRole('button', { name: 'Remove Category: Benefits filter' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Clear all' })).toBeDisabled();
+  });
+});
+
 describe('UnifiedTable collection contract', () => {
   it('does not expose search or pagination when a plain collection has no server capabilities', () => {
     render(
@@ -183,7 +200,7 @@ describe('UnifiedTable filter panel contract', () => {
     expect(screen.queryByRole('dialog', { name: /filters/i })).not.toBeInTheDocument();
   });
 
-  it('hides the active-filter strip while preserving the popover Clear all action and count', () => {
+  it('shows active filters while preserving the popover Clear all action and count', () => {
     renderTable({
       activeFilters: [{ key: 'status', label: 'Status', value: 'Open' }],
       activeFilterCount: 1,
@@ -192,10 +209,7 @@ describe('UnifiedTable filter panel contract', () => {
       advancedFiltersContent: <button type="button">Clear all</button>,
     });
 
-    // The strip used to render here; filters are now managed from the compact
-    // popover, so nothing is drawn between the toolbar and the table.
-    expect(screen.queryByText(/active filters/i)).not.toBeInTheDocument();
-    expect(screen.queryByText('Status: Open')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Active filters')).toHaveTextContent('Status: Open');
     expect(screen.getByRole('button', { name: /filters, 1 active/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Clear all' })).toBeInTheDocument();
   });

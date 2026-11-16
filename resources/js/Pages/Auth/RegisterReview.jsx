@@ -21,7 +21,7 @@ export default function RegisterReview({ pending = {} }) {
                 setCodeSent(true);
                 toast.success('Code sent. Check your inbox and spam folder.');
             },
-            onError: () => toast.error('Could not send the code. Please try again.'),
+            onError: () => {},
         });
     }
 
@@ -30,9 +30,7 @@ export default function RegisterReview({ pending = {} }) {
         setSubmitting(true);
         router.post(route('register.review.store'), { otp: data.otp }, {
             onFinish: () => setSubmitting(false),
-            onError: (errs) => {
-                toast.error(errs.otp || Object.values(errs)[0] || 'Could not finish registration.');
-            },
+            onError: () => {},
         });
     }
 

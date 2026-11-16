@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\UserRole;
 use App\Http\Middleware\VerifyTurnstile;
+use App\Models\CaseCategory;
 use App\Models\User;
 use App\Rules\ServedRegion;
 use App\Services\IntakeDocumentService;
@@ -139,6 +140,8 @@ class ServedRegionRuleTest extends TestCase
             'employment_date_of_arrival' => '2020-03-01',
             'summary' => 'Region validation filing test.',
             'vulnerability_indicator' => 'None',
+            'category_ids' => [CaseCategory::factory()->create()->id],
+            'confirmed_assessments' => ['LEGAL_ASSISTANCE'],
             'return_reason' => 'OTHERS',
             'consent' => true,
             'consent_text_version' => IntakeDocumentService::CONSENT_VERSION,

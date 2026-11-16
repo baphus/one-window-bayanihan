@@ -1045,7 +1045,6 @@ export default function ReferralShow({ referral, caseIdentity: caseIdentityProp 
                 onError: (errors) => {
                     const message = errors.file || Object.values(errors)[0] || 'Failed to upload document.';
                     setUploadError(message);
-                    toast.error(message);
                 },
                 onFinish: () => {
                     setUploadingDoc(false);

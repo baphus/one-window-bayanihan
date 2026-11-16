@@ -90,16 +90,16 @@ class ClientDirectoryTest extends TestCase
                 ->where('clients.total', 1)->where('clients.data.0.id', $owner->id)
                 ->where('clients.data.0.name', 'Newer Dela Cruz')->where('clients.data.0.case_count', 2)
                 ->where('clients.data.0.open_case_count', 1)->where('clients.data.0.closed_case_count', 1)
-                ->where('clients.data.0.vulnerability_indicators', ['PWD'])
+                ->where('clients.data.0.vulnerability_indicators', [])
                 ->where('clients.data.0.email', 'newer-case@example.test')->where('clients.data.0.contact_number', '09171234567')
                 ->where('clients.data.0.address_city_municipality', 'Cebu City')->where('clients.data.0.address_province', 'Cebu')
                 ->where('clients.data.0.employment_country', 'Japan')->where('clients.data.0.employment_status', 'ON_SITE')
                 ->missing('kpis.eligible_clients')->where('kpis.ofw_clients', 2)
-                ->where('kpis.next_of_kin_clients', 2)->where('kpis.vulnerable_clients', 1)
+                ->where('kpis.next_of_kin_clients', 2)->where('kpis.vulnerable_clients', 0)
                 ->where('kpis.returning_clients', 1)->missing('kpis.open')->missing('kpis.closed')->missing('kpis.vulnerable')->etc());
         $this->get(route('clients.index', ['status' => 'Closed']))->assertInertia(fn (Assert $page) => $page
             ->where('clients.total', 1)->missing('kpis.eligible_clients')->where('kpis.ofw_clients', 2)
-            ->where('kpis.next_of_kin_clients', 2)->where('kpis.vulnerable_clients', 1)->where('kpis.returning_clients', 1)->etc());
+            ->where('kpis.next_of_kin_clients', 2)->where('kpis.vulnerable_clients', 0)->where('kpis.returning_clients', 1)->etc());
         $this->get(route('clients.index', ['search' => $standalone->case_number]))->assertInertia(fn (Assert $page) => $page
             ->where('clients.total', 1)->where('clients.data.0.vulnerability_indicators', [])->etc());
         $this->get(route('clients.index', ['search' => 'owner@example.test']))->assertInertia(fn (Assert $page) => $page->where('clients.total', 1)->etc());
@@ -115,8 +115,8 @@ class ClientDirectoryTest extends TestCase
     {
         $this->actingAsWithMfa(User::factory()->create(['role' => 'ADMIN']));
         $owner = User::factory()->create(['role' => 'OFW']);
-        CaseFile::factory()->withIntake()->create(['ofw_user_id' => $owner->id, 'client_type' => 'OFW', 'vulnerability_indicator' => 'PWD']);
-        CaseFile::factory()->withIntake()->create(['ofw_user_id' => $owner->id, 'client_type' => 'NEXT_OF_KIN', 'vulnerability_indicator' => 'PWD, Solo Parent']);
+        CaseFile::factory()->withIntake()->create(['ofw_user_id' => $owner->id, 'client_type' => 'OFW', 'vulnerability_indicator' => 'PWD', 'created_at' => now()]);
+        CaseFile::factory()->withIntake()->create(['ofw_user_id' => $owner->id, 'client_type' => 'NEXT_OF_KIN', 'vulnerability_indicator' => 'PWD, Solo Parent', 'created_at' => now()->subDay()]);
         CaseFile::factory()->withIntake()->create(['ofw_user_id' => null, 'client_type' => 'OFW', 'vulnerability_indicator' => 'None']);
         CaseFile::factory()->withIntake()->create(['ofw_user_id' => null, 'client_type' => 'OFW', 'vulnerability_indicator' => 'None']);
 
@@ -125,7 +125,7 @@ class ClientDirectoryTest extends TestCase
             ->where('kpis.next_of_kin_clients', 1)->where('kpis.vulnerable_clients', 1)
             ->where('kpis.returning_clients', 1)->etc());
         $this->get(route('clients.index', ['search' => $owner->email]))->assertInertia(fn (Assert $page) => $page
-            ->where('clients.total', 1)->where('clients.data.0.vulnerability_indicators', ['PWD', 'Solo Parent'])->etc());
+            ->where('clients.total', 1)->where('clients.data.0.vulnerability_indicators', ['PWD'])->etc());
     }
 
     public function test_index_paginates_with_stable_id_tie_break(): void
@@ -140,6 +140,47 @@ class ClientDirectoryTest extends TestCase
         $this->get(route('clients.index', ['page' => 2]))->assertInertia(fn (Assert $page) => $page
             ->where('clients.total', 16)->has('clients.data', 1)
             ->where('clients.data.0.id', $ids[15])->etc());
+    }
+
+    public function test_directory_filters_overlap_and_sorting_use_latest_eligible_case(): void
+    {
+        $this->actingAsWithMfa(User::factory()->create(['role' => 'ADMIN']));
+        $owner = User::factory()->create(['role' => 'OFW']);
+        CaseFile::factory()->withIntake()->create([
+            'ofw_user_id' => $owner->id, 'client_type' => 'OFW',
+            'vulnerability_indicator' => 'PWD', 'first_name' => 'Zulu',
+            'created_at' => now()->subDay(),
+        ]);
+        CaseFile::factory()->withIntake()->closed()->create([
+            'ofw_user_id' => $owner->id, 'client_type' => 'NEXT_OF_KIN',
+            'vulnerability_indicator' => 'None', 'first_name' => 'Alpha',
+            'created_at' => now(),
+        ]);
+        $other = CaseFile::factory()->withIntake()->create([
+            'ofw_user_id' => null, 'client_type' => 'OFW',
+            'vulnerability_indicator' => 'PWD', 'first_name' => 'Beta',
+        ]);
+
+        $soloParent = CaseFile::factory()->withIntake()->create([
+            'ofw_user_id' => null, 'client_type' => 'NEXT_OF_KIN', 'vulnerability_indicator' => 'Solo Parent',
+        ]);
+        $this->get(route('clients.index', [
+            'vulnerability_indicator' => ['PWD', 'Solo Parent'],
+        ]))->assertInertia(fn (Assert $page) => $page->where('clients.total', 2)->etc());
+        $this->get(route('clients.index', [
+            'client_type' => 'OFW', 'vulnerability_indicator' => ['PWD', 'Solo Parent'],
+        ]))->assertInertia(fn (Assert $page) => $page->where('clients.total', 1)->etc());
+        $this->get(route('clients.index', [
+            'client_type' => 'NEXT_OF_KIN', 'vulnerability_indicator' => ['PWD'],
+        ]))->assertInertia(fn (Assert $page) => $page->where('clients.total', 0)->etc());
+        $this->get(route('clients.index', ['client_type' => 'OFW', 'sort' => 'name', 'direction' => 'asc']))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('clients.data.0.id', $owner->id)
+                ->where('clients.data.1.id', $other->id)
+                ->where('clients.data.1.name', 'Beta Dela Cruz')
+                ->where('clients.data.1.vulnerability_indicators', ['PWD'])->etc());
+        $this->get(route('clients.index', ['per_page' => 101]))->assertSessionHasErrors('per_page');
+        $this->get(route('clients.index', ['sort' => 'invalid']))->assertSessionHasErrors('sort');
     }
 
     public function test_detail_uses_latest_created_case_allowlist_and_paginated_owner_history(): void

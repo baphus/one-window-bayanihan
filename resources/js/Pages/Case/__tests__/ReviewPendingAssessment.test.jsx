@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest';
-import { render, screen, fireEvent, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, act } from '@testing-library/react';
 import { router } from '@inertiajs/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -31,7 +31,7 @@ const pendingCases = {
       summary: 'Needs help with unpaid wages.',
       return_reason: 'DISTRESSED_WORKER',
       proposed_assessments: ['LEGAL_ASSISTANCE'],
-      documents: [{ id: 'doc-1', category: 'passport_front_page', file_name: 'passport.pdf' }],
+      documents: ['passport_front_page', 'arrival_stamp', 'distress_certificate', 'oec'].map((category, index) => ({ id: `doc-${index + 1}`, category })),
       created_at: '2026-07-20T00:00:00.000Z',
       date_of_birth: '2026-10-12',
       employment_date_of_arrival: '2026-10-12',
@@ -50,6 +50,23 @@ function openReview() {
 }
 
 describe('Review pending intake', () => {
+  it('opens the selected case outside the current queue page and keeps dismissal on rerender', () => {
+    const selected = { ...pendingCases.data[0], id: 'case-2', first_name: 'Ana', case_number: 'CASE-002' };
+    const props = { cases: pendingCases, filters: {}, selectedReviewCase: selected, assessmentOptions: ['LEGAL_ASSISTANCE'], categories: [{ id: 'cat-1', name: 'Wage claim' }] };
+    const { rerender } = render(<ReviewPending {...props} />);
+    expect(screen.getByRole('dialog')).toHaveTextContent('Ana Dela Cruz');
+    const routeSpy = vi.fn((name) => `/mocked/${name}`);
+    globalThis.route = routeSpy;
+    fireEvent.click(screen.getAllByRole('checkbox', { name: /wage claim/i }).at(-1));
+    screen.getAllByLabelText(/Reviewed document/).forEach((checkbox) => fireEvent.click(checkbox));
+    fireEvent.click(screen.getByRole('button', { name: /approve case/i }));
+    expect(routeSpy).toHaveBeenCalledWith('cases.review-approve', 'case-2');
+    globalThis.route = (name) => `/mocked/${name}`;
+    fireEvent.click(screen.getByRole('button', { name: 'Close review' }));
+    rerender(<ReviewPending {...props} selectedReviewCase={{ ...selected }} />);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
   it('refreshes duplicate advisory after approval error without losing review input', () => {
     const match = { id: 'other-1', case_number: 'CASE-OTHER', opened_at: null, shared_assessments: ['LEGAL_ASSISTANCE'], reasons: ['same_ofw_account'], email: 'private@example.com' };
     const props = { filters: {}, assessmentOptions: ['LEGAL_ASSISTANCE'], categories: [{ id: 'cat-1', name: 'Wage claim' }] };
@@ -61,7 +78,7 @@ describe('Review pending intake', () => {
     expect(screen.getByRole('link', { name: 'CASE-OTHER' })).toHaveAttribute('target', '_blank');
     fireEvent.change(screen.getByLabelText('Staff summary'), { target: { value: 'Keep this' } });
     fireEvent.click(screen.getAllByRole('checkbox', { name: /wage claim/i }).at(-1));
-    fireEvent.click(screen.getAllByLabelText(/Reviewed document/)[0]);
+    screen.getAllByLabelText(/Reviewed document/).forEach((checkbox) => fireEvent.click(checkbox));
     fireEvent.click(screen.getByRole('button', { name: /approve case/i }));
     const [, data, callbacks] = router.post.mock.calls.at(-1);
     expect(data.duplicate_seen_ids).toEqual(['other-1']);
@@ -75,6 +92,30 @@ describe('Review pending intake', () => {
     rerender(<ReviewPending {...props} cases={withCheck({ available: false, matches: [] })} />);
     expect(screen.getByText('Duplicate check unavailable. You can continue reviewing and approving.')).toBeInTheDocument();
   });
+  it('blocks missing files even with reasons and preserves input on validation failure', () => {
+    const props = { filters: {}, assessmentOptions: ['LEGAL_ASSISTANCE'], categories: [{ id: 'cat-1', name: 'Wage claim' }] };
+    const incomplete = { ...pendingCases, data: [{ ...pendingCases.data[0], documents: pendingCases.data[0].documents.slice(0, 1), missing_document_reasons: { arrival_stamp: 'Unavailable' } }] };
+    const { rerender } = render(<ReviewPending {...props} cases={incomplete} />);
+    fireEvent.click(screen.getByRole('button', { name: /review/i }));
+    expect(screen.getByText(/Required documents are still missing/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /approve case/i })).toBeDisabled();
+    rerender(<ReviewPending {...props} cases={pendingCases} />);
+    fireEvent.click(screen.getAllByRole('checkbox', { name: /wage claim/i }).at(-1));
+    screen.getAllByLabelText(/Reviewed document/).forEach((checkbox) => fireEvent.click(checkbox));
+    fireEvent.change(screen.getByLabelText('Staff summary'), { target: { value: 'Keep this' } });
+    fireEvent.click(screen.getByRole('button', { name: /approve case/i }));
+    const callbacks = router.post.mock.calls.at(-1)[2];
+    act(() => {
+      callbacks.onError({ reviewed_document_ids: 'Documents changed', staff_summary: 'Summary invalid', 'category_ids.0': 'Category invalid', confirmed_assessments: 'Assessment invalid' });
+      callbacks.onFinish();
+    });
+    expect(screen.getByText('Documents changed')).toBeInTheDocument();
+    expect(screen.getByText('Summary invalid')).toBeInTheDocument();
+    expect(screen.getByText('Category invalid')).toBeInTheDocument();
+    expect(screen.getByText('Assessment invalid')).toBeInTheDocument();
+    expect(screen.getByLabelText('Staff summary')).toHaveValue('Keep this');
+  });
+
   it('shows case-owned details without legacy issue controls', () => {
     openReview();
 
@@ -119,6 +160,8 @@ describe('Review pending intake', () => {
     fireEvent.click(screen.getAllByRole('checkbox', { name: /wage claim/i }).at(-1));
     expect(approve).toBeDisabled();
     fireEvent.click(screen.getAllByLabelText(/Reviewed document/)[0]);
+    expect(approve).toBeDisabled();
+    screen.getAllByLabelText(/Reviewed document/).slice(1).forEach((checkbox) => fireEvent.click(checkbox));
     expect(approve).not.toBeDisabled();
   });
 });

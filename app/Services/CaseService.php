@@ -81,7 +81,7 @@ class CaseService
                         'nok_email' => ['required', 'email', 'max:255'],
                     ])->validate();
                 }
-                $allowed = array_diff(CaseFile::INTAKE_FIELDS, ['ofw_user_id', 'proposed_assessment_by', 'proposed_assessment_at', 'confirmed_assessments', 'confirmed_assessment_other', 'confirmed_assessment_by', 'confirmed_assessment_at', 'consent_accepted_by', 'requested_document_slots', 'document_request_reason', 'document_requested_by', 'document_requested_at', 'reviewed_document_ids', 'assigned_case_manager_id', 'last_correction_reason']);
+                $allowed = array_diff(CaseFile::INTAKE_FIELDS, ['ofw_user_id', 'proposed_assessment_by', 'proposed_assessment_at', 'confirmed_assessments', 'confirmed_assessment_other', 'confirmed_assessment_by', 'confirmed_assessment_at', 'category_ids', 'consent_accepted_by', 'requested_document_slots', 'document_request_reason', 'document_requested_by', 'document_requested_at', 'reviewed_document_ids', 'assigned_case_manager_id', 'last_correction_reason']);
                 $attributes = Arr::only($data, [...$allowed, 'client_type', 'summary', 'vulnerability_indicator', 'nok_vulnerability_indicator']);
                 foreach (['region', 'province', 'city_municipality', 'barangay'] as $part) {
                     $field = 'address_'.$part;
@@ -123,6 +123,13 @@ class CaseService
                     $attributes['consent_evidence'] = null;
                 }
                 Validator::make($data, [
+                    ...(! $filer->isOfw() ? [
+                        'category_ids' => ['required', 'array', 'min:1'],
+                        'category_ids.*' => ['required', 'uuid', 'distinct', Rule::exists('case_categories', 'id')->where('is_active', true)->where('is_deleted', false)->whereNull('deleted_at')],
+                        'confirmed_assessments' => ['required', 'array', 'min:1', 'max:8'],
+                        'confirmed_assessments.*' => ['required', 'distinct', Rule::in(CaseFile::ASSESSMENTS)],
+                        'confirmed_assessment_other' => [Rule::requiredIf(in_array('OTHER', (array) ($data['confirmed_assessments'] ?? []), true)), 'nullable', 'string', 'max:2000'],
+                    ] : []),
                     'return_reason' => ['required', Rule::in(IntakeDocumentService::RETURN_REASONS)],
                     'consent_text_version' => ['required', Rule::in([IntakeDocumentService::CONSENT_VERSION])],
                     'proposed_assessments' => ['nullable', 'array', 'max:8'],
@@ -151,12 +158,19 @@ class CaseService
                     'consent_text_version' => IntakeDocumentService::CONSENT_VERSION,
                     'proposed_assessment_by' => ! empty($attributes['proposed_assessments']) ? $userId : null,
                     'proposed_assessment_at' => ! empty($attributes['proposed_assessments']) ? now() : null,
+                    'confirmed_assessments' => $filer->isOfw() ? null : $data['confirmed_assessments'],
+                    'confirmed_assessment_other' => $filer->isOfw() ? null : ($data['confirmed_assessment_other'] ?? null),
+                    'confirmed_assessment_by' => $filer->isOfw() ? null : $userId,
+                    'confirmed_assessment_at' => $filer->isOfw() ? null : now(),
                     'document_requirements' => IntakeDocumentService::buildRequirements(
                         array_keys($data['documents'] ?? []),
                         (array) ($data['complied_onsite_slots'] ?? []),
                         $data['return_reason'] ?? '',
                     ),
                 ]));
+                if (! $filer->isOfw()) {
+                    $case->categories()->sync($data['category_ids']);
+                }
                 app(IntakeDocumentService::class)->store($case, $data['documents'] ?? [], $userId, $paths);
                 if (! $filer->isOfw()) {
                     $this->eventRecorder->caseOpened($case, $userId);
@@ -339,8 +353,7 @@ class CaseService
         // clients/users joins that table in, and several of these names
         // (status, user_id, created_at, case_number) exist on more than one
         // side of such a join.
-        $query->where('cases.is_deleted', false)
-            ->whereNotIn('cases.status', [CaseFile::STATUS_PENDING_REVIEW]);
+        $query->where('cases.is_deleted', false);
 
         // Status and client type accept either the legacy scalar form or the
         // filter panel's array form.

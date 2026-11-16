@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\UserRole;
+use App\Models\CaseCategory;
 use App\Models\CaseFile;
 use App\Models\User;
 use App\Services\CaseService;
@@ -48,6 +49,8 @@ class AddressCodeToTextIntegrationTest extends TestCase
         $data['address_street'] = '123 Main St';
         $case = app(CaseService::class)->createCase(array_merge($data, [
             'client_type' => 'OFW',
+            'category_ids' => [CaseCategory::factory()->create()->id],
+            'confirmed_assessments' => ['LEGAL_ASSISTANCE'],
             'address_region' => self::REGION_CODE,
             'address_province' => self::PROVINCE_CODE,
             'address_city_municipality' => self::CITY_CODE,

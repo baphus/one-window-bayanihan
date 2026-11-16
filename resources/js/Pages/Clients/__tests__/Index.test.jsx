@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import ClientsIndex from '../Index.jsx';
 
@@ -7,15 +7,17 @@ const { routerGet } = vi.hoisted(() => ({ routerGet: vi.fn() }));
 
 vi.mock('@inertiajs/react', () => ({
   Head: () => null,
+  usePage: () => ({ props: {} }),
   router: { get: routerGet, visit: vi.fn() },
 }));
+vi.mock('@/Hooks/useToast', () => ({ useToast: () => ({ error: vi.fn() }) }));
 vi.mock('@/Layouts/AppLayout', () => ({ default: ({ children }) => <div>{children}</div> }));
 vi.mock('@/Components/ui/UnifiedTable', () => ({
-  UnifiedTable: ({ data, columns, emptyStateMessage, searchValue, searchPlaceholder, extraActions }) => (
+  UnifiedTable: ({ data, columns, emptyStateMessage, searchValue, searchPlaceholder, advancedFiltersContent, quickFilters }) => (
     data.length === 0 ? <div>{emptyStateMessage}</div> : (
       <div>
         <input placeholder={searchPlaceholder} value={searchValue} readOnly />
-        {extraActions}
+        {advancedFiltersContent}{quickFilters}
         <table><tbody>{data.map((row) => (
           <tr key={`${row.kind}-${row.id}`}>
             {columns.map((column) => <td key={column.key}>{column.render(row)}</td>)}
@@ -57,7 +59,7 @@ describe('ClientsIndex', () => {
   it('renders header, source note, and empty state', () => {
     renderIndex();
     expect(screen.getByText('Clients')).toBeInTheDocument();
-    expect(screen.getByText('Client information from most recent case; vulnerability indicators from eligible case history')).toBeInTheDocument();
+    expect(screen.getByText('Client information and vulnerability indicators from the most recent eligible case')).toBeInTheDocument();
     expect(screen.getByText('No clients found')).toBeInTheDocument();
   });
 
@@ -82,8 +84,8 @@ describe('ClientsIndex', () => {
 
   it('renders vulnerability indicators from case history as readable labels', () => {
     renderIndex({ clients: { data: [makeClient({ vulnerability_indicators: ['Senior Citizen', 'PWD'] })], current_page: 1, last_page: 1, from: 1, to: 1, total: 1, per_page: 15 } });
-    expect(screen.getByRole('list', { name: 'Vulnerability indicators from case history' })).toHaveTextContent('Senior Citizen');
-    expect(screen.getByRole('list', { name: 'Vulnerability indicators from case history' })).toHaveTextContent('PWD');
+    expect(screen.getByRole('list', { name: 'Vulnerability indicators from latest eligible case' })).toHaveTextContent('Senior Citizen');
+    expect(screen.getByRole('list', { name: 'Vulnerability indicators from latest eligible case' })).toHaveTextContent('PWD');
   });
 
   it('renders four KPI cards with their actual icons and counts', () => {
@@ -101,6 +103,15 @@ describe('ClientsIndex', () => {
     }
     expect(screen.getByText('Can overlap with OFW clients')).toBeInTheDocument();
     expect(screen.getByText('Linked accounts with 2+ eligible cases')).toBeInTheDocument();
+  });
+
+  it('keeps vulnerability multi-select in the filter panel with client type and status', () => {
+    renderIndex({ clients: { data: [makeClient()], current_page: 1, last_page: 1, from: 1, to: 1, total: 1, per_page: 15 }, filters: { client_type: 'OFW', status: 'Open', vulnerability_indicator: ['PWD'] } });
+    expect(screen.getByRole('checkbox', { name: 'PWD' })).toBeChecked();
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Solo Parent' }));
+    expect(routerGet).toHaveBeenLastCalledWith('/clients', expect.objectContaining({ client_type: 'OFW', status: 'Open', vulnerability_indicator: ['PWD', 'Solo Parent'] }), expect.anything());
+    expect(screen.getByRole('group', { name: 'Filter clients by type' })).toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'Filter clients by vulnerability' })).not.toBeInTheDocument();
   });
 
   it('keeps status filter options and search control', () => {

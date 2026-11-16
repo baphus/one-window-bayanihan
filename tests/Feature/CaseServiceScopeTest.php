@@ -162,21 +162,18 @@ class CaseServiceScopeTest extends TestCase
         }
     }
 
-    public function test_pending_review_cases_are_excluded_from_get_cases(): void
+    public function test_pending_review_cases_are_included_in_get_cases(): void
     {
         $manager = User::factory()->create(['role' => UserRole::CASE_MANAGER->value]);
 
         CaseFile::factory(3)->create(['user_id' => $manager->id, 'status' => 'OPEN']);
-        // A case awaiting review belongs to the review queue, not the case list.
         CaseFile::factory(2)->create(['user_id' => $manager->id, 'status' => 'PENDING_REVIEW']);
 
         $this->actingAsWithMfa($manager);
         $cases = $this->service->getCases();
 
-        $this->assertCount(3, $cases);
-        foreach ($cases as $case) {
-            $this->assertNotEquals('PENDING_REVIEW', $case->status);
-        }
+        $this->assertCount(5, $cases);
+        $this->assertSame(2, $cases->where('status', 'PENDING_REVIEW')->count());
     }
 
     public function test_admin_can_filter_by_user_id(): void

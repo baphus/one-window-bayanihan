@@ -60,10 +60,7 @@ export default function Intake(props) {
             preserveScroll: true,
             forceFormData: true,
             onSuccess: () => toast.success('Request submitted. It is now pending review.'),
-            onError: (errors) => {
-                const first = Object.values(errors)[0];
-                toast.error((Array.isArray(first) ? first[0] : first) || 'Please check the highlighted fields.');
-            },
+            onError: () => {},
             onFinish: () => form.transform((data) => data),
         });
     }

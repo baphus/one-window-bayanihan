@@ -1,9 +1,10 @@
 import '@testing-library/jest-dom/vitest';
+import { StrictMode } from 'react';
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import CaseIndex from '../Index.jsx';
 
-const { routerGet, routerVisit } = vi.hoisted(() => ({ routerGet: vi.fn(), routerVisit: vi.fn() }));
+const { routerGet, routerVisit, toastError } = vi.hoisted(() => ({ routerGet: vi.fn(), routerVisit: vi.fn(), toastError: vi.fn() }));
 
 vi.mock('@inertiajs/react', () => ({
   Head: () => null,
@@ -28,11 +29,11 @@ vi.mock('@/Components/ExportDialog', () => ({ default: ({ countUrlBuilder }) => 
 vi.mock('@/Components/ExportExcelButton', () => ({ default: () => null }));
 vi.mock('@/Components/ui/RowContextMenu', () => ({
   RowContextMenu: ({ children }) => <div>{children}</div>,
-  RowContextMenuItem: () => null,
+  RowContextMenuItem: ({ label, onClick }) => <button onClick={onClick}>{label}</button>,
 }));
 vi.mock('@/Components/ui/ConfirmDialog', () => ({ default: () => null }));
 vi.mock('@/Components/ui/StatusBadge', () => ({ default: ({ status }) => <span>{status}</span> }));
-vi.mock('@/Hooks/useToast', () => ({ useToast: () => ({ success: vi.fn(), error: vi.fn(), info: vi.fn() }) }));
+vi.mock('@/Hooks/useToast', () => ({ useToast: () => ({ success: vi.fn(), error: toastError, info: vi.fn() }) }));
 
 const caseRow = {
   id: 'case-1',
@@ -77,8 +78,9 @@ function lastVisitOptions() {
 
 beforeEach(() => {
   globalThis.route = vi.fn((name, params) => (params ? `/cases?${new URLSearchParams(params)}` : '/cases'));
-  routerGet.mockClear();
+  routerGet.mockReset();
   routerVisit.mockClear();
+  toastError.mockClear();
   // The page persists its filters and restores them on mount. A previous test's
   // stored filters would restore themselves here and issue an extra request,
   // which is not what the test under way is about.
@@ -90,10 +92,66 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+it('opens selected pending review from both actions and keeps View for other cases', () => {
+  const pending = { ...caseRow, id: 'case-2', case_number: 'CASE-002', status: 'PENDING_REVIEW' };
+  renderIndex({ cases: page({ data: [caseRow, pending] }) });
+  fireEvent.click(screen.getByRole('button', { name: 'Actions for case CASE-002' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Review' }));
+  expect(route).toHaveBeenCalledWith('cases.review-pending', { review_case: 'case-2' });
+  fireEvent.click(screen.getByRole('button', { name: 'CASE-002' }));
+  expect(route).toHaveBeenCalledWith('cases.review-pending', { review_case: 'case-2' });
+  fireEvent.click(screen.getByRole('button', { name: 'Actions for case CASE-001' }));
+  fireEvent.click(screen.getByRole('button', { name: 'View' }));
+  expect(route).toHaveBeenCalledWith('cases.show', 'case-1');
+});
+
+it('leaves filter validation toasts to the shared watcher without duplicating them', () => {
+  renderIndex();
+  fireEvent.click(screen.getByRole('button', { name: 'Closed' }));
+  lastVisitOptions().onError({ status: 'The selected status is invalid.' });
+  expect(toastError).not.toHaveBeenCalled();
+});
+
 describe('Case Index table loading', () => {
+  it('shows skeleton and blocks repeated filters during a StrictMode visit', async () => {
+    routerGet.mockImplementation((_url, _params, options) => options.onStart({}));
+    const { container } = render(<StrictMode><CaseIndex cases={page()} filters={{}} stats={{}} categories={[{ id: 'cat-a', name: 'Employment' }]} /></StrictMode>);
+    fireEvent.click(screen.getByRole('button', { name: 'Closed' }));
+    expect(container.querySelector('[aria-busy]')).toHaveAttribute('aria-busy', 'true');
+    expect(screen.queryByText('CASE-001')).not.toBeInTheDocument();
+    expect(container.querySelectorAll('tbody tr.animate-pulse')).toHaveLength(5);
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    expect(routerGet).toHaveBeenCalledTimes(1);
+    await act(async () => { lastVisitOptions().onFinish({}); });
+    expect(container.querySelector('[aria-busy]')).toHaveAttribute('aria-busy', 'false');
+    routerGet.mockReset();
+  });
   // Behaviour that must survive the move to the shared hook: a visit marks the
   // table busy and the end of that visit clears it. The hook owns loading via
   // the onStart/onFinish/onCancel callbacks it injects into router.get.
+  it.each(['finish', 'error', 'cancel'])('clears skeleton and unlocks category filters after %s', async (outcome) => {
+    routerGet.mockImplementation((_url, _params, options) => options.onStart({}));
+    const { container } = renderIndex({ categories: [{ id: 'cat-a', name: 'Employment' }] });
+    fireEvent.click(screen.getByRole('button', { name: /filters/i }));
+    const checkbox = within(screen.getByRole('dialog', { name: /filters/i })).getByRole('checkbox', { name: 'Employment' });
+    fireEvent.click(checkbox);
+    expect(container.querySelector('[aria-busy]')).toHaveAttribute('aria-busy', 'true');
+    expect(screen.queryByText('CASE-001')).not.toBeInTheDocument();
+    expect(container.querySelectorAll('tbody tr.animate-pulse')).toHaveLength(5);
+    expect(checkbox).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Open' })).toBeDisabled();
+    const options = lastVisitOptions();
+    await act(async () => {
+      if (outcome === 'error') options.onError({ category_ids: 'Invalid category' });
+      if (outcome === 'cancel') options.onCancel({});
+      else options.onFinish({});
+    });
+    expect(container.querySelector('[aria-busy]')).toHaveAttribute('aria-busy', 'false');
+    expect(checkbox).toBeEnabled();
+    expect(container.querySelectorAll('tbody tr.animate-pulse')).toHaveLength(0);
+    expect(screen.getByText('CASE-001')).toBeVisible();
+  });
+
   it('marks the table busy for the duration of a visit', async () => {
     const { container } = renderIndex();
     expect(container.querySelector('[aria-busy]')).toHaveAttribute('aria-busy', 'false');
@@ -222,6 +280,12 @@ describe('Case Index row actions', () => {
     expect(screen.queryByRole('button', { name: /^Edit$/ })).not.toBeInTheDocument();
   });
 
+  it('opens the existing review queue for a pending case', () => {
+    renderIndex({ cases: page({ data: [{ ...caseRow, status: 'PENDING_REVIEW' }] }) });
+    fireEvent.click(screen.getByRole('button', { name: 'CASE-001' }));
+    expect(globalThis.route).toHaveBeenCalledWith('cases.review-pending', { review_case: 'case-1' });
+  });
+
   it('makes the case reference a keyboard-reachable link to the case', () => {
     renderIndex();
 
@@ -234,6 +298,22 @@ describe('Case Index row actions', () => {
 });
 
 describe('Case Index quick status tabs', () => {
+  it.each([['Open', 'OPEN'], ['Closed', 'CLOSED'], ['Archived', 'ARCHIVED'], ['Pending Review', 'PENDING_REVIEW']])('selects %s after the server echoes an array status', (label, status) => {
+    const { rerender } = renderIndex();
+    fireEvent.click(screen.getByRole('button', { name: label }));
+    expect(routerGet.mock.calls.at(-1)[1]).toMatchObject({ status });
+    rerender(<CaseIndex cases={page({ data: [{ ...caseRow, status }] })} filters={{ status: [status] }} stats={{}} />);
+    expect(screen.getByRole('button', { name: label })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByText(status)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'All' }));
+    expect(routerGet.mock.calls.at(-1)[1]).not.toHaveProperty('status');
+  });
+
+  it('offers Pending Review in the advanced filters', () => {
+    renderIndex({ filters: { status: ['PENDING_REVIEW'] } });
+    fireEvent.click(screen.getByRole('button', { name: /filters/i }));
+    expect(within(screen.getByRole('dialog', { name: /filters/i })).getByRole('checkbox', { name: 'Pending Review' })).toBeChecked();
+  });
   it('shows Declined count and filters cases by REJECTED', () => {
     renderIndex({ stats: { declined_cases: 3 } });
 
@@ -247,6 +327,26 @@ describe('Case Index quick status tabs', () => {
 });
 
 describe('Case Index advanced filter panel', () => {
+  it('offers categories and combines selected categories with other filters', () => {
+    renderIndex({ categories: [{ id: 'cat-a', name: 'Employment' }, { id: 'cat-b', name: 'Welfare' }], filters: { status: ['OPEN'], category_ids: ['cat-a'] } });
+    fireEvent.click(screen.getByRole('button', { name: /filters/i }));
+    const panel = screen.getByRole('dialog', { name: /filters/i });
+    expect(within(panel).getByRole('checkbox', { name: 'Employment' })).toBeChecked();
+    fireEvent.click(within(panel).getByRole('checkbox', { name: 'Welfare' }));
+    expect(routerGet.mock.calls.at(-1)[1]).toMatchObject({ status: ['OPEN'], category_ids: ['cat-a', 'cat-b'] });
+  });
+  it('replaces legacy category_id when toggling categories and clears the selection', () => {
+    renderIndex({ categories: [{ id: 'cat-a', name: 'Employment' }], filters: { category_id: 'cat-a', category_ids: ['cat-a'] } });
+    fireEvent.click(screen.getByRole('button', { name: /filters/i }));
+    const panel = screen.getByRole('dialog', { name: /filters/i });
+    fireEvent.click(within(panel).getByRole('checkbox', { name: 'Employment' }));
+    expect(routerGet.mock.calls.at(-1)[1]).not.toHaveProperty('category_id');
+    expect(routerGet.mock.calls.at(-1)[1]).not.toHaveProperty('category_ids');
+    fireEvent.click(within(panel).getByRole('button', { name: 'Clear all' }));
+    expect(routerGet.mock.calls.at(-1)[1]).not.toHaveProperty('category_id');
+    expect(routerGet.mock.calls.at(-1)[1]).not.toHaveProperty('category_ids');
+  });
+
   it('offers Declined status filter even when status comes from local options', () => {
     renderIndex();
     fireEvent.click(screen.getByRole('button', { name: /filters/i }));

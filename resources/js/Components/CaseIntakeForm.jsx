@@ -95,6 +95,9 @@ export function emptyIntakeData({ clientType = 'OFW', consentTextVersion = 'case
         summary: '',
         proposed_assessments: [],
         proposed_assessment_other: '',
+        category_ids: [],
+        confirmed_assessments: [],
+        confirmed_assessment_other: '',
         return_reason: '',
         documents: {},
         consent_text_version: consentTextVersion,
@@ -162,6 +165,9 @@ export function buildIntakePayload(data, mode) {
         payload.consent = data.consent;
     } else {
         payload.consent = data.consent;
+        payload.category_ids = data.category_ids ?? [];
+        payload.confirmed_assessments = data.confirmed_assessments ?? [];
+        payload.confirmed_assessment_other = data.confirmed_assessments?.includes('OTHER') ? data.confirmed_assessment_other.trim() : '';
         payload.complied_onsite_slots = data.complied_onsite_slots ?? [];
         payload.staff_summary = data.staff_summary.trim();
         payload.nok_vulnerability_indicator = data.nok_vulnerability_indicator || 'None';
@@ -210,6 +216,7 @@ export default function CaseIntakeForm({ form, mode = 'public', options = {}, on
     const {
         vulnerabilityOptions = [],
         assessmentOptions = Object.keys(ASSESSMENT_LABELS),
+        categories = [],
         civilStatuses = Object.keys(CIVIL_STATUS_LABELS),
         deploymentModes = Object.keys(DEPLOYMENT_MODE_LABELS),
         employmentStatuses = Object.keys(EMPLOYMENT_STATUS_LABELS),
@@ -274,11 +281,11 @@ export default function CaseIntakeForm({ form, mode = 'public', options = {}, on
         setData('documents', { ...(data.documents ?? {}), [slot]: file ?? null });
     }
 
-    function toggleAssessment(value) {
-        const next = data.proposed_assessments.includes(value)
-            ? data.proposed_assessments.filter((item) => item !== value)
-            : [...data.proposed_assessments, value];
-        setData('proposed_assessments', next);
+    function toggleChoice(field, value) {
+        const selected = data[field] ?? [];
+        setData(field, selected.includes(value)
+            ? selected.filter((item) => item !== value)
+            : [...selected, value]);
     }
 
     function toggleVulnerability(value, field = 'vulnerability_indicator', selected = selectedVulnerabilities) {
@@ -551,7 +558,7 @@ export default function CaseIntakeForm({ form, mode = 'public', options = {}, on
                 <div className="grid gap-2 sm:grid-cols-2">
                     {assessmentOptions.map((value) => (
                         <label key={value} className="inline-flex items-center gap-2 text-[13px] text-slate-700">
-                            <input type="checkbox" checked={data.proposed_assessments.includes(value)} onChange={() => toggleAssessment(value)} className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary/40" />
+                            <input type="checkbox" checked={data.proposed_assessments.includes(value)} onChange={() => toggleChoice('proposed_assessments', value)} className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary/40" />
                             {ASSESSMENT_LABELS[value] ?? value}
                         </label>
                     ))}
@@ -563,6 +570,42 @@ export default function CaseIntakeForm({ form, mode = 'public', options = {}, on
                     </Field>
                 )}
             </Section>
+
+            {isStaff && (
+                <Section title="Staff classification" description="Select at least one case category and one confirmed assessment. These are separate from requested assistance.">
+                    <fieldset>
+                        <legend className="mb-2 text-[11px] font-bold uppercase tracking-[0.08em] text-slate-600">Case categories *</legend>
+                        {categories.length ? (
+                            <div className="grid gap-2 sm:grid-cols-2">
+                                {categories.map((category) => (
+                                    <label key={category.id} className="inline-flex items-center gap-2 text-[13px] text-slate-700">
+                                        <input type="checkbox" checked={(data.category_ids ?? []).includes(category.id)} onChange={() => toggleChoice('category_ids', category.id)} className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary/40" />
+                                        {category.name}
+                                    </label>
+                                ))}
+                            </div>
+                        ) : <p className="text-[13px] text-amber-700">No active case categories are available. Contact an administrator before creating a case.</p>}
+                        <InputError message={errors.category_ids} />
+                    </fieldset>
+                    <fieldset>
+                        <legend className="mb-2 text-[11px] font-bold uppercase tracking-[0.08em] text-slate-600">Confirmed assessments *</legend>
+                        <div className="grid gap-2 sm:grid-cols-2">
+                            {assessmentOptions.map((value) => (
+                                <label key={value} className="inline-flex items-center gap-2 text-[13px] text-slate-700">
+                                    <input type="checkbox" checked={(data.confirmed_assessments ?? []).includes(value)} onChange={() => toggleChoice('confirmed_assessments', value)} className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary/40" />
+                                    {ASSESSMENT_LABELS[value] ?? value}
+                                </label>
+                            ))}
+                        </div>
+                        <InputError message={errors.confirmed_assessments} />
+                    </fieldset>
+                    {(data.confirmed_assessments ?? []).includes('OTHER') && (
+                        <Field label="Other confirmed assessment" htmlFor="intake-confirmed-other" required error={errors.confirmed_assessment_other}>
+                            <input id="intake-confirmed-other" value={data.confirmed_assessment_other} onChange={(e) => setData('confirmed_assessment_other', e.target.value)} className={INPUT} maxLength={2000} required />
+                        </Field>
+                    )}
+                </Section>
+            )}
 
             <Section title="Return reason and documents" description={isStaff ? 'Upload what the OFW brought. Leave the rest for compliance or tick that it was complied onsite.' : 'Passport front page, BI arrival stamp, one employment document and the reason evidence are required to submit.'}>
                 <Field label="Reason for return" htmlFor="intake-return-reason" required error={errors.return_reason}>
@@ -613,7 +656,7 @@ export default function CaseIntakeForm({ form, mode = 'public', options = {}, on
                 <p className="text-[11px] text-slate-500">Files are stored privately and only shared with authorised staff and agencies.</p>
                 <button
                     type="submit"
-                    disabled={disabled || form.processing}
+                    disabled={disabled || form.processing || (isStaff && categories.length === 0)}
                     className="inline-flex min-h-[44px] items-center justify-center rounded-lg bg-primary px-6 text-[13px] font-bold text-white transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:opacity-60"
                 >
                     {form.processing ? 'Submitting…' : submitLabel}
