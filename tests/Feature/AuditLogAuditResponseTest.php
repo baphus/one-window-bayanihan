@@ -52,6 +52,23 @@ class AuditLogAuditResponseTest extends TestCase
         );
     }
 
+    public function test_zip_download_message_uses_only_case_label_and_valid_document_count(): void
+    {
+        foreach ([1 => ' — 1 document', 2 => ' — 2 documents', 0 => ''] as $count => $suffix) {
+            $log = new AuditLog([
+                'action' => 'DOWNLOAD',
+                'module' => 'case_document',
+                'entity_id' => Str::uuid()->toString(),
+                'entity_label' => 'OWB-2026-1234',
+                'new_value' => ['format' => 'zip', 'scope' => 'case_documents', 'count' => $count],
+            ]);
+
+            $response = (new AuditLogFormatter)->formatForAuditResponse($log);
+
+            $this->assertSame('System downloaded case documents ZIP for Case OWB-2026-1234'.$suffix, $response['message']);
+        }
+    }
+
     public function test_audit_response_never_renders_a_referral_id(): void
     {
         $entityId = Str::uuid()->toString();

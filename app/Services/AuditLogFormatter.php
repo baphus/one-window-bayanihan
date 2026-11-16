@@ -957,6 +957,15 @@ class AuditLogFormatter
             ? $this->resolveEntityIdentifier($log, $auditModule)
             : null;
         $message = $this->redactHistoricalCiphertext($this->formatSafeMessage($actor, $action, $moduleLabel, $identifier));
+        if ($action === 'DOWNLOAD' && $auditModule === AuditModule::CASE_DOCUMENT
+            && ($log->new_value['format'] ?? null) === 'zip'
+            && ($log->new_value['scope'] ?? null) === 'case_documents') {
+            $message = "{$actor} downloaded case documents ZIP".($identifier !== null ? " for {$identifier}" : '');
+            $count = $log->new_value['count'] ?? null;
+            if (is_int($count) && $count > 0) {
+                $message .= " — {$count} ".($count === 1 ? 'document' : 'documents');
+            }
+        }
         $identifier = $identifier !== null ? $this->redactHistoricalCiphertext($identifier) : null;
 
         if ($isAdmin && $classifiable && in_array($action, ['PUBLISH', 'CREATE'], true)) {
@@ -1140,6 +1149,11 @@ class AuditLogFormatter
         if ($label !== null) {
             return match ($module) {
                 AuditModule::CASE => "Case {$label}",
+                AuditModule::CASE_DOCUMENT => $log->action === 'DOWNLOAD'
+                    && ($log->new_value['format'] ?? null) === 'zip'
+                    && ($log->new_value['scope'] ?? null) === 'case_documents'
+                        ? "Case {$label}"
+                        : null,
                 AuditModule::REFERRAL => "Referral — {$label}",
                 AuditModule::MILESTONE => "Milestone '{$label}'",
                 default => null,

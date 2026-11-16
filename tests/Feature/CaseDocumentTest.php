@@ -4,7 +4,9 @@ namespace Tests\Feature;
 
 use App\DTOs\FileStoreResult;
 use App\Enums\UserRole;
+use App\Models\ActivityEvent;
 use App\Models\Agency;
+use App\Models\AuditLog;
 use App\Models\CaseDocument;
 use App\Models\CaseFile;
 use App\Models\Referral;
@@ -142,6 +144,15 @@ class CaseDocumentTest extends TestCase
             $this->assertSame('arrival-content', $archive->getFromName($this->case->case_number.'_Client One_BI arrival stamp.pdf'));
             $this->assertSame('passport-content', $archive->getFromName($this->case->case_number.'_Client One_Passport front page.pdf'));
             $archive->close();
+
+            $logs = AuditLog::where('action', 'DOWNLOAD')->get();
+            $this->assertCount(1, $logs);
+            $this->assertSame($this->case->case_number, $logs->sole()->entity_label);
+            $this->assertSame(1, ActivityEvent::where('action', 'DOWNLOAD')->count());
+
+            $this->get(route('activity.index', ['action' => 'DOWNLOAD']))->assertInertia(fn (Assert $page) => $page
+                ->where('events.data.0.message', $this->caseManager->name.' downloaded case documents ZIP for Case '.$this->case->case_number.' — 2 documents')
+            );
         } finally {
             @unlink($archivePath);
         }
