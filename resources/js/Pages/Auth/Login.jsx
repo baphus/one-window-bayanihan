@@ -11,6 +11,8 @@ import { getTurnstileError } from '@/lib/turnstile';
 export default function Login({ status, canResetPassword, loginUrl }) {
     const { turnstile } = usePage().props;
     const [email, setEmail] = useState('');
+    const [emailError, setEmailError] = useState('');
+    const emailRef = useRef(null);
     const [password, setPassword] = useState('');
     const [remember, setRemember] = useState(true);
     const [loginError, setLoginError] = useState('');
@@ -24,12 +26,14 @@ export default function Login({ status, canResetPassword, loginUrl }) {
     // Client-side validation — email format + password not-empty
     const loginSchema = useMemo(() => makeLoginSchema(), []);
     const { validate } = useClientValidation(loginSchema, { email, password }, (field, msg) => {
-        setLoginError(msg);
+        if (field === 'email') { setEmailError(msg); emailRef.current?.focus(); }
+        else setLoginError(msg);
     });
 
     const handleSubmit = (e) => {
         e.preventDefault();
         setLoginError('');
+        setEmailError('');
         if (!validate()) return;
 
         if (turnstile?.enabled) {
@@ -126,19 +130,25 @@ export default function Login({ status, canResetPassword, loginUrl }) {
 
                                     <div>
                                         <div className="flex justify-between mb-2">
-                                            <label className="block text-xs font-bold uppercase tracking-widest text-on-surface-variant">Email Address</label>
+                                            <label htmlFor="auth-email" className="block text-xs font-bold uppercase tracking-widest text-on-surface-variant">Email Address</label>
                                             <Link href={route('forgot-email')} className="text-xs font-bold text-primary hover:underline">Forgot Email?</Link>
                                         </div>
                                         <div className="relative">
                                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant/40 text-[20px] material-symbols-outlined">alternate_email</span>
                                             <input
+                                                ref={emailRef}
+                                                id="auth-email"
                                                 type="email"
+                                                onInvalid={(e) => { e.preventDefault(); setEmailError(e.currentTarget.validity.valueMissing ? 'Email is required.' : 'Please provide a valid email address.'); e.currentTarget.focus(); }}
+                                                aria-invalid={Boolean(emailError)}
+                                                aria-describedby={emailError ? 'auth-email-error' : undefined}
                                                 value={email}
-                                                onChange={(e) => { setEmail(e.target.value); setLoginError(''); }}
+                                                onChange={(e) => { setEmail(e.target.value); setEmailError(''); setLoginError(''); }}
                                                 className="w-full border border-outline-variant bg-surface-container px-4 py-3 pl-12 text-sm focus:border-primary focus:outline-none rounded-md"
                                                 required
                                             />
                                         </div>
+                                        {emailError && <p id="auth-email-error" className="mt-1 text-sm text-red-600">{emailError}</p>}
                                     </div>
 
                                     <div>

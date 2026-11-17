@@ -39,7 +39,10 @@ export default function TrackingPortal() {
       .email('Please enter a valid email address.'),
   });
 
-  const { validate } = useClientValidation(localSchema, data, setError);
+  const { validate } = useClientValidation(localSchema, data, (field, message) => {
+    setError(field, message);
+    if (field === 'email') document.getElementById('tracker-email')?.focus();
+  });
 
   const handleTrackSubmit = () => {
     const normalized = data.tracker_number.trim().toUpperCase();
@@ -150,13 +153,16 @@ export default function TrackingPortal() {
                     id="tracker-email"
                     type="email"
                     value={data.email}
-                    onChange={(e) => setData('email', e.target.value)}
+                    onChange={(e) => { setData('email', e.target.value); clearErrors('email'); }}
+                    onInvalid={(e) => { e.preventDefault(); setError('email', e.currentTarget.validity.valueMissing ? 'Email is required.' : 'Please provide a valid email address.'); e.currentTarget.focus(); }}
+                    aria-invalid={Boolean(errors.email)}
+                    aria-describedby={errors.email ? 'email-error' : undefined}
                     placeholder="you@example.com"
                     className="mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-3 py-3 text-[14px] text-slate-900 placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                     aria-label="Email Address"
                     required
                   />
-                  <InputError message={errors.email} className="mt-1" />
+                  <InputError id="email-error" message={errors.email} className="mt-1" />
                 </div>
 
                 {turnstile?.enabled && (

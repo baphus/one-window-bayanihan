@@ -95,6 +95,26 @@ describe('Case documents section', () => {
 });
 
 describe('Case actions', () => {
+  it('blocks invalid correction emails and clears their errors on edit', () => {
+    render(<CaseShow case={{ id: 'case-1', status: 'OPEN', referrals: [] }} case_categories={[{ id: 'cat-1', name: 'Legal' }]} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Case' }));
+    router.patch.mockClear();
+    const email = screen.getByLabelText('Email');
+    const nok = screen.getByLabelText('Next of kin email');
+    fireEvent.change(email, { target: { value: 'bad' } });
+    fireEvent.change(nok, { target: { value: 'also-bad' } });
+    fireEvent.change(screen.getByLabelText('Reason for correction *'), { target: { value: 'Fix email' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    expect(router.patch).not.toHaveBeenCalled();
+    expect(email).toHaveFocus();
+    expect(email).toHaveAccessibleDescription('Enter a valid email address.');
+    expect(nok).toHaveAccessibleDescription('Enter a valid email address.');
+    fireEvent.change(email, { target: { value: 'valid@example.com' } });
+    fireEvent.change(nok, { target: { value: '' } });
+    expect(email).not.toHaveAttribute('aria-describedby');
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    expect(router.patch).toHaveBeenCalledTimes(1);
+  });
   it('saves corrections and categories together with PATCH', () => {
     render(<CaseShow case={{ id: 'case-1', status: 'OPEN', first_name: 'Ari', referrals: [] }} case_categories={[{ id: 'cat-1', name: 'Legal' }]} />);
     globalThis.route = (name) => `/${name}`;

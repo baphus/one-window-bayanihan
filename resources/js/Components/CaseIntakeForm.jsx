@@ -203,7 +203,7 @@ function Field({ label, htmlFor, required, children, error, hint }) {
             </label>
             {children}
             {hint && <p className="mt-1 text-[11px] text-slate-500">{hint}</p>}
-            <InputError message={error} className="mt-1" />
+            <InputError id={`${htmlFor}-error`} message={error} className="mt-1" />
         </div>
     );
 }
@@ -250,6 +250,19 @@ export default function CaseIntakeForm({ form, mode = 'public', options = {}, on
     const [employmentEvidenceSlot, setEmploymentEvidenceSlot] = useState(() => EMPLOYMENT_EVIDENCE_SLOTS.find((slot) => data.documents?.[slot]) ?? '');
     const [occupationOther, setOccupationOther] = useState(false);
     const [documentSizeErrors, setDocumentSizeErrors] = useState({});
+    const [emailErrors, setEmailErrors] = useState({});
+
+    function submitWithEmailValidation(event) {
+        const inputs = [...event.currentTarget.querySelectorAll('input[type="email"]')].filter((input) => !input.readOnly && input.validity.typeMismatch);
+        if (inputs.length) {
+            event.preventDefault();
+            setEmailErrors(Object.fromEntries(inputs.map((input) => [input.id, 'Enter a valid email address.'])));
+            inputs[0].focus();
+            return;
+        }
+        setEmailErrors({});
+        onSubmit(event);
+    }
     const employmentEvidenceSelected = EMPLOYMENT_EVIDENCE_SLOTS.some((slot) => Boolean(data.documents?.[slot]));
     const occupations = [...new Set([...DEFAULT_OCCUPATIONS, ...occupationOptions.map((option) => typeof option === 'string' ? option : option?.value ?? option?.label).filter(Boolean)])];
     const lastOccupationIsOther = occupationOther || (data.employment_last_position && !occupations.includes(data.employment_last_position));
@@ -359,7 +372,7 @@ export default function CaseIntakeForm({ form, mode = 'public', options = {}, on
     }
 
     return (
-        <form onSubmit={onSubmit} className="max-w-4xl space-y-5" noValidate>
+        <form onSubmit={submitWithEmailValidation} className="max-w-4xl space-y-5" noValidate>
             {isStaff && (
                 <Section title="Case filer" description="Choose who this case is for. A next-of-kin case still describes the affected OFW in the main fields below.">
                     <div className="flex flex-wrap gap-3" role="radiogroup" aria-label="Case filed for">
@@ -401,8 +414,8 @@ export default function CaseIntakeForm({ form, mode = 'public', options = {}, on
                             <option value="FEMALE">Female</option>
                         </Select>
                     </Field>
-                    <Field label="Email" htmlFor="intake-email" required error={errors.email} hint={mode === 'public' ? 'Your registered account email. This cannot be changed here.' : undefined}>
-                        <input id="intake-email" type="email" value={data.email} onChange={(e) => setData('email', e.target.value)} onBlur={(e) => lookupOfw(e.target.value.trim())} className={`${INPUT} ${mode === 'public' ? 'bg-slate-50 cursor-not-allowed' : ''}`} autoComplete="email" maxLength={255} readOnly={mode === 'public'} aria-readonly={mode === 'public'} />
+                    <Field label="Email" htmlFor="intake-email" required error={emailErrors['intake-email'] || errors.email} hint={mode === 'public' ? 'Your registered account email. This cannot be changed here.' : undefined}>
+                        <input id="intake-email" type="email" value={data.email} onChange={(e) => { setEmailErrors((current) => ({ ...current, 'intake-email': undefined })); form.clearErrors?.('email'); setData('email', e.target.value); }} aria-invalid={!!(emailErrors['intake-email'] || errors.email)} aria-describedby={(emailErrors['intake-email'] || errors.email) ? 'intake-email-error' : undefined} onBlur={(e) => lookupOfw(e.target.value.trim())} className={`${INPUT} ${mode === 'public' ? 'bg-slate-50 cursor-not-allowed' : ''}`} autoComplete="email" maxLength={255} readOnly={mode === 'public'} aria-readonly={mode === 'public'} />
                         {isStaff && matchedOfw !== null && (
                             <p className={`mt-1 text-[11px] ${matchedOfw ? 'text-emerald-700' : 'text-amber-700'}`}>
                                 {matchedOfw ? `This case will be linked to the OFW account: ${matchedOfw}` : 'No active OFW account found. The case will be created unlinked and requirements stay staff-managed.'}
@@ -525,8 +538,8 @@ export default function CaseIntakeForm({ form, mode = 'public', options = {}, on
                         <Field label="Contact number" htmlFor="intake-nok-contact" required error={errors.nok_contact_number}>
                             <input id="intake-nok-contact" type="tel" value={data.nok_contact_number} onChange={(e) => setData('nok_contact_number', e.target.value)} className={INPUT} maxLength={255} />
                         </Field>
-                        <Field label="Email" htmlFor="intake-nok-email" required error={errors.nok_email}>
-                            <input id="intake-nok-email" type="email" value={data.nok_email} onChange={(e) => setData('nok_email', e.target.value)} className={INPUT} maxLength={255} />
+                        <Field label="Email" htmlFor="intake-nok-email" required error={emailErrors['intake-nok-email'] || errors.nok_email}>
+                            <input id="intake-nok-email" type="email" value={data.nok_email} onChange={(e) => { setEmailErrors((current) => ({ ...current, 'intake-nok-email': undefined })); form.clearErrors?.('nok_email'); setData('nok_email', e.target.value); }} aria-invalid={!!(emailErrors['intake-nok-email'] || errors.nok_email)} aria-describedby={(emailErrors['intake-nok-email'] || errors.nok_email) ? 'intake-nok-email-error' : undefined} className={INPUT} maxLength={255} />
                         </Field>
                     </div>
                     <div>

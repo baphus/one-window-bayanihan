@@ -187,16 +187,20 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
 
             {/* Email */}
             <div>
-              <label className="block text-sm font-medium text-slate-700">Email Address <span className="text-red-500">*</span></label>
+              <label htmlFor="user-email" className="block text-sm font-medium text-slate-700">Email Address <span className="text-red-500">*</span></label>
               <input
+                id="user-email"
                 type="email"
                 value={data.email}
-                onChange={(e) => setData('email', e.target.value)}
+                onChange={(e) => { setData('email', e.target.value); clearErrors('email'); }}
+                onInvalid={(e) => { e.preventDefault(); setError('email', e.currentTarget.validity.valueMissing ? 'Email is required.' : 'Please provide a valid email address.'); e.currentTarget.focus(); }}
+                aria-invalid={Boolean(errors.email)}
+                aria-describedby={errors.email ? 'user-email-error' : undefined}
                 className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-primary focus:ring-primary text-sm"
                 placeholder="user@example.gov.ph"
                 required
               />
-              <InputError message={errors.email} className="mt-1" />
+              <InputError id="user-email-error" message={errors.email} className="mt-1" />
             </div>
 
             {/* Password fields (create mode only) */}

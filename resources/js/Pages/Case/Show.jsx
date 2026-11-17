@@ -197,6 +197,12 @@ export default function CaseShow({ case: caseFile, case_categories = [], recomme
   function submitEdit(event) {
     event.preventDefault();
     if (editPending.current) return;
+    const invalidEmails = [...event.currentTarget.querySelectorAll('input[type="email"]')].filter((input) => input.validity.typeMismatch);
+    if (invalidEmails.length) {
+      setEditErrors((current) => ({ ...current, ...Object.fromEntries(invalidEmails.map((input) => [input.name, 'Enter a valid email address.'])) }));
+      invalidEmails[0].focus();
+      return;
+    }
     if (!selectedCategoryIds.length || !correctionReason.trim()) {
       setEditErrors({ form: !selectedCategoryIds.length ? 'Select at least one case category.' : 'Enter a reason for correction.' });
       return;
@@ -914,11 +920,11 @@ export default function CaseShow({ case: caseFile, case_categories = [], recomme
       </div>
 
       <Modal show={showEdit} closeable={!editProcessing} onClose={closeEdit}>
-        <form className="space-y-5 p-6" onSubmit={submitEdit}>
+        <form className="space-y-5 p-6" onSubmit={submitEdit} noValidate>
           {Object.keys(editErrors).length > 0 && <div role="alert" className="rounded-md bg-red-50 p-3 text-sm text-red-700"><p className="font-bold">Could not save changes:</p><ul className="list-inside list-disc">{Object.entries(editErrors).map(([field, message]) => <li key={field}>{message}</li>)}</ul></div>}
           <div><h2 className="text-lg font-bold text-slate-900">Edit Case</h2><p className="mt-1 text-sm text-slate-500">Update case details and categories.</p></div>
           <div className="grid gap-3 sm:grid-cols-2">
-            {[["first_name", "First name"], ["middle_name", "Middle name"], ["last_name", "Last name"], ["suffix", "Suffix"], ["email", "Email"], ["contact_number", "Contact number"], ["employment_employer_name", "Employer"], ["employment_position", "Position"], ["employment_country", "Employment country"], ["nok_name", "Next of kin"], ["nok_relationship", "Relationship"], ["nok_contact_number", "Next of kin contact"], ["nok_email", "Next of kin email"], ["address_street", "Street address"]].map(([field, label]) => <label key={field} className="text-[12px] font-semibold text-slate-700">{label}<input value={correction[field] ?? caseFile[field] ?? ''} onChange={(event) => setCorrection((current) => ({ ...current, [field]: event.target.value }))} className="mt-1 w-full rounded-md border-slate-300 text-sm" /></label>)}
+            {[["first_name", "First name"], ["middle_name", "Middle name"], ["last_name", "Last name"], ["suffix", "Suffix"], ["email", "Email"], ["contact_number", "Contact number"], ["employment_employer_name", "Employer"], ["employment_position", "Position"], ["employment_country", "Employment country"], ["nok_name", "Next of kin"], ["nok_relationship", "Relationship"], ["nok_contact_number", "Next of kin contact"], ["nok_email", "Next of kin email"], ["address_street", "Street address"]].map(([field, label]) => <label key={field} className="text-[12px] font-semibold text-slate-700">{label}<input name={field} type={['email', 'nok_email'].includes(field) ? 'email' : 'text'} value={correction[field] ?? caseFile[field] ?? ''} onChange={(event) => { setCorrection((current) => ({ ...current, [field]: event.target.value })); if (field === 'email' || field === 'nok_email') setEditErrors((current) => { const next = { ...current }; delete next[field]; return next; }); }} aria-label={label} aria-invalid={!!editErrors[field]} aria-describedby={['email', 'nok_email'].includes(field) && editErrors[field] ? `correction-${field}-error` : undefined} className="mt-1 w-full rounded-md border-slate-300 text-sm" />{['email', 'nok_email'].includes(field) && editErrors[field] && <span id={`correction-${field}-error`} className="mt-1 block text-sm text-red-600">{editErrors[field]}</span>}</label>)}
           </div>
           <label className="block text-[12px] font-semibold text-slate-700">Case narrative<textarea value={correction.summary ?? caseFile.summary ?? ''} onChange={(event) => setCorrection((current) => ({ ...current, summary: event.target.value }))} className="mt-1 w-full rounded-md border-slate-300 text-sm" /></label>
           <fieldset className="border-t border-slate-200 pt-4"><legend className="text-sm font-bold text-slate-800">Case categories *</legend><div className="mt-3 grid gap-2 sm:grid-cols-2">{categoryOptions.map((category) => <label key={category.id} className="flex items-center gap-2 text-sm text-slate-700"><input type="checkbox" checked={selectedCategoryIds.includes(String(category.id))} onChange={() => setSelectedCategoryIds((ids) => ids.includes(String(category.id)) ? ids.filter((id) => id !== String(category.id)) : [...ids, String(category.id)])} />{category.name}</label>)}</div></fieldset>

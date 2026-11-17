@@ -102,7 +102,12 @@ export default function AgencyFormModal({ agency, onClose, onBypass }) {
     e.preventDefault();
     onBypass?.();
     clearErrors();
-    if (!validate()) return;
+    if (!validate()) {
+      if (!agencyFormSchema.shape.contact_email.safeParse(data.contact_email).success) {
+        document.getElementById('agency-contact-email')?.focus();
+      }
+      return;
+    }
     transform((formData) => {
       const payload = { ...formData };
       if (isEdit && isContactUnchanged) {
@@ -163,9 +168,9 @@ export default function AgencyFormModal({ agency, onClose, onBypass }) {
               <InputError message={errors.contact_tel} className="mt-1" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700">Email</label>
-              <input type="email" value={data.contact_email} onChange={(e) => setData('contact_email', e.target.value)} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-primary focus:ring-primary text-sm" />
-              <InputError message={errors.contact_email} className="mt-1" />
+              <label htmlFor="agency-contact-email" className="block text-sm font-medium text-slate-700">Email</label>
+              <input id="agency-contact-email" type="email" value={data.contact_email} onChange={(e) => { setData('contact_email', e.target.value); clearErrors('contact_email'); }} onInvalid={(e) => { e.preventDefault(); setError('contact_email', 'Must be a valid email address.'); e.currentTarget.focus(); }} aria-invalid={Boolean(errors.contact_email)} aria-describedby={errors.contact_email ? 'agency-contact-email-error' : undefined} className="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-primary focus:ring-primary text-sm" />
+              <InputError id="agency-contact-email-error" message={errors.contact_email} className="mt-1" />
             </div>
             <InputError message={errors.contact_info} className="mt-1" />
           </div>

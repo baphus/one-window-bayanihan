@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { z } from 'zod';
 import { Head, useForm, usePage, router } from '@inertiajs/react';
 import AppHeader from '@/Components/landing/AppHeader';
 import AppFooter from '@/Components/landing/AppFooter';
@@ -15,7 +16,7 @@ export default function Contact() {
   const [submitted, setSubmitted] = useState(false);
   const [contentRef, contentVisible] = useInView();
 
-  const { data, setData, post, processing, errors, reset, setError } = useForm({
+  const { data, setData, post, processing, errors, reset, setError, clearErrors } = useForm({
     name: '',
     email: '',
     message: '',
@@ -24,6 +25,11 @@ export default function Contact() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (!z.string().email().safeParse(data.email).success) {
+      setError('email', 'Please provide a valid email address.');
+      e.currentTarget.querySelector('#contact-email')?.focus();
+      return;
+    }
     if (turnstile?.enabled) {
       const turnstileError = getTurnstileError({ token: turnstileToken, status: turnstileStatus });
       if (turnstileError) {
@@ -174,12 +180,15 @@ export default function Contact() {
                           id="contact-email"
                           type="email"
                           value={data.email}
-                          onChange={(e) => setData('email', e.target.value)}
+                          onChange={(e) => { setData('email', e.target.value); clearErrors('email'); }}
+                    onInvalid={(e) => { e.preventDefault(); setError('email', e.currentTarget.validity.valueMissing ? 'Email is required.' : 'Please provide a valid email address.'); e.currentTarget.focus(); }}
+                    aria-invalid={Boolean(errors.email)}
+                    aria-describedby={errors.email ? 'email-error' : undefined}
                           className="block w-full rounded-md border-slate-300 shadow-sm focus:border-primary focus:ring-primary text-sm"
                           placeholder="Enter your email"
                           required
                         />
-                        <InputError message={errors.email} className="mt-1" />
+                        <InputError id="email-error" message={errors.email} className="mt-1" />
                       </div>
                       <div>
                         <label htmlFor="contact-message" className="block text-sm font-medium text-slate-700 mb-1">
