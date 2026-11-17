@@ -31,12 +31,11 @@ class CspHeadersTest extends TestCase
         // emits a static CSS file. Any server-rendered <style> block uses the nonce.
         $this->assertStringNotContainsString("'unsafe-inline'", $policy);
         $this->assertStringContainsString("style-src 'self' 'nonce-", $policy);
-        // fonts.bunny.net removed — Figtree, Outfit, Public Sans are self-hosted.
-        // fonts.googleapis.com/fonts.gstatic.com remain for Material Symbols Outlined
-        // (3.9 MB unsubsetted; impractical to self-host without offline tooling).
+        // Every font is served from /fonts/, including Material Symbols Outlined,
+        // so no font delivery origin is allowed.
         $this->assertStringNotContainsString('fonts.bunny.net', $policy);
-        $this->assertStringContainsString('fonts.googleapis.com', $policy);
-        $this->assertStringContainsString('fonts.gstatic.com', $policy);
+        $this->assertStringNotContainsString('fonts.googleapis.com', $policy);
+        $this->assertStringNotContainsString('fonts.gstatic.com', $policy);
         $this->assertStringContainsString("img-src 'self' data:", $policy);
         // The bare "wss:" wildcard must NOT appear in the production policy — it
         // is a medium-risk CSP misconfiguration (allows WS to any origin).
@@ -45,7 +44,7 @@ class CspHeadersTest extends TestCase
         $this->assertStringNotContainsString('wss:', $policy);
         $this->assertStringContainsString("connect-src 'self'", $policy);
         $this->assertStringContainsString("form-action 'self'", $policy);
-        $this->assertStringContainsString("font-src 'self' data: https://fonts.gstatic.com", $policy);
+        $this->assertStringContainsString("font-src 'self' data:;", $policy);
         $this->assertStringContainsString("object-src 'none'", $policy);
         $this->assertStringContainsString("base-uri 'none'", $policy);
         $this->assertStringNotContainsString("'unsafe-eval'", $policy);
@@ -66,12 +65,14 @@ class CspHeadersTest extends TestCase
         $this->assertStringContainsString("default-src 'self'", $policy);
         $this->assertStringContainsString("script-src 'self' 'unsafe-inline' 'unsafe-eval'", $policy);
         $this->assertStringContainsString('127.0.0.1:5173', $policy);
-        $this->assertStringContainsString("style-src 'self' 'unsafe-inline' https://fonts.googleapis.com", $policy);
+        $this->assertStringContainsString("style-src 'self' 'unsafe-inline';", $policy);
         $this->assertStringContainsString("img-src 'self' data:", $policy);
         $this->assertStringContainsString('wss:', $policy);
         $this->assertStringContainsString("form-action 'self'", $policy);
-        $this->assertStringContainsString("font-src 'self' data: https://fonts.gstatic.com", $policy);
+        $this->assertStringContainsString("font-src 'self' data:", $policy);
         $this->assertStringNotContainsString('fonts.bunny.net', $policy);
+        $this->assertStringNotContainsString('fonts.googleapis.com', $policy);
+        $this->assertStringNotContainsString('fonts.gstatic.com', $policy);
         $this->assertStringContainsString("object-src 'none'", $policy);
         $this->assertStringContainsString("base-uri 'self'", $policy);
     }
