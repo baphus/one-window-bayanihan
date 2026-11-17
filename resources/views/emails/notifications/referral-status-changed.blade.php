@@ -20,9 +20,9 @@ $category = $referral->category?->name ?? 'N/A';
 ['label' => 'Agency', 'value' => $referral->agency?->name ?? 'N/A'],
 ['label' => 'Services', 'value' => $referral->required_services ?: 'N/A'],
 ['label' => 'Status', 'value' => $oldLabel . ' → ' . $newLabel],
-['label' => 'Referred On', 'value' => $referral->created_at?->format('M d, Y') ?? 'N/A'],
+['label' => 'Referred On', 'value' => $referral->created_at?->copy()->setTimezone(config('app.operating_timezone', 'Asia/Manila'))->format('M d, Y') ?? 'N/A'],
 ['label' => 'Updated By', 'value' => ($actorName ?? '') !== '' ? $actorName : 'System'],
-['label' => 'Updated At', 'value' => ($referral->updated_at ?? now())->format('M d, Y h:i A')],
+['label' => 'Updated At', 'value' => ($referral->updated_at ?? now())->copy()->setTimezone(config('app.operating_timezone', 'Asia/Manila'))->format('M d, Y h:i A')],
 ]" />
 
 @if($newStatus === 'PROCESSING')

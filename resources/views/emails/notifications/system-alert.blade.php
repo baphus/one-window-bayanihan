@@ -13,7 +13,7 @@ default => '#005288',
 <x-mail::detail-table :rows="[
 ['label' => 'Type', 'value' => ucwords(str_replace('_', ' ', $type))],
 ['label' => 'Severity', 'value' => $alertLabel],
-['label' => 'Time', 'value' => now()->format('M d, Y g:i A')],
+['label' => 'Time', 'value' => now(config('app.operating_timezone', 'Asia/Manila'))->format('M d, Y g:i A')],
 ]" />
 
 <div style="background-color: #f8fafc; border-left: 3px solid {{ $borderColor }}; padding: 16px 20px; margin: 24px 0;">

@@ -17,6 +17,13 @@ export function formatDisplayTime(iso: string): string {
     }).format(new Date(iso));
 }
 
+export function formatTimestampDate(iso: string): string {
+    if (!iso) return '';
+    return new Intl.DateTimeFormat('en-US', {
+        month: 'long', day: 'numeric', year: 'numeric',
+    }).format(new Date(iso));
+}
+
 export function formatDisplayDate(iso: string): string {
     if (!iso) return '';
     // Parse date-only strings as UTC to avoid timezone shift

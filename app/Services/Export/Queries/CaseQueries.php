@@ -10,6 +10,7 @@ use App\Services\Export\Queries\Concerns\FiltersCaseCategories;
 use App\Services\Export\Queries\Concerns\ScopesForExportUser;
 use App\Services\PhilippineAddressService;
 use App\Support\MultiSelectFilter;
+use App\Support\ReportCalendar;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -192,10 +193,10 @@ class CaseQueries
         $this->applyCategoryFilter($query, 'c', $filters);
 
         if (! empty($filters['date_from'])) {
-            $query->whereDate('c.created_at', '>=', $filters['date_from']);
+            $query->where('c.created_at', '>=', ReportCalendar::localDayBounds($filters['date_from'])[0]);
         }
         if (! empty($filters['date_to'])) {
-            $query->whereDate('c.created_at', '<=', $filters['date_to']);
+            $query->where('c.created_at', '<', ReportCalendar::localDayBounds($filters['date_to'])[1]);
         }
         if (! empty($filters['search'])) {
             $search = $filters['search'];

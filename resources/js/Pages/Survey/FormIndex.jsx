@@ -1,7 +1,7 @@
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, router } from '@inertiajs/react';
 import { useState } from 'react';
-import { formatDisplayDate } from '@/lib/utils';
+import { formatTimestampDate } from '@/lib/utils';
 import ConfirmDialog from '@/Components/ui/ConfirmDialog';
 
 export default function FormIndex({ forms = [] }) {
@@ -106,7 +106,7 @@ export default function FormIndex({ forms = [] }) {
                         )}
                       </td>
                       <td className="px-5 py-4 align-top text-sm text-slate-600">
-                        {formatDisplayDate(form.created_at)}
+                        {formatTimestampDate(form.created_at)}
                       </td>
                       <td className="px-5 py-4 align-top">
                         <div className="flex flex-wrap justify-end gap-2">

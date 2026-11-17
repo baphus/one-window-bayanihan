@@ -23,6 +23,7 @@ use App\Models\User;
 use App\Notifications\CaseStatusUpdated;
 use App\Notifications\CaseUpdated;
 use App\Support\MultiSelectFilter;
+use App\Support\ReportCalendar;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\QueryException;
@@ -427,10 +428,10 @@ class CaseService
         }
 
         if (! empty($filters['date_from'])) {
-            $query->whereDate('cases.created_at', '>=', $filters['date_from']);
+            $query->where('cases.created_at', '>=', ReportCalendar::localDayBounds($filters['date_from'])[0]);
         }
         if (! empty($filters['date_to'])) {
-            $query->whereDate('cases.created_at', '<=', $filters['date_to']);
+            $query->where('cases.created_at', '<', ReportCalendar::localDayBounds($filters['date_to'])[1]);
         }
 
         if (! empty($filters['search'])) {

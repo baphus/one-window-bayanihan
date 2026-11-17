@@ -8,6 +8,8 @@ use App\Models\User;
 use App\Services\Export\Queries\Concerns\FiltersCaseCategories;
 use App\Services\Export\Queries\Concerns\ScopesForExportUser;
 use App\Support\MultiSelectFilter;
+use App\Support\ReportCalendar;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -123,10 +125,10 @@ class ReferralQueries
             $query->where('r.created_at', '>=', now()->subDays((int) $filters['age_max_days'])->startOfDay());
         }
         if (! empty($filters['date_from'])) {
-            $query->whereDate('r.created_at', '>=', $filters['date_from']);
+            $query->where('r.created_at', '>=', ReportCalendar::localDayBounds($filters['date_from'])[0]);
         }
         if (! empty($filters['date_to'])) {
-            $query->whereDate('r.created_at', '<=', $filters['date_to']);
+            $query->where('r.created_at', '<', ReportCalendar::localDayBounds($filters['date_to'])[1]);
         }
         if (! empty($filters['search'])) {
             $search = $filters['search'];
@@ -201,9 +203,9 @@ class ReferralQueries
 
             // --- Date Referred display ---
             $row->date_referred = $row->date_referred instanceof \DateTimeInterface
-                ? $row->date_referred->format('Y-m-d')
+                ? ReportCalendar::toLocalDate($row->date_referred)
                 : (($row->date_referred && str_contains((string) $row->date_referred, ' '))
-                    ? substr((string) $row->date_referred, 0, 10)
+                    ? ReportCalendar::toLocalDate((string) $row->date_referred)
                     : (string) ($row->date_referred ?? ''));
 
             // --- Latest Update: milestone title + date, or meaningful status description ---
@@ -219,7 +221,7 @@ class ReferralQueries
             if (! empty($row->latest_milestone_title)) {
                 $milestoneDate = $row->latest_milestone_date ?? '';
                 if ($milestoneDate && str_contains((string) $milestoneDate, ' ')) {
-                    $milestoneDate = substr((string) $milestoneDate, 0, 16);
+                    $milestoneDate = CarbonImmutable::parse($milestoneDate)->setTimezone(ReportCalendar::timezone())->format('Y-m-d H:i');
                 }
                 // If milestone is newer than updated_at, use milestone; otherwise use status
                 $usesMilestone = true;
@@ -230,13 +232,13 @@ class ReferralQueries
                     $row->latest_update = $row->latest_milestone_title.' ('.$milestoneDate.')';
                 } else {
                     $updatedAt = str_contains((string) $row->referral_updated_at, ' ')
-                        ? substr((string) $row->referral_updated_at, 0, 16)
+                        ? CarbonImmutable::parse($row->referral_updated_at)->setTimezone(ReportCalendar::timezone())->format('Y-m-d H:i')
                         : (string) $row->referral_updated_at;
                     $row->latest_update = $statusDescription.' ('.$updatedAt.')';
                 }
             } elseif (! empty($row->referral_updated_at) && (string) $row->referral_updated_at !== (string) $row->date_referred) {
                 $updatedAt = str_contains((string) $row->referral_updated_at, ' ')
-                    ? substr((string) $row->referral_updated_at, 0, 16)
+                    ? CarbonImmutable::parse($row->referral_updated_at)->setTimezone(ReportCalendar::timezone())->format('Y-m-d H:i')
                     : (string) $row->referral_updated_at;
                 $row->latest_update = $statusDescription.' ('.$updatedAt.')';
             } else {

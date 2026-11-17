@@ -9,7 +9,7 @@ import { toFilterList, toggleFilterValue, useArrayFilters } from '@/Hooks/useArr
 import StatusBadge from '@/Components/ui/StatusBadge';
 import { FolderCheck, Users, ArrowRightLeft, TrendingUp, Clock } from 'lucide-react';
 import KpiCard from '@/Components/ui/KpiCard';
-import { formatDisplayDate, formatDisplayTime } from '@/lib/utils';
+import { formatDisplayTime, formatTimestampDate } from '@/lib/utils';
 import { RowContextMenu, RowContextMenuItem } from '@/Components/ui/RowContextMenu';
 import ExportDialog from '@/Components/ExportDialog';
 import ExportExcelButton from '@/Components/ExportExcelButton';
@@ -501,7 +501,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
                     {ev.description && (
                       <div className="text-[10px] text-slate-500 truncate" title={ev.description}>{ev.description}</div>
                     )}
-                    <div className="text-[10px] text-slate-400 mt-0.5">{formatDisplayDate(ev.timestamp)} {formatDisplayTime(ev.timestamp)}</div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">{formatTimestampDate(ev.timestamp)} {formatDisplayTime(ev.timestamp)}</div>
                   </div>
                 );
               },
@@ -511,7 +511,7 @@ export default function CaseIndex({ cases, filters: rawFilters, stats, users = [
               ...base,
               render: (row) => (
                 <div>
-                  <div className="text-xs text-slate-700">{formatDisplayDate(row.created_at)}</div>
+                  <div className="text-xs text-slate-700">{formatTimestampDate(row.created_at)}</div>
                   <div className="text-[10px] text-slate-500">{formatDisplayTime(row.created_at)}</div>
                 </div>
               ),

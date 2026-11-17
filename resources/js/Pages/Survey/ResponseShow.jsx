@@ -1,6 +1,6 @@
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link } from '@inertiajs/react';
-import { formatDisplayDate } from '@/lib/utils';
+import { formatTimestampDate } from '@/lib/utils';
 
 const LIKERT_LABELS = {
   1: 'Strongly Disagree',
@@ -111,7 +111,7 @@ export default function ResponseShow({ invitation }) {
                 {invitation.client_name}'s Response
               </h1>
               <p className="mt-1 text-sm text-slate-500">
-                {invitation.survey_form?.title || 'Survey'} • Submitted {formatDisplayDate(invitation.submitted_at)}
+                {invitation.survey_form?.title || 'Survey'} • Submitted {formatTimestampDate(invitation.submitted_at)}
               </p>
             </div>
             <Link
@@ -143,7 +143,7 @@ export default function ResponseShow({ invitation }) {
             </div>
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Date of Evaluation</p>
-              <p className="mt-1 text-sm font-medium text-slate-900">{formatDisplayDate(invitation.submitted_at)}</p>
+              <p className="mt-1 text-sm font-medium text-slate-900">{formatTimestampDate(invitation.submitted_at)}</p>
             </div>
           </div>
         </section>

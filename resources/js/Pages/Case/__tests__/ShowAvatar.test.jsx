@@ -8,7 +8,7 @@ vi.mock('@inertiajs/react', () => ({ Head: () => null, Link: ({ children, ...pro
 vi.mock('@/Layouts/AppLayout', () => ({ default: ({ children }) => <div>{children}</div> }));
 vi.mock('@/Components/ui/StatusBadge', () => ({ default: () => null }));
 vi.mock('@/Components/ui/UserAvatar', () => ({ default: () => null, getAvatarColor: () => '' }));
-vi.mock('@/lib/utils', () => ({ formatDisplayDateTime: () => '', formatDisplayDate: () => '', formatDisplayTime: () => '' }));
+vi.mock('@/lib/utils', () => ({ formatDisplayDateTime: () => '', formatDisplayDate: () => '', formatTimestampDate: () => '', formatDisplayTime: () => '' }));
 vi.mock('@/lib/addressResolver', () => ({ formatResolvedAddress: () => '' }));
 vi.mock('@/Hooks/useUnsavedChanges', () => ({ default: () => ({ UnsavedModal: () => null, bypassNext: vi.fn() }) }));
 vi.mock('@/Components/Select', () => ({ default: () => null }));
@@ -95,6 +95,26 @@ describe('Case documents section', () => {
 });
 
 describe('Case actions', () => {
+  it('blocks invalid correction emails and clears their errors on edit', () => {
+    render(<CaseShow case={{ id: 'case-1', status: 'OPEN', referrals: [] }} case_categories={[{ id: 'cat-1', name: 'Legal' }]} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Case' }));
+    router.patch.mockClear();
+    const email = screen.getByLabelText('Email');
+    const nok = screen.getByLabelText('Next of kin email');
+    fireEvent.change(email, { target: { value: 'bad' } });
+    fireEvent.change(nok, { target: { value: 'also-bad' } });
+    fireEvent.change(screen.getByLabelText('Reason for correction *'), { target: { value: 'Fix email' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    expect(router.patch).not.toHaveBeenCalled();
+    expect(email).toHaveFocus();
+    expect(email).toHaveAccessibleDescription('Enter a valid email address.');
+    expect(nok).toHaveAccessibleDescription('Enter a valid email address.');
+    fireEvent.change(email, { target: { value: 'valid@example.com' } });
+    fireEvent.change(nok, { target: { value: '' } });
+    expect(email).not.toHaveAttribute('aria-describedby');
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    expect(router.patch).toHaveBeenCalledTimes(1);
+  });
   it.each(['CLOSED', 'REJECTED'])('shows an accessible warning when %s case has active referrals', (status) => {
     pageState.role = 'CASE_MANAGER';
     router.post.mockClear();

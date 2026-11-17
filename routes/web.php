@@ -10,6 +10,7 @@ use App\Http\Controllers\Admin\OverdueReferralController;
 use App\Http\Controllers\Admin\SecurityLogController;
 use App\Http\Controllers\Admin\SystemHealthController;
 use App\Http\Controllers\AdminAgencyController;
+use App\Http\Controllers\AdministrativeExportController;
 use App\Http\Controllers\AdminServiceController;
 use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\AgencyServiceController;
@@ -140,6 +141,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/reports/print', [ReportsController::class, 'print'])->name('reports.print')->middleware(['role:CASE_MANAGER,ADMIN,AGENCY', 'throttle:reports-export']);
     Route::get('/reports/export-pdf', [ReportsController::class, 'exportPdf'])->name('reports.export-pdf')->middleware(['role:CASE_MANAGER,ADMIN,AGENCY', 'throttle:reports-export']);
     Route::get('/reports/export-excel', [ReportsController::class, 'exportExcel'])->name('reports.export-excel')->middleware(['role:CASE_MANAGER,ADMIN,AGENCY', 'throttle:reports-export']);
+    Route::get('/reports/administrative-export', [AdministrativeExportController::class, '__invoke'])->name('admin.exports.administrative')->middleware(['role:ADMIN', 'throttle:reports-export']);
 
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index')->withoutMiddleware('verified');
     Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount'])->name('notifications.unread-count')->withoutMiddleware('verified');

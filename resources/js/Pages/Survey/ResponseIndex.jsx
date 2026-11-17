@@ -1,6 +1,6 @@
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, router } from '@inertiajs/react';
-import { formatDisplayDate } from '@/lib/utils';
+import { formatTimestampDate } from '@/lib/utils';
 
 export default function ResponseIndex({ invitations, stats, filters = {} }) {
   const { data, current_page, last_page, total } = invitations;
@@ -75,7 +75,7 @@ export default function ResponseIndex({ invitations, stats, filters = {} }) {
                     <td className="px-5 py-4 text-sm text-slate-600">{invitation.service_name}</td>
                     <td className="px-5 py-4 text-sm text-slate-600">{invitation.agency?.name ?? '—'}</td>
                     <td className="px-5 py-4 text-sm text-slate-600">{invitation.survey_form?.title ?? '—'}</td>
-                    <td className="px-5 py-4 text-sm text-slate-600">{formatDisplayDate(invitation.submitted_at)}</td>
+                    <td className="px-5 py-4 text-sm text-slate-600">{formatTimestampDate(invitation.submitted_at)}</td>
                     <td className="px-5 py-4 text-right">
                       <Link
                         href={route('survey.responses.show', invitation.id)}

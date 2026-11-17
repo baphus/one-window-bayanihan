@@ -7,7 +7,7 @@ import StatusBadge from '@/Components/ui/StatusBadge';
 import UserAvatar from '@/Components/ui/UserAvatar';
 import { Users, UserCheck, Briefcase, Building2, Shield } from 'lucide-react';
 import KpiCard from '@/Components/ui/KpiCard';
-import { formatDisplayDate, formatDisplayTime } from '@/lib/utils';
+import { formatDisplayTime, formatTimestampDate } from '@/lib/utils';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import useTableVisitLoading from '@/Hooks/useTableVisitLoading';
 import usePersistedColumns from '@/Hooks/usePersistedColumns';
@@ -323,7 +323,7 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [], p
               ...base,
               render: (row) => (
                 <div>
-                  <div className="text-xs text-slate-700">{formatDisplayDate(row.created_at)}</div>
+                  <div className="text-xs text-slate-700">{formatTimestampDate(row.created_at)}</div>
                   <div className="text-[10px] text-slate-500">{formatDisplayTime(row.created_at)}</div>
                 </div>
               ),
@@ -670,10 +670,10 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [], p
                           </span>
                         </td>
                         <td className="px-4 py-3 text-sm text-slate-600">{invite.agency?.name || <span className="text-slate-400">&mdash;</span>}</td>
-                        <td className="px-4 py-3 text-sm text-slate-600">{formatDisplayDate(invite.created_at)}</td>
+                        <td className="px-4 py-3 text-sm text-slate-600">{formatTimestampDate(invite.created_at)}</td>
                         <td className="px-4 py-3">
                           <span className={`text-sm ${new Date(invite.expires_at) < new Date() ? 'text-red-600 font-semibold' : 'text-slate-600'}`}>
-                            {formatDisplayDate(invite.expires_at)}
+                            {formatTimestampDate(invite.expires_at)}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-right">

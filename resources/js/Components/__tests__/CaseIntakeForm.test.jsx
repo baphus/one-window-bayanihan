@@ -59,6 +59,30 @@ function createMockForm(data = {}) {
 }
 
 describe('CaseIntakeForm email field', () => {
+    it('blocks malformed editable emails, focuses and clears errors on edit', () => {
+        const submit = vi.fn((event) => event.preventDefault());
+        const form = createMockForm({ email: 'bad', client_type: 'NEXT_OF_KIN', nok_email: 'also-bad' });
+        render(<CaseIntakeForm form={form} mode="staff" onSubmit={submit} />);
+        const email = document.querySelector('#intake-email');
+        const nok = document.querySelector('#intake-nok-email');
+        fireEvent.submit(email.closest('form'));
+        expect(submit).not.toHaveBeenCalled();
+        expect(email).toHaveFocus();
+        expect(email).toHaveAccessibleDescription('Enter a valid email address.');
+        expect(nok).toHaveAccessibleDescription('Enter a valid email address.');
+        fireEvent.change(email, { target: { value: 'valid@example.com' } });
+        expect(email).not.toHaveAttribute('aria-describedby');
+    });
+
+    it('allows readonly email and valid editable email submissions', () => {
+        const submit = vi.fn((event) => event.preventDefault());
+        const { rerender } = render(<CaseIntakeForm form={createMockForm({ email: 'bad', proposed_assessments: ['LEGAL_ASSISTANCE'] })} mode="public" onSubmit={submit} />);
+        fireEvent.submit(document.querySelector('#intake-email').closest('form'));
+        rerender(<CaseIntakeForm form={createMockForm({ email: 'valid@example.com' })} mode="staff" onSubmit={submit} />);
+        fireEvent.submit(document.querySelector('#intake-email').closest('form'));
+        expect(submit).toHaveBeenCalledTimes(2);
+    });
+
     it('email is readonly in public mode', () => {
         const form = createMockForm({ email: 'ofw@example.com' });
         render(<CaseIntakeForm form={form} mode="public" onSubmit={vi.fn()} />);
@@ -97,6 +121,26 @@ describe('CaseIntakeForm email field', () => {
 });
 
 describe('case intake choices', () => {
+    it('requires at least one requested assistance only in public mode', () => {
+        const submit = vi.fn((event) => event.preventDefault());
+        const form = createMockForm();
+        const { rerender } = render(<CaseIntakeForm form={form} mode="public" onSubmit={submit} />);
+        const group = screen.getByRole('group', { name: 'Requested assistance (required)' });
+        const choice = within(group).getByLabelText('Legal assistance');
+        fireEvent.submit(choice.closest('form'));
+        expect(submit).not.toHaveBeenCalled();
+        expect(group).toHaveAccessibleDescription('Select at least one type of assistance.');
+        expect(within(group).getAllByRole('checkbox')[0]).toHaveFocus();
+        fireEvent.click(choice);
+        expect(form.setData).toHaveBeenCalledWith('proposed_assessments', ['LEGAL_ASSISTANCE']);
+        expect(group).not.toHaveAccessibleDescription();
+        rerender(<CaseIntakeForm form={createMockForm({ proposed_assessments: ['LEGAL_ASSISTANCE'] })} mode="public" onSubmit={submit} />);
+        fireEvent.submit(choice.closest('form'));
+        rerender(<CaseIntakeForm form={createMockForm()} mode="staff" onSubmit={submit} />);
+        fireEvent.submit(choice.closest('form'));
+        expect(submit).toHaveBeenCalledTimes(2);
+    });
+
     it.each(['public', 'staff'])('offers common occupations and custom entry in %s mode', (mode) => {
         const form = createMockForm();
         render(<CaseIntakeForm form={form} mode={mode} onSubmit={vi.fn()} />);
@@ -130,7 +174,7 @@ describe('staff classification', () => {
         fireEvent.click(within(confirmed).getByLabelText('Other'));
         expect(form.setData).toHaveBeenCalledWith('confirmed_assessments', []);
         expect(screen.getByLabelText('Other confirmed assessment *')).toBeRequired();
-        expect(screen.getByText('Requested assistance')).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: 'Requested assistance' })).toBeInTheDocument();
     });
 
     it('explains when no categories are available', () => {

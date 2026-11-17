@@ -7,6 +7,7 @@ import DateRangePicker from '@/Components/Reports/DateRangePicker';
 import AgencyFilter from '@/Components/Reports/AgencyFilter';
 import ProvinceCityFilter from '@/Components/Reports/ProvinceCityFilter';
 import ExportButtons from '@/Components/Reports/ExportButtons';
+import AdministrativeExport from '@/Components/Reports/AdministrativeExport';
 import { useReportFilters } from '@/Hooks/useReportFilters';
 import { useLazyProp } from '@/Hooks/useLazyProp';
 import CasesTab from '@/Pages/Reports/sections/CasesTab';
@@ -139,6 +140,8 @@ export function ReportsDashboard({
           </button>}
         </div>
       </header>
+
+      {!printMode && role === roles.ADMIN && <AdministrativeExport role={role} agencyOptions={agencyOptions || []} />}
 
       <div className="py-1">
         <p className="mb-1 text-xs text-slate-600 dark:text-slate-300">Applied period: {initialFrom || fromDateISO} to {initialTo || toDateISO}</p>

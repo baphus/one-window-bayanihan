@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import AppFooter from '@/Components/landing/AppFooter';
 import AppHeader from '@/Components/landing/AppHeader';
@@ -10,6 +10,8 @@ import { getTurnstileError } from '@/lib/turnstile';
 export default function ForgotPassword({ status }) {
     const { errors: pageErrors, turnstile } = usePage().props;
     const [email, setEmail] = useState('');
+    const [emailError, setEmailError] = useState('');
+    const emailRef = useRef(null);
     const [processing, setProcessing] = useState(false);
     const [successMsg, setSuccessMsg] = useState(status || '');
     const [errorMsg, setErrorMsg] = useState(pageErrors?.email || '');
@@ -19,12 +21,14 @@ export default function ForgotPassword({ status }) {
     // Client-side validation — email format
     const forgotSchema = useMemo(() => makeForgotPasswordSchema(), []);
     const { validate } = useClientValidation(forgotSchema, { email }, (field, msg) => {
-        setErrorMsg(msg);
+        if (field === 'email') { setEmailError(msg); emailRef.current?.focus(); }
+        else setErrorMsg(msg);
     });
 
     const handleSubmit = (e) => {
         e.preventDefault();
         setErrorMsg('');
+        setEmailError('');
         if (!validate()) return;
 
         setProcessing(true);
@@ -115,18 +119,24 @@ export default function ForgotPassword({ status }) {
                                 )}
 
                                 <div>
-                                    <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-on-surface-variant">Email Address</label>
+                                    <label htmlFor="auth-email" className="mb-2 block text-xs font-bold uppercase tracking-widest text-on-surface-variant">Email Address</label>
                                     <div className="relative">
                                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant/40 text-[20px] material-symbols-outlined">alternate_email</span>
                                         <input
+                                            ref={emailRef}
+                                            id="auth-email"
                                             type="email"
+                                            onInvalid={(e) => { e.preventDefault(); setEmailError(e.currentTarget.validity.valueMissing ? 'Email is required.' : 'Please provide a valid email address.'); e.currentTarget.focus(); }}
+                                            aria-invalid={Boolean(emailError)}
+                                            aria-describedby={emailError ? 'auth-email-error' : undefined}
                                             value={email}
-                                            onChange={(e) => { setEmail(e.target.value); setErrorMsg(''); }}
+                                            onChange={(e) => { setEmail(e.target.value); setEmailError(''); setErrorMsg(''); }}
                                             placeholder="you@agency.gov.ph"
                                             className="w-full border border-outline-variant bg-surface-container px-4 py-3 pl-12 text-sm focus:border-primary focus:outline-none rounded-md"
                                             required
                                         />
                                     </div>
+                                    {emailError && <p id="auth-email-error" className="mt-1 text-sm text-red-600">{emailError}</p>}
                                 </div>
 
                                 {turnstile?.enabled && (

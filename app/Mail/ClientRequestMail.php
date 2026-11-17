@@ -69,7 +69,7 @@ class ClientRequestMail extends Mailable implements ShouldBeEncrypted, ShouldQue
                 'agencyName' => $this->clientRequest->referral?->agency?->name ?? 'the agency',
                 'clientName' => $this->clientRequest->referral?->caseFile?->first_name ?? '',
                 'caseNumber' => $this->clientRequest->referral?->caseFile?->case_number ?? '',
-                'dueDate' => $this->clientRequest->due_at?->format('F j, Y'),
+                'dueDate' => $this->clientRequest->due_at?->copy()->setTimezone(config('app.operating_timezone', 'Asia/Manila'))->format('F j, Y'),
             ],
         );
     }

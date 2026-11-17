@@ -154,7 +154,7 @@ class Referral extends Model
             if ($milestoneIsNewer) {
                 return [
                     'description' => $latestMilestone->title,
-                    'date' => $latestMilestone->created_at?->format('F j, Y \a\t h:i A'),
+                    'date' => $latestMilestone->created_at?->copy()->setTimezone(config('app.operating_timezone', 'Asia/Manila'))->format('F j, Y \a\t h:i A'),
                     'type' => 'milestone',
                 ];
             }
@@ -164,7 +164,7 @@ class Referral extends Model
         if ($statusDescription && $this->updated_at) {
             return [
                 'description' => $statusDescription,
-                'date' => $this->updated_at->format('F j, Y \a\t h:i A'),
+                'date' => $this->updated_at->copy()->setTimezone(config('app.operating_timezone', 'Asia/Manila'))->format('F j, Y \a\t h:i A'),
                 'type' => 'status',
             ];
         }
@@ -172,7 +172,7 @@ class Referral extends Model
         // Fallback: show when it was referred
         return [
             'description' => 'Referred to agency',
-            'date' => $this->created_at?->format('F j, Y \a\t h:i A'),
+            'date' => $this->created_at?->copy()->setTimezone(config('app.operating_timezone', 'Asia/Manila'))->format('F j, Y \a\t h:i A'),
             'type' => 'status',
         ];
     }

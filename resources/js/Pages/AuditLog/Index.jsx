@@ -1,3 +1,4 @@
+import { toISODateInputValue } from '@/lib/dates';
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, router } from '@inertiajs/react';
 import { AuditTimeline } from '@/Components/AuditTimeline';
@@ -7,7 +8,7 @@ import useTableVisitLoading from '@/Hooks/useTableVisitLoading';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 function toDateInput(date) {
-  return date.toISOString().slice(0, 10);
+  return toISODateInputValue(date);
 }
 
 // Keep the Export button disabled until the browser finishes handling the

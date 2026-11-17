@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Services\Export\Queries\Concerns\FiltersCaseCategories;
 use App\Services\Export\Queries\Concerns\ScopesForExportUser;
 use App\Services\PhilippineAddressService;
+use App\Support\ReportCalendar;
 use Illuminate\Support\Collection;
 
 class ClientQueries
@@ -48,10 +49,10 @@ class ClientQueries
             $query->whereHas('referrals', fn ($q) => $q->where('agcy_id', $filters['agcy_id']));
         }
         if (! empty($filters['date_from'])) {
-            $query->whereDate('cases.created_at', '>=', $filters['date_from']);
+            $query->where('cases.created_at', '>=', ReportCalendar::localDayBounds($filters['date_from'])[0]);
         }
         if (! empty($filters['date_to'])) {
-            $query->whereDate('cases.created_at', '<=', $filters['date_to']);
+            $query->where('cases.created_at', '<', ReportCalendar::localDayBounds($filters['date_to'])[1]);
         }
         if (! empty($filters['search'])) {
             $value = '%'.$filters['search'].'%';

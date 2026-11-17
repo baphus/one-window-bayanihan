@@ -150,6 +150,25 @@ class AuditLogQueryTest extends TestCase
             ->all();
     }
 
+    public function test_date_filter_uses_manila_midnight_boundaries(): void
+    {
+        config(['app.operating_timezone' => 'Asia/Manila']);
+        $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);
+        $ids = [];
+        foreach (['2026-11-16 15:59:59', '2026-11-16 16:00:00', '2026-11-17 15:59:59', '2026-11-17 16:00:00'] as $timestamp) {
+            $ids[] = AuditLog::create([
+                'action' => 'UPDATE', 'module' => 'referral',
+                'user_id' => $admin->id, 'timestamp' => $timestamp,
+            ])->id;
+        }
+
+        $response = $this->actingAsWithMfa($admin)->withHeader('X-Inertia', 'true')
+            ->get('/audit-logs?action=UPDATE&date_from=2026-11-17&date_to=2026-11-17');
+
+        $response->assertOk();
+        $this->assertSame([$ids[2], $ids[1]], collect($response->json('props.logs.data'))->pluck('id')->all());
+    }
+
     public function test_role_filter_applies_for_admin(): void
     {
         $admin = User::factory()->create(['role' => UserRole::ADMIN->value]);

@@ -2,6 +2,8 @@
 
 namespace App\Services\Export;
 
+use App\Support\ReportCalendar;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -127,6 +129,42 @@ class DataExportService
             ]);
 
             return $this->errorResponse();
+        }
+    }
+
+    /** Build a complete disposable workbook before an HTTP response is sent. */
+    public function generateMultiSheetFile(array $sheets, string $filename): string
+    {
+        $spreadsheet = $this->createSpreadsheet($filename);
+        try {
+            foreach ($sheets as $index => $sheetDef) {
+                $sheet = $index === 0 ? $spreadsheet->getActiveSheet() : $spreadsheet->createSheet($index);
+                $columnMap = $sheetDef['columnMap'] ?? [];
+                $rows = $sheetDef['rows'] ?? collect();
+                $sheet->setTitle($this->sanitizeSheetTitle($sheetDef['title'] ?? ('Sheet '.($index + 1))));
+                $this->populateSheet($sheet, $columnMap, $rows);
+                $this->attachChart($sheet, $sheetDef, $columnMap, $rows);
+            }
+            $spreadsheet->setActiveSheetIndex(0);
+            $path = tempnam(sys_get_temp_dir(), 'admin-export-');
+            if ($path === false) {
+                throw new \RuntimeException('Could not create temporary workbook.');
+            }
+            try {
+                $writer = new Xlsx($spreadsheet);
+                $writer->setIncludeCharts(true);
+                $writer->save($path);
+                if (! is_file($path) || filesize($path) === 0) {
+                    throw new \RuntimeException('Workbook serialization produced no file.');
+                }
+
+                return $path;
+            } catch (\Throwable $e) {
+                @unlink($path);
+                throw $e;
+            }
+        } finally {
+            $spreadsheet->disconnectWorksheets();
         }
     }
 
@@ -536,23 +574,12 @@ class DataExportService
 
         $format = $withTime ? 'Y-m-d H:i' : 'Y-m-d';
 
-        if ($value instanceof \DateTimeInterface) {
-            return $value->format($format);
+        if ($value instanceof \DateTimeInterface || strlen((string) $value) > 10) {
+            return CarbonImmutable::parse($value)
+                ->setTimezone(ReportCalendar::timezone())->format($format);
         }
 
-        $str = (string) $value;
-
-        if ($withTime) {
-            // Normalise "2024-01-15T10:00:00Z" and "2024-01-15 10:00:00" alike.
-            return strlen($str) >= 16 ? substr(str_replace('T', ' ', $str), 0, 16) : $str;
-        }
-
-        // Trim datetime string to date-only portion (e.g. "2024-01-15 10:00:00" → "2024-01-15")
-        if (strlen($str) > 10 && (str_contains($str, ' ') || str_contains($str, 'T'))) {
-            return substr($str, 0, 10);
-        }
-
-        return $str;
+        return (string) $value;
     }
 
     private function writeSafeCell(Worksheet $sheet, string $cellRef, mixed $value): void

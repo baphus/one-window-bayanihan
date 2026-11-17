@@ -10,6 +10,7 @@ use App\Models\AuditLog;
 use App\Services\AuditCategory;
 use App\Services\AuditLogFormatter;
 use App\Services\AuditLogger;
+use App\Support\ReportCalendar;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -290,11 +291,11 @@ class AuditLogController extends Controller
         // Only apply date bounds when they are well-formed Y-m-d values, so a
         // malformed query param is ignored rather than raising a SQL cast error.
         $query->when($this->isValidYmd($request->input('date_from')), function ($q) use ($request) {
-            $q->where('timestamp', '>=', $request->input('date_from'));
+            $q->where('timestamp', '>=', ReportCalendar::localDayBounds($request->input('date_from'))[0]);
         });
 
         $query->when($this->isValidYmd($request->input('date_to')), function ($q) use ($request) {
-            $q->where('timestamp', '<=', $request->input('date_to').' 23:59:59');
+            $q->where('timestamp', '<', ReportCalendar::localDayBounds($request->input('date_to'))[1]);
         });
 
         $query->when($request->filled('search'), fn ($q) => $this->applyAuditSearch($q, (string) $request->input('search')));

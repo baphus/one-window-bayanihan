@@ -64,6 +64,12 @@ export default function ChangeEmailForm({
         e.preventDefault();
         setPasswordError('');
         setEmailError('');
+        const emailInput = document.getElementById('new_email');
+        if (!emailInput.checkValidity()) {
+            setEmailError(emailInput.validity.valueMissing ? 'Email is required.' : 'Please provide a valid email address.');
+            emailInput.focus();
+            return;
+        }
         setProcessing(true);
 
         router.post(route('profile.email-change.send-otp'), {
@@ -179,12 +185,15 @@ export default function ChangeEmailForm({
                         type="email"
                         className="mt-1 block w-full"
                         value={newEmail}
-                        onChange={(e) => setNewEmail(e.target.value)}
+                        onChange={(e) => { setNewEmail(e.target.value); setEmailError(''); }}
+                        onInvalid={(e) => e.preventDefault()}
+                        aria-invalid={Boolean(emailError)}
+                        aria-describedby={emailError ? 'new-email-error' : undefined}
                         autoComplete="email"
                         required
                     />
                     {emailError && (
-                        <p className="mt-2 text-sm text-red-600">{emailError}</p>
+                        <p id="new-email-error" className="mt-2 text-sm text-red-600">{emailError}</p>
                     )}
                 </div>
 

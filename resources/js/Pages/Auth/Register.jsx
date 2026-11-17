@@ -18,7 +18,7 @@ export default function Register({ initial = {} }) {
     const [turnstileStatus, setTurnstileStatus] = useState('idle');
     const [emailStatus, setEmailStatus] = useState('unknown');
     const credentials = initial.credentials ?? {};
-    const { data, setData, post, processing, errors } = useForm({
+    const { data, setData, setError, clearErrors, post, processing, errors } = useForm({
         ...emptyIdentity(credentials),
         email: credentials.email ?? '',
         password: '',
@@ -27,7 +27,12 @@ export default function Register({ initial = {} }) {
         cf_turnstile_response: '',
     });
     const schema = useMemo(() => makeRegisterSchema(passwordRules), [passwordRules]);
-    const { validate } = useClientValidation(schema, data, () => {});
+    const { validate } = useClientValidation(schema, data, (field, message) => {
+        if (field === 'email') {
+            setError('email', message);
+            document.getElementById('register-email')?.focus();
+        }
+    });
 
     useEffect(() => {
         const email = data.email.trim();
@@ -76,7 +81,7 @@ export default function Register({ initial = {} }) {
                             </section>
                             <div>
                                 <label htmlFor="register-email" className="mb-2 block text-xs font-bold uppercase tracking-widest text-on-surface-variant">Email address</label>
-                                <input id="register-email" type="email" value={data.email} onChange={(event) => setData('email', event.target.value)} className={inputClass} autoComplete="email" autoFocus required aria-invalid={Boolean(errors.email)} aria-describedby={errors.email ? 'register-email-error' : undefined} />
+                                <input id="register-email" type="email" value={data.email} onChange={(event) => { setData('email', event.target.value); clearErrors('email'); }} onInvalid={(event) => { event.preventDefault(); setError('email', event.currentTarget.validity.valueMissing ? 'Email is required.' : 'Please provide a valid email address.'); event.currentTarget.focus(); }} className={inputClass} autoComplete="email" autoFocus required aria-invalid={Boolean(errors.email)} aria-describedby={errors.email ? 'register-email-error' : undefined} />
                                 {errors.email && <p id="register-email-error" className="mt-1 text-xs text-red-600">{errors.email}</p>}
                                 {!errors.email && emailStatus === 'checking' && <p className="mt-1 text-xs text-slate-500" role="status">Checking email availability...</p>}
                                 {emailStatus === 'taken' && <p className="mt-1 text-xs text-red-600" role="alert">This email is already registered. <Link href={route('login')} className="font-semibold underline">Sign in instead</Link>.</p>}

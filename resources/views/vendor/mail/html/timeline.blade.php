@@ -26,7 +26,7 @@
 @if($event->description)
 <div style="color: #71717a; font-size: 13px; line-height: 1.4; margin-top: 2px;">{{ $event->description }}</div>
 @endif
-<div style="color: #a1a1aa; font-size: 12px; line-height: 1.4; margin-top: 2px;">{{ $event->occurred_at?->format('M d, Y g:i A') ?? '' }}</div>
+<div style="color: #a1a1aa; font-size: 12px; line-height: 1.4; margin-top: 2px;">{{ $event->occurred_at?->copy()->setTimezone(config('app.operating_timezone', 'Asia/Manila'))->format('M d, Y g:i A') ?? '' }}</div>
 </td>
 </tr>
 @endforeach

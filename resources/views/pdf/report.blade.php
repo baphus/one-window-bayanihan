@@ -693,7 +693,7 @@
                     <td>{{ $row->case_number ?? '' }}</td>
                     <td>{{ $row->agency ?? '' }}</td>
                     <td>{{ $row->status ?? '' }}</td>
-                    <td>{{ $row->created_at ? e(\Carbon\Carbon::parse($row->created_at)->format('d M Y')) : '' }}</td>
+                    <td>{{ $row->created_at ? e(\Carbon\CarbonImmutable::parse($row->created_at)->setTimezone(\App\Support\ReportCalendar::timezone())->format('d M Y')) : '' }}</td>
                     <td class="num">{{ $row->age_days ?? '' }}d</td>
                     <td class="num">{{ $row->risk_score ?? '' }}</td>
                 </tr>
@@ -712,7 +712,7 @@
                 <tr class="{{ $riskClass }}">
                     <td>{{ $row->case_number ?? '' }}</td>
                     <td>{{ $row->status ?? '' }}</td>
-                    <td>{{ $row->created_at ? e(\Carbon\Carbon::parse($row->created_at)->format('d M Y')) : '' }}</td>
+                    <td>{{ $row->created_at ? e(\Carbon\CarbonImmutable::parse($row->created_at)->setTimezone(\App\Support\ReportCalendar::timezone())->format('d M Y')) : '' }}</td>
                     <td class="num">{{ $row->age_days ?? '' }}d</td>
                     <td class="num">{{ $row->risk_score ?? '' }}</td>
                 </tr>
@@ -748,7 +748,7 @@
                         <td>{{ $row->agency ?? '' }}</td>
                         <td>{{ Str::limit((string) ($row->required_services ?? ''), 48) }}</td>
                         <td>{{ $row->status ?? '' }}</td>
-                        <td>{{ $row->created_at ? e(\Carbon\Carbon::parse($row->created_at)->format('d M Y')) : '' }}</td>
+                        <td>{{ $row->created_at ? e(\Carbon\CarbonImmutable::parse($row->created_at)->setTimezone(\App\Support\ReportCalendar::timezone())->format('d M Y')) : '' }}</td>
                         <td class="num">{{ $row->age_days ?? '' }}d</td>
                         <td class="num">{{ $row->risk_score ?? '' }}</td>
                     </tr>
@@ -771,7 +771,7 @@
                         <td>{{ $row->case_number ?? '' }}</td>
                         <td>{{ $row->client_type ?? '' }}</td>
                         <td>{{ $row->status ?? '' }}</td>
-                        <td>{{ $row->created_at ? e(\Carbon\Carbon::parse($row->created_at)->format('d M Y')) : '' }}</td>
+                        <td>{{ $row->created_at ? e(\Carbon\CarbonImmutable::parse($row->created_at)->setTimezone(\App\Support\ReportCalendar::timezone())->format('d M Y')) : '' }}</td>
                         <td class="num">{{ $row->age_days ?? '' }}d</td>
                         <td class="num">{{ $row->risk_score ?? '' }}</td>
                     </tr>

@@ -41,6 +41,19 @@ class ReferralStatusChangedMailTest extends TestCase
         $this->assertStringNotContainsString('FOR_COMPLIANCE', $html);
     }
 
+    public function test_status_email_converts_utc_update_time_to_manila(): void
+    {
+        config(['app.operating_timezone' => 'Asia/Manila']);
+        $user = User::factory()->create();
+        $referral = Referral::factory()->create();
+        $referral->updated_at = '2026-11-17 05:36:00';
+
+        $html = (new ReferralStatusChanged($referral, 'PROCESSING', 'COMPLETED'))->toMail($user)->render();
+
+        $this->assertStringContainsString('Nov 17, 2026 01:36 PM', $html);
+        $this->assertSame('05:36', $referral->updated_at->format('H:i'));
+    }
+
     public function test_processing_email_contains_acceptance_message(): void
     {
         $user = User::factory()->create(['email' => 'cm@example.com']);

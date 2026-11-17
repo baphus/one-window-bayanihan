@@ -34,7 +34,7 @@ class UserInviteMail extends Mailable implements ShouldQueue
                 'inviteUrl' => route('register-via-invite', $this->token),
                 'role' => $this->invite->role,
                 'agencyName' => $this->invite->agency?->name,
-                'expiresAt' => $this->invite->expires_at->format('F j, Y'),
+                'expiresAt' => $this->invite->expires_at->copy()->setTimezone(config('app.operating_timezone', 'Asia/Manila'))->format('F j, Y'),
             ],
         );
     }

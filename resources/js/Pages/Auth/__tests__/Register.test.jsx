@@ -20,13 +20,16 @@ vi.mock('@inertiajs/react', async () => {
         }),
         useForm: (initial) => {
             const [state, setState] = useState(() => initial);
+            const [errors, setErrors] = useState({});
             return {
                 data: state,
                 setData: (key, value) => setState((prev) => ({ ...prev, [key]: value })),
                 transform: (callback) => { state = callback(state); },
                 post: (url, options) => postMock(url, { ...options, data: state }),
                 processing: false,
-                errors: {},
+                errors,
+                setError: (key, value) => setErrors((prev) => ({ ...prev, [key]: value })),
+                clearErrors: (key) => setErrors((prev) => { const next = { ...prev }; delete next[key]; return next; }),
             };
         },
     };
@@ -92,6 +95,39 @@ describe('Register', () => {
         expect(screen.getByLabelText(/last name/i)).toHaveValue('Cruz');
         expect(screen.getByLabelText(/date of birth/i)).toHaveValue('1990-01-01');
         expect(screen.getByLabelText(/^sex/i)).toHaveTextContent('Female');
+    });
+
+    it('shows and focuses email errors on submit and clears them on correction', () => {
+        render(<Register initial={{ credentials: { first_name: 'Juan', last_name: 'Cruz', date_of_birth: '1990-01-01', sex: 'MALE' } }} />);
+        fireEvent.click(screen.getByRole('button', { name: 'Solve CAPTCHA' }));
+        const email = screen.getByLabelText('Email address');
+        const submit = screen.getByRole('button', { name: /continue to email verification/i });
+
+        fireEvent.click(submit);
+        expect(screen.getByText('Email is required.')).toBeInTheDocument();
+        expect(email).toHaveFocus();
+        expect(email).toHaveAttribute('aria-describedby', 'register-email-error');
+        expect(postMock).not.toHaveBeenCalled();
+
+        fireEvent.change(email, { target: { value: 'invalid' } });
+        expect(screen.queryByText('Email is required.')).not.toBeInTheDocument();
+        fireEvent.click(submit);
+        expect(screen.getByText('Please provide a valid email address.')).toBeInTheDocument();
+        expect(email).toHaveFocus();
+        expect(postMock).not.toHaveBeenCalled();
+        fireEvent.change(email, { target: { value: 'juan@example.com' } });
+        expect(screen.queryByText('Please provide a valid email address.')).not.toBeInTheDocument();
+    });
+
+    it('shows Zod email errors for browser-valid addresses', () => {
+        render(<Register initial={{ credentials: { first_name: 'Juan', last_name: 'Cruz', date_of_birth: '1990-01-01', sex: 'MALE' } }} />);
+        fireEvent.click(screen.getByRole('button', { name: 'Solve CAPTCHA' }));
+        const email = screen.getByLabelText('Email address');
+        fireEvent.change(email, { target: { value: 'juan@localhost' } });
+        fireEvent.click(screen.getByRole('button', { name: /continue to email verification/i }));
+        expect(screen.getByText('Please provide a valid email address.')).toBeInTheDocument();
+        expect(email).toHaveFocus();
+        expect(postMock).not.toHaveBeenCalled();
     });
 
     it('blocks submission while the email is already registered', async () => {

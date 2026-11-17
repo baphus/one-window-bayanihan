@@ -3,7 +3,7 @@ import { Head, Link, router } from '@inertiajs/react';
 import { CardHeader, InfoField, InfoCell } from '@/Components/ui/CardSection';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import StatusBadge from '@/Components/ui/StatusBadge';
-import { formatDisplayDate, formatDisplayTime } from '@/lib/utils';
+import { formatDisplayDate, formatDisplayTime, formatTimestampDate } from '@/lib/utils';
 import { formatResolvedAddress } from '@/lib/addressResolver';
 import { useState, useCallback } from 'react';
 
@@ -97,7 +97,7 @@ export default function ClientShow({ client, cases }) {
       className: 'w-[14%]',
       render: (row) => (
         <div>
-          <p className="text-[12px] text-slate-600">{formatDisplayDate(row.created_at)}</p>
+          <p className="text-[12px] text-slate-600">{formatTimestampDate(row.created_at)}</p>
           <p className="text-[10px] text-slate-400">{formatDisplayTime(row.created_at)}</p>
         </div>
       ),
@@ -108,7 +108,7 @@ export default function ClientShow({ client, cases }) {
       className: 'w-[12%]',
       render: (row) => (
         <span className="text-[12px] text-slate-600">
-          {row.closed_at ? formatDisplayDate(row.closed_at) : '—'}
+          {row.closed_at ? formatTimestampDate(row.closed_at) : '—'}
         </span>
       ),
     },
@@ -180,7 +180,7 @@ export default function ClientShow({ client, cases }) {
                 <InfoField label="Directory record" value={client.kind === 'account' ? 'Linked account' : 'Unlinked case'} />
                 <InfoField
                   label="Latest case"
-                  value={sourceCase.created_at ? formatDisplayDate(sourceCase.created_at) : 'N/A'}
+                  value={sourceCase.created_at ? formatTimestampDate(sourceCase.created_at) : 'N/A'}
                 />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 [&>div]:border-0">

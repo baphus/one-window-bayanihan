@@ -6,7 +6,7 @@ import StatusBadge from '@/Components/ui/StatusBadge';
 import ConfirmDialog from '@/Components/ui/ConfirmDialog';
 import InputError from '@/Components/InputError';
 import { ASSESSMENT_LABELS, DOCUMENT_SLOT_LABELS, RETURN_REASON_LABELS, requiredReasonSlot } from '@/Components/CaseIntakeForm';
-import { formatDisplayDate, formatDisplayTime } from '@/lib/utils';
+import { formatDisplayTime, formatTimestampDate } from '@/lib/utils';
 import safeRoute from '@/utils/safeRoute';
 
 const vulnStyles = {
@@ -166,7 +166,7 @@ function ReviewDetail({ caseFile, assessmentOptions = [], agencies = [], categor
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-blue-900">Case review</p>
             <h2 className="mt-1 text-xl font-extrabold text-slate-950">Review submitted intake</h2>
-            <p className="mt-1 text-[13px] text-slate-500">{caseName(caseFile)} · Submitted {formatDisplayDate(caseFile.created_at)}</p>
+            <p className="mt-1 text-[13px] text-slate-500">{caseName(caseFile)} · Submitted {formatTimestampDate(caseFile.created_at)}</p>
           </div>
           <button type="button" onClick={onClose} aria-label="Close review" className="rounded-md p-1.5 text-slate-400 transition-colors hover:text-slate-600">
             <span className="material-symbols-outlined text-[20px]">close</span>
@@ -185,7 +185,7 @@ function ReviewDetail({ caseFile, assessmentOptions = [], agencies = [], categor
                 <ul className="mt-3 space-y-2">
                   {caseFile.duplicate_check.matches.map((match) => <li key={match.id} className="rounded-md border border-amber-200 bg-white p-3">
                     <a href={safeRoute('cases.show', match.id, `/cases/${match.id}`)} target="_blank" rel="noopener noreferrer" className="font-bold text-blue-900 underline">{match.case_number}</a>
-                    <p className="mt-1">{match.opened_at ? `Opened ${formatDisplayDate(match.opened_at)}` : 'Opening date unavailable'}</p>
+                    <p className="mt-1">{match.opened_at ? `Opened ${formatTimestampDate(match.opened_at)}` : 'Opening date unavailable'}</p>
                     <p>Shared assessments: {match.shared_assessments.map((item) => ASSESSMENT_LABELS[item] ?? item).join(', ')}</p>
                     <p>{match.reasons.map((reason) => ({ same_ofw_account: 'Same OFW account', same_name_and_birth_date: 'Same name and birth date' }[reason])).filter(Boolean).join(' · ')}</p>
                   </li>)}
@@ -429,7 +429,7 @@ export default function ReviewPending({ cases, filters, sort = 'created_at', dir
                     </div>
                     <p className="mt-1 line-clamp-2 text-[12px] leading-5 text-slate-500">{excerpt(row.summary)}</p>
                     <p className="mt-1 text-[11px] text-slate-400">
-                      Case {row.case_number || '—'} · {RETURN_REASON_LABELS[row.return_reason] ?? 'No return reason'} · Submitted {formatDisplayDate(row.created_at)} {formatDisplayTime(row.created_at)}
+                      Case {row.case_number || '—'} · {RETURN_REASON_LABELS[row.return_reason] ?? 'No return reason'} · Submitted {formatTimestampDate(row.created_at)} {formatDisplayTime(row.created_at)}
                       {row.duplicate_check && (!row.duplicate_check.available || row.duplicate_check.matches.length > 0) && <span className="mt-1 block font-semibold text-amber-800">{row.duplicate_check.available ? `Possible duplicates: ${row.duplicate_check.matches.length}` : 'Duplicate check unavailable'}</span>}
                     </p>
                   </div>

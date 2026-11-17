@@ -12,6 +12,7 @@ use App\Models\Referral;
 use App\Services\ActivityScope;
 use App\Services\ActivityVisibility;
 use App\Services\AuditLogFormatter;
+use App\Support\ReportCalendar;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -27,6 +28,10 @@ class ActivityController extends Controller
 
     public function index(Request $request)
     {
+        $request->validate([
+            'date_from' => ['nullable', 'date_format:Y-m-d'],
+            'date_to' => ['nullable', 'date_format:Y-m-d'],
+        ]);
         $user = $request->user();
         $perPage = $this->perPage($request, 25);
         $search = trim((string) $request->input('search', ''));
@@ -41,8 +46,8 @@ class ActivityController extends Controller
 
         $query = ActivityScope::applyTo(ActivityEvent::query(), $user);
         $query->when($filters['action'] !== '', fn (Builder $q) => $q->whereIn('action', explode(',', $filters['action'])))
-            ->when($filters['date_from'] !== '', fn (Builder $q) => $q->whereDate('occurred_at', '>=', $filters['date_from']))
-            ->when($filters['date_to'] !== '', fn (Builder $q) => $q->whereDate('occurred_at', '<=', $filters['date_to']))
+            ->when($filters['date_from'] !== '', fn (Builder $q) => $q->where('occurred_at', '>=', ReportCalendar::localDayBounds($filters['date_from'])[0]))
+            ->when($filters['date_to'] !== '', fn (Builder $q) => $q->where('occurred_at', '<', ReportCalendar::localDayBounds($filters['date_to'])[1]))
             ->when($filters['module'] !== '', fn (Builder $q) => $q->whereIn('module', explode(',', $filters['module'])))
             ->when($search !== '', function (Builder $q) use ($search) {
                 $term = "%{$search}%";
