@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Http\Middleware\ContentSecurityPolicy;
+use Illuminate\Contracts\Foundation\MaintenanceMode;
 use Illuminate\Foundation\Vite;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -108,6 +109,27 @@ class ContentSecurityPolicyNonceTest extends TestCase
             @unlink(public_path('test-build/manifest.json'));
             @rmdir(public_path('test-build'));
         }
+    }
+
+    #[Test]
+    public function test_global_responses_receive_csp_including_api_and_not_found(): void
+    {
+        $this->app->instance('env', 'production');
+
+        $this->get('/api/readyz')->assertHeader('Content-Security-Policy');
+        $this->get('/api/')->assertNotFound()->assertHeader('Content-Security-Policy');
+        $this->get('/missing-csp-test')->assertNotFound()->assertHeader('Content-Security-Policy');
+    }
+
+    public function test_maintenance_responses_receive_csp_before_global_middleware_short_circuits(): void
+    {
+        $maintenance = $this->createMock(MaintenanceMode::class);
+        $maintenance->method('active')->willReturn(true);
+        $maintenance->method('data')->willReturn(['status' => 503]);
+        $this->app->instance(MaintenanceMode::class, $maintenance);
+
+        $response = $this->get('/login')->assertStatus(503)->assertHeader('Content-Security-Policy');
+        $this->assertSame(view()->shared('cspNonce'), $this->cspNonceFromHeader($response->baseResponse));
     }
 
     private function handleThroughCspMiddleware(): Response

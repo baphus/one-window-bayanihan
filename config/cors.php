@@ -19,7 +19,7 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => ['https://one-window-bayanihan.com', 'http://localhost:5173'],
+    'allowed_origins' => ['https://dmw7.owbap.app', 'http://localhost:5173'],
 
     'allowed_origins_patterns' => [],
 

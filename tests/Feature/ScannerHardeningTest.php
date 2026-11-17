@@ -28,6 +28,8 @@ class ScannerHardeningTest extends TestCase
         // style-src must use a nonce, not 'unsafe-inline'
         $this->assertStringNotContainsString("style-src 'self' 'unsafe-inline'", $policy);
         $this->assertStringContainsString("style-src 'self' 'nonce-", $policy);
+        $this->assertStringNotContainsString('fonts.googleapis.com', $policy);
+        $this->assertStringNotContainsString('fonts.gstatic.com', $policy);
         $this->assertStringContainsString('report-to csp', $policy);
         $this->assertStringContainsString('report-uri /api/csp/report', $policy);
         $this->assertSame('csp="'.url('/api/csp/report').'"', $response->headers->get('Reporting-Endpoints'));
@@ -49,6 +51,8 @@ class ScannerHardeningTest extends TestCase
         $this->assertStringContainsString("'unsafe-eval'", $policy);
         $this->assertStringContainsString('ws://127.0.0.1:5173', $policy);
         $this->assertStringNotContainsString('strict-dynamic', $policy);
+        $this->assertStringNotContainsString('fonts.googleapis.com', $policy);
+        $this->assertStringNotContainsString('fonts.gstatic.com', $policy);
     }
 
     public function test_technology_headers_are_removed_without_losing_security_headers(): void

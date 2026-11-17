@@ -41,6 +41,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->append(LogContext::class);
         $middleware->append(SecurityHeaders::class);
+        $middleware->prepend(ContentSecurityPolicy::class);
 
         // Use browser-provided origin metadata for CSRF protection. Besides
         // rejecting cross-origin writes, this prevents Laravel from emitting
@@ -79,7 +80,6 @@ return Application::configure(basePath: dirname(__DIR__))
         );
 
         $middleware->web(
-            prepend: [ContentSecurityPolicy::class],
             append: [
                 CheckUserActive::class,
                 EnsureMfaSession::class,

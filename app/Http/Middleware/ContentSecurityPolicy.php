@@ -95,9 +95,7 @@ class ContentSecurityPolicy
             // Nonce covers any server-rendered <style> blocks (e.g. the 503 page).
             // 'unsafe-inline' is deliberately omitted — the production CSS build
             // is a static file; no runtime stylesheet injection occurs.
-            // Material Symbols Outlined is loaded via Google Fonts CDN (too large
-            // to self-host without subsetting tooling); all other fonts are self-hosted.
-            ."style-src 'self' 'nonce-{$nonce}' https://fonts.googleapis.com; "
+            ."style-src 'self' 'nonce-{$nonce}'; "
             ."img-src 'self' data: blob: https://res.cloudinary.com; "
             ."connect-src {$connectSrc}; "
             ."frame-src 'self' https://challenges.cloudflare.com https://www.google.com https://maps.google.com; "
@@ -106,8 +104,7 @@ class ContentSecurityPolicy
             ."frame-ancestors 'none'; "
             ."form-action 'self'; "
             // data: covers base64 inline fonts in PDF/print views.
-            // fonts.gstatic.com serves the Material Symbols WOFF2 binary.
-            ."font-src 'self' data: https://fonts.gstatic.com";
+            ."font-src 'self' data:";
 
         if ($reportUri) {
             // Keep report-uri for browsers without Reporting API support.
@@ -135,7 +132,7 @@ class ContentSecurityPolicy
 
         return "default-src 'self'; "
             ."script-src 'self' 'unsafe-inline' 'unsafe-eval' {$viteOrigin} https://challenges.cloudflare.com; "
-            ."style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+            ."style-src 'self' 'unsafe-inline'; "
             ."img-src 'self' data: blob: https://res.cloudinary.com; "
             ."connect-src 'self' {$appOrigin} {$devConnectOrigins} https://challenges.cloudflare.com; "
             ."worker-src 'self' blob:; "
@@ -143,6 +140,6 @@ class ContentSecurityPolicy
             ."object-src 'none'; "
             ."base-uri 'self'; "
             ."form-action 'self'; "
-            ."font-src 'self' data: https://fonts.gstatic.com";
+            ."font-src 'self' data:";
     }
 }
