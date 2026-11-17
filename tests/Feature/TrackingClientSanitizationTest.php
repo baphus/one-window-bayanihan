@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Services\CaseEventRecorder;
 use App\Services\TrackingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\TestCase;
 
 /**
@@ -24,6 +25,19 @@ use Tests\TestCase;
 class TrackingClientSanitizationTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_tracking_builders_reject_soft_deleted_case(): void
+    {
+        [$case] = $this->makeCase();
+        $case->delete();
+
+        try {
+            app(TrackingService::class)->buildTrackingData($case);
+            $this->fail('Expected deleted case tracking to be refused.');
+        } catch (HttpException $exception) {
+            $this->assertSame(404, $exception->getStatusCode());
+        }
+    }
 
     private function makeCase(): array
     {

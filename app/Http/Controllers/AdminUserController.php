@@ -42,6 +42,11 @@ class AdminUserController extends Controller
     public function index(Request $request)
     {
         $filters = $request->only(['search', 'role', 'status', 'agcy_id', 'show_deleted']);
+        $showDeleted = $request->boolean('show_deleted');
+
+        if (! $showDeleted && ! $request->has('status')) {
+            $filters['status'] = '1';
+        }
 
         $query = User::with('agency');
 
@@ -49,7 +54,7 @@ class AdminUserController extends Controller
         // Deactivation is a real soft delete (UserService::deactivate), so the
         // global scope hides those rows on its own — the "including deleted"
         // view has to opt back in for the Reactivate action to be reachable.
-        if (! $request->boolean('show_deleted')) {
+        if (! $showDeleted) {
             $query->where('is_deleted', false);
         } else {
             $query->withTrashed();
@@ -69,8 +74,8 @@ class AdminUserController extends Controller
             $query->where('role', $role);
         }
 
-        if ($request->has('status')) {
-            $query->where('is_active', $request->boolean('status'));
+        if ($request->has('status') || ! $showDeleted) {
+            $query->where('is_active', $request->has('status') ? $request->boolean('status') : true);
         }
 
         if ($agcyId = $request->agcy_id) {

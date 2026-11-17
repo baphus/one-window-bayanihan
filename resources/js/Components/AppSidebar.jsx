@@ -18,7 +18,6 @@ export const navByRole = {
       { name: 'Cases', href: '/cases', route: 'cases.index', icon: 'folder' },
       { name: 'Clients', href: '/clients', route: 'clients.index', icon: 'people' },
       { name: 'Pending Reviews', href: '/cases/review-pending', route: 'cases.review-pending', icon: 'pending_actions', badge: 'pendingReviewCount' },
-      { name: 'Case Trash', href: '/cases/trash', route: 'cases.trash', icon: 'delete_outline' },
       { name: 'Referrals', href: '/referrals', route: 'referrals.index', icon: 'send' },
       { name: 'Overdue Referrals', href: '/overdue-referrals', route: 'overdue-referrals.index', icon: 'warning' },
       { name: 'Stakeholders', href: '/stakeholders', route: 'stakeholders.index', icon: 'account_balance' },

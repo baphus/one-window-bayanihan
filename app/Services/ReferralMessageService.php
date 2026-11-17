@@ -29,6 +29,7 @@ class ReferralMessageService
     public function canAccessThread(Referral $referral, User $actor): bool
     {
         return $actor->isAgency()
+            && $referral->caseFile()->where('is_deleted', false)->exists()
             && $actor->is_active
             && $actor->agcy_id !== null
             && $actor->agcy_id !== $referral->agcy_id

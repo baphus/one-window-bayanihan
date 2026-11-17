@@ -465,7 +465,7 @@ export default function CaseShow({ case: caseFile, case_categories = [], recomme
               >
                 Restore from Archive
               </button>
-              {(auth.user.role === roles.CASE_MANAGER || auth.user.role === roles.ADMIN) && (
+              {auth.user.role === roles.ADMIN && (
                 <button
                   type="button"
                   onClick={() => setShowDeleteModal(true)}
@@ -476,14 +476,19 @@ export default function CaseShow({ case: caseFile, case_categories = [], recomme
                 </button>
               )}
             </>
-          ) : caseFile.status === 'CLOSED' && !hasActiveReferrals ? (
-            <button
-              type="button"
-              onClick={handleArchive}
-              className="px-3 min-h-[34px] bg-slate-100 text-[12px] font-bold text-slate-700 border border-slate-300 rounded-md hover:bg-slate-200 transition-colors"
-            >
-              Archive Case
-            </button>
+          ) : canManageReferrals && ['CLOSED', 'REJECTED'].includes(caseFile.status) ? (
+            <span className="group relative inline-flex">
+              <button
+                type="button"
+                aria-disabled={hasActiveReferrals ? 'true' : undefined}
+                aria-describedby={hasActiveReferrals ? 'archive-referral-warning' : undefined}
+                onClick={hasActiveReferrals ? undefined : handleArchive}
+                className={`px-3 min-h-[34px] bg-slate-100 text-[12px] font-bold border border-slate-300 rounded-md transition-colors ${hasActiveReferrals ? 'cursor-not-allowed text-slate-400' : 'text-slate-700 hover:bg-slate-200'}`}
+              >
+                Archive Case
+              </button>
+              {hasActiveReferrals && <span id="archive-referral-warning" role="tooltip" className="pointer-events-none absolute right-0 top-full z-20 mt-2 hidden w-56 rounded-md bg-slate-900 px-3 py-2 text-left text-[11px] font-normal leading-4 text-white shadow-lg group-hover:block group-focus-within:block">Cannot archive while referrals are still active.</span>}
+            </span>
           ) : null}
         </div>
           </div>
@@ -985,7 +990,7 @@ export default function CaseShow({ case: caseFile, case_categories = [], recomme
       <ConfirmDialog
         open={!!confirmUnarchive}
         title="Restore from Archive"
-        message={`Are you sure you want to restore case ${caseFile.case_number} from archive? It will return to closed status.`}
+        message={`Are you sure you want to restore case ${caseFile.case_number} from archive? It will return to its status before archiving.`}
         confirmLabel="Restore"
         tone="info"
         onConfirm={() => {

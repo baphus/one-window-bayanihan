@@ -533,7 +533,7 @@ class CaseController extends Controller
     public function exportPdf(string $id, Request $request)
     {
         abort_unless($request->user()->isCaseManager() || $request->user()->isAdmin(), 403);
-        $case = CaseFile::with(['user', 'reviewer', 'categories', 'caseEvents', 'referrals.category', 'referrals.agency', 'documents' => fn ($query) => $query->whereNull('referral_id')->where('is_deleted', false)->orderBy('created_at')])->findOrFail($id);
+        $case = CaseFile::with(['user', 'reviewer', 'categories', 'caseEvents', 'referrals.category', 'referrals.agency', 'documents' => fn ($query) => $query->whereNull('referral_id')->where('is_deleted', false)->orderBy('created_at')])->where('is_deleted', false)->findOrFail($id);
         $this->authorizeCaseAccess($case, $request->user());
         $documents = $case->documents->filter(fn ($document) => in_array($document->category, IntakeDocumentService::SLOTS, true))->values();
         $annexes = $documents->map(fn ($document) => [

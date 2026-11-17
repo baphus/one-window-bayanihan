@@ -63,6 +63,7 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [], p
   const [contextMenu, setContextMenu] = useState(null);
   const [viewMode, setViewMode] = usePersistedViewMode('owb-view_admin-users');
   const [confirmAction, setConfirmAction] = useState(null);
+  const [actionError, setActionError] = useState('');
   const [newUserDropdownOpen, setNewUserDropdownOpen] = useState(false);
   const newUserDropdownRef = useRef(null);
 
@@ -81,10 +82,9 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [], p
   );
 
   const [roleFilter, setRoleFilter] = useState(filters?.role ?? '');
-  const [statusFilter, setStatusFilter] = useState(filters?.status ?? '');
+  const [statusFilter, setStatusFilter] = useState(filters?.show_deleted ? (String(filters?.status) === '0' ? 'deactivated' : 'all') : 'active');
   const [agencyFilter, setAgencyFilter] = useState(filters?.agcy_id ?? '');
   const [mfaFilter, setMfaFilter] = useState(filters?.mfa_status ?? '');
-  const [showDeleted, setShowDeleted] = useState(filters?.show_deleted ?? false);
   const [resendingInviteId, setResendingInviteId] = useState(null);
   const [cancellingInviteId, setCancellingInviteId] = useState(null);
 
@@ -137,10 +137,9 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [], p
   const restoreFilters = (saved) => {
     setSearchValue(saved.search ?? '');
     setRoleFilter(saved.role ?? '');
-    setStatusFilter(saved.status ?? '');
+    setStatusFilter(saved.show_deleted ? (String(saved.status) === '0' ? 'deactivated' : 'all') : 'active');
     setAgencyFilter(saved.agcy_id ?? '');
     setMfaFilter(saved.mfa_status ?? '');
-    setShowDeleted(saved.show_deleted ?? false);
     navigateWith(saved);
   };
   usePersistedFilters('owb-filters_admin-users', filters || {}, restoreFilters);
@@ -156,31 +155,28 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [], p
   const activeFilters = useMemo(() => {
     const chips = [];
     if (roleFilter) chips.push({ key: 'role', label: 'Role', value: roleLabels[roleFilter] || roleFilter });
-    if (statusFilter) chips.push({ key: 'status', label: 'Status', value: statusFilter === 'active' ? 'Active' : 'Inactive' });
+    if (statusFilter !== 'active') chips.push({ key: 'status', label: 'Status', value: statusFilter === 'deactivated' ? 'Deactivated' : 'All' });
     if (agencyFilter) {
       const agency = agencies.find(a => a.id === agencyFilter);
       chips.push({ key: 'agcy_id', label: 'Agency', value: agency?.name || agencyFilter });
     }
     if (mfaFilter) chips.push({ key: 'mfa_status', label: 'MFA', value: mfaFilter === 'enabled' ? 'Enabled' : 'Disabled' });
-    if (showDeleted) chips.push({ key: 'show_deleted', label: 'Deleted', value: 'Including deleted' });
     return chips;
   }, [roleFilter, statusFilter, agencyFilter, mfaFilter, agencies]);
 
   const handleRemoveFilter = (filter) => {
     if (filter.key === 'role') { setRoleFilter(''); navigateWith({ role: undefined }); }
-    if (filter.key === 'status') { setStatusFilter(''); navigateWith({ status: undefined }); }
+    if (filter.key === 'status') { setStatusFilter('active'); navigateWith({ status: '1', show_deleted: undefined }); }
     if (filter.key === 'agcy_id') { setAgencyFilter(''); navigateWith({ agcy_id: undefined }); }
     if (filter.key === 'mfa_status') { setMfaFilter(''); navigateWith({ mfa_status: undefined }); }
-    if (filter.key === 'show_deleted') { setShowDeleted(false); navigateWith({ show_deleted: undefined }); }
   };
 
   const handleClearFilters = () => {
     setRoleFilter('');
-    setStatusFilter('');
+    setStatusFilter('active');
     setAgencyFilter('');
     setMfaFilter('');
-    setShowDeleted(false);
-    navigateWith({ role: undefined, status: undefined, agcy_id: undefined, mfa_status: undefined, show_deleted: undefined });
+    navigateWith({ role: undefined, status: '1', agcy_id: undefined, mfa_status: undefined, show_deleted: undefined });
   };
 
   function paginatorProps(paginator) {
@@ -347,7 +343,7 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [], p
                   </a>
                   {/* Citizen accounts are view-only here: the staff form has no
                       Citizen role, so saving one would silently promote them. */}
-                  {row.role !== roles.OFW && (
+                  {row.role !== roles.OFW && row.is_active && !row.is_deleted && (
                     <button
                       onClick={() => { setEditingUser(row); setShowForm(true); }}
                       className="min-h-[28px] px-2.5 bg-slate-100 text-slate-700 hover:bg-slate-200 text-[11px] font-bold rounded-md transition-colors border border-slate-300"
@@ -381,7 +377,7 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [], p
                       }}
                       className="min-h-[28px] px-2.5 bg-red-600 text-white hover:bg-red-700 text-[11px] font-bold rounded-md transition-colors border border-red-700"
                     >
-                      Delete
+                      Permanently delete
                     </button>
                     </>
                   )}
@@ -434,20 +430,21 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [], p
         </Select>
       </div>
       <div>
-        <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Status</label>
+        <label htmlFor="user-status" className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Status</label>
         <Select
+          id="user-status"
           value={statusFilter}
           onChange={(e) => {
             const val = e.target.value;
             setStatusFilter(val);
             setFilterOpen(false);
-            navigateWith({ status: val || undefined });
+            navigateWith({ status: val === 'active' ? '1' : val === 'deactivated' ? '0' : undefined, show_deleted: val === 'active' ? undefined : '1' });
           }}
           className="w-full px-3 py-2 text-[13px] font-medium"
         >
-          <option value="">All Statuses</option>
           <option value="active">Active</option>
-          <option value="inactive">Inactive</option>
+          <option value="deactivated">Deactivated</option>
+          <option value="all">All</option>
         </Select>
       </div>
       <div>
@@ -467,24 +464,8 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [], p
           <option value="disabled">Disabled</option>
         </Select>
       </div>
-      <div>
-        <label className="flex items-center gap-2.5 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={showDeleted}
-            onChange={(e) => {
-              const val = e.target.checked;
-              setShowDeleted(val);
-              setFilterOpen(false);
-              navigateWith({ show_deleted: val ? '1' : undefined });
-            }}
-            className="rounded border-slate-300 text-red-600 focus:ring-red-500 focus:ring-offset-0"
-          />
-          <span className="text-[12px] font-semibold text-slate-700">Show deactivated users</span>
-        </label>
-      </div>
     </div>
-  ), [roleFilter, statusFilter, agencyFilter, mfaFilter, showDeleted, agencies, roles]);
+  ), [roleFilter, statusFilter, agencyFilter, mfaFilter, agencies, roles]);
 
   const columnControlContent = useMemo(() => (
     <div className="space-y-2">
@@ -581,6 +562,8 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [], p
         </div>
 
       </section>
+
+      {actionError && <div role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">{actionError}</div>}
 
       <div data-tour="users-table">
       <UnifiedTable
@@ -742,20 +725,20 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [], p
             router.visit(route('admin.users.show', contextMenu.row.id));
             setContextMenu(null);
           }} />
-          {contextMenu.row.role !== roles.OFW && (
+          {contextMenu.row.role !== roles.OFW && contextMenu.row.is_active && !contextMenu.row.is_deleted && (
             <RowContextMenuItem icon="edit" label="Edit" onClick={() => {
               setEditingUser(contextMenu.row);
               setShowForm(true);
               setContextMenu(null);
             }} />
           )}
-          {contextMenu.row.is_active && !contextMenu.row.is_deleted && (
+          {isAdmin && contextMenu.row.is_active && !contextMenu.row.is_deleted && (
             <RowContextMenuItem icon="block" label="Deactivate" variant="danger" onClick={() => {
                setConfirmAction({ type: 'deactivate', id: contextMenu.row.id, name: contextMenu.row.name });
                 setContextMenu(null);
             }} />
           )}
-          {(!contextMenu.row.is_active || contextMenu.row.is_deleted) && (
+          {isAdmin && (!contextMenu.row.is_active || contextMenu.row.is_deleted) && (
             <>
             <RowContextMenuItem icon="restart_alt" label="Reactivate" variant="success" onClick={() => {
                setConfirmAction({ type: 'reactivate', id: contextMenu.row.id, name: contextMenu.row.name });
@@ -774,29 +757,31 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [], p
         title={confirmAction?.type === 'unverify' ? 'Unverify User'
           : confirmAction?.type === 'deactivate' ? 'Deactivate User'
           : confirmAction?.type === 'reactivate' ? 'Reactivate User'
-          : confirmAction?.type === 'delete' ? 'Delete User'
+          : confirmAction?.type === 'delete' ? 'Permanently delete user'
           : 'Cancel Invitation'}
         message={confirmAction?.type === 'unverify' ? 'Unverifying this user will lock them out until an admin re-verifies them. Continue?'
-          : confirmAction?.type === 'deactivate' ? `Deactivate user ${confirmAction?.name}? They will lose access to the system.`
-          : confirmAction?.type === 'reactivate' ? `Reactivate user "${confirmAction?.name}"?`
+          : confirmAction?.type === 'deactivate' ? `Deactivate user ${confirmAction?.name}? They will lose access and their email remains reserved until the account is permanently deleted.`
+          : confirmAction?.type === 'reactivate' ? `Reactivate user "${confirmAction?.name}"? Their identity, credentials, MFA, role and history remain unchanged. Previous sessions will not be restored.`
           : confirmAction?.type === 'delete' ? `Permanently delete user "${confirmAction?.name}"? This cannot be undone.`
           : `Cancel invitation for ${confirmAction?.email}?`}
         confirmLabel={confirmAction?.type === 'unverify' ? 'Unverify'
           : confirmAction?.type === 'deactivate' ? 'Deactivate'
           : confirmAction?.type === 'reactivate' ? 'Reactivate'
-          : confirmAction?.type === 'delete' ? 'Delete'
+          : confirmAction?.type === 'delete' ? 'Permanently delete'
           : 'Cancel'}
         tone={confirmAction?.type === 'reactivate' ? 'default' : 'danger'}
         onConfirm={() => {
           const a = confirmAction;
+          setActionError('');
+          const onError = (errors) => setActionError(Object.values(errors).flat().join(' '));
           if (a.type === 'unverify') {
             router.patch(route('admin.users.verify', a.id), {}, { preserveScroll: true });
           } else if (a.type === 'deactivate') {
-            router.delete(route('admin.users.destroy', a.id), { preserveScroll: true });
+            router.delete(route('admin.users.destroy', a.id), { preserveScroll: true, onError });
           } else if (a.type === 'reactivate') {
-            router.patch(route('admin.users.reactivate', a.id), {}, { preserveScroll: true });
+            router.patch(route('admin.users.reactivate', a.id), {}, { preserveScroll: true, onError });
           } else if (a.type === 'delete') {
-            router.delete(route('admin.users.destroy', a.id), { preserveScroll: true });
+            router.delete(route('admin.users.destroy', a.id), { preserveScroll: true, onError });
           } else if (a.type === 'cancel-invite') {
             router.delete(route('admin.users.invites.cancel', a.id), { preserveScroll: true });
           }
