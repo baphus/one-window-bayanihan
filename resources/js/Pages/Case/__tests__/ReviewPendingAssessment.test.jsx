@@ -13,7 +13,7 @@ vi.mock('@inertiajs/react', () => ({
 vi.mock('@/Layouts/AppLayout', () => ({ default: ({ children }) => <div>{children}</div> }));
 vi.mock('@/Components/ui/StatusBadge', () => ({ default: ({ status }) => <span>{status}</span> }));
 vi.mock('@/Components/ui/ConfirmDialog', () => ({ default: () => null }));
-vi.mock('@/lib/utils', () => ({ formatDisplayDate: (value) => value, formatDisplayTime: (value) => value }));
+vi.mock('@/lib/utils', () => ({ formatDisplayDate: (value) => value, formatDisplayTime: (value) => value, formatTimestampDate: (value) => value }));
 
 globalThis.route = (name) => `/mocked/${name}`;
 

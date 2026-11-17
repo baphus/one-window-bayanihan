@@ -20,7 +20,7 @@ vi.mock('@/Layouts/AppLayout', () => ({ default: ({ children }) => <div>{childre
 vi.mock('@/Hooks/useUnsavedChanges', () => ({ default: () => ({ UnsavedModal: () => null, bypassNext: vi.fn() }) }));
 vi.mock('@/Hooks/useClientValidation', () => ({ default: () => ({ validate: () => true }) }));
 vi.mock('@/Hooks/useToast', () => ({ useToast: () => ({ success: vi.fn(), error: vi.fn() }) }));
-vi.mock('@/lib/utils', () => ({ formatDisplayDate: (v) => v, formatDisplayTime: (v) => v }));
+vi.mock('@/lib/utils', () => ({ formatDisplayDate: (v) => v, formatDisplayTime: (v) => v, formatTimestampDate: (v) => v }));
 
 globalThis.route = () => '/mocked';
 

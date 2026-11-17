@@ -251,6 +251,7 @@ export default function CaseIntakeForm({ form, mode = 'public', options = {}, on
     const [occupationOther, setOccupationOther] = useState(false);
     const [documentSizeErrors, setDocumentSizeErrors] = useState({});
     const [emailErrors, setEmailErrors] = useState({});
+    const [assistanceError, setAssistanceError] = useState(false);
 
     function submitWithEmailValidation(event) {
         const inputs = [...event.currentTarget.querySelectorAll('input[type="email"]')].filter((input) => !input.readOnly && input.validity.typeMismatch);
@@ -261,6 +262,13 @@ export default function CaseIntakeForm({ form, mode = 'public', options = {}, on
             return;
         }
         setEmailErrors({});
+        if (!isStaff && !data.proposed_assessments.length) {
+            event.preventDefault();
+            setAssistanceError(true);
+            event.currentTarget.querySelector('#intake-assistance input')?.focus();
+            return;
+        }
+        setAssistanceError(false);
         onSubmit(event);
     }
     const employmentEvidenceSelected = EMPLOYMENT_EVIDENCE_SLOTS.some((slot) => Boolean(data.documents?.[slot]));
@@ -567,16 +575,19 @@ export default function CaseIntakeForm({ form, mode = 'public', options = {}, on
                 )}
             </Section>
 
-            <Section title="Requested assistance" description="Select the assistance that may apply. Multiple choices are allowed.">
-                <div className="grid gap-2 sm:grid-cols-2">
-                    {assessmentOptions.map((value) => (
-                        <label key={value} className="inline-flex items-center gap-2 text-[13px] text-slate-700">
-                            <input type="checkbox" checked={data.proposed_assessments.includes(value)} onChange={() => toggleChoice('proposed_assessments', value)} className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary/40" />
-                            {ASSESSMENT_LABELS[value] ?? value}
-                        </label>
-                    ))}
-                </div>
-                <InputError message={errors.proposed_assessments} />
+            <Section title="Requested assistance" description={isStaff ? 'Select the assistance that may apply. Multiple choices are allowed.' : 'Select at least one type of assistance. Multiple choices are allowed.'}>
+                <fieldset id="intake-assistance" aria-describedby={(assistanceError || errors.proposed_assessments) ? 'intake-assistance-error' : undefined}>
+                    <legend className="sr-only">Requested assistance{!isStaff && ' (required)'}</legend>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                        {assessmentOptions.map((value) => (
+                            <label key={value} className="inline-flex items-center gap-2 text-[13px] text-slate-700">
+                                <input type="checkbox" checked={data.proposed_assessments.includes(value)} onChange={() => { if (!isStaff) { setAssistanceError(false); form.clearErrors?.('proposed_assessments'); } toggleChoice('proposed_assessments', value); }} className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary/40" />
+                                {ASSESSMENT_LABELS[value] ?? value}
+                            </label>
+                        ))}
+                    </div>
+                    <InputError id="intake-assistance-error" message={assistanceError ? 'Select at least one type of assistance.' : errors.proposed_assessments} />
+                </fieldset>
                 {data.proposed_assessments.includes('OTHER') && (
                     <Field label="Other assistance" htmlFor="intake-assessment-other" required error={errors.proposed_assessment_other}>
                         <input id="intake-assessment-other" value={data.proposed_assessment_other} onChange={(e) => setData('proposed_assessment_other', e.target.value)} className={INPUT} maxLength={2000} />

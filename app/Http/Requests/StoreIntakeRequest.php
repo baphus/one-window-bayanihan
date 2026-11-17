@@ -14,4 +14,11 @@ class StoreIntakeRequest extends StoreCaseRequest
         parent::prepareForValidation();
         $this->merge(['email' => $this->user()?->email]);
     }
+
+    public function rules(): array
+    {
+        return array_replace(parent::rules(), [
+            'proposed_assessments' => ['required', 'array', 'min:1', 'max:8'],
+        ]);
+    }
 }
