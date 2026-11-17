@@ -10,7 +10,7 @@
     ['label' => 'Agency', 'value' => $referral->agency->name ?? '—'],
     ['label' => 'Services', 'value' => $referral->required_services],
     ['label' => 'Status', 'value' => ucwords(strtolower(str_replace('_', ' ', $referral->status)))],
-    ['label' => 'Date', 'value' => $referral->created_at->format('M d, Y')],
+    ['label' => 'Date', 'value' => $referral->created_at->copy()->setTimezone(config('app.operating_timezone', 'Asia/Manila'))->format('M d, Y')],
 ]" />
 
 <p style="font-size: 15px; line-height: 1.7; color: #3f3f46; margin: 28px 0 24px 0;">

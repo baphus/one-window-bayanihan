@@ -15,7 +15,7 @@ import FileUpload from '@/Components/FileUpload';
 import { InfoCell, CardHeader, InfoField } from '@/Components/ui/CardSection';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import { getAvatarColor } from '@/Components/ui/UserAvatar';
-import { formatDisplayDateTime, formatDisplayDate, formatDisplayTime } from '@/lib/utils';
+import { formatDisplayDateTime, formatDisplayDate, formatDisplayTime, formatTimestampDate } from '@/lib/utils';
 import { RETURN_REASON_LABELS } from '@/Components/CaseIntakeForm';
 import { formatResolvedAddress } from '@/lib/addressResolver';
 import AuditLogModal from '@/Components/AuditLogModal';
@@ -247,7 +247,7 @@ export default function CaseShow({ case: caseFile, case_categories = [], recomme
         isOverdue,
         service: ref.required_services,
         latestMilestone: latest?.title || 'Referral Sent',
-        dateReferred: formatDisplayDate(ref.created_at),
+        dateReferred: formatTimestampDate(ref.created_at),
         timeReferred: formatDisplayTime(ref.created_at),
       };
     });
@@ -512,7 +512,7 @@ export default function CaseShow({ case: caseFile, case_categories = [], recomme
             <div className="grid grid-cols-1 md:grid-cols-3 [&>div]:border-0">
               <InfoCell label="Case No." value={caseFile.case_number} />
               <InfoCell label="Tracking ID" value={caseFile.tracker_number} />
-              <InfoCell label="Date created" value={<>{formatDisplayDate(caseFile.created_at)}<span className="block text-[10px] font-normal text-slate-500">{formatDisplayTime(caseFile.created_at)}</span></>} />
+              <InfoCell label="Date created" value={<>{formatTimestampDate(caseFile.created_at)}<span className="block text-[10px] font-normal text-slate-500">{formatDisplayTime(caseFile.created_at)}</span></>} />
               <InfoCell label="Client type" value={clientTypeLabel} />
               <InfoCell label="Age at intake" value={caseFile.age_at_intake ?? '\u2014'} />
               <InfoCell label="Status" value={<StatusBadge status={caseFile.status} size="sm" />} />

@@ -28,7 +28,6 @@ vi.mock('@inertiajs/react', () => ({
 }));
 vi.mock('@/Layouts/AppLayout', () => ({ default: ({ children }) => <main>{children}</main> }));
 vi.mock('@/Hooks/useUnsavedChanges', () => ({ default: () => ({ UnsavedModal: null }) }));
-vi.mock('@/Components/InputError', () => ({ default: () => null }));
 
 globalThis.route = state.route;
 
@@ -42,6 +41,25 @@ const form = {
 };
 
 describe('FormBuilder', () => {
+  it('shows indexed option errors beside their input and preserves parent errors', () => {
+    state.form = null;
+    const survey = { ...form, questions: [
+      { type: 'radio', label: 'First', options: ['Yes', 'No'] },
+      { type: 'checkbox', label: 'Second', options: ['One', 'Two'] },
+    ] };
+    const view = render(<FormBuilder form={survey} questionTypes={['radio', 'checkbox']} likertLabels={{}} />);
+    state.form.errors = { 'questions.1.options': 'Options error', 'questions.1.options.0': 'Option error' };
+    view.rerender(<FormBuilder form={survey} questionTypes={['radio', 'checkbox']} likertLabels={{}} />);
+
+    const cards = screen.getAllByRole('article');
+    const input = within(cards[1]).getByDisplayValue('One');
+    expect(within(cards[1]).getByText('Options error')).toBeTruthy();
+    expect(input.getAttribute('aria-invalid')).toBe('true');
+    expect(document.getElementById(input.getAttribute('aria-describedby')).textContent).toBe('Option error');
+    expect(within(cards[0]).queryByText('Option error')).toBeNull();
+    expect(within(cards[1]).getByDisplayValue('Two').getAttribute('aria-describedby')).toBeNull();
+  });
+
   it('submits the current question order for a new form', () => {
     state.form = null;
     const view = render(<FormBuilder form={null} questionTypes={['text', 'rating']} likertLabels={{}} />);

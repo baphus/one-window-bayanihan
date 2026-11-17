@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use App\Enums\UserRole;
 use App\Models\Referral;
+use App\Models\User;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Notification;
@@ -29,7 +30,7 @@ class PeerReferralCreated extends Notification implements ShouldQueue
 
     public function shouldSend(object $notifiable, string $channel): bool
     {
-        return $notifiable instanceof \App\Models\User
+        return $notifiable instanceof User
             && User::whereKey($notifiable->id)->where('role', '!=', UserRole::AGENCY->value)->where('is_active', true)->exists();
     }
 

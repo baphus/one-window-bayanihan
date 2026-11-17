@@ -92,6 +92,19 @@ class SurveyFormControllerTest extends TestCase
             ->assertJsonPath('props.flash.success', 'Survey form created successfully.');
     }
 
+    public function test_store_allows_same_options_across_questions(): void
+    {
+        [$user] = $this->agencyUser();
+        $this->actingAsWithMfa($user)->post(route('survey.forms.store'), [
+            'title' => 'Repeated choices',
+            'questions' => [
+                ['type' => 'radio', 'label' => 'First', 'options' => ['Yes', 'No']],
+                ['type' => 'radio', 'label' => 'Second', 'options' => ['Yes', 'No']],
+            ],
+        ])->assertSessionHasNoErrors()->assertRedirect(route('survey.forms.index'));
+        $this->assertSame(2, SurveyForm::where('title', 'Repeated choices')->firstOrFail()->questions()->count());
+    }
+
     public function test_update_replaces_form_metadata_and_questions(): void
     {
         [$user, $agency] = $this->agencyUser();
@@ -104,6 +117,20 @@ class SurveyFormControllerTest extends TestCase
         ])->assertRedirect();
         $this->assertSame('New', $form->fresh()->title);
         $this->assertSame('New question', $form->fresh()->questions->first()->label);
+    }
+
+    public function test_update_allows_same_options_across_questions(): void
+    {
+        [$user, $agency] = $this->agencyUser();
+        $form = SurveyForm::create(['agency_id' => $agency->id, 'title' => 'Repeated choices']);
+
+        $this->actingAsWithMfa($user)->patch(route('survey.forms.update', $form), [
+            'questions' => [
+                ['type' => 'radio', 'label' => 'First', 'options' => ['Yes', 'No']],
+                ['type' => 'radio', 'label' => 'Second', 'options' => ['Yes', 'No']],
+            ],
+        ])->assertSessionHasNoErrors()->assertRedirect(route('survey.forms.index'));
+        $this->assertSame(2, $form->questions()->count());
     }
 
     public function test_form_without_invitations_can_be_deleted(): void
@@ -145,18 +172,24 @@ class SurveyFormControllerTest extends TestCase
         $referral = Referral::factory()->create(['agcy_id' => $agency->id]);
         SurveyInvitation::create($this->invitationAttributes($form, $agency, $referral));
 
-        $this->actingAsWithMfa($user)->patch(route('survey.forms.update', $form), ['title' => 'Changed'])->assertStatus(409);
-        $this->actingAsWithMfa($user)->delete(route('survey.forms.destroy', $form))->assertStatus(409);
+        $this->actingAsWithMfa($user)->patch(route('survey.forms.update', $form), ['title' => 'Changed'])
+            ->assertRedirect(route('survey.forms.index'))
+            ->assertSessionHas('error', 'This survey form is already in use and cannot be edited or deleted. Please create a new form to make changes.');
+        $this->actingAsWithMfa($user)->delete(route('survey.forms.destroy', $form))
+            ->assertRedirect(route('survey.forms.index'))
+            ->assertSessionHas('error', 'This survey form is already in use and cannot be edited or deleted. Please create a new form to make changes.');
         $this->assertSame('Locked', $form->fresh()->title);
     }
 
-    public function test_immutable_form_edit_get_is_conflict_but_activation_is_allowed(): void
+    public function test_immutable_form_edit_redirects_with_message_and_activation_is_allowed(): void
     {
         [$user, $agency] = $this->agencyUser();
         $form = SurveyForm::create(['agency_id' => $agency->id, 'title' => 'Locked']);
         $referral = Referral::factory()->create(['agcy_id' => $agency->id]);
         SurveyInvitation::create($this->invitationAttributes($form, $agency, $referral));
-        $this->actingAsWithMfa($user)->get(route('survey.forms.edit', $form))->assertStatus(409);
+        $this->actingAsWithMfa($user)->get(route('survey.forms.edit', $form))
+            ->assertRedirect(route('survey.forms.index'))
+            ->assertSessionHas('error', 'This survey form is already in use and cannot be edited or deleted. Please create a new form to make changes.');
         $this->actingAsWithMfa($user)->patch(route('survey.forms.activate', $form))->assertRedirect();
     }
 

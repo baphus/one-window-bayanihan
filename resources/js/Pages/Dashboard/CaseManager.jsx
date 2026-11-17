@@ -9,7 +9,7 @@ import { EmptyState, QuickActions, SectionCard, ViewAllLink, formatCount, safeAr
 import { DashboardRow, DashboardRowList, RowAgeFlag } from '@/Components/Dashboard/DashboardRow';
 import { AuditTimeline } from '@/Components/AuditTimeline';
 import KpiCard from '@/Components/ui/KpiCard';
-import { formatDisplayDate, getCaseAgeInDays } from '@/lib/utils';
+import { formatTimestampDate, getCaseAgeInDays } from '@/lib/utils';
 import { humanizeStatus } from '@/lib/statusLabels';
 import safeRoute from '@/utils/safeRoute';
 
@@ -216,7 +216,7 @@ function PendingReviews({ dashboard }) {
                     const trackingId = pick(item.trackerNumber, item.tracker_number, item.caseNo, item.case_number, '—');
                     const clientName = pick(item.clientName, item.client_name);
                     const waiting = waitingDays(filed);
-                    const filedLabel = filed ? formatDisplayDate(String(filed)) : '';
+                    const filedLabel = filed ? formatTimestampDate(String(filed)) : '';
                     const note = [
                         filedLabel ? `Filed ${filedLabel}` : null,
                         waiting != null ? `waiting ${waiting}d` : null,

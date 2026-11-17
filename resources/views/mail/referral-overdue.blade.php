@@ -13,8 +13,8 @@
     ['label' => 'Client', 'value' => $clientName],
     ['label' => 'Agency', 'value' => $agencyName],
     ['label' => 'Service', 'value' => $requiredServices],
-    ['label' => 'Referred', 'value' => $createdAt->format('M d, Y')],
-    ['label' => 'Last Activity', 'value' => $lastUpdate->format('M d, Y')],
+    ['label' => 'Referred', 'value' => $createdAt->copy()->setTimezone(config('app.operating_timezone', 'Asia/Manila'))->format('M d, Y')],
+    ['label' => 'Last Activity', 'value' => $lastUpdate->copy()->setTimezone(config('app.operating_timezone', 'Asia/Manila'))->format('M d, Y')],
     ['label' => 'Days Overdue', 'value' => $overdueDays . ' days'],
 ]" />
 

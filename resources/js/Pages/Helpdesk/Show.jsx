@@ -5,7 +5,7 @@ import ArticleFeedback from '@/Components/Helpdesk/ArticleFeedback';
 import Breadcrumbs from '@/Components/Helpdesk/Breadcrumbs';
 import RelatedArticles from '@/Components/Helpdesk/RelatedArticles';
 import TagBadge from '@/Components/Helpdesk/TagBadge';
-import { formatDisplayDate } from '@/lib/utils';
+import { formatTimestampDate } from '@/lib/utils';
 import { categories } from '@/data/helpdesk/categories';
 import { tags } from '@/data/helpdesk/tags';
 import safeRoute from '@/utils/safeRoute';
@@ -114,7 +114,7 @@ export default function Show() {
           </h1>
 
           <div className="mt-3 flex flex-wrap items-center gap-3 font-label text-[11px] uppercase tracking-[0.14em] text-slate-500">
-            <span>Published {formatDisplayDate(article.publishedAt)}</span>
+            <span>Published {formatTimestampDate(article.publishedAt)}</span>
             {content && <span>{readTime} min read</span>}
           </div>
 

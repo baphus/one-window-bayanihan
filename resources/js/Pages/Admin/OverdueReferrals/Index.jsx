@@ -5,7 +5,7 @@ import StatusBadge from '@/Components/ui/StatusBadge';
 import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import TableTabs from '@/Components/ui/TableTabs';
 import useTableVisitLoading from '@/Hooks/useTableVisitLoading';
-import { formatDisplayDate } from '@/lib/utils';
+import { formatTimestampDate } from '@/lib/utils';
 
 const ROLE_SUBTITLES = {
   ADMIN: 'Overdue referrals across all agencies — sorted by most stale first',
@@ -218,7 +218,7 @@ export default function OverdueReferralsIndex({ stats = {}, referrals, userRole 
       render: (row) => (
         <span
           className="text-xs text-slate-600 max-w-[240px] truncate block"
-          title={row.last_activity_date ? formatDisplayDate(row.last_activity_date) : undefined}
+          title={row.last_activity_date ? formatTimestampDate(row.last_activity_date) : undefined}
         >
           {row.last_activity_description}
         </span>

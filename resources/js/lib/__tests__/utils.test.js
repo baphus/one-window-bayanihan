@@ -1,5 +1,20 @@
-import { describe, expect, it } from 'vitest';
-import { getCategoryFilterIds, sameOriginPath } from '../utils';
+import { describe, expect, it, vi } from 'vitest';
+import { formatTimestampDate, formatDisplayDate, getCategoryFilterIds, sameOriginPath } from '../utils';
+
+describe('timestamp calendar dates', () => {
+  it('uses the local day for timestamps without shifting calendar-only dates', () => {
+    const DateTimeFormat = Intl.DateTimeFormat;
+    const formatter = vi.spyOn(Intl, 'DateTimeFormat').mockImplementation(function (locale, options) {
+      return new DateTimeFormat(locale, { timeZone: 'Asia/Manila', ...options });
+    });
+    try {
+      expect(formatTimestampDate('2026-11-16T19:36:00Z')).toBe('November 17, 2026');
+      expect(formatDisplayDate('1990-11-16')).toBe('November 16, 1990');
+    } finally {
+      formatter.mockRestore();
+    }
+  });
+});
 
 describe('getCategoryFilterIds', () => {
   it('returns an empty array when no category filter is set', () => {

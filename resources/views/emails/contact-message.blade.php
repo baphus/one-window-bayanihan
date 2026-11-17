@@ -8,7 +8,7 @@
 <x-mail::detail-table :rows="[
     ['label' => 'From', 'value' => $senderName],
     ['label' => 'Email', 'value' => $senderEmail],
-    ['label' => 'Received', 'value' => now()->format('M d, Y g:i A')],
+    ['label' => 'Received', 'value' => now(config('app.operating_timezone', 'Asia/Manila'))->format('M d, Y g:i A')],
 ]" />
 
 <p style="font-size: 14px; font-weight: 600; color: #18181b; margin: 28px 0 8px 0;">Message</p>

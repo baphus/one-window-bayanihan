@@ -101,15 +101,24 @@ function QuestionCard({ index, question, errors, onChange, onMoveUp, onMoveDown,
                 </label>
                 <div className="space-y-2">
                   {(question.options || []).map((opt, optIndex) => (
-                    <div key={optIndex} className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        value={opt}
-                        onChange={(e) => updateOption(optIndex, e.target.value)}
-                        placeholder={`Option ${optIndex + 1}`}
-                        maxLength={255}
-                        className="h-9 flex-1 rounded-md border border-slate-300 px-3 text-sm text-slate-700 outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                      />
+                    <div key={optIndex} className="flex items-start gap-2">
+                      <div className="min-w-0 flex-1">
+                        <input
+                          type="text"
+                          value={opt}
+                          onChange={(e) => updateOption(optIndex, e.target.value)}
+                          placeholder={`Option ${optIndex + 1}`}
+                          maxLength={255}
+                          aria-invalid={!!errors[`questions.${index}.options.${optIndex}`]}
+                          aria-describedby={errors[`questions.${index}.options.${optIndex}`] ? `question-${index}-option-${optIndex}-error` : undefined}
+                          className={`h-9 w-full rounded-md border px-3 text-sm text-slate-700 outline-none focus:ring-1 ${
+                            errors[`questions.${index}.options.${optIndex}`]
+                              ? 'border-red-400 focus:border-red-500 focus:ring-red-500'
+                              : 'border-slate-300 focus:border-primary focus:ring-primary'
+                          }`}
+                        />
+                        <InputError id={`question-${index}-option-${optIndex}-error`} message={errors[`questions.${index}.options.${optIndex}`]} className="mt-1.5" />
+                      </div>
                       <button
                         type="button"
                         onClick={() => removeOption(optIndex)}

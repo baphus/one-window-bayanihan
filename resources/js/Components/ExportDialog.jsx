@@ -1,7 +1,8 @@
+import { toISODateInputValue } from '@/lib/dates';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 function toDateInput(date) {
-  return date.toISOString().slice(0, 10);
+  return toISODateInputValue(date);
 }
 
 // Keep the Export button disabled until the browser finishes handling the

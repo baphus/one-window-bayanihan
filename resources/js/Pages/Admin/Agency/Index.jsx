@@ -6,7 +6,7 @@ import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import KpiCard from '@/Components/ui/KpiCard';
 import StatusBadge from '@/Components/ui/StatusBadge';
 import { Building2, Users, CheckCircle, XCircle, Shield, MapPin, Phone } from 'lucide-react';
-import { formatDisplayDate, formatDisplayTime } from '@/lib/utils';
+import { formatDisplayTime, formatTimestampDate } from '@/lib/utils';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import useTableVisitLoading from '@/Hooks/useTableVisitLoading';
 import usePersistedColumns from '@/Hooks/usePersistedColumns';
@@ -232,7 +232,7 @@ export default function AdminAgencyIndex({ agencies, filters, stats }) {
               ...base,
               render: (row) => (
                 <div>
-                  <div className="text-xs text-slate-700">{formatDisplayDate(row.created_at)}</div>
+                  <div className="text-xs text-slate-700">{formatTimestampDate(row.created_at)}</div>
                   <div className="text-[10px] text-slate-500">{formatDisplayTime(row.created_at)}</div>
                 </div>
               ),

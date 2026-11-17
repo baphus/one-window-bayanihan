@@ -36,6 +36,14 @@ class ReferralServiceNotificationTest extends TestCase
         $this->service = app(ReferralService::class);
     }
 
+    public function test_peer_notification_should_send_checks_active_staff_without_persisting_referrals(): void
+    {
+        $user = new User(['role' => UserRole::CASE_MANAGER->value, 'is_active' => true]);
+        $notification = new PeerReferralCreated(new Referral, new Referral);
+
+        $this->assertFalse($notification->shouldSend($user, 'database'));
+    }
+
     public function test_creating_referral_dispatches_notification_to_agency_users(): void
     {
         Notification::fake();

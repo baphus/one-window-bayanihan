@@ -12,8 +12,8 @@ A referral has been assigned to your agency. Please review the details, assign s
 ['label' => 'Category', 'value' => $referral->category?->name ?? 'N/A'],
 ['label' => 'Services', 'value' => $referral->required_services ?: 'N/A'],
 ['label' => 'Referred by', 'value' => $actorName ?? 'DMW Region VII'],
-['label' => 'Referred', 'value' => $referral->created_at->format('M d, Y')],
-['label' => 'Response Due', 'value' => $referral->created_at->copy()->addDays(5)->format('M d, Y')],
+['label' => 'Referred', 'value' => $referral->created_at->copy()->setTimezone(config('app.operating_timezone', 'Asia/Manila'))->format('M d, Y')],
+['label' => 'Response Due', 'value' => $referral->created_at->copy()->setTimezone(config('app.operating_timezone', 'Asia/Manila'))->addDays(5)->format('M d, Y')],
 ]" />
 
 @if($referral->requirements && count($referral->requirements) > 0)

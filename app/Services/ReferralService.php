@@ -26,6 +26,7 @@ use App\Services\Referral\ReferralNotifier;
 use App\Services\Referral\ReferralStatsCache;
 use App\Services\Referral\ReferralStatusMachine;
 use App\Support\MultiSelectFilter;
+use App\Support\ReportCalendar;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
@@ -403,10 +404,10 @@ class ReferralService
         }
 
         if (! empty($filters['date_from'])) {
-            $query->whereDate('referrals.created_at', '>=', $filters['date_from']);
+            $query->where('referrals.created_at', '>=', ReportCalendar::localDayBounds($filters['date_from'])[0]);
         }
         if (! empty($filters['date_to'])) {
-            $query->whereDate('referrals.created_at', '<=', $filters['date_to']);
+            $query->where('referrals.created_at', '<', ReportCalendar::localDayBounds($filters['date_to'])[1]);
         }
 
         if (! empty($filters['search'])) {

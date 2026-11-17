@@ -25,7 +25,7 @@ class UpdateSurveyFormRequest extends FormRequest
 
     public function rules(): array
     {
-        return [
+        $rules = [
             'title' => ['sometimes', 'required', 'string', 'max:255'],
             'description' => ['sometimes', 'nullable', 'string', 'max:1000'],
             'questions' => ['sometimes', 'required', 'array', 'list', 'min:1'],
@@ -33,9 +33,16 @@ class UpdateSurveyFormRequest extends FormRequest
             'questions.*.type' => ['required', 'string', Rule::in(SurveyQuestion::TYPES)],
             'questions.*.label' => ['required', 'string', 'max:500'],
             'questions.*.options' => ['nullable', 'array', 'list', 'required_if:questions.*.type,radio,checkbox'],
-            'questions.*.options.*' => ['string', 'max:255', 'distinct:strict'],
             'questions.*.is_required' => ['boolean'],
             'questions.*.order' => ['integer', 'min:0'],
         ];
+
+        foreach ((array) $this->input('questions', []) as $index => $question) {
+            if (is_array($question) && is_array($question['options'] ?? null)) {
+                $rules["questions.{$index}.options.*"] = ['string', 'max:255', 'distinct:strict'];
+            }
+        }
+
+        return $rules;
     }
 }

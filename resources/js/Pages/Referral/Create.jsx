@@ -4,7 +4,7 @@ import { Head, Link, useForm, router } from '@inertiajs/react';
 import { useEffect, useMemo, useState, useRef } from 'react';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 
-import { formatDisplayDate, formatDisplayTime } from '@/lib/utils';
+import { formatDisplayTime, formatTimestampDate } from '@/lib/utils';
 import InputError from '@/Components/InputError';
 import Modal from '@/Components/Modal';
 import { useToast } from '@/Hooks/useToast';
@@ -366,7 +366,7 @@ export default function ReferralCreate({ case_id, agencies = [], cases: paginate
                                                                             {caseName(item)}
                                                                         </p>
                                                                         <p className="text-[11px] text-slate-500">
-                                                                            Created: {formatDisplayDate(item.created_at)}
+                                                                            Created: {formatTimestampDate(item.created_at)}
                                                                         </p>
                                                                         {item.summary && (
                                                                             <p className="text-[12px] text-slate-600 line-clamp-2 leading-relaxed">
@@ -485,7 +485,7 @@ export default function ReferralCreate({ case_id, agencies = [], cases: paginate
                                                     <InfoRow label="Client Name" value={caseName(selectedCase)} />
                                                     <InfoRow label="Client Type" value={selectedCase.client_type === 'OFW' ? 'Overseas Filipino Worker' : 'Next of Kin'} />
                                                     <InfoRow label="Status" value={selectedCase.status} />
-                                                    <InfoRow label="Date Created" value={formatDisplayDate(selectedCase.created_at)} subtext={formatDisplayTime(selectedCase.created_at)} />
+                                                    <InfoRow label="Date Created" value={formatTimestampDate(selectedCase.created_at)} subtext={formatDisplayTime(selectedCase.created_at)} />
                                                     {selectedCase.summary && (
                                                         <div className="md:col-span-2">
                                                             <InfoRow label="Case Narrative" value={selectedCase.summary} />

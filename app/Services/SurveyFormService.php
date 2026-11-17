@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\SurveyForm;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -107,7 +108,9 @@ class SurveyFormService
     private function ensureNoInvitations(SurveyForm $form): void
     {
         if ($form->invitations()->exists()) {
-            abort(409, 'This survey form is immutable because invitations exist. Create a replacement form instead.');
+            throw new HttpResponseException(
+                redirect()->route('survey.forms.index')->with('error', 'This survey form is already in use and cannot be edited or deleted. Please create a new form to make changes.')
+            );
         }
     }
 

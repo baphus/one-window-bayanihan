@@ -6,7 +6,7 @@
 </p>
 
 <p style="font-size: 15px; line-height: 1.7; color: #3f3f46; margin: 0 0 24px 0;">
-    The email address associated with your {{ config('app.name') }} account was changed on {{ now()->format('M d, Y') }}.
+    The email address associated with your {{ config('app.name') }} account was changed on {{ now(config('app.operating_timezone', 'Asia/Manila'))->format('M d, Y') }}.
 </p>
 
 <x-mail::detail-table :rows="[

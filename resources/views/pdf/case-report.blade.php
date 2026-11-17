@@ -26,6 +26,7 @@
     @php
         $text = fn ($value) => trim((string) $value) !== '' ? trim((string) $value) : null;
         $date = fn ($value) => $value ? \Carbon\Carbon::parse($value)->format('d M Y') : null;
+        $timestampDate = fn ($value) => $value ? \Carbon\CarbonImmutable::parse($value)->setTimezone(\App\Support\ReportCalendar::timezone())->format('d M Y') : null;
         $label = fn ($value) => $value ? ucwords(strtolower(str_replace('_', ' ', $value))) : null;
         $clientName = collect([$case->first_name, $case->middle_name, $case->last_name, $case->suffix])->filter()->implode(' ');
         $address = app(\App\Services\PhilippineAddressService::class)->format($case->address_street, $case->address_barangay, $case->address_city_municipality, $case->address_province, $case->address_region);
@@ -41,7 +42,7 @@
     <h2>Case and Intake</h2>
     <table>
         <tr><td class="label">Tracking ID</td><td colspan="3">{{ $text($case->tracker_number) }}</td></tr>
-        <tr><td class="label">Status</td><td>{{ $label($case->status) }}</td><td class="label">Date opened</td><td>{{ $date($case->created_at) }}</td></tr>
+        <tr><td class="label">Status</td><td>{{ $label($case->status) }}</td><td class="label">Date opened</td><td>{{ $timestampDate($case->created_at) }}</td></tr>
         <tr><td class="label">Intake date</td><td>{{ $date($case->intake_date) }}</td><td class="label">Client type</td><td>{{ $label($case->client_type) }}</td></tr>
         <tr><td class="label">Opened by</td><td>{{ $text($case->user?->name) }}</td><td class="label">Final approver</td><td>{{ $text($case->reviewer?->name) }}</td></tr>
     </table>
@@ -85,7 +86,7 @@
     <p class="long">{{ $brief($case->summary, 280) }}</p>
     @endif
     @if(isset($latestEvent) && $latestEvent)
-        <p><strong>Latest case event ({{ $date($latestEvent->occurred_at ?: $latestEvent->created_at) }}):</strong> {{ $text($latestEvent->title) }}@if($latestEvent->description) — {{ \Illuminate\Support\Str::limit($text($latestEvent->description), 100) }}@endif</p>
+        <p><strong>Latest case event ({{ $timestampDate($latestEvent->occurred_at ?: $latestEvent->created_at) }}):</strong> {{ $text($latestEvent->title) }}@if($latestEvent->description) — {{ \Illuminate\Support\Str::limit($text($latestEvent->description), 100) }}@endif</p>
     @endif
 
     <h2>Agency and Service Summary</h2>
@@ -93,7 +94,7 @@
         <thead><tr><th style="width:20%">Agency</th><th style="width:38%">Category / services / concern</th><th style="width:17%">Status</th><th style="width:25%">Decision / updated</th></tr></thead>
         <tbody class="compact">
             @forelse($referrals->take(4) as $referral)
-                <tr><td>{{ $text($referral->agency?->name) }}</td><td>{{ \Illuminate\Support\Str::limit(collect([$referral->category?->name, $referral->required_services, $referral->concern])->filter()->implode(' · '), 95) }}</td><td>{{ $label($referral->status) }}</td><td>{{ \Illuminate\Support\Str::limit(collect([$referral->decision, $referral->decision_comment])->filter()->implode(' · '), 55) }}@if($referral->updated_at)<br>{{ $date($referral->updated_at) }}@endif</td></tr>
+                <tr><td>{{ $text($referral->agency?->name) }}</td><td>{{ \Illuminate\Support\Str::limit(collect([$referral->category?->name, $referral->required_services, $referral->concern])->filter()->implode(' · '), 95) }}</td><td>{{ $label($referral->status) }}</td><td>{{ \Illuminate\Support\Str::limit(collect([$referral->decision, $referral->decision_comment])->filter()->implode(' · '), 55) }}@if($referral->updated_at)<br>{{ $timestampDate($referral->updated_at) }}@endif</td></tr>
             @empty
                 <tr><td colspan="4">No agency referrals recorded.</td></tr>
             @endforelse

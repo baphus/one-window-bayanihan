@@ -24,7 +24,7 @@ The status of this request has changed from <strong>{{ $oldLabel }}</strong> to 
 ['label' => 'Status', 'value' => $oldLabel . ' → ' . $statusLabel],
 ['label' => 'Case Manager', 'value' => $case->user?->name ?? 'Unassigned'],
 ['label' => 'Updated By', 'value' => ($actorName ?? '') !== '' ? $actorName : 'System'],
-['label' => 'Updated At', 'value' => ($case->updated_at ?? now())->format('M d, Y h:i A')],
+['label' => 'Updated At', 'value' => ($case->updated_at ?? now())->copy()->setTimezone(config('app.operating_timezone', 'Asia/Manila'))->format('M d, Y h:i A')],
 ]" />
 
 @if($case->summary)
