@@ -35,6 +35,7 @@ class CaseIntakeHttpTest extends TestCase
             'address_region' => 'Central Visayas', 'address_city_municipality' => 'Cebu City', 'address_barangay' => 'Lahug',
             'employment_employer_name' => 'Example Employer', 'employment_country' => 'Japan',
             'summary' => 'Assistance', 'vulnerability_indicator' => 'None',
+            'proposed_assessments' => ['LEGAL_ASSISTANCE'],
             'return_reason' => 'OTHERS', 'consent' => true, 'consent_text_version' => IntakeDocumentService::CONSENT_VERSION,
             'documents' => collect(['passport_front_page', 'arrival_stamp', 'oec', 'sworn_affidavit'])
                 ->mapWithKeys(fn ($slot) => [$slot => UploadedFile::fake()->image($slot.'.jpg')])->all(),
