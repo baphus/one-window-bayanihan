@@ -543,6 +543,8 @@ class AdminUserController extends Controller
 
     public function verify(User $user)
     {
+        abort_if($user->isOfw(), 403, 'OFW users must verify their own email address.');
+
         if ($user->is_deleted || ! $user->is_active) {
             return redirect()->back()->with('error', 'Cannot verify inactive or deleted users.');
         }

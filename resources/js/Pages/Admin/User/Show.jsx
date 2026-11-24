@@ -6,6 +6,7 @@ import UserFormModal from '@/Components/Admin/UserFormModal';
 import MfaConfirmDialog from '@/Components/MfaConfirmDialog';
 import useMfaStatus from '@/Hooks/useMfaStatus';
 import { CardHeader, InfoField } from '@/Components/ui/CardSection';
+import { formatDisplayDate } from '@/lib/utils';
 
 function StatusPill({ label, enabled }) {
   return (
@@ -36,6 +37,7 @@ export default function AdminUserShow({ user, agencies = [] }) {
 
   const agency = user.agency ?? null;
   const emergency = user.emergency_contact ?? {};
+  const isOfw = user.role === 'OFW';
   const { auth } = usePage().props;
   const mfaPolicy = user.mfaPolicy ?? null;
   const policyLabel = (value) => (
@@ -67,7 +69,7 @@ export default function AdminUserShow({ user, agencies = [] }) {
             </div>
             <button type="button" onClick={() => setShowEdit(true)} className="inline-flex min-h-[34px] items-center gap-1.5 rounded-md bg-blue-900 px-3.5 text-[12px] font-bold text-white transition hover:bg-blue-800">
               <span className="material-symbols-outlined text-[15px]">edit</span>
-              Edit User
+              {isOfw ? 'Edit Citizen' : 'Edit User'}
             </button>
           </div>
 
@@ -163,31 +165,50 @@ export default function AdminUserShow({ user, agencies = [] }) {
               <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Email</p>
               <p className="text-sm font-semibold text-slate-900 mt-1">{user.email}</p>
             </div>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Occupation</p>
-              <p className="text-sm font-semibold text-slate-900 mt-1">{user.position || '\u2014'}</p>
-            </div>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Department</p>
-              <p className="text-sm font-semibold text-slate-900 mt-1">{user.department || '\u2014'}</p>
-            </div>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Office Location</p>
-              <p className="text-sm font-semibold text-slate-900 mt-1">{user.office_location || '\u2014'}</p>
-            </div>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Timezone</p>
-              <p className="text-sm font-semibold text-slate-900 mt-1">{user.timezone || '\u2014'}</p>
-            </div>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Contact Number</p>
-              <p className="text-sm font-semibold text-slate-900 mt-1">{user.contact_number || '\u2014'}</p>
-            </div>
-            {user.bio && (
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Bio</p>
-                <p className="text-sm font-semibold text-slate-900 mt-1">{user.bio}</p>
-              </div>
+            {isOfw ? (
+              <>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Date of Birth</p>
+                  <p className="text-sm font-semibold text-slate-900 mt-1">{user.date_of_birth ? formatDisplayDate(user.date_of_birth) : '\u2014'}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Sex</p>
+                  <p className="text-sm font-semibold text-slate-900 mt-1">{user.sex === 'MALE' ? 'Male' : user.sex === 'FEMALE' ? 'Female' : '\u2014'}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Contact Number</p>
+                  <p className="text-sm font-semibold text-slate-900 mt-1">{user.contact_number || '\u2014'}</p>
+                </div>
+              </>
+            ) : (
+              <>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Occupation</p>
+                  <p className="text-sm font-semibold text-slate-900 mt-1">{user.position || '\u2014'}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Department</p>
+                  <p className="text-sm font-semibold text-slate-900 mt-1">{user.department || '\u2014'}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Office Location</p>
+                  <p className="text-sm font-semibold text-slate-900 mt-1">{user.office_location || '\u2014'}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Timezone</p>
+                  <p className="text-sm font-semibold text-slate-900 mt-1">{user.timezone || '\u2014'}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Contact Number</p>
+                  <p className="text-sm font-semibold text-slate-900 mt-1">{user.contact_number || '\u2014'}</p>
+                </div>
+                {user.bio && (
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Bio</p>
+                    <p className="text-sm font-semibold text-slate-900 mt-1">{user.bio}</p>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -273,9 +294,24 @@ export default function AdminUserShow({ user, agencies = [] }) {
                   >
                     {user.email_verified_at ? '✓' : '×'}
                   </span>
-                  <p className="text-[10px] text-slate-400 mt-1">Users invited via email are auto-verified upon registration.</p>
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    {isOfw
+                      ? 'Citizen accounts created by an admin start unverified.'
+                      : 'Users invited via email are auto-verified upon registration.'}
+                  </p>
                 </div>
               </div>
+              {isOfw && user.must_change_password != null && (
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Temporary Password</p>
+                  <div className="mt-1">
+                    <StatusPill label={user.must_change_password ? 'Change required' : 'Replaced'} enabled={!user.must_change_password} />
+                    {user.must_change_password && (
+                      <p className="text-[10px] text-slate-400 mt-1">The citizen must replace this password before using the app.</p>
+                    )}
+                  </div>
+                </div>
+              )}
           </div>
         </div>
 

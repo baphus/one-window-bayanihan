@@ -341,9 +341,9 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [], p
                   >
                     View
                   </a>
-                  {/* Citizen accounts are view-only here: the staff form has no
-                      Citizen role, so saving one would silently promote them. */}
-                  {row.role !== roles.OFW && row.is_active && !row.is_deleted && (
+                  {/* Citizens are edited with the citizen form: identity, contact,
+                      photo and status, with role and credentials locked. */}
+                  {row.is_active && !row.is_deleted && (
                     <button
                       onClick={() => { setEditingUser(row); setShowForm(true); }}
                       className="min-h-[28px] px-2.5 bg-slate-100 text-slate-700 hover:bg-slate-200 text-[11px] font-bold rounded-md transition-colors border border-slate-300"
@@ -725,7 +725,7 @@ export default function AdminUserIndex({ users, filters, stats, agencies = [], p
             router.visit(route('admin.users.show', contextMenu.row.id));
             setContextMenu(null);
           }} />
-          {contextMenu.row.role !== roles.OFW && contextMenu.row.is_active && !contextMenu.row.is_deleted && (
+          {contextMenu.row.is_active && !contextMenu.row.is_deleted && (
             <RowContextMenuItem icon="edit" label="Edit" onClick={() => {
               setEditingUser(contextMenu.row);
               setShowForm(true);

@@ -21,6 +21,7 @@ function getInitial(name) {
  * @param {string} [props.error] - Validation error to display
  * @param {boolean} [props.disabled]
  * @param {string} [props.label] - Heading above the control
+ * @param {string|null} [props.initialPreview] - Existing photo shown until a new file is picked
  */
 export default function AvatarPicker({
     file,
@@ -29,9 +30,10 @@ export default function AvatarPicker({
     error = null,
     disabled = false,
     label = 'Profile photo',
+    initialPreview = null,
 }) {
     const [sizeError, setSizeError] = useState(null);
-    const [preview, setPreview] = useState(null);
+    const [preview, setPreview] = useState(initialPreview);
     const [cropFile, setCropFile] = useState(null);
     const fileInputRef = useRef(null);
 

@@ -14,25 +14,41 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password;
+use Inertia\Inertia;
 
 class PasswordController extends Controller
 {
+    public function editTemporary(Request $request)
+    {
+        abort_unless($request->user()->isOfw() && $request->user()->must_change_password, 403);
+
+        return Inertia::render('Auth/ChangeTemporaryPassword');
+    }
+
     /**
      * Update the user's password.
      */
     public function update(Request $request): RedirectResponse
     {
+        $temporary = $request->routeIs('password.temporary.update');
+        if ($temporary) {
+            abort_unless($request->user()->isOfw() && $request->user()->must_change_password, 403);
+        }
+
         $validated = $request->validate([
             'current_password' => ['required', 'current_password'],
-            'password' => ['required', Password::defaults(), 'confirmed'],
+            'password' => ['required', Password::defaults(), 'confirmed', 'different:current_password'],
         ]);
 
         $user = $request->user();
         $hadValidMfaMarker = app(MfaPendingState::class)->hasValidMarker($request, $user);
 
-        $user->update([
-            'password' => Hash::make($validated['password']),
-        ]);
+        $user->password = Hash::make($validated['password']);
+        $user->must_change_password = false;
+        $user->save();
+        if ($temporary) {
+            $request->session()->regenerate();
+        }
 
         $request->session()->forget(MfaPendingState::CONFIRMATION_KEY);
 
@@ -69,6 +85,6 @@ class PasswordController extends Controller
             ->module(AuditModule::AUTH)
             ->write();
 
-        return back();
+        return $temporary ? redirect()->route('dashboard') : back();
     }
 }

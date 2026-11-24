@@ -5,6 +5,13 @@ import InputError from '@/Components/InputError';
 import MfaConfirmDialog from '@/Components/MfaConfirmDialog';
 import useMfaStatus from '@/Hooks/useMfaStatus';
 import IdentityFields, { emptyIdentity } from '@/Components/IdentityFields';
+import AvatarPicker from '@/Components/AvatarPicker';
+
+function maskEmail(email) {
+  const [local, domain] = String(email).split('@');
+  if (!domain) return email;
+  return local.length <= 2 ? email : `${local.slice(0, 2)}***@${domain}`;
+}
 
 export default function UserFormModal({ user, agencies, onClose, onBypass, selectedAgencyId, initialMode = 'invite', mfaPolicy }) {
   const isEdit = !!user;
@@ -12,13 +19,15 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
   const policy = mfaPolicy ?? user?.mfaPolicy ?? null;
 
   const [mode, setMode] = useState(isEdit ? 'invite' : initialMode);
-  const isCreateMode = !isEdit && !isNewUserViaSelectedAgency && mode === 'create';
 
   const roles = usePage().props.roles;
+  // Citizen is only offered when creating. Editing keeps the account's role
+  // fixed so a save can never turn staff into OFW or the reverse.
   const roleOptions = [
     { value: roles.CASE_MANAGER, label: 'Case Manager', description: 'Manages OFW cases end-to-end' },
     { value: roles.AGENCY, label: 'Agency Focal', description: 'Handles referrals for their agency' },
     { value: roles.ADMIN, label: 'System Admin', description: 'Full system access and configuration' },
+    ...(isEdit ? [] : [{ value: roles.OFW, label: 'Citizen (OFW)', description: 'Created with a temporary password for manual handover outside the app' }]),
   ];
 
   const { data, setData, post, patch, processing, errors, clearErrors, setError, transform } = useForm({
@@ -34,9 +43,21 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
     office_location: user?.office_location ?? '',
     bio: user?.bio ?? '',
     is_active: user?.is_active ?? true,
+    profile_picture: null,
+    remove_profile_picture: false,
     mfa_requirement_override: policy?.override ?? 'inherit',
     mfa_change_reason: '',
   });
+
+  const isOfw = data.role === roles.OFW;
+  const isCreateMode = !isEdit && !isNewUserViaSelectedAgency && (mode === 'create' || isOfw);
+
+  // Credentials stay out of the main profile payload until the admin submits
+  // them, so an admin password never lingers in the edit form's state.
+  const emailForm = useForm({ admin_password: '', new_email: '' });
+  const otpForm = useForm({ otp: '' });
+  const passwordForm = useForm({ password: '', password_confirmation: '', current_password: '' });
+  const [emailStep, setEmailStep] = useState('start');
 
   const [mfaConfirmOpen, setMfaConfirmOpen] = useState(false);
   const [forceMfaProof, setForceMfaProof] = useState(false);
@@ -57,29 +78,121 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
           : null
   );
 
-  const stripMfaFields = (payload) => {
-    const { mfa_requirement_override, mfa_change_reason, ...rest } = payload;
-    return rest;
+  // Photo fields belong only to the citizen form; staff payloads stay as they were.
+  const stripPhotoFields = ({ profile_picture, remove_profile_picture, ...rest }) => rest;
+  const stripMfaFields = ({ mfa_requirement_override, mfa_change_reason, ...rest }) => rest;
+  const stripStaffFields = ({ position, department, office_location, bio, ...rest }) => rest;
+  const stripPasswords = ({ password, password_confirmation, ...rest }) => rest;
+  const cleanPayload = (payload) => {
+    let next = stripMfaFields(payload);
+    if (isOfw) {
+      next = stripStaffFields(next);
+      if (isEdit) next = stripPasswords(next);
+    } else {
+      next = stripPhotoFields(next);
+    }
+    return next;
+  };
+
+  const updateUrl = isEdit ? route('admin.users.update', user.id) : null;
+
+  // PHP cannot parse multipart bodies on PATCH, so citizen edits post the
+  // multipart payload with a method spoof. Staff edits keep their original PATCH.
+  const submitUpdate = ({ extra = {}, onSuccess, onError } = {}) => {
+    const build = (payload) => {
+      const next = { ...cleanPayload(payload), ...extra };
+      return isOfw ? { ...next, _method: 'patch' } : next;
+    };
+    transform(build);
+    const options = {
+      forceFormData: isOfw,
+      onSuccess,
+      onError: (errs) => {
+        transform(build);
+        onError?.(errs);
+      },
+    };
+    if (isOfw) post(updateUrl, options);
+    else patch(updateUrl, options);
   };
 
   const saveEdit = (proof = {}) => {
     onBypass?.();
-    const submitData = policyChanged
-      ? { ...data, mfa_requirement_override: data.mfa_requirement_override, mfa_change_reason: data.mfa_change_reason.trim(), ...proof }
-      : stripMfaFields(data);
-    transform(() => submitData);
-    patch(route('admin.users.update', user.id), {
+    submitUpdate({
+      extra: policyChanged
+        ? { mfa_requirement_override: data.mfa_requirement_override, mfa_change_reason: data.mfa_change_reason.trim(), ...proof }
+        : {},
       onSuccess: () => {
         onClose?.();
         router.reload({ only: ['users'] });
       },
       onError: (errs) => {
-        transform(stripMfaFields);
         if (errs.mfa_confirmation) {
           setForceMfaProof(true);
           setMfaProofError(errs.mfa_confirmation?.[0] ?? errs.mfa_confirmation);
           setMfaConfirmOpen(true);
         }
+      },
+    });
+  };
+
+  const sendEmailOtp = () => {
+    emailForm.clearErrors();
+    emailForm.post(route('admin.users.email-change.send-otp', user.id), {
+      preserveScroll: true,
+      preserveState: true,
+      onSuccess: () => {
+        otpForm.reset();
+        otpForm.clearErrors();
+        setEmailStep('otp');
+      },
+    });
+  };
+
+  const verifyEmailOtp = () => {
+    otpForm.clearErrors();
+    otpForm.post(route('admin.users.email-change.verify-otp', user.id), {
+      preserveScroll: true,
+      preserveState: true,
+      onSuccess: () => {
+        setData('email', emailForm.data.new_email);
+        emailForm.reset('admin_password');
+        emailForm.clearErrors();
+        setEmailStep('verified');
+      },
+    });
+  };
+
+  const resetPassword = (event) => {
+    event.preventDefault();
+    passwordForm.clearErrors();
+    if (!passwordForm.data.password) {
+      passwordForm.setError('password', 'Enter a new temporary password.');
+      return;
+    }
+    if (!passwordForm.data.current_password) {
+      passwordForm.setError('current_password', 'Enter your current admin password.');
+      return;
+    }
+    if (passwordForm.data.password !== passwordForm.data.password_confirmation) {
+      passwordForm.setError('password_confirmation', 'Passwords do not match.');
+      return;
+    }
+    submitUpdate({
+      extra: {
+        password: passwordForm.data.password,
+        password_confirmation: passwordForm.data.password_confirmation,
+        current_password: passwordForm.data.current_password,
+      },
+      onSuccess: () => {
+        passwordForm.reset();
+        onClose?.();
+        router.reload({ only: ['users'] });
+      },
+      onError: (errs) => {
+        ['password', 'password_confirmation', 'current_password'].forEach((key) => {
+          if (errs[key]) passwordForm.setError(key, errs[key]);
+        });
       },
     });
   };
@@ -96,10 +209,16 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
         return;
       }
 
-      transform(stripMfaFields);
+      if (isOfw && data.password !== data.password_confirmation) {
+        setError('password_confirmation', 'Passwords do not match.');
+        return;
+      }
+
+      transform(cleanPayload);
 
       if (isCreateMode) {
         post(route('admin.users.store'), {
+          forceFormData: isOfw,
           onSuccess: () => {
             onClose?.();
             router.reload({ only: ['users'] });
@@ -138,16 +257,20 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
         <div className="sticky top-0 z-10 bg-white px-6 py-4 border-b border-slate-200 flex items-center justify-between rounded-t-xl">
           <div>
             <h3 className="text-lg font-bold text-slate-900">
-              {isEdit ? 'Edit User' : isNewUserViaSelectedAgency ? 'Add Focal Person' : isCreateMode ? 'Create User' : 'Invite User'}
+              {isEdit ? (isOfw ? 'Edit Citizen' : 'Edit User') : isNewUserViaSelectedAgency ? 'Add Focal Person' : isOfw ? 'Create Citizen' : isCreateMode ? 'Create User' : 'Invite User'}
             </h3>
             <p className="text-xs text-slate-500 mt-0.5">
               {isEdit
-                ? 'Update user account details and assignments.'
+                ? isOfw
+                  ? 'Update the citizen’s identity, contact details, photo, email, password, and account status.'
+                  : 'Update user account details and assignments.'
                 : isNewUserViaSelectedAgency
                   ? 'Send an invitation to a new focal person for this agency.'
-                  : isCreateMode
-                    ? 'Create a new user account directly with name and password.'
-                    : 'Send an invitation email so the user can set up their own account.'}
+                  : isOfw
+                    ? 'Create the citizen account with a temporary password for manual handover outside the app.'
+                    : isCreateMode
+                      ? 'Create a new user account directly with name and password.'
+                      : 'Send an invitation email so the user can set up their own account.'}
             </p>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-2xl leading-none">&times;</button>
@@ -161,7 +284,7 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
             </legend>
 
             {/* Mode toggle (new user, not via agency) */}
-            {!isEdit && !isNewUserViaSelectedAgency && (
+            {!isEdit && !isNewUserViaSelectedAgency && !isOfw && (
               <div className="flex rounded-lg border border-slate-200 overflow-hidden text-sm font-medium">
                 <button
                   type="button"
@@ -180,34 +303,172 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
               </div>
             )}
 
-            {/* Identity (edit or create mode) */}
-            {(isEdit || isCreateMode) && (
-              <IdentityFields data={data} setData={setData} errors={errors} />
+            {!isEdit && isOfw && (
+              <p className="rounded-lg border border-teal-200 bg-teal-50 px-3 py-2 text-xs text-teal-800">
+                Citizen accounts are created directly with a temporary password. There is no invitation email.
+              </p>
             )}
 
-            {/* Email */}
-            <div>
-              <label htmlFor="user-email" className="block text-sm font-medium text-slate-700">Email Address <span className="text-red-500">*</span></label>
-              <input
-                id="user-email"
-                type="email"
-                value={data.email}
-                onChange={(e) => { setData('email', e.target.value); clearErrors('email'); }}
-                onInvalid={(e) => { e.preventDefault(); setError('email', e.currentTarget.validity.valueMissing ? 'Email is required.' : 'Please provide a valid email address.'); e.currentTarget.focus(); }}
-                aria-invalid={Boolean(errors.email)}
-                aria-describedby={errors.email ? 'user-email-error' : undefined}
-                className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-primary focus:ring-primary text-sm"
-                placeholder="user@example.gov.ph"
-                required
-              />
-              <InputError id="user-email-error" message={errors.email} className="mt-1" />
-            </div>
+            {/* Identity (edit or create mode) */}
+            {(isEdit || isCreateMode) && (
+              <IdentityFields data={data} setData={setData} errors={errors} requireDemographics={isOfw} />
+            )}
+
+            {/* Email — changing a citizen's address needs the admin OTP flow */}
+            {isEdit && isOfw ? (
+              <div className="space-y-3 rounded-lg border border-slate-200 p-3">
+                <div>
+                  <label htmlFor="user-email" className="block text-sm font-medium text-slate-700">Email Address</label>
+                  <div className="mt-1 flex items-center gap-2">
+                    <input
+                      id="user-email"
+                      type="email"
+                      value={data.email}
+                      readOnly
+                      className="block w-full rounded-lg border-slate-200 bg-slate-50 text-slate-600 shadow-sm text-sm"
+                    />
+                    {emailStep === 'start' && (
+                      <button
+                        type="button"
+                        onClick={() => { emailForm.reset(); emailForm.clearErrors(); setEmailStep('request'); }}
+                        className="shrink-0 text-xs font-bold text-primary hover:underline"
+                      >
+                        Change email
+                      </button>
+                    )}
+                  </div>
+                  <InputError message={errors.email} className="mt-1" />
+                  <p className="mt-1 text-xs text-slate-500">Changing this email requires a code sent to the new address and your current admin password.</p>
+                </div>
+
+                {emailStep === 'request' && (
+                  <div className="space-y-3 border-t border-slate-100 pt-3">
+                    <div>
+                      <label htmlFor="ofw-new-email" className="block text-sm font-medium text-slate-700">New email address</label>
+                      <input
+                        id="ofw-new-email"
+                        type="email"
+                        value={emailForm.data.new_email}
+                        onChange={(e) => { emailForm.setData('new_email', e.target.value); emailForm.clearErrors('new_email'); }}
+                        className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-primary focus:ring-primary text-sm"
+                        autoComplete="email"
+                        required
+                      />
+                      <InputError message={emailForm.errors.new_email} className="mt-1" />
+                    </div>
+                    <div>
+                      <label htmlFor="ofw-email-admin-password" className="block text-sm font-medium text-slate-700">Your admin password</label>
+                      <input
+                        id="ofw-email-admin-password"
+                        type="password"
+                        value={emailForm.data.admin_password}
+                        onChange={(e) => { emailForm.setData('admin_password', e.target.value); emailForm.clearErrors('admin_password'); }}
+                        className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-primary focus:ring-primary text-sm"
+                        autoComplete="current-password"
+                        required
+                      />
+                      <InputError message={emailForm.errors.admin_password} className="mt-1" />
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => { emailForm.reset(); emailForm.clearErrors(); setEmailStep('start'); }}
+                        className="px-3 py-1.5 text-xs font-bold text-slate-600 bg-white border border-slate-300 rounded-md hover:bg-slate-50"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={sendEmailOtp}
+                        disabled={emailForm.processing}
+                        className="px-3 py-1.5 text-xs font-bold text-white bg-primary rounded-md hover:bg-primary-container disabled:opacity-50"
+                      >
+                        {emailForm.processing ? 'Sending...' : 'Send verification code'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {emailStep === 'otp' && (
+                  <div className="space-y-3 border-t border-slate-100 pt-3">
+                    <p className="text-xs text-slate-600">
+                      Enter the 6-digit code sent to <span className="font-semibold">{maskEmail(emailForm.data.new_email)}</span>.
+                    </p>
+                    <div>
+                      <label htmlFor="ofw-email-otp" className="block text-sm font-medium text-slate-700">Verification code</label>
+                      <input
+                        id="ofw-email-otp"
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={6}
+                        value={otpForm.data.otp}
+                        onChange={(e) => { otpForm.setData('otp', e.target.value.replace(/\D/g, '').slice(0, 6)); otpForm.clearErrors('otp'); }}
+                        className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-primary focus:ring-primary text-sm tracking-[0.3em] font-mono"
+                        autoComplete="one-time-code"
+                        required
+                      />
+                      <InputError message={otpForm.errors.otp} className="mt-1" />
+                    </div>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <button
+                        type="button"
+                        onClick={sendEmailOtp}
+                        disabled={emailForm.processing}
+                        className="text-xs font-bold text-primary hover:underline disabled:opacity-50"
+                      >
+                        {emailForm.processing ? 'Sending...' : 'Resend code'}
+                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => { otpForm.reset(); otpForm.clearErrors(); setEmailStep('request'); }}
+                          className="px-3 py-1.5 text-xs font-bold text-slate-600 bg-white border border-slate-300 rounded-md hover:bg-slate-50"
+                        >
+                          Back
+                        </button>
+                        <button
+                          type="button"
+                          onClick={verifyEmailOtp}
+                          disabled={otpForm.processing || otpForm.data.otp.length !== 6}
+                          className="px-3 py-1.5 text-xs font-bold text-white bg-primary rounded-md hover:bg-primary-container disabled:opacity-50"
+                        >
+                          {otpForm.processing ? 'Verifying...' : 'Verify code'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {emailStep === 'verified' && (
+                  <p role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+                    New email verified. Save your changes to apply it.
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div>
+                <label htmlFor="user-email" className="block text-sm font-medium text-slate-700">Email Address <span className="text-red-500">*</span></label>
+                <input
+                  id="user-email"
+                  type="email"
+                  value={data.email}
+                  onChange={(e) => { setData('email', e.target.value); clearErrors('email'); }}
+                  onInvalid={(e) => { e.preventDefault(); setError('email', e.currentTarget.validity.valueMissing ? 'Email is required.' : 'Please provide a valid email address.'); e.currentTarget.focus(); }}
+                  aria-invalid={Boolean(errors.email)}
+                  aria-describedby={errors.email ? 'user-email-error' : undefined}
+                  className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-primary focus:ring-primary text-sm"
+                  placeholder="user@example.gov.ph"
+                  required
+                />
+                <InputError id="user-email-error" message={errors.email} className="mt-1" />
+              </div>
+            )}
 
             {/* Password fields (create mode only) */}
             {isCreateMode && (
               <>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700">Password <span className="text-red-500">*</span></label>
+                  <label className="block text-sm font-medium text-slate-700">{isOfw ? 'Temporary Password' : 'Password'} <span className="text-red-500">*</span></label>
                   <input
                     type="password"
                     value={data.password}
@@ -219,6 +480,9 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
                     autoComplete="new-password"
                   />
                   <InputError message={errors.password} className="mt-1" />
+                  {isOfw && (
+                    <p className="mt-1 text-xs text-slate-500">Hand this password over manually outside the app. The citizen must replace it before using the app.</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700">Confirm Password <span className="text-red-500">*</span></label>
@@ -244,13 +508,21 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
                 <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-bold border ${user?.email_verified_at ? 'bg-success-container text-on-success-container border-success/20' : 'bg-error-container text-on-error-container border-error/20'}`}>
                   {user?.email_verified_at ? 'Yes' : 'No'}
                 </span>
-                {user?.email_verified_at && (
+                {isOfw ? (
+                  <span className="text-xs text-slate-400">— Citizen accounts created by an admin start unverified</span>
+                ) : user?.email_verified_at ? (
                   <span className="text-xs text-slate-400">— Changing email will reset verification</span>
-                )}
+                ) : null}
               </div>
             )}
 
-            {!isEdit && (
+            {isEdit && isOfw && user?.must_change_password && (
+              <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                This citizen still uses a temporary password. Replacement is required before they can use the app.
+              </p>
+            )}
+
+            {!isEdit && !isOfw && (
               <p className="text-xs text-slate-500 mt-1">
                 New accounts inherit the MFA requirement of their role. Individual overrides can be set after the account exists.
               </p>
@@ -280,6 +552,13 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
                   </div>
                   {!isEdit && <input type="hidden" value={roles.AGENCY} />}
                 </>
+              ) : isEdit && isOfw ? (
+                <div className="mt-1 flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm font-medium text-slate-700">
+                  <span className="inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-bold border bg-teal-100 text-teal-800 border-teal-300">
+                    Citizen (OFW)
+                  </span>
+                  <span className="text-xs text-slate-500">— the role cannot be changed after creation</span>
+                </div>
               ) : (
                 <>
                   <Select
@@ -288,6 +567,9 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
                       setData('role', e.target.value);
                       if (e.target.value !== roles.AGENCY) {
                         setData('agcy_id', '');
+                      }
+                      if (e.target.value === roles.OFW) {
+                        setMode('create');
                       }
                     }}
                     className="mt-1 w-full py-2 text-sm"
@@ -324,7 +606,7 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
               </div>
             )}
 
-            {/* Active toggle (edit only) */}
+            {/* Active toggle (editing) */}
             {isEdit && (
               <div className="flex items-center gap-3 pt-1">
                 <button
@@ -341,10 +623,18 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
                 </label>
               </div>
             )}
+
+            {isCreateMode && isOfw && (
+              <div className="flex items-center gap-2 text-sm">
+                <span className="font-medium text-slate-700">Account status:</span>
+                <span className="inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-bold border bg-emerald-50 text-emerald-700 border-emerald-200">Active</span>
+                <span className="text-xs text-slate-500">New citizen accounts start active.</span>
+              </div>
+            )}
           </fieldset>
 
-          {/* Section: MFA requirement (edit only) */}
-          {isEdit && (
+          {/* Section: MFA requirement (staff edit only) */}
+          {isEdit && !isOfw && (
             <fieldset className="space-y-4">
               <legend className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">MFA Requirement</legend>
 
@@ -409,8 +699,115 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
             </fieldset>
           )}
 
-          {/* Section: Profile Details (edit only) */}
-          {isEdit && (
+          {/* Section: Citizen profile (create or edit OFW) */}
+          {isOfw && (
+            <fieldset className="space-y-4">
+              <legend className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">Citizen Details</legend>
+
+              <AvatarPicker
+                key={data.remove_profile_picture ? 'removed' : 'current'}
+                file={data.profile_picture}
+                onFileChange={(file) => {
+                  setData('profile_picture', file);
+                  setData('remove_profile_picture', !file && !!user?.avatar_url);
+                  clearErrors('profile_picture');
+                }}
+                name={`${data.first_name ?? ''} ${data.last_name ?? ''}`.trim()}
+                initialPreview={data.remove_profile_picture ? null : user?.avatar_url}
+                error={errors.profile_picture}
+                disabled={processing}
+                label="Profile photo"
+              />
+              {data.remove_profile_picture && (
+                <div className="flex items-center gap-2 text-xs text-slate-500">
+                  <span>The current photo will be removed when you save.</span>
+                  <button type="button" onClick={() => setData('remove_profile_picture', false)} className="font-bold text-primary hover:underline">
+                    Keep photo
+                  </button>
+                </div>
+              )}
+
+              <div>
+                <label htmlFor="citizen-contact" className="block text-sm font-medium text-slate-700">Contact Number</label>
+                <input
+                  id="citizen-contact"
+                  type="text"
+                  value={data.contact_number}
+                  onChange={(e) => setData('contact_number', e.target.value)}
+                  className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-primary focus:ring-primary text-sm"
+                  placeholder="e.g. 09171234567"
+                  autoComplete="tel"
+                />
+                <InputError message={errors.contact_number} className="mt-1" />
+              </div>
+            </fieldset>
+          )}
+
+          {/* Section: Citizen password reset */}
+          {isEdit && isOfw && (
+            <fieldset className="space-y-4">
+              <legend className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">Reset Password</legend>
+              <p className="text-xs text-slate-500">
+                Set a temporary password for manual handover outside the app. The citizen must replace it before using the app.
+              </p>
+
+              <div>
+                <label htmlFor="ofw-password" className="block text-sm font-medium text-slate-700">New temporary password</label>
+                <input
+                  id="ofw-password"
+                  type="password"
+                  value={passwordForm.data.password}
+                  onChange={(e) => { passwordForm.setData('password', e.target.value); passwordForm.clearErrors('password'); }}
+                  className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-primary focus:ring-primary text-sm"
+                  autoComplete="new-password"
+                  required
+                />
+                <InputError message={passwordForm.errors.password} className="mt-1" />
+              </div>
+
+              <div>
+                <label htmlFor="ofw-password-confirmation" className="block text-sm font-medium text-slate-700">Confirm temporary password</label>
+                <input
+                  id="ofw-password-confirmation"
+                  type="password"
+                  value={passwordForm.data.password_confirmation}
+                  onChange={(e) => { passwordForm.setData('password_confirmation', e.target.value); passwordForm.clearErrors('password_confirmation'); }}
+                  className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-primary focus:ring-primary text-sm"
+                  autoComplete="new-password"
+                  required
+                />
+                <InputError message={passwordForm.errors.password_confirmation} className="mt-1" />
+              </div>
+
+              <div>
+                <label htmlFor="ofw-admin-password" className="block text-sm font-medium text-slate-700">Your current admin password</label>
+                <input
+                  id="ofw-admin-password"
+                  type="password"
+                  value={passwordForm.data.current_password}
+                  onChange={(e) => { passwordForm.setData('current_password', e.target.value); passwordForm.clearErrors('current_password'); }}
+                  className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-primary focus:ring-primary text-sm"
+                  autoComplete="current-password"
+                  required
+                />
+                <InputError message={passwordForm.errors.current_password} className="mt-1" />
+              </div>
+
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={resetPassword}
+                  disabled={processing}
+                  className="px-3.5 py-2 text-xs font-bold text-white bg-primary rounded-lg hover:bg-primary-container disabled:opacity-50 transition-colors"
+                >
+                  {processing ? 'Resetting...' : 'Reset Password'}
+                </button>
+              </div>
+            </fieldset>
+          )}
+
+          {/* Section: Profile Details (staff edit only) */}
+          {isEdit && !isOfw && (
             <fieldset className="space-y-4">
               <legend className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">Profile Details</legend>
 
@@ -497,7 +894,7 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
               <button type="submit" disabled={processing} className="px-5 py-2 text-sm font-bold text-white bg-primary rounded-lg hover:bg-primary-container disabled:opacity-50 transition-colors">
                 {processing
                   ? (isEdit ? 'Saving...' : isCreateMode ? 'Creating...' : 'Sending Invite...')
-                  : (isEdit ? 'Save Changes' : isCreateMode ? 'Create User' : 'Send Invite')
+                  : (isEdit ? 'Save Changes' : isOfw ? 'Create Citizen' : isCreateMode ? 'Create User' : 'Send Invite')
                 }
               </button>
             </div>

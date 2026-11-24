@@ -150,7 +150,7 @@ class AdminUserTest extends TestCase
                 'last_name' => 'Role',
                 'email' => 'badrole@example.com',
                 'password' => 'Str0ng!Pass',
-                'role' => UserRole::OFW->value,
+                'role' => 'INVALID_ROLE',
                 'agcy_id' => $agency->id,
             ]);
 
