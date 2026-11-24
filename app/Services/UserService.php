@@ -54,11 +54,17 @@ class UserService
                 'password' => Hash::make($data['password']),
                 'role' => $data['role'],
                 'agcy_id' => $this->resolveAgencyId($data),
-                'email_verified_at' => now(),
+                'email_verified_at' => $data['role'] === UserRole::OFW->value ? null : now(),
+                'contact_number' => $data['contact_number'] ?? null,
                 'is_active' => true,
             ]);
+            $user->must_change_password = $user->isOfw();
             $user->auditActorId = $actorId;
             $user->save();
+            if ($user->isOfw() && isset($data['profile_picture'])) {
+                $this->applyAdminPhoto($user, $data);
+                $user->save();
+            }
 
             return $user;
         });
@@ -190,7 +196,12 @@ class UserService
         $passwordChanged = false;
 
         $user = DB::transaction(function () use ($user, $data, $actorId, $verifiedNewEmail, &$emailChangeMail, &$passwordChanged) {
+            if (isset($data['role']) && ($data['role'] === UserRole::OFW->value) !== $user->isOfw()) {
+                throw ValidationException::withMessages(['role' => 'OFW and staff accounts cannot be converted.']);
+            }
+
             if (! empty($data['password'])) {
+                $user->must_change_password = $user->isOfw();
                 $data['password'] = Hash::make($data['password']);
                 $passwordChanged = true;
             } else {
@@ -233,7 +244,16 @@ class UserService
             }
 
             unset($data['email']);
+            if ($user->isOfw()) {
+                $data['agcy_id'] = null;
+            }
+            $this->applyAdminPhoto($user, $data);
+            unset($data['profile_picture'], $data['remove_profile_picture']);
+            $deactivated = ($data['is_active'] ?? true) === false && $user->is_active !== false;
             $user->update($data);
+            if ($deactivated) {
+                $this->invalidateSessions($user, 'admin_deactivated_account');
+            }
 
             // A password-only edit writes nothing the audit observer keeps:
             // User::$auditExclude drops `password` and `remember_token`, and
@@ -628,8 +648,31 @@ class UserService
             ->write();
     }
 
+    private function applyAdminPhoto(User $user, array $data): void
+    {
+        if (! $user->isOfw()) {
+            return;
+        }
+
+        try {
+            if ($file = $data['profile_picture'] ?? null) {
+                $user->avatar_url = app(CloudinaryAvatarService::class)->uploadImage($file, 'avatars', 'user-'.$user->id);
+            } elseif ($data['remove_profile_picture'] ?? false) {
+                app(CloudinaryAvatarService::class)->deleteByUrl($user->getRawOriginal('avatar_url'));
+                $user->avatar_url = null;
+            }
+        } catch (\Throwable $e) {
+            report($e);
+            throw ValidationException::withMessages(['profile_picture' => 'The image could not be saved. Please try again.']);
+        }
+    }
+
     private function resolveAgencyId(array $data): ?string
     {
+        if (($data['role'] ?? null) === UserRole::OFW->value) {
+            return null;
+        }
+
         $agcyId = $data['agcy_id'] ?? null;
 
         if (! $agcyId && ($data['role'] ?? null) === UserRole::AGENCY->value) {

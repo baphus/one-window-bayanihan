@@ -26,6 +26,7 @@ class MfaPendingState
      * enrolment.
      */
     public const ENROLLMENT_EXEMPT_ROUTES = [
+        'password.temporary.*',
         'profile.edit',
         'ofw.profile.edit',
         'profile.mfa.*',

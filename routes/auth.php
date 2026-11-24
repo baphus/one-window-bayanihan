@@ -95,6 +95,12 @@ Route::middleware('guest')->group(function () {
 });
 
 Route::middleware('auth')->group(function () {
+    Route::get('change-temporary-password', [PasswordController::class, 'editTemporary'])
+        ->name('password.temporary.edit');
+    Route::post('change-temporary-password', [PasswordController::class, 'update'])
+        ->middleware('throttle:password-confirm')
+        ->name('password.temporary.update');
+
     Route::get('confirm-password', [ConfirmablePasswordController::class, 'show'])
         ->name('password.confirm');
 

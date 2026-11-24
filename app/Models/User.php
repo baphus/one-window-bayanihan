@@ -96,6 +96,7 @@ class User extends Authenticatable implements MustVerifyEmail
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_active' => 'boolean',
+            'must_change_password' => 'boolean',
             'is_deleted' => 'boolean',
             'mfa_secret' => 'encrypted',
             'mfa_recovery_codes' => 'array',
