@@ -13,7 +13,7 @@
         "inertiajs/inertia-laravel": "^2.0",
         "laravel/ai": "^0.10",
         "laravel/framework": "^13.7",
-        "league/flysystem-aws-s3-v3": "3.34.0",
+        "league/flysystem-aws-s3-v3": "3.35.3",
         "phpoffice/phpspreadsheet": "^5.10.0",
         "pragmarx/google2fa-laravel": "3.0.1",
         "resend/resend-php": "^1.6",
