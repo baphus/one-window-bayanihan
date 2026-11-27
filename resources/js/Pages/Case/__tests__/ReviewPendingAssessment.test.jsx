@@ -1,7 +1,11 @@
 import '@testing-library/jest-dom/vitest';
 import { render, screen, fireEvent, cleanup, act } from '@testing-library/react';
 import { router } from '@inertiajs/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const draftSpy = vi.hoisted(() => ({ args: null }));
+vi.mock('@/Hooks/useSessionDraft', () => ({ default: (args) => { draftSpy.args = args; return { clear: vi.fn(), onSuccess: vi.fn(), status: 'Draft saved' }; } }));
+vi.mock('@/Components/DraftControls', () => ({ default: () => <p role="status">Draft saved</p> }));
 
 vi.mock('@inertiajs/react', () => ({
   Head: () => null,
@@ -19,7 +23,8 @@ globalThis.route = (name) => `/mocked/${name}`;
 
 import ReviewPending from '../ReviewPending';
 
-afterEach(cleanup);
+beforeEach(() => sessionStorage.clear());
+afterEach(() => { cleanup(); sessionStorage.clear(); });
 
 const pendingCases = {
   data: [
@@ -124,6 +129,15 @@ describe('Review pending intake', () => {
     expect(screen.queryByText(/case issue/i)).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/issue \/ concern/i)).not.toBeInTheDocument();
     expect(screen.getByText(/case categories \*/i)).toBeInTheDocument();
+  });
+
+  it('keeps consent and compliance evidence out of assessment draft controls', () => {
+    openReview();
+    expect(screen.getByText('Draft saved')).toBeInTheDocument();
+    expect(draftSpy.args.fields).toEqual(['confirmed_assessments', 'confirmed_assessment_other', 'staff_summary', 'category_ids']);
+    expect(draftSpy.args.fields).not.toContain('reviewed_document_ids');
+    expect(screen.queryByLabelText(/consent/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/complied/i)).not.toBeInTheDocument();
   });
 
   it('shows ZIP download for uploaded documents', () => {

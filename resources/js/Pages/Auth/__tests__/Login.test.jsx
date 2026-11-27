@@ -41,6 +41,7 @@ describe('Login page — login step', () => {
         expect(screen.getByRole('textbox')).toBeInTheDocument(); // email input
         expect(screen.getByText(/email address/i)).toBeInTheDocument();
         expect(screen.getByText(/password/i)).toBeInTheDocument();
+        expect(screen.queryByText(/password must|password should|at least \d+ characters/i)).not.toBeInTheDocument();
         expect(screen.getByText(/remember me/i)).toBeInTheDocument();
         expect(screen.getByRole('checkbox')).toBeInTheDocument();
         expect(screen.getByRole('button', { name: /log in/i })).toBeInTheDocument();

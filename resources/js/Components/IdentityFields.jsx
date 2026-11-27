@@ -1,5 +1,6 @@
 import InputError from '@/Components/InputError';
 import Select from '@/Components/Select';
+import { getMaximumBirthDate } from '@/lib/dates';
 
 const INPUT = {
   default: 'mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-primary focus:ring-primary text-sm',
@@ -91,9 +92,14 @@ export default function IdentityFields({ data, setData, errors = {}, requireDemo
           id="identity-date_of_birth"
           type="date"
           value={data.date_of_birth ?? ''}
-          onChange={(event) => setData('date_of_birth', event.target.value)}
+          onChange={(event) => {
+            event.target.setCustomValidity('');
+            setData('date_of_birth', event.target.value);
+          }}
+          onInvalid={(event) => event.currentTarget.setCustomValidity('Must be at least 16 years old.')}
           className={input}
           required={requireDemographics}
+          max={getMaximumBirthDate()}
           autoComplete="bday"
         />
         {error('date_of_birth')}

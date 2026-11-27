@@ -7,6 +7,7 @@ globalThis.route = (name) => `/mocked/${name}`;
 const mocks = vi.hoisted(() => ({ transform: vi.fn() }));
 
 vi.mock('@inertiajs/react', () => ({
+  usePage: () => ({ props: { auth: { user: { id: 'test-user' } } } }),
   useForm: (initial) => ({
     data: initial,
     setData: vi.fn(),
@@ -23,6 +24,8 @@ vi.mock('@/Hooks/useClientValidation', () => ({ default: () => ({ validate: () =
 vi.mock('@/Components/AgencyMapView', () => ({ default: () => null }));
 vi.mock('../LogoUpload', () => ({ default: () => null }));
 vi.mock('@/Components/InputError', () => ({ default: () => null }));
+vi.mock('@/Hooks/useSessionDraft', () => ({ default: () => ({ clear: vi.fn(), onSuccess: vi.fn(), status: '' }) }));
+vi.mock('@/Components/DraftControls', () => ({ default: () => null }));
 
 describe('AgencyFormModal contact parser', () => {
   it('omits structured fields on unchanged edits so legacy text survives backend combining', () => {

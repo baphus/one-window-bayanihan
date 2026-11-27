@@ -9,7 +9,7 @@ vi.mock('@inertiajs/react', () => ({
 }));
 vi.mock('@/Hooks/useToast', () => ({ useToast: () => ({ success: vi.fn() }) }));
 vi.mock('@/Hooks/useClientValidation', () => ({ default: () => ({ validate: () => true }) }));
-vi.mock('@/Components/PasswordInput', () => ({ default: ({ label }) => <input aria-label={label} /> }));
+vi.mock('@/Components/PasswordInput', () => ({ default: ({ label, showStrengthMeter }) => <div><input aria-label={label} /><span data-testid={`${label}-strength`}>{showStrengthMeter ? 'visible' : 'hidden'}</span></div> }));
 
 import UpdatePasswordForm from '../Partials/UpdatePasswordForm';
 
@@ -21,6 +21,9 @@ describe('Update password form', () => {
         expect(screen.getByRole('textbox', { name: 'Current Password' })).toBeInTheDocument();
         expect(screen.getByRole('textbox', { name: 'New Password' })).toBeInTheDocument();
         expect(screen.getByRole('textbox', { name: 'Confirm Password' })).toBeInTheDocument();
+        expect(screen.getByTestId('Current Password-strength')).toHaveTextContent('hidden');
+        expect(screen.getByTestId('New Password-strength')).toHaveTextContent('visible');
+        expect(screen.getByTestId('Confirm Password-strength')).toHaveTextContent('visible');
         fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
         expect(reset).toHaveBeenCalled();
         expect(clearErrors).toHaveBeenCalled();

@@ -119,6 +119,7 @@ export default function ResetPassword({ token, email }) {
                                     showStrengthMeter
                                     rules={passwordRules}
                                     confirmation={data.password_confirmation}
+                                    required
                                 />
 
                                 <PasswordInput
@@ -128,6 +129,10 @@ export default function ResetPassword({ token, email }) {
                                     onChange={(v) => setData('password_confirmation', v)}
                                     error={errors.password_confirmation}
                                     autoComplete="new-password"
+                                    showStrengthMeter
+                                    rules={passwordRules}
+                                    confirmation={data.password}
+                                    required
                                 />
 
                                 <button

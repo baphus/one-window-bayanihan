@@ -1,9 +1,12 @@
 import Select from '@/Components/Select';
-import { useState } from 'react';
 import { useForm } from '@inertiajs/react';
 import InputError from '@/Components/InputError';
 import { serviceFormSchema } from '@/Schemas/adminSchemas';
 import useClientValidation from '@/Hooks/useClientValidation';
+import useSessionDraft from '@/Hooks/useSessionDraft';
+import DraftControls from '@/Components/DraftControls';
+import { usePage } from '@inertiajs/react';
+import { useMemo } from 'react';
 
 function genTempId() {
   return `req_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
@@ -11,24 +14,19 @@ function genTempId() {
 
 export default function ServiceFormModal({ service, allAgencies, onClose, onBypass, selectedAgencyId = null }) {
   const isEdit = !!service?.id;
-  const { data, setData, post, patch, processing, errors, transform, clearErrors, setError } = useForm({
-    name: service?.name ?? '',
-    description: service?.description ?? '',
-    agcy_id: selectedAgencyId ?? service?.agcy_id ?? '',
-    processing_days: service?.processing_days ?? '',
-  });
+  const defaults = useMemo(() => ({
+    name: service?.name ?? '', description: service?.description ?? '',
+    agcy_id: selectedAgencyId ?? service?.agcy_id ?? '', processing_days: service?.processing_days ?? '',
+    requirements: (service?.requirements ?? []).map((r) => ({ id: r.id ?? null, name: r.name, description: r.description, is_required: r.is_required })),
+  }), [service, selectedAgencyId]);
+  const { data, setData, post, patch, processing, errors, transform, clearErrors, setError } = useForm(defaults);
+  const { auth } = usePage().props;
+  const draft = useSessionDraft({ userId: auth?.user?.id, formKey: 'admin.service', recordId: service?.id ?? 'create', data, setData, defaults, fields: ['name', 'description', 'agcy_id', 'processing_days', 'requirements'], shapes: { processing_days: null, requirements: [{ id: null, name: '', description: '', is_required: false }] } });
 
   const { validate } = useClientValidation(serviceFormSchema, data, setError);
 
-  const [requirements, setRequirements] = useState(
-    () => (service?.requirements ?? []).map((r) => ({
-      tempId: genTempId(),
-      id: r.id,
-      name: r.name,
-      description: r.description,
-      is_required: r.is_required,
-    }))
-  );
+  const requirements = (data.requirements ?? []).map((r, index) => ({ ...r, tempId: r.tempId ?? `req_${r.id ?? index}` }));
+  const setRequirements = (update) => setData('requirements', typeof update === 'function' ? update(requirements) : update);
 
   function addRequirement() {
     setRequirements((prev) => [
@@ -65,9 +63,9 @@ export default function ServiceFormModal({ service, allAgencies, onClose, onBypa
     }));
 
     if (isEdit) {
-      patch(route('admin.services.update', service.id), { onSuccess: onClose });
+      patch(route('admin.services.update', service.id), { onSuccess: () => { draft.onSuccess(); onClose?.(); } });
     } else {
-      post(route('admin.services.store'), { onSuccess: onClose });
+      post(route('admin.services.store'), { onSuccess: () => { draft.onSuccess(); onClose?.(); } });
     }
   }
 
@@ -242,6 +240,8 @@ export default function ServiceFormModal({ service, allAgencies, onClose, onBypa
               </div>
             )}
           </fieldset>
+
+          <DraftControls status={draft.status} onClear={draft.clear} />
 
           {/* Actions */}
           <div className="flex items-center justify-between pt-3 border-t border-slate-100">

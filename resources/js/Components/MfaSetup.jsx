@@ -420,7 +420,7 @@ export default function MfaSetup({ mfaEnabled, mfaRequired = true }) {
                     </div>
 
                     <div className="px-6 pb-4">
-                        <InputLabel htmlFor="confirm-mfa-password" value="Your Password" />
+                        <InputLabel htmlFor="confirm-mfa-password" value="Your Password — Required" />
                         <TextInput
                             id="confirm-mfa-password"
                             type="password"
@@ -429,6 +429,7 @@ export default function MfaSetup({ mfaEnabled, mfaRequired = true }) {
                             onChange={(e) => { setConfirmPassword(e.target.value); setConfirmError(''); }}
                             placeholder="Enter your current password"
                             autoComplete="current-password"
+                            required
                         />
                         {confirmError && <InputError message={confirmError} className="mt-2" />}
                     </div>

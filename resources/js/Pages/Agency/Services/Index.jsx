@@ -6,6 +6,8 @@ import { UnifiedTable } from '@/Components/ui/UnifiedTable';
 import { RowContextMenu, RowContextMenuItem } from '@/Components/ui/RowContextMenu';
 import ConfirmDialog from '@/Components/ui/ConfirmDialog';
 import { usePersistedViewMode } from '@/Hooks/usePersistedViewState';
+import useSessionDraft from '@/Hooks/useSessionDraft';
+import DraftControls from '@/Components/DraftControls';
 
 export default function AgencyServicesIndex({ services, allServices }) {
     const { auth } = usePage().props;
@@ -25,6 +27,10 @@ export default function AgencyServicesIndex({ services, allServices }) {
     const [newDescription, setNewDescription] = useState('');
     const [newRequirements, setNewRequirements] = useState([]);
     const [newReqInput, setNewReqInput] = useState('');
+    const createDefaults = useMemo(() => ({ name: '', description: '', requirements: [] }), []);
+    const createData = { name: newName, description: newDescription, requirements: newRequirements };
+    const setCreateData = (value) => { setNewName(value.name); setNewDescription(value.description); setNewRequirements(value.requirements); };
+    const createDraft = useSessionDraft({ userId: auth?.user?.id, formKey: 'agency.service', data: createData, setData: setCreateData, defaults: createDefaults, fields: ['name', 'description', 'requirements'], shapes: { requirements: [''] } });
 
     const [deleteTarget, setDeleteTarget] = useState(null);
     const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
@@ -67,6 +73,10 @@ export default function AgencyServicesIndex({ services, allServices }) {
         () => allServices.find((s) => s.id === selectedServiceId) ?? null,
         [selectedServiceId, allServices],
     );
+    const editDefaults = useMemo(() => ({ name: selectedService?.name ?? '', description: selectedService?.description ?? '', requirements: selectedService?.requirements?.map((r) => r.name) ?? [] }), [selectedService]);
+    const editData = { name: draftName, description: draftDescription, requirements: draftRequirements };
+    const setEditData = (value) => { setDraftName(value.name); setDraftDescription(value.description); setDraftRequirements(value.requirements); };
+    const editDraft = useSessionDraft({ userId: auth?.user?.id, formKey: 'agency.service.edit', recordId: selectedServiceId ?? 'create', data: editData, setData: setEditData, defaults: editDefaults, fields: ['name', 'description', 'requirements'], shapes: { requirements: [''] } });
 
     const filteredServices = useMemo(() => {
         const query = searchValue.trim().toLowerCase();
@@ -124,6 +134,7 @@ export default function AgencyServicesIndex({ services, allServices }) {
         }, {
             preserveScroll: true,
             onSuccess: () => {
+                createDraft.onSuccess();
                 setIsCreateOpen(false);
                 setNewName('');
                 setNewDescription('');
@@ -144,7 +155,7 @@ export default function AgencyServicesIndex({ services, allServices }) {
             requirements: draftRequirements,
         }, {
             preserveScroll: true,
-            onSuccess: closeEdit,
+            onSuccess: () => { editDraft.onSuccess(); closeEdit(); },
             onFinish: () => setUpdating(false),
         });
     };
@@ -297,6 +308,7 @@ export default function AgencyServicesIndex({ services, allServices }) {
                             </div>
                         </div>
 
+                        <div className="px-6"><DraftControls status={editDraft.status} onClear={editDraft.clear} /></div>
                         <div className="flex justify-end gap-2 border-t border-slate-200 px-6 py-4">
                             <button type="button" onClick={closeEdit}
                                 className="h-9 rounded border border-slate-300 bg-white px-4 text-xs font-bold text-slate-700 hover:bg-slate-50">Cancel</button>
@@ -356,6 +368,7 @@ export default function AgencyServicesIndex({ services, allServices }) {
                             </div>
                         </div>
 
+                        <div className="px-6"><DraftControls status={createDraft.status} onClear={createDraft.clear} /></div>
                         <div className="flex justify-end gap-2 border-t border-slate-200 px-6 py-4">
                             <button type="button" onClick={() => { setIsCreateOpen(false); setNewName(''); setNewDescription(''); setNewRequirements([]); setNewReqInput(''); }}
                                 className="h-9 rounded border border-slate-300 bg-white px-4 text-xs font-bold text-slate-700 hover:bg-slate-50">Cancel</button>

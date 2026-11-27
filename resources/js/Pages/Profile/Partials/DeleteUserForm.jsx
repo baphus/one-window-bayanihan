@@ -73,7 +73,7 @@ export default function DeleteUserForm({ className = '', onDirtyChange, onBypass
                     <div className="mt-6">
                         <InputLabel
                             htmlFor="password"
-                            value="Password"
+                            value="Password — Required"
                             className="sr-only"
                         />
 
@@ -91,6 +91,7 @@ export default function DeleteUserForm({ className = '', onDirtyChange, onBypass
                             placeholder="Password"
                         />
 
+                        <p className="mt-2 text-xs text-slate-500">Enter your current password.</p>
                         <InputError
                             message={errors.password}
                             className="mt-2"

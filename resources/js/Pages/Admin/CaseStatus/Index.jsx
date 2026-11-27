@@ -10,6 +10,9 @@ import StatusBadge from '@/Components/ui/StatusBadge';
 import InputError from '@/Components/InputError';
 import { caseStatusSchema } from '@/Schemas/adminSchemas';
 import useClientValidation from '@/Hooks/useClientValidation';
+import useSessionDraft from '@/Hooks/useSessionDraft';
+import DraftControls from '@/Components/DraftControls';
+import { usePage } from '@inertiajs/react';
 import { RowContextMenu, RowContextMenuItem } from '@/Components/ui/RowContextMenu';
 
 const typeColors = {
@@ -19,13 +22,10 @@ const typeColors = {
 
 function StatusForm({ status, onClose, onBypass }) {
   const isEdit = !!status;
-  const { data, setData, post, patch, processing, errors, clearErrors, setError } = useForm({
-    name: status?.name ?? '',
-    type: status?.type ?? 'referral',
-    color: status?.color ?? '',
-    sort_order: status?.sort_order ?? 0,
-    is_active: status?.is_active ?? true,
-  });
+  const defaults = useMemo(() => ({ name: status?.name ?? '', type: status?.type ?? 'referral', color: status?.color ?? '', sort_order: status?.sort_order ?? 0, is_active: status?.is_active ?? true }), [status]);
+  const { data, setData, post, patch, processing, errors, clearErrors, setError } = useForm(defaults);
+  const { auth } = usePage().props;
+  const draft = useSessionDraft({ userId: auth?.user?.id, formKey: 'admin.case-status', recordId: status?.id ?? 'create', data, setData, defaults, fields: ['name', 'type', 'color', 'sort_order', 'is_active'] });
   const { validate } = useClientValidation(caseStatusSchema, data, setError);
 
   function handleSubmit(e) {
@@ -34,9 +34,9 @@ function StatusForm({ status, onClose, onBypass }) {
     if (!validate()) return;
     onBypass?.();
     if (isEdit) {
-      patch(route('admin.case-statuses.update', status.id), { onSuccess: onClose });
+      patch(route('admin.case-statuses.update', status.id), { onSuccess: () => { draft.onSuccess(); onClose?.(); } });
     } else {
-      post(route('admin.case-statuses.store'), { onSuccess: onClose });
+      post(route('admin.case-statuses.store'), { onSuccess: () => { draft.onSuccess(); onClose?.(); } });
     }
   }
 
@@ -113,6 +113,7 @@ function StatusForm({ status, onClose, onBypass }) {
             />
             <label htmlFor="is_active" className="text-sm text-slate-700">Active</label>
           </div>
+          <DraftControls status={draft.status} onClear={draft.clear} />
           <div className="flex justify-end gap-3 pt-2">
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50">Cancel</button>
             <button type="submit" disabled={processing} className="px-4 py-2 text-sm font-medium text-white bg-blue-900 rounded-md hover:bg-blue-800 disabled:opacity-50">

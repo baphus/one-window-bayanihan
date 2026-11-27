@@ -163,7 +163,7 @@ export default function ChangeEmailForm({
                 className="border-t-2 border-t-slate-200 pt-6"
             >
                 <div>
-                    <InputLabel htmlFor="current_password" value="Current Password" />
+                    <InputLabel htmlFor="current_password" value="Current Password — Required" />
                     <TextInput
                         id="current_password"
                         type="password"
@@ -176,6 +176,7 @@ export default function ChangeEmailForm({
                     {passwordError && (
                         <p className="mt-2 text-sm text-red-600">{passwordError}</p>
                     )}
+                    <p className="mt-2 text-xs text-slate-500">Enter your current password.</p>
                 </div>
 
                 <div>

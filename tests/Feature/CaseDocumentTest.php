@@ -183,9 +183,51 @@ class CaseDocumentTest extends TestCase
             ->assertHeader('Content-Disposition', 'attachment; filename="'.$this->case->case_number.'_Ana Maria Santos Jr_Passport front page.pdf"');
     }
 
-    public function test_preview_route_is_removed(): void
+    public function test_pdf_preview_streams_inline_with_private_security_headers(): void
     {
-        $this->assertFalse(app('router')->has('cases.documents.preview'));
+        Storage::fake('object-storage');
+        config(['filesystems.default' => 'object-storage']);
+        $document = CaseDocument::factory()->create(['case_id' => $this->case->id, 'file_path' => 'case/preview.pdf', 'file_name' => 'preview.pdf']);
+        Storage::disk('object-storage')->put('case/preview.pdf', '%PDF-test');
+
+        $this->actingAsWithMfa($this->caseManager)
+            ->get(route('cases.documents.preview', [$this->case->id, $document->id]))
+            ->assertOk()
+            ->assertHeader('Content-Type', 'application/pdf')
+            ->assertHeader('Content-Disposition', 'inline; filename="preview.pdf"')
+            ->assertHeader('Cache-Control', 'no-store, private')
+            ->assertHeader('X-Content-Type-Options', 'nosniff');
+    }
+
+    public function test_preview_rejects_document_associated_with_different_case_and_soft_deleted_document(): void
+    {
+        $otherCase = CaseFile::create([
+            'id' => fake()->uuid(), 'case_number' => 'OTHER-'.fake()->unique()->numberBetween(1000, 9999),
+            'tracker_number' => 'OWBAP-'.strtoupper(fake()->bothify('???????')), 'status' => 'OPEN', 'user_id' => $this->caseManager->id,
+        ]);
+        $document = CaseDocument::factory()->create(['case_id' => $otherCase->id, 'file_path' => 'case/x.pdf']);
+        $this->actingAsWithMfa($this->caseManager)->get(route('cases.documents.preview', [$this->case->id, $document->id]))->assertNotFound();
+        $document->update(['is_deleted' => true]);
+        $this->actingAsWithMfa($this->caseManager)->get(route('cases.documents.preview', [$otherCase->id, $document->id]))->assertNotFound();
+    }
+
+    public function test_preview_denies_another_agencys_referral_document(): void
+    {
+        $agencyA = Agency::factory()->create();
+        $agencyB = Agency::factory()->create();
+        $agencyUser = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agencyA->id]);
+        $referral = Referral::factory()->create(['case_id' => $this->case->id, 'agcy_id' => $agencyB->id, 'status' => 'IN_PROGRESS']);
+        $document = CaseDocument::factory()->create(['case_id' => $this->case->id, 'referral_id' => $referral->id, 'file_path' => 'case/x.pdf']);
+        $this->actingAsWithMfa($agencyUser)->get(route('cases.documents.preview', [$this->case->id, $document->id]))->assertForbidden();
+    }
+
+    public function test_preview_rejects_unsupported_content(): void
+    {
+        Storage::fake('object-storage');
+        config(['filesystems.default' => 'object-storage']);
+        $document = CaseDocument::factory()->create(['case_id' => $this->case->id, 'file_path' => 'case/misleading.pdf']);
+        Storage::disk('object-storage')->put('case/misleading.pdf', '<html>not a PDF</html>');
+        $this->actingAsWithMfa($this->caseManager)->get(route('cases.documents.preview', [$this->case->id, $document->id]))->assertStatus(415);
     }
 
     public function test_case_document_archive_is_available_for_live_case_statuses_and_excludes_referral_documents(): void

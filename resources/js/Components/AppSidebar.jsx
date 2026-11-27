@@ -1,6 +1,7 @@
 import { Link, usePage, router } from '@inertiajs/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import UserAvatar from '@/Components/ui/UserAvatar';
+import AgencyLogo from '@/Components/AgencyLogo';
 import PeerProfileModal from '@/Components/PeerProfileModal';
 import safeRoute from '@/utils/safeRoute';
 import { clearAllDraftBackups } from '@/Hooks/useLocalStorageDraft';
@@ -208,7 +209,11 @@ export default function AppSidebar() {
       {/* Logo */}
       <div className={`flex items-center border-b border-slate-100 shrink-0 ${collapsed ? 'flex-col justify-center px-2 py-4 gap-2' : 'px-4 py-5'}`}>
         <Link href={safeRoute('home', undefined, '/')} className={`flex items-center gap-2.5 min-w-0 ${collapsed ? 'justify-center' : 'flex-1'}`}>
-          <img src="/logo.png" alt="One Window Bayanihan logo" className="h-9 w-9 shrink-0 object-contain" />
+          {user?.role === 'AGENCY' && user?.agency ? (
+            <AgencyLogo name={user.agency.name} logoUrl={user.agency.logo_url ?? user.agency.logo_path} className="h-9 w-9" />
+          ) : (
+            <img src="/logo.png" alt="One Window Bayanihan logo" className="h-9 w-9 shrink-0 object-contain" />
+          )}
           {!collapsed && (
             <div className="flex flex-col min-w-0 flex-1 leading-tight">
               <span className="truncate font-headline text-[13px] font-extrabold tracking-tight text-blue-950">One Window Bayanihan</span>

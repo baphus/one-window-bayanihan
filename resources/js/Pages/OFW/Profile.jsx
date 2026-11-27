@@ -10,12 +10,17 @@ import UpdatePasswordForm from '@/Pages/Profile/Partials/UpdatePasswordForm';
 import MfaSetup from '@/Components/MfaSetup';
 import { useToast } from '@/Hooks/useToast';
 import safeRoute from '@/utils/safeRoute';
+import useSessionDraft from '@/Hooks/useSessionDraft';
+import DraftControls from '@/Components/DraftControls';
 
 const TextInput = ProfileTextInput;
 
 export default function Profile({ user, mfaEnabled = false, mfaRequired = false, email_change_step, email_change_hint }) {
     const toast = useToast();
-    const form = useForm({ ...emptyIdentity(user), contact_number: user?.contact_number ?? '' });
+    const defaults = { ...emptyIdentity(user), contact_number: user?.contact_number ?? '' };
+    const form = useForm(defaults);
+    const draftFields = ['first_name', 'middle_name', 'last_name', 'suffix', 'date_of_birth', 'sex', 'contact_number'];
+    const draft = useSessionDraft({ userId: user?.id, formKey: 'ofw-profile', data: form.data, setData: form.setData, defaults, fields: draftFields });
     const { UnsavedModal, bypassNext } = useUnsavedChanges(form.isDirty);
 
     function save(event) {
@@ -24,7 +29,7 @@ export default function Profile({ user, mfaEnabled = false, mfaRequired = false,
         bypassNext();
         form.put(safeRoute('ofw.profile.update', undefined, '/my-cases/profile'), {
             preserveScroll: true,
-            onSuccess: () => { toast.success('Profile updated. Existing case records are unchanged.'); },
+            onSuccess: () => { draft.onSuccess(); toast.success('Profile updated. Existing case records are unchanged.'); },
             onError: () => {},
         });
     }
@@ -46,6 +51,7 @@ export default function Profile({ user, mfaEnabled = false, mfaRequired = false,
                     <ProfileSection title="Contact" description="Change the phone number used for account contact.">
                         <TextInput id="account-contact" label="Contact number" type="tel" autoComplete="tel" maxLength={50} value={form.data.contact_number} onChange={(value) => form.setData('contact_number', value)} error={form.errors.contact_number} />
                     </ProfileSection>
+                    <DraftControls status={draft.status} onClear={draft.clear} />
                     <ProfileSaveBar processing={form.processing} dirty={form.isDirty} onDiscard={() => form.reset()} />
                 </form>
             </ProfileCard>

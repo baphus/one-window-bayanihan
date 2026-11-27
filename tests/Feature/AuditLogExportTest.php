@@ -53,7 +53,7 @@ class AuditLogExportTest extends TestCase
         ]);
 
         $this->actingAsWithMfa($caseManager)
-            ->get('/audit-logs/export?date_from='.now()->subDays(7)->toDateString().'&date_to='.now()->toDateString())
+            ->get('/audit-logs/export?date_from='.now()->subDays(7)->setTimezone(config('app.operating_timezone'))->toDateString().'&date_to='.now()->setTimezone(config('app.operating_timezone'))->toDateString())
             ->assertStatus(403);
     }
 
@@ -80,7 +80,7 @@ class AuditLogExportTest extends TestCase
 
     public function test_range_beyond_retention_is_rejected(): void
     {
-        $from = now()->subDays((int) config('audit.retention_days') + 30)->toDateString();
+        $from = now()->subDays((int) config('audit.retention_days') + 30)->setTimezone(config('app.operating_timezone'))->toDateString();
 
         $this->actingAsWithMfa($this->admin)
             ->get('/audit-logs/export?date_from='.$from.'&date_to='.now()->toDateString())
@@ -98,7 +98,7 @@ class AuditLogExportTest extends TestCase
         $this->seedLogs(3);
 
         $this->actingAsWithMfa($this->admin)
-            ->get('/audit-logs/export?date_from='.now()->subDays(7)->toDateString().'&date_to='.now()->toDateString())
+            ->get('/audit-logs/export?date_from='.now()->subDays(7)->setTimezone(config('app.operating_timezone'))->toDateString().'&date_to='.now()->setTimezone(config('app.operating_timezone'))->toDateString())
             ->assertStatus(422);
 
         $entry = AuditLog::where('action', 'EXPORT')->first();
@@ -111,7 +111,7 @@ class AuditLogExportTest extends TestCase
         $this->seedLogs(3);
 
         $response = $this->actingAsWithMfa($this->admin)
-            ->get('/audit-logs/export?date_from='.now()->subDays(7)->toDateString().'&date_to='.now()->toDateString());
+            ->get('/audit-logs/export?date_from='.now()->subDays(7)->setTimezone(config('app.operating_timezone'))->toDateString().'&date_to='.now()->setTimezone(config('app.operating_timezone'))->toDateString());
 
         $response->assertStatus(200);
         $this->assertStringContainsString('text/csv', $response->headers->get('Content-Type'));
@@ -137,7 +137,7 @@ class AuditLogExportTest extends TestCase
         $this->seedLogs(2);
 
         $response = $this->actingAsWithMfa($this->admin)
-            ->get('/audit-logs/export?module=referral&date_from='.now()->subDays(7)->toDateString().'&date_to='.now()->toDateString());
+            ->get('/audit-logs/export?module=referral&date_from='.now()->subDays(7)->setTimezone(config('app.operating_timezone'))->toDateString().'&date_to='.now()->setTimezone(config('app.operating_timezone'))->toDateString());
         $response->assertOk();
         $this->seedLogs(1);
 
@@ -157,7 +157,7 @@ class AuditLogExportTest extends TestCase
         ]);
 
         $response = $this->actingAsWithMfa($this->admin)
-            ->get('/audit-logs/export?module=referral&date_from='.now()->subDays(7)->toDateString().'&date_to='.now()->toDateString());
+            ->get('/audit-logs/export?module=referral&date_from='.now()->subDays(7)->setTimezone(config('app.operating_timezone'))->toDateString().'&date_to='.now()->setTimezone(config('app.operating_timezone'))->toDateString());
 
         $csv = $response->streamedContent();
         $this->assertStringContainsString('UPDATE', $csv);
@@ -184,7 +184,7 @@ class AuditLogExportTest extends TestCase
         ]);
 
         $csv = $this->actingAsWithMfa($this->admin)
-            ->get('/audit-logs/export?date_from='.now()->subDays(7)->toDateString().'&date_to='.now()->toDateString())
+            ->get('/audit-logs/export?date_from='.now()->subDays(7)->setTimezone(config('app.operating_timezone'))->toDateString().'&date_to='.now()->setTimezone(config('app.operating_timezone'))->toDateString())
             ->streamedContent();
 
         $this->assertStringContainsString('Has Changes', $csv);
@@ -200,7 +200,7 @@ class AuditLogExportTest extends TestCase
         $this->admin->name = "\t=1+1";
         $this->admin->save();
 
-        $csv = $this->get('/audit-logs/export?date_from='.now()->subDays(7)->toDateString().'&date_to='.now()->toDateString())
+        $csv = $this->get('/audit-logs/export?date_from='.now()->subDays(7)->setTimezone(config('app.operating_timezone'))->toDateString().'&date_to='.now()->setTimezone(config('app.operating_timezone'))->toDateString())
             ->streamedContent();
 
         $rows = array_map('str_getcsv', preg_split('/\r\n|\r|\n/', trim($csv)));

@@ -2,7 +2,7 @@ import { MAX_UPLOAD_BYTES, UPLOAD_SIZE_ERROR } from '@/utils/uploadLimit';
 import Select from '@/Components/Select';
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import PrimaryButton from '@/Components/PrimaryButton';
 import TextInput from '@/Components/TextInput';
@@ -22,6 +22,14 @@ import { formatResolvedAddress } from '@/lib/addressResolver';
 import UnifiedTimeline from '@/Components/Timeline';
 import PresenceRoster from '@/Components/PresenceRoster';
 import { canShowReferralPresence } from '@/Components/presencePolicy';
+import useSessionDraft from '@/Hooks/useSessionDraft';
+import DraftControls from '@/Components/DraftControls';
+
+function tomorrowDate() {
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  return `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
+}
 
 const TIMELINE_EVENT_CONFIG = {
   referral_sent:   { dot: 'bg-purple-50 border-purple-200 text-purple-600', icon: 'forward_to_inbox' },
@@ -494,9 +502,15 @@ function ClientRequestCard({ request, permissions, isOversight, onMutate, embedd
 function ClientRequestsSection({ referral, requests, permissions, isReceivingAgency, isCaseManager, isAdmin, activeAgencies = [] }) {
     const [showCreate, setShowCreate] = useState(false);
     const [selectedRequestId, setSelectedRequestId] = useState(null);
-    const createForm = useForm({ type: 'DOCUMENT_REQUEST', title: '', instructions: '', due_at: '', checklist: [''] });
+    const requestDefaults = useMemo(() => ({ type: 'DOCUMENT_REQUEST', title: '', instructions: '', due_at: '', checklist: [''], selected_requirement_ids: [] }), [referral.id]);
+    const createForm = useForm(requestDefaults);
     const referralRequirements = referral.service_requirements ?? [];
     const [selectedRequirements, setSelectedRequirements] = useState([]);
+    const requestFields = useMemo(() => ['type', 'title', 'instructions', 'due_at', 'checklist', 'selected_requirement_ids'], []);
+    const page = usePage();
+    const requestData = { ...createForm.data, selected_requirement_ids: selectedRequirements.map((item) => String(item.id)) };
+    const requestDraftSetData = (data) => { const { selected_requirement_ids: ids = [], ...formData } = data; createForm.setData(formData); setSelectedRequirements(referralRequirements.filter((item) => ids.includes(String(item.id)))); };
+    const requestDraft = useSessionDraft({ userId: page.props.auth?.user?.id, formKey: 'referral-client-request', recordId: referral.id, data: requestData, setData: requestDraftSetData, defaults: requestDefaults, fields: requestFields, shapes: { checklist: [''] } });
     const isOversight = isAdmin;
     const canCreate = isReceivingAgency && permissions.canCreate;
     const activeRequest = requests.find((request) => request.id === selectedRequestId) ?? requests[0];
@@ -507,7 +521,7 @@ function ClientRequestsSection({ referral, requests, permissions, isReceivingAge
         createForm.transform((data) => ({ ...data, checklist: data.type === 'DOCUMENT_REQUEST' ? [...Object.values(selectedRequirements.reduce((grouped, item) => { const canonicalKey = item.name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, ''); grouped[canonicalKey] ??= { label: item.name, description: item.description, source_requirement_id: item.id, source_requirement_ids: [] }; grouped[canonicalKey].source_requirement_ids.push(item.id); return grouped; }, {})), ...data.checklist.map((item) => item.trim()).filter(Boolean)] : undefined }));
         createForm.post(route('referrals.client-requests.store', [referral.id]), {
             preserveScroll: true,
-            onSuccess: () => { setShowCreate(false); createForm.reset(); setSelectedRequirements([]); reloadRequests(); },
+            onSuccess: () => { requestDraft.onSuccess(); setShowCreate(false); createForm.reset(); setSelectedRequirements([]); reloadRequests(); },
         });
     }
 
@@ -571,10 +585,11 @@ function ClientRequestsSection({ referral, requests, permissions, isReceivingAge
                         <div className="border-b border-slate-200 px-5 py-4"><h3 className="text-[16px] font-extrabold text-slate-900">Request client</h3><p className="mt-1 text-[12px] text-slate-500">Ask the client for information or documents needed by the agency.</p></div>
                         <form onSubmit={submitCreate}>
                             <div className="space-y-4 px-5 py-4">
+                                <DraftControls status={requestDraft.status} onClear={requestDraft.clear} />
                                 <div><label htmlFor="client_request_type" className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-600">Request type *</label><Select id="client_request_type" value={createForm.data.type} onChange={(event) => createForm.setData('type', event.target.value)} className="h-10 w-full px-3 text-sm"><option value="DOCUMENT_REQUEST">Document request</option><option value="QUESTION">Question</option><option value="INFORMATION_UPDATE">Information update</option></Select><InputError message={createForm.errors.type} className="mt-1" /></div>
                                 <div><label htmlFor="client_request_title" className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-600">Title *</label><input id="client_request_title" value={createForm.data.title} onChange={(event) => createForm.setData('title', event.target.value)} className="h-10 w-full px-3 text-sm" /><InputError message={createForm.errors.title} className="mt-1" /></div>
                                 <div><label htmlFor="client_request_instructions" className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-600">Instructions *</label><textarea id="client_request_instructions" rows={3} value={createForm.data.instructions} onChange={(event) => createForm.setData('instructions', event.target.value)} className="w-full resize-none rounded border border-slate-300 px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-700 focus:ring-1 focus:ring-blue-700" /><InputError message={createForm.errors.instructions} className="mt-1" /></div>
-                                <div><label htmlFor="client_request_due_at" className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-600">Due date <span className="font-normal normal-case text-slate-400">(optional)</span></label><input id="client_request_due_at" type="date" value={createForm.data.due_at} onChange={(event) => createForm.setData('due_at', event.target.value)} className="h-10 rounded border border-slate-300 px-3 text-sm text-slate-700 outline-none focus:border-blue-700 focus:ring-1 focus:ring-blue-700" /><InputError message={createForm.errors.due_at} className="mt-1" /></div>
+                                <div><label htmlFor="client_request_due_at" className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-600">Due date <span className="font-normal normal-case text-slate-400">(optional)</span></label><input id="client_request_due_at" type="date" value={createForm.data.due_at} onChange={(event) => createForm.setData('due_at', event.target.value)} min={tomorrowDate()} className="h-10 rounded border border-slate-300 px-3 text-sm text-slate-700 outline-none focus:border-blue-700 focus:ring-1 focus:ring-blue-700" /><InputError message={createForm.errors.due_at} className="mt-1" /></div>
                                 {createForm.data.type === 'DOCUMENT_REQUEST' && <div>{referralRequirements.length > 0 && <div className="mb-3 rounded border border-indigo-100 bg-indigo-50/40 p-2.5"><p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-indigo-700">Referral requirements</p><div className="space-y-1.5">{referralRequirements.map((item) => <label key={item.id} className="flex items-start gap-2 text-[11px] text-slate-700"><input type="checkbox" checked={selectedRequirements.some((selected) => selected.id === item.id)} onChange={(event) => setSelectedRequirements((current) => event.target.checked ? [...current, item] : current.filter((selected) => selected.id !== item.id))} /><span>{item.name}</span></label>)}</div></div>}<div><div className="mb-1.5 flex items-center justify-between"><label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600">Checklist <span className="text-red-600">*</span></label><button type="button" onClick={() => createForm.setData('checklist', [...createForm.data.checklist, ''])} className="text-[10px] font-bold text-blue-900 hover:underline">+ Add item</button></div><p className="mb-1 text-[10px] text-slate-500">Add at least one requirement.</p><div className="space-y-2">{createForm.data.checklist.map((item, index) => <div key={index} className="flex gap-2"><input aria-label={`Checklist item ${index + 1}`} value={item} onChange={(event) => { const next = [...createForm.data.checklist]; next[index] = event.target.value; createForm.setData('checklist', next); }} className="h-9 min-w-0 flex-1 rounded border border-slate-300 px-3 text-[12px] text-slate-700" placeholder="Document or item needed" />{createForm.data.checklist.length > 1 && <button type="button" onClick={() => createForm.setData('checklist', createForm.data.checklist.filter((_, itemIndex) => itemIndex !== index))} className="text-[18px] text-slate-400">×</button>}</div>)}<InputError message={Object.entries(createForm.errors).filter(([key]) => key.startsWith('checklist.')).map(([, message]) => message).join(' ')} className="mt-1" /></div></div></div>}
                             </div>
                             <div className="flex justify-end gap-2 border-t border-slate-200 px-5 py-3"><button type="button" onClick={() => setShowCreate(false)} className="h-9 rounded border border-slate-300 bg-white px-4 text-xs font-bold text-slate-700 hover:bg-slate-50">Cancel</button><button type="submit" disabled={createForm.processing || !createForm.data.title.trim() || !createForm.data.instructions.trim()} className="h-9 rounded bg-blue-900 px-4 text-xs font-bold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50">{createForm.processing ? 'Creating…' : 'Create request'}</button></div>
@@ -587,16 +602,34 @@ function ClientRequestsSection({ referral, requests, permissions, isReceivingAge
     );
 }
 
-function ServiceCard({ service, referral, isAgency, serviceRequirements }) {
+function ServiceCard({ service, referral, isAgency, canUpdateServiceStatus, serviceRequirements }) {
     const [isExpanded, setIsExpanded] = useState(false);
+    const [statusSubmitting, setStatusSubmitting] = useState(false);
+    const [statusError, setStatusError] = useState('');
+    const serviceStatus = service.pivot?.status ?? 'ASSIGNED';
+    const serviceStatusLabels = { ASSIGNED: 'Assigned', PROCESSING: 'Processing', COMPLETED: 'Completed' };
+    const canAdvanceStatus = canUpdateServiceStatus && ['PROCESSING', 'FOR_COMPLIANCE'].includes(referral.status) && serviceStatus !== 'COMPLETED';
+    const canModify = canUpdateServiceStatus && !['COMPLETED', 'REJECTED'].includes(referral.status) && serviceStatus !== 'COMPLETED';
+
+    function advanceServiceStatus() {
+        if (!canAdvanceStatus || statusSubmitting) return;
+        const nextStatus = serviceStatus === 'ASSIGNED' ? 'PROCESSING' : 'COMPLETED';
+        setStatusError('');
+        setStatusSubmitting(true);
+        router.patch(route('referrals.services.status', [referral.id, service.id]), { status: nextStatus }, {
+            preserveScroll: true,
+            onError: (errors) => setStatusError(Object.values(errors ?? {}).flat().find(Boolean) || 'Unable to update service status.'),
+            onFinish: () => setStatusSubmitting(false),
+        });
+    }
     const [removeConfirmationOpen, setRemoveConfirmationOpen] = useState(false);
     const [isAdding, setIsAdding] = useState(false);
     const [newRequirementName, setNewRequirementName] = useState('');
     const [editingId, setEditingId] = useState(null);
     const [editName, setEditName] = useState('');
     const [requirementError, setRequirementError] = useState('');
-    const canModify = isAgency && referral.status !== 'COMPLETED';
-
+    const [pendingRequirementDelete, setPendingRequirementDelete] = useState(null);
+    const [deletingRequirement, setDeletingRequirement] = useState(false);
     function handleAddRequirement() {
         if (!newRequirementName.trim()) {
             setRequirementError('Enter a requirement name before adding.');
@@ -625,17 +658,21 @@ function ServiceCard({ service, referral, isAgency, serviceRequirements }) {
         });
     }
 
-    function handleDeleteRequirement(requirementId) {
-        if (!confirm('Delete this requirement?')) return;
-        router.delete(route('referrals.services.requirements.delete', [referral.id, service.id, requirementId]), {
+    function handleDeleteRequirement() {
+        if (!pendingRequirementDelete || deletingRequirement) return;
+        setRequirementError('');
+        setDeletingRequirement(true);
+        router.delete(route('referrals.services.requirements.delete', [referral.id, service.id, pendingRequirementDelete.id]), {
             preserveScroll: true,
+            onError: (errors) => setRequirementError(Object.values(errors ?? {}).flat().find(Boolean) || 'Unable to delete requirement.'),
+            onFinish: () => { setDeletingRequirement(false); setPendingRequirementDelete(null); },
         });
     }
 
     return (
         <div className="rounded-md border border-slate-200 bg-slate-50">
-            <div className="flex items-center justify-between px-3 py-2">
-                <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+                <div className="flex min-w-0 items-center gap-2">
                     <button
                         type="button"
                         onClick={() => setIsExpanded(!isExpanded)}
@@ -647,17 +684,23 @@ function ServiceCard({ service, referral, isAgency, serviceRequirements }) {
                         {service.name}
                         <span className="text-[10px] text-slate-400">({serviceRequirements.length} requirements)</span>
                     </button>
+                    <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[9px] font-bold ${serviceStatus === 'COMPLETED' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : serviceStatus === 'PROCESSING' ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white text-slate-600'}`}>
+                        {serviceStatusLabels[serviceStatus] ?? serviceStatus.replaceAll('_', ' ')}
+                    </span>
                 </div>
-                {canModify && (
-                    <button
-                        type="button"
-                        onClick={() => setRemoveConfirmationOpen(true)}
-                        className="flex h-5 w-5 items-center justify-center rounded-full text-slate-400 hover:bg-red-100 hover:text-red-600 transition-colors"
-                        title={`Remove ${service.name}`}
-                    >
-                        <span className="material-symbols-outlined text-[12px]">close</span>
-                    </button>
-                )}
+                <div className="ml-auto flex shrink-0 items-center gap-2">
+                    {canAdvanceStatus && <button type="button" onClick={advanceServiceStatus} disabled={statusSubmitting} className="h-7 rounded-md bg-blue-900 px-2.5 text-[10px] font-bold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60">{statusSubmitting ? 'Saving…' : serviceStatus === 'ASSIGNED' ? 'Start processing' : 'Mark completed'}</button>}
+                    {canModify && (
+                        <button
+                            type="button"
+                            onClick={() => setRemoveConfirmationOpen(true)}
+                            className="flex h-5 w-5 items-center justify-center rounded-full text-slate-400 hover:bg-red-100 hover:text-red-600 transition-colors"
+                            title={`Remove ${service.name}`}
+                        >
+                            <span className="material-symbols-outlined text-[12px]">close</span>
+                        </button>
+                    )}
+                </div>
             </div>
 
             <ConfirmDialog
@@ -675,6 +718,18 @@ function ServiceCard({ service, referral, isAgency, serviceRequirements }) {
                 }}
             />
 
+            <ConfirmDialog
+                open={pendingRequirementDelete !== null}
+                title="Delete requirement?"
+                message={`Delete ${pendingRequirementDelete?.name ?? 'this requirement'} from this service?`}
+                confirmLabel={deletingRequirement ? 'Deleting…' : 'Delete requirement'}
+                tone="danger"
+                disabled={deletingRequirement}
+                onCancel={() => { if (!deletingRequirement) setPendingRequirementDelete(null); }}
+                onConfirm={handleDeleteRequirement}
+            />
+
+            {statusError && <p role="alert" className="px-3 pb-2 text-[11px] text-red-700">{statusError}</p>}
             {isExpanded && (
                 <div className="border-t border-slate-200 px-3 py-2">
                     {requirementError && <p role="alert" className="mb-2 text-[11px] text-red-700">{requirementError}</p>}
@@ -707,7 +762,7 @@ function ServiceCard({ service, referral, isAgency, serviceRequirements }) {
                                                     <button type="button" onClick={() => { setEditingId(req.id); setEditName(req.name); }} className="text-[10px] text-slate-400 hover:text-blue-600">
                                                         <span className="material-symbols-outlined text-[12px]">edit</span>
                                                     </button>
-                                                    <button type="button" onClick={() => handleDeleteRequirement(req.id)} className="text-[10px] text-slate-400 hover:text-red-600">
+                                                    <button type="button" onClick={() => setPendingRequirementDelete(req)} className="text-[10px] text-slate-400 hover:text-red-600">
                                                         <span className="material-symbols-outlined text-[12px]">delete</span>
                                                     </button>
                                                 </div>
@@ -822,6 +877,7 @@ const REJECTION_REASONS = [
 export default function ReferralShow({ referral, caseIdentity: caseIdentityProp = null, serviceRequirements = [], overdueDays = 7, timeline = [], clientRequestHistory = [], clientRequestPermissions = {}, relatedReferrals = [] }) {
     const page = usePage();
     const { auth, roles, errors } = page.props;
+    const milestoneDefaults = useMemo(() => ({ title: '', description: '' }), [referral.id]);
     const fromOverdue = new URLSearchParams((page.url ?? '').split('?')[1] ?? '').get('from') === 'overdue';
     const isAgency = auth.user.role === roles.AGENCY;
     const isCaseManager = auth.user.role === roles.CASE_MANAGER;
@@ -974,7 +1030,9 @@ export default function ReferralShow({ referral, caseIdentity: caseIdentityProp 
     const [uploadingDoc, setUploadingDoc] = useState(false);
     const [uploadError, setUploadError] = useState(null);
     const toast = useToast();
-    const milestoneForm = useForm({ title: '', description: '' });
+    const milestoneForm = useForm(milestoneDefaults);
+    const milestoneFields = useMemo(() => ['title', 'description'], []);
+    const milestoneDraft = useSessionDraft({ userId: auth.user?.id, formKey: 'referral-milestone-create', recordId: referral.id, data: milestoneForm.data, setData: milestoneForm.setData, defaults: milestoneDefaults, fields: milestoneFields });
 
     const replyToComment = replyToCommentId
         ? comments.find((c) => c.id === replyToCommentId) ?? null
@@ -987,6 +1045,7 @@ export default function ReferralShow({ referral, caseIdentity: caseIdentityProp 
         milestoneForm.post(route('referrals.milestones.store', referral.id), {
             preserveScroll: true,
             onSuccess: () => {
+                milestoneDraft.onSuccess();
                 setShowMilestoneModal(false);
                 milestoneForm.reset();
             },
@@ -1168,6 +1227,7 @@ export default function ReferralShow({ referral, caseIdentity: caseIdentityProp 
                                             service={service}
                                             referral={referral}
                                             isAgency={isAgency}
+                                            canUpdateServiceStatus={isReceivingAgency && canUpdateStatus}
                                             serviceRequirements={referral.service_requirements?.filter(r => r.service_id === service.id) ?? []}
                                         />
                                     ))}
@@ -1180,7 +1240,7 @@ export default function ReferralShow({ referral, caseIdentity: caseIdentityProp 
                                 </p>
                             )}
 
-                            {isAgency && referral.status !== 'COMPLETED' && (
+                            {isReceivingAgency && !['COMPLETED', 'REJECTED'].includes(referral.status) && (
                                 <ServiceAddDropdown
                                     referralId={referral.id}
                                     selectedIds={new Set((referral.services ?? []).map((s) => s.id))}
@@ -1451,14 +1511,8 @@ export default function ReferralShow({ referral, caseIdentity: caseIdentityProp 
                                                 <div key={att.id} className="flex items-center gap-3 py-2.5">
                                                     <span className="material-symbols-outlined text-[16px] text-slate-400">description</span>
                                                     <div className="min-w-0 flex-1">
-                                                        <a
-                                                            href={route('referrals.attachments.download', [referral.id, att.id])}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className="text-[12px] text-blue-700 hover:text-blue-900 hover:underline font-medium truncate block"
-                                                        >
-                                                            {att.file_name}
-                                                        </a>
+                                                        <span className="text-[12px] text-blue-700 font-medium truncate block">{att.file_name}</span>
+                                                        <div className="flex gap-3 text-[10px]">{['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(att.file_type) && <a href={route('referrals.attachments.preview', [referral.id, att.id])} target="_blank" rel="noopener noreferrer" aria-label={`Preview ${att.file_name}`} className="text-blue-900 hover:underline">Preview</a>}<a href={route('referrals.attachments.download', [referral.id, att.id])} aria-label={`Download ${att.file_name}`} className="text-blue-900 hover:underline">Download</a></div>
                                                         {att.user && (
                                                             <span className="text-[9px] text-slate-400">
                                                                 Uploaded by {att.user.name}
@@ -1489,14 +1543,8 @@ export default function ReferralShow({ referral, caseIdentity: caseIdentityProp 
                                                     {doc.file_type?.startsWith('image/') ? 'image' : 'description'}
                                                 </span>
                                                 <div className="min-w-0 flex-1">
-                                                    <a
-                                                        href={route('cases.documents.download', [referral.case_id, doc.id])}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="text-[12px] text-blue-700 hover:text-blue-900 hover:underline font-medium truncate block"
-                                                    >
-                                                        {doc.file_name}
-                                                    </a>
+                                                    <span className="text-[12px] text-blue-700 font-medium truncate block">{doc.file_name}</span>
+                                                    <div className="flex gap-3 text-[10px]">{['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(doc.file_type) && <a href={route('cases.documents.preview', [referral.case_id, doc.id])} target="_blank" rel="noopener noreferrer" aria-label={`Preview ${doc.file_name}`} className="text-blue-900 hover:underline">Preview</a>}<a href={route('cases.documents.download', [referral.case_id, doc.id])} aria-label={`Download ${doc.file_name}`} className="text-blue-900 hover:underline">Download</a></div>
                                                     <div className="flex items-center gap-2 mt-0.5">
                                                         {doc.user && (
                                                             <span className="text-[9px] text-slate-400">
@@ -1732,6 +1780,7 @@ export default function ReferralShow({ referral, caseIdentity: caseIdentityProp 
                         <div className="px-5 py-4 space-y-4">
                             <div>
                                 <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-600">New Status</label>
+                                {(referral.services ?? []).some((service) => (service.pivot?.status ?? 'ASSIGNED') !== 'COMPLETED') && <p className="mb-2 text-[11px] text-amber-700">Complete all assigned services before completing this referral.</p>}
                                 <Select
                                     value={updateStatusValue}
                                     onChange={(e) => setUpdateStatusValue(e.target.value)}
@@ -1739,7 +1788,7 @@ export default function ReferralShow({ referral, caseIdentity: caseIdentityProp 
                                 >
                                     <option value="PROCESSING">Processing</option>
                                     <option value="FOR_COMPLIANCE">For Compliance</option>
-                                    <option value="COMPLETED">Completed</option>
+                                    {!(referral.services ?? []).some((service) => (service.pivot?.status ?? 'ASSIGNED') !== 'COMPLETED') && <option value="COMPLETED">Completed</option>}
                                     <option value="REJECTED">Rejected</option>
                                 </Select>
                             </div>
@@ -1811,6 +1860,7 @@ export default function ReferralShow({ referral, caseIdentity: caseIdentityProp 
                         </div>
                         <form onSubmit={handleMilestoneModalSubmit}>
                             <div className="px-5 py-4 space-y-4">
+                                <DraftControls status={milestoneDraft.status} onClear={milestoneDraft.clear} />
                                 {showMilestoneAgencyWarning && (
                                     <div className="flex gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
                                         <span className="material-symbols-outlined text-[18px] text-amber-600">warning</span>

@@ -96,12 +96,12 @@ class CaseEventRecorder
         ], $userId);
     }
 
-    public function milestoneAdded(Referral $referral, Milestone $milestone, ?string $userId = null): CaseEvent
+    public function milestoneAdded(Referral $referral, Milestone $milestone, ?string $userId = null, array $meta = []): CaseEvent
     {
         return $this->record($referral->case_id, $referral->id, CaseEvent::TYPE_MILESTONE_ADDED, [
             'title' => $milestone->title,
             'description' => $milestone->description,
-            'meta' => ['milestone_id' => $milestone->id],
+            'meta' => ['milestone_id' => $milestone->id, ...$meta],
         ], $userId);
     }
 

@@ -114,6 +114,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Agency service management
     Route::post('/referrals/{referral}/services', [ReferralController::class, 'addService'])->name('referrals.services.add')->middleware('role:CASE_MANAGER,ADMIN,AGENCY');
     Route::delete('/referrals/{referral}/services/{service}', [ReferralController::class, 'removeService'])->name('referrals.services.remove')->middleware('role:CASE_MANAGER,ADMIN,AGENCY');
+    Route::patch('/referrals/{referral}/services/{service}/status', [ReferralController::class, 'updateServiceStatus'])->name('referrals.services.status')->middleware('role:CASE_MANAGER,ADMIN,AGENCY');
 
     // Agency service requirements management (per-referral)
     Route::post('/referrals/{referral}/services/{service}/requirements', [ReferralController::class, 'addRequirement'])->name('referrals.services.requirements.add')->middleware('role:CASE_MANAGER,ADMIN,AGENCY');
@@ -130,6 +131,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/referrals/{referral}/attachments', [ReferralController::class, 'addAttachment'])->name('referrals.attachments.store')->middleware('role:CASE_MANAGER,ADMIN,AGENCY');
     Route::post('/referrals/{referral}/attachments/{attachment}/replace', [ReferralController::class, 'replaceAttachment'])->name('referrals.attachments.replace')->middleware('role:CASE_MANAGER,ADMIN,AGENCY');
     Route::post('/referrals/{referral}/attachments/{attachment}/remove', [ReferralController::class, 'deleteAttachment'])->name('referrals.attachments.delete')->middleware('role:CASE_MANAGER,ADMIN,AGENCY');
+    Route::get('/referrals/{referral}/attachments/{attachment}/preview', [ReferralController::class, 'previewAttachment'])->name('referrals.attachments.preview');
     Route::get('/referrals/{referral}/attachments/{attachment}/download', [ReferralController::class, 'downloadAttachment'])->name('referrals.attachments.download');
     Route::get('/referrals/{referral}/attachments/{versionGroupId}/versions', [ReferralController::class, 'getAttachmentVersions'])->name('referrals.attachments.versions');
 
@@ -211,6 +213,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware('role:CASE_MANAGER,ADMIN,AGENCY')->group(function () {
         Route::get('/cases/{case}/documents', [CaseDocumentController::class, 'index'])->name('cases.documents.index');
         Route::get('/cases/{case}/documents/{document}', [CaseDocumentController::class, 'show'])->name('cases.documents.show');
+        Route::get('/cases/{case}/documents/{document}/preview', [CaseDocumentController::class, 'preview'])->name('cases.documents.preview');
         Route::get('/cases/{case}/documents/{document}/download', [CaseDocumentController::class, 'download'])->name('cases.documents.download');
         Route::get('/cases/{case}/intake-documents/archive', [CaseDocumentController::class, 'downloadIntakeArchive'])->name('cases.intake-documents.archive');
     });

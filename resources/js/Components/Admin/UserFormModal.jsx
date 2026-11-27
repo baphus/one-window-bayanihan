@@ -6,6 +6,10 @@ import MfaConfirmDialog from '@/Components/MfaConfirmDialog';
 import useMfaStatus from '@/Hooks/useMfaStatus';
 import IdentityFields, { emptyIdentity } from '@/Components/IdentityFields';
 import AvatarPicker from '@/Components/AvatarPicker';
+import PasswordStrengthMeter from '@/Components/PasswordStrengthMeter';
+import useSessionDraft from '@/Hooks/useSessionDraft';
+import DraftControls from '@/Components/DraftControls';
+import { useMemo } from 'react';
 
 function maskEmail(email) {
   const [local, domain] = String(email).split('@');
@@ -20,7 +24,7 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
 
   const [mode, setMode] = useState(isEdit ? 'invite' : initialMode);
 
-  const roles = usePage().props.roles;
+  const { roles, passwordRules } = usePage().props;
   // Citizen is only offered when creating. Editing keeps the account's role
   // fixed so a save can never turn staff into OFW or the reverse.
   const roleOptions = [
@@ -30,7 +34,7 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
     ...(isEdit ? [] : [{ value: roles.OFW, label: 'Citizen (OFW)', description: 'Created with a temporary password for manual handover outside the app' }]),
   ];
 
-  const { data, setData, post, patch, processing, errors, clearErrors, setError, transform } = useForm({
+  const defaults = useMemo(() => ({
     ...emptyIdentity(user),
     email: user?.email ?? '',
     password: '',
@@ -47,7 +51,11 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
     remove_profile_picture: false,
     mfa_requirement_override: policy?.override ?? 'inherit',
     mfa_change_reason: '',
-  });
+  }), [user, isNewUserViaSelectedAgency, selectedAgencyId, roles, policy]);
+  const { data, setData, post, patch, processing, errors, clearErrors, setError, transform } = useForm(defaults);
+  const { auth } = usePage().props;
+  const draftFields = ['first_name', 'middle_name', 'last_name', 'suffix', 'birth_date', 'gender', 'civil_status', 'email', 'role', 'agcy_id', 'contact_number', 'position', 'department', 'office_location', 'bio'];
+  const draft = useSessionDraft({ userId: auth?.user?.id, formKey: 'admin.user', recordId: user?.id ?? 'create', data, setData, defaults, fields: draftFields });
 
   const isOfw = data.role === roles.OFW;
   const isCreateMode = !isEdit && !isNewUserViaSelectedAgency && (mode === 'create' || isOfw);
@@ -123,6 +131,7 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
         ? { mfa_requirement_override: data.mfa_requirement_override, mfa_change_reason: data.mfa_change_reason.trim(), ...proof }
         : {},
       onSuccess: () => {
+        draft.onSuccess();
         onClose?.();
         router.reload({ only: ['users'] });
       },
@@ -220,6 +229,7 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
         post(route('admin.users.store'), {
           forceFormData: isOfw,
           onSuccess: () => {
+            draft.onSuccess();
             onClose?.();
             router.reload({ only: ['users'] });
           },
@@ -227,6 +237,7 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
       } else {
         post(route('admin.users.invite'), {
           onSuccess: () => {
+            draft.onSuccess();
             onClose?.();
           },
         });
@@ -357,7 +368,7 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
                       <InputError message={emailForm.errors.new_email} className="mt-1" />
                     </div>
                     <div>
-                      <label htmlFor="ofw-email-admin-password" className="block text-sm font-medium text-slate-700">Your admin password</label>
+                      <label htmlFor="ofw-email-admin-password" className="block text-sm font-medium text-slate-700">Your admin password <span className="ml-1 text-xs font-normal text-slate-500">Required</span></label>
                       <input
                         id="ofw-email-admin-password"
                         type="password"
@@ -368,6 +379,7 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
                         required
                       />
                       <InputError message={emailForm.errors.admin_password} className="mt-1" />
+                      <PasswordStrengthMeter value={emailForm.data.admin_password} rules={passwordRules} showAll />
                     </div>
                     <div className="flex justify-end gap-2">
                       <button
@@ -468,8 +480,9 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
             {isCreateMode && (
               <>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700">{isOfw ? 'Temporary Password' : 'Password'} <span className="text-red-500">*</span></label>
+                  <label htmlFor="user-create-password" className="block text-sm font-medium text-slate-700">{isOfw ? 'Temporary Password' : 'Password'} <span className="ml-1 text-xs font-normal text-slate-500">Required</span></label>
                   <input
+                    id="user-create-password"
                     type="password"
                     value={data.password}
                     onChange={(e) => setData('password', e.target.value)}
@@ -480,13 +493,15 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
                     autoComplete="new-password"
                   />
                   <InputError message={errors.password} className="mt-1" />
+                  <PasswordStrengthMeter value={data.password} rules={passwordRules} showAll />
                   {isOfw && (
                     <p className="mt-1 text-xs text-slate-500">Hand this password over manually outside the app. The citizen must replace it before using the app.</p>
                   )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700">Confirm Password <span className="text-red-500">*</span></label>
+                  <label htmlFor="user-create-password-confirm" className="block text-sm font-medium text-slate-700">Confirm Password <span className="ml-1 text-xs font-normal text-slate-500">Required</span></label>
                   <input
+                    id="user-create-password-confirm"
                     type="password"
                     value={data.password_confirmation}
                     onChange={(e) => setData('password_confirmation', e.target.value)}
@@ -497,6 +512,7 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
                     autoComplete="new-password"
                   />
                   <InputError message={errors.password_confirmation} className="mt-1" />
+                  <PasswordStrengthMeter value={data.password} rules={passwordRules} confirmation={data.password_confirmation} showAll />
                 </div>
               </>
             )}
@@ -752,7 +768,7 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
               </p>
 
               <div>
-                <label htmlFor="ofw-password" className="block text-sm font-medium text-slate-700">New temporary password</label>
+                <label htmlFor="ofw-password" className="block text-sm font-medium text-slate-700">New temporary password <span className="ml-1 text-xs font-normal text-slate-500">Required</span></label>
                 <input
                   id="ofw-password"
                   type="password"
@@ -763,10 +779,11 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
                   required
                 />
                 <InputError message={passwordForm.errors.password} className="mt-1" />
+                <PasswordStrengthMeter value={passwordForm.data.password} rules={passwordRules} showAll />
               </div>
 
               <div>
-                <label htmlFor="ofw-password-confirmation" className="block text-sm font-medium text-slate-700">Confirm temporary password</label>
+                <label htmlFor="ofw-password-confirmation" className="block text-sm font-medium text-slate-700">Confirm temporary password <span className="ml-1 text-xs font-normal text-slate-500">Required</span></label>
                 <input
                   id="ofw-password-confirmation"
                   type="password"
@@ -777,10 +794,11 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
                   required
                 />
                 <InputError message={passwordForm.errors.password_confirmation} className="mt-1" />
+                <PasswordStrengthMeter value={passwordForm.data.password} rules={passwordRules} confirmation={passwordForm.data.password_confirmation} showAll />
               </div>
 
               <div>
-                <label htmlFor="ofw-admin-password" className="block text-sm font-medium text-slate-700">Your current admin password</label>
+                <label htmlFor="ofw-admin-password" className="block text-sm font-medium text-slate-700">Your current admin password <span className="ml-1 text-xs font-normal text-slate-500">Required</span></label>
                 <input
                   id="ofw-admin-password"
                   type="password"
@@ -881,6 +899,8 @@ export default function UserFormModal({ user, agencies, onClose, onBypass, selec
               </div>
             </fieldset>
           )}
+
+          <DraftControls status={draft.status} onClear={draft.clear} />
 
           {/* Actions */}
           <div className="flex items-center justify-between pt-3 border-t border-slate-100">

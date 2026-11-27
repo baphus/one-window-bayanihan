@@ -5,6 +5,7 @@ import AppHeader from '@/Components/landing/AppHeader';
 import AvatarPicker from '@/Components/AvatarPicker';
 import IdentityFields, { emptyIdentity } from '@/Components/IdentityFields';
 import displayName from '@/utils/displayName';
+import PasswordStrengthMeter from '@/Components/PasswordStrengthMeter';
 
 export default function RegisterViaInvite({ invite }) {
     const { data, setData, processing, errors } = useForm({
@@ -19,7 +20,7 @@ export default function RegisterViaInvite({ invite }) {
     const [showPassword, setShowPassword] = useState(false);
     const [avatarFile, setAvatarFile] = useState(null);
     const [submitting, setSubmitting] = useState(false);
-    const roles = usePage().props.roles ?? {};
+    const { roles = {}, passwordRules } = usePage().props;
 
     const busy = processing || submitting;
 
@@ -45,25 +46,6 @@ export default function RegisterViaInvite({ invite }) {
             onFinish: () => setSubmitting(false),
         });
     };
-
-    // Password strength calculation
-    const getPasswordStrength = () => {
-        const pw = data.password;
-        if (!pw) return { score: 0, label: '', color: '' };
-        let score = 0;
-        if (pw.length >= 8) score++;
-        if (pw.length >= 12) score++;
-        if (/[a-z]/.test(pw) && /[A-Z]/.test(pw)) score++;
-        if (/\d/.test(pw)) score++;
-        if (/[^a-zA-Z0-9]/.test(pw)) score++;
-
-        if (score <= 2) return { score, label: 'Weak', color: 'bg-red-500' };
-        if (score <= 3) return { score, label: 'Fair', color: 'bg-amber-500' };
-        if (score <= 4) return { score, label: 'Good', color: 'bg-blue-500' };
-        return { score, label: 'Strong', color: 'bg-success' };
-    };
-
-    const strength = getPasswordStrength();
 
     const roleLabels = {
         ADMIN: 'System Admin',
@@ -147,10 +129,11 @@ export default function RegisterViaInvite({ invite }) {
 
                                 {/* Password */}
                                 <div>
-                                    <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-on-surface-variant">Password</label>
+                                    <label htmlFor="invite-password" className="mb-2 block text-xs font-bold uppercase tracking-widest text-on-surface-variant">Password <span className="ml-1 text-xs font-medium normal-case tracking-normal text-slate-500">Required</span></label>
                                     <div className="relative">
                                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant/40 text-[20px] material-symbols-outlined">lock</span>
                                         <input
+                                            id="invite-password"
                                             type={showPassword ? 'text' : 'password'}
                                             value={data.password}
                                             onChange={(e) => setData('password', e.target.value)}
@@ -164,23 +147,14 @@ export default function RegisterViaInvite({ invite }) {
                                     </div>
                                     {errors.password && <p className="mt-1 text-xs font-semibold text-error">{errors.password}</p>}
 
-                                    {/* Strength indicator */}
-                                    {data.password && (
-                                        <div className="mt-2">
-                                            <div className="flex gap-1 mb-1">
-                                                {[1, 2, 3, 4, 5].map((i) => (
-                                                    <div key={i} className={`h-1 flex-1 rounded-full ${i <= strength.score ? strength.color : 'bg-slate-200'}`} />
-                                                ))}
-                                            </div>
-                                            <p className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">{strength.label}</p>
-                                        </div>
-                                    )}
+                                    <PasswordStrengthMeter value={data.password} rules={passwordRules} showAll />
                                 </div>
 
                                 {/* Password Confirmation */}
                                 <div>
-                                    <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-on-surface-variant">Confirm Password</label>
+                                    <label htmlFor="invite-password-confirm" className="mb-2 block text-xs font-bold uppercase tracking-widest text-on-surface-variant">Confirm Password <span className="ml-1 text-xs font-medium normal-case tracking-normal text-slate-500">Required</span></label>
                                     <input
+                                        id="invite-password-confirm"
                                         type="password"
                                         value={data.password_confirmation}
                                         onChange={(e) => setData('password_confirmation', e.target.value)}
@@ -188,6 +162,7 @@ export default function RegisterViaInvite({ invite }) {
                                         required
                                     />
                                     {errors.password_confirmation && <p className="mt-1 text-xs font-semibold text-error">{errors.password_confirmation}</p>}
+                                    <PasswordStrengthMeter value={data.password} rules={passwordRules} confirmation={data.password_confirmation} showAll />
                                 </div>
 
                                 {/* Optional fields */}

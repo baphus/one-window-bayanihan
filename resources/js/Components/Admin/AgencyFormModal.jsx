@@ -6,6 +6,10 @@ import AgencyMapView from '@/Components/AgencyMapView';
 import { parseGoogleMapsUrl } from '@/lib/maps';
 import { agencyFormSchema } from '@/Schemas/adminSchemas';
 import useClientValidation from '@/Hooks/useClientValidation';
+import useSessionDraft from '@/Hooks/useSessionDraft';
+import DraftControls from '@/Components/DraftControls';
+import { usePage } from '@inertiajs/react';
+import { useMemo } from 'react';
 
 function parseContactInfo(contactInfo) {
   const fields = {
@@ -62,7 +66,7 @@ function parseContactInfo(contactInfo) {
 export default function AgencyFormModal({ agency, onClose, onBypass }) {
   const isEdit = !!agency;
   const contactFields = parseContactInfo(agency?.contact_info);
-  const { data, setData, post, patch, transform, processing, errors, setError, clearErrors } = useForm({
+  const defaults = useMemo(() => ({
     name: agency?.name ?? '',
     short: agency?.short ?? '',
     description: agency?.description ?? '',
@@ -74,7 +78,10 @@ export default function AgencyFormModal({ agency, onClose, onBypass }) {
     longitude: agency?.longitude ?? null,
     map_link: agency?.map_link ?? '',
     is_active: agency?.is_active ?? true,
-  });
+  }), [agency]);
+  const { data, setData, post, patch, transform, processing, errors, setError, clearErrors } = useForm(defaults);
+  const { auth } = usePage().props;
+  const draft = useSessionDraft({ userId: auth?.user?.id, formKey: 'admin.agency', recordId: agency?.id ?? 'create', data, setData, defaults, fields: ['name', 'short', 'description', 'contact_info', 'contact_address', 'contact_tel', 'contact_email', 'location_query', 'latitude', 'longitude', 'map_link'], shapes: { latitude: null, longitude: null } });
 
   const [mapPreview, setMapPreview] = useState(null);
 
@@ -123,12 +130,12 @@ export default function AgencyFormModal({ agency, onClose, onBypass }) {
     });
     if (isEdit) {
       if (data.logo_url instanceof File) {
-        post(route('admin.agencies.update', agency.id), { onSuccess: onClose, forceFormData: true });
+        post(route('admin.agencies.update', agency.id), { onSuccess: () => { draft.onSuccess(); onClose?.(); }, forceFormData: true });
       } else {
-        patch(route('admin.agencies.update', agency.id), { onSuccess: onClose });
+        patch(route('admin.agencies.update', agency.id), { onSuccess: () => { draft.onSuccess(); onClose?.(); } });
       }
     } else {
-      post(route('admin.agencies.store'), { onSuccess: onClose });
+      post(route('admin.agencies.store'), { onSuccess: () => { draft.onSuccess(); onClose?.(); } });
     }
   }
 
@@ -215,6 +222,7 @@ export default function AgencyFormModal({ agency, onClose, onBypass }) {
               Default agencies must stay active.
             </p>
           )}
+          <DraftControls status={draft.status} onClear={draft.clear} />
           <div className="flex justify-end gap-3 pt-2">
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50">Cancel</button>
             <button type="submit" disabled={processing} className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-primary-container disabled:opacity-50">

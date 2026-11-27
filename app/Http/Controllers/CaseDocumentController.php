@@ -257,6 +257,26 @@ class CaseDocumentController extends Controller
         return response()->json($document);
     }
 
+    public function preview(Request $request, string $caseId, string $documentId)
+    {
+        $case = CaseFile::findOrFail($caseId);
+        $this->authorizeAccess($case, $request->user());
+
+        $document = CaseDocument::where('case_id', $caseId)
+            ->where('id', $documentId)
+            ->where('is_deleted', false)
+            ->firstOrFail();
+        $this->authorizeDocumentAccess($document, $request->user(), $case);
+
+        AuditLogger::download()
+            ->by($request->user())
+            ->forEntity($document, $document->file_name)
+            ->module(AuditModule::CASE_DOCUMENT)
+            ->write();
+
+        return $this->inlinePreview($document->file_path, $document->file_name);
+    }
+
     public function download(Request $request, string $caseId, string $documentId)
     {
         $case = CaseFile::findOrFail($caseId);

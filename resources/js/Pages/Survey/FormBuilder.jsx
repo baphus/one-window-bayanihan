@@ -1,9 +1,11 @@
 import Select from '@/Components/Select';
 import AppLayout from '@/Layouts/AppLayout';
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import { useRef } from 'react';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import InputError from '@/Components/InputError';
+import useSessionDraft from '@/Hooks/useSessionDraft';
+import DraftControls from '@/Components/DraftControls';
 
 const QUESTION_TYPE_LABELS = {
   likert: 'Likert Scale (Strongly Disagree → Strongly Agree)',
@@ -191,6 +193,8 @@ export default function FormBuilder({ form, questionTypes, likertLabels }) {
   const buildInitialQuestions = () => {
     if (isEditing && form.questions?.length > 0) {
       return form.questions.map((q) => ({
+        id: q.id,
+        draftKey: q.id == null ? `saved-index-${form.questions.indexOf(q)}` : `saved-${q.id}`,
         type: q.type,
         label: q.label,
         options: q.options || [],
@@ -203,11 +207,11 @@ export default function FormBuilder({ form, questionTypes, likertLabels }) {
 
   const initialQuestions = buildInitialQuestions();
 
-  const { data, setData, post, patch, transform, processing, errors } = useForm({
-    title: form?.title ?? '',
-    description: form?.description ?? '',
-    questions: initialQuestions,
-  });
+  const defaults = { title: form?.title ?? '', description: form?.description ?? '', questions: initialQuestions };
+  const { data, setData, post, patch, transform, processing, errors } = useForm(defaults);
+  const draftFields = ['title', 'description', 'questions'];
+  const draftShapes = { questions: [{ id: null, type: '', label: '', options: [''], is_required: true, order: 0, draftKey: '' }] };
+  const draft = useSessionDraft({ userId: usePage().props.auth?.user?.id ?? 'author', formKey: 'survey-authoring', recordId: form?.id ?? 'create', data, setData, defaults, fields: draftFields, shapes: draftShapes });
 
   const initialRef = useRef({
     title: form?.title ?? '',
@@ -231,6 +235,7 @@ export default function FormBuilder({ form, questionTypes, likertLabels }) {
 
   const addQuestion = (type = 'likert') => {
     const newQuestion = {
+      draftKey: `new-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`}`,
       type,
       label: '',
       options: (type === 'radio' || type === 'checkbox') ? [''] : [],
@@ -263,11 +268,12 @@ export default function FormBuilder({ form, questionTypes, likertLabels }) {
     // `useForm` owns the request payload. Passing a `data` option here would
     // be treated as a visit option by Inertia and can leave the form's stale
     // question order in the submitted payload.
-    transform((currentData) => ({ ...currentData, questions: questionsWithOrder }));
+    transform((currentData) => ({ ...currentData, questions: questionsWithOrder.map(({ draftKey, ...question }) => question) }));
+    const onSuccess = () => draft.onSuccess();
     if (isEditing) {
-      patch(route('survey.forms.update', form.id));
+      patch(route('survey.forms.update', form.id), { onSuccess });
     } else {
-      post(route('survey.forms.store'));
+      post(route('survey.forms.store'), { onSuccess });
     }
   };
 
@@ -362,7 +368,7 @@ export default function FormBuilder({ form, questionTypes, likertLabels }) {
               ) : (
                 data.questions.map((question, index) => (
                   <QuestionCard
-                    key={index}
+                    key={question.draftKey ?? question.id ?? `question-${index}`}
                     index={index}
                     question={question}
                     errors={errors}
@@ -409,6 +415,7 @@ export default function FormBuilder({ form, questionTypes, likertLabels }) {
 
           {/* Submit */}
           <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div className="px-5 pt-4"><DraftControls status={draft.status} onClear={draft.clear} /></div>
             <div className="flex items-center justify-end gap-2 px-5 py-4">
               <Link
                 href={route('survey.forms.index')}

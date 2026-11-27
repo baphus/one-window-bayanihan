@@ -24,12 +24,12 @@ export default function PasswordInput({
     <div className={className}>
       {label && (
         <label htmlFor={id} className="mb-2 block text-xs font-bold uppercase tracking-widest text-on-surface-variant">
-          {label}
+          {label}{required && <span className="ml-1 text-xs font-medium normal-case tracking-normal text-slate-500">Required</span>}
         </label>
       )}
 
       <div className="relative">
-        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant/40 text-[20px] material-symbols-outlined">
+        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant/40 text-[20px] material-symbols-outlined" aria-hidden="true">
           lock
         </span>
 
@@ -44,6 +44,7 @@ export default function PasswordInput({
           placeholder={placeholder}
           readOnly={readOnly}
           required={required}
+          aria-required={required ? 'true' : undefined}
         />
 
         <button
@@ -53,7 +54,7 @@ export default function PasswordInput({
           tabIndex={-1}
           aria-label={show ? 'Hide password' : 'Show password'}
         >
-          <span className="material-symbols-outlined text-[20px]">
+          <span className="material-symbols-outlined text-[20px]" aria-hidden="true">
             {show ? 'visibility_off' : 'visibility'}
           </span>
         </button>

@@ -256,6 +256,7 @@ class Referral extends Model
     public function services()
     {
         return $this->belongsToMany(Service::class, 'referral_services', 'referral_id', 'service_id')
+            ->withPivot(['status', 'started_at', 'completed_at', 'updated_by'])
             ->withTimestamps();
     }
 

@@ -94,7 +94,7 @@ describe('profile MFA policy display', () => {
         await screen.findByText('Disable Two-Factor Authentication');
 
         const passwordDialog = screen.getByText('Disable Two-Factor Authentication').closest('.fixed');
-        fireEvent.change(within(passwordDialog).getByLabelText('Your Password'), { target: { value: 'password' } });
+        fireEvent.change(within(passwordDialog).getByLabelText(/^Your Password/), { target: { value: 'password' } });
         fireEvent.click(within(passwordDialog).getByRole('button', { name: 'Disable MFA' }));
 
         await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));

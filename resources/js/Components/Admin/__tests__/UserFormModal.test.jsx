@@ -3,13 +3,16 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const postMock = vi.fn();
+const pageProps = { auth: { user: { id: 'test-user' } }, roles: { ADMIN: 'ADMIN', CASE_MANAGER: 'CASE_MANAGER', AGENCY: 'AGENCY', OFW: 'OFW' }, passwordRules: { min_length: 8, require_uppercase: false, require_lowercase: false, require_number: false, require_symbol: false } };
 const patchMock = vi.fn();
+vi.mock('@/Hooks/useSessionDraft', () => ({ default: () => ({ clear: vi.fn(), onSuccess: vi.fn(), status: '' }) }));
+vi.mock('@/Components/DraftControls', () => ({ default: () => null }));
 
 vi.mock('@inertiajs/react', async () => {
     const { useState } = await import('react');
 
     return {
-        usePage: () => ({ props: { roles: { ADMIN: 'ADMIN', CASE_MANAGER: 'CASE_MANAGER', AGENCY: 'AGENCY', OFW: 'OFW' } } }),
+        usePage: () => ({ props: pageProps }),
         router: { reload: vi.fn() },
         useForm: (initial) => {
             const [state, setState] = useState(initial);
@@ -41,6 +44,7 @@ vi.mock('@inertiajs/react', async () => {
 vi.mock('@/Hooks/useMfaStatus', () => ({ default: () => ({ status: null }) }));
 vi.mock('@/Components/MfaConfirmDialog', () => ({ default: () => null }));
 vi.mock('@/Components/CropImageModal', () => ({ default: () => null }));
+vi.mock('@/Components/PasswordStrengthMeter', () => ({ default: () => null }));
 
 import UserFormModal from '../UserFormModal';
 
@@ -111,9 +115,9 @@ describe('admin citizen form', () => {
             />,
         );
 
-        fireEvent.change(screen.getByLabelText('New temporary password'), { target: { value: 'N3w!Temporary' } });
-        fireEvent.change(screen.getByLabelText('Confirm temporary password'), { target: { value: 'N3w!Temporary' } });
-        fireEvent.change(screen.getByLabelText('Your current admin password'), { target: { value: 'Adm1n!Password' } });
+        fireEvent.change(screen.getByLabelText(/New temporary password/ ), { target: { value: 'N3w!Temporary' } });
+        fireEvent.change(screen.getByLabelText(/Confirm temporary password/ ), { target: { value: 'N3w!Temporary' } });
+        fireEvent.change(screen.getByLabelText(/Your current admin password/ ), { target: { value: 'Adm1n!Password' } });
         fireEvent.click(screen.getByRole('button', { name: 'Reset Password' }));
 
         expect(postMock).toHaveBeenCalledWith('/admin.users.update/user-1', expect.objectContaining({ forceFormData: true }));
@@ -134,9 +138,9 @@ describe('admin citizen form', () => {
             />,
         );
 
-        fireEvent.change(screen.getByLabelText('New temporary password'), { target: { value: 'N3w!Temporary' } });
-        fireEvent.change(screen.getByLabelText('Confirm temporary password'), { target: { value: 'Different!1' } });
-        fireEvent.change(screen.getByLabelText('Your current admin password'), { target: { value: 'Adm1n!Password' } });
+        fireEvent.change(screen.getByLabelText(/New temporary password/ ), { target: { value: 'N3w!Temporary' } });
+        fireEvent.change(screen.getByLabelText(/Confirm temporary password/ ), { target: { value: 'Different!1' } });
+        fireEvent.change(screen.getByLabelText(/Your current admin password/ ), { target: { value: 'Adm1n!Password' } });
         fireEvent.click(screen.getByRole('button', { name: 'Reset Password' }));
 
         expect(screen.getByText('Passwords do not match.')).toBeInTheDocument();
@@ -154,7 +158,7 @@ describe('admin citizen form', () => {
 
         fireEvent.click(screen.getByRole('button', { name: 'Change email' }));
         fireEvent.change(screen.getByLabelText('New email address'), { target: { value: 'new.maria@example.test' } });
-        fireEvent.change(screen.getByLabelText('Your admin password'), { target: { value: 'Adm1n!Password' } });
+        fireEvent.change(screen.getByLabelText(/Your admin password/ ), { target: { value: 'Adm1n!Password' } });
         fireEvent.click(screen.getByRole('button', { name: 'Send verification code' }));
 
         expect(postMock.mock.calls.at(-1)[0]).toBe('/admin.users.email-change.send-otp/user-1');

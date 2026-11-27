@@ -1,7 +1,12 @@
+import { removeIntakeDrafts } from '@/Hooks/useIntakeSessionDraft';
+import { removeSessionDrafts } from '@/Hooks/useSessionDraft';
+
 const STORAGE_KEY_PREFIX = 'owb_draft_backup';
 
 /** Remove every draft backup for every user — call on logout. */
 export function clearAllDraftBackups() {
+  removeIntakeDrafts();
+  removeSessionDrafts();
   try {
     const prefix = `${STORAGE_KEY_PREFIX}_`;
     const keys = [];

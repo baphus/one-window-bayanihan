@@ -8,6 +8,8 @@ import InputError from '@/Components/InputError';
 import { ASSESSMENT_LABELS, DOCUMENT_SLOT_LABELS, RETURN_REASON_LABELS, requiredReasonSlot } from '@/Components/CaseIntakeForm';
 import { formatDisplayTime, formatTimestampDate } from '@/lib/utils';
 import safeRoute from '@/utils/safeRoute';
+import useSessionDraft from '@/Hooks/useSessionDraft';
+import DraftControls from '@/Components/DraftControls';
 
 const vulnStyles = {
   PWD: 'bg-purple-100 text-purple-800',
@@ -80,6 +82,12 @@ function ReviewDetail({ caseFile, assessmentOptions = [], agencies = [], categor
   const [errors, setErrors] = useState({});
   const fieldError = (field) => Object.entries(errors).filter(([key]) => key === field || key.startsWith(`${field}.`)).map(([, message]) => message).join(' ');
   const [selectedCategoryIds, setSelectedCategoryIds] = useState(() => (caseFile.case_categories ?? []).map((category) => String(category.id)));
+  const page = usePage();
+  const assessmentDefaults = useMemo(() => ({ confirmed_assessments: caseFile.proposed_assessments ?? [], confirmed_assessment_other: caseFile.confirmed_assessment_other ?? '', staff_summary: caseFile.staff_summary ?? '', category_ids: (caseFile.case_categories ?? []).map((category) => String(category.id)) }), [caseFile.id]);
+  const assessmentData = { confirmed_assessments: confirmed, confirmed_assessment_other: confirmedOther, staff_summary: staffSummary, category_ids: selectedCategoryIds };
+  const setAssessmentData = (data) => { setConfirmed(data.confirmed_assessments); setConfirmedOther(data.confirmed_assessment_other); setStaffSummary(data.staff_summary); setSelectedCategoryIds(data.category_ids); };
+  const assessmentFields = useMemo(() => ['confirmed_assessments', 'confirmed_assessment_other', 'staff_summary', 'category_ids'], []);
+  const assessmentDraft = useSessionDraft({ userId: page.props.auth?.user?.id, formKey: 'case-review-assessment', recordId: caseFile.id, data: assessmentData, setData: setAssessmentData, defaults: assessmentDefaults, fields: assessmentFields, shapes: { confirmed_assessments: [''], category_ids: [''] } });
 
   const documents = useMemo(() => (caseFile.documents ?? []).filter((doc) => !doc.referral_id), [caseFile.documents]);
   const [reviewedIds, setReviewedIds] = useState(() => caseFile.reviewed_document_ids ?? []);
@@ -119,7 +127,7 @@ function ReviewDetail({ caseFile, assessmentOptions = [], agencies = [], categor
       {
         preserveScroll: true,
         onError: (errors) => setErrors(errors),
-        onSuccess: () => onClose(),
+        onSuccess: () => { assessmentDraft.onSuccess(); onClose(); },
         onFinish: () => setProcessing(false),
       },
     );
@@ -175,6 +183,7 @@ function ReviewDetail({ caseFile, assessmentOptions = [], agencies = [], categor
 
         <div className="grid grid-cols-1 gap-4 px-6 py-5 lg:grid-cols-[minmax(0,1fr)_24rem]">
           <div className="space-y-4">
+          <DraftControls status={assessmentDraft.status} onClear={assessmentDraft.clear} />
           {errors.duplicate_check && <p role="alert" className="rounded-md border border-amber-300 bg-amber-50 p-3 text-[13px] text-amber-900">{errors.duplicate_check} The check now uses your confirmed assessment selection.</p>}
           {caseFile.duplicate_check && (!caseFile.duplicate_check.available || caseFile.duplicate_check.matches.length > 0) && (
             <section aria-label="Possible duplicates" className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-[13px] text-amber-950">
@@ -287,7 +296,7 @@ function ReviewDetail({ caseFile, assessmentOptions = [], agencies = [], categor
                         <span className="block font-semibold text-slate-800">{DOCUMENT_SLOT_LABELS[doc.category] ?? doc.category}</span>
                         {(() => {
                           const url = safeRoute('cases.documents.download', { case: caseFile.id, document: doc.id }, `/cases/${caseFile.id}/documents/${doc.id}/download`);
-                          return <a href={url} aria-label={`Download ${DOCUMENT_SLOT_LABELS[doc.category] ?? doc.category}`} className="mt-1 inline-flex items-center gap-1 text-blue-900 hover:underline"><MaterialSymbol name="download" className="text-[15px]" />Download</a>;
+                          return <span className="mt-1 inline-flex gap-3">{['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(doc.file_type) && <a href={safeRoute('cases.documents.preview', { case: caseFile.id, document: doc.id }, `/cases/${caseFile.id}/documents/${doc.id}/preview`)} target="_blank" rel="noopener noreferrer" aria-label={`Preview ${DOCUMENT_SLOT_LABELS[doc.category] ?? doc.category}`} className="inline-flex items-center gap-1 text-blue-900 hover:underline"><MaterialSymbol name="visibility" className="text-[15px]" />Preview</a>}<a href={url} aria-label={`Download ${DOCUMENT_SLOT_LABELS[doc.category] ?? doc.category}`} className="inline-flex items-center gap-1 text-blue-900 hover:underline"><MaterialSymbol name="download" className="text-[15px]" />Download</a></span>;
                         })()}
                       </label>
                     </li>
