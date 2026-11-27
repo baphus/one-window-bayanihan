@@ -235,7 +235,7 @@ export default function MfaConfirmDialog({
 
                     {passwordRequired && !proofOnly && (
                         <div>
-                            <InputLabel htmlFor="mfa-confirm-password" value={passwordLabel} />
+                            <InputLabel htmlFor="mfa-confirm-password" value={`${passwordLabel} — Required`} />
                             <TextInput
                                 id="mfa-confirm-password"
                                 type="password"
@@ -244,7 +244,9 @@ export default function MfaConfirmDialog({
                                 onChange={(e) => { setPassword(e.target.value); setError(''); }}
                                 placeholder="Enter your password"
                                 autoComplete="current-password"
+                                required
                             />
+                            <p className="mt-2 text-xs text-slate-500">Enter your current password.</p>
                         </div>
                     )}
 

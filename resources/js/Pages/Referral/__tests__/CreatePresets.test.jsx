@@ -4,6 +4,9 @@ import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mockPost = vi.fn();
+const draftState = vi.hoisted(() => ({ clear: vi.fn(), onSuccess: vi.fn(), status: 'Draft saved in this tab. Uploaded files are not saved.' }));
+vi.mock('@/Hooks/useSessionDraft', () => ({ default: (args) => { draftState.args = args; return draftState; } }));
+vi.mock('@/Components/DraftControls', () => ({ default: ({ status }) => <p role="status">{status}</p> }));
 
 vi.mock('@inertiajs/react', () => ({
   Head: () => null,
@@ -33,6 +36,14 @@ const categories = [{ id: 'cat-1', name: 'Legal', suggested_agency_ids: ['agcy-1
 const cases = { data: [{ id: 'case-1', case_number: 'C001', first_name: 'Juan', last_name: 'Cruz', created_at: '2026-11-01', status: 'open', categories: [{ id: 'cat-1', name: 'Legal' }] }], current_page: 1, last_page: 1, from: 1, to: 1, total: 1 };
 
 describe('Referral Create concern presets', () => {
+  it('renders draft status control and excludes uploaded document field from persisted data', () => {
+    render(<ReferralCreate case_id="case-1" agencies={agencies} cases={cases} categories={categories} filters={{}} />);
+    expect(screen.getByRole('status')).toHaveTextContent('Draft saved in this tab');
+    expect(draftState.args.fields).not.toContain('documents');
+    expect(draftState.args.fields).toContain('agcy_ids');
+    expect(draftState.args.fields).toContain('case_id');
+  });
+
   it('shows preset buttons on step 3', () => {
     render(<ReferralCreate case_id="case-1" agencies={agencies} cases={cases} categories={categories} filters={{}} />);
     

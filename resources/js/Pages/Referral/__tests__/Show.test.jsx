@@ -5,6 +5,7 @@ import ReferralShow from '../Show';
 const state = vi.hoisted(() => ({ role: 'AGENCY', agencyId: 'agency-1' }));
 const routerSpy = vi.hoisted(() => ({ post: vi.fn(), patch: vi.fn(), delete: vi.fn(), reload: vi.fn() }));
 const formSpy = vi.hoisted(() => ({ transform: null, submitted: null }));
+const draftSpy = vi.hoisted(() => ({ args: [] }));
 
 vi.mock('@inertiajs/react', () => ({
   Head: () => null,
@@ -22,6 +23,9 @@ vi.mock('@inertiajs/react', () => ({
     setData: (key, value) => { initial[key] = value; },
   }),
 }));
+
+vi.mock('@/Hooks/useSessionDraft', () => ({ default: (args) => { draftSpy.args.push(args); return { clear: vi.fn(), onSuccess: vi.fn(), status: 'Draft saved' }; } }));
+vi.mock('@/Components/DraftControls', () => ({ default: () => <p role="status">Draft saved</p> }));
 
 vi.mock('@/Layouts/AppLayout', () => ({ default: ({ children }) => <div>{children}</div> }));
 vi.mock('@/Components/PrimaryButton', () => ({ default: ({ children, ...props }) => <button {...props}>{children}</button> }));
@@ -66,7 +70,13 @@ const referral = {
   milestones: [],
   comments: [],
   attachments: [],
-  documents: [],
+  documents: [
+    { id: 'case-pdf', file_name: 'case.pdf', file_type: 'application/pdf' },
+    { id: 'case-image', file_name: 'case.png', file_type: 'image/png' },
+    { id: 'case-svg', file_name: 'unsafe.svg', file_type: 'image/svg+xml' },
+    { id: 'case-html', file_name: 'unsafe.html', file_type: 'text/html' },
+    { id: 'case-office', file_name: 'record.docx', file_type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' },
+  ],
 };
 
 const requestHistory = [{
@@ -108,6 +118,19 @@ function renderReferral(role, permissions) {
   );
 }
 
+describe('Referral/Show case document previews', () => {
+  it('previews only allowed PDF and raster case documents with protected routes and retains downloads', () => {
+    renderReferral('AGENCY', {});
+    expect(screen.getByRole('link', { name: 'Preview case.pdf' })).toHaveAttribute('href', '/cases.documents.preview/case-1/case-pdf');
+    expect(screen.getByRole('link', { name: 'Preview case.png' })).toHaveAttribute('href', '/cases.documents.preview/case-1/case-image');
+    for (const filename of ['unsafe.svg', 'unsafe.html', 'record.docx']) {
+      expect(screen.queryByRole('link', { name: `Preview ${filename}` })).not.toBeInTheDocument();
+      expect(screen.getByRole('link', { name: `Download ${filename}` })).toHaveAttribute('href', '/cases.documents.download/case-1/case-' + (filename === 'unsafe.svg' ? 'svg' : filename === 'unsafe.html' ? 'html' : 'office'));
+    }
+    expect(screen.getByRole('link', { name: 'Download case.pdf' })).toHaveAttribute('href', '/cases.documents.download/case-1/case-pdf');
+  });
+});
+
 describe('Referral/Show client request permissions', () => {
   it('shows upload visibility info from the Documents icon on hover and keyboard focus', () => {
     renderReferral('AGENCY', { canCreate: true, canReply: true, canTransition: true, canRevokeAccess: true });
@@ -117,6 +140,16 @@ describe('Referral/Show client request permissions', () => {
     expect(message).toHaveClass('hidden', 'group-hover:block', 'group-focus-within:block');
     expect(icon).toHaveAttribute('aria-describedby', 'agency-upload-info');
     expect(icon.tagName).toBe('SPAN');
+  });
+
+  it('renders saved-draft control in client request form', () => {
+    state.role = 'AGENCY';
+    renderReferral('AGENCY', { canCreate: true, canReply: true, canTransition: true, canRevokeAccess: true });
+    fireEvent.click(screen.getByRole('button', { name: /Request client/i }));
+    expect(screen.getByLabelText(/Due date/)).toBeInTheDocument();
+    expect(screen.getByText('Draft saved')).toBeInTheDocument();
+    expect(draftSpy.args.some((args) => args.formKey === 'referral-client-request' && args.recordId === referral.id)).toBe(true);
+    expect(draftSpy.args.some((args) => args.formKey === 'referral-milestone-create' && args.recordId === referral.id)).toBe(true);
   });
 
   it('renders Request client modal in body portal and closes without changing its form', () => {
@@ -132,6 +165,17 @@ describe('Referral/Show client request permissions', () => {
     expect(screen.getByLabelText('Title *')).toBeInTheDocument();
     expect(screen.getByText('Checklist', { exact: false })).toBeInTheDocument();
     expect(screen.getByText('Add at least one requirement.')).toBeInTheDocument();
+    const due = screen.getByLabelText(/Due date/);
+    const today = new Date();
+    const todayValue = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowValue = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
+    expect(due.min).toBe(tomorrowValue);
+    due.value = todayValue;
+    expect(due.validity.rangeUnderflow).toBe(true);
+    due.value = tomorrowValue;
+    expect(due.validity.valid).toBe(true);
 
     fireEvent.click(within(backdrop).getByRole('button', { name: 'Cancel' }));
     expect(screen.queryByText('Ask the client for information or documents needed by the agency.')).not.toBeInTheDocument();
@@ -244,7 +288,7 @@ describe('Referral/Show client request permissions', () => {
     const previewImg = screen.getByRole('img', { name: 'passport.jpg' });
     expect(previewImg.getAttribute('src')).toContain('referrals.client-requests.attachments.download');
 
-    const downloadLink = screen.getByRole('link', { name: /Download/i });
+    const downloadLink = screen.getByRole('link', { name: 'downloadDownload' });
     expect(downloadLink.getAttribute('href')).toContain('referrals.client-requests.attachments.download');
 
     fireEvent.click(screen.getByRole('button', { name: 'Close preview' }));
@@ -294,6 +338,26 @@ describe('Referral/Show client request permissions', () => {
     expect(screen.getAllByRole('checkbox')).toHaveLength(3);
   });
 
+  it('confirms requirement deletion in app dialog and sends one delete request only on confirmation', () => {
+    routerSpy.delete.mockClear();
+    const confirm = vi.spyOn(window, 'confirm');
+    render(<ReferralShow referral={{ ...referral, services: [{ id: 'service-1', name: 'Financial Aid' }], service_requirements: [{ id: 'req-1', name: 'Valid ID', service_id: 'service-1' }] }} clientRequestHistory={[]} clientRequestPermissions={{}} timeline={[]} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Financial Aid/ }));
+    fireEvent.click(screen.getByRole('button', { name: /delete/i }));
+    expect(screen.getByRole('dialog', { name: 'Delete requirement?' })).toHaveTextContent('Valid ID');
+    expect(routerSpy.delete).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(routerSpy.delete).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: /delete/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete requirement' }));
+    expect(routerSpy.delete).toHaveBeenCalledTimes(1);
+    expect(routerSpy.delete).toHaveBeenCalledWith('/referrals.services.requirements.delete/referral-1/service-1/req-1', expect.objectContaining({ preserveScroll: true, onError: expect.any(Function), onFinish: expect.any(Function) }));
+    expect(confirm).not.toHaveBeenCalled();
+    confirm.mockRestore();
+  });
+
   it('confirms removing an assigned service before deleting it', () => {
     routerSpy.delete.mockClear();
     render(<ReferralShow referral={{ ...referral, services: [{ id: 'service-1', name: 'Financial Aid' }], service_requirements: [{ id: 'req-1', name: 'Valid ID', service_id: 'service-1' }] }} clientRequestHistory={[]} clientRequestPermissions={{ canCreate: true, canReply: true, canTransition: true, canRevokeAccess: true }} timeline={[]} />);
@@ -313,6 +377,47 @@ describe('Referral/Show client request permissions', () => {
     expect(routerSpy.delete).toHaveBeenCalledWith('/referrals.services.remove/referral-1/service-1', { preserveScroll: true, onSuccess: expect.any(Function) });
   });
 
+  it('shows service status and advances only for receiving agency with exact PATCH payload', () => {
+    routerSpy.patch.mockClear();
+    const service = { id: 'service-1', name: 'Legal assistance', pivot: { status: 'ASSIGNED' } };
+    render(<ReferralShow referral={{ ...referral, services: [service] }} clientRequestHistory={[]} clientRequestPermissions={{}} timeline={[]} />);
+    expect(screen.getByText('Assigned')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Start processing' }));
+    expect(routerSpy.patch).toHaveBeenCalledWith('/referrals.services.status/referral-1/service-1', { status: 'PROCESSING' }, expect.objectContaining({ preserveScroll: true, onFinish: expect.any(Function) }));
+
+    state.agencyId = 'agency-other';
+    const { unmount } = render(<ReferralShow referral={{ ...referral, services: [service] }} clientRequestHistory={[]} clientRequestPermissions={{}} timeline={[]} />);
+    expect(screen.queryByRole('button', { name: 'Start processing' })).not.toBeInTheDocument();
+    unmount();
+    state.agencyId = 'agency-1';
+  });
+
+  it('keeps completed services terminal and prevents their removal', () => {
+    render(<ReferralShow referral={{ ...referral, services: [{ id: 'service-done', name: 'Legal assistance', pivot: { status: 'COMPLETED' } }] }} clientRequestHistory={[]} clientRequestPermissions={{}} timeline={[]} />);
+    expect(screen.getByText('Completed')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Start processing' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Mark completed' })).not.toBeInTheDocument();
+    expect(screen.queryByTitle('Remove Legal assistance')).not.toBeInTheDocument();
+  });
+
+  it('locks service changes and assignment for rejected referrals', () => {
+    render(<ReferralShow referral={{ ...referral, status: 'REJECTED', services: [{ id: 'service-1', name: 'Legal assistance' }] }} clientRequestHistory={[]} clientRequestPermissions={{}} timeline={[]} serviceRequirements={[{ id: 'catalog-1', title: 'Other service' }]} />);
+    expect(screen.queryByRole('button', { name: 'Start processing' })).not.toBeInTheDocument();
+    expect(screen.queryByTitle('Remove Legal assistance')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Add Service' })).not.toBeInTheDocument();
+  });
+
+  it('blocks parent completion while services remain and keeps zero-service completion option', () => {
+    const pendingService = { id: 'service-1', name: 'Legal assistance', pivot: { status: 'PROCESSING' } };
+    const { rerender } = render(<ReferralShow referral={{ ...referral, services: [pendingService] }} clientRequestHistory={[]} clientRequestPermissions={{}} timeline={[]} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Update Status' }));
+    expect(screen.getByText('Complete all assigned services before completing this referral.')).toBeInTheDocument();
+    expect(document.querySelector('option[value="COMPLETED"]')).toBeNull();
+
+    rerender(<ReferralShow referral={{ ...referral, services: [] }} clientRequestHistory={[]} clientRequestPermissions={{}} timeline={[]} />);
+    expect(document.querySelector('option[value="COMPLETED"]')).toBeInTheDocument();
+  });
+
   it('shows feedback instead of silently ignoring blank service requirement add and edit', () => {
     state.role = 'AGENCY';
     render(<ReferralShow referral={{ ...referral, services: [{ id: 'service-1', name: 'Financial Aid' }], service_requirements: [{ id: 'req-1', name: 'Valid ID', service_id: 'service-1' }] }} clientRequestHistory={[]} clientRequestPermissions={{ canCreate: true, canReply: true, canTransition: true, canRevokeAccess: true }} timeline={[]} />);
@@ -327,7 +432,7 @@ describe('Referral/Show client request permissions', () => {
     fireEvent.change(screen.getByRole('textbox', { name: 'Requirement name' }), { target: { value: '   ' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     expect(screen.getByRole('alert')).toHaveTextContent('Enter a requirement name before saving.');
-    expect(routerSpy.patch).not.toHaveBeenCalled();
+    expect(routerSpy.patch).not.toHaveBeenCalledWith('/referrals.services.requirements.update/referral-1/service-1/req-1', expect.anything(), expect.anything());
   });
 
   it('shows selected-agency visibility controls for reviewed client documents', () => {

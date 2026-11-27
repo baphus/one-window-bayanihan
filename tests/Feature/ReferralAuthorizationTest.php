@@ -6,6 +6,7 @@ use App\Enums\UserRole;
 use App\Models\Agency;
 use App\Models\CaseFile;
 use App\Models\Referral;
+use App\Models\ReferralAttachment;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -95,6 +96,20 @@ class ReferralAuthorizationTest extends TestCase
         $response = $this->actingAsWithMfa($manager)->get("/referrals/{$referral->id}");
 
         $response->assertStatus(200);
+    }
+
+    public function test_referral_attachment_preview_requires_referral_access_and_correct_attachment_scope(): void
+    {
+        $agencyA = Agency::factory()->create();
+        $agencyB = Agency::factory()->create();
+        $user = User::factory()->create(['role' => UserRole::AGENCY->value, 'agcy_id' => $agencyA->id]);
+        $case = CaseFile::factory()->create();
+        $ownReferral = Referral::create(['id' => fake()->uuid(), 'required_services' => 'Test', 'status' => 'PENDING', 'case_id' => $case->id, 'agcy_id' => $agencyA->id]);
+        $otherReferral = Referral::create(['id' => fake()->uuid(), 'required_services' => 'Test', 'status' => 'PENDING', 'case_id' => $case->id, 'agcy_id' => $agencyB->id]);
+        $attachment = ReferralAttachment::create(['referral_id' => $otherReferral->id, 'file_name' => 'file.pdf', 'file_path' => 'file.pdf', 'file_type' => 'application/pdf', 'size' => 10, 'user_id' => $user->id]);
+
+        $this->actingAsWithMfa($user)->get(route('referrals.attachments.preview', [$ownReferral->id, $attachment->id]))->assertNotFound();
+        $this->actingAsWithMfa($user)->get(route('referrals.attachments.preview', [$otherReferral->id, $attachment->id]))->assertForbidden();
     }
 
     public function test_admin_can_view_any_referral(): void

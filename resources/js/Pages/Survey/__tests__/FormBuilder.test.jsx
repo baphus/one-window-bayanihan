@@ -7,6 +7,7 @@ const state = vi.hoisted(() => ({ form: null, route: vi.fn((name, id) => `/${nam
 vi.mock('@inertiajs/react', () => ({
   Head: () => null,
   Link: ({ children, ...props }) => <a {...props}>{children}</a>,
+  usePage: () => ({ props: { auth: { user: { id: 8 } } } }),
   useForm: (initial) => {
     if (!state.form) {
       state.form = {
@@ -75,7 +76,7 @@ describe('FormBuilder', () => {
 
     expect(state.form.submitted.data.questions.map((question) => question.label)).toEqual(['Second', 'First']);
     expect(state.form.submitted.data.questions.map((question) => question.order)).toEqual([0, 1]);
-    expect(state.form.post).toHaveBeenCalledWith('/survey.forms.store/');
+    expect(state.form.post).toHaveBeenCalledWith('/survey.forms.store/', expect.objectContaining({ onSuccess: expect.any(Function) }));
   });
 
   it('uses the ordered payload when updating an existing form', () => {
@@ -86,7 +87,7 @@ describe('FormBuilder', () => {
     fireEvent.submit(screen.getByRole('button', { name: 'Update Form' }).closest('form'));
 
     expect(state.form.submitted.data.questions.map((question) => question.label)).toEqual(['Second', 'First']);
-    expect(state.form.patch).toHaveBeenCalledWith('/survey.forms.update/form-1');
+    expect(state.form.patch).toHaveBeenCalledWith('/survey.forms.update/form-1', expect.objectContaining({ onSuccess: expect.any(Function) }));
   });
 
   it('submits the FormBuilder shape for every supported question type', () => {

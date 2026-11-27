@@ -93,6 +93,9 @@ export default function ChangeTemporaryPassword() {
                                     onChange={(v) => setData('password_confirmation', v)}
                                     error={errors.password_confirmation}
                                     autoComplete="new-password"
+                                    showStrengthMeter
+                                    rules={passwordRules}
+                                    confirmation={data.password}
                                     required
                                 />
 

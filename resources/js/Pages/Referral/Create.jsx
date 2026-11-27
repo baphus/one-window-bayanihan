@@ -1,8 +1,10 @@
 import { MAX_UPLOAD_BYTES, UPLOAD_SIZE_ERROR } from '@/utils/uploadLimit';
 import AppLayout from '@/Layouts/AppLayout';
-import { Head, Link, useForm, router } from '@inertiajs/react';
+import { Head, Link, useForm, router, usePage } from '@inertiajs/react';
 import { useEffect, useMemo, useState, useRef } from 'react';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
+import useSessionDraft from '@/Hooks/useSessionDraft';
+import DraftControls from '@/Components/DraftControls';
 
 import { formatDisplayTime, formatTimestampDate } from '@/lib/utils';
 import InputError from '@/Components/InputError';
@@ -50,14 +52,11 @@ function formatFileSize(bytes) {    if (!bytes) return '';
 export default function ReferralCreate({ case_id, agencies = [], cases: paginatedCases, selected_case = null, categories = [], filters = {} }) {
     const cases = paginatedCases.data || [];
     const { current_page: currentPage, last_page: lastPage, from, to, total } = paginatedCases || {};
-    const { data, setData, post, processing, errors, clearErrors, transform } = useForm({
-        case_id: case_id || '',
-        agcy_ids: [],
-        concern: '',
-        override_reason: '',
-        notes: '',
-        documents: [],
-    });
+    const defaults = useMemo(() => ({ case_id: case_id || '', agcy_ids: [], concern: '', override_reason: '', notes: '', documents: [] }), [case_id]);
+    const { data, setData, post, processing, errors, clearErrors, transform } = useForm(defaults);
+    const draftFields = useMemo(() => ['case_id', 'agcy_ids', 'concern', 'override_reason', 'notes'], []);
+    const page = usePage();
+    const draft = useSessionDraft({ userId: page.props.auth?.user?.id, formKey: 'referral-create', data, setData, defaults, fields: draftFields });
 
     const [showConfirmation, setShowConfirmation] = useState(false);
 
@@ -104,7 +103,7 @@ export default function ReferralCreate({ case_id, agencies = [], cases: paginate
         || notesValue !== ''
         || data.documents.length > 0
     ), [data.case_id, data.agcy_ids, data.override_reason, concernValue, notesValue, data.documents.length]);
-    const { UnsavedModal, bypassNext } = useUnsavedChanges(hasDirty);
+    const { UnsavedModal, bypassNext } = useUnsavedChanges(hasDirty || draft.status.startsWith('Draft'));
     const selectedCase = useMemo(() => {
         if (!data.case_id) return null;
         return cases.find((c) => c.id === data.case_id) || (selected_case?.id === data.case_id ? selected_case : null) || selectedCaseRef.current;
@@ -177,7 +176,7 @@ export default function ReferralCreate({ case_id, agencies = [], cases: paginate
         }));
 
         post(route('referrals.store'), {
-            onSuccess: () => { toast.success('Referral submitted successfully!'); },
+            onSuccess: () => { draft.onSuccess(); toast.success('Referral submitted successfully!'); },
             onError: () => {},
             onFinish: () => { transform((current) => current); },
         });
@@ -790,6 +789,7 @@ export default function ReferralCreate({ case_id, agencies = [], cases: paginate
                     <div className="flex gap-3"><button type="button" disabled={processing} onClick={submitReferral} className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">Send referrals</button><button type="button" onClick={() => setShowConfirmation(false)} className="text-sm font-bold text-slate-600">Cancel</button></div>
                 </div>
             </Modal>
+            <DraftControls status={draft.status} onClear={draft.clear} />
             {UnsavedModal}
         </AppLayout>
     );

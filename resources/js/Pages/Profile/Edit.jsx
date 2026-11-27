@@ -26,6 +26,8 @@ import {
     PROFILE_TEXTAREA_CLASS,
 } from '@/Components/ui/ProfileCard';
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
+import useSessionDraft from '@/Hooks/useSessionDraft';
+import DraftControls from '@/Components/DraftControls';
 import useClientValidation from '@/Hooks/useClientValidation';
 import { useToast } from '@/Hooks/useToast';
 import { profileSchema } from '@/Schemas/profileSchemas';
@@ -85,7 +87,12 @@ export default function Edit({ mustVerifyEmail, status, mfaEnabled, mfaRequired,
         contact_number: user.contact_number || '',
     });
 
-    const { data, setData, patch, transform, errors, processing, setError, clearErrors } = useForm(buildInitialData());
+    const defaults = buildInitialData();
+    const draftFields = isOfw
+        ? ['first_name', 'middle_name', 'last_name', 'suffix', 'date_of_birth', 'sex', 'timezone', 'contact_number']
+        : ['first_name', 'middle_name', 'last_name', 'suffix', 'date_of_birth', 'sex', 'position', 'department', 'office_location', 'bio', 'emergency_contact', 'notifications_config', 'timezone', 'contact_number'];
+    const { data, setData, patch, transform, errors, processing, setError, clearErrors } = useForm(defaults);
+    const draft = useSessionDraft({ userId: user.id, formKey: 'profile-edit', data, setData, defaults, fields: draftFields });
 
     const toast = useToast();
     const [avatarPreview, setAvatarPreview] = useState(null);
@@ -200,6 +207,7 @@ export default function Edit({ mustVerifyEmail, status, mfaEnabled, mfaRequired,
             preserveScroll: true,
             preserveState: true,
             onSuccess: () => {
+                draft.onSuccess();
                 // Re-baseline against what was just saved so the Save bar
                 // returns to its resting state.
                 savedSnapshot.current = JSON.stringify(data);
@@ -447,6 +455,7 @@ export default function Edit({ mustVerifyEmail, status, mfaEnabled, mfaRequired,
                         </ProfileSection>}
 
                         {/* The single Save / Discard bar for this card */}
+                        <DraftControls status={draft.status} onClear={draft.clear} />
                         <ProfileSaveBar
                             dirty={isDirty}
                             processing={processing || enrollmentBlocked}

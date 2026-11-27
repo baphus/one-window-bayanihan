@@ -22,6 +22,8 @@ import AuditLogModal from '@/Components/AuditLogModal';
 import UnifiedTimeline from '@/Components/Timeline';
 import PresenceRoster from '@/Components/PresenceRoster';
 import { canShowCasePresence } from '@/Components/presencePolicy';
+import useSessionDraft from '@/Hooks/useSessionDraft';
+import DraftControls from '@/Components/DraftControls';
 
 const vulnConfig = {
   'PWD': { icon: 'accessibility', className: 'bg-purple-100 text-purple-800 border-purple-200' },
@@ -178,9 +180,15 @@ export default function CaseShow({ case: caseFile, case_categories = [], recomme
   const hasEmployment = Object.values(primaryEmployment).some(Boolean) || Boolean(caseFile.employment_employer_address);
   const categoryOptions = page.props.categories ?? [];
   const [showEdit, setShowEdit] = useState(false);
-  const [correction, setCorrection] = useState({});
+  const correctionDefaults = useMemo(() => ({ ...Object.fromEntries(['first_name', 'middle_name', 'last_name', 'suffix', 'date_of_birth', 'sex', 'email', 'contact_number', 'civil_status', 'civil_status_other', 'deployment_mode', 'employment_status', 'address_street', 'address_barangay', 'address_city_municipality', 'address_province', 'address_region', 'employment_employer_name', 'employment_employer_address', 'employment_position', 'employment_country', 'employment_last_position', 'employment_date_of_arrival', 'vulnerability_indicator', 'summary', 'staff_summary', 'nok_name', 'nok_relationship', 'nok_contact_number', 'nok_email'].map((field) => [field, caseFile[field] ?? ''])) }), [caseFile.id]);
+  const [correction, setCorrection] = useState(correctionDefaults);
   const [correctionReason, setCorrectionReason] = useState('');
   const [selectedCategoryIds, setSelectedCategoryIds] = useState(case_categories.map((category) => String(category.id)));
+  const correctionDraftDefaults = useMemo(() => ({ ...correctionDefaults, category_ids: case_categories.map((category) => String(category.id)), correction_reason: '' }), [correctionDefaults, case_categories]);
+  const correctionFields = useMemo(() => ['first_name', 'middle_name', 'last_name', 'suffix', 'date_of_birth', 'sex', 'email', 'contact_number', 'civil_status', 'civil_status_other', 'deployment_mode', 'employment_status', 'address_street', 'address_barangay', 'address_city_municipality', 'address_province', 'address_region', 'employment_employer_name', 'employment_employer_address', 'employment_position', 'employment_country', 'employment_last_position', 'employment_date_of_arrival', 'vulnerability_indicator', 'summary', 'staff_summary', 'nok_name', 'nok_relationship', 'nok_contact_number', 'nok_email', 'category_ids', 'correction_reason'], []);
+  const correctionDraftData = useMemo(() => ({ ...correction, category_ids: selectedCategoryIds, correction_reason: correctionReason }), [correction, selectedCategoryIds, correctionReason]);
+  const correctionDraftSetData = (data) => { const { category_ids, correction_reason, ...fields } = data; setCorrection(fields); setSelectedCategoryIds(category_ids ?? []); setCorrectionReason(correction_reason ?? ''); };
+  const correctionDraft = useSessionDraft({ userId: page.props.auth?.user?.id, formKey: 'case-correction', recordId: caseFile.id, data: correctionDraftData, setData: correctionDraftSetData, defaults: correctionDraftDefaults, fields: correctionFields, shapes: { category_ids: [''] } });
   const [editProcessing, setEditProcessing] = useState(false);
   const editPending = useRef(false);
   const [editErrors, setEditErrors] = useState({});
@@ -213,7 +221,7 @@ export default function CaseShow({ case: caseFile, case_categories = [], recomme
     bypassNext();
     router.patch(route('cases.update', caseFile.id), { ...correction, correction_reason: correctionReason.trim(), category_ids: selectedCategoryIds }, {
       preserveScroll: true,
-      onSuccess: () => setShowEdit(false),
+      onSuccess: () => { correctionDraft.onSuccess(); setShowEdit(false); },
       onError: (errors) => setEditErrors(errors),
       onFinish: () => { editPending.current = false; setEditProcessing(false); },
     });
@@ -502,7 +510,7 @@ export default function CaseShow({ case: caseFile, case_categories = [], recomme
               title="Case Summary"
               actions={(
                 <div className="flex flex-wrap gap-2">
-                  {canManageCaseDocuments && <button type="button" onClick={() => { setSelectedCategoryIds(case_categories.map((category) => String(category.id))); setCorrection({}); setCorrectionReason(''); setEditErrors({}); setShowEdit(true); }} className="min-h-[34px] rounded-md border border-slate-300 px-3 text-[12px] font-bold text-slate-700 hover:bg-slate-50">Edit Case</button>}
+                  {canManageCaseDocuments && <button type="button" onClick={() => { setEditErrors({}); setShowEdit(true); }} className="min-h-[34px] rounded-md border border-slate-300 px-3 text-[12px] font-bold text-slate-700 hover:bg-slate-50">Edit Case</button>}
                   {canManageReferrals && ['OPEN', 'CLOSED'].includes(caseFile.status) && <>
                     <button type="button" onClick={() => setConfirmToggleStatus(true)} disabled={caseFile.status === 'OPEN' && hasActiveReferrals} className="inline-flex min-h-[34px] items-center gap-1.5 rounded-md bg-blue-900 px-3.5 text-[12px] font-bold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500">
                       {caseFile.status === 'OPEN' && hasActiveReferrals && <span aria-hidden="true" className="material-symbols-outlined text-[15px]">lock</span>}
@@ -880,15 +888,8 @@ export default function CaseShow({ case: caseFile, case_categories = [], recomme
                           </p>
                         </div>
                         <div className="flex items-center gap-2 shrink-0 ml-2">
-                          <a
-                            href={route('cases.documents.download', { case: caseFile.id, document: doc.id })}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            aria-label={`View document ${doc.file_name}`}
-                            className="text-slate-500 hover:text-blue-900"
-                          >
-                            <Eye aria-hidden="true" className="h-4 w-4" />
-                          </a>
+                          {['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(doc.file_type) && <a href={route('cases.documents.preview', { case: caseFile.id, document: doc.id })} target="_blank" rel="noopener noreferrer" aria-label={`Preview ${doc.file_name}`} className="text-slate-500 hover:text-blue-900"><Eye aria-hidden="true" className="h-4 w-4" /></a>}
+                          <a href={route('cases.documents.download', { case: caseFile.id, document: doc.id })} aria-label={`Download ${doc.file_name}`} className="text-slate-500 hover:text-blue-900"><span className="material-symbols-outlined text-[16px]" aria-hidden="true">download</span></a>
                           {canDelete && (
                             <button
                               type="button"
@@ -926,6 +927,7 @@ export default function CaseShow({ case: caseFile, case_categories = [], recomme
 
       <Modal show={showEdit} closeable={!editProcessing} onClose={closeEdit}>
         <form className="space-y-5 p-6" onSubmit={submitEdit} noValidate>
+          <DraftControls status={correctionDraft.status} onClear={correctionDraft.clear} />
           {Object.keys(editErrors).length > 0 && <div role="alert" className="rounded-md bg-red-50 p-3 text-sm text-red-700"><p className="font-bold">Could not save changes:</p><ul className="list-inside list-disc">{Object.entries(editErrors).map(([field, message]) => <li key={field}>{message}</li>)}</ul></div>}
           <div><h2 className="text-lg font-bold text-slate-900">Edit Case</h2><p className="mt-1 text-sm text-slate-500">Update case details and categories.</p></div>
           <div className="grid gap-3 sm:grid-cols-2">

@@ -153,7 +153,7 @@ export default function Login({ status, canResetPassword, loginUrl }) {
 
                                     <div>
                                         <div className="flex justify-between mb-2">
-                                            <label className="block text-xs font-bold uppercase tracking-widest text-on-surface-variant">Password</label>
+                                            <label htmlFor="login-password" className="block text-xs font-bold uppercase tracking-widest text-on-surface-variant">Password</label>
                                             {canResetPassword && (
                                                 <Link href={route('password.request')} className="text-xs font-bold text-primary hover:underline">Forgot Access?</Link>
                                             )}
@@ -162,6 +162,7 @@ export default function Login({ status, canResetPassword, loginUrl }) {
                                             id="login-password"
                                             value={password}
                                             onChange={(v) => { setPassword(v); setLoginError(''); }}
+                                            required
                                         />
                                     </div>
 

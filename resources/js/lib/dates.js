@@ -4,6 +4,13 @@
  * import from a component file.
  */
 
+export function getMaximumBirthDate(age = 16, today = new Date()) {
+  const year = today.getFullYear() - age;
+  const month = today.getMonth();
+  const day = Math.min(today.getDate(), new Date(year, month + 1, 0).getDate());
+  return toISODateInputValue(new Date(year, month, day));
+}
+
 export function addDays(date, days) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
 }

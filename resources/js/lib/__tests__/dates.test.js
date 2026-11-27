@@ -1,7 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { getQuickRangeDates } from '../dates';
+import { getMaximumBirthDate, getQuickRangeDates } from '../dates';
 
 afterEach(() => vi.useRealTimers());
+
+it('calculates age-16 cutoff with leap-day clamp and accepts birthday today', () => {
+  expect(getMaximumBirthDate(16, new Date(2026, 1, 28))).toBe('2010-02-28');
+  expect(getMaximumBirthDate(16, new Date(2024, 1, 29))).toBe('2008-02-29');
+});
 
 describe('report rolling ranges', () => {
   it('includes today in 7, 14 and 30 day ranges', () => {

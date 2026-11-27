@@ -1,7 +1,7 @@
 import AppFooter from '@/Components/landing/AppFooter';
 import AppHeader from '@/Components/landing/AppHeader';
 import PasswordInput from '@/Components/PasswordInput';
-import { Head, useForm } from '@inertiajs/react';
+import { Head, useForm, usePage } from '@inertiajs/react';
 import { confirmPasswordSchema } from '@/Schemas/authSchemas';
 import useClientValidation from '@/Hooks/useClientValidation';
 
@@ -88,6 +88,7 @@ export default function ConfirmPassword() {
                                     onChange={(v) => setData('password', v)}
                                     error={errors.password}
                                     autoComplete="current-password"
+                                    required
                                     autoFocus
                                 />
 

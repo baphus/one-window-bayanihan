@@ -34,6 +34,7 @@ export default function PasswordStrengthMeter({ value = '', rules, confirmation,
 
   return (
     <div className="mt-2 space-y-1.5">
+      {showAll && checks.length > 0 && <p className="text-xs font-medium text-slate-600">Password guide</p>}
       {/* Progress bar */}
       <div className="flex items-center gap-2">
         <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-200">

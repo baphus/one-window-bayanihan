@@ -235,9 +235,9 @@ function SpineRow({ item, config, showRelative, showAbsolute, formatRelative, fo
     return (
         <li className="relative flex items-start gap-4">
             <div className={`z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border bg-white shadow-sm ${config.dot}`}>
-                <span className="material-symbols-outlined text-[14px]">{config.icon}</span>
+                <span aria-hidden="true" className="material-symbols-outlined text-[14px]">{config.icon}</span>
             </div>
-            <div className="min-w-0 flex-1 pt-0.5">
+            <div className="min-w-0 flex-1 py-0.5">
                 <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                     {relative && (
                         <time dateTime={dateTime} className="text-[11px] font-bold uppercase tracking-tight text-slate-500">{relative}</time>

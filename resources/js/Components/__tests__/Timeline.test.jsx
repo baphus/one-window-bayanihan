@@ -53,6 +53,23 @@ describe('UnifiedTimeline bottom-up ordering', () => {
         expect(titles).toEqual(['Latest event', 'First event']);
     });
 
+    it('renders service events as normal chronological rows without grouping decorations', () => {
+        const { container } = render(<UnifiedTimeline items={[
+            { id: 'service-completed', date: '2026-03-03T00:00:00Z', title: 'Service completed: Legal assistance', service_id: 'service-legal', service_name: 'Legal assistance', service_status: 'COMPLETED' },
+            { id: 'general', date: '2026-03-02T00:00:00Z', title: 'Referral updated' },
+            { id: 'service-started', date: '2026-03-01T00:00:00Z', title: 'Service processing: Legal assistance', service_id: 'service-legal', service_name: 'Legal assistance', service_status: 'PROCESSING' },
+            { id: 'service-other', date: '2026-02-28T00:00:00Z', title: 'Other service updated', service_id: 'service-other', service_name: 'Employment support', service_status: 'PROCESSING' },
+        ]} />);
+        const rows = Array.from(container.querySelectorAll('li'));
+        expect(rows.map((row) => row.querySelector('h4').textContent)).toEqual([
+            'Service completed: Legal assistance', 'Referral updated', 'Service processing: Legal assistance', 'Other service updated',
+        ]);
+        expect(rows).toHaveLength(4);
+        expect(rows.every((row) => !row.hasAttribute('data-service-id'))).toBe(true);
+        expect(rows.every((row) => !row.className.includes('border-l-[3px]'))).toBe(true);
+        expect(screen.queryByText('Employment support')).not.toBeInTheDocument();
+    });
+
     it('shows the empty state when there are no items', () => {
         render(<UnifiedTimeline items={[]} emptyTitle="Nothing here yet." />);
         expect(screen.getByText('Nothing here yet.')).toBeInTheDocument();

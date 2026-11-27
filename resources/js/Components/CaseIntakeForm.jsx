@@ -7,6 +7,7 @@ import Select from '@/Components/Select';
 import { addressCodesToNames } from '@/data/philippine-addresses';
 import { DEFAULT_OCCUPATIONS } from '@/data/defaultOccupations';
 import safeRoute from '@/utils/safeRoute';
+import { getMaximumBirthDate } from '@/lib/dates';
 
 export const CIVIL_STATUS_LABELS = {
     SINGLE: 'Single',
@@ -413,7 +414,7 @@ export default function CaseIntakeForm({ form, mode = 'public', options = {}, on
                         </Select>
                     </Field>
                     <Field label="Date of birth" htmlFor="intake-dob" required error={errors.date_of_birth} hint={ageAtIntake !== null ? `Age at intake: ${ageAtIntake}` : 'Age is shown from the date of birth and intake date.'}>
-                        <input id="intake-dob" type="date" value={data.date_of_birth} onChange={(e) => setData('date_of_birth', e.target.value)} className={INPUT} max={data.intake_date || undefined} />
+                        <input id="intake-dob" type="date" value={data.date_of_birth} onChange={(e) => { e.target.setCustomValidity(''); setData('date_of_birth', e.target.value); }} onInvalid={(e) => e.currentTarget.setCustomValidity(e.currentTarget.value > getMaximumBirthDate() ? 'Must be at least 16 years old.' : 'Birth date must not be after intake date.')} className={INPUT} max={data.intake_date && data.intake_date < getMaximumBirthDate() ? data.intake_date : getMaximumBirthDate()} />
                     </Field>
                     <Field label="Sex" htmlFor="intake-sex" required error={errors.sex}>
                         <Select id="intake-sex" value={data.sex} onChange={(e) => setData('sex', e.target.value)} className="h-10 w-full px-3 text-[13px]">
@@ -566,7 +567,8 @@ export default function CaseIntakeForm({ form, mode = 'public', options = {}, on
 
             <Section title="Statement" description="Describe what happened and what help is needed.">
                 <Field label="OFW statement" htmlFor="intake-summary" required error={errors.summary}>
-                    <textarea id="intake-summary" rows={6} maxLength={5000} value={data.summary} onChange={(e) => setData('summary', e.target.value)} className={TEXTAREA} />
+                    <textarea id="intake-summary" rows={6} maxLength={5000} value={data.summary} onChange={(e) => setData('summary', e.target.value)} className={TEXTAREA} placeholder="Write your statement in your preferred language, such as Bisaya/Cebuano, Filipino, or English." aria-describedby="intake-summary-language" />
+                    <p id="intake-summary-language" className="mt-1 text-xs text-slate-500">You may write in your preferred language, including Bisaya/Cebuano, Filipino, or English.</p>
                 </Field>
                 {isStaff && (
                     <Field label="Staff summary" htmlFor="intake-staff-summary" error={errors.staff_summary} hint="Internal summary kept separate from the OFW statement.">

@@ -29,6 +29,7 @@ use App\Support\MultiSelectFilter;
 use App\Support\ReportCalendar;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
@@ -634,6 +635,9 @@ class ReferralService
             if ($referral->status === 'COMPLETED') {
                 throw new \InvalidArgumentException('Cannot modify services on a completed referral.');
             }
+            if ($referral->status === 'REJECTED') {
+                throw new \InvalidArgumentException('Cannot modify services on a terminal referral.');
+            }
 
             $service = Service::where('id', $serviceId)
                 ->where('agcy_id', $referral->agcy_id)
@@ -658,7 +662,7 @@ class ReferralService
                     'user_id' => $userId,
                 ]);
 
-                $this->eventRecorder->milestoneAdded($referral, $milestone, $userId);
+                $this->eventRecorder->milestoneAdded($referral, $milestone, $userId, ['service_id' => $service->id, 'service_name' => $service->name, 'service_status' => 'ASSIGNED']);
             }
 
             return $referral->load('services');
@@ -694,6 +698,43 @@ class ReferralService
         }
     }
 
+    public function updateServiceStatus(Referral $referral, string $serviceId, string $status, string $userId): Referral
+    {
+        return DB::transaction(function () use ($referral, $serviceId, $status, $userId) {
+            $referral = Referral::whereKey($referral->getKey())->lockForUpdate()->firstOrFail();
+            $actor = User::findOrFail($userId);
+            abort_unless($actor->isAgency() && $actor->is_active && $actor->agcy_id === $referral->agcy_id, 403);
+            if (! in_array($referral->status, ['PROCESSING', 'FOR_COMPLIANCE'], true)) {
+                throw new \InvalidArgumentException('Service status cannot change for this referral status.');
+            }
+            $service = Service::whereKey($serviceId)->where('agcy_id', $referral->agcy_id)->firstOrFail();
+            $pivot = DB::table('referral_services')->where('referral_id', $referral->id)->where('service_id', $service->id)->lockForUpdate()->first();
+            if (! $pivot) {
+                throw (new ModelNotFoundException)->setModel(Service::class, [$serviceId]);
+            }
+            if ($pivot->status === $status) {
+                return $referral->load('services');
+            }
+            if (! (($pivot->status === 'ASSIGNED' && $status === 'PROCESSING') || ($pivot->status === 'PROCESSING' && $status === 'COMPLETED'))) {
+                throw new \InvalidArgumentException('Invalid service status transition.');
+            }
+            $now = now();
+            DB::table('referral_services')->where('referral_id', $referral->id)->where('service_id', $service->id)->update([
+                'status' => $status,
+                'started_at' => $status === 'PROCESSING' ? $now : $pivot->started_at,
+                'completed_at' => $status === 'COMPLETED' ? $now : null,
+                'updated_by' => $userId,
+                'updated_at' => $now,
+            ]);
+            $title = $status === 'PROCESSING' ? "Service processing: {$service->name}" : "Service completed: {$service->name}";
+            $milestone = Milestone::create(['title' => $title, 'description' => null, 'refr_id' => $referral->id, 'user_id' => $userId]);
+            $this->eventRecorder->milestoneAdded($referral, $milestone, $userId, ['service_id' => $service->id, 'service_name' => $service->name, 'service_status' => $status]);
+            AuditLogger::log(AuditAction::UPDATE)->byId($userId)->forEntity($referral, $referral->agency?->name)->module(AuditModule::REFERRAL)->context(['service_id' => $service->id, 'status' => $pivot->status], ['service_id' => $service->id, 'status' => $status])->write();
+
+            return $referral->load('services');
+        });
+    }
+
     public function removeService(Referral $referral, string $serviceId): Referral
     {
         return DB::transaction(function () use ($referral, $serviceId) {
@@ -701,6 +742,14 @@ class ReferralService
 
             if ($referral->status === 'COMPLETED') {
                 throw new \InvalidArgumentException('Cannot modify services on a completed referral.');
+            }
+            if ($referral->status === 'REJECTED') {
+                throw new \InvalidArgumentException('Cannot modify services on a terminal referral.');
+            }
+
+            $pivot = DB::table('referral_services')->where('referral_id', $referral->id)->where('service_id', $serviceId)->lockForUpdate()->first();
+            if ($pivot?->status === 'COMPLETED') {
+                throw new \InvalidArgumentException('Cannot remove a completed service assignment.');
             }
 
             // Delete per-referral requirements for this service
@@ -838,6 +887,10 @@ class ReferralService
             // request observes the new status and short-circuits below.
             $referral = Referral::whereKey($id)->lockForUpdate()->firstOrFail();
             $oldStatus = $referral->status;
+
+            if ($status === 'COMPLETED' && DB::table('referral_services')->where('referral_id', $referral->id)->where('status', '!=', 'COMPLETED')->lockForUpdate()->exists()) {
+                throw new \InvalidArgumentException('All assigned services must be completed first.');
+            }
 
             $this->statusMachine->assertAllowedTransition($oldStatus, $status);
 
@@ -1318,6 +1371,22 @@ class ReferralService
                 ]),
         ]);
         $events = collect();
+        $milestoneServiceMeta = DB::table('case_events')
+            ->where('referral_id', $referral->id)
+            ->where('type', 'milestone_added')
+            ->whereNotNull('meta->service_id')
+            ->get(['meta'])
+            ->mapWithKeys(function ($event) {
+                $meta = is_string($event->meta) ? json_decode($event->meta, true) : (array) $event->meta;
+
+                return isset($meta['milestone_id'], $meta['service_id'], $meta['service_name'], $meta['service_status'])
+                    ? [$meta['milestone_id'] => [
+                        'service_id' => $meta['service_id'],
+                        'service_name' => $meta['service_name'],
+                        'service_status' => $meta['service_status'],
+                    ]]
+                    : [];
+            });
 
         // 1. Referral sent event — resolve actor from the CREATE AuditLog
         //    (the actual sender), not the case's assigned user.
@@ -1387,6 +1456,7 @@ class ReferralService
                 'description' => $ms->description ?? '',
                 'timestamp' => $ms->created_at->toISOString(),
                 'actor' => $ms->user?->name ?? 'System',
+                ...($milestoneServiceMeta[$ms->id] ?? []),
             ]);
         }
 

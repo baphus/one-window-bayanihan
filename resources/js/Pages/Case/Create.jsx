@@ -6,6 +6,8 @@ import CaseIntakeForm, { buildIntakePayload, emptyIntakeData } from '@/Component
 import useUnsavedChanges from '@/Hooks/useUnsavedChanges';
 import { useToast } from '@/Hooks/useToast';
 import safeRoute from '@/utils/safeRoute';
+import useSessionDraft from '@/Hooks/useSessionDraft';
+import DraftControls from '@/Components/DraftControls';
 
 const TODAY = (() => {
     const now = new Date();
@@ -27,7 +29,10 @@ export default function CaseCreate(props) {
         occupationOptions = [],
     } = props;
 
-    const form = useForm(emptyIntakeData({ intakeDate: TODAY, consentTextVersion }));
+    const defaults = useMemo(() => emptyIntakeData({ intakeDate: TODAY, consentTextVersion }), [consentTextVersion]);
+    const form = useForm(defaults);
+    const draftFields = useMemo(() => ['client_type', 'intake_date', 'first_name', 'middle_name', 'last_name', 'suffix', 'date_of_birth', 'sex', 'email', 'contact_number', 'civil_status', 'civil_status_other', 'deployment_mode', 'employment_status', 'address', 'employment_employer_name', 'employment_employer_address', 'employment_position', 'employment_country', 'employment_last_position', 'employment_date_of_arrival', 'vulnerability_indicator', 'summary', 'proposed_assessments', 'proposed_assessment_other', 'category_ids', 'confirmed_assessments', 'confirmed_assessment_other', 'return_reason', 'staff_summary', 'nok_name', 'nok_relationship', 'nok_contact_number', 'nok_email', 'nok_vulnerability_indicator'], []);
+    const draft = useSessionDraft({ userId: props.auth?.user?.id, formKey: 'case-create', data: form.data, setData: form.setData, defaults, fields: draftFields, shapes: { address: { region: '', province: '', city_municipality: '', barangay: '', street: '' } } });
     const { UnsavedModal, bypassNext } = useUnsavedChanges(form.isDirty);
     const toast = useToast();
     const options = useMemo(() => ({
@@ -52,7 +57,7 @@ export default function CaseCreate(props) {
         form.post(safeRoute('cases.store', undefined, '/cases'), {
             preserveScroll: true,
             forceFormData: true,
-            onSuccess: () => toast.success('Case created successfully.'),
+            onSuccess: () => { draft.onSuccess(); toast.success('Case created successfully.'); },
             onError: () => {},
             onFinish: () => form.transform((data) => data),
         });
@@ -76,6 +81,7 @@ export default function CaseCreate(props) {
                 onSubmit={submit}
                 submitLabel="Create case"
             />
+            <DraftControls status={draft.status} onClear={draft.clear} />
             {UnsavedModal}
         </AppLayout>
     );

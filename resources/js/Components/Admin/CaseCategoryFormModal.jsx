@@ -2,16 +2,23 @@ import { useForm } from '@inertiajs/react';
 import InputError from '@/Components/InputError';
 import { caseCategorySchema } from '@/Schemas/adminSchemas';
 import useClientValidation from '@/Hooks/useClientValidation';
+import useSessionDraft from '@/Hooks/useSessionDraft';
+import DraftControls from '@/Components/DraftControls';
+import { usePage } from '@inertiajs/react';
+import { useMemo } from 'react';
 
 export default function CaseCategoryFormModal({ category, onClose, onBypass }) {
   const isEdit = !!category;
-  const { data, setData, post, patch, processing, errors, clearErrors, setError } = useForm({
+  const defaults = useMemo(() => ({
     name: category?.name ?? '',
     description: category?.description ?? '',
     color: category?.color ?? '',
     sort_order: category?.sort_order ?? 0,
     is_active: category?.is_active ?? true,
-  });
+  }), [category]);
+  const { data, setData, post, patch, processing, errors, clearErrors, setError } = useForm(defaults);
+  const { auth } = usePage().props;
+  const draft = useSessionDraft({ userId: auth?.user?.id, formKey: 'admin.case-category', recordId: category?.id ?? 'create', data, setData, defaults, fields: ['name', 'description', 'color', 'sort_order', 'is_active'] });
   const { validate } = useClientValidation(caseCategorySchema, data, setError);
 
   function handleSubmit(e) {
@@ -20,9 +27,9 @@ export default function CaseCategoryFormModal({ category, onClose, onBypass }) {
     if (!validate()) return;
     onBypass?.();
     if (isEdit) {
-      patch(route('admin.case-categories.update', category.id), { onSuccess: onClose });
+      patch(route('admin.case-categories.update', category.id), { onSuccess: () => { draft.onSuccess(); onClose?.(); } });
     } else {
-      post(route('admin.case-categories.store'), { onSuccess: onClose });
+      post(route('admin.case-categories.store'), { onSuccess: () => { draft.onSuccess(); onClose?.(); } });
     }
   }
 
@@ -62,6 +69,7 @@ export default function CaseCategoryFormModal({ category, onClose, onBypass }) {
               <label htmlFor="is_active" className="text-sm text-slate-700">Active</label>
             </div>
           )}
+          <DraftControls status={draft.status} onClear={draft.clear} />
           <div className="flex justify-end gap-3 pt-2">
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-md hover:bg-slate-50">Cancel</button>
             <button type="submit" disabled={processing} className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-primary-container disabled:opacity-50">

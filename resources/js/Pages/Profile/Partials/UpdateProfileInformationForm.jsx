@@ -6,6 +6,8 @@ import { Link, useForm, usePage } from '@inertiajs/react';
 import { useRef, useEffect } from 'react';
 import { profileSchema } from '@/Schemas/profileSchemas';
 import useClientValidation from '@/Hooks/useClientValidation';
+import useSessionDraft from '@/Hooks/useSessionDraft';
+import DraftControls from '@/Components/DraftControls';
 
 export default function UpdateProfileInformation({
     mustVerifyEmail,
@@ -18,11 +20,10 @@ export default function UpdateProfileInformation({
 
     const initialRef = useRef({ name: user.name, email: user.email });
 
-    const { data, setData, patch, errors, processing, recentlySuccessful, setError, clearErrors } =
-        useForm({
-            name: user.name,
-            email: user.email,
-        });
+    const defaults = { name: user.name, email: user.email };
+    const { data, setData, patch, errors, processing, recentlySuccessful, setError, clearErrors } = useForm({ name: user.name, email: user.email });
+    const draftFields = ['name', 'email'];
+    const draft = useSessionDraft({ userId: user.id, formKey: 'profile-information', data, setData, defaults, fields: draftFields });
 
     const { validate } = useClientValidation(profileSchema, data, setError);
 
@@ -37,7 +38,7 @@ export default function UpdateProfileInformation({
         if (!validate()) return;
 
         patch(route('profile.update'), {
-            onSuccess: () => onDirtyChange?.(false),
+            onSuccess: () => { draft.onSuccess(); onDirtyChange?.(false); },
         });
     };
 
@@ -110,6 +111,7 @@ export default function UpdateProfileInformation({
                     </div>
                 )}
 
+                <DraftControls status={draft.status} onClear={draft.clear} />
                 <div className="flex items-center gap-4">
                     <PrimaryButton disabled={processing}>Save</PrimaryButton>
 

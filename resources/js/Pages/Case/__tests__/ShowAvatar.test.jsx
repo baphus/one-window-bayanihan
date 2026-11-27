@@ -3,8 +3,10 @@ import { describe, expect, it, vi } from 'vitest';
 import CaseShow from '../Show';
 import { router } from '@inertiajs/react';
 
-const pageState = vi.hoisted(() => ({ role: 'CASE_MANAGER' }));
+const pageState = vi.hoisted(() => ({ role: 'CASE_MANAGER', draft: null }));
 vi.mock('@inertiajs/react', () => ({ Head: () => null, Link: ({ children, ...props }) => <a {...props}>{children}</a>, router: { patch: vi.fn(), post: vi.fn() }, usePage: () => ({ props: { roles: { CASE_MANAGER: 'CASE_MANAGER', ADMIN: 'ADMIN' }, auth: { user: { role: pageState.role } }, categories: [{ id: 'cat-1', name: 'Legal' }, { id: 'cat-2', name: 'Medical' }] } }), useForm: () => ({ data: {}, setData: vi.fn(), post: vi.fn(), processing: false, errors: {} }) }));
+vi.mock('@/Hooks/useSessionDraft', () => ({ default: (args) => { pageState.draft = args; return { clear: vi.fn(), onSuccess: vi.fn(), status: '' }; } }));
+vi.mock('@/Components/DraftControls', () => ({ default: () => null }));
 vi.mock('@/Layouts/AppLayout', () => ({ default: ({ children }) => <div>{children}</div> }));
 vi.mock('@/Components/ui/StatusBadge', () => ({ default: () => null }));
 vi.mock('@/Components/ui/UserAvatar', () => ({ default: () => null, getAvatarColor: () => '' }));
@@ -66,11 +68,12 @@ describe('Case documents section', () => {
   it('offers a case-manager ZIP download only when case documents exist', () => {
     globalThis.route = vi.fn((name) => `/${name}`);
     const { rerender } = render(<CaseShow
-      case={{ id: 'case-1', first_name: 'Ari', last_name: 'Example', documents: [{ id: 'doc-1', file_name: 'passport.pdf' }] }}
+      case={{ id: 'case-1', first_name: 'Ari', last_name: 'Example', documents: [{ id: 'doc-1', file_name: 'passport.pdf', file_type: 'application/pdf' }] }}
     />);
 
     expect(screen.getByRole('link', { name: 'Download all case documents as ZIP' })).toHaveAttribute('href', '/cases.intake-documents.archive');
-    expect(screen.getByRole('link', { name: 'View document passport.pdf' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Download passport.pdf' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Preview passport.pdf' })).toHaveAttribute('href', '/cases.documents.preview');
     expect(screen.getByRole('button', { name: 'Delete document passport.pdf' })).toBeInTheDocument();
 
     rerender(<CaseShow case={{ id: 'case-1', first_name: 'Ari', last_name: 'Example', documents: [] }} />);
@@ -156,6 +159,9 @@ describe('Case actions', () => {
     render(<CaseShow case={{ id: 'case-1', status: 'OPEN', first_name: 'Ari', referrals: [] }} case_categories={[{ id: 'cat-1', name: 'Legal' }]} />);
     globalThis.route = (name) => `/${name}`;
     fireEvent.click(screen.getByRole('button', { name: 'Edit Case' }));
+    expect(pageState.draft.fields).toContain('correction_reason');
+    expect(pageState.draft.recordId).toBe('case-1');
+    expect(pageState.draft.fields).toContain('category_ids');
     router.patch.mockClear();
     fireEvent.change(screen.getByLabelText('First name'), { target: { value: 'Maria' } });
     fireEvent.click(screen.getByRole('checkbox', { name: 'Medical' }));

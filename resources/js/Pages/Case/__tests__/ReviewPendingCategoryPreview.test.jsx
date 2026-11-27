@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest';
 import { render, screen, fireEvent, cleanup, within } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { router } from '@inertiajs/react';
 
 vi.mock('@inertiajs/react', () => ({
@@ -16,10 +16,12 @@ vi.mock('@/Components/ui/ConfirmDialog', () => ({ default: () => null }));
 vi.mock('@/lib/utils', () => ({ formatDisplayDate: (value) => value, formatDisplayTime: (value) => value, formatTimestampDate: (value) => value }));
 
 globalThis.route = (name) => `/mocked/${name}`;
+vi.mock('@/utils/safeRoute', () => ({ default: (name, params, fallback) => name === 'cases.documents.preview' ? fallback : `/mocked/${name}` }));
 
 import ReviewPending from '../ReviewPending';
 
-afterEach(cleanup);
+beforeEach(() => sessionStorage.clear());
+afterEach(() => { cleanup(); sessionStorage.clear(); });
 
 const agencies = [
   { id: 'agcy-1', name: 'DOLE Region VII', short: 'DOLE' },
@@ -43,10 +45,10 @@ const pendingCases = {
       summary: 'Test case',
       return_reason: 'DISTRESSED_WORKER',
       documents: [
-        { id: 'doc-1', category: 'passport_front_page', file_name: 'passport.pdf' },
-        { id: 'doc-2', category: 'arrival_stamp', file_name: 'arrival.pdf' },
-        { id: 'doc-3', category: 'distress_certificate', file_name: 'reason.pdf' },
-        { id: 'doc-4', category: 'employment_contract', file_name: 'contract.pdf' },
+        { id: 'doc-1', category: 'passport_front_page', file_name: 'passport.pdf', file_type: 'application/pdf' },
+        { id: 'doc-2', category: 'arrival_stamp', file_name: 'arrival.pdf', file_type: 'image/png' },
+        { id: 'doc-3', category: 'distress_certificate', file_name: 'reason.svg', file_type: 'image/svg+xml' },
+        { id: 'doc-4', category: 'employment_contract', file_name: 'contract.docx', file_type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' },
       ],
       created_at: '2026-11-01',
     },
@@ -64,7 +66,7 @@ function openReview() {
 }
 
 describe('Review pending category preview', () => {
-  it('groups intake and document review on left, controls on right, and downloads without previews', () => {
+  it('shows protected previews only for allowed MIME types and retains downloads', () => {
     openReview();
     const dialog = screen.getByRole('dialog');
     const columns = dialog.querySelector('.grid.lg\\:grid-cols-\\[minmax\\(0\\,1fr\\)_24rem\\]');
@@ -72,7 +74,13 @@ describe('Review pending category preview', () => {
     expect(columns.children[0]).toHaveTextContent('Latest submitted intake answers');
     expect(columns.children[1]).toHaveTextContent('Confirm assessment');
     expect(dialog.querySelector('img, iframe')).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Preview Passport front page' })).toHaveAttribute('href', '/cases/case-1/documents/doc-1/preview');
+    expect(screen.getByRole('link', { name: 'Preview BI arrival stamp' })).toHaveAttribute('href', '/cases/case-1/documents/doc-2/preview');
+    expect(screen.queryByRole('link', { name: 'Preview Distress certificate' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Preview Employment contract' })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Download Passport front page' })).toHaveAttribute('href', '/mocked/cases.documents.download');
+    expect(screen.getByRole('link', { name: 'Download Distress certificate' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Download Employment contract abroad' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Download all' })).toHaveTextContent('folder_zip');
   });
   it('updates suggestions from all selected categories without sending referrals', () => {

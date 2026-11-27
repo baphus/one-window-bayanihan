@@ -8,6 +8,7 @@ use App\Exceptions\SafeException;
 use App\Http\Requests\StoreMilestoneRequest;
 use App\Http\Requests\StoreReferralCommentRequest;
 use App\Http\Requests\StoreReferralRequest;
+use App\Http\Requests\UpdateReferralServiceStatusRequest;
 use App\Http\Requests\UpdateReferralStatusRequest;
 use App\Models\CaseCategory;
 use App\Models\CaseFile;
@@ -429,6 +430,25 @@ class ReferralController extends Controller
             ->with('success', 'Attachment removed.');
     }
 
+    public function previewAttachment(Request $request, string $id, string $attachmentId)
+    {
+        $referral = $this->referralService->getReferral($id);
+        $this->authorizeReferralAccess($referral, $request->user());
+
+        $attachment = ReferralAttachment::where('referral_id', $id)
+            ->where('id', $attachmentId)
+            ->where('is_deleted', false)
+            ->firstOrFail();
+
+        AuditLogger::download()
+            ->by($request->user())
+            ->forEntity($attachment, $attachment->file_name)
+            ->module(AuditModule::REFERRAL_ATTACHMENT)
+            ->write();
+
+        return $this->inlinePreview($attachment->file_path, $attachment->file_name);
+    }
+
     public function downloadAttachment(Request $request, string $id, string $attachmentId)
     {
         $referral = $this->referralService->getReferral($id);
@@ -489,6 +509,19 @@ class ReferralController extends Controller
             return redirect()->back()->with('success', 'Service added to referral.');
         } catch (\InvalidArgumentException $e) {
             return redirect()->back()->with('error', $e->getMessage());
+        }
+    }
+
+    public function updateServiceStatus(UpdateReferralServiceStatusRequest $request, string $id, string $serviceId)
+    {
+        $referral = $this->referralService->getReferral($id);
+        $this->authorizeReferralAccess($referral, $request->user());
+        try {
+            $this->referralService->updateServiceStatus($referral, $serviceId, $request->validated('status'), $request->user()->id);
+
+            return redirect()->back()->with('success', 'Service status updated.');
+        } catch (\InvalidArgumentException $exception) {
+            return redirect()->back()->with('error', $exception->getMessage());
         }
     }
 

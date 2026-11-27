@@ -58,6 +58,14 @@ function createMockForm(data = {}) {
     };
 }
 
+describe('CaseIntakeForm statement language guidance', () => {
+    it('shows preferred-language prompt and persistent helper text', () => {
+        render(<CaseIntakeForm form={createMockForm()} errors={{}} />);
+        expect(screen.getByText(/You may write in your preferred language, including Bisaya\/Cebuano, Filipino, or English/i)).toBeInTheDocument();
+        expect(document.getElementById('intake-summary')).toHaveAttribute('aria-describedby', 'intake-summary-language');
+    });
+});
+
 describe('CaseIntakeForm email field', () => {
     it('blocks malformed editable emails, focuses and clears errors on edit', () => {
         const submit = vi.fn((event) => event.preventDefault());
@@ -117,6 +125,29 @@ describe('CaseIntakeForm email field', () => {
         const emailInput = screen.getByLabelText(/Email/i);
         expect(emailInput.className).toContain('bg-slate-50');
         expect(emailInput.className).toContain('cursor-not-allowed');
+    });
+});
+
+describe('case intake date bounds', () => {
+    it('keeps intake date unbounded and ties DOB and arrival to intake and today', () => {
+        render(<CaseIntakeForm form={createMockForm({ intake_date: '2030-04-20', date_of_birth: '2000-04-20' })} mode="staff" onSubmit={vi.fn()} />);
+        expect(document.getElementById('intake-date')).not.toHaveAttribute('max');
+        const dobMax = new Date();
+        dobMax.setFullYear(dobMax.getFullYear() - 16);
+        const cutoff = `${dobMax.getFullYear()}-${String(dobMax.getMonth() + 1).padStart(2, '0')}-${String(dobMax.getDate()).padStart(2, '0')}`;
+        const dobInput = document.getElementById('intake-dob');
+        expect(dobInput.max).toBe(cutoff);
+        dobInput.value = cutoff;
+        expect(dobInput.validity.valid).toBe(true);
+        dobInput.value = `${Number(cutoff.slice(0, 4)) + 1}${cutoff.slice(4)}`;
+        expect(dobInput.validity.rangeOverflow).toBe(true);
+        fireEvent.invalid(dobInput);
+        expect(dobInput.validationMessage).toBe('Must be at least 16 years old.');
+        fireEvent.change(dobInput, { target: { value: cutoff } });
+        expect(dobInput.validationMessage).toBe('');
+        expect(document.getElementById('intake-arrival').max).toBe(new Date().toLocaleDateString('en-CA'));
+        expect(document.getElementById('intake-arrival')).toHaveAttribute('min', '2000-04-20');
+        expect(document.getElementById('intake-arrival').max).toBe(new Date().toLocaleDateString('en-CA'));
     });
 });
 

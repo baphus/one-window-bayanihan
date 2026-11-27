@@ -103,6 +103,7 @@ export default function UpdatePasswordForm({ className = '', onDirtyChange, onBy
                     showStrengthMeter
                     rules={passwordRules}
                     confirmation={data.password_confirmation}
+                    required
                 />
 
                 <PasswordInput
@@ -112,6 +113,10 @@ export default function UpdatePasswordForm({ className = '', onDirtyChange, onBy
                     onChange={(v) => setData('password_confirmation', v)}
                     error={errors.password_confirmation}
                     autoComplete="new-password"
+                    showStrengthMeter
+                    rules={passwordRules}
+                    confirmation={data.password}
+                    required
                 />
 
                 <div className="flex items-center gap-4">

@@ -8,20 +8,27 @@ import InputError from '@/Components/InputError';
 import TurnstileWidget from '@/Components/TurnstileWidget';
 import useInView from '@/Hooks/useInView';
 import { getTurnstileError } from '@/lib/turnstile';
+import useSessionDraft from '@/Hooks/useSessionDraft';
+import DraftControls from '@/Components/DraftControls';
 
 export default function Contact() {
-  const { turnstile } = usePage().props;
+  const { turnstile, auth } = usePage().props;
+  const user = auth?.user;
   const [turnstileToken, setTurnstileToken] = useState('');
   const [turnstileStatus, setTurnstileStatus] = useState('idle');
   const [submitted, setSubmitted] = useState(false);
   const [contentRef, contentVisible] = useInView();
 
   const { data, setData, post, processing, errors, reset, setError, clearErrors } = useForm({
-    name: '',
-    email: '',
+    name: user?.name ?? '',
+    email: user?.email ?? '',
     message: '',
     cf_turnstile_response: '',
   });
+
+  const draftDefaults = { name: user?.name ?? '', email: user?.email ?? '', message: '', cf_turnstile_response: '' };
+  const draftFields = ['name', 'email', 'message'];
+  const draft = useSessionDraft({ userId: user?.id ?? 'guest', formKey: 'contact', data, setData, defaults: draftDefaults, fields: draftFields });
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -41,6 +48,7 @@ export default function Contact() {
     post(route('contact.store'), {
       preserveScroll: true,
       onSuccess: () => {
+        draft.onSuccess();
         setSubmitted(true);
         reset();
         setTurnstileToken('');
@@ -157,6 +165,7 @@ export default function Contact() {
                       feature to check the status of your application.
                     </p>
                     <form onSubmit={handleSubmit} className="space-y-4">
+                      <DraftControls status={draft.status} onClear={draft.clear} />
                       <div>
                         <label htmlFor="contact-name" className="block text-sm font-medium text-slate-700 mb-1">
                           Your Name

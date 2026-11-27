@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import useIntakeSessionDraft from '@/Hooks/useIntakeSessionDraft';
 import { Head, Link, useForm } from '@inertiajs/react';
 import OfwLayout from '@/Layouts/OfwLayout';
 import CaseIntakeForm, { buildIntakePayload, emptyIntakeData } from '@/Components/CaseIntakeForm';
@@ -28,10 +29,12 @@ export default function Intake(props) {
         auth,
     } = props;
 
-    const form = useForm({
+    const initialData = useMemo(() => ({
         ...emptyIntakeData({ intakeDate: TODAY, consentTextVersion, email: auth?.user?.email || '' }),
         ...emptyIdentity(auth?.user),
-    });
+    }), [auth?.user?.id, auth?.user?.email, auth?.user?.first_name, auth?.user?.middle_name, auth?.user?.last_name, auth?.user?.suffix, auth?.user?.date_of_birth, auth?.user?.sex, consentTextVersion]);
+    const form = useForm(initialData);
+    const draft = useIntakeSessionDraft(auth?.user?.id, initialData, form.data, form.setData);
     const { UnsavedModal, bypassNext } = useUnsavedChanges(form.isDirty);
     const toast = useToast();
     const options = useMemo(() => ({
@@ -59,7 +62,7 @@ export default function Intake(props) {
         form.post(safeRoute('ofw.intake.store', undefined, '/my-cases/intake'), {
             preserveScroll: true,
             forceFormData: true,
-            onSuccess: () => toast.success('Request submitted. It is now pending review.'),
+            onSuccess: () => { draft.submitted(); toast.success('Request submitted. It is now pending review.'); },
             onError: () => {},
             onFinish: () => form.transform((data) => data),
         });
@@ -88,6 +91,10 @@ export default function Intake(props) {
                 onSubmit={submit}
                 submitLabel="Submit Request"
             />
+            <div className="mt-3 flex items-center justify-between gap-3 text-sm text-slate-600">
+                <p role="status">{draft.status}</p>
+                <button type="button" onClick={() => draft.clear((defaults) => { form.defaults(defaults); form.reset(); })} className="rounded-md border border-slate-300 px-3 py-2 font-medium hover:bg-slate-50">Clear draft</button>
+            </div>
             {UnsavedModal}
         </OfwLayout>
     );

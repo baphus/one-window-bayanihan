@@ -49,10 +49,11 @@ vi.mock('@/Components/CropImageModal', () => ({
     ) : null),
 }));
 vi.mock('@/Components/PasswordInput', () => ({
-    default: ({ label, value, onChange }) => (
+    default: ({ label, value, onChange, showStrengthMeter, rules }) => (
         <div>
             <label>{label}</label>
-            <input data-testid={`pw-${label}`} value={value} onChange={(event) => onChange(event.target.value)} />
+            <input data-testid={`pw-${label}`} value={value} onChange={(event) => onChange(event.target.value)} required />
+            {showStrengthMeter && <div data-testid="password-guide">{rules.min_length}</div>}
         </div>
     ),
 }));
@@ -77,6 +78,10 @@ describe('Register', () => {
         expect(screen.getByLabelText('Email address')).toBeInTheDocument();
         expect(screen.getByTestId('pw-Password')).toBeInTheDocument();
         expect(screen.getByTestId('pw-Confirm password')).toBeInTheDocument();
+        expect(screen.getByTestId('pw-Password')).toBeRequired();
+        expect(screen.getByTestId('pw-Confirm password')).toBeRequired();
+        expect(screen.getAllByTestId('password-guide')).toHaveLength(1);
+        expect(screen.getByTestId('password-guide')).toHaveTextContent('8');
         expect(screen.queryByText(/who is this account for/i)).not.toBeInTheDocument();
         expect(screen.getByLabelText(/first name/i)).toBeRequired();
         expect(screen.getByLabelText(/last name/i)).toBeRequired();
@@ -123,6 +128,8 @@ describe('Register', () => {
         render(<Register initial={{ credentials: { first_name: 'Juan', last_name: 'Cruz', date_of_birth: '1990-01-01', sex: 'MALE' } }} />);
         fireEvent.click(screen.getByRole('button', { name: 'Solve CAPTCHA' }));
         const email = screen.getByLabelText('Email address');
+        fireEvent.change(screen.getByTestId('pw-Password'), { target: { value: 'Str0ng!Passphrase' } });
+        fireEvent.change(screen.getByTestId('pw-Confirm password'), { target: { value: 'Str0ng!Passphrase' } });
         fireEvent.change(email, { target: { value: 'juan@localhost' } });
         fireEvent.click(screen.getByRole('button', { name: /continue to email verification/i }));
         expect(screen.getByText('Please provide a valid email address.')).toBeInTheDocument();
